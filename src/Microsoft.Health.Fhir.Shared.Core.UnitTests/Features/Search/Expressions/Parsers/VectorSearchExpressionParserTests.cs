@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         public VectorSearchExpressionParserTests()
         {
             _parser = new SearchParameterExpressionParser(_referenceSearchValueParser, _vectorSearchParameterResolver);
+            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
         }
 
         [Fact]
@@ -68,6 +69,64 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             Assert.Same(searchParameter, expression.Parameter);
             Assert.Equal(queryText, expression.QueryText);
+        }
+
+        [Fact]
+        public void GivenReverseChainedVectorQuery_WhenParsed_ThenVectorLeafAndRelationshipArePreserved()
+        {
+            const string queryText = "breathing difficulty overnight";
+            SearchParameterInfo vectorSearchParameter = CreateEnabledVectorSearchParameter();
+            var referenceSearchParameter = new SearchParameterInfo(
+                name: "subject",
+                code: "subject",
+                searchParamType: SearchParamType.Reference,
+                url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+                targetResourceTypes: new[] { KnownResourceTypes.Patient });
+            _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Observation, "subject").Returns(referenceSearchParameter);
+            _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Observation, SearchParameterCode).Returns(vectorSearchParameter);
+            var expressionParser = new ExpressionParser(() => _searchParameterDefinitionManager, _parser);
+
+            ChainedExpression expression = Assert.IsType<ChainedExpression>(expressionParser.Parse(
+                new[] { KnownResourceTypes.Patient },
+                "_has:Observation:subject:semantic-text",
+                queryText));
+
+            Assert.True(expression.Reversed);
+            Assert.Equal(new[] { KnownResourceTypes.Observation }, expression.ResourceTypes);
+            Assert.Equal(new[] { KnownResourceTypes.Patient }, expression.TargetResourceTypes);
+            Assert.Same(referenceSearchParameter, expression.ReferenceSearchParameter);
+            VectorSearchExpression vectorExpression = Assert.IsType<VectorSearchExpression>(expression.Expression);
+            Assert.Same(vectorSearchParameter, vectorExpression.Parameter);
+            Assert.Equal(queryText, vectorExpression.QueryText);
+        }
+
+        [Fact]
+        public void GivenForwardChainedVectorQuery_WhenParsed_ThenVectorLeafAndRelationshipArePreserved()
+        {
+            const string queryText = "mobility concerns";
+            SearchParameterInfo vectorSearchParameter = CreateEnabledVectorSearchParameter();
+            var referenceSearchParameter = new SearchParameterInfo(
+                name: "subject",
+                code: "subject",
+                searchParamType: SearchParamType.Reference,
+                url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+                targetResourceTypes: new[] { KnownResourceTypes.Patient });
+            _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Observation, "subject").Returns(referenceSearchParameter);
+            _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Patient, SearchParameterCode).Returns(vectorSearchParameter);
+            var expressionParser = new ExpressionParser(() => _searchParameterDefinitionManager, _parser);
+
+            ChainedExpression expression = Assert.IsType<ChainedExpression>(expressionParser.Parse(
+                new[] { KnownResourceTypes.Observation },
+                "subject:Patient.semantic-text",
+                queryText));
+
+            Assert.False(expression.Reversed);
+            Assert.Equal(new[] { KnownResourceTypes.Observation }, expression.ResourceTypes);
+            Assert.Equal(new[] { KnownResourceTypes.Patient }, expression.TargetResourceTypes);
+            Assert.Same(referenceSearchParameter, expression.ReferenceSearchParameter);
+            VectorSearchExpression vectorExpression = Assert.IsType<VectorSearchExpression>(expression.Expression);
+            Assert.Same(vectorSearchParameter, vectorExpression.Parameter);
+            Assert.Equal(queryText, vectorExpression.QueryText);
         }
 
         [Fact]

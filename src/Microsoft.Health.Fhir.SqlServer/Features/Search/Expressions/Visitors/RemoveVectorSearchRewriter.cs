@@ -17,6 +17,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return null;
         }
 
+        public override Expression VisitChained(ChainedExpression expression, object context)
+        {
+            Expression rewrittenExpression = expression.Expression.AcceptVisitor(this, context);
+            if (ReferenceEquals(rewrittenExpression, expression.Expression))
+            {
+                return expression;
+            }
+
+            if (rewrittenExpression == null)
+            {
+                return null;
+            }
+
+            return new ChainedExpression(
+                expression.ResourceTypes,
+                expression.ReferenceSearchParameter,
+                expression.TargetResourceTypes,
+                expression.Reversed,
+                rewrittenExpression);
+        }
+
         public override Expression VisitMultiary(MultiaryExpression expression, object context)
         {
             List<Expression> rewrittenExpressions = null;

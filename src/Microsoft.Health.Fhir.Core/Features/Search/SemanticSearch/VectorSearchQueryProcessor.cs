@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 {
@@ -61,7 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                     $"The embedding client produces {_embeddingClient.Dimensions} dimensions; expected {VectorSearchConfiguration.SupportedDimensions}.");
             }
 
-            VectorSearchExpression vectorExpression = collector.Expressions[0];
+            CollectedVectorSearchExpression collectedExpression = collector.Expressions[0];
+            VectorSearchExpression vectorExpression = collectedExpression.Expression;
+            if (collectedExpression.ChainLinks.Count > 1)
+            {
+                throw new InvalidSearchOperationException("Semantic search currently supports one chain relationship.");
+            }
+
             IReadOnlyList<float[]> embeddings = await _embeddingClient.GenerateEmbeddingsAsync(
                 new[] { vectorExpression.QueryText },
                 cancellationToken);
@@ -84,18 +91,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 vectorExpression.Parameter,
                 embeddingModelId,
                 embedding,
-                vectorExpression.Parameter.VectorConfig.MinimumScore);
+                vectorExpression.Parameter.VectorConfig.MinimumScore,
+                collectedExpression.ChainLinks);
         }
 
         private sealed class VectorSearchExpressionCollector : DefaultExpressionVisitor<object, object>
         {
-            public List<VectorSearchExpression> Expressions { get; } = new List<VectorSearchExpression>();
+            private readonly List<PreparedVectorSearchChainLink> _currentChainLinks = new List<PreparedVectorSearchChainLink>();
+
+            public List<CollectedVectorSearchExpression> Expressions { get; } = new List<CollectedVectorSearchExpression>();
+
+            public override object VisitChained(ChainedExpression expression, object context)
+            {
+                _currentChainLinks.Add(new PreparedVectorSearchChainLink(
+                    expression.ResourceTypes,
+                    expression.ReferenceSearchParameter,
+                    expression.TargetResourceTypes,
+                    expression.Reversed));
+
+                try
+                {
+                    return expression.Expression.AcceptVisitor(this, context);
+                }
+                finally
+                {
+                    _currentChainLinks.RemoveAt(_currentChainLinks.Count - 1);
+                }
+            }
 
             public override object VisitVectorSearch(VectorSearchExpression expression, object context)
             {
-                Expressions.Add(expression);
+                Expressions.Add(new CollectedVectorSearchExpression(expression, _currentChainLinks.ToArray()));
                 return null;
             }
         }
+
+        private sealed record CollectedVectorSearchExpression(
+            VectorSearchExpression Expression,
+            IReadOnlyList<PreparedVectorSearchChainLink> ChainLinks);
     }
 }

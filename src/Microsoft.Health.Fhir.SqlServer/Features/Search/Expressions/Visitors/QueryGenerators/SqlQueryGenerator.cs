@@ -473,6 +473,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             const string vectorTableAlias = "v";
             const string evidenceTableAlias = "ev";
+            const string referenceTableAlias = "semanticReference";
+            const string witnessTableAlias = "semanticWitness";
+            PreparedVectorSearchChainLink chainLink = null;
+            if (preparedQuery.ChainLinks.Count > 0)
+            {
+                if (preparedQuery.ChainLinks.Count != 1)
+                {
+                    throw new InvalidSearchOperationException("Semantic search currently supports one chain relationship.");
+                }
+
+                chainLink = preparedQuery.ChainLinks[0];
+            }
+
             short searchParamId = Model.GetSearchParamId(preparedQuery.SearchParameter.Url);
             _searchParamIds.Add(searchParamId);
             object distanceMetricParameter = Parameters.AddParameter(VectorSearchConfiguration.SupportedDistanceMetric, includeInHash: false);
@@ -500,10 +513,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append("                     ").Append(VLatest.VectorSearchParam.SourceResourceTypeId, evidenceTableAlias).AppendLine(" AS sourceResourceTypeId,")
                 .Append("                     ").Append(VLatest.VectorSearchParam.SourceResourceId, evidenceTableAlias).AppendLine(" AS sourceResourceId,")
                 .Append("                     ").Append(VLatest.VectorSearchParam.SourceResourceVersion, evidenceTableAlias).AppendLine(" AS sourceResourceVersion,")
-                .Append("                     ").Append(VLatest.VectorSearchParam.SourcePath, evidenceTableAlias).AppendLine(" AS sourcePath")
+                .Append("                     ").Append(VLatest.VectorSearchParam.SourcePath, evidenceTableAlias).Append(" AS sourcePath");
+
+            if (chainLink != null)
+            {
+                StringBuilder
+                    .AppendLine(",")
+                    .Append("                     ").Append(VLatest.Resource.ResourceTypeId, witnessTableAlias).AppendLine(" AS witnessResourceTypeId,")
+                    .Append("                     ").Append(VLatest.Resource.ResourceId, witnessTableAlias).AppendLine(" AS witnessResourceId,")
+                    .Append("                     ").Append(VLatest.Resource.Version, witnessTableAlias).AppendLine(" AS witnessResourceVersion");
+            }
+            else
+            {
+                StringBuilder.AppendLine();
+            }
+
+            StringBuilder
                 .Append("                 FROM ").Append(VLatest.VectorSearchParam).Append(" AS ").AppendLine(evidenceTableAlias)
-                .Append("                 WHERE ").Append(VLatest.VectorSearchParam.ResourceTypeId, evidenceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).AppendLine()
-                .Append("                   AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, evidenceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine()
+                .Append("                 WHERE ").Append(VLatest.VectorSearchParam.ResourceTypeId, evidenceTableAlias).Append(" = ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).AppendLine()
+                .Append("                   AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, evidenceTableAlias).Append(" = ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).AppendLine()
                 .Append("                   AND ").Append(VLatest.VectorSearchParam.SearchParamId, evidenceTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.SearchParamId, searchParamId, includeInHash: true)).AppendLine()
                 .Append("                   AND ").Append(VLatest.VectorSearchParam.EmbeddingModelId, evidenceTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.EmbeddingModelId, preparedQuery.EmbeddingModelId, includeInHash: false)).AppendLine()
                 .Append("                   AND VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
@@ -514,18 +542,87 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))), ")
                 .Append(VLatest.VectorSearchParam.ChunkOrdinal, evidenceTableAlias).AppendLine(" ASC")
                 .AppendLine("                 FOR JSON PATH")
-                .AppendLine("             ) AS SemanticEvidenceJson")
-                .Append("         FROM ").Append(VLatest.VectorSearchParam).Append(" AS ").AppendLine(vectorTableAlias)
-                .Append("         WHERE ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).AppendLine()
-                .Append("           AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine()
-                .Append("           AND ").Append(VLatest.VectorSearchParam.SearchParamId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.SearchParamId, searchParamId, includeInHash: true)).AppendLine()
+                .AppendLine("             ) AS SemanticEvidenceJson");
+
+            if (chainLink == null)
+            {
+                StringBuilder
+                    .Append("         FROM ").Append(VLatest.VectorSearchParam).Append(" AS ").AppendLine(vectorTableAlias)
+                    .Append("         WHERE ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).AppendLine()
+                    .Append("           AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine()
+                    .Append("           AND ");
+            }
+            else
+            {
+                short referenceSearchParamId = Model.GetSearchParamId(chainLink.ReferenceSearchParameter.Url);
+                _searchParamIds.Add(referenceSearchParamId);
+                StringBuilder.Append("         FROM ").Append(VLatest.ReferenceSearchParam).Append(" AS ").AppendLine(referenceTableAlias);
+
+                if (chainLink.Reversed)
+                {
+                    StringBuilder
+                        .Append("         JOIN ").Append(VLatest.Resource).Append(" AS ").Append(witnessTableAlias)
+                        .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, witnessTableAlias).Append(" = ").Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTableAlias)
+                        .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, witnessTableAlias).Append(" = ").AppendLine(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias);
+                }
+                else
+                {
+                    StringBuilder
+                        .Append("         JOIN ").Append(VLatest.Resource).Append(" AS ").Append(witnessTableAlias)
+                        .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, witnessTableAlias).Append(" = ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias)
+                        .Append(" AND ").Append(VLatest.Resource.ResourceId, witnessTableAlias).Append(" = ").AppendLine(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceTableAlias);
+                }
+
+                StringBuilder
+                    .Append("         JOIN ").Append(VLatest.VectorSearchParam).Append(" AS ").Append(vectorTableAlias)
+                    .Append(" ON ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, witnessTableAlias)
+                    .Append(" AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).Append(" = ").AppendLine(VLatest.Resource.ResourceSurrogateId, witnessTableAlias)
+                    .Append("         WHERE ").Append(VLatest.ReferenceSearchParam.SearchParamId, referenceTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, referenceSearchParamId, includeInHash: true)).AppendLine()
+                    .Append("           AND ").Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTableAlias).Append(" IN (")
+                    .Append(string.Join(", ", chainLink.ResourceTypes.Select(resourceType => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(resourceType), includeInHash: true)))).AppendLine(")");
+
+                if (chainLink.Reversed)
+                {
+                    StringBuilder
+                        .Append("           AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).AppendLine()
+                        .Append("           AND ").Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceId, resourceTableAlias).AppendLine();
+                }
+                else
+                {
+                    StringBuilder
+                        .Append("           AND ").Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).AppendLine()
+                        .Append("           AND ").Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine();
+                }
+
+                IReadOnlyList<string> witnessResourceTypes = chainLink.Reversed
+                    ? chainLink.ResourceTypes
+                    : chainLink.TargetResourceTypes;
+                StringBuilder
+                    .Append("           AND ").Append(VLatest.Resource.ResourceTypeId, witnessTableAlias).Append(" IN (")
+                    .Append(string.Join(", ", witnessResourceTypes.Select(resourceType => Parameters.AddParameter(VLatest.Resource.ResourceTypeId, Model.GetResourceTypeId(resourceType), includeInHash: true)))).AppendLine(")")
+                    .Append("           AND ").Append(VLatest.Resource.IsHistory, witnessTableAlias).AppendLine(" = 0")
+                    .Append("           AND ").Append(VLatest.Resource.IsDeleted, witnessTableAlias).AppendLine(" = 0")
+                    .Append("           AND ");
+            }
+
+            StringBuilder
+                .Append(VLatest.VectorSearchParam.SearchParamId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.SearchParamId, searchParamId, includeInHash: true)).AppendLine()
                 .Append("           AND ").Append(VLatest.VectorSearchParam.EmbeddingModelId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.EmbeddingModelId, preparedQuery.EmbeddingModelId, includeInHash: false)).AppendLine()
                 .Append("           AND VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
                 .Append(vectorTableAlias).Append('.').Append(VLatest.VectorSearchParamTable.Embedding).Append(", CAST(")
                 .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))) <= ").Append(maximumDistanceParameter).AppendLine()
                 .Append("         ORDER BY VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
                 .Append(vectorTableAlias).Append('.').Append(VLatest.VectorSearchParamTable.Embedding).Append(", CAST(")
-                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))), ")
+                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))), ");
+
+            if (chainLink != null)
+            {
+                StringBuilder
+                    .Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(" ASC, ")
+                    .Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).Append(" ASC, ");
+            }
+
+            StringBuilder
                 .Append(VLatest.VectorSearchParam.ChunkOrdinal, vectorTableAlias).AppendLine(" ASC")
                 .AppendLine("     ) semantic");
         }

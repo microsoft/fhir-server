@@ -13,7 +13,9 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
@@ -25,6 +27,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
@@ -33,29 +36,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
     [Trait(Traits.Category, Categories.Search)]
     public class SemanticSearchHandlerTests
     {
+        private static readonly HashSet<string> VectorResourceTypes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ResourceType.DocumentReference.ToString(),
+            ResourceType.Observation.ToString(),
+            ResourceType.DiagnosticReport.ToString(),
+        };
+
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IDocumentReferenceSemanticSearch _semanticSearch = Substitute.For<IDocumentReferenceSemanticSearch>();
         private readonly IDataResourceFilter _dataResourceFilter = Substitute.For<IDataResourceFilter>();
+        private readonly ISemanticSearchEvidenceFilter _semanticSearchEvidenceFilter = Substitute.For<ISemanticSearchEvidenceFilter>();
+        private readonly ICompartmentDefinitionManager _compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
+        private readonly IVectorSearchParameterResolver _searchParameterResolver = Substitute.For<IVectorSearchParameterResolver>();
+
+        public SemanticSearchHandlerTests()
+        {
+            _semanticSearchEvidenceFilter.FilterAsync(Arg.Any<SearchResult>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo => callInfo.Arg<SearchResult>());
+            _compartmentDefinitionManager.TryGetResourceTypes(CompartmentType.Patient, out Arg.Any<HashSet<string>>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new HashSet<string>(VectorResourceTypes, StringComparer.Ordinal) { ResourceType.Condition.ToString() };
+                    return true;
+                });
+            _searchParameterResolver.GetSearchParameters(Arg.Any<string>())
+                .Returns(callInfo => VectorResourceTypes.Contains(callInfo.Arg<string>())
+                    ? new[] { new SearchParameterInfo("semantic-text", "semantic-text") }
+                    : Array.Empty<SearchParameterInfo>());
+        }
 
         [Fact]
         public async Task GivenPatientSemanticSearch_WhenHandled_ThenAllSupportedResourceTypesAreGloballyRanked()
         {
-            const string patientReference = "Patient/123";
+            const string patientId = "123";
             ResourceWrapper documentReference = CreateResourceWrapper(new DocumentReference { Id = "document-reference" }, 101);
             ResourceWrapper observation = CreateResourceWrapper(new Observation { Id = "observation" }, 102);
             ResourceWrapper diagnosticReport = CreateResourceWrapper(new DiagnosticReport { Id = "diagnostic-report" }, 103);
-            var candidatesByType = new Dictionary<string, ResourceWrapper>
-            {
-                [ResourceType.DocumentReference.ToString()] = documentReference,
-                [ResourceType.Observation.ToString()] = observation,
-                [ResourceType.DiagnosticReport.ToString()] = diagnosticReport,
-            };
 
-            _searchService.SearchAsync(
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 CancellationToken.None)
-                .Returns(callInfo => CreateSearchResult(candidatesByType[callInfo.ArgAt<string>(0)]));
+                .Returns(CreateSearchResult(documentReference, observation, diagnosticReport));
             _dataResourceFilter.Filter(Arg.Any<SearchResult>()).Returns(callInfo => callInfo.Arg<SearchResult>());
             _semanticSearch.SearchAsync(
                 "breathing difficulty",
@@ -74,11 +99,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 _semanticSearch,
                 DisabledFhirAuthorizationService.Instance,
                 _dataResourceFilter,
+                _semanticSearchEvidenceFilter,
+                _compartmentDefinitionManager,
+                _searchParameterResolver,
                 Deserializers.ResourceDeserializer,
                 Options.Create(new VectorSearchConfiguration()));
 
             SemanticSearchResponse response = await handler.Handle(
-                new SemanticSearchRequest("breathing difficulty", patientReference, 3),
+                new SemanticSearchRequest("breathing difficulty", patientId, 3),
                 CancellationToken.None);
 
             Bundle bundle = response.Bundle.ToPoco<Bundle>();
@@ -102,20 +130,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                     ((ResourceReference)evidence.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourceExtensionUrl).Value).Reference);
             }
 
-            foreach (string resourceType in candidatesByType.Keys)
-            {
-                await _searchService.Received(1).SearchAsync(
-                    resourceType,
-                    Arg.Is<IReadOnlyList<Tuple<string, string>>>(parameters =>
-                        parameters.Contains(Tuple.Create("patient", patientReference))),
-                    CancellationToken.None);
-            }
+            await _searchService.Received(1).SearchCompartmentAsync(
+                CompartmentType.Patient.ToString(),
+                patientId,
+                null,
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>((IReadOnlyList<Tuple<string, string>> parameters) =>
+                    parameters.Contains(Tuple.Create(SearchParameterNames.ResourceType, "DiagnosticReport,DocumentReference,Observation")) &&
+                    parameters.Any(parameter => parameter.Item1 == "_count")),
+                CancellationToken.None);
 
             await _semanticSearch.Received(1).SearchAsync(
                 "breathing difficulty",
                 Arg.Is<IReadOnlyList<ResourceWrapper>>(candidates => candidates.Count == 3),
                 3,
                 CancellationToken.None);
+            await _semanticSearchEvidenceFilter.Received(1).FilterAsync(Arg.Any<SearchResult>(), CancellationToken.None);
         }
 
         [Fact]
@@ -126,7 +155,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 continuationToken: null,
                 sortOrder: null,
                 unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
-            _searchService.SearchAsync(
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 CancellationToken.None)
@@ -143,31 +174,101 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 _semanticSearch,
                 DisabledFhirAuthorizationService.Instance,
                 _dataResourceFilter,
+                _semanticSearchEvidenceFilter,
+                _compartmentDefinitionManager,
+                _searchParameterResolver,
                 Deserializers.ResourceDeserializer,
                 Options.Create(new VectorSearchConfiguration()));
 
             await handler.Handle(
-                new SemanticSearchRequest("breathing difficulty", "Patient/123", 3, new[] { "Observation" }),
+                new SemanticSearchRequest("breathing difficulty", "123", 3, new[] { "Observation" }),
                 CancellationToken.None);
 
-            await _searchService.Received(1).SearchAsync(
-                "Observation",
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                CancellationToken.None);
-            await _searchService.DidNotReceive().SearchAsync(
-                "DocumentReference",
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                CancellationToken.None);
-            await _searchService.DidNotReceive().SearchAsync(
-                "DiagnosticReport",
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+            await _searchService.Received(1).SearchCompartmentAsync(
+                CompartmentType.Patient.ToString(),
+                "123",
+                null,
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>((IReadOnlyList<Tuple<string, string>> parameters) =>
+                    parameters.Contains(Tuple.Create(SearchParameterNames.ResourceType, "Observation"))),
                 CancellationToken.None);
         }
 
-        private static SearchResult CreateSearchResult(ResourceWrapper resource)
+        [Fact]
+        public async Task GivenRequestedTypeWithoutVectorSearchParameter_WhenHandled_ThenRequestIsRejected()
+        {
+            SemanticSearchHandler handler = CreateHandler();
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => handler.Handle(
+                new SemanticSearchRequest("breathing difficulty", "123", 3, new[] { "Condition" }),
+                CancellationToken.None));
+
+            await _searchService.DidNotReceive().SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenEvidenceFilterRemovesResult_WhenHandled_ThenResultIsNotReturned()
+        {
+            ResourceWrapper observation = CreateResourceWrapper(new Observation { Id = "observation" }, 102);
+            SearchResult candidateResult = CreateSearchResult(observation);
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                CancellationToken.None)
+                .Returns(candidateResult);
+            _dataResourceFilter.Filter(candidateResult).Returns(candidateResult);
+            _semanticSearch.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<ResourceWrapper>>(),
+                Arg.Any<int>(),
+                CancellationToken.None)
+                .Returns(new[] { CreateVectorResult(observation, 0.95f) });
+            _semanticSearchEvidenceFilter.FilterAsync(Arg.Any<SearchResult>(), CancellationToken.None)
+                .Returns(SearchResult.Empty());
+            var handler = new SemanticSearchHandler(
+                _searchService,
+                _semanticSearch,
+                DisabledFhirAuthorizationService.Instance,
+                _dataResourceFilter,
+                _semanticSearchEvidenceFilter,
+                _compartmentDefinitionManager,
+                _searchParameterResolver,
+                Deserializers.ResourceDeserializer,
+                Options.Create(new VectorSearchConfiguration()));
+
+            SemanticSearchResponse response = await handler.Handle(
+                new SemanticSearchRequest("breathing difficulty", "123", 3, new[] { "Observation" }),
+                CancellationToken.None);
+
+            Bundle bundle = response.Bundle.ToPoco<Bundle>();
+            Assert.Equal(0, bundle.Total);
+            Assert.Empty(bundle.Entry);
+        }
+
+        private SemanticSearchHandler CreateHandler()
+        {
+            return new SemanticSearchHandler(
+                _searchService,
+                _semanticSearch,
+                DisabledFhirAuthorizationService.Instance,
+                _dataResourceFilter,
+                _semanticSearchEvidenceFilter,
+                _compartmentDefinitionManager,
+                _searchParameterResolver,
+                Deserializers.ResourceDeserializer,
+                Options.Create(new VectorSearchConfiguration()));
+        }
+
+        private static SearchResult CreateSearchResult(params ResourceWrapper[] resources)
         {
             return new SearchResult(
-                new[] { new SearchResultEntry(resource) },
+                resources.Select(resource => new SearchResultEntry(resource)),
                 continuationToken: null,
                 sortOrder: null,
                 unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());

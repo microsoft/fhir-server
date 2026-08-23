@@ -65,6 +65,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
         public SqlServerSearchServiceTests()
         {
+            ModelInfoProvider.SetProvider(
+                MockModelInfoProviderBuilder.Create(FhirSpecification.R4)
+                    .AddKnownTypes(KnownResourceTypes.DocumentReference)
+                    .Build());
             _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _model = Substitute.For<ISqlServerFhirModel>();
@@ -336,6 +340,109 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             await _vectorSearchQueryProcessor.Received(1).PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public void GivenChainedLinkedSourceEvidenceJson_WhenDeserialized_ThenWitnessAndSourceAreDistinctVersionedReferences()
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "DocumentReferenceSemantic",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic"),
+                expression: "DocumentReference.content.attachment.url",
+                vectorConfig: new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
+            var preparedQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray());
+            ResourceWrapper root = CreateResourceWrapper("Patient", "patient", "1", 100);
+            _model.GetResourceTypeName(22).Returns("Binary");
+            _model.GetResourceTypeName(105).Returns("Observation");
+            const string evidenceJson = """
+                [{
+                  "chunkOrdinal": 0,
+                  "text": "Matched Binary passage",
+                  "distance": 0.2,
+                  "sourceResourceTypeId": 22,
+                  "sourceResourceId": "binary",
+                  "sourceResourceVersion": "2",
+                  "sourcePath": "Binary.data",
+                  "witnessResourceTypeId": 105,
+                  "witnessResourceId": "document",
+                  "witnessResourceVersion": 3
+                }]
+                """;
+
+            SemanticSearchEvidence evidence = Assert.Single(
+                _searchService.DeserializeSemanticEvidence(evidenceJson, preparedQuery, root));
+
+            Assert.Equal("Binary/binary/_history/2", evidence.SourceReference);
+            Assert.Equal("Observation/document/_history/3", evidence.WitnessReference);
+            Assert.Equal("Binary.data", evidence.SourcePath);
+        }
+
+        [Theory]
+        [InlineData("not-json")]
+        [InlineData("[{\"text\":\"passage\",\"witnessResourceVersion\":\"invalid\"}]")]
+        public void GivenMalformedSemanticEvidenceJson_WhenDeserialized_ThenEvidenceIsDiscarded(string evidenceJson)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "DocumentReferenceSemantic",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic"),
+                expression: "DocumentReference.content.attachment.url",
+                vectorConfig: new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
+            var preparedQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray());
+            ResourceWrapper root = CreateResourceWrapper("Patient", "patient", "1", 100);
+
+            IReadOnlyList<SemanticSearchEvidence> evidence = _searchService.DeserializeSemanticEvidence(evidenceJson, preparedQuery, root);
+
+            Assert.Empty(evidence);
+        }
+
+        [Theory]
+        [InlineData(true, TotalType.None)]
+        [InlineData(false, TotalType.Accurate)]
+        public async Task GivenLinkedSourceSemanticSearchWithExactTotal_WhenSearching_ThenSearchIsRejected(
+            bool countOnly,
+            TotalType includeTotal)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"),
+                vectorConfig: new VectorSearchParameterConfig
+                {
+                    SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference,
+                });
+            var preparedQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray());
+            _vectorSearchQueryProcessor
+                .PrepareAsync(Arg.Any<Expression>(), Arg.Any<CancellationToken>())
+                .Returns(preparedQuery);
+            var searchOptions = new SearchOptions
+            {
+                CountOnly = countOnly,
+                IncludeTotal = includeTotal,
+                MaxItemCount = 10,
+                Expression = new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"),
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            };
+
+            InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
+
+            Assert.Contains("localBinaryReference", exception.Message, StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
@@ -376,6 +483,26 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             yield return new object[] { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.Code.Metadata.Name };
             yield return new object[] { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.Text.Metadata.Name };
             yield return new object[] { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name };
+        }
+
+        private static ResourceWrapper CreateResourceWrapper(
+            string resourceType,
+            string resourceId,
+            string version,
+            long resourceSurrogateId)
+        {
+            return new ResourceWrapper(
+                resourceId,
+                version,
+                resourceType,
+                new RawResource($"{{\"resourceType\":\"{resourceType}\",\"id\":\"{resourceId}\"}}", FhirResourceFormat.Json, isMetaSet: false),
+                request: null,
+                DateTimeOffset.MinValue,
+                deleted: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null,
+                resourceSurrogateId: resourceSurrogateId);
         }
 
         [Theory]

@@ -24,11 +24,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// <param name="embeddingModelId">The database-local embedding model identifier.</param>
         /// <param name="embedding">The query embedding.</param>
         /// <param name="minimumScore">The minimum normalized relevance score required for a chunk to match.</param>
+        /// <param name="chainLinks">The ordered relationships from the search root to the vector-owning resource.</param>
         public PreparedVectorSearchQuery(
             SearchParameterInfo searchParameter,
             short embeddingModelId,
             IReadOnlyList<float> embedding,
-            decimal minimumScore = 0)
+            decimal minimumScore = 0,
+            IReadOnlyList<PreparedVectorSearchChainLink> chainLinks = null)
         {
             SearchParameter = EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
             EnsureArg.IsNotNull(embedding, nameof(embedding));
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             EmbeddingModelId = embeddingModelId;
             Embedding = Array.AsReadOnly(embedding.ToArray());
             MinimumScore = minimumScore;
+            ChainLinks = Array.AsReadOnly((chainLinks ?? Array.Empty<PreparedVectorSearchChainLink>()).ToArray());
         }
 
         /// <summary>
@@ -69,5 +72,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// Gets the minimum normalized relevance score required for a chunk to match.
         /// </summary>
         public decimal MinimumScore { get; }
+
+        /// <summary>
+        /// Gets the ordered relationships from the search root to the vector-owning resource.
+        /// </summary>
+        public IReadOnlyList<PreparedVectorSearchChainLink> ChainLinks { get; }
     }
 }

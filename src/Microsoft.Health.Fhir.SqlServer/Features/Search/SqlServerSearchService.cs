@@ -195,6 +195,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlSearchOptions.PreparedVectorQuery = await _vectorSearchQueryProcessor.PrepareAsync(sqlSearchOptions.Expression, cancellationToken);
             }
 
+            if (sqlSearchOptions.PreparedVectorQuery?.SearchParameter.VectorConfig?.SourceStrategy == VectorTextSourceStrategy.LocalBinaryReference &&
+                (sqlSearchOptions.CountOnly || sqlSearchOptions.IncludeTotal == TotalType.Accurate))
+            {
+                throw new InvalidSearchOperationException(
+                    "Exact totals are not supported for semantic searches whose SearchParameter uses the localBinaryReference source strategy.");
+            }
+
             if (sqlSearchOptions.IsIncludesOperation)
             {
                 var includesContinuationToken = IncludesContinuationToken.FromString(sqlSearchOptions.IncludesContinuationToken);
@@ -773,7 +780,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                 sqlSearchOptions.PreparedVectorQuery,
                                                 resourceWrapper);
 
-                                            if (semanticEvidenceItems.Count == 0)
+                                            if (semanticEvidenceItems.Count == 0 && sqlSearchOptions.PreparedVectorQuery.ChainLinks.Count == 0)
                                             {
                                                 semanticEvidence = new SemanticSearchEvidence(
                                                     semanticChunkText,
@@ -1816,7 +1823,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 : null;
         }
 
-        private IReadOnlyList<SemanticSearchEvidence> DeserializeSemanticEvidence(
+        internal IReadOnlyList<SemanticSearchEvidence> DeserializeSemanticEvidence(
             string semanticEvidenceJson,
             PreparedVectorSearchQuery preparedQuery,
             ResourceWrapper resourceWrapper)
@@ -1826,33 +1833,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return Array.Empty<SemanticSearchEvidence>();
             }
 
-            using JsonDocument document = JsonDocument.Parse(semanticEvidenceJson);
-            var evidenceItems = new List<SemanticSearchEvidence>();
-            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            try
             {
-                string sourceResourceType = element.TryGetProperty("sourceResourceTypeId", out JsonElement sourceResourceTypeId)
-                    ? _model.GetResourceTypeName(sourceResourceTypeId.GetInt16())
-                    : resourceWrapper.ResourceTypeName;
-                string sourceResourceId = element.TryGetProperty("sourceResourceId", out JsonElement sourceResourceIdElement)
-                    ? sourceResourceIdElement.GetString()
-                    : resourceWrapper.ResourceId;
-                string sourceResourceVersion = element.TryGetProperty("sourceResourceVersion", out JsonElement sourceResourceVersionElement)
-                    ? sourceResourceVersionElement.GetString()
-                    : resourceWrapper.Version;
-                string sourcePath = element.TryGetProperty("sourcePath", out JsonElement sourcePathElement)
-                    ? sourcePathElement.GetString()
-                    : preparedQuery.SearchParameter.Expression;
+                using JsonDocument document = JsonDocument.Parse(semanticEvidenceJson);
+                var evidenceItems = new List<SemanticSearchEvidence>();
+                foreach (JsonElement element in document.RootElement.EnumerateArray())
+                {
+                    string sourceResourceType = element.TryGetProperty("sourceResourceTypeId", out JsonElement sourceResourceTypeId)
+                        ? _model.GetResourceTypeName(sourceResourceTypeId.GetInt16())
+                        : resourceWrapper.ResourceTypeName;
+                    string sourceResourceId = element.TryGetProperty("sourceResourceId", out JsonElement sourceResourceIdElement)
+                        ? sourceResourceIdElement.GetString()
+                        : resourceWrapper.ResourceId;
+                    string sourceResourceVersion = element.TryGetProperty("sourceResourceVersion", out JsonElement sourceResourceVersionElement)
+                        ? sourceResourceVersionElement.GetString()
+                        : resourceWrapper.Version;
+                    string sourcePath = element.TryGetProperty("sourcePath", out JsonElement sourcePathElement)
+                        ? sourcePathElement.GetString()
+                        : preparedQuery.SearchParameter.Expression;
+                    string witnessReference = null;
+                    if (element.TryGetProperty("witnessResourceTypeId", out JsonElement witnessResourceTypeId) &&
+                        element.TryGetProperty("witnessResourceId", out JsonElement witnessResourceId) &&
+                        element.TryGetProperty("witnessResourceVersion", out JsonElement witnessResourceVersion))
+                    {
+                        witnessReference = new ResourceKey(
+                            _model.GetResourceTypeName(witnessResourceTypeId.GetInt16()),
+                            witnessResourceId.GetString(),
+                            witnessResourceVersion.GetInt32().ToString(CultureInfo.InvariantCulture)).ToString();
+                    }
 
-                evidenceItems.Add(new SemanticSearchEvidence(
-                    element.GetProperty("text").GetString(),
-                    element.GetProperty("chunkOrdinal").GetInt32(),
-                    NormalizeCosineDistance(element.GetProperty("distance").GetDouble()),
-                    preparedQuery.SearchParameter.Url,
-                    new ResourceKey(sourceResourceType, sourceResourceId, sourceResourceVersion).ToString(),
-                    sourcePath));
+                    evidenceItems.Add(new SemanticSearchEvidence(
+                        element.GetProperty("text").GetString(),
+                        element.GetProperty("chunkOrdinal").GetInt32(),
+                        NormalizeCosineDistance(element.GetProperty("distance").GetDouble()),
+                        preparedQuery.SearchParameter.Url,
+                        new ResourceKey(sourceResourceType, sourceResourceId, sourceResourceVersion).ToString(),
+                        sourcePath,
+                        witnessReference: witnessReference));
+                }
+
+                return evidenceItems;
             }
-
-            return evidenceItems;
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException or KeyNotFoundException or FormatException)
+            {
+                _logger.LogWarning("Unable to deserialize semantic evidence; evidence will be discarded.");
+                return Array.Empty<SemanticSearchEvidence>();
+            }
         }
 
         private static void AssignEvidenceRanks(List<SearchResultEntry> matchedResources)

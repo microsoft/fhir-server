@@ -31,13 +31,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ValidateModelState]
     public sealed class SemanticSearchController : Controller
     {
-        private static readonly HashSet<string> SupportedResourceTypes = new HashSet<string>(StringComparer.Ordinal)
-        {
-            ResourceType.DocumentReference.ToString(),
-            ResourceType.Observation.ToString(),
-            ResourceType.DiagnosticReport.ToString(),
-        };
-
         private readonly IMediator _mediator;
         private readonly VectorSearchQueryConfiguration _queryConfiguration;
 
@@ -86,14 +79,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException($"Semantic search count must not exceed {_queryConfiguration.MaxCount}.");
             }
 
-            string unsupportedResourceType = resourceTypes.FirstOrDefault(resourceType => !SupportedResourceTypes.Contains(resourceType));
-            if (unsupportedResourceType != null)
-            {
-                throw new RequestNotValidException($"Resource type '{unsupportedResourceType}' is not supported by patient semantic search.");
-            }
-
             SemanticSearchResponse response = await _mediator.Send(
-                new SemanticSearchRequest(query.Value, $"Patient/{idParameter}", count?.Value ?? _queryConfiguration.DefaultCount, resourceTypes),
+                new SemanticSearchRequest(query.Value, idParameter, count?.Value ?? _queryConfiguration.DefaultCount, resourceTypes),
                 HttpContext.RequestAborted);
             return FhirResult.Create(response.Bundle);
         }

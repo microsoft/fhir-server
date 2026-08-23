@@ -32,6 +32,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         public VectorSearchQueryProcessorTests()
         {
             _embeddingClient.Dimensions.Returns(VectorSearchConfiguration.SupportedDimensions);
+            ModelInfoProvider.SetProvider(
+                MockModelInfoProviderBuilder.Create(FhirSpecification.R4)
+                    .AddKnownTypes(KnownResourceTypes.Practitioner)
+                    .Build());
         }
 
         [Fact]
@@ -77,10 +81,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             Assert.Equal(0.25f, result.Embedding[0]);
             Assert.Equal(VectorSearchConfiguration.SupportedDimensions, result.Embedding.Count);
             Assert.Equal(0.65m, result.MinimumScore);
+            Assert.Empty(result.ChainLinks);
             await _embeddingClient.Received(1).GenerateEmbeddingsAsync(
                 Arg.Is<IReadOnlyList<string>>(texts => texts.SequenceEqual(new[] { queryText })),
                 cancellationToken);
             await _embeddingModelRegistry.Received(1).GetEmbeddingModelIdAsync(cancellationToken);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenChainedVectorExpression_WhenPreparing_ThenRelationshipPathIsPreserved(bool reversed)
+        {
+            // Arrange
+            float[] embedding = Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray();
+            _embeddingClient.GenerateEmbeddingsAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<float[]>>(new[] { embedding }));
+            _embeddingModelRegistry.GetEmbeddingModelIdAsync(Arg.Any<CancellationToken>()).Returns((short)7);
+            var referenceSearchParameter = new SearchParameterInfo(
+                name: "subject",
+                code: "subject",
+                searchParamType: SearchParamType.Reference,
+                targetResourceTypes: new[] { KnownResourceTypes.Patient });
+            var expression = new ChainedExpression(
+                new[] { KnownResourceTypes.Observation },
+                referenceSearchParameter,
+                new[] { KnownResourceTypes.Patient },
+                reversed,
+                CreateVectorExpression());
+
+            // Act
+            PreparedVectorSearchQuery result = await CreateProcessor().PrepareAsync(expression, CancellationToken.None);
+
+            // Assert
+            PreparedVectorSearchChainLink chainLink = Assert.Single(result.ChainLinks);
+            Assert.Equal(new[] { KnownResourceTypes.Observation }, chainLink.ResourceTypes);
+            Assert.Same(referenceSearchParameter, chainLink.ReferenceSearchParameter);
+            Assert.Equal(new[] { KnownResourceTypes.Patient }, chainLink.TargetResourceTypes);
+            Assert.Equal(reversed, chainLink.Reversed);
         }
 
         [Fact]
@@ -99,6 +137,67 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             // Assert
             await Assert.ThrowsAsync<InvalidSearchOperationException>(prepare);
             await _embeddingClient.DidNotReceiveWithAnyArgs().GenerateEmbeddingsAsync(default, default);
+        }
+
+        [Fact]
+        public async Task GivenMultiHopVectorExpression_WhenPreparing_ThenSearchIsRejectedBeforeEmbedding()
+        {
+            var subjectSearchParameter = new SearchParameterInfo(
+                name: "subject",
+                code: "subject",
+                searchParamType: SearchParamType.Reference,
+                targetResourceTypes: new[] { KnownResourceTypes.Patient });
+            var generalPractitionerSearchParameter = new SearchParameterInfo(
+                name: "general-practitioner",
+                code: "general-practitioner",
+                searchParamType: SearchParamType.Reference,
+                targetResourceTypes: new[] { KnownResourceTypes.Practitioner });
+            var expression = new ChainedExpression(
+                new[] { KnownResourceTypes.Observation },
+                subjectSearchParameter,
+                new[] { KnownResourceTypes.Patient },
+                reversed: false,
+                new ChainedExpression(
+                    new[] { KnownResourceTypes.Patient },
+                    generalPractitionerSearchParameter,
+                    new[] { KnownResourceTypes.Practitioner },
+                    reversed: false,
+                    CreateVectorExpression()));
+
+            await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => CreateProcessor().PrepareAsync(expression, CancellationToken.None));
+            await _embeddingClient.DidNotReceiveWithAnyArgs().GenerateEmbeddingsAsync(default, default);
+        }
+
+        [Fact]
+        public async Task GivenLinkedSourceChainedVectorExpression_WhenPreparing_ThenWitnessPathIsPreserved()
+        {
+            float[] embedding = Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray();
+            _embeddingClient.GenerateEmbeddingsAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<float[]>>(new[] { embedding }));
+            _embeddingModelRegistry.GetEmbeddingModelIdAsync(Arg.Any<CancellationToken>()).Returns((short)7);
+            var referenceSearchParameter = new SearchParameterInfo(
+                name: "subject",
+                code: "subject",
+                searchParamType: SearchParamType.Reference,
+                targetResourceTypes: new[] { KnownResourceTypes.Patient });
+            SearchParameterInfo vectorSearchParameter = CreateSearchParameter(
+                new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
+            var expression = new ChainedExpression(
+                new[] { KnownResourceTypes.Observation },
+                referenceSearchParameter,
+                new[] { KnownResourceTypes.Patient },
+                reversed: false,
+                new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"));
+
+            PreparedVectorSearchQuery result = await CreateProcessor().PrepareAsync(expression, CancellationToken.None);
+
+            Assert.Same(vectorSearchParameter, result.SearchParameter);
+            PreparedVectorSearchChainLink chainLink = Assert.Single(result.ChainLinks);
+            Assert.Same(referenceSearchParameter, chainLink.ReferenceSearchParameter);
+            await _embeddingClient.Received(1).GenerateEmbeddingsAsync(
+                Arg.Is<IReadOnlyList<string>>(texts => texts.SequenceEqual(new[] { "breathing difficulty" })),
+                CancellationToken.None);
         }
 
         [Fact]
@@ -144,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             return new VectorSearchExpression(CreateSearchParameter(), "breathing difficulty");
         }
 
-        private static SearchParameterInfo CreateSearchParameter()
+        private static SearchParameterInfo CreateSearchParameter(VectorSearchParameterConfig vectorConfig = null)
         {
             return new SearchParameterInfo(
                 name: "SemanticText",
@@ -153,7 +252,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 url: VectorCanonical,
                 expression: "Resource.text.div",
                 baseResourceTypes: new[] { "Resource" },
-                vectorConfig: new VectorSearchParameterConfig { MinimumScore = 0.65m },
+                vectorConfig: vectorConfig ?? new VectorSearchParameterConfig { MinimumScore = 0.65m },
                 definitionStatus: "active");
         }
     }

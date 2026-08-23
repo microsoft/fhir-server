@@ -208,6 +208,7 @@ public class SqlQueryGeneratorTests
         Assert.Contains("AS SemanticSourcePath", generatedSql, StringComparison.Ordinal);
         Assert.Contains("AS SemanticEvidenceJson", generatedSql, StringComparison.Ordinal);
         Assert.Contains("FOR JSON PATH", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("AND v.SearchParamId =", generatedSql, StringComparison.Ordinal);
         Assert.Contains("))) <= ", generatedSql, StringComparison.Ordinal);
         Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("[0.25,0.25", generatedSql, StringComparison.Ordinal);
@@ -218,6 +219,283 @@ public class SqlQueryGeneratorTests
         Assert.Contains("CAST(0 AS bit) AS IsPartial", generatedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("CAST(IsMatch AS bit)", generatedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("CAST(IsPartial AS bit)", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GivenPreparedReverseChainedVectorQuery_WhenSqlGenerated_ThenRanksRootsByRelatedWitnessVectors()
+    {
+        // Arrange
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "ObservationSemantic",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/observation-semantic"),
+            vectorConfig: new VectorSearchParameterConfig());
+        var referenceSearchParameter = new SearchParameterInfo(
+            name: "subject",
+            code: "subject",
+            searchParamType: SearchParamType.Reference,
+            url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            targetResourceTypes: new[] { KnownResourceTypes.Patient });
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+        _fhirModel.GetSearchParamId(referenceSearchParameter.Url).Returns((short)72);
+        _fhirModel.GetResourceTypeId(KnownResourceTypes.Observation).Returns((short)103);
+        _fhirModel.GetResourceTypeId(KnownResourceTypes.Patient).Returns((short)104);
+
+        Expression predicate = Expression.And(
+            [new SearchParameterExpression(
+                new SearchParameterInfo("_type", "_type"),
+                new StringExpression(StringOperator.Equals, FieldName.String, null, KnownResourceTypes.Patient, false))]);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = new SqlSearchOptions(new SearchOptions
+        {
+            MaxItemCount = 10,
+            SearchParameters = Array.Empty<SearchParameterInfo>(),
+            UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        })
+        {
+            PreparedVectorQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                minimumScore: 0.65m,
+                chainLinks:
+                [
+                    new PreparedVectorSearchChainLink(
+                        new[] { KnownResourceTypes.Observation },
+                        referenceSearchParameter,
+                        new[] { KnownResourceTypes.Patient },
+                        reversed: true),
+                ]),
+        };
+        searchOptions.SemanticContinuationDistance = 0.125;
+        searchOptions.SemanticContinuationResourceTypeId = 104;
+        searchOptions.SemanticContinuationResourceSurrogateId = 12345;
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        Assert.Contains("FROM dbo.ReferenceSearchParam AS semanticReference", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("JOIN dbo.Resource AS semanticWitness", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("JOIN dbo.VectorSearchParam AS v", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("SELECT DISTINCT r.ResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("SELECT TOP (1) VECTOR_DISTANCE", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticReference.ReferenceResourceTypeId = r.ResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticReference.ReferenceResourceId = r.ResourceId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceTypeId IN", generatedSql, StringComparison.Ordinal);
+        _fhirModel.Received(2).GetResourceTypeId(KnownResourceTypes.Observation);
+        Assert.Contains("semanticWitness.IsHistory = 0", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.IsDeleted = 0", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ev.ResourceTypeId = v.ResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ev.ResourceSurrogateId = v.ResourceSurrogateId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceTypeId AS witnessResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceId AS witnessResourceId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.Version AS witnessResourceVersion", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticDistance >", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("r.ResourceSurrogateId >", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GivenPreparedForwardChainedVectorQuery_WhenSqlGenerated_ThenRanksRootsByReferencedTargetVectors()
+    {
+        // Arrange
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "PatientSemantic",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/patient-semantic"),
+            vectorConfig: new VectorSearchParameterConfig());
+        var referenceSearchParameter = new SearchParameterInfo(
+            name: "subject",
+            code: "subject",
+            searchParamType: SearchParamType.Reference,
+            url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            targetResourceTypes: new[] { KnownResourceTypes.Patient });
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+        _fhirModel.GetSearchParamId(referenceSearchParameter.Url).Returns((short)72);
+        _fhirModel.GetResourceTypeId(KnownResourceTypes.Observation).Returns((short)103);
+        _fhirModel.GetResourceTypeId(KnownResourceTypes.Patient).Returns((short)104);
+
+        Expression predicate = Expression.And(
+            [new SearchParameterExpression(
+                new SearchParameterInfo("_type", "_type"),
+                new StringExpression(StringOperator.Equals, FieldName.String, null, KnownResourceTypes.Observation, false))]);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = new SqlSearchOptions(new SearchOptions
+        {
+            MaxItemCount = 10,
+            SearchParameters = Array.Empty<SearchParameterInfo>(),
+            UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        })
+        {
+            PreparedVectorQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                minimumScore: 0.65m,
+                chainLinks:
+                [
+                    new PreparedVectorSearchChainLink(
+                        new[] { KnownResourceTypes.Observation },
+                        referenceSearchParameter,
+                        new[] { KnownResourceTypes.Patient },
+                        reversed: false),
+                ]),
+        };
+        searchOptions.SemanticContinuationDistance = 0.125;
+        searchOptions.SemanticContinuationResourceTypeId = 103;
+        searchOptions.SemanticContinuationResourceSurrogateId = 12345;
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        Assert.Contains("FROM dbo.ReferenceSearchParam AS semanticReference", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("JOIN dbo.Resource AS semanticWitness", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("SELECT DISTINCT r.ResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("SELECT TOP (1) VECTOR_DISTANCE", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceTypeId = semanticReference.ReferenceResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceId = semanticReference.ReferenceResourceId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticReference.ResourceTypeId = r.ResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticReference.ResourceSurrogateId = r.ResourceSurrogateId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.IsHistory = 0", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.IsDeleted = 0", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ev.ResourceTypeId = v.ResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ev.ResourceSurrogateId = v.ResourceSurrogateId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceTypeId AS witnessResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceId AS witnessResourceId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.Version AS witnessResourceVersion", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semantic.SemanticDistance >", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("r.ResourceSurrogateId >", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("v.ResourceTypeId ASC, v.ResourceSurrogateId ASC, v.ChunkOrdinal ASC", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenChainedLinkedSourceVectorQuery_WhenSqlGenerated_ThenWitnessAndSourceProvenanceAreProjected(bool reversed)
+    {
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "DocumentReferenceSemantic",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic"),
+            vectorConfig: new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
+        var referenceSearchParameter = new SearchParameterInfo(
+            name: "subject",
+            code: "subject",
+            searchParamType: SearchParamType.Reference,
+            url: new Uri("http://hl7.org/fhir/SearchParameter/DocumentReference-subject"),
+            targetResourceTypes: new[] { KnownResourceTypes.Patient });
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+        _fhirModel.GetSearchParamId(referenceSearchParameter.Url).Returns((short)72);
+        _fhirModel.GetResourceTypeId(KnownResourceTypes.DocumentReference).Returns((short)103);
+        _fhirModel.GetResourceTypeId(KnownResourceTypes.Patient).Returns((short)104);
+
+        var sqlExpression = new SqlRootExpression(
+            resourceTableExpressions: new List<SearchParameterExpressionBase>(),
+            searchParamTableExpressions: new List<SearchParamTableExpression>());
+        var searchOptions = new SqlSearchOptions(new SearchOptions
+        {
+            MaxItemCount = 10,
+            SearchParameters = Array.Empty<SearchParameterInfo>(),
+            UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        })
+        {
+            PreparedVectorQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                chainLinks:
+                [
+                    new PreparedVectorSearchChainLink(
+                        new[] { KnownResourceTypes.DocumentReference },
+                        referenceSearchParameter,
+                        new[] { KnownResourceTypes.Patient },
+                        reversed),
+                ]),
+        };
+
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        Assert.Contains("v.SourceResourceTypeId AS SemanticSourceResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("ev.SourceResourceId AS sourceResourceId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceTypeId AS witnessResourceTypeId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.ResourceId AS witnessResourceId", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("semanticWitness.Version AS witnessResourceVersion", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GivenMultiHopVectorQuery_WhenSqlGenerated_ThenSearchIsRejected()
+    {
+        var vectorSearchParameter = new SearchParameterInfo(
+            name: "PatientSemantic",
+            code: "semantic-text",
+            searchParamType: SearchParamType.Special,
+            url: new Uri("https://example.org/fhir/SearchParameter/patient-semantic"),
+            vectorConfig: new VectorSearchParameterConfig());
+        var subjectSearchParameter = new SearchParameterInfo(
+            name: "subject",
+            code: "subject",
+            searchParamType: SearchParamType.Reference,
+            url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            targetResourceTypes: new[] { KnownResourceTypes.Patient });
+        var generalPractitionerSearchParameter = new SearchParameterInfo(
+            name: "general-practitioner",
+            code: "general-practitioner",
+            searchParamType: SearchParamType.Reference,
+            url: new Uri("http://hl7.org/fhir/SearchParameter/Patient-general-practitioner"),
+            targetResourceTypes: new[] { KnownResourceTypes.Practitioner });
+        _fhirModel.GetSearchParamId(vectorSearchParameter.Url).Returns((short)71);
+
+        var sqlExpression = new SqlRootExpression(
+            resourceTableExpressions: new List<SearchParameterExpressionBase>(),
+            searchParamTableExpressions: new List<SearchParamTableExpression>());
+        var searchOptions = new SqlSearchOptions(new SearchOptions
+        {
+            MaxItemCount = 10,
+            SearchParameters = Array.Empty<SearchParameterInfo>(),
+            UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        })
+        {
+            PreparedVectorQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                chainLinks:
+                [
+                    new PreparedVectorSearchChainLink(
+                        new[] { KnownResourceTypes.Observation },
+                        subjectSearchParameter,
+                        new[] { KnownResourceTypes.Patient },
+                        reversed: false),
+                    new PreparedVectorSearchChainLink(
+                        new[] { KnownResourceTypes.Patient },
+                        generalPractitionerSearchParameter,
+                        new[] { KnownResourceTypes.Practitioner },
+                        reversed: false),
+                ]),
+        };
+
+        Assert.Throws<InvalidSearchOperationException>(() => _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions));
     }
 
     [Fact]

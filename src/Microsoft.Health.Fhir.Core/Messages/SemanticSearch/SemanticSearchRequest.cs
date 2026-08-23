@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.SemanticSearch
         /// <summary>
         /// Initializes a new instance of the <see cref="SemanticSearchRequest"/> class.
         /// </summary>
-        public SemanticSearchRequest(string query, string patientReference, int count, IReadOnlyCollection<string> resourceTypes = null)
+        public SemanticSearchRequest(string query, string patientId, int count, IReadOnlyCollection<string> resourceTypes = null)
         {
             Query = EnsureArg.IsNotNullOrWhiteSpace(query, nameof(query));
-            PatientReference = EnsureArg.IsNotNullOrWhiteSpace(patientReference, nameof(patientReference));
+            PatientId = EnsureArg.IsNotNullOrWhiteSpace(patientId, nameof(patientId));
             Count = EnsureArg.IsGt(count, 0, nameof(count));
             ResourceTypes = resourceTypes?.Distinct(StringComparer.Ordinal).ToArray() ?? Array.Empty<string>();
         }
@@ -30,8 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.SemanticSearch
         /// <summary>Gets the natural-language query.</summary>
         public string Query { get; }
 
-        /// <summary>Gets the Patient reference used for candidate filtering.</summary>
-        public string PatientReference { get; }
+        /// <summary>Gets the Patient resource ID used for compartment filtering.</summary>
+        public string PatientId { get; }
 
         /// <summary>Gets the maximum number of results.</summary>
         public int Count { get; }
