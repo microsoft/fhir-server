@@ -461,6 +461,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Equal(expectedProcedure, command.CommandText);
         }
 
+        [Theory]
+        [InlineData((int)SchemaVersion.V119, true, true)]
+        [InlineData((int)SchemaVersion.V118, true, false)]
+        [InlineData((int)SchemaVersion.V119, false, false)]
+        public void SourceRefreshScheduling_SelectsOnlySupportedEnabledConfigurations(
+            int schemaVersion,
+            bool vectorSearchEnabled,
+            bool expected)
+        {
+            IVectorSearchIndexer vectorSearchIndexer = vectorSearchEnabled ? Substitute.For<IVectorSearchIndexer>() : null;
+
+            bool actual = SqlServerFhirDataStore.ShouldEnqueueVectorSearchSourceRefresh(vectorSearchIndexer, schemaVersion);
+
+            Assert.Equal(expected, actual);
+        }
+
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, int? currentSchemaVersion = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();

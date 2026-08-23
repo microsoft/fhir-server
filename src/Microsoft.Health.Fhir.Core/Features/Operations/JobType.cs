@@ -18,5 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         BulkUpdateOrchestrator = 8,
         ReindexOrchestrator = 9,
         ReindexProcessing = 10,
+        VectorSearchSourceRefresh = 11,
     }
 }

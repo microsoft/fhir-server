@@ -825,16 +825,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand();
             //// Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
+            bool enqueueVectorSearchSourceRefresh = ShouldEnqueueVectorSearchSourceRefresh(_vectorSearchIndexer, _schemaInformation.Current);
 
             if (pendingStatuses?.Count > 0)
             {
-                cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
+                if (enqueueVectorSearchSourceRefresh)
+                {
+                    cmd.CommandText = "dbo.MergeResourcesAndSearchParamsWithVectorSearchSourceRefresh";
+                }
+                else
+                {
+                    cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
+                }
+
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses));
                 cmd.Parameters.AddWithValue("@ReindexId", 0);
             }
             else
             {
-                cmd.CommandText = "dbo.MergeResources";
+                if (enqueueVectorSearchSourceRefresh)
+                {
+                    cmd.CommandText = "dbo.MergeResourcesWithVectorSearchSourceRefresh";
+                }
+                else
+                {
+                    cmd.CommandText = "dbo.MergeResources";
+                }
+
                 cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
             }
 
@@ -954,7 +971,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
+            bool enqueueVectorSearchSourceRefresh = ShouldEnqueueVectorSearchSourceRefresh(_vectorSearchIndexer, _schemaInformation.Current);
+            await _sqlStoreClient.HardDeleteAsync(
+                _model.GetResourceTypeId(key.ResourceType),
+                key.Id,
+                keepCurrentVersion,
+                _coreFeatures.SupportsResourceChangeCapture,
+                enqueueVectorSearchSourceRefresh,
+                cancellationToken);
         }
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
@@ -1013,6 +1037,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal static bool ShouldUpdateVectorSearchIndices(IReadOnlyCollection<ResourceWrapper> resources, int? currentSchemaVersion)
         {
             return currentSchemaVersion >= SchemaVersionConstants.VectorSearchReindexVersion && resources.Any(resource => resource.VectorSearchIndicesUpdated);
+        }
+
+        internal static bool ShouldEnqueueVectorSearchSourceRefresh(IVectorSearchIndexer vectorSearchIndexer, int? currentSchemaVersion)
+        {
+            return vectorSearchIndexer != null && currentSchemaVersion >= SchemaVersionConstants.VectorSearchSourceRefreshVersion;
         }
 
         internal static SqlCommand CreateBulkUpdateSearchParameterIndicesCommand(bool updateVectorSearchIndices, int resourceCount)

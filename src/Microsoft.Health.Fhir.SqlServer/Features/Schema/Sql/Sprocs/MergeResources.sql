@@ -10,6 +10,7 @@ CREATE PROCEDURE dbo.MergeResources
    ,@IsResourceChangeCaptureEnabled bit = 0
    ,@TransactionId bigint = NULL
    ,@SingleTransaction bit = 1
+  ,@EnqueueVectorSearchSourceRefresh bit = 0
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
@@ -416,6 +417,9 @@ BEGIN TRY
 
   IF @TransactionId IS NOT NULL
     EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
+
+  IF @EnqueueVectorSearchSourceRefresh = 1
+    EXECUTE dbo.EnqueueVectorSearchSourceRefreshJobs @Resources = @Resources
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 

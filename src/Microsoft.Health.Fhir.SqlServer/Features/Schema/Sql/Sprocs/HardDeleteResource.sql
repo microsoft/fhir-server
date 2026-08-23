@@ -8,12 +8,13 @@ set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'RT='+convert(varchar,@ResourceTypeId)+' R='+@ResourceId+' V='+convert(varchar,@KeepCurrentVersion)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
        ,@st datetime = getUTCdate()
+  ,@InitialTranCount int = @@trancount
        ,@TransactionId bigint
 
 BEGIN TRY
   IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUT
 
-  IF @KeepCurrentVersion = 0
+  IF @KeepCurrentVersion = 0 AND @InitialTranCount = 0
     BEGIN TRANSACTION
 
   DECLARE @SurrogateIds TABLE (ResourceSurrogateId BIGINT NOT NULL)
@@ -37,6 +38,8 @@ BEGIN TRY
         AND (@KeepCurrentVersion = 0 OR IsHistory = 1)
         AND RawResource <> 0xF
 
+  DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.VectorSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+
   IF @KeepCurrentVersion = 0
   BEGIN
     -- PAGLOCK allows deallocation of empty page without waiting for ghost cleanup 
@@ -57,14 +60,14 @@ BEGIN TRY
     DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenNumberNumberCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
   END
   
-  IF @@trancount > 0 COMMIT TRANSACTION
+  IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 
   IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
 END TRY
 BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION
+  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH

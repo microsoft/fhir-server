@@ -26,3 +26,17 @@ PRIMARY KEY CLUSTERED
     ChunkOrdinal
 )
 WITH (DATA_COMPRESSION = PAGE)
+
+CREATE NONCLUSTERED INDEX IX_VectorSearchParam_SourceResource
+ON dbo.VectorSearchParam
+(
+    SourceResourceTypeId,
+    SourceResourceId
+)
+INCLUDE
+(
+    ResourceTypeId,
+    ResourceSurrogateId
+)
+WHERE SourceResourceTypeId IS NOT NULL AND SourceResourceId IS NOT NULL
+WITH (DATA_COMPRESSION = PAGE)
