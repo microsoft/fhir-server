@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
+            await _fixture.TestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
             await CleanupSearchParametersAsync(CancellationToken.None);
         }
 
@@ -865,7 +866,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             var searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
             ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
 
-            (ResourceWrapper original, ResourceWrapper updatedWithSearchParam1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam1, searchValue1);
+            var original = (await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam1, searchValue1)).original;
 
             var deserializedResource = _fhirJsonParser.Parse<Patient>(original.RawResource.Data);
             UpdatePatient(deserializedResource);
@@ -979,8 +980,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             var searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
             ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
 
-            (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam1, searchValue1);
-            (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam1, searchValue1);
+            var original1 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam1, searchValue1)).original;
+            var original2 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam1, searchValue1)).original;
 
             var deserializedResource = _fhirJsonParser.Parse<Patient>(original1.RawResource.Data);
             UpdatePatient(deserializedResource);
@@ -997,8 +998,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             // Create the updated wrappers using the original resource and its outdated version
             UpdatePatient(upsertResult1.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
             UpdatePatient(upsertResult2.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
-            (_, ResourceWrapper updated1WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam2, searchValue2, original1);
-            (_, ResourceWrapper updated2WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam2, searchValue2, original2);
+            var updated1WithSearchParam2 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam2, searchValue2, original1)).updated;
+            var updated2WithSearchParam2 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam2, searchValue2, original2)).updated;
 
             var resources = new List<ResourceWrapper> { updated1WithSearchParam2, updated2WithSearchParam2 };
 

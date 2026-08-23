@@ -841,7 +841,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             ResourceWrapper deletedWrapper = CreateSearchParamResourceWrapper(searchParam, deleted: true);
 
             // Simulate the delete: upsert a deleted wrapper so GetAndApplySearchParameterUpdates can pick up the deletion.
-            UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+            await _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
 
             await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
 
@@ -1124,7 +1124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var searchParamCode = randomName + "Code";
             var searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
-            var patient = await CreatePatientResource(randomName + "restartPatient", Guid.NewGuid().ToString());
+            await CreatePatientResource(randomName + "restartPatient", Guid.NewGuid().ToString());
 
             var request = new CreateReindexRequest(new List<string>(), new List<string> { searchParam.Url });
             using var cancellationTokenSource = new CancellationTokenSource();
