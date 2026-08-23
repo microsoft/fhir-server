@@ -476,13 +476,21 @@ namespace Microsoft.Health.Extensions.Xunit
                     currentAttempt?.DiscardDeferredMessages();
                     return earlierAttempt?.ReplayDeferredMessages() ?? true;
 
-                default:
+                case NoResultOutcome.ReportNothing:
                     // Nothing observed a failure, so there is no competition to resolve. Whatever the
                     // current attempt is still holding - an abstention, typically - is the only
                     // result the test has, and is left for its disposal to publish.
                     earlierAttempt?.DiscardDeferredMessages();
                     currentAttempt?.PublishDeferredMessagesOnDispose();
                     return true;
+
+                default:
+                    // An outcome added later and not handled here would publish nothing while
+                    // CreateNoResultSummary counted a failure, and the runner's verdict comes from
+                    // the messages rather than the summary, so the failure would be lost and the run
+                    // would pass. Refusing an outcome nobody taught this how to report is the only
+                    // answer that cannot end in a green run hiding one.
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "No handling is defined for this outcome, so a failure it stands for would not reach the results.");
             }
         }
 
@@ -513,8 +521,11 @@ namespace Microsoft.Health.Extensions.Xunit
                 case NoResultOutcome.ReplayEarlierAttempt:
                     return earlierAttemptException;
 
-                default:
+                case NoResultOutcome.ReportNothing:
                     return null;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "No handling is defined for this outcome, so the exception reported with it would not describe the failure being replayed.");
             }
         }
 
@@ -530,9 +541,18 @@ namespace Microsoft.Health.Extensions.Xunit
         /// </remarks>
         internal static RunSummary CreateNoResultSummary(NoResultOutcome outcome)
         {
-            return outcome == NoResultOutcome.ReportNothing
-                ? new RunSummary { Total = 0, Failed = 0 }
-                : new RunSummary { Total = 1, Failed = 1 };
+            switch (outcome)
+            {
+                case NoResultOutcome.ReportNothing:
+                    return new RunSummary { Total = 0, Failed = 0 };
+
+                case NoResultOutcome.ReplayCurrentAttempt:
+                case NoResultOutcome.ReplayEarlierAttempt:
+                    return new RunSummary { Total = 1, Failed = 1 };
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "No handling is defined for this outcome, so the totals it contributes would not match what was published.");
+            }
         }
 
         protected override void Serialize(IXunitSerializationInfo info)

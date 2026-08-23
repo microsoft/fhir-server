@@ -176,5 +176,43 @@ namespace Microsoft.Health.Extensions.Xunit.UnitTests
 
             Assert.Null(selected);
         }
+
+        /// <summary>
+        /// An outcome none of the three helpers was taught to handle must stop the run rather than
+        /// be absorbed by a default branch.
+        /// </summary>
+        /// <remarks>
+        /// The helpers used to disagree about an unknown value: the two that publish treated it as
+        /// "report nothing" while the one that counts treated anything but <c>ReportNothing</c> as a
+        /// failure. Since the runner's verdict comes from the messages and not the summary, an
+        /// outcome added later and missed in one switch would have counted a failure that was never
+        /// published - a lost failure, and a green run. The value below is deliberately not a
+        /// declared member, which is what a future addition looks like to code compiled against
+        /// today's enum.
+        /// </remarks>
+        [Fact]
+        public void GivenAnOutcomeNoHelperHandles_WhenItIsAccountedFor_ThenEachHelperRefusesIt()
+        {
+            const NoResultOutcome unknown = (NoResultOutcome)int.MaxValue;
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => RetryTestCase.CreateNoResultSummary(unknown));
+            Assert.Throws<ArgumentOutOfRangeException>(() => RetryTestCase.SelectNoResultException(unknown, null, null));
+            Assert.Throws<ArgumentOutOfRangeException>(() => RetryTestCase.ReportSingleResult(unknown, null, null));
+        }
+
+        /// <summary>
+        /// Every declared outcome is handled by all three helpers, so the refusal above cannot be
+        /// satisfied by a helper that refuses everything.
+        /// </summary>
+        [Fact]
+        public void GivenEveryDeclaredOutcome_WhenItIsAccountedFor_ThenNoHelperRefusesIt()
+        {
+            foreach (NoResultOutcome outcome in Enum.GetValues<NoResultOutcome>())
+            {
+                RetryTestCase.CreateNoResultSummary(outcome);
+                RetryTestCase.SelectNoResultException(outcome, null, null);
+                RetryTestCase.ReportSingleResult(outcome, null, null);
+            }
+        }
     }
 }
