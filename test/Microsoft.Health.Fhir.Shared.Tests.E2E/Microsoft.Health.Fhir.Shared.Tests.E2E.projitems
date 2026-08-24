@@ -81,6 +81,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HistoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture{TStartup}.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\IfMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\InProcTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MetadataTests.cs" />
