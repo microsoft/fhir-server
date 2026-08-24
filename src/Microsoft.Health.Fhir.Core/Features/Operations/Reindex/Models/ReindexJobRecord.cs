@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public const int MaxMaximumNumberOfResourcesPerQuery = 10000;
         public const int MinMaximumNumberOfResourcesPerQuery = 1;
 
-        public const int MaxMaximumNumberOfResourcesPerWrite = 1000;
+        public const int MaxMaximumNumberOfResourcesPerWrite = 10000;
         public const int MinMaximumNumberOfResourcesPerWrite = 1;
 
         public ReindexJobRecord(
