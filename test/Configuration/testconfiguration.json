@@ -8,12 +8,7 @@
         },
         "CoreFeatures": {
             "SystemConformanceProviderRefreshIntervalSeconds": 5,
-            "SystemConformanceProviderRebuildIntervalSeconds": 120,
-            "Versioning": {
-                "ResourceTypeOverrides": {
-                    "Medication": "versioned-update"
-                }
-            }
+            "SystemConformanceProviderRebuildIntervalSeconds": 120
         },
         "Operations": {
             "Validate": {

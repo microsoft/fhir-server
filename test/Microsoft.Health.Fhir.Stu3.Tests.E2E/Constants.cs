@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E
     {
         public const string TestEnvironmentVariableVersionSuffix = "";
         public const string TestEnvironmentVariableVersionSqlSuffix = "_Sql";
-        internal const HttpStatusCode IfMatchFailureStatus = HttpStatusCode.Conflict;
+        internal const HttpStatusCode IfMatchFailureStatus = HttpStatusCode.PreconditionFailed;
     }
 }

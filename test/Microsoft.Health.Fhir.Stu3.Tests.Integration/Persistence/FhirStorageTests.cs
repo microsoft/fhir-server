@@ -25,14 +25,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         [Fact]
-        public async Task GivenStu3Server_WhenUpsertingASavedResourceWithInvalidETagHeader_ThenAResourceConflictIsThrown()
+        public async Task GivenStu3Server_WhenUpsertingASavedResourceWithInvalidETagHeader_ThenAPreconditionFailedExceptionIsThrown()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
             newResourceValues.Id = saveResult.RawResourceElement.Id;
 
-            await Assert.ThrowsAsync<ResourceConflictException>(async () =>
+            await Assert.ThrowsAsync<PreconditionFailedException>(async () =>
                 await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("invalidVersion")));
         }
 

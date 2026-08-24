@@ -405,13 +405,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
                 {
-                    // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
-                    if (_modelInfoProvider.Version == FhirSpecification.Stu3)
-                    {
-                        _logger.LogInformation("ResourceConflict: ResourceVersionConflict");
-                        throw new ResourceConflictException(weakETag);
-                    }
-
                     _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
                     throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }

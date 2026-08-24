@@ -239,6 +239,40 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task MergeAsync_OnSqlConflictWithIfMatch_WhenEnlistedInAmbientTransaction_ThrowsPreconditionFailedExceptionWithoutRetry()
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Throws(sqlException);
+
+            var transactionHandler = new SqlTransactionHandler();
+            using var transactionScope = transactionHandler.BeginTransaction();
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, transactionHandler);
+            WeakETag weakETag = WeakETag.FromVersionId("1");
+            var resources = CreateResourceWrapperOperations(weakETag);
+
+            // Act
+            PreconditionFailedException exception = await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, isBundleTransaction: true), cts.Token));
+
+            // Assert
+            Assert.Equal(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId), exception.Message);
+            await sqlRetryService.DidNotReceive()
+                .TryLogEvent("MergeAsync", "Warn", Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task MergeAsync_OnSqlConflict_WhenEnlistTransactionWithoutAmbientScope_RetriesBeforeThrowing()
         {
             // Arrange - a regular (non-bundle) upsert sets enlistTransaction: true but runs without an ambient
@@ -463,12 +497,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             return (SqlServerFhirModel)modelField.GetValue(dataStore);
         }
 
-        private static List<ResourceWrapperOperation> CreateResourceWrapperOperations()
+        private static List<ResourceWrapperOperation> CreateResourceWrapperOperations(WeakETag weakETag = null)
         {
             var wrapper = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
             return new List<ResourceWrapperOperation>
             {
-                new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null),
+                new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: weakETag, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null),
             };
         }
     }

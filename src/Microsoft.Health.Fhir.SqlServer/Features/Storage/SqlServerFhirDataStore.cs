@@ -185,6 +185,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             if (wasEnlistedInAmbientTransaction)
                             {
+                                ResourceWrapperOperation resourceWithWeakETag = resources.FirstOrDefault(resource => resource.WeakETag != null);
+                                if (resourceWithWeakETag != null)
+                                {
+                                    _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                                    throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, resourceWithWeakETag.WeakETag.VersionId));
+                                }
+
                                 // The ambient SqlTransaction is now zombied by this conflict; retrying within it is futile. Fail fast with a 409 so the client can retry the whole transaction bundle.
                                 _logger.LogWarning(e, "Conflict: ResourceConcurrentUpdateConflict in ambient transaction; failing fast (SQL error {SqlErrorNumber}).", sqlEx.Number);
                                 throw new ResourceConflictException(Resources.ResourceConcurrentUpdateConflict);
@@ -276,21 +283,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var existingVersion = 0;
 
                 // Check for any validation errors
-                if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
+                if (weakETag != null &&
+                    existingResource != null &&
+                    !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
                 {
-                    if (weakETag != null)
-                    {
-                        // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
-                        if (_modelInfoProvider.Version == FhirSpecification.Stu3)
-                        {
-                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
-                            continue;
-                        }
-
-                        _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
-                        continue;
-                    }
+                    _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                    results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
+                    continue;
                 }
 
                 // There is no previous version of this resource, check validations and then simply call SP to create new version

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -37,16 +36,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Web)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class IfMatchTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class IfMatchTests : IClassFixture<HttpIntegrationTestFixture<StartupWithVersionedUpdateMedication>>
     {
         private const string MedicationResourceType = nameof(Medication);
         private const string FhirJsonMediaType = "application/fhir+json";
         private const string JsonPatchMediaType = "application/json-patch+json";
 
-        private readonly HttpIntegrationTestFixture<Startup> _fixture;
+        private readonly HttpIntegrationTestFixture<StartupWithVersionedUpdateMedication> _fixture;
         private readonly TestFhirClient _client;
 
-        public IfMatchTests(HttpIntegrationTestFixture<Startup> fixture)
+        public IfMatchTests(HttpIntegrationTestFixture<StartupWithVersionedUpdateMedication> fixture)
         {
             _fixture = fixture;
             _client = fixture.TestFhirClient;
@@ -86,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 advancedMedication,
                 ifMatch: staleIfMatch))
             {
-                Assert.Equal(ExpectedStaleRegularUpdateStatus(), response.StatusCode);
+                Assert.Equal(HttpStatusCode.PreconditionFailed, response.StatusCode);
             }
 
             await AssertMedicationStateAsync(staleMedication.Id, advancedMedication.Meta.VersionId, advancedText);
@@ -516,6 +515,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await AssertMedicationStateAsync(currentMedication.Id, currentMedicationAfterUpdate.Meta.VersionId, currentText);
 
+            // The current version must still be accessible via VRead.
+            await AssertMedicationVReadSucceedsAsync(currentMedication.Id, currentMedicationAfterUpdate.Meta.VersionId);
+
+            // The old (pre-update) version must no longer be accessible after purge-history.
+            await AssertMedicationVReadFailsAsync(currentMedication.Id, currentMedication.Meta.VersionId, HttpStatusCode.NotFound);
+
             Medication staleMedication = await CreateMedicationAsync();
             string staleIfMatch = ToIfMatch(staleMedication);
             string advancedText = CreateCodeText();
@@ -531,17 +536,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await AssertMedicationStateAsync(staleMedication.Id, advancedMedication.Meta.VersionId, advancedText);
 
+            // No purge occurred, so the old (pre-update) version must still be accessible via VRead.
+            await AssertMedicationVReadSucceedsAsync(staleMedication.Id, staleMedication.Meta.VersionId);
+
             Medication missingMedication = await CreateMedicationAsync();
-            string missingText = missingMedication.Code.Text;
+            string missingText = CreateCodeText();
+            Medication missingMedicationAfterUpdate = await AdvanceMedicationAsync(missingMedication, missingText);
 
             using (HttpResponseMessage response = await SendAsync(
                 HttpMethod.Delete,
-                GetMedicationUri(missingMedication.Id, "/$purge-history")))
+                GetMedicationUri(missingMedicationAfterUpdate.Id, "/$purge-history")))
             {
                 Assert.Equal(ExpectedMissingIfMatchStatus(), response.StatusCode);
             }
 
-            await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
+            await AssertMedicationStateAsync(missingMedication.Id, missingMedicationAfterUpdate.Meta.VersionId, missingText);
+
+            // No purge occurred, so the old (pre-update) version must still be accessible via VRead.
+            await AssertMedicationVReadSucceedsAsync(missingMedication.Id, missingMedication.Meta.VersionId);
         }
 
         [Fact]
@@ -644,7 +656,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
         public async Task GivenAVersionedMedication_WhenUpdatingInATransactionWithIfMatch_ThenCurrentSucceedsAndStaleIsRejected()
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -667,7 +679,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.PostBundleAsync(CreateTransactionBundle(currentMedication, staleIfMatch, staleText)));
-            Assert.Equal(ExpectedStaleRegularUpdateStatus(), exception.StatusCode);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCode);
 
             await AssertMedicationStateAsync(medication.Id, currentMedication.Meta.VersionId, currentText);
         }
@@ -678,15 +690,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return HttpStatusCode.PreconditionFailed;
 #else
             return HttpStatusCode.BadRequest;
-#endif
-        }
-
-        private static HttpStatusCode ExpectedStaleRegularUpdateStatus()
-        {
-#if Stu3
-            return HttpStatusCode.Conflict;
-#else
-            return HttpStatusCode.PreconditionFailed;
 #endif
         }
 
@@ -787,6 +790,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.ReadAsync<Medication>(ResourceType.Medication, medicationId));
+            Assert.Equal(expectedStatusCode, exception.StatusCode);
+        }
+
+        private async Task AssertMedicationVReadSucceedsAsync(string medicationId, string versionId)
+        {
+            using FhirResponse<Medication> response = await _client.VReadAsync<Medication>(ResourceType.Medication, medicationId, versionId);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(versionId, response.Resource.Meta.VersionId);
+        }
+
+        private async Task AssertMedicationVReadFailsAsync(string medicationId, string versionId, HttpStatusCode expectedStatusCode)
+        {
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
+                () => _client.VReadAsync<Medication>(ResourceType.Medication, medicationId, versionId));
             Assert.Equal(expectedStatusCode, exception.StatusCode);
         }
 
