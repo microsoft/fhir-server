@@ -22,11 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public long FailedResources { get; set; }
 
         /// <summary>
-        /// Critical error during data processing.
-        /// </summary>
-        public string ErrorDetails { get; set; }
-
-        /// <summary>
         /// Count of jobs created for all query processing jobs
         /// </summary>
         public int CreatedJobs { get; set; }
