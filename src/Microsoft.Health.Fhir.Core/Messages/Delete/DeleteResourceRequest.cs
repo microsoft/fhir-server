@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
     public class DeleteResourceRequest : BaseBundleInnerRequest, IRequest<DeleteResourceResponse>, IRequireCapability
     {
-        public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
+        public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false, WeakETag weakETag = null)
             : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
@@ -23,9 +23,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             ResourceKey = resourceKey;
             DeleteOperation = deleteOperation;
             AllowPartialSuccess = allowPartialSuccess;
+            WeakETag = weakETag;
         }
 
-        public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
+        public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false, WeakETag weakETag = null)
             : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(type, nameof(type));
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             ResourceKey = new ResourceKey(type, id);
             DeleteOperation = deleteOperation;
             AllowPartialSuccess = allowPartialSuccess;
+            WeakETag = weakETag;
         }
 
         public ResourceKey ResourceKey { get; }
@@ -41,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
         public DeleteOperation DeleteOperation { get; }
 
         public bool AllowPartialSuccess { get; }
+
+        public WeakETag WeakETag { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

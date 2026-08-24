@@ -180,9 +180,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 HardDelete = (hardDeleteFlag?.Equals(KnownQueryParameterNames.HardDelete) ?? false) ? true : null,
             };
 
-            await _fhirController.ConditionalDelete(KnownResourceTypes.Patient, hardDeleteModel, null);
+            await _fhirController.ConditionalDelete(KnownResourceTypes.Patient, hardDeleteModel, ifMatchHeader: null, maxDeleteCount: null);
             await _mediator.Received(1).SendAsync(
                 Arg.Is<ConditionalDeleteResourceRequest>(x => x.DeleteOperation == operation),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenConditionalDeleteResourceRequest_WhenIfMatchHeaderProvided_ThenWeakETagShouldBePropagated()
+        {
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+
+            await _fhirController.ConditionalDelete(
+                KnownResourceTypes.Patient,
+                new HardDeleteModel(),
+                weakETag,
+                maxDeleteCount: null);
+
+            await _mediator.Received(1).SendAsync(
+                Arg.Is<ConditionalDeleteResourceRequest>(x => x.WeakETag == weakETag),
                 Arg.Any<CancellationToken>());
         }
 
@@ -200,9 +216,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 HardDelete = (hardDeleteKey?.Equals(KnownQueryParameterNames.HardDelete) ?? false) ? true : null,
             };
 
-            await _fhirController.Delete(KnownResourceTypes.Patient, Guid.NewGuid().ToString(), hardDeleteModel, false);
+            await _fhirController.Delete(KnownResourceTypes.Patient, Guid.NewGuid().ToString(), hardDeleteModel, ifMatchHeader: null, allowPartialSuccess: false);
             await _mediator.Received(1).SendAsync(
                 Arg.Is<DeleteResourceRequest>(x => x.DeleteOperation == operation),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenDeleteResourceRequest_WhenIfMatchHeaderProvided_ThenWeakETagShouldBePropagated()
+        {
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+
+            await _fhirController.Delete(
+                KnownResourceTypes.Patient,
+                Guid.NewGuid().ToString(),
+                new HardDeleteModel(),
+                weakETag,
+                allowPartialSuccess: false);
+
+            await _mediator.Received(1).SendAsync(
+                Arg.Is<DeleteResourceRequest>(x => x.WeakETag == weakETag),
                 Arg.Any<CancellationToken>());
         }
 
@@ -491,7 +524,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalUpsertResourceRequest>());
 
-            var response = await _fhirController.ConditionalUpdate(resource);
+            var response = await _fhirController.ConditionalUpdate(resource, ifMatchHeader: null);
             Assert.IsType<FhirResult>(response);
             Assert.Equal(statusCodeMap[saveOutcome], ((FhirResult)response).StatusCode);
 
@@ -516,6 +549,32 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _requestContextAccessor.RequestContext.Properties
                 .Received(queryProcessingLogic.HasValue && queryProcessingLogic.Value == ConditionalQueryProcessingLogic.Parallel ? 1 : 0)
                 .TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
+        }
+
+        [Fact]
+        public async Task GivenConditionalUpdateRequest_WhenIfMatchHeaderProvided_ThenWeakETagShouldBePropagated()
+        {
+            var resource = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = CreateMockResourceWrapper(resource);
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Any<ConditionalUpsertResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
+
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+
+            await _fhirController.ConditionalUpdate(resource, weakETag);
+
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
+                Arg.Is<ConditionalUpsertResourceRequest>(x => x.WeakETag == weakETag),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -667,7 +726,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var response = await _fhirController.PurgeHistory(
                 resourceKey.ResourceType,
                 resourceKey.Id,
-                true);
+                ifMatchHeader: null,
+                allowPartialSuccess: true);
             var result = response as FhirResult;
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.NoContent, result.StatusCode);
@@ -1546,7 +1606,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     return new DeleteResourceResponse(key);
                 });
 
-            var response = await _fhirController.Delete("SearchParameter", "test", new HardDeleteModel { HardDelete = false }, false);
+            var response = await _fhirController.Delete("SearchParameter", "test", new HardDeleteModel { HardDelete = false }, ifMatchHeader: null, allowPartialSuccess: false);
 
             Assert.Equal(2, attemptCount);
             Assert.IsType<FhirResult>(response);
@@ -1618,7 +1678,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
                 });
 
-            var response = await _fhirController.ConditionalUpdate(searchParameter);
+            var response = await _fhirController.ConditionalUpdate(searchParameter, ifMatchHeader: null);
 
             Assert.Equal(2, attemptCount);
             Assert.IsType<FhirResult>(response);

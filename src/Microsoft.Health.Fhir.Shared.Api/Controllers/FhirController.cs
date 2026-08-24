@@ -259,11 +259,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Updates or creates a new resource
         /// </summary>
         /// <param name="resource">The resource.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header.</param>
         [HttpPut]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalUpdate)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
-        public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
+        public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
@@ -272,7 +273,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var response = await ExecuteWithSearchParameterRetryAsync(
                 resource.TypeName,
                 () => _mediator.SendAsync<UpsertResourceResponse>(
-                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
+                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
                 HttpContext.RequestAborted),
                 "ConditionalUpdate");
 
@@ -428,6 +429,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
         /// <param name="hardDeleteModel">The model for hard-delete indicating whether to hard-delete the resource or not.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header.</param>
         /// <param name="allowPartialSuccess">Allows for partial success of delete operation. Only applicable for hard delete on Cosmos services</param>
         [HttpDelete]
         [ValidateIdSegmentAttribute]
@@ -435,7 +437,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Delete)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Delete(string typeParameter, string idParameter, HardDeleteModel hardDeleteModel, [FromQuery] bool allowPartialSuccess)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, HardDeleteModel hardDeleteModel, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery] bool allowPartialSuccess)
         {
             var response = await ExecuteWithSearchParameterRetryAsync(
                 typeParameter,
@@ -444,7 +446,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                         new ResourceKey(typeParameter, idParameter),
                         hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                         GetBundleResourceContext(),
-                        allowPartialSuccess),
+                        allowPartialSuccess,
+                        ifMatchHeader),
                     HttpContext.RequestAborted),
                 "Delete");
 
@@ -456,19 +459,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header.</param>
         /// <param name="allowPartialSuccess">Allows for partial success of delete operation. Only applicable on Cosmos services</param>
         [HttpDelete]
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.PurgeHistoryResourceTypeById)]
         [AuditEventType(AuditEventSubType.PurgeHistory)]
-        public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter, [FromQuery] bool allowPartialSuccess)
+        public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery] bool allowPartialSuccess)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(
                 new DeleteResourceRequest(
                     new ResourceKey(typeParameter, idParameter),
                     DeleteOperation.PurgeHistory,
                     GetBundleResourceContext(),
-                    allowPartialSuccess),
+                    allowPartialSuccess,
+                    ifMatchHeader),
                 HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
@@ -479,12 +484,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="hardDeleteModel">The model for hard-delete indicating whether to hard-delete the resource or not.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header.</param>
         /// <param name="maxDeleteCount">Specifies the maximum number of resources that can be deleted.</param>
         [HttpDelete]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalDelete)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
-        public async Task<IActionResult> ConditionalDelete(string typeParameter, HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
+        public async Task<IActionResult> ConditionalDelete(string typeParameter, HardDeleteModel hardDeleteModel, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
@@ -498,7 +504,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     conditionalParameters,
                     hardDeleteModel.IsHardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     maxDeleteCount.GetValueOrDefault(1),
-                    GetBundleResourceContext()),
+                    GetBundleResourceContext(),
+                    weakETag: ifMatchHeader),
                 HttpContext.RequestAborted),
                 "ConditionalDelete");
 

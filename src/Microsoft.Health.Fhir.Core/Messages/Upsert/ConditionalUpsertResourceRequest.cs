@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Upsert
@@ -17,14 +18,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
         public ConditionalUpsertResourceRequest(
             ResourceElement resource,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            BundleResourceContext bundleResourceContext = null)
+            BundleResourceContext bundleResourceContext = null,
+            WeakETag weakETag = null)
             : base(resource.InstanceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
             Resource = resource;
+            WeakETag = weakETag;
         }
 
         public ResourceElement Resource { get; }
+
+        public WeakETag WeakETag { get; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }

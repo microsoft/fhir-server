@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -26,7 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             ResourceVersionType versionType = ResourceVersionType.Latest,
             bool allowPartialSuccess = false,
             bool isIncludesRequest = false,
-            bool removeReferences = false)
+            bool removeReferences = false,
+            WeakETag weakETag = null)
             : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
@@ -38,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             AllowPartialSuccess = allowPartialSuccess;
             IsIncludesRequest = isIncludesRequest;
             RemoveReferences = removeReferences;
+            WeakETag = weakETag;
         }
 
         public DeleteOperation DeleteOperation { get; }
@@ -54,6 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 
         public bool RemoveReferences { get; set; }
 
+        public WeakETag WeakETag { get; }
+
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
 
         public ConditionalDeleteResourceRequest Clone()
@@ -67,7 +72,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
                 DeleteAll,
                 VersionType,
                 AllowPartialSuccess,
-                IsIncludesRequest);
+                IsIncludesRequest,
+                RemoveReferences,
+                WeakETag);
         }
     }
 }
