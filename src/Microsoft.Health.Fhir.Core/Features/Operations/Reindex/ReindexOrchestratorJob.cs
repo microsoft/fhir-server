@@ -380,7 +380,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         ranges = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, resourcesPerJob, numberOfRangesPerBatch, true, _cancellationToken, true);
                         if (ranges.Any())
                         {
-                            var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType);
+                            var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(ranges, resourceType, urlsToProcess);
 
                             PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
 
@@ -410,7 +410,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     else
                     {
-                        batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType);
+                        batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(processingRanges, resourceType, urlsToProcess);
                     }
 
                     PopulateProcessingLookups(resourceType, searchParams, batchJobIds);
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(IReadOnlyList<(long StartId, long EndId, int Count)> ranges, string resourceType)
+        private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(IReadOnlyList<(long StartId, long EndId, int Count)> ranges, string resourceType, List<string> searchParameterUrls)
         {
             var definitions = new List<string>();
 
@@ -478,6 +478,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     ResourceType = resourceType,
                     MaximumNumberOfResourcesPerQuery = _definition.MaximumNumberOfResourcesPerQuery,
                     MaximumNumberOfResourcesPerWrite = _definition.MaximumNumberOfResourcesPerWrite,
+                    SearchParameterUrls = searchParameterUrls,
                 };
 
                 definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
