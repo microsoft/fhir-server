@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Reflection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -26,6 +27,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration
         public void GivenCurrentAssembly_WhenScanned_EnsureAllTestsHaveOwningTeamTrait()
         {
             AssemblyValidationsTester.EnsureAllTestsHaveOwningTeamTrait(_currentAssembly);
+        }
+
+        [Fact]
+        public void GivenCurrentAssembly_WhenScanned_EnsureNoSharedCollectionDefinitionCarriesTraits()
+        {
+            AssemblyValidationsTester.EnsureNoSharedCollectionDefinitionCarriesTraits(_currentAssembly);
+        }
+
+        [Fact]
+        public void GivenCurrentAssembly_WhenScanned_EnsureTheCustomTestFrameworkIsDeclared()
+        {
+            AssemblyValidationsTester.EnsureTestFrameworkIsDeclared(_currentAssembly, typeof(CustomXunitTestFramework));
         }
     }
 }

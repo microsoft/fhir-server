@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await TestFhirClient.UpdateAsync(patientToUpdate);
         }
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             // Test case #1
             // Create resources that directly referenced by the Patient resource

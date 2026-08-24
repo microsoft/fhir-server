@@ -30,36 +30,96 @@ steps:
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.unitTest, 'true') }}:
+  - task: PowerShell@2
+    displayName: 'Assert the unit test projects were found'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-UnitTestProjectsDiscovered.ps1'
+      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -ManifestPath "$(Build.SourcesDirectory)/build/jobs/scripts/UnitTestProjects.txt"'
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test'
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx --minimum-expected-tests 1'
+      # Disable the task's built-in result publishing so the PublishTestResults@2 task below,
+      # which controls the glob and how failures are treated, is the sole publisher.
+      publishTestResults: false
+    env:
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/unit-test-results'
+  - task: PowerShell@2
+    displayName: 'Reconcile retried unit test failures'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-RetriedFailuresPassed.ps1'
+      arguments: '-ResultsDirectory "$(Agent.TempDirectory)/unit-test-results"'
+    condition: succeeded()
+  - task: PublishTestResults@2
+    displayName: 'Publish unit test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/unit-test-results/**/*.trx'
+      mergeTestResults: true
       testRunTitle: 'Unit Tests'
+      # --retry-failed-tests re-runs the failures in a fresh process and writes one TRX per
+      # attempt under Retries/<id>/<n>/, all of which this glob matches. Attempt 1 therefore
+      # keeps a Failed record for a test that later passed, and mergeTestResults does not
+      # resolve the two, so failing the task on published results would cancel out every
+      # retry. The step that runs the tests fails on the runner's exit code, and the step that
+      # follows it reconciles the attempts against each other, because that exit code counts a
+      # test that failed and then skipped as recovered. The attempts are published here for
+      # visibility only.
+      failTaskOnFailedTests: false
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and there is nothing to notice.
+      failTaskOnMissingResultsFile: true
+    condition: succeededOrFailed()
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
+  - task: PowerShell@2
+    displayName: 'Assert the unit test projects were found'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-UnitTestProjectsDiscovered.ps1'
+      arguments: '-SourcesDirectory "$(Build.SourcesDirectory)" -ManifestPath "$(Build.SourcesDirectory)/build/jobs/scripts/UnitTestProjects.txt"'
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test with coverage'
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: 'Unit Tests'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx --minimum-expected-tests 1 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml"'
+      # Disable the task's built-in result publishing so the PublishTestResults@2 task below,
+      # which controls the glob and how failures are treated, is the sole publisher.
       publishTestResults: false
     env:
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
+  - task: PowerShell@2
+    displayName: 'Reconcile retried unit test failures'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-RetriedFailuresPassed.ps1'
+      arguments: '-ResultsDirectory "$(Agent.TempDirectory)/coverage"'
+    condition: succeeded()
   - task: PublishTestResults@2
-    displayName: 'Publish unit test results'
-    condition: succeededOrFailed()
+    displayName: 'Publish unit test with coverage results'
     inputs:
       testResultsFormat: 'VSTest'
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
-      failTaskOnFailedTests: true
+      # --retry-failed-tests re-runs the failures in a fresh process and writes one TRX per
+      # attempt under Retries/<id>/<n>/, all of which this glob matches. Attempt 1 therefore
+      # keeps a Failed record for a test that later passed, and mergeTestResults does not
+      # resolve the two, so failing the task on published results would cancel out every
+      # retry. The step that runs the tests fails on the runner's exit code, and the step that
+      # follows it reconciles the attempts against each other, because that exit code counts a
+      # test that failed and then skipped as recovered. The attempts are published here for
+      # visibility only.
+      failTaskOnFailedTests: false
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and there is nothing to notice.
+      failTaskOnMissingResultsFile: true
+    condition: succeededOrFailed()
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()

@@ -4,102 +4,255 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit.Abstractions;
+using Xunit;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
     /// Test case that implements retry logic.
     /// </summary>
-    public class RetryTestCase : XunitTestCase
+    public sealed class RetryTestCase : XunitTestCase, ISelfExecutingXunitTestCase
     {
         private int _maxRetries;
         private int _delayMs;
         private bool _retryOnAssertionFailure;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RetryTestCase"/> class. Used only by the deserializer.
+        /// </summary>
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Called by the de-serializer; should only be called by deriving classes for de-serialization purposes")]
         public RetryTestCase()
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RetryTestCase"/> class.
+        /// </summary>
+        /// <param name="testMethod">The test method this test case belongs to.</param>
+        /// <param name="displayName">The display name reported for the test case.</param>
+        /// <param name="uniqueId">The unique ID of the test case.</param>
+        /// <param name="explicit">Whether the test case is only run when explicitly selected.</param>
+        /// <param name="skipExceptions">Exception types that cause the test to be reported as skipped rather than failed.</param>
+        /// <param name="skipReason">The static reason the test is skipped, or <c>null</c> if it is not skipped.</param>
+        /// <param name="skipType">The type containing the member named by <paramref name="skipUnless"/> or <paramref name="skipWhen"/>.</param>
+        /// <param name="skipUnless">The name of a property that must be <c>true</c> for the test to run.</param>
+        /// <param name="skipWhen">The name of a property that must be <c>false</c> for the test to run.</param>
+        /// <param name="traits">The traits associated with the test case.</param>
+        /// <param name="testMethodArguments">The arguments passed to the test method.</param>
+        /// <param name="sourceFile">The source file containing the test method.</param>
+        /// <param name="sourceLine">The line number of the test method.</param>
+        /// <param name="timeout">The per-attempt timeout in milliseconds, or <c>null</c> for none.</param>
+        /// <param name="maxRetries">The maximum number of attempts. Values below one are clamped to one.</param>
+        /// <param name="delayMs">The delay in milliseconds between attempts.</param>
+        /// <param name="retryOnAssertionFailure">Whether assertion failures should be retried, rather than only non-assertion exceptions.</param>
         public RetryTestCase(
-            IMessageSink diagnosticMessageSink,
-            TestMethodDisplay defaultMethodDisplay,
-            TestMethodDisplayOptions defaultMethodDisplayOptions,
-            ITestMethod testMethod,
+            IXunitTestMethod testMethod,
+            string displayName,
+            string uniqueId,
+            bool @explicit,
+            Type[] skipExceptions,
+            string skipReason,
+            Type skipType,
+            string skipUnless,
+            string skipWhen,
+            Dictionary<string, HashSet<string>> traits,
+            object[] testMethodArguments,
+            string sourceFile,
+            int? sourceLine,
+            int? timeout,
             int maxRetries,
             int delayMs,
-            bool retryOnAssertionFailure = false,
-            object[] testMethodArguments = null)
-            : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
+            bool retryOnAssertionFailure)
+            : base(testMethod, displayName, uniqueId, @explicit, skipExceptions, skipReason, skipType, skipUnless, skipWhen, traits, testMethodArguments, sourceFile, sourceLine, timeout)
         {
-            _maxRetries = maxRetries;
-            _delayMs = delayMs;
+            // A retry count below one would skip the attempt loop entirely and report no result
+            // at all, silently dropping the test. Always run at least one attempt.
+            _maxRetries = Math.Max(1, maxRetries);
+
+            // A negative delay below -1 makes Task.Delay throw, turning a configuration slip into
+            // an unrelated crash inside the retry loop.
+            _delayMs = Math.Max(0, delayMs);
             _retryOnAssertionFailure = retryOnAssertionFailure;
         }
 
-        public override async Task<RunSummary> RunAsync(
-            IMessageSink diagnosticMessageSink,
+        /// <summary>
+        /// Names the test in diagnostics.
+        /// </summary>
+        /// <remarks>
+        /// The display name is used rather than the class and method names because those are not
+        /// unique: a method expanded over fixture argument sets, or a theory with several rows,
+        /// produces many test cases sharing them. Retry diagnostics are read when something has
+        /// already gone wrong, and messages that cannot say which variant retried, or failed after
+        /// exhausting its attempts, are worth little at that point. The display name carries the
+        /// variant and the row, and falls back to the class and method if it is not set.
+        /// </remarks>
+        private string TestDescription =>
+            !string.IsNullOrEmpty(TestCaseDisplayName)
+                ? TestCaseDisplayName
+                : $"{TestMethod?.TestClass?.TestClassName}.{TestMethod?.MethodName}";
+
+        /// <summary>
+        /// Runs the test case, retrying a failed attempt up to the configured number of attempts.
+        /// </summary>
+        /// <remarks>
+        /// Nothing here decides whether a failure was transient. Every failure is retried except one
+        /// classified as an assertion failure, which is retried only when the test asks for it with
+        /// <c>RetryOnAssertionFailure</c> - see <see cref="ShouldRetry"/>. A deterministic failure is
+        /// therefore retried too, and fails every attempt, which costs time but reports the same
+        /// result. Read a passing retry as "this attempt passed", not as "the failure was transient".
+        /// </remarks>
+        /// <param name="explicitOption">Whether explicit tests should be run.</param>
+        /// <param name="messageBus">The message bus that test results are reported to.</param>
+        /// <param name="constructorArguments">The arguments to pass to the test class constructor.</param>
+        /// <param name="aggregator">The exception aggregator for the containing test class.</param>
+        /// <param name="cancellationTokenSource">The cancellation token source for the test run.</param>
+        /// <returns>A summary of the run. Reporters derive their results from <paramref name="messageBus"/>
+        /// rather than from this summary, so every outcome must also be reported as a message.</returns>
+        public async ValueTask<RunSummary> Run(
+            ExplicitOption explicitOption,
             IMessageBus messageBus,
             object[] constructorArguments,
             ExceptionAggregator aggregator,
             CancellationTokenSource cancellationTokenSource)
         {
-            // Use System.Diagnostics.Trace for ADO visibility
-            Trace.WriteLine($"##vso[task.logdetail]RetryFact starting test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' with MaxRetries={_maxRetries}, DelayMs={_delayMs}, RetryOnAssertionFailure={_retryOnAssertionFailure}");
+            // Trace output is only visible to an attached debugger, never in CI logs. Anything
+            // that needs to show up in a pipeline log has to go to Console instead.
+            Trace.WriteLine($"RetryFact starting test '{TestDescription}' with MaxRetries={_maxRetries}, DelayMs={_delayMs}, RetryOnAssertionFailure={_retryOnAssertionFailure}");
 
             var runSummary = new RunSummary { Total = 1 };
             Exception lastException = null;
+
+            // Holds the deferred failure of an attempt that is about to be retried. It is discarded
+            // only once a later attempt has actually reported a result, so that a run cancelled
+            // between attempts still reports the failure that was already observed instead of
+            // silently dropping the test.
+            FailureInterceptingMessageBus pendingFailureBus = null;
 
             for (int attempt = 1; attempt <= _maxRetries; attempt++)
             {
                 var isLastAttempt = attempt == _maxRetries;
 
-                Trace.WriteLine($"##vso[task.logdetail]RetryFact attempt {attempt}/{_maxRetries} for test '{TestMethod.Method.Name}'");
+                Trace.WriteLine($"RetryFact attempt {attempt}/{_maxRetries} for test '{TestDescription}'");
 
                 // Create a fresh aggregator for each attempt
                 var attemptAggregator = new ExceptionAggregator();
 
-                // Only intercept failure messages on non-final attempts
-                // On the final attempt, let everything go through (both success and failure)
-                IMessageBus busToUse;
                 FailureInterceptingMessageBus interceptingBus = null;
-
-                if (isLastAttempt)
-                {
-                    busToUse = messageBus;
-                }
-                else
-                {
-                    interceptingBus = new FailureInterceptingMessageBus(messageBus);
-                    busToUse = interceptingBus;
-                }
 
                 try
                 {
-                    var summary = await base.RunAsync(
-                        diagnosticMessageSink,
-                        busToUse,
-                        constructorArguments,
+                    // Always wrap the bus so the failure details are available for the CI log, but only
+                    // defer (hide) a failure while a further attempt could still supersede it.
+                    interceptingBus = new FailureInterceptingMessageBus(
+                        messageBus,
+                        deferFailures: !isLastAttempt,
+                        deferAbstentions: pendingFailureBus?.HasDeferredFailure ?? false);
+
+                    var summary = await XunitRunnerHelper.RunXunitTestCase(
+                        this,
+                        interceptingBus,
+                        cancellationTokenSource,
                         attemptAggregator,
-                        cancellationTokenSource);
+                        explicitOption,
+                        constructorArguments);
 
                     runSummary.Time = summary.Time;
+
+                    // A cancelled run short-circuits and reports nothing, which is not the same as
+                    // passing. Treating an empty summary as success would drop the test from the
+                    // results entirely, taking any failure already seen on an earlier attempt with it.
+                    //
+                    // An empty summary is the only reliable signal that the attempt reported
+                    // nothing. Cancellation on its own is not: an attempt that ran to completion
+                    // while cancellation was requested has already reported its own result through
+                    // the bus, and replaying an earlier attempt's deferred failure on top of that
+                    // adds a second, orphaned result for a test that actually finished.
+                    if (summary.Total == 0)
+                    {
+                        NoResultOutcome outcome = DecideNoResultOutcome(
+                            currentAttemptObservedFailure: interceptingBus.HasObservedFailure,
+                            earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
+
+                        Console.WriteLine(
+                            outcome == NoResultOutcome.ReportNothing
+                                ? $"[RetryFact] Test '{TestDescription}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted), and no earlier attempt observed a failure, so there is nothing to report for it."
+                                : $"[RetryFact] Test '{TestDescription}' reported no result for attempt {attempt}/{_maxRetries} (the run was cancelled or aborted). Reporting the last observed failure rather than a pass.");
+
+                        // At most one bus is replayed. A failure this attempt saw supersedes anything held
+                        // over from an earlier one, and replaying both would publish two results for a
+                        // single test.
+                        bool continueRunning = ReportSingleResult(outcome, interceptingBus, pendingFailureBus);
+
+                        StopRunIfRequested(continueRunning, cancellationTokenSource);
+
+                        Exception noResultException = SelectNoResultException(
+                            outcome,
+                            currentAttemptException: attemptAggregator.ToException(),
+                            earlierAttemptException: lastException);
+
+                        if (noResultException != null)
+                        {
+                            aggregator.Add(noResultException);
+                        }
+
+                        RunSummary noResultSummary = CreateNoResultSummary(outcome);
+                        noResultSummary.Time = runSummary.Time;
+                        return noResultSummary;
+                    }
+
+                    // A skip is not a pass. An attempt that abstains has not shown the test to be
+                    // sound, so it must not erase a failure an earlier attempt already demonstrated:
+                    // that failure is real, and discarding it here reports the test as skipped or
+                    // not run, which no CI leg treats as a failure.
+                    if (summary.Failed == 0 &&
+                        (summary.Skipped > 0 || summary.NotRun > 0) &&
+                        (pendingFailureBus?.HasDeferredFailure ?? false))
+                    {
+                        Console.WriteLine(
+                            $"[RetryFact] Test '{TestDescription}' skipped itself on attempt {attempt}/{_maxRetries} after failing earlier. Reporting the failure rather than the skip.");
+
+                        // The abstention was held rather than published, so dropping it now leaves
+                        // the replayed failure as the test's only result.
+                        interceptingBus.DiscardDeferredMessages();
+
+                        bool replayed = pendingFailureBus.ReplayDeferredMessages();
+                        pendingFailureBus = null;
+                        StopRunIfRequested(replayed, cancellationTokenSource);
+
+                        runSummary.Failed = 1;
+                        return runSummary;
+                    }
+
+                    // This attempt reported a real result, so a failure held over from an earlier
+                    // attempt has been superseded and must not also be reported.
+                    pendingFailureBus?.DiscardDeferredMessages();
 
                     if (summary.Failed == 0)
                     {
                         // Test passed - success message already went through to Test Explorer
-                        Trace.WriteLine($"##vso[task.logdetail]RetryFact test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' passed on attempt {attempt}/{_maxRetries}");
-                        diagnosticMessageSink.OnMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' passed on attempt {attempt}/{_maxRetries}"));
+                        Trace.WriteLine($"RetryFact test '{TestDescription}' passed on attempt {attempt}/{_maxRetries}");
+                        messageBus.QueueMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' passed on attempt {attempt}/{_maxRetries}"));
 
                         runSummary.Failed = 0;
+
+                        // A test that was skipped or left unrun did not pass, and the counts saying so
+                        // live on the attempt's summary. Returning only Total and Failed would report
+                        // it to anything reading this summary as a test that ran and passed. The
+                        // Microsoft Testing Platform runner is not such a reader - it counts the
+                        // messages instead, and reports the skip correctly either way - so this keeps
+                        // the summary contract rather than fixing anything visible in a CI report.
+                        runSummary.Skipped = summary.Skipped;
+                        runSummary.NotRun = summary.NotRun;
                         return runSummary;
                     }
 
@@ -109,9 +262,9 @@ namespace Microsoft.Health.Extensions.Xunit
                     // If no exception was captured but test failed, create an exception using captured failure details
                     if (lastException == null && summary.Failed > 0)
                     {
-                        string failureMsg = interceptingBus?.LastFailureMessage ?? "Test failed but no exception was captured.";
-                        string stackTrace = interceptingBus?.LastFailureStackTrace;
-                        bool isAssertionFailure = interceptingBus?.IsAssertionFailure ?? false;
+                        string failureMsg = interceptingBus.LastFailureMessage ?? "Test failed but no exception was captured.";
+                        string stackTrace = interceptingBus.LastFailureStackTrace;
+                        bool isAssertionFailure = interceptingBus.IsAssertionFailure;
 
                         string fullMessage = failureMsg +
                             (stackTrace != null ? Environment.NewLine + "Stack Trace:" + Environment.NewLine + stackTrace : string.Empty);
@@ -127,22 +280,29 @@ namespace Microsoft.Health.Extensions.Xunit
                             lastException = new InvalidOperationException(fullMessage);
                         }
 
-                        Trace.WriteLine($"##vso[task.logdetail]RetryFact: Test failed but exception is null, created placeholder exception (IsAssertion={isAssertionFailure})");
+                        Trace.WriteLine($"RetryFact: Test failed but exception is null, created placeholder exception (IsAssertion={isAssertionFailure})");
                     }
 
-                    Trace.WriteLine($"##vso[task.logdetail]RetryFact test failed on attempt {attempt} with exception type: {lastException?.GetType().FullName ?? "null"}, Message: {lastException?.Message ?? "null"}");
+                    Trace.WriteLine($"RetryFact test failed on attempt {attempt} with exception type: {lastException?.GetType().FullName ?? "null"}, Message: {lastException?.Message ?? "null"}");
 
                     if (!isLastAttempt)
                     {
                         // Check if we should retry this exception (now handles null)
                         var shouldRetry = ShouldRetry(lastException);
-                        Trace.WriteLine($"##vso[task.logdetail]RetryFact ShouldRetry={shouldRetry} for exception type {lastException?.GetType().FullName ?? "null"}");
+                        Trace.WriteLine($"RetryFact ShouldRetry={shouldRetry} for exception type {lastException?.GetType().FullName ?? "null"}");
 
                         if (!shouldRetry)
                         {
-                            Trace.WriteLine($"##vso[task.logissue type=warning]Test '{TestMethod.Method.Name}' failed with non-retriable exception. Skipping retries.");
-                            diagnosticMessageSink.OnMessage(
-                                new DiagnosticMessage($"[RetryFact] Test '{TestMethod.Method.Name}' failed with non-retriable exception. Skipping retries."));
+                            Console.WriteLine($"[RetryFact] Test '{TestDescription}' failed with a non-retriable exception on attempt {attempt}/{_maxRetries}. Skipping remaining retries.");
+                            messageBus.QueueMessage(
+                                new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' failed with non-retriable exception. Skipping retries."));
+
+                            // This attempt ran on the intercepting bus, which deferred the
+                            // ITestFailed message so the test could be retried. We are not
+                            // retrying, so replay it now: the reporters derive their results
+                            // solely from the message bus, and without this the failure would
+                            // disappear from the test results entirely and the run would pass.
+                            StopRunIfRequested(interceptingBus.ReplayDeferredMessages(), cancellationTokenSource);
 
                             if (lastException != null)
                             {
@@ -153,19 +313,49 @@ namespace Microsoft.Health.Extensions.Xunit
                             return runSummary;
                         }
 
-                        // Not the last attempt - the failure was intercepted, so retry
-                        Trace.WriteLine($"##vso[task.logissue type=warning]Test '{TestMethod.Method.Name}' failed on attempt {attempt}/{_maxRetries}, will retry after {_delayMs}ms");
-                        diagnosticMessageSink.OnMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message ?? "No exception message"}"));
+                        // Not the last attempt - the failure was intercepted, so retry.
+                        // Carry the deferred failure forward rather than discarding it now: if the
+                        // run is cancelled during the delay, or the next attempt never reports a
+                        // result, this is the only remaining record that the test failed.
+                        pendingFailureBus = interceptingBus;
 
-                        await Task.Delay(_delayMs);
+                        // Ownership moves to pendingFailureBus. Clear the local so this iteration's
+                        // finally does not dispose it, which would replay the failure immediately.
+                        interceptingBus = null;
+
+                        Console.WriteLine($"[RetryFact] Test '{TestDescription}' failed on attempt {attempt}/{_maxRetries}, retrying after {_delayMs}ms. Error: {lastException?.Message ?? "No exception message"}");
+                        messageBus.QueueMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message ?? "No exception message"}"));
+
+                        try
+                        {
+                            await Task.Delay(_delayMs, cancellationTokenSource.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Cancelled while waiting to retry. The failure from this attempt is
+                            // still deferred, so report it instead of letting the test vanish.
+                            Console.WriteLine($"[RetryFact] Test '{TestDescription}' was cancelled during the retry delay after attempt {attempt}/{_maxRetries}. Reporting the failure from that attempt.");
+
+                            pendingFailureBus.ReplayDeferredMessages();
+
+                            // The run is already cancelling, so there is nothing further to stop and
+                            // the replay result is deliberately ignored here.
+                            if (lastException != null)
+                            {
+                                aggregator.Add(lastException);
+                            }
+
+                            runSummary.Failed = 1;
+                            return runSummary;
+                        }
                     }
                     else
                     {
                         // Last attempt - failure message already went through to Test Explorer
-                        Trace.WriteLine($"##vso[task.logissue type=error]Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed after {_maxRetries} attempts. Final error: {lastException?.Message ?? "No exception captured"}");
-                        diagnosticMessageSink.OnMessage(
-                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message ?? "No exception message"}"));
+                        Console.WriteLine($"[RetryFact] Test '{TestDescription}' failed after all {_maxRetries} attempts. Final error: {lastException?.Message ?? "No exception captured"}");
+                        messageBus.QueueMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestDescription}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message ?? "No exception message"}"));
 
                         if (lastException != null)
                         {
@@ -173,7 +363,10 @@ namespace Microsoft.Health.Extensions.Xunit
                         }
                         else if (summary.Failed > 0)
                         {
-                            // Add an exception with captured failure details if test failed but no exception was captured
+                            // Defensive only: a failing attempt always has an exception synthesized
+                            // for it above, so reaching this means that invariant has been broken.
+                            // Reporting something generic is still better than reporting a failure
+                            // with nothing attached to explain it.
                             aggregator.Add(new InvalidOperationException($"Test failed after {_maxRetries} attempts but no exception was captured"));
                         }
 
@@ -183,133 +376,530 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
                 catch (Exception ex)
                 {
-                    Trace.WriteLine($"##vso[task.logissue type=error]RetryFact unexpected exception: {ex.GetType().FullName}: {ex.Message}");
+                    Console.WriteLine($"[RetryFact] Unexpected exception while running '{TestDescription}': {ex.GetType().FullName}: {ex.Message}");
+
+                    // A crash must not swallow a failure an earlier attempt already produced, but at
+                    // most one attempt's result may reach the bus: replaying both would publish two
+                    // results for a single test. That is the same supersession rule the no-result
+                    // path applies, so it is decided - and carried out - the same way here.
+                    NoResultOutcome disposition = DecideNoResultOutcome(
+                        currentAttemptObservedFailure: interceptingBus?.HasObservedFailure ?? false,
+                        earlierAttemptObservedFailure: pendingFailureBus?.HasDeferredFailure ?? false);
+
+                    // The run is already unwinding, so a request to stop has nothing left to stop.
+                    ReportSingleResult(disposition, interceptingBus, pendingFailureBus);
+
                     throw;
                 }
                 finally
                 {
-                    // Dispose the intercepting bus if we created one
                     interceptingBus?.Dispose();
                 }
             }
 
             // Should never reach here
-            Trace.WriteLine($"##vso[task.logissue type=error]RetryFact WARNING: Reached end of retry loop unexpectedly");
+            Console.WriteLine($"[RetryFact] Reached the end of the retry loop unexpectedly for '{TestDescription}'. Reporting the test as failed.");
             runSummary.Failed = 1;
             return runSummary;
         }
 
-        public override void Serialize(IXunitSerializationInfo data)
+        /// <summary>
+        /// Cancels the run when the message bus asked for it to stop.
+        /// </summary>
+        /// <param name="continueRunning">The result of replaying deferred messages.</param>
+        /// <param name="cancellationTokenSource">The run's cancellation source.</param>
+        /// <remarks>
+        /// A deferred failure answers <c>true</c> to the runner when it is queued, because at that
+        /// point the test may still be retried. Replaying it is therefore the first and only chance
+        /// to honour a request to stop, such as the one <c>--stop-on-fail</c> makes.
+        /// </remarks>
+        private static void StopRunIfRequested(bool continueRunning, CancellationTokenSource cancellationTokenSource)
         {
-            base.Serialize(data);
-            data.AddValue(nameof(_maxRetries), _maxRetries);
-            data.AddValue(nameof(_delayMs), _delayMs);
-            data.AddValue(nameof(_retryOnAssertionFailure), _retryOnAssertionFailure);
+            if (!continueRunning)
+            {
+                cancellationTokenSource.Cancel();
+            }
         }
 
-        public override void Deserialize(IXunitSerializationInfo data)
+        /// <summary>
+        /// Decides how an attempt that published no result of its own should be accounted for.
+        /// </summary>
+        /// <param name="currentAttemptObservedFailure">Whether this attempt saw a failure before it was cut short.</param>
+        /// <param name="earlierAttemptObservedFailure">Whether an earlier attempt deferred a failure that has not been superseded.</param>
+        /// <returns>Which deferred failure, if any, should reach the results.</returns>
+        /// <remarks>
+        /// This rule governs both places an attempt can end without reporting: the empty-summary
+        /// path, and the crash path where an unexpected exception unwinds the attempt. Both have to
+        /// let at most one attempt's failure reach the bus, because replaying two would publish two
+        /// results for a single test, so both decide it here rather than each reimplementing it.
+        /// </remarks>
+        internal static NoResultOutcome DecideNoResultOutcome(bool currentAttemptObservedFailure, bool earlierAttemptObservedFailure)
         {
-            base.Deserialize(data);
-            _maxRetries = data.GetValue<int>(nameof(_maxRetries));
-            _delayMs = data.GetValue<int>(nameof(_delayMs));
-            _retryOnAssertionFailure = data.GetValue<bool>(nameof(_retryOnAssertionFailure));
+            if (currentAttemptObservedFailure)
+            {
+                return NoResultOutcome.ReplayCurrentAttempt;
+            }
+
+            return earlierAttemptObservedFailure
+                ? NoResultOutcome.ReplayEarlierAttempt
+                : NoResultOutcome.ReportNothing;
+        }
+
+        /// <summary>
+        /// Publishes at most one attempt's held-back messages, and drops the other attempt's.
+        /// </summary>
+        /// <param name="outcome">The outcome chosen by <see cref="DecideNoResultOutcome"/>.</param>
+        /// <param name="currentAttempt">The bus this attempt ran on, or <c>null</c> once its ownership has moved.</param>
+        /// <param name="earlierAttempt">The bus carrying a failure held over from an earlier attempt, if any.</param>
+        /// <returns><c>false</c> when the underlying bus asked for the run to stop.</returns>
+        /// <remarks>
+        /// Deciding which attempt wins is not enough on its own: the loser's messages have to be
+        /// dropped as well, because a bus still holding messages replays them when it is disposed.
+        /// That fail-safe exists so a failure can never be lost, but it makes silence the one thing
+        /// a caller cannot express by omission - leaving the loser alone publishes it anyway, a
+        /// moment after the winner. An abstention held by an attempt that then crashed would arrive
+        /// as a second result on top of the earlier attempt's failure, and a skip landing after a
+        /// failure is exactly the reordering that turns a red test green.
+        /// </remarks>
+        internal static bool ReportSingleResult(
+            NoResultOutcome outcome,
+            FailureInterceptingMessageBus currentAttempt,
+            FailureInterceptingMessageBus earlierAttempt)
+        {
+            switch (outcome)
+            {
+                case NoResultOutcome.ReplayCurrentAttempt:
+                    earlierAttempt?.DiscardDeferredMessages();
+                    return currentAttempt?.ReplayDeferredMessages() ?? true;
+
+                case NoResultOutcome.ReplayEarlierAttempt:
+                    currentAttempt?.DiscardDeferredMessages();
+                    return earlierAttempt?.ReplayDeferredMessages() ?? true;
+
+                case NoResultOutcome.ReportNothing:
+                    // Nothing observed a failure, so there is no competition to resolve. Whatever the
+                    // current attempt is still holding - an abstention, typically - is the only
+                    // result the test has, and is left for its disposal to publish.
+                    earlierAttempt?.DiscardDeferredMessages();
+                    currentAttempt?.PublishDeferredMessagesOnDispose();
+                    return true;
+
+                default:
+                    // An outcome added later and not handled here would publish nothing while
+                    // CreateNoResultSummary counted a failure, and the runner's verdict comes from
+                    // the messages rather than the summary, so the failure would be lost and the run
+                    // would pass. Refusing an outcome nobody taught this how to report is the only
+                    // answer that cannot end in a green run hiding one.
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "No handling is defined for this outcome, so a failure it stands for would not reach the results.");
+            }
+        }
+
+        /// <summary>
+        /// Chooses the exception that belongs with the failure being reported for an attempt that
+        /// published no result of its own.
+        /// </summary>
+        /// <param name="outcome">The outcome chosen by <see cref="DecideNoResultOutcome"/>.</param>
+        /// <param name="currentAttemptException">The exception this attempt captured, if any.</param>
+        /// <param name="earlierAttemptException">The exception captured by the most recent attempt that failed, if any.</param>
+        /// <returns>The exception to attach to the reported failure, or <c>null</c> when nothing should be attached.</returns>
+        /// <remarks>
+        /// The exception has to describe the same failure that was replayed to the bus, otherwise
+        /// the run reports one attempt's failure alongside a different attempt's error text. So the
+        /// choice mirrors the bus exactly: the current attempt's failure carries the current
+        /// attempt's exception, an earlier attempt's failure carries the earlier one's, and an
+        /// attempt that reported nothing at all attaches nothing. Attaching the earlier exception to
+        /// a current-attempt failure is the specific mistake this guards against, because
+        /// <c>lastException</c> still holds the previous attempt's error at that point.
+        /// </remarks>
+        internal static Exception SelectNoResultException(NoResultOutcome outcome, Exception currentAttemptException, Exception earlierAttemptException)
+        {
+            switch (outcome)
+            {
+                case NoResultOutcome.ReplayCurrentAttempt:
+                    return currentAttemptException;
+
+                case NoResultOutcome.ReplayEarlierAttempt:
+                    return earlierAttemptException;
+
+                case NoResultOutcome.ReportNothing:
+                    return null;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "No handling is defined for this outcome, so the exception reported with it would not describe the failure being replayed.");
+            }
+        }
+
+        /// <summary>
+        /// Builds the summary for an attempt that published no result of its own.
+        /// </summary>
+        /// <param name="outcome">The outcome chosen by <see cref="DecideNoResultOutcome"/>.</param>
+        /// <returns>The totals this test contributes to the run.</returns>
+        /// <remarks>
+        /// A replayed failure is a published result, so it counts as one failed test. When nothing
+        /// was ever published the test contributes nothing at all: counting it would claim an
+        /// outcome that no attempt reported, and a total of one with no failures reads as a pass.
+        /// </remarks>
+        internal static RunSummary CreateNoResultSummary(NoResultOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case NoResultOutcome.ReportNothing:
+                    return new RunSummary { Total = 0, Failed = 0 };
+
+                case NoResultOutcome.ReplayCurrentAttempt:
+                case NoResultOutcome.ReplayEarlierAttempt:
+                    return new RunSummary { Total = 1, Failed = 1 };
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "No handling is defined for this outcome, so the totals it contributes would not match what was published.");
+            }
+        }
+
+        protected override void Serialize(IXunitSerializationInfo info)
+        {
+            base.Serialize(info);
+            info.AddValue(nameof(_maxRetries), _maxRetries);
+            info.AddValue(nameof(_delayMs), _delayMs);
+            info.AddValue(nameof(_retryOnAssertionFailure), _retryOnAssertionFailure);
+        }
+
+        protected override void Deserialize(IXunitSerializationInfo info)
+        {
+            base.Deserialize(info);
+            _maxRetries = Math.Max(1, info.GetValue<int>(nameof(_maxRetries)));
+            _delayMs = Math.Max(0, info.GetValue<int>(nameof(_delayMs)));
+            _retryOnAssertionFailure = info.GetValue<bool>(nameof(_retryOnAssertionFailure));
         }
 
         /// <summary>
         /// Determines if an exception should trigger a retry.
         /// </summary>
+        /// <remarks>
+        /// The whole exception tree is searched, not just the outermost exception or a chain of
+        /// single-inner aggregates. An assertion that fails inside <c>Task.WhenAll</c>, a parallel
+        /// helper, or any teardown that runs alongside it arrives wrapped in an
+        /// <see cref="AggregateException"/> that may hold several inner exceptions, and stopping at
+        /// the first fork would classify it as an ordinary exception and retry it - the very thing
+        /// <see cref="RetryOnAssertionFailure"/> was set to prevent. This matches how the message bus
+        /// classifies the same failure, which reads the full chain of reported type names; the two
+        /// have to agree, or whether the policy is honoured would depend on which of them happened to
+        /// see the failure first.
+        /// <para>
+        /// A timeout needs no carve-out here. The bus classifies by type name and so has to exclude
+        /// <c>Xunit.Sdk.TestTimeoutException</c> explicitly, but that type derives from
+        /// <see cref="Exception"/> rather than <see cref="XunitException"/>, so it never matches the
+        /// test below and is retried, which is what a timeout deserves.
+        /// </para>
+        /// </remarks>
         private bool ShouldRetry(Exception ex)
         {
             // If exception is null, we should retry (something went wrong with exception capture)
             if (ex == null)
             {
-                Trace.WriteLine($"##vso[task.logdetail]RetryFact: Exception is null, will retry");
+                Trace.WriteLine($"RetryFact: Exception is null, will retry");
                 return true; // Retry when we can't determine the exception type
             }
 
-            // Unwrap aggregate exceptions
-            while (ex is AggregateException aggEx && aggEx.InnerExceptions.Count == 1)
-            {
-                ex = aggEx.InnerException;
-            }
-
             // Don't retry assertion failures unless explicitly configured
-            if (ex is XunitException)
+            if (ContainsAssertionFailure(ex))
             {
-                if (!_retryOnAssertionFailure)
-                {
-                    Trace.WriteLine($"##vso[task.logdetail]RetryFact: Not retrying XunitException because _retryOnAssertionFailure is false");
-                    return false;
-                }
-                else
-                {
-                    Trace.WriteLine($"##vso[task.logdetail]RetryFact: Retrying XunitException because _retryOnAssertionFailure is true");
-                    return true;
-                }
+                Trace.WriteLine($"RetryFact: {(_retryOnAssertionFailure ? "Retrying" : "Not retrying")} XunitException because _retryOnAssertionFailure is {_retryOnAssertionFailure.ToString().ToLowerInvariant()}");
+                return _retryOnAssertionFailure;
             }
 
             // Retry everything else (network, timeout, SQL transient, etc.)
-            Trace.WriteLine($"##vso[task.logdetail]RetryFact: Retrying non-assertion exception of type {ex.GetType().FullName}");
+            Trace.WriteLine($"RetryFact: Retrying non-assertion exception of type {ex.GetType().FullName}");
             return true;
         }
 
         /// <summary>
-        /// Message bus that intercepts ONLY failure messages (ITestFailed).
-        /// Used on non-final retry attempts to suppress intermediate failures.
-        /// Success messages and all other messages always pass through.
-        /// Also captures failure details (messages and stack traces) for diagnostic purposes.
+        /// Reports whether an exception is, or contains anywhere within it, an assertion failure.
         /// </summary>
-        private class FailureInterceptingMessageBus : IMessageBus
+        /// <remarks>
+        /// Separate and internal so the decision can be pinned directly. In a real run the message bus
+        /// almost always classifies the failure first, because xunit reports failures through the bus
+        /// rather than letting them out of the attempt, which leaves this path reachable but rarely
+        /// taken - and a rarely taken path that disagrees with the common one is exactly the kind of
+        /// difference that only shows up as an unexplained retry long after the fact.
+        /// </remarks>
+        /// <param name="exception">The exception to classify.</param>
+        /// <returns><c>true</c> if an assertion failure appears anywhere in the exception tree.</returns>
+        internal static bool ContainsAssertionFailure(Exception exception) =>
+            exception != null && EnumerateExceptionTree(exception).Any(inner => inner is XunitException);
+
+        /// <summary>
+        /// Walks an exception and everything nested inside it, including every branch of an
+        /// <see cref="AggregateException"/>.
+        /// </summary>
+        /// <param name="exception">The exception to walk.</param>
+        /// <returns>The exception followed by each exception nested within it.</returns>
+        private static IEnumerable<Exception> EnumerateExceptionTree(Exception exception)
+        {
+            var pending = new Stack<Exception>();
+            pending.Push(exception);
+
+            while (pending.Count > 0)
+            {
+                Exception current = pending.Pop();
+                yield return current;
+
+                if (current is AggregateException aggregate)
+                {
+                    foreach (Exception inner in aggregate.InnerExceptions)
+                    {
+                        if (inner != null)
+                        {
+                            pending.Push(inner);
+                        }
+                    }
+                }
+                else if (current.InnerException != null)
+                {
+                    pending.Push(current.InnerException);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Message bus that defers failure messages (ITestFailed) so that an attempt which is
+        /// about to be retried leaves no trace in the test results.
+        /// </summary>
+        /// <remarks>
+        /// Once a failure is seen, every subsequent message for that attempt is buffered too.
+        /// Reporters finalize a test when they see ITestFinished, so forwarding a failure after
+        /// its ITestFinished has already gone through has no effect - the failure would be
+        /// dropped and the test would disappear from the run entirely. Buffering the tail of the
+        /// attempt keeps the messages in their original order, so the caller can either discard
+        /// them (retrying) or replay them intact (reporting the failure).
+        /// </remarks>
+        internal class FailureInterceptingMessageBus : IMessageBus
         {
             private readonly IMessageBus _innerBus;
+            private readonly bool _deferFailures;
+            private readonly bool _deferAbstentions;
+            private readonly List<IMessageSinkMessage> _deferredMessages = new List<IMessageSinkMessage>();
+            private bool _deferring;
+            private bool _replayOnDisposeIsIntended;
 
-            public FailureInterceptingMessageBus(IMessageBus innerBus)
+            public FailureInterceptingMessageBus(IMessageBus innerBus, bool deferFailures, bool deferAbstentions = false)
             {
                 _innerBus = innerBus;
+                _deferFailures = deferFailures;
+                _deferAbstentions = deferAbstentions;
             }
 
             public string LastFailureMessage { get; private set; }
+
+            /// <summary>
+            /// Gets or sets where this bus writes its own diagnostics, defaulting to the console.
+            /// </summary>
+            /// <remarks>
+            /// Exists so a test can read what was reported without redirecting the console, which is
+            /// process-wide state and would make any test doing it unsafe to run alongside others.
+            /// </remarks>
+            public Action<string> DiagnosticLog { get; set; } = Console.WriteLine;
 
             public string LastFailureStackTrace { get; private set; }
 
             public bool IsAssertionFailure { get; private set; }
 
+            /// <summary>
+            /// Gets a value indicating whether a failure was intercepted and is waiting to be
+            /// either discarded or replayed.
+            /// </summary>
+            public bool HasDeferredFailure => _deferredMessages.Count > 0;
+
+            /// <summary>
+            /// Gets a value indicating whether this attempt saw a failure at all, whether or not it
+            /// was deferred.
+            /// </summary>
+            /// <remarks>
+            /// This is not the same question as <see cref="HasDeferredFailure"/>, and the difference
+            /// falls exactly on the last attempt: that one is constructed with
+            /// <c>deferFailures: false</c>, so its failures go straight through to the inner bus and
+            /// it never has one deferred. Asking <see cref="HasDeferredFailure"/> whether the
+            /// current attempt failed therefore always answers no on the last attempt, and an
+            /// earlier attempt's held-over failure would then be replayed on top of the failure this
+            /// one already published - two results for a single test.
+            /// </remarks>
+            public bool HasObservedFailure => LastFailureMessage != null;
+
             public bool QueueMessage(IMessageSinkMessage message)
             {
-                // Intercept ONLY failure messages - suppress them for non-final attempts
+                if (_deferring)
+                {
+                    // This attempt is already holding messages back - either a failure it means to
+                    // retry, or an abstention that has to compete with an earlier failure - so
+                    // everything after it is held too, and is neither published now nor examined
+                    // below. The usual thing arriving here is the ITestFinished that follows a
+                    // deferred failure, and it must not reach the inner bus while the result it
+                    // belongs to is still being decided.
+                    //
+                    // A failure arriving here therefore never sets LastFailureMessage. On the retry
+                    // path that costs nothing, because the failure that started the deferral set it
+                    // already. On the abstention path it is deliberate: the outcome that follows
+                    // replays the earlier attempt's failure, so a failure is published either way,
+                    // and treating this attempt as a failure in its own right would publish two
+                    // results for one test.
+                    _deferredMessages.Add(message);
+                    return true;
+                }
+
+                if (_deferAbstentions && (message is ITestSkipped || message is ITestNotRun))
+                {
+                    // An attempt that skips itself has abstained rather than shown the test to be
+                    // sound, and this attempt follows one that failed. Hold the abstention so the
+                    // caller can choose between it and that earlier failure; publishing it here
+                    // would leave the failure no way to be reported without a second result.
+                    _deferring = true;
+                    _deferredMessages.Add(message);
+                    return true;
+                }
+
                 if (message is ITestFailed failed)
                 {
                     // Capture failure details for diagnostics
-                    LastFailureMessage = failed.Messages != null && failed.Messages.Length > 0
-                        ? string.Join(Environment.NewLine, failed.Messages)
-                        : failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0
-                            ? string.Join(", ", failed.ExceptionTypes)
-                            : "Unknown failure";
+                    if (failed.Messages != null && failed.Messages.Length > 0)
+                    {
+                        LastFailureMessage = string.Join(Environment.NewLine, failed.Messages);
+                    }
+                    else if (failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0)
+                    {
+                        LastFailureMessage = string.Join(", ", failed.ExceptionTypes);
+                    }
+                    else
+                    {
+                        LastFailureMessage = "Unknown failure";
+                    }
 
                     LastFailureStackTrace = failed.StackTraces != null && failed.StackTraces.Length > 0
                         ? string.Join(Environment.NewLine, failed.StackTraces)
                         : null;
 
-                    // Detect if this is an assertion failure by checking exception types
-                    // XUnit assertion exceptions typically have types containing "Xunit" or "Assert"
-                    IsAssertionFailure = failed.ExceptionTypes != null &&
-                        failed.ExceptionTypes.Length > 0 &&
-                        (failed.ExceptionTypes[0].Contains("Xunit", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("Assert", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("EqualException", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("TrueException", StringComparison.Ordinal) ||
-                         failed.ExceptionTypes[0].Contains("FalseException", StringComparison.Ordinal));
+                    // Classify the failure as an assertion failure so RetryOnAssertionFailure can decide
+                    // whether it is worth another attempt. This is a substring match, not a namespace
+                    // check: xUnit's own assertion exceptions live under Xunit.Sdk, but assertion
+                    // libraries used alongside it do not, and matching "Assert" anywhere in the type
+                    // name catches those too. The trade is that an unrelated type whose name happens to
+                    // contain either word is classified the same way, and with RetryOnAssertionFailure
+                    // left at its default of false that costs the test its remaining attempts rather
+                    // than spending one: an assertion failure is taken to be deterministic, so it is
+                    // not retried. The failure is still reported red either way, so the cost is a
+                    // flaky test going unretried, never a failure going unseen.
+                    //
+                    // A timeout is excluded because it is the one failure that trade cannot be made
+                    // for. Xunit.Sdk.TestTimeoutException contains "Xunit" and so matched here, but a
+                    // test that ran long because a dependency was slow once is the definition of the
+                    // flakiness these attributes exist to absorb -- and unlike the cases above, it is
+                    // not an assertion at all. It derives from System.Exception rather than
+                    // XunitException, so it is only ever mistaken for one by way of this match.
+                    // A wrapped assertion failure is still an assertion failure. Xunit reports the
+                    // whole exception chain here, outer type first, so reading only the first entry
+                    // classifies AggregateException(XunitException) -- what an assertion failing
+                    // inside Task.WhenAll or a parallel helper produces -- as an ordinary exception
+                    // and retries it, which is exactly what the policy was set to prevent.
+                    string[] failedExceptionTypes = failed.ExceptionTypes != null && failed.ExceptionTypes.Length > 0
+                        ? failed.ExceptionTypes
+                        : new[] { string.Empty };
 
-                    return true; // Swallow the failure - we're going to retry
+                    // The timeout carve-out is applied to the whole chain rather than one entry: a
+                    // timeout wrapped in anything is still a timeout, and still the failure that most
+                    // deserves another attempt.
+                    IsAssertionFailure =
+                        !failedExceptionTypes.Any(type => type != null && type.Contains("Timeout", StringComparison.Ordinal)) &&
+                        failedExceptionTypes.Any(type => type != null &&
+                            (type.Contains("Xunit", StringComparison.Ordinal) ||
+                             type.Contains("Assert", StringComparison.Ordinal)));
+
+                    if (_deferFailures)
+                    {
+                        _deferring = true;
+                        _deferredMessages.Add(message);
+                        return true;
+                    }
                 }
 
                 // All other messages (ITestPassed, ITestStarting, ITestFinished, etc.) pass through
                 return _innerBus.QueueMessage(message);
             }
 
+            /// <summary>
+            /// Replays the deferred failure and everything that followed it to the underlying bus,
+            /// in their original order. Call this when the attempt will not be retried, otherwise
+            /// the failure is never reported and the test silently vanishes from the results.
+            /// </summary>
+            /// <returns>
+            /// <c>false</c> when the underlying bus asked for the run to stop. Deferring a failure
+            /// forces a <c>true</c> back to the runner at the time it is queued, so this is the only
+            /// point at which a request to stop -- from --stop-on-fail, for instance -- can still be
+            /// honoured.
+            /// </returns>
+            public bool ReplayDeferredMessages()
+            {
+                bool continueRunning = true;
+
+                foreach (IMessageSinkMessage message in _deferredMessages)
+                {
+                    continueRunning &= _innerBus.QueueMessage(message);
+                }
+
+                _deferredMessages.Clear();
+                _deferring = false;
+
+                return continueRunning;
+            }
+
+            /// <summary>
+            /// Drops the deferred failure without reporting it. Call this only when a later attempt
+            /// has actually reported a result that supersedes it.
+            /// </summary>
+            public void DiscardDeferredMessages()
+            {
+                _deferredMessages.Clear();
+                _deferring = false;
+            }
+
+            /// <summary>
+            /// Records that whatever is still held is meant to be published by disposal rather than
+            /// by an explicit replay, so that disposal does not report it as a leak.
+            /// </summary>
+            /// <remarks>
+            /// Disposal replaying held messages is both the fail-safe for a caller that forgot them
+            /// and the ordinary way the last surviving result reaches the bus. Without a way to tell
+            /// those apart, the fail-safe announces an internal error on a routine path, and a reader
+            /// who sees that line on every run has no reason to believe it the one time it means
+            /// something. This marks the deliberate case so the warning stays rare enough to trust.
+            /// </remarks>
+            public void PublishDeferredMessagesOnDispose()
+            {
+                _replayOnDisposeIsIntended = true;
+            }
+
             public void Dispose()
             {
-                // Don't dispose the inner bus - it's owned by the caller
+                // Don't dispose the inner bus - it's owned by the caller.
+                // Anything still deferred is reported either way, because dropping it would remove
+                // the test from the run. Only an unannounced one is a defect worth saying so about.
+                if (_deferredMessages.Count > 0)
+                {
+                    if (!_replayOnDisposeIsIntended)
+                    {
+                        DiagnosticLog($"[RetryFact] Internal error: {_deferredMessages.Count} deferred test message(s) were neither replayed nor discarded. Replaying them so the failure is not lost.");
+                    }
+
+                    try
+                    {
+                        ReplayDeferredMessages();
+                    }
+                    catch (Exception e)
+                    {
+                        // Dispose runs on the way out of the attempt, including while an exception is
+                        // already unwinding. Throwing from here would replace whatever actually went
+                        // wrong with a reporting error, so the failure to replay is logged and the
+                        // original exception is left to propagate.
+                        DiagnosticLog($"[RetryFact] Failed to replay {_deferredMessages.Count} deferred test message(s): {e.GetType().FullName}: {e.Message}");
+                    }
+                }
             }
         }
     }

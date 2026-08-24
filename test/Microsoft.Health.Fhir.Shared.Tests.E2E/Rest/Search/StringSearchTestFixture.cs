@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             Patients = await TestFhirClient.CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Smith", given: "Bea"),

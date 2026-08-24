@@ -41,7 +41,6 @@ using Microsoft.SqlServer.Dac.Compare;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {

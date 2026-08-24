@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public string ObservationProfileV2 { get; }
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             Observation resource1 = Samples.GetDefaultObservation().ToPoco<Observation>();
             resource1.Meta = new Meta();
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             GivenObservation3 = (await TestFhirClient.CreateAsync(resource3)).Resource;
         }
 
-        protected override async Task OnDisposedAsync()
+        protected override async ValueTask OnDisposedAsync()
         {
             if (GivenObservation1 != null)
             {

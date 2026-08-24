@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -162,12 +163,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         [Fact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()

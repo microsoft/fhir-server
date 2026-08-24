@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public IReadOnlyDictionary<string, DocumentReference> DocumentReferences { get; private set; }
 
-        protected async override Task OnInitializedAsync()
+        protected async override ValueTask OnInitializedAsync()
         {
             Observations = await CreateResultDictionary<Observation>(ObservationTestFileNames);
             DocumentReferences = await CreateResultDictionary<DocumentReference>(DocumentReferenceTestFiles);

@@ -1,0 +1,72 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using EnsureThat;
+using Xunit.Sdk;
+using Xunit.v3;
+
+namespace Microsoft.Health.Extensions.Xunit
+{
+    /// <summary>
+    /// A test class bound to one fixture argument set, so that a single class type can be discovered
+    /// once per variant with a distinct identity.
+    /// </summary>
+    /// <remarks>
+    /// The fixture arguments are held in memory only. <see cref="XunitTestClass"/> implements
+    /// <c>IXunitSerializable</c> non-virtually, so a derived type has no way to add its own state to
+    /// the serialized form, and a runner that discovered tests in one process and ran them in another
+    /// would hand the executor a plain <see cref="XunitTestClass"/> rather than this type. Both the
+    /// Microsoft Testing Platform runner used by CI and the Visual Studio test explorer discover and
+    /// run in the same process, so the variant survives; a runner that did not would fall back to the
+    /// unvaried class rather than silently mixing variants up.
+    /// </remarks>
+    internal sealed class FixtureArgumentSetTestClass : XunitTestClass
+    {
+        private static readonly FieldInfo UniqueIdField = typeof(XunitTestClass).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException(
+                "XunitTestClass.uniqueID was not found, so fixture argument set variants cannot be given distinct identities and " +
+                "would collapse into a single test class. This usually means the xunit.v3 version changed.");
+
+        private readonly IReadOnlyList<SingleFlag> _fixtureArguments;
+
+        public FixtureArgumentSetTestClass(Type testClassType, IXunitTestCollection testCollection, IReadOnlyList<SingleFlag> fixtureArguments, string uniqueId)
+            : base(testClassType, testCollection, uniqueId)
+        {
+            EnsureArg.IsNotNull(testClassType, nameof(testClassType));
+            EnsureArg.IsNotNull(testCollection, nameof(testCollection));
+            EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
+
+            _fixtureArguments = fixtureArguments;
+            UpdateUniqueId();
+        }
+
+#pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
+        public FixtureArgumentSetTestClass()
+        {
+            _fixtureArguments = Array.Empty<SingleFlag>();
+        }
+#pragma warning restore CS0618
+
+        internal IReadOnlyList<SingleFlag> GetFixtureArguments()
+        {
+            return _fixtureArguments;
+        }
+
+        private void UpdateUniqueId()
+        {
+            if (_fixtureArguments.Count == 0)
+            {
+                return;
+            }
+
+            var className = $"{TestClassName}({string.Join(", ", _fixtureArguments.Select(v => v.EnumValue))})";
+            UniqueIdField.SetValue(this, UniqueIDGenerator.ForTestClass(TestCollection.UniqueID, className));
+        }
+    }
+}

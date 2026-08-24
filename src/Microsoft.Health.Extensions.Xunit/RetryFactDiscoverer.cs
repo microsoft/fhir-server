@@ -3,52 +3,75 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
-using Xunit.Abstractions;
+using System.Linq;
+using System.Threading.Tasks;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
     /// Test case discoverer for <see cref="RetryFactAttribute"/>.
     /// </summary>
-    public class RetryFactDiscoverer : IXunitTestCaseDiscoverer
+    public sealed class RetryFactDiscoverer : IXunitTestCaseDiscoverer
     {
-        private readonly IMessageSink _diagnosticMessageSink;
-
-        public RetryFactDiscoverer(IMessageSink diagnosticMessageSink)
-        {
-            _diagnosticMessageSink = diagnosticMessageSink;
-        }
-
-        public IEnumerable<IXunitTestCase> Discover(
+        /// <summary>
+        /// Discovers the test case for a method marked with <see cref="RetryFactAttribute"/>.
+        /// </summary>
+        /// <param name="discoveryOptions">The discovery options for the test assembly.</param>
+        /// <param name="testMethod">The test method being discovered.</param>
+        /// <param name="factAttribute">The <see cref="RetryFactAttribute"/> applied to the method.</param>
+        /// <returns>A single <see cref="RetryTestCase"/> wrapping the method.</returns>
+        public ValueTask<IReadOnlyCollection<IXunitTestCase>> Discover(
             ITestFrameworkDiscoveryOptions discoveryOptions,
-            ITestMethod testMethod,
-            IAttributeInfo factAttribute)
+            IXunitTestMethod testMethod,
+            IFactAttribute factAttribute)
         {
-            var maxRetries = factAttribute.GetNamedArgument<int>(nameof(RetryFactAttribute.MaxRetries));
-            var delayMs = factAttribute.GetNamedArgument<int>(nameof(RetryFactAttribute.DelayBetweenRetriesMs));
-            var retryOnAssertionFailure = factAttribute.GetNamedArgument<bool>(nameof(RetryFactAttribute.RetryOnAssertionFailure));
+            var attribute = (RetryFactAttribute)factAttribute;
 
-            // Use default values if not specified
-            if (maxRetries == 0)
-            {
-                maxRetries = 3;
-            }
-
-            if (delayMs == 0)
-            {
-                delayMs = 5000;
-            }
-
-            yield return new RetryTestCase(
-                _diagnosticMessageSink,
-                discoveryOptions.MethodDisplayOrDefault(),
-                discoveryOptions.MethodDisplayOptionsOrDefault(),
+            // Let xUnit compute the test case details the same way it does for a plain [Fact],
+            // so that the display name honors the configured MethodDisplay setting instead of
+            // being reported as a bare, unqualified method name.
+            var details = TestIntrospectionHelper.GetTestCaseDetails(
+                discoveryOptions,
                 testMethod,
-                maxRetries,
-                delayMs,
-                retryOnAssertionFailure);
+                factAttribute,
+                testMethodArguments: null,
+                timeout: null,
+                baseDisplayName: null);
+
+            // xunit builds a test case's traits with an OrdinalIgnoreCase comparer, and the argument
+            // set traits are merged into them on the same terms, so the copy is made on those terms
+            // too. Filtering does not depend on it - the runner compares trait names itself - but a
+            // copy that compared differently from the dictionary it came from would let the same
+            // trait be held twice under two spellings.
+            var traits = testMethod.Traits.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new HashSet<string>(kvp.Value, StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
+            var testCase = new RetryTestCase(
+                details.ResolvedTestMethod,
+                details.TestCaseDisplayName,
+                details.UniqueID,
+                @explicit: details.Explicit,
+                skipExceptions: details.SkipExceptions,
+                skipReason: details.SkipReason,
+                skipType: details.SkipType,
+                skipUnless: details.SkipUnless,
+                skipWhen: details.SkipWhen,
+                traits: traits,
+                testMethodArguments: null,
+                sourceFile: details.SourceFilePath,
+                sourceLine: details.SourceLineNumber,
+                timeout: details.Timeout,
+                maxRetries: attribute.MaxRetries,
+                delayMs: attribute.DelayBetweenRetriesMs,
+                retryOnAssertionFailure: attribute.RetryOnAssertionFailure);
+
+            return new ValueTask<IReadOnlyCollection<IXunitTestCase>>(new[] { testCase });
         }
     }
 }

@@ -26,6 +26,13 @@ jobs:
       - ImageOverride -equals $(InternalLinuxImage)
   variables:
     AllowPtrToDetectTestRunRetryFiles: true
+    # The one place this leg's selection is written down. The discovery floor below is the only
+    # thing that notices a regression silently emptying this leg, and it can only say that about
+    # the selection it counts, so it has to count the same one the tests run under. Two copies of
+    # this text would let an edit to one of them leave the floor guarding a selection that is no
+    # longer used. The values carry no spaces, which is what lets the floor step split this back
+    # into arguments.
+    storeFilterArguments: '--filter-not-class "*CosmosDb*" --filter-not-trait "DataStore=CosmosDb"'
   steps:
   - checkout: self
     fetchDepth: 1
@@ -63,15 +70,72 @@ jobs:
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
       arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
+  - task: PowerShell@2
+    displayName: 'Verify xUnit config and test counts'
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $projects = Get-ChildItem -Path "$(Pipeline.Workspace)/source/test" -Recurse -Filter "*${{ parameters.version }}.Tests.Integration.csproj"
+        if (-not $projects) {
+          throw "No integration test projects found under $(Pipeline.Workspace)/source/test."
+        }
+
+        # Around 441 tests select here. This leg filters by excluding the other store, and an
+        # exclusion drops a case that names either value, so a class that starts carrying both -
+        # by inheriting traits from a shared collection definition, for instance - disappears from
+        # this leg and from the other one at the same time, leaving both green and much smaller.
+        # Counting discovery is the only thing that notices. The floor is checked here rather than
+        # passed as --minimum-expected-tests because that option is applied again to the smaller
+        # pass --retry-failed-tests starts, where any real floor would fail a recovered flake.
+        $minimumExpectedTests = 250
+
+        foreach ($project in $projects) {
+          $outputDir = [System.IO.Path]::Combine($project.Directory.FullName, "bin", "$(buildConfiguration)", "$(defaultBuildFramework)")
+          $configPath = Join-Path $outputDir "xunit.runner.json"
+          if (-not (Test-Path $configPath)) {
+            throw "xunit.runner.json not found for $($project.FullName) at $configPath"
+          }
+
+          Write-Host "xUnit config for $($project.BaseName): $configPath"
+          Get-Content -Path $configPath | ForEach-Object { Write-Host $_ }
+
+          $assemblyPath = Join-Path $outputDir "$($project.BaseName).dll"
+          if (-not (Test-Path $assemblyPath)) {
+            throw "Test assembly not found for $($project.FullName) at $assemblyPath"
+          }
+
+          $storeFilter = @('$(storeFilterArguments)' -split '\s+' | Where-Object { $_ } | ForEach-Object { $_.Trim('"') })
+          if ($storeFilter.Count -lt 2) {
+            throw "The store filter '$(storeFilterArguments)' did not split into arguments, so the floor below would count a selection this leg does not run."
+          }
+
+          $listOutput = & dotnet $assemblyPath --list-tests @storeFilter
+          if ($LASTEXITCODE -ne 0) {
+            throw "Listing tests for $($project.BaseName) failed with exit code $LASTEXITCODE"
+          }
+
+          $found = $listOutput | Select-String -Pattern 'found\s+(\d+)\s+test' | Select-Object -First 1
+          if (-not $found) {
+            throw "Could not read a discovered test count for $($project.BaseName) from the runner's output."
+          }
+
+          $discovered = [int]$found.Matches[0].Groups[1].Value
+          Write-Host "Discovered $discovered test(s) for $($project.BaseName) (floor $minimumExpectedTests)"
+          if ($discovered -lt $minimumExpectedTests) {
+            throw "$($project.BaseName) selected $discovered test(s), below this leg's floor of $minimumExpectedTests. The leg would have run a fraction of its tests and reported success."
+          }
+        }
+
   - task: DotNetCoreCLI@2
     displayName: 'Run SQL Integration Tests with coverage'
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- $(storeFilterArguments) --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx --minimum-expected-tests 1'
+      # Disable the task's built-in result publishing so the PublishTestResults@2 task below,
+      # which controls the glob and how failures are treated, is the sole publisher.
       publishTestResults: false
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
@@ -81,6 +145,14 @@ jobs:
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
+  - task: PowerShell@2
+    displayName: 'Reconcile retried integration failures'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-RetriedFailuresPassed.ps1'
+      arguments: '-ResultsDirectory "$(Agent.TempDirectory)/coverage"'
+    condition: succeeded()
+
   - task: PublishTestResults@2
     displayName: 'Publish integration test results'
     inputs:
@@ -88,7 +160,18 @@ jobs:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      failTaskOnFailedTests: true
+      # --retry-failed-tests re-runs the failures in a fresh process and writes one TRX per
+      # attempt under Retries/<id>/<n>/, all of which this glob matches. Attempt 1 therefore
+      # keeps a Failed record for a test that later passed, and mergeTestResults does not
+      # resolve the two, so failing the task on published results would cancel out every
+      # retry. The step that runs the tests fails on the runner's exit code, and the step that
+      # follows it reconciles the attempts against each other, because that exit code counts a
+      # test that failed and then skipped as recovered. The attempts are published here for
+      # visibility only.
+      failTaskOnFailedTests: false
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and there is nothing to notice.
+      failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
@@ -123,6 +206,9 @@ jobs:
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      # Around 2000 cases across the FHIR versions. A floor of 1000 leaves room for version
+      # differences and removed tests while failing a leg that has quietly lost its traits.
+      minimumExpectedTests: '1000'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'sqlE2eTests_Reindex'
@@ -143,6 +229,8 @@ jobs:
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
+        # Around 52 cases. A floor of 25 fails a leg that has lost most of them.
+        minimumExpectedTests: '25'
 
 - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
   - job: 'sqlE2eTests_BulkUpdate'
@@ -163,3 +251,5 @@ jobs:
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=BulkUpdate'
         testRunTitleSuffix: ' BulkUpdate'
+        # Around 35 cases. A floor of 15 fails a leg that has lost most of them.
+        minimumExpectedTests: '15'

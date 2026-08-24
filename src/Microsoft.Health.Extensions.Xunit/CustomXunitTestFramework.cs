@@ -4,46 +4,36 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Reflection;
-using Xunit.Abstractions;
-using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
     /// An XunitTestFramework implementation that allows parameterizing class fixtures with combinations of argument values.
     /// To use, decorate the test assembly with
-    /// [assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
-    /// Also allows an assembly to declare one or more <see cref="AssemblyFixtureAttribute"/>, which are created before any tests
-    /// are executed and disposed at the end of the test run.
+    /// [assembly: TestFramework(typeof(CustomXunitTestFramework))]
+    /// Assembly fixtures declared with <see cref="Xunit.AssemblyFixtureAttribute"/> are created before any tests run and
+    /// disposed at the end of the run. That is xUnit v3 behaviour inherited from the base framework, not something this
+    /// class adds: it previously needed a local implementation, which this assembly no longer carries.
     /// </summary>
     public sealed class CustomXunitTestFramework : XunitTestFramework
     {
         /// <summary>
-        /// This type's assembly name.
+        /// Initializes a new instance of the <see cref="CustomXunitTestFramework"/> class.
         /// </summary>
-        public const string AssemblyName = nameof(Microsoft) + "." +
-                                           nameof(Microsoft.Health) + "." +
-                                           nameof(Microsoft.Health.Extensions) + "." +
-                                           nameof(Microsoft.Health.Extensions.Xunit);
-
-        /// <summary>
-        /// The full name of this type. Intended to be used as an attribute argument.
-        /// </summary>
-        public const string TypeName = AssemblyName + "." + nameof(CustomXunitTestFramework);
-
-        public CustomXunitTestFramework(IMessageSink messageSink)
-            : base(messageSink)
+        public CustomXunitTestFramework()
+            : base(configFileName: null)
         {
         }
 
-        protected override ITestFrameworkDiscoverer CreateDiscoverer(IAssemblyInfo assemblyInfo)
+        protected override ITestFrameworkDiscoverer CreateDiscoverer(Assembly assembly)
         {
-            return new CustomXunitTestFrameworkDiscoverer(assemblyInfo, SourceInformationProvider, DiagnosticMessageSink);
+            return new CustomXunitTestFrameworkDiscoverer(assembly);
         }
 
-        protected override ITestFrameworkExecutor CreateExecutor(AssemblyName assemblyName)
+        protected override ITestFrameworkExecutor CreateExecutor(Assembly assembly)
         {
-            return new CustomXunitTestFrameworkExecutor(assemblyName, SourceInformationProvider, DiagnosticMessageSink);
+            return new CustomXunitTestFrameworkExecutor(assembly);
         }
     }
 }

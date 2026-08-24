@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Models;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public Patient[] Patients { get; private set; }
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             // Creates a unique code for searches
             Tag = Guid.NewGuid().ToString();

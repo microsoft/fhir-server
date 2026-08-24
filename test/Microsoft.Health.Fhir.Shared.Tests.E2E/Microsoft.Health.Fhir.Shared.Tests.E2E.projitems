@@ -158,7 +158,14 @@
     <None Include="$(MSBuildThisFileDirectory)Rest\Reindex\README.md" />
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
     <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
+      <Link>xunit.runner.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <!-- This file is not published, so anything running these tests from a published layout gets
+           the runner's defaults instead of the settings here. The one that matters is parallelism:
+           these suites share a server and are not safe to run in parallel. Every pipeline leg passes
+           the runner's parallel-none switch on the command line for that reason, and must keep doing
+           so; the leg cannot rely on this file being next to the assembly. -->
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
   </ItemGroup>
 </Project>

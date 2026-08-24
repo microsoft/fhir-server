@@ -129,4 +129,11 @@
     <Rule Id="CA2200" Action="None" />
     <Rule Id="CA2234" Action="None" />
   </Rules>
+  <Rules AnalyzerId="xUnit.Analyzers" RuleNamespace="xUnit.Analyzers">
+    <!-- xUnit1051 (pass TestContext.Current.CancellationToken) has ~7,400 call sites across the
+         test suite. Suppressed to keep the xUnit v2 -> v3 migration reviewable; adopting it is
+         tracked as follow-up work. xUnit1031 is deliberately NOT suppressed: the handful of
+         blocking-task call sites use targeted #pragma disables instead. -->
+    <Rule Id="xUnit1051" Action="None" />
+  </Rules>
 </RuleSet>

@@ -11,6 +11,17 @@ parameters:
 - name: testRunTitleSuffix
   type: string
   default: ''
+# The floor this leg's discovered test count must clear. A leg that selects positively on a
+# DataStore trait reports success when its filter matches nothing, so the count is the only thing
+# that distinguishes "everything passed" from "nothing ran". It is checked against a discovery
+# pass rather than passed to the run as --minimum-expected-tests, because that option is applied
+# again to the much smaller pass --retry-failed-tests starts: a floor above the size of a retry
+# pass turns a flake that recovered into a failed leg (exit 9). Set well below the real counts so
+# version differences and legitimately removed tests do not fail a leg that is working. There is
+# deliberately no default: a new leg has to state its own floor, because the only value that would
+# be safe to inherit is one too low to ever fire.
+- name: minimumExpectedTests
+  type: string
 
 steps:
   - template: e2e-tests-extract.yml
@@ -37,10 +48,43 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
-        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
+        # xUnit v3 MTP filter-query: match DataStore trait for this app service type and any extra trait filters
+        $categoryFilter = '${{ parameters.categoryFilter }}'
+        $parts = @($categoryFilter -split '&' | Where-Object { $_.Trim() -ne '' })
+        $allParts = @("DataStore=${{ parameters.appServiceType }}") + $parts
+        $traitFilter = "[" + (($allParts | ForEach-Object { "($_)" }) -join '&') + "]"
+        $filterQuery = "/$traitFilter"
 
-        Write-Host "Running dotnet $($dll.FullName)"
+        # This filter is positive on DataStore, so a test case that reaches the runner without that
+        # trait is invisible to it rather than failing. Count what the filter selects before running
+        # anything, so a trait or filter regression that empties this leg fails it instead of
+        # passing it green and empty. Discovery needs no server, and unlike the runner's own
+        # --minimum-expected-tests this count is not re-applied to the smaller pass that
+        # --retry-failed-tests starts, where any real floor would fail a recovered flake.
+        $listOutput = & dotnet $dll.FullName --list-tests --filter-query $filterQuery
+        if ($LASTEXITCODE -ne 0) {
+          throw "Listing tests for filter $filterQuery failed with exit code $LASTEXITCODE"
+        }
+
+        $found = $listOutput | Select-String -Pattern 'found\s+(\d+)\s+test' | Select-Object -First 1
+        if (-not $found) {
+          throw "Could not read a discovered test count for filter $filterQuery from the runner's output."
+        }
+
+        $discovered = [int]$found.Matches[0].Groups[1].Value
+        Write-Host "Discovered $discovered test(s) for filter $filterQuery (floor ${{ parameters.minimumExpectedTests }})"
+        if ($discovered -lt ${{ parameters.minimumExpectedTests }}) {
+          throw "Filter $filterQuery selected $discovered test(s), below this leg's floor of ${{ parameters.minimumExpectedTests }}. The leg would have run a fraction of its tests and reported success."
+        }
+
+        # Kept at 1 as a last-ditch check that the run itself published something. Anything higher
+        # is unsafe here for the retry reason above; the real floor is the discovery check.
+        # --parallel none is not optional and must not be dropped: these tests share one server, and
+        # the xunit.runner.json that would otherwise disable parallelism is deliberately not copied
+        # to a published layout, so the command line is the only place this is guaranteed.
+        $args = @('--filter-query', $filterQuery, '--parallel', 'none', '--retry-failed-tests', '3', '--report-trx', '--minimum-expected-tests', '1')
+
+        Write-Host "Running dotnet $($dll.FullName) with filter: $filterQuery"
         & dotnet $dll.FullName @args
 
         if ($LASTEXITCODE -ne 0) {
@@ -88,6 +132,14 @@ steps:
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
 
+  - task: PowerShell@2
+    displayName: 'Reconcile retried E2E failures'
+    inputs:
+      pwsh: true
+      filePath: '$(Build.SourcesDirectory)/build/jobs/scripts/Assert-RetriedFailuresPassed.ps1'
+      arguments: '-ResultsDirectory "$(Agent.TempDirectory)/testresults"'
+    condition: succeeded()
+
   - task: PublishTestResults@2
     displayName: 'Publish test results'
     inputs:
@@ -95,5 +147,16 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
-      failTaskOnFailedTests: true
+      # --retry-failed-tests re-runs the failures in a fresh process and writes one TRX per
+      # attempt under Retries/<id>/<n>/, all of which this glob matches. Attempt 1 therefore
+      # keeps a Failed record for a test that later passed, and mergeTestResults does not
+      # resolve the two, so failing the task on published results would cancel out every
+      # retry. The step that runs the tests fails on the runner's exit code, and the step that
+      # follows it reconciles the attempts against each other, because that exit code counts a
+      # test that failed and then skipped as recovered. The attempts are published here for
+      # visibility only.
+      failTaskOnFailedTests: false
+      # A missing TRX means the run reported nothing; without this the publish step
+      # succeeds silently and there is nothing to notice.
+      failTaskOnMissingResultsFile: true
     condition: succeededOrFailed()

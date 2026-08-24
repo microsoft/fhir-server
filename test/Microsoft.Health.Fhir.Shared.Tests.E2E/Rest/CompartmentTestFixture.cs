@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Condition Condition { get; private set; }
 
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             // Create various resources.
             Device = await TestFhirClient.CreateAsync(Samples.GetJsonSample<Device>("Device-d1"));

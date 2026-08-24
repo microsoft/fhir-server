@@ -22,8 +22,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Fact]
         public async Task GivenCustomQueryClass_WithGivenWaitTime_QueryToDBWillOccurOnlyAfterWaitPeriod()
         {
-            // set wait time to 2 seconds;
+            // set wait time to 1 second
             CustomQueries.WaitTime = 1;
+
+            // CheckQueryHash only reaches the database once the wait period has elapsed since the
+            // last query, and that timestamp is static state shared with the sibling test. Waiting
+            // it out here means the first call below always queries, whichever test ran first.
+            await Task.Delay(1100);
 
             var connection = Substitute.For<IDbConnection>();
             var command = Substitute.For<IDbCommand>();
