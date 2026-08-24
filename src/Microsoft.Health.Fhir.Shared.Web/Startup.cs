@@ -21,6 +21,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Api.OpenIddict.FeatureProviders;
@@ -355,6 +356,8 @@ namespace Microsoft.Health.Fhir.Web
                     Startup.AddAzureMonitorOpenTelemetry(services, configuration);
                     break;
             }
+
+            services.AddSingleton<IHttpInboundRequestLogger, HttpInboundRequestLogger>();
         }
     }
 }

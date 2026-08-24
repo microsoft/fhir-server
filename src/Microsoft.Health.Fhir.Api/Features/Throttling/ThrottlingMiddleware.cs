@@ -16,8 +16,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 
@@ -43,6 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private static readonly ReadOnlyMemory<byte> _throttledBody = CreateThrottledBody(Api.Resources.TooManyConcurrentRequests);
 
         private readonly RequestDelegate _next;
+        private readonly IHttpInboundRequestLogger _inboundRequestLogger;
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly HashSet<(string method, string path)> _excludedEndpoints;
         private readonly bool _securityEnabled;
@@ -63,9 +64,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             RequestDelegate next,
             IOptions<ThrottlingConfiguration> throttlingConfiguration,
             IOptions<SecurityConfiguration> securityConfiguration,
+            IHttpInboundRequestLogger inboundRequestLogger,
             ILogger<ThrottlingMiddleware> logger)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
+            _inboundRequestLogger = EnsureArg.IsNotNull(inboundRequestLogger, nameof(inboundRequestLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             ThrottlingConfiguration configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
@@ -293,6 +296,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             context.Response.ContentLength = _throttledBody.Length;
             context.Response.ContentType = ThrottledContentType;
 
+            _inboundRequestLogger.LogRequest(context);
+
             await context.Response.Body.WriteAsync(_throttledBody);
         }
 
@@ -308,6 +313,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.ContentLength = body.Length;
             context.Response.ContentType = ThrottledContentType;
+
+            _inboundRequestLogger.LogRequest(context, exception: exception);
 
             await context.Response.Body.WriteAsync(body);
         }
