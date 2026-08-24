@@ -1,0 +1,15 @@
+﻿<Project>
+
+  <!--
+    IsTestProject must be set before the repository-level props are imported, because the Choose
+    block there evaluates it. Setting it in the project body is too late: the project would be
+    configured as a Microsoft Testing Platform test project and `dotnet test` would run these
+    deliberately-failing assets directly.
+  -->
+  <PropertyGroup>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))" />
+
+</Project>

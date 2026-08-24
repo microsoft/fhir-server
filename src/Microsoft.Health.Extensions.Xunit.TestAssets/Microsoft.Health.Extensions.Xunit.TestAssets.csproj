@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      These assets deliberately fail, stall and get cancelled: they describe the behaviour that
+      Microsoft.Health.Extensions.Xunit.UnitTests asserts on, and are meaningless on their own.
+      They are therefore kept out of Microsoft.Health.Fhir.sln, and the neighbouring
+      Directory.Build.props marks this as a non-test project, so that neither Test Explorer nor a
+      solution-wide `dotnet test` runs them. That means the Microsoft Testing Platform host has to
+      be opted into here rather than inherited, which is deliberate: the assertions are only
+      meaningful against the same runner CI uses. The harness launches this executable once per
+      scenario.
+    -->
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <TestingPlatformCaptureOutput>false</TestingPlatformCaptureOutput>
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      This must stay in step with Microsoft.Health.Extensions.Xunit: referencing plain xunit.v3
+      here pulls in xunit.v3.mtp-v1 alongside that project's mtp-v2 and the two collide.
+    -->
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <!--
+      CI runs every test project with the retry option this extension provides. The scenarios that
+      describe what a retried run reports have to be launched the same way, so the extension is
+      referenced here as well.
+    -->
+    <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
+  </ItemGroup>
+
+</Project>

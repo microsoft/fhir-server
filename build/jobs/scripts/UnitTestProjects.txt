@@ -8,6 +8,7 @@
 #
 # Microsoft.Health.Fhir.Api.UnitTests holds a project named for R4; the directory and the project
 # names differ, which is why it does not look like the rest.
+src/Microsoft.Health.Extensions.Xunit.UnitTests/Microsoft.Health.Extensions.Xunit.UnitTests.csproj
 src/Microsoft.Health.Fhir.Api.UnitTests/Microsoft.Health.Fhir.R4.Api.UnitTests.csproj
 src/Microsoft.Health.Fhir.Azure.UnitTests/Microsoft.Health.Fhir.Azure.UnitTests.csproj
 src/Microsoft.Health.Fhir.Core.UnitTests/Microsoft.Health.Fhir.Core.UnitTests.csproj
