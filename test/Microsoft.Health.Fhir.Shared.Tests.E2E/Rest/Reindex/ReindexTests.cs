@@ -65,10 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await DeleteResourcesAsync("Specimen");
             await DeleteResourcesAsync("SupplyDelivery");
             await DeleteResourcesAsync("Immunization");
-            //// delete search param resources
-            await DeleteResourcesAsync("SearchParameter"); // mark as pending
-            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] }); // true delete
-            await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
+            await CleanupSearchParametersIfAnyAsync();
 
             _output.WriteLine($"ReindexTests.InitializeAsync: Completed. Elapsed={(int)sw.Elapsed.TotalMilliseconds} msec.");
         }
@@ -82,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public async Task GivenSequentialBundleSearchParamCreates_ShouldSuceed()
         {
             const int numberOfSearchParams = 10;
-            const string urlPrefix = "http://my.org/";
+            const string urlPrefix = "http://my.org/reindex";
             var codes = new List<string>();
             for (var i = 0; i < numberOfSearchParams; i++)
             {
@@ -118,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [InlineData(true, true)] // parallel batch bundle
         public async Task GivenConcurrentSearchParamCreates_SomeShouldFail(bool isBundle, bool isParallel)
         {
-            const string urlPrefix = "http://my.org/";
+            const string urlPrefix = "http://my.org/reindex";
             var codes = new List<string>();
             var threw = false;
             await Parallel.ForAsync(0, 40, new ParallelOptions { MaxDegreeOfParallelism = 4 }, async (i, ct) =>
@@ -208,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
 
             const int numberOfSearchParams = 500; // increase to 500 when cache is not updated by API calls and status is saved with resources in a single SQL transaction
-            const string urlPrefix = "http://my.org/";
+            const string urlPrefix = "http://my.org/reindex";
             var codes = new List<string>();
             for (var i = 0; i < numberOfSearchParams; i++)
             {
@@ -279,7 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personTypes = new List<ResourceType?>() { ResourceType.Person };
             var resourceTypes = new List<ResourceType?>() { ResourceType.Resource };
 #endif
-            const string urlPrefix = "http://my.org/";
+            const string urlPrefix = "http://my.org/reindex";
             var ids = new List<string> { "c-id-1", "c-id-2" };
             var code = "same-code";
             try
@@ -326,7 +323,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personTypes = new List<ResourceType?>() { ResourceType.Person };
             var supplyDeliveryTypes = new List<ResourceType?>() { ResourceType.SupplyDelivery };
 #endif
-            const string urlPrefix = "http://my.org/";
+            const string urlPrefix = "http://my.org/reindex";
             var ids = new List<string> { "c-id-1", "c-id-2" };
             var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
 
@@ -377,7 +374,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personTypes = new List<ResourceType?>() { ResourceType.Person };
             var supplyDeliveryTypes = new List<ResourceType?>() { ResourceType.SupplyDelivery };
 #endif
-            const string urlPrefix = "http://my.org/";
+            const string urlPrefix = "http://my.org/reindex";
             var ids = new List<string> { "c-id-1", "c-id-2" };
             var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
 
@@ -440,7 +437,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 return;
             }
 
-            const string urlPrefix = "http://my.org/";
+            const string urlPrefix = "http://my.org/reindex";
             var codes = new List<string>();
             var urls = new List<string>();
             var ids = new List<string>();
@@ -1538,6 +1535,69 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 _output.WriteLine($"Failed to delete {resourceType} resources: {ex.Message}");
             }
+        }
+
+        private async Task CleanupSearchParametersIfAnyAsync()
+        {
+            var before = await _fixture.TestFhirClient.SearchAsync("SearchParameter?_summary=count");
+            var beforeCount = before.Resource.Total.GetValueOrDefault();
+
+            if (beforeCount == 0)
+            {
+                _output.WriteLine("SearchParameter cleanup skipped: no resources found.");
+                return;
+            }
+
+            _output.WriteLine($"SearchParameter cleanup: found {beforeCount} resources, deleting and running reindex cleanup.");
+            await DeleteSearchParametersAsync(); // mark as pending
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            var cleanupStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
+            Assert.Equal(OperationStatus.Completed, cleanupStatus);
+
+            var after = await _fixture.TestFhirClient.SearchAsync("SearchParameter?_summary=count");
+            var afterCount = after.Resource.Total.GetValueOrDefault();
+            Assert.True(afterCount == 0, $"SearchParameter cleanup failed. Remaining={afterCount}");
+        }
+
+        private async Task DeleteSearchParametersAsync()
+        {
+            const int pageSize = 1000;
+            var entries = new List<Bundle.EntryComponent>();
+            var nextUrl = $"SearchParameter?_count={pageSize}";
+
+            do
+            {
+                var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextUrl);
+                entries.AddRange(searchResponse.Resource.Entry.Where(e => !e.IsDeleted()));
+                nextUrl = searchResponse.Resource.Link?.FirstOrDefault(l => l.Relation == "next")?.Url;
+            }
+            while (!string.IsNullOrEmpty(nextUrl));
+
+            if (entries.Count == 0)
+            {
+                return;
+            }
+
+            const int batchSize = 100;
+            var deleted = 0;
+
+            for (var i = 0; i < entries.Count; i += batchSize)
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch };
+                foreach (var entry in entries.Skip(i).Take(batchSize))
+                {
+                    bundle.Entry.Add(new Bundle.EntryComponent
+                    {
+                        Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{entry.Resource.Id}" },
+                    });
+                }
+
+                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                deleted += bundle.Entry.Count;
+            }
+
+            _output.WriteLine($"Deleted {deleted} SearchParameter resources.");
         }
 
         private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
