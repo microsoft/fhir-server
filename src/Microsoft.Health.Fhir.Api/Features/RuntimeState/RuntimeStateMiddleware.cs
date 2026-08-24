@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
 
             int delayMilliseconds = RandomNumberGenerator.GetInt32(MinimumRejectionDelayMilliseconds, MaximumRejectionDelayMilliseconds + 1);
 
-            // Task.Delay does not use context.RequestAborted to avoid the risk of a client aborting the request and raising a different error.
+            // No use of context.RequestAborted to avoid the risk of a client aborting the request and raising a different error.
             await Task.Delay(delayMilliseconds);
         }
 
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
 
             _inboundRequestLogger.LogRequest(context);
 
-            // Task.Delay does not use context.RequestAborted to avoid the risk of a client aborting the request and raising a different error.
+            // No use of context.RequestAborted to avoid the risk of a client aborting the request and raising a different error.
             await context.Response.Body.WriteAsync(_deprecatedServiceResponse);
         }
 
