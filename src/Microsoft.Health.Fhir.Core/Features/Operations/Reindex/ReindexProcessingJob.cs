@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -58,7 +57,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _result;
@@ -74,21 +72,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ILogger<ReindexProcessingJob> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
             _searchParameterOperations = searchParameterOperations;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
         }
 

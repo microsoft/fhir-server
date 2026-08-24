@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
         private readonly CancellationToken _cancellationToken;
 
@@ -58,7 +57,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      fhirDataStoreScope,
                      _resourceWrapperFactory,
                      _searchParameterOperations,
-                     _searchParameterDefinitionManager,
                      NullLogger<ReindexProcessingJob>.Instance);
 
             // Default range discovery mock for SQL path - can be overridden per test
