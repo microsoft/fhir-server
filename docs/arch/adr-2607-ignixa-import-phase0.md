@@ -107,6 +107,27 @@ Three findings from that work correct the plan recorded above.
 
 **Thread safety of the shared Ignixa engine is asserted, not assumed.** `IFhirPathEvaluator` is a singleton holding one `FhirPathParser`, `FhirPathEvaluator` and `FhirPathDelegateCompiler`, and `ConcurrentDictionary.GetOrAdd` does not serialise its value factory, so both compilation and evaluation genuinely run those shared objects in parallel under import. The Ignixa package does not document whether that is supported, and indexing has no runtime fallback, so a race would appear as intermittent index corruption rather than a clean failure. `IgnixaFhirPathEvaluatorConcurrencyTests` drives sixteen threads over distinct resources and compares every result against the single-threaded Firely result, and covers the cold-cache compile path separately.
 
+### Amendment: Ignixa 0.6.68 evaluated, not adopted
+
+We pin `0.6.7`. Release `0.6.68` was evaluated against each compensation above, empirically rather than from release notes. It closes three gaps and leaves four, so the compensations stay and the upgrade is a separate change.
+
+| Behaviour | 0.6.7 (pinned) | 0.6.68 | Compensation still needed? |
+|---|---|---|---|
+| Serializer escapes `+` `&` `<` `>` and non-ASCII | yes | yes | **Yes** — we still write the document ourselves |
+| Source property order preserved on write | yes | yes | **Yes** — we still hoist `resourceType`/`id`/`meta` |
+| `RemoveExtension` removes one match per call | yes | yes | **Yes** — bounded loop stays |
+| Computed FHIRPath values named `boolean`/`integer` | yes | yes | **Yes** — `SystemTypedElementAdapter` stays |
+| `meta.lastUpdated` forced to 7 fractional digits | yes | no — now a verbatim `string` passthrough | No, but the parser must format the string itself |
+| Date/dateTime `.Value` type through the Firely adapter | `String` where Firely gives `Date`/`DateTime` | matches Firely | Fixed upstream (#398) |
+| `resolve()` for `contained`/Bundle without a resolver | unsupported | supported | Fixed upstream (#401) |
+| Adapter round trip returns the same native instance | yes | yes | Unchanged — the fast path survives |
+
+The date-type divergence on `0.6.7` is real but currently inert: `DateToDateTimeSearchValueConverter` reads `value.Value?.ToString()`, so a `String` and a `Date` produce the same search value, which is why `TypedElementSearchIndexerParityTests` passes on all four FHIR versions. It is latent risk rather than an active defect, and `0.6.68` removes it.
+
+Upgrading is not free. `0.6.68` renames `MetaJsonNode` to `Meta` and `ReferenceJsonNode` to `Reference`, moves `MutableNode` behind `IMutableJsonNode`, changes `Meta.LastUpdated` from `DateTimeOffset?` to `string`, and changes `IElement.Value` to return `FhirTemporal` for `date`/`dateTime`/`instant`/`time`. A trial bump produced five compile errors, all inside Phase 0's `IgnixaImportResourceParser`; the Phase 2a/3a files added later compile untouched, because they reach the JSON document through `Meta<ISourceNavigator>()`/`Meta<JsonNode>()` rather than the typed node model. `Ignixa.Extensions.FirelySdk5` still requires `Hl7.Fhir.Base` 5.13.1, so the repo-wide Firely bump is inherent to Ignixa and does not go away.
+
+Take the upgrade as its own change, with the parser rework and a full parity re-run across all four FHIR versions.
+
 Every migration PR changes exactly one feature seam, preserves Firely as the default until final cutover, has one composition-root decision point, avoids hidden fallback, states its rollback action (typically: reset the provider setting; no data migration required), and states which seams remain Firely-backed. As a review heuristic, we target no more than roughly ten modified production files per seam PR (excluding new provider-project scaffolding and mechanical solution/Docker entries) — exceeding that isn't automatically wrong, but it requires explaining why the seam can't be split further. Phase 0 lands at exactly ten.
 
 ## Status
