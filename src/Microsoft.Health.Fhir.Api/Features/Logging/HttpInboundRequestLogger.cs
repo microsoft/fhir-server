@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
                 IReadOnlyList<KeyValuePair<string, object>> state =
                 [
                     new KeyValuePair<string, object>("duration", GetElapsedMilliseconds(context)),
-                    new KeyValuePair<string, object>("httpHost", context.Request?.Host.Value ?? string.Empty),
-                    new KeyValuePair<string, object>("httpMethod", context.Request?.Method ?? string.Empty),
-                    new KeyValuePair<string, object>("httpPath", context.Request?.Path.Value ?? string.Empty),
+                    new KeyValuePair<string, object>("httpHost", SanitizeForLog(context.Request?.Host.Value)),
+                    new KeyValuePair<string, object>("httpMethod", SanitizeForLog(context.Request?.Method)),
+                    new KeyValuePair<string, object>("httpPath", SanitizeForLog(context.Request?.Path.Value)),
                     new KeyValuePair<string, object>("httpStatusCode", httpStatusCode),
                 ];
 
@@ -90,6 +90,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
                 : activity.Duration;
 
             return Math.Max(0, (long)duration.TotalMilliseconds);
+        }
+
+        private static string SanitizeForLog(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+
+            return value
+                .Replace("\r", string.Empty, StringComparison.Ordinal)
+                .Replace("\n", string.Empty, StringComparison.Ordinal);
         }
 
         private static string FormatLogMessage(
