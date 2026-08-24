@@ -36,7 +36,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 {
-    [CollectionDefinition(Categories.IndexAndReindex, DisableParallelization = true)]
+    [Collection(Categories.IndexAndReindex)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     [Trait(Traits.Category, Categories.ReindexOperation)]

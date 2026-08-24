@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
+    [Collection(ModelInfoProviderCollection.Name)]
     public class SqlServerFhirDataStoreUnitTests
     {
         public static IEnumerable<object[]> RemoveTrailingZerosTestCases()
