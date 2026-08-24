@@ -56,14 +56,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         public async Task GivenAResourceWithNoId_WhenUpsertingConditionallyWithOneMatch_ThenTheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             string id = Guid.NewGuid().ToString();
-            string version = Guid.NewGuid().ToString();
 
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false));
-            mockResultEntry.Resource.Version.Returns(version);
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation(),
+                null,
                 mockResultEntry);
 
             UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
@@ -71,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
 
             await _fhirDataStore.Received().UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag != null && x.WeakETag.VersionId == version),
+                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag == null),
                 Arg.Any<CancellationToken>());
         }
 
@@ -79,14 +78,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         public async Task GivenAResourceWithCorrectId_WhenUpsertingConditionallyWithOneMatch_ThenTheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             string id = Guid.NewGuid().ToString();
-            string version = Guid.NewGuid().ToString();
 
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false));
-            mockResultEntry.Resource.Version.Returns(version);
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation().UpdateId(id),
+                null,
                 mockResultEntry);
 
             UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
@@ -94,7 +92,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
 
             await _fhirDataStore.Received().UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag != null && x.WeakETag.VersionId == version),
+                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag == null),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAResource_WhenUpsertingConditionallyWithOneMatchAndMatchingWeakETag_ThenTheServerShouldForwardTheClientWeakETag()
+        {
+            string id = Guid.NewGuid().ToString();
+
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false));
+            mockResultEntry.Resource.Version.Returns("7");
+
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+            ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
+                SaveOutcomeType.Updated,
+                Samples.GetDefaultObservation(),
+                weakETag,
+                mockResultEntry);
+
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
+
+            Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
+
+            await _fhirDataStore.Received().UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag == weakETag),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAResource_WhenUpsertingConditionallyWithOneMatchAndStaleWeakETag_TheServerShouldFailWithoutMutation()
+        {
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("7");
+
+            ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
+                SaveOutcomeType.Updated,
+                Samples.GetDefaultObservation(),
+                WeakETag.FromVersionId("stale"),
+                mockResultEntry);
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<UpsertResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().UpsertAsync(
+                Arg.Any<ResourceWrapperOperation>(),
                 Arg.Any<CancellationToken>());
         }
 
@@ -106,6 +147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()),
+                null,
                 mockResultEntry);
 
             await Assert.ThrowsAsync<BadRequestException>(async () => await _mediator.SendAsync<UpsertResourceResponse>(message));
@@ -120,6 +162,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
                 Samples.GetDefaultObservation(),
+                null,
                 mockResultEntry1,
                 mockResultEntry2);
 
@@ -130,6 +173,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             SaveOutcomeType outcomeType,
             ResourceElement requestResource,
             params SearchResultEntry[] searchResults)
+            => SetupConditionalUpdate(outcomeType, requestResource, null, searchResults);
+
+        private ConditionalUpsertResourceRequest SetupConditionalUpdate(
+            SaveOutcomeType outcomeType,
+            ResourceElement requestResource,
+            WeakETag weakETag,
+            params SearchResultEntry[] searchResults)
         {
             IReadOnlyList<Tuple<string, string>> list = new[] { Tuple.Create("_tag", Guid.NewGuid().ToString()) };
 
@@ -139,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, outcomeType));
 
-            var message = new ConditionalUpsertResourceRequest(requestResource, list);
+            var message = new ConditionalUpsertResourceRequest(requestResource, list, weakETag: weakETag);
 
             return message;
         }

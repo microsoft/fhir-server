@@ -107,14 +107,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else if (count == 1 && !tooManyIncludeResults)
             {
+                ResourceWrapper resourceWrapper = results.Results.Single(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).Resource;
+
+                if (request.WeakETag != null && request.WeakETag.VersionId != resourceWrapper.Version)
+                {
+                    _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                    throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+                }
+
                 if (results.Results.Count == 1)
                 {
                     var result = await _deleter.DeleteAsync(
                         new DeleteResourceRequest(
                             request.ResourceType,
-                            results.Results.First().Resource.ResourceId,
+                            resourceWrapper.ResourceId,
                             request.DeleteOperation,
-                            bundleResourceContext: request.BundleResourceContext),
+                            bundleResourceContext: request.BundleResourceContext,
+                            weakETag: request.WeakETag),
                         cancellationToken);
 
                     if (string.IsNullOrWhiteSpace(result.VersionId))

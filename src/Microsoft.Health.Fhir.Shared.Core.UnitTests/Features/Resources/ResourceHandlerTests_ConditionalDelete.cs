@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -78,6 +79,63 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
+        public async Task GivenOneMatchingResource_WhenDeletingConditionallyWithStaleWeakETag_TheServerShouldFailWithoutMutation()
+        {
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("7");
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: true,
+                count: 1,
+                weakETag: WeakETag.FromVersionId("stale"),
+                mockResultEntry);
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().UpsertAsync(
+                Arg.Any<ResourceWrapperOperation>(),
+                Arg.Any<CancellationToken>());
+            await _fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOneMatchingResourceWithIncludeResults_WhenDeletingConditionallyWithStaleWeakETag_TheServerShouldFailWithoutMutation()
+        {
+            var matchResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            matchResultEntry.Resource.Version.Returns("7");
+
+            var includeResultEntry = new SearchResultEntry(
+                CreateMockResourceWrapper(Samples.GetDefaultPatient().UpdateId(Guid.NewGuid().ToString()), false),
+                ValueSets.SearchEntryMode.Include);
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: true,
+                count: 1,
+                weakETag: WeakETag.FromVersionId("stale"),
+                matchResultEntry,
+                includeResultEntry);
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().UpsertAsync(
+                Arg.Any<ResourceWrapperOperation>(),
+                Arg.Any<CancellationToken>());
+            await _fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionally_TheServerShouldReturnError()
         {
             var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
@@ -122,6 +180,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             bool hardDelete = false,
             int count = 1,
             params SearchResultEntry[] searchResults)
+            => SetupConditionalDelete(resourceType, list, hardDelete, count, null, searchResults);
+
+        private ConditionalDeleteResourceRequest SetupConditionalDelete(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> list,
+            bool hardDelete,
+            int count,
+            WeakETag weakETag,
+            params SearchResultEntry[] searchResults)
         {
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), resourceVersionTypes: Arg.Any<ResourceVersionType>(), onlyIds: Arg.Any<bool>())
                 .Returns(new SearchResult(searchResults, null, null, Enumerable.Empty<Tuple<string, string>>().ToArray()));
@@ -141,7 +208,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 list,
                 hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                 count,
-                bundleResourceContext: null);
+                bundleResourceContext: null,
+                weakETag: weakETag);
 
             return message;
         }

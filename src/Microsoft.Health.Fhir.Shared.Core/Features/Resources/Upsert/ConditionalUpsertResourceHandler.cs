@@ -12,6 +12,7 @@ using Medino;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -66,13 +67,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         {
             ResourceWrapper resourceWrapper = match.Resource;
             Resource resource = request.Resource.ToPoco();
-            var version = WeakETag.FromVersionId(resourceWrapper.Version);
+
+            if (request.WeakETag != null && request.WeakETag.VersionId != resourceWrapper.Version)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+            }
 
             // One Match, no resource id provided OR (resource id provided and it matches the found resource): The server performs the update against the matching resource
             if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
             {
                 resource.Id = resourceWrapper.ResourceId;
-                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleResourceContext, version), cancellationToken);
+                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleResourceContext, weakETag: request.WeakETag), cancellationToken);
             }
             else
             {
