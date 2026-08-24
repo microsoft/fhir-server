@@ -16,6 +16,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<DeletionService> _logger;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly SemaphoreSlim _searchParamDeleteSemaphore;
         private bool _disposed;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
@@ -71,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ISearchParameterOperations searchParameterOperations,
             IResourceDeserializer resourceDeserializer,
-            ILogger<DeletionService> logger)
+            ILogger<DeletionService> logger,
+            IModelInfoProvider modelInfoProvider)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
@@ -85,6 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _searchParamDeleteSemaphore = new SemaphoreSlim(1, 1);
 
             _retryPolicy = Policy
@@ -106,6 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             string version = null;
             using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
             var fhirDataStore = scopedDataStore.GetDataStore();
+            bool requireETagOnUpdate = await _conformanceProvider.Value.RequireETag(key.ResourceType, cancellationToken);
             switch (request.DeleteOperation)
             {
                 case DeleteOperation.SoftDelete:
@@ -113,14 +118,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
+                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, request.WeakETag, requireETagOnUpdate, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
 
                     version = result?.Wrapper.Version;
                     break;
                 case DeleteOperation.HardDelete:
+                    var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
+                    if (resourceWrapper != null)
+                    {
+                        ValidatePrecondition(key.ResourceType, resourceWrapper.Version, request.WeakETag, requireETagOnUpdate);
+                    }
+
                     if (key.ResourceType == KnownResourceTypes.SearchParameter)
                     {
-                        var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
                         if (resourceWrapper != null && !resourceWrapper.IsDeleted)
                         {
                             await _retryPolicy.ExecuteAsync(async () => await _searchParameterOperations.DeleteSearchParameterAsync(resourceWrapper.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: true));
@@ -132,6 +142,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, false, request.AllowPartialSuccess, cancellationToken));
                     break;
                 case DeleteOperation.PurgeHistory:
+                    var currentResourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
+                    if (currentResourceWrapper != null)
+                    {
+                        ValidatePrecondition(key.ResourceType, currentResourceWrapper.Version, request.WeakETag, requireETagOnUpdate);
+                    }
+
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, true, request.AllowPartialSuccess, cancellationToken));
                     break;
                 default:
@@ -139,6 +155,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return new ResourceKey(key.ResourceType, key.Id, version);
+        }
+
+        private void ValidatePrecondition(string resourceType, string currentVersion, WeakETag weakETag, bool requireETag)
+        {
+            if (requireETag && weakETag == null)
+            {
+                string message = string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resourceType);
+
+                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                {
+                    throw new PreconditionFailedException(message);
+                }
+
+                throw new BadRequestException(message);
+            }
+
+            if (weakETag != null && weakETag.VersionId != currentVersion)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+            }
         }
 
         public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null)

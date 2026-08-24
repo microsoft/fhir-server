@@ -360,7 +360,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRuntimeConfiguration,
                 _searchParameterOperations,
                 Deserializer,
-                logger);
+                logger,
+                ModelInfoProvider.Instance);
 
             var collection = new ServiceCollection();
 

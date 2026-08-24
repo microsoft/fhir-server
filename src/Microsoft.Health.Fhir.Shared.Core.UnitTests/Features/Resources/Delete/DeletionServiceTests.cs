@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
         private readonly ILogger<DeletionService> _logger = Substitute.For<ILogger<DeletionService>>();
+        private readonly IModelInfoProvider _modelInfoProvider = Substitute.For<IModelInfoProvider>();
         private readonly DeletionService _service;
 
         public DeletionServiceTests()
@@ -68,6 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 new Dictionary<string, StringValues>(),
                 new Dictionary<string, StringValues>());
             _contextAccessor.RequestContext.Returns(dummyRequestContext);
+            _modelInfoProvider.Version.Returns(FhirSpecification.R4);
 
             _service = new DeletionService(
                 _resourceWrapperFactory,
@@ -81,7 +84,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 _fhirRuntimeConfiguration,
                 _searchParameterOperations,
                 _resourceDeserializer,
-                _logger);
+                _logger,
+                _modelInfoProvider);
         }
 
         [Fact]
@@ -367,6 +371,147 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<ResourceVersionType>(),
                 Arg.Any<bool>(),
                 Arg.Any<bool>());
+        }
+
+        [Fact]
+        public async Task GivenSoftDeleteWithETag_WhenETagIsRequired_ThenUpsertUsesClientETagAndPolicy()
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            var deletedWrapper = CreateWrapper(version: null);
+            _resourceWrapperFactory
+                .Create(Arg.Any<ResourceElement>(), deleted: true, keepMeta: false)
+                .Returns(deletedWrapper);
+            fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new UpsertOutcome(deletedWrapper, SaveOutcomeType.Updated)));
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            var request = new DeleteResourceRequest(
+                "Patient",
+                "id",
+                DeleteOperation.SoftDelete,
+                weakETag: WeakETag.FromVersionId("7"));
+
+            // Act
+            await _service.DeleteAsync(request, CancellationToken.None);
+
+            // Assert
+            await fhirDataStore.Received().UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(operation =>
+                    operation.WeakETag.VersionId == "7" &&
+                    operation.RequireETagOnUpdate),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
+        public async Task GivenDestructiveDeleteWithMatchingETag_WhenETagIsRequired_ThenDeletes(DeleteOperation deleteOperation)
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper("7")));
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            var request = new DeleteResourceRequest(
+                "Patient",
+                "id",
+                deleteOperation,
+                weakETag: WeakETag.FromVersionId("7"));
+
+            // Act
+            await _service.DeleteAsync(request, CancellationToken.None);
+
+            // Assert
+            await fhirDataStore.Received().GetAsync(request.ResourceKey, CancellationToken.None);
+            await fhirDataStore.Received().HardDeleteAsync(
+                request.ResourceKey,
+                deleteOperation == DeleteOperation.PurgeHistory,
+                false,
+                CancellationToken.None);
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
+        public async Task GivenDestructiveDeleteWithStaleETag_WhenCurrentResourceExists_ThenRejectsWithoutDeleting(DeleteOperation deleteOperation)
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper("7")));
+            var request = new DeleteResourceRequest(
+                "Patient",
+                "id",
+                deleteOperation,
+                weakETag: WeakETag.FromVersionId("6"));
+
+            // Act
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteAsync(request, CancellationToken.None));
+
+            // Assert
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete, FhirSpecification.R4)]
+        [InlineData(DeleteOperation.PurgeHistory, FhirSpecification.R4)]
+        [InlineData(DeleteOperation.HardDelete, FhirSpecification.Stu3)]
+        [InlineData(DeleteOperation.PurgeHistory, FhirSpecification.Stu3)]
+        public async Task GivenDestructiveDeleteWithoutETag_WhenETagIsRequired_ThenRejectsWithoutDeleting(DeleteOperation deleteOperation, FhirSpecification fhirSpecification)
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper("7")));
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            _modelInfoProvider.Version.Returns(fhirSpecification);
+            var request = new DeleteResourceRequest("Patient", "id", deleteOperation);
+
+            // Act
+            if (fhirSpecification == FhirSpecification.Stu3)
+            {
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteAsync(request, CancellationToken.None));
+            }
+            else
+            {
+                await Assert.ThrowsAsync<BadRequestException>(() => _service.DeleteAsync(request, CancellationToken.None));
+            }
+
+            // Assert
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        private IFhirDataStore SetUpDataStore()
+        {
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+            return fhirDataStore;
+        }
+
+        private static ResourceWrapper CreateWrapper(string version)
+        {
+            return new ResourceWrapper(
+                "id",
+                version,
+                "Patient",
+                rawResource: null,
+                request: null,
+                lastModified: DateTimeOffset.UtcNow,
+                deleted: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null);
         }
     }
 }

@@ -146,7 +146,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Substitute.For<IFhirRuntimeConfiguration>(),
                 Substitute.For<ISearchParameterOperations>(),
                 _deserializer,
-                logger);
+                logger,
+                ModelInfoProvider.Instance);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();
