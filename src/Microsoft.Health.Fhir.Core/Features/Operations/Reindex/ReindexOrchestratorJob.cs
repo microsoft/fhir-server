@@ -168,8 +168,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
+                var msg = $"The reindex id={_jobInfo.Id} failed.";
+                _logger.LogJobError(ex, _jobInfo, msg);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
-                _logger.LogJobError(ex, _jobInfo, $"The reindex failed. Id={_jobInfo.Id}");
+                throw new JobExecutionException(msg, _result, ex, false);
             }
             finally
             {
@@ -538,11 +540,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                var message = $"Error running reindex query for resource type {resourceType}.";
-                var reindexJobException = new ReindexJobException(message, ex);
-                _logger.LogJobError(ex, _jobInfo, "Error running SearchForReindexAsync for resource type {ResourceType}.", resourceType);
-
-                throw reindexJobException;
+                var msg = $"Error running reindex query for resource type {resourceType}.";
+                _logger.LogJobError(ex, _jobInfo, msg);
+                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
+                throw new JobExecutionException(msg, _result, false);
             }
         }
 
