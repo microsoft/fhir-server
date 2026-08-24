@@ -118,7 +118,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, request.WeakETag, requireETagOnUpdate, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
+                    UpsertOutcome result;
+                    try
+                    {
+                        result = await _retryPolicy.ExecuteAsync(() => fhirDataStore.UpsertAsync(
+                            new ResourceWrapperOperation(deletedWrapper, true, keepHistory, request.WeakETag, requireETagOnUpdate, false, bundleResourceContext: request.BundleResourceContext),
+                            cancellationToken));
+                    }
+                    catch (ResourceConflictException exception) when (
+                        request.WeakETag != null &&
+                        exception.WeakETag?.VersionId == request.WeakETag.VersionId &&
+                        _modelInfoProvider.Version == FhirSpecification.Stu3)
+                    {
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+                    }
 
                     version = result?.Wrapper.Version;
                     break;

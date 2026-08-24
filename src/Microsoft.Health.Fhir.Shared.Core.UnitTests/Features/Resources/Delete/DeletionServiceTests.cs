@@ -403,6 +403,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenStu3SoftDeleteWithStaleETag_WhenDataStoreReturnsConflict_ThenThrowsPreconditionFailed()
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            var deletedWrapper = CreateWrapper(version: null);
+            _resourceWrapperFactory
+                .Create(Arg.Any<ResourceElement>(), deleted: true, keepMeta: false)
+                .Returns(deletedWrapper);
+            fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<UpsertOutcome>(new ResourceConflictException(WeakETag.FromVersionId("6"))));
+            _modelInfoProvider.Version.Returns(FhirSpecification.Stu3);
+            var request = new DeleteResourceRequest(
+                "Patient",
+                "id",
+                DeleteOperation.SoftDelete,
+                weakETag: WeakETag.FromVersionId("6"));
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteAsync(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenStu3SoftDeleteWithETag_WhenDataStoreReturnsConcurrentWriteConflict_ThenPreservesConflict()
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            var deletedWrapper = CreateWrapper(version: null);
+            _resourceWrapperFactory
+                .Create(Arg.Any<ResourceElement>(), deleted: true, keepMeta: false)
+                .Returns(deletedWrapper);
+            fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<UpsertOutcome>(new ResourceConflictException("Concurrent write conflict.")));
+            _modelInfoProvider.Version.Returns(FhirSpecification.Stu3);
+            var request = new DeleteResourceRequest(
+                "Patient",
+                "id",
+                DeleteOperation.SoftDelete,
+                weakETag: WeakETag.FromVersionId("6"));
+
+            // Act and assert
+            await Assert.ThrowsAsync<ResourceConflictException>(() => _service.DeleteAsync(request, CancellationToken.None));
+        }
+
         [Theory]
         [InlineData(DeleteOperation.HardDelete)]
         [InlineData(DeleteOperation.PurgeHistory)]

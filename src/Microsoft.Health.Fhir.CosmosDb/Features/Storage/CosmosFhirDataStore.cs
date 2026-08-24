@@ -364,17 +364,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             // If the versioning policy is set to versioned-update and no if-match header is provided
-            if (requireETagOnUpdate && weakETag == null)
+            if (requireETagOnUpdate && weakETag == null && !cosmosWrapper.IsDeleted)
             {
-                // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
-                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
-                {
-                    _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
-                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
-                }
-
-                _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
-                throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                ThrowIfETagRequired(resource.ResourceTypeName);
             }
 
             while (true)
@@ -427,6 +419,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
                 {
                     return null;
+                }
+
+                if (requireETagOnUpdate && weakETag == null)
+                {
+                    ThrowIfETagRequired(resource.ResourceTypeName);
                 }
 
                 // If not a delete then check if its an update with no data change
@@ -517,6 +514,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Updated);
             }
+        }
+
+        private void ThrowIfETagRequired(string resourceType)
+        {
+            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+            {
+                _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
+                throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resourceType));
+            }
+
+            _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
+            throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resourceType));
         }
 
         private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)

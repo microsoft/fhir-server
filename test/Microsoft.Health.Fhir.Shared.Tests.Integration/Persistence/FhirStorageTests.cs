@@ -1316,5 +1316,40 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Div = $"<div>{ContentUpdated}</div>",
             };
         }
+
+        [Fact]
+        public async Task GivenVersionedUpdateResource_WhenSoftDeletingNeverExistentResourceWithoutETag_ThenConsecutiveDeletesAreIdempotent()
+        {
+            // Arrange
+            string absentId = Guid.NewGuid().ToString();
+            var key = new ResourceKey("Medication", absentId);
+
+            // Act
+            var firstResult = await Mediator.DeleteResourceAsync(key, DeleteOperation.SoftDelete);
+            var secondResult = await Mediator.DeleteResourceAsync(key, DeleteOperation.SoftDelete);
+
+            // Assert
+            Assert.Null(firstResult.ResourceKey.VersionId);
+            Assert.Null(secondResult.ResourceKey.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenVersionedUpdateResource_WhenSoftDeletingAlreadyDeletedResourceWithoutETag_ThenRepeatDeleteIsIdempotent()
+        {
+            // Arrange
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetDefaultMedication());
+            var resourceKey = new ResourceKey("Medication", saveResult.RawResourceElement.Id);
+            await Mediator.DeleteResourceAsync(
+                new DeleteResourceRequest(
+                    resourceKey,
+                    DeleteOperation.SoftDelete,
+                    weakETag: WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId)));
+
+            // Act
+            var repeatResult = await Mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete);
+
+            // Assert
+            Assert.Null(repeatResult.ResourceKey.VersionId);
+        }
     }
 }

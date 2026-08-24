@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             Debug.Assert(etag != null, "ETag should not be null");
 
+            WeakETag = etag;
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Conflict,
@@ -31,5 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     OperationOutcomeConstants.IssueType.Conflict,
                     message));
         }
+
+        /// <summary>
+        /// Gets the ETag that caused this version conflict, if one was supplied.
+        /// </summary>
+        public WeakETag WeakETag { get; }
     }
 }

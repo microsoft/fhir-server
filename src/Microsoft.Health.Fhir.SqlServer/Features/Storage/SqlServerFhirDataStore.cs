@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else
                 {
-                    if (resourceExt.RequireETagOnUpdate && !eTag.HasValue)
+                    if (resourceExt.RequireETagOnUpdate && !eTag.HasValue && !(resource.IsDeleted && existingResource.IsDeleted))
                     {
                         // This is a versioned update and no version was specified
                         // TODO: Add this to SQL error codes in AB#88286
