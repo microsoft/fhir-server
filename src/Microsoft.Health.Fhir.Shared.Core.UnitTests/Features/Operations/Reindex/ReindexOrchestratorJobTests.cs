@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task ExecuteAsync_WithExceptionInProcessing_ReturnsErrorResult()
+        public async Task ExecuteAsync_WithExceptionInProcessing_ThrowsJobExecutionExceptionWithErrorResult()
         {
             // Arrange
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
@@ -330,8 +330,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
-            var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
-            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => orchestrator.ExecuteAsync(jobInfo, _cancellationToken));
+            var jobResult = Assert.IsType<ReindexOrchestratorJobResult>(exception.Error);
 
             // Assert
             Assert.NotNull(jobResult);
@@ -1880,7 +1880,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task HandleException_LogsAndReturnsError()
+        public async Task HandleException_ThrowsJobExecutionExceptionWithError()
         {
             // Arrange
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
@@ -1891,8 +1891,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
-            var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
-            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => orchestrator.ExecuteAsync(jobInfo, _cancellationToken));
+            var jobResult = Assert.IsType<ReindexOrchestratorJobResult>(exception.Error);
 
             // Assert
             Assert.NotNull(jobResult);
