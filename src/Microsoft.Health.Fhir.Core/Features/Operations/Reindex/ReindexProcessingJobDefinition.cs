@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
@@ -26,5 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public int MaximumNumberOfResourcesPerQuery { get; set; }
 
         public int MaximumNumberOfResourcesPerWrite { get; set; }
+
+        public IReadOnlyCollection<string> SearchParameterUrls { get; set; }
     }
 }

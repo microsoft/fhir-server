@@ -918,6 +918,40 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenMixedResourceTypeSearchParams_WhenProcessingJobsCreated_ThenEachJobContainsResourceSpecificUrls()
+        {
+            var prefix = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var personSearchParam = await CreateSearchParam(prefix + "Person", SearchParamType.Token, "Person", "Person.id", prefix + "PersonCode");
+            var supplySearchParam = await CreateSearchParam(prefix + "SupplyDelivery", SearchParamType.Token, "SupplyDelivery", "SupplyDelivery.id", prefix + "SupplyDeliveryCode");
+
+            await _fixture.Mediator.UpsertResourceAsync(new Person { Id = Guid.NewGuid().ToString() }.ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(new SupplyDelivery { Id = Guid.NewGuid().ToString(), Status = SupplyDelivery.SupplyDeliveryStatus.InProgress }.ToResourceElement());
+
+            var request = new CreateReindexRequest(new List<string>(), new List<string> { personSearchParam.Url, supplySearchParam.Url });
+            var response = await SetUpForReindexing(request);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var orchestrator = await WaitForReindexCompletionAsync(response, cancellationTokenSource);
+            var groupId = long.Parse(orchestrator.JobRecord.Id, System.Globalization.CultureInfo.InvariantCulture);
+
+            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, groupId, true, CancellationToken.None);
+
+            var processingDefinitions = jobs.Where(_ => _.Id != groupId).Select(_ => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(_.Definition)).ToList();
+
+            Assert.NotEmpty(processingDefinitions);
+
+            var personDefinition = Assert.Single(processingDefinitions, _ => _.ResourceType == "Person");
+            var supplyDefinition = Assert.Single(processingDefinitions, _ => _.ResourceType == "SupplyDelivery");
+
+            Assert.NotNull(personDefinition.SearchParameterUrls);
+            Assert.Single(personDefinition.SearchParameterUrls);
+            Assert.Equal(personSearchParam.Url, personDefinition.SearchParameterUrls.Single());
+
+            Assert.NotNull(supplyDefinition.SearchParameterUrls);
+            Assert.Single(supplyDefinition.SearchParameterUrls);
+            Assert.Equal(supplySearchParam.Url, supplyDefinition.SearchParameterUrls.Single());
+        }
+
+        [Fact]
         public async Task GivenFailedProcessingJobs_WhenOrchestratorProcessesResults_ThenErrorsPropagateThroughApi()
         {
             // This test validates the complete error propagation chain:
