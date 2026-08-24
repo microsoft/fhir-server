@@ -80,10 +80,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () =>
                 {
                     // Create the database.
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                    await using var connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                     await connection.OpenAsync(cancellationToken);
 
-                    await using SqlCommand command = connection.CreateCommand();
+                    await using var command = connection.CreateCommand();
                     command.CommandTimeout = 300;
                     command.CommandText = @$"
                         IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
@@ -96,12 +96,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     {
                         await command.ExecuteNonQueryAsync(cancellationToken);
                     }
+                    catch (SqlException e)
+                    {
+                        if (!e.Message.Contains("Choose a different database name"))
+                        {
+                            throw;
+                        }
+                    }
                     finally
                     {
                         DbSetupSemaphore.Release();
                     }
-
-                    await connection.CloseAsync();
                 });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
