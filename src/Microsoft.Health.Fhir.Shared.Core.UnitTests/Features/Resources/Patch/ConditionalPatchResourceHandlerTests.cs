@@ -174,6 +174,48 @@ public class ConditionalPatchResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.HandleAsync(request, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GivenAConditionalPatchResourceHandler_WhenRequestContainsAMatchingWeakETag_ThenPatchShouldSucceed()
+    {
+        // Arrange
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
+        var weakETag = WeakETag.FromVersionId("1");
+        var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, weakETag: weakETag);
+
+        // Act & Assert - Should not throw PreconditionFailedException
+        await _conditionalPatchHandler.HandleAsync(request, CancellationToken.None);
+
+        await _mediator
+            .Received()
+            .SendAsync<UpsertResourceResponse>(
+                Arg.Is<UpsertResourceRequest>(r => r.WeakETag == weakETag && r.WeakETag.VersionId == "1"),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GivenAConditionalPatchResourceHandler_WhenRequestContainsANonMatchingWeakETag_ThenPreconditionFailedExceptionIsThrown()
+    {
+        // Arrange
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
+        var weakETag = WeakETag.FromVersionId("2");
+        var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, weakETag: weakETag);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<PreconditionFailedException>(() => _conditionalPatchHandler.HandleAsync(request, CancellationToken.None));
+
+        await _mediator
+            .DidNotReceive()
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+    }
+
     private static IReadOnlyCollection<SearchResultEntry> GenerateSearchResult(string resourceType)
     {
         var entries = new List<SearchResultEntry>();
