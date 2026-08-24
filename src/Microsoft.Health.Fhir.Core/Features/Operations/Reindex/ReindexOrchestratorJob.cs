@@ -502,34 +502,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        /// <summary>
-        /// This is the starting point for how many resources per resource type are found
-        /// No change to these ResourceCounts occurs after this initial setup
-        /// We also store the total # of resources to be reindexed
-        /// </summary>
-        /// <returns>Task</returns>
         private async Task CalculateAndSetTotalAndResourceCounts(HashSet<string> resourceTypes)
         {
             foreach (string resourceType in resourceTypes)
             {
-                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
-                {
-                    LastModified = Clock.UtcNow,
-                    Status = OperationStatus.Queued,
-                };
-
-                SearchResult searchResult = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, true, _cancellationToken);
-                if (searchResult?.ReindexResult?.StartResourceSurrogateId > 0)
-                {
-                    SearchResultReindex reindexResults = searchResult.ReindexResult;
-                    _resourceCounts.TryAdd(resourceType, new SearchResultReindex()
-                    {
-                        Count = reindexResults.Count,
-                        EndResourceSurrogateId = reindexResults.EndResourceSurrogateId,
-                        StartResourceSurrogateId = reindexResults.StartResourceSurrogateId,
-                    });
-                }
-                else if (searchResult?.TotalCount != null && searchResult.TotalCount.Value > 0)
+                var searchResult = await GetResourceCountForQuery(resourceType, _cancellationToken);
+                if (searchResult?.TotalCount != null && searchResult.TotalCount.Value > 0)
                 {
                     // No action needs to be taken if an entry for this resource fails to get added to the dictionary
                     // We will reindex all resource types that do not have a dictionary entry
@@ -543,61 +521,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<SearchResult> GetResourceCountForQueryAsync(ReindexJobQueryStatus queryStatus, bool countOnly, bool ignoreSearchParamHash, CancellationToken cancellationToken)
+        private async Task<SearchResult> GetResourceCountForQuery(string resourceType, CancellationToken cancellationToken)
         {
-            _resourceCounts.TryGetValue(queryStatus.ResourceType, out var searchResultReindex);
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Count, _definition.MaximumNumberOfResourcesPerQuery.ToString()),
-                Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
+                Tuple.Create(KnownQueryParameterNames.Type, resourceType),
+                Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
             };
-
-            // This should never be cosmos
-            if (searchResultReindex != null)
-            {
-                // Use 'queryStatus.StartResourceSurrogateId' for the start of the range, unless it is ZERO: in that case use 'searchResultReindex.StartResourceSurrogateId'.
-                // The same applies to 'queryStatus.EndResourceSurrogateId' as the end of the range, unless it is ZERO: in that case use 'searchResultReindex.EndResourceSurrogateId'.
-                // The results of the SQL query will determine how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
-                // When this function returns, it knows what the next starting value to use in searching for the next block of results and will use that as the queryStatus starting point
-
-                var startId = queryStatus.StartResourceSurrogateId > 0 ? queryStatus.StartResourceSurrogateId.ToString() : searchResultReindex.StartResourceSurrogateId.ToString();
-                var endId = queryStatus.EndResourceSurrogateId > 0 ? queryStatus.EndResourceSurrogateId.ToString() : searchResultReindex.EndResourceSurrogateId.ToString();
-
-                queryParametersList.AddRange(new[]
-                {
-                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, endId),
-                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, startId),
-                });
-            }
-
-            if (queryStatus.ContinuationToken != null)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, queryStatus.ContinuationToken));
-            }
-
-            string searchParameterHash = string.Empty;
-            searchParameterHash = GetSearchParameterHash(queryStatus.ResourceType);
-
-            // Ensure searchParameterHash is never null - for Cosmos DB scenarios, this will be empty string
-            searchParameterHash ??= string.Empty;
-
-            if (ignoreSearchParamHash)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
-            }
 
             using var searchService = _searchServiceFactory();
             try
             {
                 return await _retries.ExecuteAsync(
-                    async () => await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly: countOnly, cancellationToken, true));
+                    async () => await searchService.Value.SearchForReindexAsync(queryParametersList, string.Empty, countOnly: true, cancellationToken, true));
             }
             catch (Exception ex)
             {
-                var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
+                var message = $"Error running reindex query for resource type {resourceType}.";
                 var reindexJobException = new ReindexJobException(message, ex);
-                _logger.LogJobError(ex, _jobInfo, "Error running SearchForReindexAsync for resource type {ResourceType}.", queryStatus.ResourceType);
-                queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
+                _logger.LogJobError(ex, _jobInfo, "Error running SearchForReindexAsync for resource type {ResourceType}.", resourceType);
 
                 throw reindexJobException;
             }
