@@ -25,16 +25,12 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
+    // TODO: Remove as part os cosmos cleanup. Also rename FhirOperationDataStoreBase to FhirOperationDataStore.
     internal class SqlServerFhirOperationDataStore : FhirOperationDataStoreBase
     {
         public SqlServerFhirOperationDataStore(IQueueClient queueClient, ILoggerFactory loggerFactory)
             : base(queueClient, loggerFactory)
         {
-        }
-
-        public override async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
-        {
-            return await base.GetReindexJobByIdAsync(jobId, cancellationToken);
         }
     }
 }
