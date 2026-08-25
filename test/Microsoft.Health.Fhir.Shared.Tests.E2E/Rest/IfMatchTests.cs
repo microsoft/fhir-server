@@ -42,6 +42,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private const string FhirJsonMediaType = "application/fhir+json";
         private const string JsonPatchMediaType = "application/json-patch+json";
 
+        /// <summary>
+        /// These rows assert behavior that depends on the Medication resource type being configured as
+        /// versioned-update, which only the in-process test server guarantees. Remote fixtures must report the
+        /// rows as skipped instead of passing without having asserted anything.
+        /// </summary>
+        private const string InProcOnlyReason = "Requires the in-process test server, where the versioned-update resource policy is controlled.";
+
         private readonly HttpIntegrationTestFixture<StartupWithVersionedUpdateMedication> _fixture;
         private readonly TestFhirClient _client;
 
@@ -51,14 +58,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenUpdatingWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
             string currentText = CreateCodeText();
@@ -105,14 +109,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenJsonPatchingWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
             string currentText = CreateCodeText();
@@ -159,14 +160,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenFhirPatchingWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
             string currentText = CreateCodeText();
@@ -210,14 +208,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenUpdatingConditionallyWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
             string currentText = CreateCodeText();
@@ -264,14 +259,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenUpdatingConditionallyWithNoMatchAndNoIfMatch_ThenItIsCreated()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication medication = CreateMedication();
 
@@ -287,14 +279,144 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(medication.Code.Text, createdMedication.Code.Text);
         }
 
-        [Fact]
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAVersionedMedication_WhenUpdatingConditionallyWithNoMatchAndNoIdAndNoIfMatch_ThenItIsCreated()
+        {
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
+
+            Medication medication = CreateMedication();
+            string code = GetMedicationCode(medication);
+            medication.Id = null;
+
+            using (HttpResponseMessage response = await SendAsync(
+                HttpMethod.Put,
+                GetConditionalMedicationUriByCode(code),
+                medication))
+            {
+                Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            }
+
+            Assert.Equal(1, await CountMedicationsWithCodeAsync(code));
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAVersionedMedication_WhenUpdatingConditionallyWithNoMatchAndAnIdAndAStaleIfMatch_ThenItIsRejectedWithoutMutation()
+        {
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
+
+            Medication medication = await CreateMedicationAsync();
+            string staleIfMatch = ToIfMatch(medication);
+            string advancedText = CreateCodeText();
+            Medication advancedMedication = await AdvanceMedicationAsync(medication, advancedText);
+
+            // The criteria deliberately match nothing, so the request resolves to an update-as-create against
+            // the id carried in the body: a row the conditional search never inspected. The stale header must
+            // still reach persistence and reject the write.
+            SetCodeText(advancedMedication, CreateCodeText());
+
+            using (HttpResponseMessage response = await SendAsync(
+                HttpMethod.Put,
+                GetConditionalMedicationUri(Guid.NewGuid().ToString()),
+                advancedMedication,
+                ifMatch: staleIfMatch))
+            {
+                Assert.Equal(HttpStatusCode.PreconditionFailed, response.StatusCode);
+            }
+
+            await AssertMedicationStateAsync(medication.Id, advancedMedication.Meta.VersionId, advancedText);
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAVersionedMedication_WhenUpdatingConditionallyWithNoMatchAndNoIdAndAnIfMatch_ThenItIsRejectedWithoutCreating()
+        {
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
+
+            Medication medication = CreateMedication();
+            string code = GetMedicationCode(medication);
+            medication.Id = null;
+
+            // A resource that would be created fresh cannot satisfy any supplied version, so the header must be
+            // rejected rather than quietly ignored.
+            using (HttpResponseMessage response = await SendAsync(
+                HttpMethod.Put,
+                GetConditionalMedicationUriByCode(code),
+                medication,
+                ifMatch: WeakETag.FromVersionId("1").ToString()))
+            {
+                Assert.Equal(HttpStatusCode.PreconditionFailed, response.StatusCode);
+            }
+
+            Assert.Equal(0, await CountMedicationsWithCodeAsync(code));
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAVersionedMedication_WhenSoftDeletingConditionallyWithMultipleDeleteCountAndIfMatch_ThenItIsRejectedWithoutMutation()
+        {
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
+
+            Medication medication = await CreateMedicationAsync();
+            string codeText = medication.Code.Text;
+
+            using (HttpResponseMessage response = await SendAsync(
+                HttpMethod.Delete,
+                GetConditionalMedicationUri(medication.Id, "&_count=10"),
+                ifMatch: ToIfMatch(medication)))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            }
+
+            await AssertMedicationStateAsync(medication.Id, medication.Meta.VersionId, codeText);
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAVersionedMedication_WhenHardDeletingConditionallyWithMultipleDeleteCountAndIfMatch_ThenItIsRejectedWithoutMutation()
+        {
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
+
+            Medication medication = await CreateMedicationAsync();
+            string codeText = medication.Code.Text;
+
+            using (HttpResponseMessage response = await SendAsync(
+                HttpMethod.Delete,
+                GetConditionalMedicationUri(medication.Id, "&_count=10&hardDelete=true"),
+                ifMatch: ToIfMatch(medication)))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            }
+
+            await AssertMedicationStateAsync(medication.Id, medication.Meta.VersionId, codeText);
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAVersionedMedication_WhenSoftDeletingConditionallyWithMultipleDeleteCountAndNoIfMatch_ThenItIsDeleted()
+        {
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
+
+            // Regression guard: rejecting If-Match plus _count > 1 must not disturb ordinary multi-resource
+            // conditional delete.
+            Medication medication = await CreateMedicationAsync();
+
+            using (HttpResponseMessage response = await SendAsync(
+                HttpMethod.Delete,
+                GetConditionalMedicationUri(medication.Id, "&_count=10")))
+            {
+                Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            }
+
+            await AssertMedicationReadFailsAsync(medication.Id, HttpStatusCode.Gone);
+        }
+
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenJsonPatchingConditionallyWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
             string currentText = CreateCodeText();
@@ -341,14 +463,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenFhirPatchingConditionallyWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
             string currentText = CreateCodeText();
@@ -392,14 +511,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenSoftDeletingWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
 
@@ -441,14 +557,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenHardDeletingWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
 
@@ -494,10 +607,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenPurgingHistoryWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("purge-history"), "$purge-history not enabled on this server");
 
@@ -556,14 +666,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationVReadSucceedsAsync(missingMedication.Id, missingMedication.Meta.VersionId);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenSoftDeletingConditionallyWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
 
@@ -605,14 +712,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAVersionedMedication_WhenHardDeletingConditionallyWithIfMatch_ThenCurrentSucceedsAndStaleAndMissingAreRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication currentMedication = await CreateMedicationAsync();
 
@@ -654,15 +758,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await AssertMedicationStateAsync(missingMedication.Id, missingMedication.Meta.VersionId, missingText);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
         public async Task GivenAVersionedMedication_WhenUpdatingInATransactionWithIfMatch_ThenCurrentSucceedsAndStaleIsRejected()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.IfNot(_fixture.IsUsingInProcTestServer, InProcOnlyReason);
 
             Medication medication = await CreateMedicationAsync();
             string staleIfMatch = ToIfMatch(medication);
@@ -848,6 +949,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private static string GetConditionalMedicationUri(string medicationId, string suffix = null)
         {
             return $"{MedicationResourceType}?_id={medicationId}{suffix}";
+        }
+
+        private static string GetConditionalMedicationUriByCode(string code, string suffix = null)
+        {
+            return $"{MedicationResourceType}?code={code}{suffix}";
+        }
+
+        private static string GetMedicationCode(Medication medication)
+        {
+            return medication.Code.Coding[0].Code;
+        }
+
+        private async Task<int> CountMedicationsWithCodeAsync(string code)
+        {
+            using FhirResponse<Bundle> response = await _client.SearchAsync(ResourceType.Medication, $"code={code}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return response.Resource.Entry?.Count ?? 0;
         }
 
         private static string ToIfMatch(Medication medication)

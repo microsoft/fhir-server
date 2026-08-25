@@ -216,7 +216,83 @@ public class ConditionalPatchResourceHandlerTests
             .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    private static IReadOnlyCollection<SearchResultEntry> GenerateSearchResult(string resourceType)
+    [Fact]
+    public async Task GivenAConditionalPatchResourceHandler_WhenTheMatchHasAVersion_ThenTheSearchVersionIsForwardedAsComparedVersion()
+    {
+        // Arrange
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
+        var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
+
+        // Act
+        await _conditionalPatchHandler.HandleAsync(request, CancellationToken.None);
+
+        // Assert: with no client header the write still carries the authoritative search-to-write CAS guard.
+        await _mediator
+            .Received()
+            .SendAsync<UpsertResourceResponse>(
+                Arg.Is<UpsertResourceRequest>(r => r.WeakETag == null && r.ComparedVersion == "1"),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GivenAConditionalPatchResourceHandler_WhenRequestContainsAMatchingWeakETag_ThenTheClientETagAndComparedVersionAreBothForwarded()
+    {
+        // Arrange
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
+        var weakETag = WeakETag.FromVersionId("1");
+        var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, weakETag: weakETag);
+
+        // Act
+        await _conditionalPatchHandler.HandleAsync(request, CancellationToken.None);
+
+        // Assert: the client tag is preserved unchanged and the internal guard is added alongside it.
+        await _mediator
+            .Received()
+            .SendAsync<UpsertResourceResponse>(
+                Arg.Is<UpsertResourceRequest>(r => r.WeakETag == weakETag && r.ComparedVersion == "1"),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GivenAConditionalPatchResourceHandler_WhenTheMatchVersionIsUnavailable_ThenPreconditionFailedExceptionIsThrownWithoutUpsert()
+    {
+        // Arrange
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        _searchService.SearchAsync(
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+            Arg.Any<CancellationToken>())
+            .Returns(new SearchResult(
+                GenerateSearchResult("Patient", versionId: null),
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>(),
+                null,
+                null));
+
+        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
+        var request = new ConditionalPatchResourceRequest("Patient", new FhirPathPatchPayload(new Parameters()), conditionalParameters, null);
+
+        // Act & Assert: without a version the search-to-write guard cannot be built, so fail closed.
+        await Assert.ThrowsAsync<PreconditionFailedException>(() => _conditionalPatchHandler.HandleAsync(request, CancellationToken.None));
+
+        await _mediator
+            .DidNotReceive()
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    private static IReadOnlyCollection<SearchResultEntry> GenerateSearchResult(string resourceType, string versionId = "1")
     {
         var entries = new List<SearchResultEntry>();
         Resource resource;
@@ -239,7 +315,7 @@ public class ConditionalPatchResourceHandlerTests
         }
 
         resource.Id = Guid.NewGuid().ToString();
-        resource.VersionId = "1";
+        resource.VersionId = versionId;
 
         var resourceElement = resource.ToResourceElement();
         var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);

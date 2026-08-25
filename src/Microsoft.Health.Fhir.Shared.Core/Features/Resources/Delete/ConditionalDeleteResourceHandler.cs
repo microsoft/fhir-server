@@ -72,6 +72,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 cancellationToken,
                 request.DeleteOperation != DeleteOperation.SoftDelete);
 
+            // A single If-Match version describes exactly one resource. Once the request allows more than one
+            // Match to be deleted there is no correct way to honor it: applying the tag to one arbitrary Match,
+            // applying it to every Match, or dropping it would each either guard the wrong resource or silently
+            // delete unguarded. Reject the combination before searching or deleting anything.
+            if (request.WeakETag != null && request.MaxDeleteCount > 1)
+            {
+                _logger.LogInformation("BadRequest: ConditionalDeleteMultipleWithIfMatch");
+                throw new BadRequestException(string.Format(
+                    CultureInfo.InvariantCulture,
+                    Core.Resources.ConditionalDeleteMultipleWithIfMatch,
+                    KnownQueryParameterNames.Count));
+            }
+
             try
             {
                 if (request.MaxDeleteCount > 1)

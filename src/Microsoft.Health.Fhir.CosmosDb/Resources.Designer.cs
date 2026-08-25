@@ -223,6 +223,15 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The precondition for &apos;{0}/{1}&apos; could not be confirmed after {2} attempt(s) because concurrent no-op writes kept preserving the same version. This is a retryable conflict, not a version mismatch; retry the operation..
+        /// </summary>
+        internal static string NoOpGuardConfirmationConflict {
+            get {
+                return ResourceManager.GetString("NoOpGuardConfirmationConflict", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Not Referenced is not supported.
         /// </summary>
         internal static string NotReferecedNotImplemented {

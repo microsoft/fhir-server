@@ -286,6 +286,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to An If-Match header cannot be used with a conditional delete that allows more than one resource to be deleted, because a single version cannot describe several resources. Remove the If-Match header, or set &apos;{0}&apos; to 1 so the request targets a single resource..
+        /// </summary>
+        internal static string ConditionalDeleteMultipleWithIfMatch {
+            get {
+                return ResourceManager.GetString("ConditionalDeleteMultipleWithIfMatch", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Conditional operation on {0} was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {
@@ -294,6 +303,15 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to The current version of the matched resource type &apos;{0}&apos; with id &apos;{1}&apos; could not be determined, so the conditional patch precondition cannot be enforced..
+        /// </summary>
+        internal static string ConditionalPatchMatchVersionUnavailable {
+            get {
+                return ResourceManager.GetString("ConditionalPatchMatchVersionUnavailable", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria..
         /// </summary>
@@ -304,6 +322,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The current version of the matched resource type &apos;{0}&apos; with id &apos;{1}&apos; could not be determined, so the conditional update precondition cannot be enforced..
+        /// </summary>
+        internal static string ConditionalUpdateMatchVersionUnavailable {
+            get {
+                return ResourceManager.GetString("ConditionalUpdateMatchVersionUnavailable", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
         /// </summary>
         internal static string ConditionalUpdateMismatchedIds {
@@ -312,6 +339,15 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to The conditional update on resource type &apos;{0}&apos; did not match an existing resource, so the supplied If-Match version &apos;{1}&apos; cannot be satisfied. Remove the If-Match header to create the resource..
+        /// </summary>
+        internal static string ConditionalUpdateNoMatchWithIfMatch {
+            get {
+                return ResourceManager.GetString("ConditionalUpdateNoMatchWithIfMatch", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Failure inserting data due to a code value overflow. Please contact support for assistance..
         /// </summary>

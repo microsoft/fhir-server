@@ -172,13 +172,29 @@
     <value>The current version of the matched resource type '{0}' with id '{1}' could not be determined, so the conditional delete precondition cannot be enforced.</value>
     <comment>{0} is a resource type, {1} is a resource id.</comment>
   </data>
+  <data name="ConditionalDeleteMultipleWithIfMatch" xml:space="preserve">
+    <value>An If-Match header cannot be used with a conditional delete that allows more than one resource to be deleted, because a single version cannot describe several resources. Remove the If-Match header, or set '{0}' to 1 so the request targets a single resource.</value>
+    <comment>{0} is a query parameter name, for example _count.</comment>
+  </data>
   <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
     <value>Conditional operation on {0} was not attempted because search criteria was not selective enough.</value>
     <comment>{0} should be a ResourceType</comment>
   </data>
+  <data name="ConditionalPatchMatchVersionUnavailable" xml:space="preserve">
+    <value>The current version of the matched resource type '{0}' with id '{1}' could not be determined, so the conditional patch precondition cannot be enforced.</value>
+    <comment>{0} is a resource type, {1} is a resource id.</comment>
+  </data>
+  <data name="ConditionalUpdateMatchVersionUnavailable" xml:space="preserve">
+    <value>The current version of the matched resource type '{0}' with id '{1}' could not be determined, so the conditional update precondition cannot be enforced.</value>
+    <comment>{0} is a resource type, {1} is a resource id.</comment>
+  </data>
   <data name="ConditionalUpdateMismatchedIds" xml:space="preserve">
     <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
     <comment>{0} is an Id e.g. 123456</comment>
+  </data>
+  <data name="ConditionalUpdateNoMatchWithIfMatch" xml:space="preserve">
+    <value>The conditional update on resource type '{0}' did not match an existing resource, so the supplied If-Match version '{1}' cannot be satisfied. Remove the If-Match header to create the resource.</value>
+    <comment>{0} is a resource type, {1} is a version id.</comment>
   </data>
   <data name="CustomHeaderPrefixCannotBeEmpty" xml:space="preserve">
     <value>The prefix used to identify custom audit headers cannot be empty.</value>

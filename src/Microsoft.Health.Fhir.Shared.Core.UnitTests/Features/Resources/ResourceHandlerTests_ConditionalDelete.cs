@@ -334,6 +334,84 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received(1).MergeAsync(Arg.Is<IReadOnlyList<ResourceWrapperOperation>>(list => list.All(item => item.Wrapper.IsDeleted)), Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenAClientWeakETagAndAMultiResourceDeleteCount_WhenDeletingConditionally_ThenBadRequestWithoutSearchingOrDeleting()
+        {
+            // A single If-Match version cannot describe more than one resource. Applying it to the first Match,
+            // to every Match, or ignoring it would each be wrong, so the combination is rejected up front.
+            var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            var mockResultEntry2 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry1.Resource.Version.Returns("7");
+            mockResultEntry2.Resource.Version.Returns("7");
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: false,
+                count: 100,
+                weakETag: WeakETag.FromVersionId("7"),
+                mockResultEntry1,
+                mockResultEntry2);
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().UpsertAsync(
+                Arg.Any<ResourceWrapperOperation>(),
+                Arg.Any<CancellationToken>());
+            await _fhirDataStore.DidNotReceive().MergeAsync(
+                Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(),
+                Arg.Any<CancellationToken>());
+            await _fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAClientWeakETagAndAMultiResourceHardDeleteCount_WhenDeletingConditionally_ThenBadRequestWithoutDeleting()
+        {
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("7");
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: true,
+                count: 2,
+                weakETag: WeakETag.FromVersionId("7"),
+                mockResultEntry);
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenNoClientWeakETag_WhenDeletingConditionallyWithAMultiResourceDeleteCount_TheServerShouldStillDelete()
+        {
+            // Regression guard: rejecting If-Match plus _count > 1 must not disturb ordinary multi-resource
+            // conditional delete.
+            var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            var mockResultEntry2 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: false,
+                count: 100,
+                mockResultEntry1,
+                mockResultEntry2);
+
+            DeleteResourceResponse result = await _mediator.SendAsync(message);
+
+            Assert.Equal(2, result.ResourcesDeleted);
+        }
+
         private ConditionalDeleteResourceRequest SetupConditionalDelete(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> list = null,

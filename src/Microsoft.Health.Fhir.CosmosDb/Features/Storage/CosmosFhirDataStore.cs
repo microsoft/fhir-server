@@ -682,7 +682,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             return new ResourceConflictException(string.Format(
                 CultureInfo.InvariantCulture,
-                "The precondition for '{0}/{1}' could not be confirmed after {2} attempt(s) because concurrent no-op writes kept preserving the same version. This is a retryable conflict, not a version mismatch; retry the operation.",
+                Resources.NoOpGuardConfirmationConflict,
                 resourceType,
                 resourceId,
                 attempts));

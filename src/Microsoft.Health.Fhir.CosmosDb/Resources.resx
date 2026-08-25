@@ -181,4 +181,8 @@
   <data name="NotReferecedNotImplemented" xml:space="preserve">
     <value>Not Referenced is not supported</value>
   </data>
+  <data name="NoOpGuardConfirmationConflict" xml:space="preserve">
+    <value>The precondition for '{0}/{1}' could not be confirmed after {2} attempt(s) because concurrent no-op writes kept preserving the same version. This is a retryable conflict, not a version mismatch; retry the operation.</value>
+    <comment>{0} is a resource type, {1} is a resource id, {2} is a number of attempts.</comment>
+  </data>
 </root>

@@ -202,6 +202,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenConditionalDeleteResourceRequest_WhenIfMatchHeaderProvidedWithMultiResourceCount_ThenBothTheWeakETagAndCountShouldBePropagated()
+        {
+            // The controller must not quietly drop the header for a multi-resource conditional delete; the
+            // handler owns the rejection so that bundle entries take the same path.
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+
+            await _fhirController.ConditionalDelete(
+                KnownResourceTypes.Patient,
+                new HardDeleteModel(),
+                weakETag,
+                maxDeleteCount: 100);
+
+            await _mediator.Received(1).SendAsync(
+                Arg.Is<ConditionalDeleteResourceRequest>(x => x.WeakETag == weakETag && x.MaxDeleteCount == 100),
+                Arg.Any<CancellationToken>());
+        }
+
         [Theory]
         [InlineData(KnownQueryParameterNames.BulkHardDelete, DeleteOperation.HardDelete)]
         [InlineData(KnownQueryParameterNames.HardDelete, DeleteOperation.HardDelete)]

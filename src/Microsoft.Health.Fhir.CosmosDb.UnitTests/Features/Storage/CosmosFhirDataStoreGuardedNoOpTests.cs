@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -404,6 +405,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 Arg.Any<PartitionKey>(),
                 Arg.Any<ItemRequestOptions>(),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAGuardedNoOpThatExhaustsItsRetryBudget_WhenTheConflictIsReported_ThenTheMessageComesFromALocalizedResource()
+        {
+            // The contention message is user visible, so it must live in the resource file with every other
+            // Cosmos DB message rather than being hardcoded at the throw site.
+            ResourceWrapper tombstone = CreateResourceWrapper("localized-contention-no-op", version: "1", deleted: true);
+            _simulatedContainer.StoreDocument(new FhirCosmosResourceWrapper(tombstone));
+            _simulatedContainer.AConcurrentWriterWinsEveryRace = true;
+
+            var operation = new ResourceWrapperOperation(
+                tombstone,
+                allowCreate: true,
+                keepHistory: true,
+                WeakETag.FromVersionId("1"),
+                requireETagOnUpdate: false,
+                keepVersion: false,
+                bundleResourceContext: null);
+
+            ResourceConflictException exception = await Assert.ThrowsAsync<ResourceConflictException>(() => _dataStore.UpsertAsync(operation, CancellationToken.None));
+
+            string expectedDiagnostics = string.Format(
+                CultureInfo.InvariantCulture,
+                Microsoft.Health.Fhir.CosmosDb.Resources.NoOpGuardConfirmationConflict,
+                tombstone.ResourceTypeName,
+                tombstone.ResourceId,
+                GuardConfirmationAttemptCap);
+
+            Assert.Contains(expectedDiagnostics, exception.Issues.Select(issue => issue.Diagnostics));
         }
 
         [Fact]

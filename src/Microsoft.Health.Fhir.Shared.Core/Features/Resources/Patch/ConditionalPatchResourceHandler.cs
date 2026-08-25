@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -63,8 +64,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
             }
 
+            // The patch is computed from the matched resource, so the write must be guarded by the version that
+            // match was read at. Forwarding it as the internal ComparedVersion gives conditional patch the same
+            // authoritative search-to-write CAS that conditional update has, without synthesizing a client
+            // header: request.WeakETag is passed through unchanged so optional-header policies still see exactly
+            // what the client sent. Without a version that guard cannot be built, so fail closed rather than
+            // silently writing unguarded.
+            if (string.IsNullOrEmpty(match.Resource.Version))
+            {
+                _logger.LogInformation("PreconditionFailed: ConditionalPatchMatchVersionUnavailable");
+                throw new PreconditionFailedException(string.Format(
+                    CultureInfo.InvariantCulture,
+                    Core.Resources.ConditionalPatchMatchVersionUnavailable,
+                    match.Resource.ResourceTypeName,
+                    match.Resource.ResourceId));
+            }
+
             var patchedResource = request.Payload.Patch(match.Resource);
-            return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null, metaHistory: request.MetaHistory, weakETag: request.WeakETag), cancellationToken);
+            return await _mediator.SendAsync<UpsertResourceResponse>(
+                new UpsertResourceRequest(
+                    patchedResource,
+                    bundleResourceContext: null,
+                    metaHistory: request.MetaHistory,
+                    weakETag: request.WeakETag,
+                    comparedVersion: match.Resource.Version),
+                cancellationToken);
         }
 
         public override Task<bool> CheckAccess(CancellationToken cancellationToken)
