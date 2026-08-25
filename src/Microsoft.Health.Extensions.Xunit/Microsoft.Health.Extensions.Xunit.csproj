@@ -15,7 +15,6 @@
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="xunit.v3.extensibility.core" />
-    <PackageReference Include="xunit.v3.core" />
     <PackageReference Include="xunit.v3.assert" />
   </ItemGroup>
 
