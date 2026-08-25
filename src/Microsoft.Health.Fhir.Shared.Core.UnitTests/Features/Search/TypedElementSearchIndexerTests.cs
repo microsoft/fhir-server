@@ -13,10 +13,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -51,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var modelInfoProvider = ModelInfoProvider.Instance;
             var logger = Substitute.For<ILogger<TypedElementSearchIndexer>>();
 
-            _searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, typedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, logger);
+            _searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, typedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, new FirelyFhirPathProvider(), logger);
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
             List<string> targetResourceTypes = new List<string>() { "Coverage", "Observation", "Claim", "Patient" };
@@ -84,6 +86,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(tokenSearchValue);
 
             Assert.True(coverageResource.Status.Value.ToString().Equals(tokenSearchValue.Code, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        [Fact]
+        public void GivenFhirPathEvaluationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
+        {
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "name",
+                    "name",
+                    (ValueSets.SearchParamType)SearchParamType.String,
+                    new Uri(ResourceName),
+                    expression: "Patient.name"),
+            ]);
+            var compiledExpression = Substitute.For<ICompiledFhirPath>();
+            compiledExpression
+                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
+                .Returns(_ => throw new NotSupportedException("Unsupported expression."));
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile("Patient.name").Returns(compiledExpression);
+            var metricHandler = Substitute.For<IFailureMetricHandler>();
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                Substitute.For<ITypedElementToSearchValueConverterManager>(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                provider,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>(),
+                metricHandler);
+            ResourceElement patient = new Patient { Id = "patient-1" }.ToResourceElement();
+
+            IReadOnlyCollection<SearchIndexEntry> entries = indexer.Extract(patient);
+
+            Assert.Empty(entries);
+            metricHandler.Received(1).EmitException(
+                Arg.Is<IExceptionMetricNotification>(
+                    notification => notification.OperationName == "FhirPathSearchIndexEvaluation" &&
+                        notification.ExceptionType == nameof(NotSupportedException)));
         }
 
         [Fact]

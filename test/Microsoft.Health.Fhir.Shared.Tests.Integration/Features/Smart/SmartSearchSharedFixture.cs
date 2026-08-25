@@ -17,6 +17,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -77,6 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 typedElementToSearchValueConverterManager,
                 referenceToElementResolver,
                 ModelInfoProvider.Instance,
+                new FirelyFhirPathProvider(),
                 NullLogger<TypedElementSearchIndexer>.Instance);
             _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
             _scopedDataStore = _fixture.DataStore.CreateMockScope();

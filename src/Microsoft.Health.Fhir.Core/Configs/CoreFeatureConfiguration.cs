@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the preferred FHIR SDK at feature seams that support provider selection.
         /// Firely remains the default until the final migration cutover.
         /// </summary>
-        public FhirSdkProvider FhirSdkProvider { get; set; } = FhirSdkProvider.Firely;
+        public FhirSdkProviderConfiguration FhirSdkProvider { get; set; } = new();
 
         /// <summary>
         /// Gets or sets the maximum value for _count in search.

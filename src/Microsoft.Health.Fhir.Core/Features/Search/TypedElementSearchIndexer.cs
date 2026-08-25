@@ -10,13 +10,15 @@ using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
+using EvaluationContext = Hl7.FhirPath.EvaluationContext;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -30,10 +32,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ITypedElementToSearchValueConverterManager _fhirElementTypeConverterManager;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly IFhirPathProvider _fhirPathProvider;
+        private readonly IFailureMetricHandler _failureMetricHandler;
         private readonly ILogger<TypedElementSearchIndexer> _logger;
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new();
-        private static readonly FhirPathCompiler _compiler = new();
-        private readonly ConcurrentDictionary<string, CompiledExpression> _expressions = new();
+        private readonly ConcurrentDictionary<string, ICompiledFhirPath> _expressions = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TypedElementSearchIndexer"/> class.
@@ -42,24 +45,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="referenceToElementResolver">Used for parsing reference strings</param>
         /// <param name="modelInfoProvider">Model info provider</param>
+        /// <param name="fhirPathProvider">FHIRPath provider</param>
         /// <param name="logger">The logger.</param>
+        /// <param name="failureMetricHandler">The failure metric handler.</param>
         public TypedElementSearchIndexer(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
             ITypedElementToSearchValueConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,
-            ILogger<TypedElementSearchIndexer> logger)
+            IFhirPathProvider fhirPathProvider,
+            ILogger<TypedElementSearchIndexer> logger,
+            IFailureMetricHandler failureMetricHandler = null)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
             EnsureArg.IsNotNull(referenceToElementResolver, nameof(referenceToElementResolver));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(fhirPathProvider, nameof(fhirPathProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _referenceToElementResolver = referenceToElementResolver;
             _modelInfoProvider = modelInfoProvider;
+            _fhirPathProvider = fhirPathProvider;
+            _failureMetricHandler = failureMetricHandler;
             _logger = logger;
         }
 
@@ -105,9 +115,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
-            CompiledExpression expression = _expressions.GetOrAdd(searchParameter.Expression, s => _compiler.Compile(s));
+            ICompiledFhirPath expression = _expressions.GetOrAdd(searchParameter.Expression, _fhirPathProvider.Compile);
 
-            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
+            IEnumerable<ITypedElement> rootObjects = expression.Select(resource, context);
 
             foreach (var rootObject in rootObjects)
             {
@@ -206,9 +216,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             try
             {
-                CompiledExpression expression = _expressions.GetOrAdd(fhirPathExpression, s => _compiler.Compile(s));
+                ICompiledFhirPath expression = _expressions.GetOrAdd(fhirPathExpression, _fhirPathProvider.Compile);
 
-                extractedValues = expression.Invoke(element, context);
+                extractedValues = expression.Select(element, context).ToArray();
             }
             catch (Exception ex)
             {
@@ -217,6 +227,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     "Failed to extract the values using '{FhirPathExpression}' against '{ElementType}'.",
                     fhirPathExpression,
                     element.GetType());
+                _failureMetricHandler?.EmitException(
+                    new ExceptionMetricNotification
+                    {
+                        OperationName = "FhirPathSearchIndexEvaluation",
+                        ExceptionType = ex.GetType().Name,
+                        Severity = LogLevel.Warning.ToString(),
+                    });
             }
 
             Debug.Assert(extractedValues != null, "The extracted values should not be null.");

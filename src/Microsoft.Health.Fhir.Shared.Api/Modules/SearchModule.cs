@@ -14,9 +14,11 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
@@ -32,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -55,6 +58,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            Func<IFhirPathProvider> providerFactory = _configuration.CoreFeatures.FhirSdkProvider.EffectiveFhirPath switch
+            {
+                FhirSdkProvider.Firely => () => new FirelyFhirPathProvider(),
+                FhirSdkProvider.Ignixa => () => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance)),
+                var provider => throw new InvalidOperationException($"Unsupported FHIR SDK provider: {provider}."),
+            };
+
+            FhirPathProvider.SetProviderFactory(providerFactory);
+            services.AddSingleton<IFhirPathProvider>(_ => FhirPathProvider.Instance);
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
 
