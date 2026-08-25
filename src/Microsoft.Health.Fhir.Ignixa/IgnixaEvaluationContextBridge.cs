@@ -43,16 +43,16 @@ namespace Microsoft.Health.Fhir.Ignixa
             ArgumentNullException.ThrowIfNull(input);
             context ??= new FirelyEvaluationContext();
 
-            ITypedElement resource = context.Resource ?? GetResource(input);
-            ITypedElement rootResource = context.RootResource ?? GetRootResource(input);
+            context.Resource ??= GetResource(input);
+            context.RootResource ??= GetRootResource(input);
             var ignixaInput = input.ToIgnixaElement();
 
             IgnixaFhirEvaluationContext result = new()
             {
                 Schema = _schemaContext.Schema,
                 ContextNode = ignixaInput,
-                Resource = resource?.ToIgnixaElement(),
-                RootResource = rootResource?.ToIgnixaElement(),
+                Resource = context.Resource?.ToIgnixaElement(),
+                RootResource = context.RootResource?.ToIgnixaElement(),
                 ElementResolver = context is FirelyFhirEvaluationContext fhirContext && fhirContext.ElementResolver is not null
                     ? reference => fhirContext.ElementResolver(reference)?.ToIgnixaElement()
                     : null,
