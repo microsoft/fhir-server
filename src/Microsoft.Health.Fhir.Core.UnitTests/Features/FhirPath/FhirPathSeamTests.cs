@@ -48,9 +48,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         public void GivenProductionSource_WhenEngineNamespacesAreImported_ThenOnlyDocumentedExceptionsRemain()
         {
             string root = FindRepositoryRoot();
-            string sourceRoot = Path.Combine(root, "src");
+            string[] sourceRoots =
+            [
+                Path.Combine(root, "src"),
+                Path.Combine(root, "tools", "Microsoft.Health.Fhir.R4.ResourceParser"),
+            ];
 
-            string[] violations = Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+            string[] violations = sourceRoots.SelectMany(sourceRoot => Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
                 .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
                 .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
                 .Where(path => !path.Contains("UnitTests", StringComparison.OrdinalIgnoreCase))
