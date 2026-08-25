@@ -24,10 +24,10 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Features.RuntimeState;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -126,6 +126,11 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
+
+            // Extended HTTP Inbound Request logging for FHIR server.
+            services.AddSingleton<IHttpInboundRequestLogger, HttpInboundRequestLogger>();
+
+            // IStartupFilter registering.
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>((x) => new FhirServerStartupFilter(fhirServerConfiguration));
 
             // Register global instance configuration for storing base URI and instance ID
