@@ -65,7 +65,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await DeleteResourcesAsync("Specimen");
             await DeleteResourcesAsync("SupplyDelivery");
             await DeleteResourcesAsync("Immunization");
-            await CleanupSearchParametersIfAnyAsync();
+            //// delete search param resources
+            await DeleteResourcesAsync("SearchParameter"); // mark as pending
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] }); // true delete
+            await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
 
             _output.WriteLine($"ReindexTests.InitializeAsync: Completed. Elapsed={(int)sw.Elapsed.TotalMilliseconds} msec.");
         }
@@ -1535,69 +1538,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 _output.WriteLine($"Failed to delete {resourceType} resources: {ex.Message}");
             }
-        }
-
-        private async Task CleanupSearchParametersIfAnyAsync()
-        {
-            var before = await _fixture.TestFhirClient.SearchAsync("SearchParameter?_summary=count");
-            var beforeCount = before.Resource.Total.GetValueOrDefault();
-
-            if (beforeCount == 0)
-            {
-                _output.WriteLine("SearchParameter cleanup skipped: no resources found.");
-                return;
-            }
-
-            _output.WriteLine($"SearchParameter cleanup: found {beforeCount} resources, deleting and running reindex cleanup.");
-            await DeleteSearchParametersAsync(); // mark as pending
-
-            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
-            var cleanupStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
-            Assert.Equal(OperationStatus.Completed, cleanupStatus);
-
-            var after = await _fixture.TestFhirClient.SearchAsync("SearchParameter?_summary=count");
-            var afterCount = after.Resource.Total.GetValueOrDefault();
-            Assert.True(afterCount == 0, $"SearchParameter cleanup failed. Remaining={afterCount}");
-        }
-
-        private async Task DeleteSearchParametersAsync()
-        {
-            const int pageSize = 1000;
-            var entries = new List<Bundle.EntryComponent>();
-            var nextUrl = $"SearchParameter?_count={pageSize}";
-
-            do
-            {
-                var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextUrl);
-                entries.AddRange(searchResponse.Resource.Entry.Where(e => !e.IsDeleted()));
-                nextUrl = searchResponse.Resource.Link?.FirstOrDefault(l => l.Relation == "next")?.Url;
-            }
-            while (!string.IsNullOrEmpty(nextUrl));
-
-            if (entries.Count == 0)
-            {
-                return;
-            }
-
-            const int batchSize = 100;
-            var deleted = 0;
-
-            for (var i = 0; i < entries.Count; i += batchSize)
-            {
-                var bundle = new Bundle { Type = Bundle.BundleType.Batch };
-                foreach (var entry in entries.Skip(i).Take(batchSize))
-                {
-                    bundle.Entry.Add(new Bundle.EntryComponent
-                    {
-                        Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{entry.Resource.Id}" },
-                    });
-                }
-
-                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
-                deleted += bundle.Entry.Count;
-            }
-
-            _output.WriteLine($"Deleted {deleted} SearchParameter resources.");
         }
 
         private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
