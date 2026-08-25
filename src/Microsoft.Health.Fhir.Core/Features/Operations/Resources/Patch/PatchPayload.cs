@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ResourceElement patchedResource = GetPatchedResourceElement(resourceToPatch);
 
             // Check if any immutable properties were changed
-            (string path, object result)[] postState = ImmutableProperties.Select(x => (path: x, result: patchedResource.Scalar<object>(x))).ToArray();
+            (string path, object result)[] postState = ImmutableProperties.Select(x => (path: x, result: patchedResource.Instance.Scalar(x))).ToArray();
             if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
             {
                 throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
