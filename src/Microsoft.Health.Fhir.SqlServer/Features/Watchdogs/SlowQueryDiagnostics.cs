@@ -5,12 +5,15 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.Core.Features.Metrics
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     /// <summary>
-    /// Contains aggregated Query Store metrics for a slow query plan.
+    /// The aggregated Query Store diagnostics for one slow query plan, as emitted on a single structured log line.
+    /// This is a log payload shape rather than a contract anything binds to: it lives beside the only component that
+    /// produces it, and is internal because nothing outside this assembly consumes it. Each property becomes its own
+    /// named log property, so it stays queryable as a column downstream instead of being buried in a serialized blob.
     /// </summary>
-    public class SlowQueryNotification : IMetricsNotification
+    internal sealed class SlowQueryDiagnostics
     {
         /// <summary>
         /// Gets or sets the Query Store query identifier.
@@ -115,18 +118,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Metrics
         public DateTimeOffset IntervalEnd { get; set; }
 
         /// <summary>
-        /// Gets or sets the timestamp when the notification was created.
+        /// Gets or sets the timestamp when the diagnostics were collected. Emitted under a name of its own rather
+        /// than as <c>Timestamp</c>, because that name collides with the ingestion timestamp the log pipeline
+        /// supplies for every record.
         /// </summary>
         public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
-
-        /// <summary>
-        /// Gets the FHIR operation associated with this notification.
-        /// </summary>
-        public string FhirOperation => "query-store-diagnostics";
-
-        /// <summary>
-        /// Gets the resource type associated with this notification.
-        /// </summary>
-        public string ResourceType => "System";
     }
 }

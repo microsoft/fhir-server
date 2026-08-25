@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -269,7 +268,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             var watchdog = new QueryStoreDiagnosticsWatchdog(
                 Substitute.For<ISqlRetryService>(),
                 logger,
-                Substitute.For<IMediator>(),
                 Options.Create(configuration));
 
             // Constructing the watchdog constructs its WatchdogLease, which logs through this same logger, so

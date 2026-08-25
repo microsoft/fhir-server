@@ -50,6 +50,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int StatisticsHealthCount { get; set; } = 20;
 
         /// <summary>
+        /// Gets or sets the number of table statistics rows packed into each emitted log line. This is not a cap on
+        /// what is collected — <see cref="StatisticsHealthCount"/> is — only on how many of the collected rows share
+        /// a line. Rows beyond the batch size are emitted on further lines, each carrying its page number and the
+        /// total page and row counts. A non-positive value is reported and the default is used, because a batch size
+        /// cannot pack a row.
+        /// </summary>
+        public int StatisticsHealthBatchSize { get; set; } = 20;
+
+        /// <summary>
         /// Gets or sets the inclusive start of the run window, before which no diagnostics are collected.
         /// Null, the default, means there is no lower bound and collection can begin immediately.
         /// A value without an explicit UTC offset is interpreted in the host's local timezone, which is rarely

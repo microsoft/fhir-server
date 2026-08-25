@@ -5,15 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Metrics;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
@@ -36,14 +34,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         private const int DeadlockErrorNumber = 1205;
 
         [Fact]
-        public async Task GivenAFailingWaitStatisticsRead_WhenCollecting_ThenSlowQueriesArePublishedWithFailedWaitStatus()
+        public async Task GivenAFailingWaitStatisticsRead_WhenCollecting_ThenSlowQueriesAreLoggedWithFailedWaitStatus()
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var mediator = Substitute.For<IMediator>();
-            var published = new List<SlowQueryNotification>();
-            mediator.When(x => x.PublishAsync(Arg.Any<SlowQueryNotification>(), Arg.Any<CancellationToken>()))
-                .Do(info => published.Add((SlowQueryNotification)info[0]));
+            var logger = new CapturingLogger();
 
             var slowQuery = new QueryStoreDiagnosticsWatchdog.SlowQueryResult
             {
@@ -83,27 +78,36 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
                 .Returns<IReadOnlyList<QueryStoreDiagnosticsWatchdog.WaitStatistics>>(
                     _ => throw SqlExceptionFactory.GetSqlException(DeadlockErrorNumber, "Transaction was deadlocked on lock resources."));
 
-            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(sqlRetryService, mediator);
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(sqlRetryService, logger);
 
             // Act
             await watchdog.CollectDiagnosticsAsync(DateTimeOffset.UtcNow.AddHours(-1), DateTimeOffset.UtcNow, CancellationToken.None);
 
             // Assert
-            // The runtime metrics are the primary signal, so a broken wait read must not suppress them...
-            SlowQueryNotification notification = Assert.Single(published);
-            Assert.Equal(slowQuery.QueryId, notification.QueryId);
-            Assert.Equal(slowQuery.PlanId, notification.PlanId);
-            Assert.Equal(slowQuery.TotalDurationMilliseconds, notification.TotalDurationMilliseconds);
+            // The runtime statistics are the primary signal, so a broken wait read must not suppress them...
+            CapturingLogger.LogEntry entry = Assert.Single(logger.SlowQueryEntries);
+            Assert.Equal(LogLevel.Information, entry.Level);
+            Assert.Equal(slowQuery.QueryId, entry.Properties["QueryId"]);
+            Assert.Equal(slowQuery.PlanId, entry.Properties["PlanId"]);
+            Assert.Equal(slowQuery.TotalDurationMilliseconds, entry.Properties["TotalDurationMilliseconds"]);
 
-            // ...and the breakage must be visible on the notification rather than looking like "this plan waited on
-            // nothing", which is what an Unavailable status would mean.
-            Assert.Equal(QueryStoreDiagnosticsWatchdog.WaitStatisticsFailedStatus, notification.WaitStatisticsStatus);
-            Assert.Null(notification.TotalWaitMilliseconds);
-            Assert.Null(notification.AverageWaitMilliseconds);
-            Assert.Null(notification.TopWaitCategory);
+            // ...and the breakage must be visible on the emitted line rather than looking like "this plan waited on
+            // nothing", which is what an Unavailable status would mean. These are asserted on the structured state
+            // rather than on the formatted message because a null renders as an empty string once formatted, which
+            // is indistinguishable from a value that was genuinely reported as empty.
+            Assert.Equal(QueryStoreDiagnosticsWatchdog.WaitStatisticsFailedStatus, entry.Properties["WaitStatisticsStatus"]);
+            Assert.Null(entry.Properties["TotalWaitMilliseconds"]);
+            Assert.Null(entry.Properties["AverageWaitMilliseconds"]);
+            Assert.Null(entry.Properties["TopWaitCategory"]);
+
+            // The failure itself is still reported, so that a wait read broken for a month is not visible only to
+            // someone who thought to look at the status field.
+            Assert.Contains(
+                logger.WarningMessages,
+                message => message.Contains("wait statistics could not be read", StringComparison.Ordinal));
         }
 
-        private static QueryStoreDiagnosticsWatchdog CreateWatchdog(ISqlRetryService sqlRetryService, IMediator mediator)
+        private static QueryStoreDiagnosticsWatchdog CreateWatchdog(ISqlRetryService sqlRetryService, ILogger<QueryStoreDiagnosticsWatchdog> logger)
         {
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.Enabled = true;
@@ -117,9 +121,59 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 
             return new QueryStoreDiagnosticsWatchdog(
                 sqlRetryService,
-                NullLogger<QueryStoreDiagnosticsWatchdog>.Instance,
-                mediator,
+                logger,
                 Options.Create(configuration));
+        }
+
+        /// <summary>
+        /// Records what was logged, at what level, keeping the named properties alongside the formatted message so a
+        /// test can assert on the values an emitted line carries rather than only on the text it renders to.
+        /// </summary>
+        private sealed class CapturingLogger : ILogger<QueryStoreDiagnosticsWatchdog>
+        {
+            private readonly List<LogEntry> _entries = new List<LogEntry>();
+
+            internal IReadOnlyList<string> WarningMessages =>
+                _entries.Where(entry => entry.Level == LogLevel.Warning).Select(entry => entry.Message).ToList();
+
+            internal IReadOnlyList<LogEntry> SlowQueryEntries =>
+                _entries.Where(entry => entry.Message.StartsWith("QueryStoreDiagnosticsWatchdog slow query.", StringComparison.Ordinal)).ToList();
+
+            public IDisposable BeginScope<TState>(TState state)
+                where TState : notnull
+                => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                _entries.Add(new LogEntry(logLevel, formatter(state, exception), state as IReadOnlyList<KeyValuePair<string, object>>));
+            }
+
+            internal sealed class LogEntry
+            {
+                internal LogEntry(LogLevel level, string message, IReadOnlyList<KeyValuePair<string, object>> state)
+                {
+                    Level = level;
+                    Message = message;
+
+                    var properties = new Dictionary<string, object>(StringComparer.Ordinal);
+                    foreach (KeyValuePair<string, object> property in state ?? Array.Empty<KeyValuePair<string, object>>())
+                    {
+                        // Assigned rather than added, because a template is free to repeat a placeholder and this
+                        // capture must not throw on a line it merely passes through.
+                        properties[property.Key] = property.Value;
+                    }
+
+                    Properties = properties;
+                }
+
+                internal LogLevel Level { get; }
+
+                internal string Message { get; }
+
+                internal IReadOnlyDictionary<string, object> Properties { get; }
+            }
         }
     }
 }

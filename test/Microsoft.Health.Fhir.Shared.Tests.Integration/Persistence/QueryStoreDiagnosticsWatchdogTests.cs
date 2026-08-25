@@ -8,19 +8,17 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Medino;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Metrics;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -52,13 +50,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenEnabledWatchdogAndCapturedProbe_WhenRun_ThenPublishesSlowQuerySanitizedPlanAndStatisticsHealth()
+        public async Task GivenEnabledWatchdogAndCapturedProbe_WhenRun_ThenLogsSlowQuerySanitizedPlanAndStatisticsHealth()
         {
             // Arrange
-            var mediator = Substitute.For<IMediator>();
-            var notifications = new List<IMetricsNotification>();
-            CaptureNotifications(mediator, notifications);
-            var watchdog = CreateWatchdog(mediator, enabled: true);
+            var logger = new CapturingLogger();
+            var watchdog = CreateWatchdog(logger, enabled: true);
             string tableName = $"DiagProbe_{Guid.NewGuid():N}";
 
             // Query Store does not preserve comments in query_sql_text, so the probe cannot be tagged with a marker
@@ -81,24 +77,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 // Assert
                 // The probe query is grouped by plan_id, and a recompile between executions would produce a second
-                // plan and therefore a second notification. That is a legitimate outcome, so the assertions are on
-                // the whole matching set: what must hold is that the executions add up.
-                List<SlowQueryNotification> probeNotifications = notifications
-                    .OfType<SlowQueryNotification>()
-                    .Where(notification => notification.QueryText.Contains(queryAlias, StringComparison.Ordinal))
+                // plan and therefore a second log line. That is a legitimate outcome, so the assertions are on the
+                // whole matching set: what must hold is that the executions add up.
+                List<SlowQueryDiagnostics> probeSlowQueries = logger.SlowQueries
+                    .Where(slowQuery => slowQuery.QueryText.Contains(queryAlias, StringComparison.Ordinal))
                     .ToList();
-                Assert.NotEmpty(probeNotifications);
+                Assert.NotEmpty(probeSlowQueries);
 
                 // The probe runs a fixed number of times under a GUID alias, so the rollup across Query Store
                 // intervals and plans must sum to exactly that count.
-                Assert.Equal((long)QueryExecutionCount, probeNotifications.Sum(notification => notification.ExecutionCount));
+                Assert.Equal((long)QueryExecutionCount, probeSlowQueries.Sum(slowQuery => slowQuery.ExecutionCount));
 
                 // Query Store records microseconds and the contract is milliseconds. The probe runs at MAXDOP 1 and
                 // is timed on the client, so the reported totals must sit inside the wall clock plus a tolerance. A
                 // missing /1000.0 would inflate these by three orders of magnitude and break the upper bound; a
                 // doubly applied one would sink them below MinDurationMilliseconds and the query would never appear.
                 double durationUpperBoundMilliseconds = probeElapsedMilliseconds + ProbeTimingToleranceMilliseconds;
-                foreach (SlowQueryNotification slowQuery in probeNotifications)
+                foreach (SlowQueryDiagnostics slowQuery in probeSlowQueries)
                 {
                     Assert.True(slowQuery.QueryId > 0);
                     Assert.True(slowQuery.PlanId > 0);
@@ -120,8 +115,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Assert.Equal(slowQuery.TotalCpuMilliseconds / slowQuery.ExecutionCount, slowQuery.AverageCpuMilliseconds, 3);
                     Assert.True(slowQuery.TotalLogicalReads > 0);
 
-                    // Wait collection is best-effort and its failure is swallowed so that runtime metrics still
-                    // publish. A status other than Failed is therefore the only proof that the wait SQL executed.
+                    // Wait collection is best-effort and its failure is swallowed so that the runtime statistics
+                    // are still emitted. A status other than Failed is therefore the only proof that the wait SQL
+                    // executed.
                     Assert.Contains(
                         slowQuery.WaitStatisticsStatus,
                         new[] { QueryStoreDiagnosticsWatchdog.WaitStatisticsAvailableStatus, QueryStoreDiagnosticsWatchdog.WaitStatisticsUnavailableStatus });
@@ -136,16 +132,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         Assert.Null(slowQuery.TotalWaitMilliseconds);
                     }
 
-                    QueryPlanNotification queryPlan = Assert.Single(
-                        notifications.OfType<QueryPlanNotification>().ToList(),
-                        notification => notification.QueryId == slowQuery.QueryId && notification.PlanId == slowQuery.PlanId);
+                    QueryPlanDiagnostics queryPlan = Assert.Single(
+                        logger.QueryPlans,
+                        plan => plan.QueryId == slowQuery.QueryId && plan.PlanId == slowQuery.PlanId);
                     Assert.Equal(QueryPlanSanitizer.SanitizedStatus, queryPlan.SanitizationStatus);
                     Assert.NotNull(queryPlan.SanitizedQueryPlan);
                 }
 
-                AssertStatisticsHealthOrdinals(notifications, tableName);
+                AssertStatisticsHealthOrdinals(logger, tableName);
 
-                foreach (SlowQueryNotification slowQuery in notifications.OfType<SlowQueryNotification>())
+                foreach (SlowQueryDiagnostics slowQuery in logger.SlowQueries)
                 {
                     Assert.DoesNotContain("query_store", slowQuery.QueryText, StringComparison.OrdinalIgnoreCase);
                     Assert.DoesNotContain("dm_db_stats_properties", slowQuery.QueryText, StringComparison.OrdinalIgnoreCase);
@@ -158,17 +154,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenConfigurationGateDisabled_WhenRun_ThenPublishesNothing()
+        public async Task GivenConfigurationGateDisabled_WhenRun_ThenNothingIsEmitted()
         {
             // Arrange
-            var mediator = Substitute.For<IMediator>();
-            var watchdog = CreateWatchdog(mediator, enabled: false);
+            var logger = new CapturingLogger();
+            var watchdog = CreateWatchdog(logger, enabled: false);
 
             // Act
             await watchdog.RunWorkForTestingAsync(CancellationToken.None);
 
             // Assert
-            Assert.Empty(mediator.ReceivedCalls());
+            Assert.Empty(logger.SlowQueries);
+            Assert.Empty(logger.QueryPlans);
+            Assert.Empty(logger.StatisticsHealthPages);
+
+            // Asserted alongside the absence of diagnostics, because a tick that collected nothing for some other
+            // reason — Query Store unavailable, say — would satisfy the assertions above just as well.
+            Assert.Contains(
+                logger.Messages,
+                message => message.Contains("QueryStoreDiagnosticsWatchdog is disabled by configuration", StringComparison.Ordinal));
         }
 
         [Fact]
@@ -179,13 +183,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // untouched. Only a live database can show that: the seeding insert and the period read this watchdog no
             // longer performs both happened at startup, before the first tick, and neither is visible to a test that
             // invokes the collection directly.
-            var mediator = Substitute.For<IMediator>();
+            var logger = new CapturingLogger();
 
             // A one-second period keeps the randomized start-up delay inside the test's own budget. The lease's first
             // acquire attempt is a full lease period away, so no tick of this watchdog reaches a collection here —
             // which is the point: what is under test is what running it costs the database before it collects
             // anything.
-            var watchdog = CreateWatchdog(mediator, enabled: true, periodSec: 1);
+            var watchdog = CreateWatchdog(logger, enabled: true, periodSec: 1);
 
             await using SqlConnection connection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             await connection.OpenAsync(CancellationToken.None);
@@ -214,21 +218,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(0, await CountWatchdogParametersAsync(connection, CancellationToken.None));
         }
 
-        private static void AssertStatisticsHealthOrdinals(List<IMetricsNotification> notifications, string probeTableName)
+        private static void AssertStatisticsHealthOrdinals(CapturingLogger logger, string probeTableName)
         {
             // Every column of the statistics-health read is taken positionally from a hand-written SELECT list that
             // no compiler checks, so two same-typed columns could be reordered and every value would silently swap.
             // The probe table is set up so that its statistics carry values that differ from one another, which pins
             // those ordinals: a swap would have to preserve every one of these values to go unnoticed.
-            List<StatisticsHealthNotification> statisticsHealth = notifications.OfType<StatisticsHealthNotification>().ToList();
+            List<StatisticsHealthDiagnostics> statisticsHealth = logger.StatisticsHealth;
             Assert.NotEmpty(statisticsHealth);
 
-            StatisticsHealthNotification probeIndexStatistics = Assert.Single(
+            AssertStatisticsHealthPagination(logger, statisticsHealth.Count);
+
+            StatisticsHealthDiagnostics probeIndexStatistics = Assert.Single(
                 statisticsHealth,
-                notification =>
-                    string.Equals(notification.SchemaName, "dbo", StringComparison.Ordinal)
-                    && string.Equals(notification.TableName, probeTableName, StringComparison.Ordinal)
-                    && string.Equals(notification.StatisticsName, $"PK_{probeTableName}", StringComparison.Ordinal));
+                row =>
+                    string.Equals(row.SchemaName, "dbo", StringComparison.Ordinal)
+                    && string.Equals(row.TableName, probeTableName, StringComparison.Ordinal)
+                    && string.Equals(row.StatisticsName, $"PK_{probeTableName}", StringComparison.Ordinal));
 
             // The probe table holds ProbeTableRowCount rows at the point its statistics were updated with a full
             // scan, and exactly ProbeTableModificationCount rows were added afterwards, so every numeric column has
@@ -251,12 +257,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // A standalone CREATE STATISTICS object reports user_created, and nothing else, which separates that
             // flag from the three bit columns adjacent to it.
-            StatisticsHealthNotification probeUserStatistics = Assert.Single(
+            StatisticsHealthDiagnostics probeUserStatistics = Assert.Single(
                 statisticsHealth,
-                notification =>
-                    string.Equals(notification.SchemaName, "dbo", StringComparison.Ordinal)
-                    && string.Equals(notification.TableName, probeTableName, StringComparison.Ordinal)
-                    && string.Equals(notification.StatisticsName, $"ST_{probeTableName}", StringComparison.Ordinal));
+                row =>
+                    string.Equals(row.SchemaName, "dbo", StringComparison.Ordinal)
+                    && string.Equals(row.TableName, probeTableName, StringComparison.Ordinal)
+                    && string.Equals(row.StatisticsName, $"ST_{probeTableName}", StringComparison.Ordinal));
             Assert.True(probeUserStatistics.IsUserCreated);
             Assert.False(probeUserStatistics.IsFromIndex);
             Assert.False(probeUserStatistics.IsAutoCreated);
@@ -264,19 +270,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // A real FHIR table is asserted on as well, so that the scan is not merely finding the table this test
             // created. This index is filtered, which is what separates has_filter from is_from_index.
-            StatisticsHealthNotification filteredIndexStatistics = Assert.Single(
+            StatisticsHealthDiagnostics filteredIndexStatistics = Assert.Single(
                 statisticsHealth,
-                notification =>
-                    string.Equals(notification.SchemaName, "dbo", StringComparison.Ordinal)
-                    && string.Equals(notification.TableName, "Resource", StringComparison.Ordinal)
-                    && string.Equals(notification.StatisticsName, "IX_Resource_ResourceTypeId_ResourceId", StringComparison.Ordinal));
+                row =>
+                    string.Equals(row.SchemaName, "dbo", StringComparison.Ordinal)
+                    && string.Equals(row.TableName, "Resource", StringComparison.Ordinal)
+                    && string.Equals(row.StatisticsName, "IX_Resource_ResourceTypeId_ResourceId", StringComparison.Ordinal));
             Assert.True(filteredIndexStatistics.HasFilter);
             Assert.True(filteredIndexStatistics.IsFromIndex);
             Assert.False(filteredIndexStatistics.IsAutoCreated);
             Assert.False(filteredIndexStatistics.IsUserCreated);
         }
 
-        private QueryStoreDiagnosticsWatchdog CreateWatchdog(IMediator mediator, bool enabled, double periodSec = 300)
+        private static void AssertStatisticsHealthPagination(CapturingLogger logger, int expectedRowCount)
+        {
+            // The schema carries far more statistics objects than one batch holds, so a live collection exercises
+            // pagination rather than only the single-page case the unit tests pin. What is asserted here is that the
+            // pages an operator would read describe the set they actually cover.
+            IReadOnlyList<CapturingLogger.StatisticsHealthPage> pages = logger.StatisticsHealthPages;
+            Assert.NotEmpty(pages);
+            Assert.Equal(Enumerable.Range(1, pages.Count).ToList(), pages.Select(page => page.PageNumber).ToList());
+            Assert.All(pages, page => Assert.Equal(pages.Count, page.PageCount));
+            Assert.All(pages, page => Assert.Equal(expectedRowCount, page.RowCount));
+            Assert.Equal(expectedRowCount, pages.Sum(page => page.Rows.Count));
+        }
+
+        private QueryStoreDiagnosticsWatchdog CreateWatchdog(ILogger<QueryStoreDiagnosticsWatchdog> logger, bool enabled, double periodSec = 300)
         {
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.Enabled = enabled;
@@ -290,21 +309,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // statistics do not depend on where the staleness ordering happens to place them.
             configuration.QueryStoreDiagnostics.StatisticsHealthCount = 5000;
 
+            // Left at the default so that a live collection, which reads far more statistics objects than one batch
+            // holds, exercises the pagination rather than packing everything onto a single line.
+            configuration.QueryStoreDiagnostics.StatisticsHealthBatchSize = new QueryStoreDiagnosticsConfiguration().StatisticsHealthBatchSize;
+
             return new QueryStoreDiagnosticsWatchdog(
                 _fixture.SqlRetryService,
-                NullLogger<QueryStoreDiagnosticsWatchdog>.Instance,
-                mediator,
+                logger,
                 Options.Create(configuration));
-        }
-
-        private static void CaptureNotifications(IMediator mediator, List<IMetricsNotification> notifications)
-        {
-            mediator.When(x => x.PublishAsync(Arg.Any<SlowQueryNotification>(), Arg.Any<CancellationToken>()))
-                .Do(info => notifications.Add((SlowQueryNotification)info[0]));
-            mediator.When(x => x.PublishAsync(Arg.Any<QueryPlanNotification>(), Arg.Any<CancellationToken>()))
-                .Do(info => notifications.Add((QueryPlanNotification)info[0]));
-            mediator.When(x => x.PublishAsync(Arg.Any<StatisticsHealthNotification>(), Arg.Any<CancellationToken>()))
-                .Do(info => notifications.Add((StatisticsHealthNotification)info[0]));
         }
 
         private static async Task EnableAndVerifyQueryStoreAsync(SqlConnection connection, CancellationToken cancellationToken)
@@ -432,6 +444,185 @@ WHERE queryText.query_sql_text LIKE @QueryTextPattern
             await using SqlCommand command = connection.CreateCommand();
             command.CommandText = commandText;
             await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Reassembles the emitted diagnostics from what the watchdog logged. The named properties of each line are
+        /// read back into the payload type they were taken from, and the statistics batches are deserialized from
+        /// the JSON they are carried in, so the assertions are statements about what a reader of these logs would
+        /// actually be able to recover.
+        /// </summary>
+        private sealed class CapturingLogger : ILogger<QueryStoreDiagnosticsWatchdog>
+        {
+            private const string SlowQueryPrefix = "QueryStoreDiagnosticsWatchdog slow query.";
+            private const string QueryPlanPrefix = "QueryStoreDiagnosticsWatchdog query plan.";
+            private const string StatisticsHealthPrefix = "QueryStoreDiagnosticsWatchdog statistics health.";
+
+            // The lease and the timer log from their own tasks while a collection is running, so the capture has to
+            // tolerate concurrent writers even though the collection itself is sequential.
+            private readonly object _syncRoot = new object();
+            private readonly List<string> _messages = new List<string>();
+            private readonly List<SlowQueryDiagnostics> _slowQueries = new List<SlowQueryDiagnostics>();
+            private readonly List<QueryPlanDiagnostics> _queryPlans = new List<QueryPlanDiagnostics>();
+            private readonly List<StatisticsHealthPage> _statisticsHealthPages = new List<StatisticsHealthPage>();
+
+            internal IReadOnlyList<string> Messages
+            {
+                get
+                {
+                    lock (_syncRoot)
+                    {
+                        return _messages.ToList();
+                    }
+                }
+            }
+
+            internal IReadOnlyList<SlowQueryDiagnostics> SlowQueries
+            {
+                get
+                {
+                    lock (_syncRoot)
+                    {
+                        return _slowQueries.ToList();
+                    }
+                }
+            }
+
+            internal IReadOnlyList<QueryPlanDiagnostics> QueryPlans
+            {
+                get
+                {
+                    lock (_syncRoot)
+                    {
+                        return _queryPlans.ToList();
+                    }
+                }
+            }
+
+            internal IReadOnlyList<StatisticsHealthPage> StatisticsHealthPages
+            {
+                get
+                {
+                    lock (_syncRoot)
+                    {
+                        return _statisticsHealthPages.ToList();
+                    }
+                }
+            }
+
+            internal List<StatisticsHealthDiagnostics> StatisticsHealth =>
+                StatisticsHealthPages.SelectMany(page => page.Rows).ToList();
+
+            public IDisposable BeginScope<TState>(TState state)
+                where TState : notnull
+                => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                string message = formatter(state, exception);
+                IReadOnlyDictionary<string, object> properties = ToProperties(state as IReadOnlyList<KeyValuePair<string, object>>);
+
+                lock (_syncRoot)
+                {
+                    _messages.Add(message);
+
+                    if (message.StartsWith(SlowQueryPrefix, StringComparison.Ordinal))
+                    {
+                        _slowQueries.Add(ToSlowQuery(properties));
+                    }
+                    else if (message.StartsWith(QueryPlanPrefix, StringComparison.Ordinal))
+                    {
+                        _queryPlans.Add(ToQueryPlan(properties));
+                    }
+                    else if (message.StartsWith(StatisticsHealthPrefix, StringComparison.Ordinal))
+                    {
+                        _statisticsHealthPages.Add(ToStatisticsHealthPage(properties));
+                    }
+                }
+            }
+
+            private static IReadOnlyDictionary<string, object> ToProperties(IReadOnlyList<KeyValuePair<string, object>> state)
+            {
+                var properties = new Dictionary<string, object>(StringComparer.Ordinal);
+                foreach (KeyValuePair<string, object> property in state ?? Array.Empty<KeyValuePair<string, object>>())
+                {
+                    // Assigned rather than added, because a template is free to repeat a placeholder and this
+                    // capture must not throw on a line it merely passes through.
+                    properties[property.Key] = property.Value;
+                }
+
+                return properties;
+            }
+
+            private static SlowQueryDiagnostics ToSlowQuery(IReadOnlyDictionary<string, object> properties) =>
+                new SlowQueryDiagnostics
+                {
+                    QueryId = (long)properties["QueryId"],
+                    PlanId = (long)properties["PlanId"],
+                    ExecutionCount = (long)properties["ExecutionCount"],
+                    TotalDurationMilliseconds = (double)properties["TotalDurationMilliseconds"],
+                    AverageDurationMilliseconds = (double)properties["AverageDurationMilliseconds"],
+                    MaxDurationMilliseconds = (double)properties["MaxDurationMilliseconds"],
+                    TotalCpuMilliseconds = (double)properties["TotalCpuMilliseconds"],
+                    AverageCpuMilliseconds = (double)properties["AverageCpuMilliseconds"],
+                    TotalLogicalReads = (double)properties["TotalLogicalReads"],
+                    AverageLogicalReads = (double)properties["AverageLogicalReads"],
+                    TotalWaitMilliseconds = (double?)properties["TotalWaitMilliseconds"],
+                    AverageWaitMilliseconds = (double?)properties["AverageWaitMilliseconds"],
+                    TopWaitCategory = (string)properties["TopWaitCategory"],
+                    WaitStatisticsStatus = (string)properties["WaitStatisticsStatus"],
+                    QueryText = (string)properties["QueryText"],
+                    QueryTextTruncated = (bool)properties["QueryTextTruncated"],
+                    QueryTextLength = (int)properties["QueryTextLength"],
+                    IntervalStart = (DateTimeOffset)properties["IntervalStart"],
+                    IntervalEnd = (DateTimeOffset)properties["IntervalEnd"],
+                    Timestamp = (DateTimeOffset)properties["DiagnosticsTimestamp"],
+                };
+
+            private static QueryPlanDiagnostics ToQueryPlan(IReadOnlyDictionary<string, object> properties) =>
+                new QueryPlanDiagnostics
+                {
+                    QueryId = (long)properties["QueryId"],
+                    PlanId = (long)properties["PlanId"],
+                    SanitizedQueryPlan = (string)properties["SanitizedQueryPlan"],
+                    QueryPlanTruncated = (bool)properties["QueryPlanTruncated"],
+                    OriginalQueryPlanLength = (int)properties["OriginalQueryPlanLength"],
+                    SanitizedQueryPlanLength = (int)properties["SanitizedQueryPlanLength"],
+                    SanitizationStatus = (string)properties["SanitizationStatus"],
+                    Timestamp = (DateTimeOffset)properties["DiagnosticsTimestamp"],
+                };
+
+            private static StatisticsHealthPage ToStatisticsHealthPage(IReadOnlyDictionary<string, object> properties) =>
+                new StatisticsHealthPage(
+                    (int)properties["StatisticsHealthPage"],
+                    (int)properties["StatisticsHealthPageCount"],
+                    (int)properties["StatisticsHealthRowCount"],
+                    JsonSerializer.Deserialize<List<StatisticsHealthDiagnostics>>((string)properties["StatisticsHealthRows"]));
+
+            internal sealed class StatisticsHealthPage
+            {
+                internal StatisticsHealthPage(int pageNumber, int pageCount, int rowCount, List<StatisticsHealthDiagnostics> rows)
+                {
+                    PageNumber = pageNumber;
+                    PageCount = pageCount;
+                    RowCount = rowCount;
+                    Rows = rows;
+                }
+
+                /// <summary>Gets the 1-based page number this line carried.</summary>
+                internal int PageNumber { get; }
+
+                /// <summary>Gets the number of pages the collection was emitted across.</summary>
+                internal int PageCount { get; }
+
+                /// <summary>Gets the total number of rows collected, across every page.</summary>
+                internal int RowCount { get; }
+
+                /// <summary>Gets the rows carried on this page, deserialized from the batch property.</summary>
+                internal List<StatisticsHealthDiagnostics> Rows { get; }
+            }
         }
     }
 }

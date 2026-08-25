@@ -8,22 +8,24 @@ using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Metrics;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     /// <summary>
-    /// Collects Azure SQL Query Store and statistics diagnostics on a timer and publishes them as metrics
-    /// notifications. Deliberately does not derive from <see cref="Watchdog{T}"/>: that base class seeds and then
+    /// Collects Azure SQL Query Store and statistics diagnostics on a timer and emits them as structured log lines.
+    /// Logs rather than metric events: the payload is not metric-shaped — query text and plan XML are unbounded
+    /// free text and wait categories are high cardinality — and metric events are charged on receipt, which
+    /// <c>docs/arch/adr-2605-metric-emission-rate-limiting.md</c> records as having throttled a shared metric
+    /// account. Deliberately does not derive from <see cref="Watchdog{T}"/>: that base class seeds and then
     /// re-reads its period from <c>dbo.Parameters</c> on every start, from a private non-virtual initialization step
     /// with no override hook, and this feature is configured exclusively through configuration and must write
     /// nothing to the database. The timer and the lease the base class would have supplied are owned directly
@@ -50,6 +52,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         /// <summary>The collection interval used when configuration does not supply a usable one.</summary>
         private const double DefaultPeriodSec = 3600;
+
+        /// <summary>
+        /// The statistics-health batch size used when configuration does not supply a usable one. Mirrors the class
+        /// default on <see cref="QueryStoreDiagnosticsConfiguration.StatisticsHealthBatchSize"/>.
+        /// </summary>
+        private const int DefaultStatisticsHealthBatchSize = 20;
+
+        /// <summary>
+        /// The largest number of statistics rows packed into one log line. Batching exists to reduce record count,
+        /// but an unbounded batch would recreate the single oversized record that is the reason plan XML is not
+        /// batched at all. A typical serialized row is a little under 400 bytes, so this keeps a full page well
+        /// inside the <see cref="MaxFieldLength"/> budget the feature already applies to its other large fields.
+        /// Rows above the cap are not dropped; they move to the next page.
+        /// </summary>
+        private const int MaxStatisticsHealthBatchSize = 64;
 
         /// <summary>
         /// The lease renewal interval. Ten minutes lets the lease be picked up promptly after a replica dies without
@@ -144,7 +161,7 @@ ORDER BY
     queryStorePlan.plan_id;";
 
         private const string WaitStatisticsSql = @"
--- Wait statistics are collected independently so unavailable wait capture does not suppress slow-query metrics.
+-- Wait statistics are collected independently so unavailable wait capture does not suppress the slow-query lines.
 ;WITH WaitsByCategory AS
 (
     SELECT
@@ -232,7 +249,6 @@ ORDER BY
 
         private readonly QueryStoreDiagnosticsConfiguration _configuration;
         private readonly ILogger<QueryStoreDiagnosticsWatchdog> _logger;
-        private readonly IMediator _mediator;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly FhirTimer _fhirTimer;
         private readonly WatchdogLease<QueryStoreDiagnosticsWatchdog> _watchdogLease;
@@ -251,12 +267,10 @@ ORDER BY
         public QueryStoreDiagnosticsWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<QueryStoreDiagnosticsWatchdog> logger,
-            IMediator mediator,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration)).QueryStoreDiagnostics;
             _fhirTimer = new FhirTimer(_logger);
             _watchdogLease = new WatchdogLease<QueryStoreDiagnosticsWatchdog>(_sqlRetryService, _logger);
@@ -361,7 +375,7 @@ ORDER BY
             {
                 // The lease is what keeps one collection per period rather than one per replica: without this gate
                 // an eight-instance deployment would issue eight concurrent Query Store scans an hour and emit
-                // eight copies of every notification.
+                // eight copies of every diagnostics line.
                 _logger.LogDebug("{WatchdogName}.OnNextTickAsync: skipping because this instance does not hold the lease.", Name);
                 return;
             }
@@ -599,9 +613,9 @@ ORDER BY
                 // it in configuration, so "the views you asked me to read do not exist" is always operator-actionable
                 // and permanent, and per-read catches would be more churn than value.
                 // Because the filter spans every read, the missing view can be the last one, after slow queries and
-                // plans have already been published; the message is therefore deliberately worded to be true of a
+                // plans have already been emitted; the message is therefore deliberately worded to be true of a
                 // partial tick as well as of one that emitted nothing.
-                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: collection was aborted because a required Query Store or statistics view is unavailable. Any diagnostics already emitted during this collection were still published.");
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: collection was aborted because a required Query Store or statistics view is unavailable. Any diagnostics already emitted during this collection were still logged.");
             }
             catch (SqlException ex) when (ex.Number == 229 || ex.Number == 262)
             {
@@ -611,7 +625,7 @@ ORDER BY
 
         /// <summary>
         /// Runs the collection itself, once the configuration, run-window and Query Store state gates have all
-        /// passed. Separated from <see cref="RunWorkAsync"/> so that the reads and the notifications they produce
+        /// passed. Separated from <see cref="RunWorkAsync"/> so that the reads and the log lines they produce
         /// are reachable from unit tests, and so that exception handling stays in one place in the caller.
         /// </summary>
         /// <param name="startTime">The start of the collection window.</param>
@@ -641,8 +655,8 @@ ORDER BY
                     waitStatistics.Waits.TryGetValue(slowQuery.PlanId, out var wait);
                     var queryText = slowQuery.QueryText;
                     var queryTextTruncated = queryText.Length > MaxFieldLength;
-                    await _mediator.PublishAsync(
-                        new SlowQueryNotification
+                    LogSlowQuery(
+                        new SlowQueryDiagnostics
                         {
                             QueryId = slowQuery.QueryId,
                             PlanId = slowQuery.PlanId,
@@ -663,8 +677,7 @@ ORDER BY
                             QueryTextLength = queryText.Length,
                             IntervalStart = slowQuery.IntervalStart,
                             IntervalEnd = slowQuery.IntervalEnd,
-                        },
-                        cancellationToken);
+                        });
                 }
             }
 
@@ -675,7 +688,7 @@ ORDER BY
             }
             else if (slowQueries.Count > 0)
             {
-                queryPlanCount = await PublishQueryPlansAsync(slowQueries, cancellationToken);
+                queryPlanCount = await EmitQueryPlansAsync(slowQueries, cancellationToken);
             }
 
             var statisticsHealthCount = 0;
@@ -691,7 +704,7 @@ ORDER BY
             }
             else
             {
-                statisticsHealthCount = await PublishStatisticsHealthAsync(cancellationToken);
+                statisticsHealthCount = await EmitStatisticsHealthAsync(cancellationToken);
             }
 
             // A completed tick logs unconditionally, including zero counts: without this, "the watchdog has been
@@ -801,15 +814,15 @@ ORDER BY
             catch (SqlException ex)
             {
                 // SqlException is caught broadly on purpose: a transient wait-query failure must never abort the tick
-                // and suppress the runtime metrics, which are the primary signal. The cost of that breadth is that
-                // timeouts, deadlocks, permission denials and missing views all look alike here, so the failure is
-                // logged as a warning and surfaced on every notification as WaitStatisticsStatus = Failed.
+                // and suppress the runtime statistics, which are the primary signal. The cost of that breadth is
+                // that timeouts, deadlocks, permission denials and missing views all look alike here, so the failure
+                // is logged as a warning and surfaced on every slow-query line as WaitStatisticsStatus = Failed.
                 _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: Query Store wait statistics could not be read for this collection. Wait fields will be empty.");
                 return (new Dictionary<long, WaitStatistics>(), true);
             }
         }
 
-        private async Task<int> PublishQueryPlansAsync(IReadOnlyList<SlowQueryResult> slowQueries, CancellationToken cancellationToken)
+        private async Task<int> EmitQueryPlansAsync(IReadOnlyList<SlowQueryResult> slowQueries, CancellationToken cancellationToken)
         {
             await using var command = new SqlCommand(QueryPlansSql);
             command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
@@ -824,7 +837,7 @@ ORDER BY
             // Keyed by plan id and holding the plan XML itself: a plan with no row and a plan whose row carries NULL
             // XML both yield null here, which is exactly what the sanitizer reports as PlanXmlUnavailable.
             var plansById = plans.ToDictionary(plan => plan.PlanId, plan => plan.QueryPlanXml);
-            var publishedPlanCount = 0;
+            var emittedPlanCount = 0;
 
             foreach (var slowQuery in slowQueries)
             {
@@ -833,15 +846,15 @@ ORDER BY
                 if (!string.Equals(sanitizedPlan.Status, QueryPlanSanitizer.SanitizedStatus, StringComparison.Ordinal))
                 {
                     // Without this, systematic sanitizer breakage looks exactly like "plans are simply unavailable"
-                    // unless a downstream handler happens to surface SanitizationStatus.
+                    // unless whoever is reading the plan lines happens to look at SanitizationStatus.
                     _logger.LogWarning(
                         "QueryStoreDiagnosticsWatchdog: query plan was not emitted because sanitization did not succeed. PlanId={PlanId}, SanitizationStatus={SanitizationStatus}",
                         slowQuery.PlanId,
                         sanitizedPlan.Status);
                 }
 
-                await _mediator.PublishAsync(
-                    new QueryPlanNotification
+                LogQueryPlan(
+                    new QueryPlanDiagnostics
                     {
                         QueryId = slowQuery.QueryId,
                         PlanId = slowQuery.PlanId,
@@ -850,31 +863,30 @@ ORDER BY
                         OriginalQueryPlanLength = sanitizedPlan.OriginalLength,
                         SanitizedQueryPlanLength = sanitizedPlan.SanitizedLength,
                         SanitizationStatus = sanitizedPlan.Status,
-                    },
-                    cancellationToken);
+                    });
 
-                // A notification is published for every slow query, including the ones with no usable plan, but only
-                // the ones that carried XML are counted: a count that always equalled the slow-query count would tell
-                // an operator nothing about whether plans are actually arriving.
+                // A line is emitted for every slow query, including the ones with no usable plan, but only the ones
+                // that carried XML are counted: a count that always equalled the slow-query count would tell an
+                // operator nothing about whether plans are actually arriving.
                 if (sanitizedPlan.Xml != null)
                 {
-                    publishedPlanCount++;
+                    emittedPlanCount++;
                 }
             }
 
-            return publishedPlanCount;
+            return emittedPlanCount;
         }
 
-        private async Task<int> PublishStatisticsHealthAsync(CancellationToken cancellationToken)
+        private async Task<int> EmitStatisticsHealthAsync(CancellationToken cancellationToken)
         {
             await using var command = new SqlCommand(StatisticsHealthSql);
             command.Parameters.Add("@Top", SqlDbType.Int).Value = _configuration.StatisticsHealthCount;
 
-            // The reader projects straight into the notification contract: an intermediate DTO here would be a
+            // The reader projects straight into the emitted payload shape: an intermediate DTO here would be a
             // property-for-property copy of it and nothing else.
             var statisticsHealth = await _sqlRetryService.ExecuteReaderAsync(
                 command,
-                reader => new StatisticsHealthNotification
+                reader => new StatisticsHealthDiagnostics
                 {
                     SchemaName = reader.GetString(0),
                     TableName = reader.GetString(1),
@@ -893,12 +905,123 @@ ORDER BY
                 "Failed to read statistics health",
                 cancellationToken);
 
-            foreach (var statistic in statisticsHealth)
-            {
-                await _mediator.PublishAsync(statistic, cancellationToken);
-            }
+            LogStatisticsHealthBatches(statisticsHealth);
 
             return statisticsHealth.Count;
+        }
+
+        /// <summary>
+        /// Emits the collected statistics rows as JSON batches, one log line per page. Batched where the slow-query
+        /// and plan payloads are not because these rows are small, uniform and free of free text, so a batch has a
+        /// predictable size; a batch of plan XML could not make that promise and would risk one oversized record.
+        /// The cost of batching is that the rows are a serialized blob rather than queryable columns, which is
+        /// affordable here precisely because the fields are uniform and cheap to re-parse. Exposed as internal only
+        /// for unit testing.
+        /// </summary>
+        /// <param name="statisticsHealth">The collected rows, already capped at StatisticsHealthCount.</param>
+        internal void LogStatisticsHealthBatches(IReadOnlyList<StatisticsHealthDiagnostics> statisticsHealth)
+        {
+            if (statisticsHealth.Count == 0)
+            {
+                // No line at all rather than an empty page: the collection summary already reports a count of zero,
+                // and a page carrying nothing would only make the emitted pages harder to count.
+                return;
+            }
+
+            var batchSize = _configuration.StatisticsHealthBatchSize;
+            if (batchSize <= 0)
+            {
+                // Unlike the counts, this one cannot degrade to collecting nothing — the rows have already been read
+                // and dropping them would lose diagnostics an operator asked for — so it falls back to the default
+                // and names the rejected value, the way an unusable PeriodSec does.
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: StatisticsHealthBatchSize is {ConfiguredStatisticsHealthBatchSize}, which cannot pack a row. Falling back to {FallbackStatisticsHealthBatchSize} rows per log line. Configure a positive value to change the batch size.",
+                    batchSize,
+                    DefaultStatisticsHealthBatchSize);
+                batchSize = DefaultStatisticsHealthBatchSize;
+            }
+            else if (batchSize > MaxStatisticsHealthBatchSize)
+            {
+                // Clamped rather than honoured, because the failure this prevents is not a smaller page but a single
+                // record large enough for a sink to truncate or reject, which would lose the rows entirely. Paging
+                // costs extra lines, and lines are the cheap thing here.
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: StatisticsHealthBatchSize is {ConfiguredStatisticsHealthBatchSize}, which risks a log record too large for the sink to accept. Using {MaxStatisticsHealthBatchSize} rows per log line instead. All rows are still emitted, across more pages.",
+                    batchSize,
+                    MaxStatisticsHealthBatchSize);
+                batchSize = MaxStatisticsHealthBatchSize;
+            }
+
+            var pageCount = ((statisticsHealth.Count - 1) / batchSize) + 1;
+            for (var page = 0; page < pageCount; page++)
+            {
+                var pageRows = statisticsHealth.Skip(page * batchSize).Take(batchSize).ToList();
+
+                // Page number, page count and total row count travel on every line so that a reader can tell a
+                // partial last page from a set that was cut short by a host that died mid-collection.
+                _logger.LogInformation(
+                    "QueryStoreDiagnosticsWatchdog statistics health. StatisticsHealthPage={StatisticsHealthPage}, StatisticsHealthPageCount={StatisticsHealthPageCount}, StatisticsHealthPageRowCount={StatisticsHealthPageRowCount}, StatisticsHealthRowCount={StatisticsHealthRowCount}, StatisticsHealthRows={StatisticsHealthRows}",
+                    page + 1,
+                    pageCount,
+                    pageRows.Count,
+                    statisticsHealth.Count,
+                    JsonSerializer.Serialize(pageRows));
+            }
+        }
+
+        /// <summary>
+        /// Emits one slow query as a single structured line. Every field is its own named property rather than a
+        /// serialized document, so each one lands as a queryable column downstream; at the default of ten rows a
+        /// tick, a line per row costs nothing worth batching for.
+        /// </summary>
+        /// <param name="slowQuery">The diagnostics to emit.</param>
+        private void LogSlowQuery(SlowQueryDiagnostics slowQuery)
+        {
+            // QueryText is last because it is the one unbounded field on the line, so everything an operator scans
+            // for is still readable ahead of it. DiagnosticsTimestamp rather than Timestamp, because that name
+            // collides with the ingestion timestamp the log pipeline supplies for every record.
+            _logger.LogInformation(
+                "QueryStoreDiagnosticsWatchdog slow query. QueryId={QueryId}, PlanId={PlanId}, ExecutionCount={ExecutionCount}, TotalDurationMilliseconds={TotalDurationMilliseconds}, AverageDurationMilliseconds={AverageDurationMilliseconds}, MaxDurationMilliseconds={MaxDurationMilliseconds}, TotalCpuMilliseconds={TotalCpuMilliseconds}, AverageCpuMilliseconds={AverageCpuMilliseconds}, TotalLogicalReads={TotalLogicalReads}, AverageLogicalReads={AverageLogicalReads}, TotalWaitMilliseconds={TotalWaitMilliseconds}, AverageWaitMilliseconds={AverageWaitMilliseconds}, TopWaitCategory={TopWaitCategory}, WaitStatisticsStatus={WaitStatisticsStatus}, QueryTextTruncated={QueryTextTruncated}, QueryTextLength={QueryTextLength}, IntervalStart={IntervalStart}, IntervalEnd={IntervalEnd}, DiagnosticsTimestamp={DiagnosticsTimestamp}, QueryText={QueryText}",
+                slowQuery.QueryId,
+                slowQuery.PlanId,
+                slowQuery.ExecutionCount,
+                slowQuery.TotalDurationMilliseconds,
+                slowQuery.AverageDurationMilliseconds,
+                slowQuery.MaxDurationMilliseconds,
+                slowQuery.TotalCpuMilliseconds,
+                slowQuery.AverageCpuMilliseconds,
+                slowQuery.TotalLogicalReads,
+                slowQuery.AverageLogicalReads,
+                slowQuery.TotalWaitMilliseconds,
+                slowQuery.AverageWaitMilliseconds,
+                slowQuery.TopWaitCategory,
+                slowQuery.WaitStatisticsStatus,
+                slowQuery.QueryTextTruncated,
+                slowQuery.QueryTextLength,
+                slowQuery.IntervalStart,
+                slowQuery.IntervalEnd,
+                slowQuery.Timestamp,
+                slowQuery.QueryText);
+        }
+
+        /// <summary>
+        /// Emits one query plan as a single structured line. Not batched with its neighbours: the sanitized XML is
+        /// capped at the field length rather than being small, so packing several into one record would risk a
+        /// single oversized log row.
+        /// </summary>
+        /// <param name="queryPlan">The diagnostics to emit.</param>
+        private void LogQueryPlan(QueryPlanDiagnostics queryPlan)
+        {
+            _logger.LogInformation(
+                "QueryStoreDiagnosticsWatchdog query plan. QueryId={QueryId}, PlanId={PlanId}, SanitizationStatus={SanitizationStatus}, QueryPlanTruncated={QueryPlanTruncated}, OriginalQueryPlanLength={OriginalQueryPlanLength}, SanitizedQueryPlanLength={SanitizedQueryPlanLength}, DiagnosticsTimestamp={DiagnosticsTimestamp}, SanitizedQueryPlan={SanitizedQueryPlan}",
+                queryPlan.QueryId,
+                queryPlan.PlanId,
+                queryPlan.SanitizationStatus,
+                queryPlan.QueryPlanTruncated,
+                queryPlan.OriginalQueryPlanLength,
+                queryPlan.SanitizedQueryPlanLength,
+                queryPlan.Timestamp,
+                queryPlan.SanitizedQueryPlan);
         }
 
         /// <summary>

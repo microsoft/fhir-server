@@ -5,12 +5,16 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.Core.Features.Metrics
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     /// <summary>
-    /// Contains table statistics health information.
+    /// Table statistics health for one statistics object. Unlike the slow-query and query-plan payloads, instances of
+    /// this type are serialized to JSON and carried several to a log line: the rows are small, uniform, and contain no
+    /// free text, so a batch of them has a predictable size and nothing is lost by giving up per-field columns.
+    /// Properties are public because <see cref="System.Text.Json.JsonSerializer"/> only serializes public members;
+    /// the type itself is internal because nothing outside this assembly consumes it.
     /// </summary>
-    public class StatisticsHealthNotification : IMetricsNotification
+    internal sealed class StatisticsHealthDiagnostics
     {
         /// <summary>
         /// Gets or sets the schema that owns the table.
@@ -73,18 +77,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Metrics
         public bool HasFilter { get; set; }
 
         /// <summary>
-        /// Gets or sets the timestamp when the notification was created.
+        /// Gets or sets the timestamp when the diagnostics were collected. Carried on the row rather than only on the
+        /// log line so that a row stays self-describing once it is lifted out of the batch it was emitted in.
         /// </summary>
         public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
-
-        /// <summary>
-        /// Gets the FHIR operation associated with this notification.
-        /// </summary>
-        public string FhirOperation => "query-store-diagnostics";
-
-        /// <summary>
-        /// Gets the resource type associated with this notification.
-        /// </summary>
-        public string ResourceType => "System";
     }
 }

@@ -2,7 +2,7 @@
 
 ## Status
 
-Agreed baseline for implementation. This document defines an opt-in background worker that emits Azure SQL Query Store diagnostics from inside the FHIR server, the enablement model, the emitted contracts, the disclosure boundary, and the repository ownership split.
+Agreed baseline for implementation. This document defines an opt-in background worker that emits Azure SQL Query Store diagnostics from inside the FHIR server, the enablement model, the emitted log records, the disclosure boundary, and the repository ownership split.
 
 This specification **supersedes an earlier pull-based design** in which three stored procedures were called by an external caller. See [Rejected alternative](#rejected-alternative-caller-invoked-stored-procedures).
 
@@ -26,7 +26,7 @@ Related internal guidance:
 
 ## Design
 
-A **watchdog** — the repository's existing leased background-worker pattern — periodically reads Query Store and statistics metadata and **pushes** the results out as metrics notifications. It runs inside the FHIR server process on the server's **existing** SQL identity.
+A **watchdog** — the repository's existing leased background-worker pattern — periodically reads Query Store and statistics metadata and writes the results out as **structured log records**. It runs inside the FHIR server process on the server's **existing** SQL identity.
 
 ```text
 FHIR server instance (lease holder)
@@ -37,8 +37,8 @@ FHIR server instance (lease holder)
         ├── sys.stats / sys.dm_db_stats_properties
         └── QueryPlanSanitizer (C#)               strips parameter values
               │
-              └── IMediator.PublishAsync(IMetricsNotification)
-                    └── host-supplied handler (PaaS -> Geneva / Log Analytics)
+              └── ILogger<QueryStoreDiagnosticsWatchdog>   structured log records
+                    └── the host's existing log pipeline (PaaS -> Geneva / Log Analytics)
 ```
 
 The critical property is that **nothing new connects inbound to the database**. The work is done by the service that already holds a connection, so the feature introduces no new authentication path, no new database principal, and no new grant.
@@ -47,9 +47,9 @@ The critical property is that **nothing new connects inbound to the database**. 
 
 `WatchdogsBackgroundService` and `WatchdogLease<T>` already provide what this feature needs, and each of these would otherwise have to be reinvented:
 
-- **Single-runner election.** `WatchdogLease<T>` ensures exactly one instance in a multi-instance deployment performs the work, so an eight-instance service does not issue eight concurrent Query Store scans and emit eight copies of every notification. The lease is invisible runtime coordination rather than configuration: it holds nothing an operator sets, and it lives in `dbo.WatchdogLeases` behind `dbo.AcquireWatchdogLease`, shared with every other watchdog.
+- **Single-runner election.** `WatchdogLease<T>` ensures exactly one instance in a multi-instance deployment performs the work, so an eight-instance service does not issue eight concurrent Query Store scans and emit eight copies of every diagnostics line. The lease is invisible runtime coordination rather than configuration: it holds nothing an operator sets, and it lives in `dbo.WatchdogLeases` behind `dbo.AcquireWatchdogLease`, shared with every other watchdog.
 - **A managed background timer.** `FhirTimer` supplies the randomized start-up stagger that keeps replicas from collecting on the same second, and catches whatever a tick throws so that a failed collection costs one tick rather than the process.
-- **A precedent for emitting SQL telemetry.** `GeoReplicationLagWatchdog` reads a SQL view on a timer and publishes an `IMetricsNotification`; the host binds a handler that forwards it. This feature is the same shape.
+- **A precedent for emitting SQL telemetry.** `GeoReplicationLagWatchdog` reads a SQL view on a timer and emits what it finds. This feature has the same shape, but emits **logs rather than metric notifications**; see [Why logs rather than metrics](#why-logs-rather-than-metrics). A single lag figure is metric-shaped, and query text and plan XML are not.
 
 **It deliberately does not derive from `Watchdog<T>`.** That base class inserts `{Name}.PeriodSec` and `{Name}.LeasePeriodSec` into `dbo.Parameters` on every start and then reads the period back **over** the configured value, from a private, non-virtual initialization step with no override hook. This feature is configured exclusively from configuration and writes nothing to the database, so it owns a `FhirTimer` and a `WatchdogLease<T>` directly and reproduces the rest of what the base class did — the lease-holder gate, the capped randomized stagger, and the per-tick timing line — in its own `ExecuteAsync` and tick handler. `WatchdogLease<T>` uses its type argument only to derive the lease resource name from `typeof(T).Name`; its former `T : Watchdog<T>` constraint restricted nothing it actually used, so it was relaxed to admit a self-scheduling component. Every other caller passes a `Watchdog<T>` and is unaffected, and the timer and base class are used unmodified.
 
@@ -79,7 +79,8 @@ The only database row this feature causes to exist is its **lease**, in `dbo.Wat
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
 | `IncludeStatisticsHealth` | `true` | Whether statistics metadata is emitted. |
-| `StatisticsHealthCount` | `20` | Worst-ranked statistics rows to report per tick. Each row is one notification, so this directly multiplies emission volume; see [Why the count is capped](#why-the-count-is-capped). |
+| `StatisticsHealthCount` | `20` | Worst-ranked statistics rows **collected and reported** per tick; see [Why the count is capped](#why-the-count-is-capped). |
+| `StatisticsHealthBatchSize` | `20` | How many of those rows are packed into each log line. This is **not** a second cap on what is collected: rows beyond the batch size are emitted on further lines, paginated. A non-positive value is reported with a warning and the `20` default is used, because a batch size cannot pack a row. Values above `64` are clamped, also with a warning; see [Batch size is capped](#batch-size-is-capped). |
 | `RunStartDate` | `null` (unset) | Inclusive start of the optional run window. Ticks before it collect nothing. `null` means no lower bound. |
 | `RunEndDate` | `null` (unset) | **Exclusive** end of the optional run window. Ticks at or after it collect nothing. `null` means no upper bound. |
 
@@ -122,27 +123,61 @@ The window state is logged **only when it changes** — not open yet, open, clos
 
 **The window boundaries take effect without a restart, but the configured values do not.** These settings bind through `IOptions<T>`, so the *values* are read once at process start and editing configuration afterwards has no effect until the host restarts — the same as every other setting in this feature. What changes without a restart is the *clock*: a window configured before the host started will open and close on schedule while the process keeps running, because each tick re-evaluates the fixed boundaries against the current time. Changing a boundary on a running host still requires a restart.
 
-## Emitted contracts
+## Emitted log records
 
-Three notification types implement `IMetricsNotification`, each reporting `FhirOperation` `query-store-diagnostics` and `ResourceType` `System`. Hosts bind handlers to route them; the OSS repository does not prescribe a sink.
+Everything this feature produces is a **structured log record**, written through the `ILogger<QueryStoreDiagnosticsWatchdog>` the host already configures. Nothing is emitted as a metric event, and there is no handler to bind: whatever a deployment already does with FHIR server logs, it does with these.
 
-### `SlowQueryNotification`
+All three payload lines are emitted at **information** level. The warnings this feature raises — misconfiguration, an unavailable Query Store, a failed wait read, a plan that would not sanitize — remain at **warning** level and are unaffected by how the payload is emitted.
 
-One per slow plan per tick. Carries `QueryId`, `PlanId`, execution count, total/average/maximum duration, total/average CPU, total/average logical reads, total/average wait time, top wait category, `WaitStatisticsStatus`, the Query Store query text, and the collection window bounds.
+The payload shapes are `SlowQueryDiagnostics`, `QueryPlanDiagnostics`, and `StatisticsHealthDiagnostics`, in `Microsoft.Health.Fhir.SqlServer/Features/Watchdogs`. They are `internal` and live beside the watchdog because they are log payload shapes, not contracts another assembly binds to.
+
+### Why logs rather than metrics
+
+- **Cost and blast radius.** Metric events are charged on receipt. `docs/arch/adr-2605-metric-emission-rate-limiting.md` records a high-volume emission pattern throttling a *shared* metric account and degrading monitoring for both the FHIR and DICOM services, so volume on that pipeline is an availability concern as well as a bill. Logs are the cheap place to start, and moving a data point to a metric later is easy in a way that recovering a throttled account is not.
+- **The payload is not metric-shaped.** `QueryText` is unbounded free text, `SanitizedQueryPlan` is an XML document, and `TopWaitCategory` is a high-cardinality string. Those are log fields. Carrying them as metric dimensions is a cardinality incident waiting to happen.
+- **Nothing here is a rate.** These are periodic snapshots meant to be read and correlated by a responder during an investigation, not aggregated into a time series.
+
+### Slow query
+
+One line per slow plan per tick, beginning `QueryStoreDiagnosticsWatchdog slow query.`.
+
+Every field is its own **named** log property, so each lands as its own queryable column in Kusto or Log Analytics rather than inside a serialized blob: `QueryId`, `PlanId`, `ExecutionCount`, `TotalDurationMilliseconds`, `AverageDurationMilliseconds`, `MaxDurationMilliseconds`, `TotalCpuMilliseconds`, `AverageCpuMilliseconds`, `TotalLogicalReads`, `AverageLogicalReads`, `TotalWaitMilliseconds`, `AverageWaitMilliseconds`, `TopWaitCategory`, `WaitStatisticsStatus`, `QueryTextTruncated`, `QueryTextLength`, `IntervalStart`, `IntervalEnd`, `DiagnosticsTimestamp`, and `QueryText`.
+
+These lines are **not** batched. At the default `SlowQueryCount` of 10 a line per row is cheap, and column-level queryability is the whole reason to emit structured logs rather than JSON documents. `QueryText` is placed last so that everything an operator scans for is readable ahead of the one unbounded field on the line.
 
 `WaitStatisticsStatus` describes why the wait fields look the way they do: `Available` when wait statistics were read for the plan, `Unavailable` when the wait query succeeded but returned no row for it (wait capture off, or no waits accrued), and `Failed` when the wait query itself threw. Without it, "wait capture is switched off" and "the wait query has been failing for a month" are indistinguishable, because both leave the wait fields null.
 
 `QueryId` and `PlanId` are the join keys back into Query Store, and into the `QueryStoreRuntimeStatistics` stream already exported to Log Analytics, so a responder can correlate an emitted slow query with the existing diagnostic-settings telemetry.
 
-### `QueryPlanNotification`
+### Query plan
 
-One per reported plan per tick when `IncludeQueryPlans` is set. Carries `QueryId`, `PlanId`, the sanitized Showplan XML, a truncation flag, the raw and sanitized plan lengths, and a sanitization status.
+One line per reported plan per tick when `IncludeQueryPlans` is set, beginning `QueryStoreDiagnosticsWatchdog query plan.`. Named properties: `QueryId`, `PlanId`, `SanitizationStatus`, `QueryPlanTruncated`, `OriginalQueryPlanLength`, `SanitizedQueryPlanLength`, `DiagnosticsTimestamp`, and `SanitizedQueryPlan`.
 
-Notifications are emitted for unsuccessful sanitization as well, with null XML and a status of `PlanXmlUnavailable`, `InvalidXml`, or `VerificationFailed`, so a sanitization failure is observable rather than silent.
+These lines are **not** batched either, and for a different reason from the slow-query lines: the sanitized XML is capped at the field length rather than being small, so packing several plans into one record would risk producing a single oversized log record that the pipeline drops or truncates as a whole.
 
-### `StatisticsHealthNotification`
+A line is emitted for unsuccessful sanitization as well, with null XML and a status of `PlanXmlUnavailable`, `InvalidXml`, or `VerificationFailed`, so a sanitization failure is observable rather than silent. That failure is *also* logged as its own warning, so systematic sanitizer breakage does not look like "plans are simply unavailable" to someone who is not reading `SanitizationStatus`.
 
-One per statistics object per tick when `IncludeStatisticsHealth` is set. Carries schema, table, and statistics name, last-updated timestamp, rows, rows sampled, modification counter, modification percentage, and the auto-created / user-created / from-index / filtered flags.
+### Statistics health
+
+Emitted in **batches**, beginning `QueryStoreDiagnosticsWatchdog statistics health.`. Each line carries `StatisticsHealthBatchSize` rows serialized as a compact JSON array in a single log property, `StatisticsHealthRows`, alongside the pagination properties described below.
+
+These rows are batched where the other two payloads are not because they are small, uniform, and contain no free text, so a batch of them has a predictable size. The cost of batching is that the rows arrive as a serialized blob rather than as queryable columns, which is affordable precisely because the fields are few, uniform, and cheap to re-parse; it would not be affordable for query text or plan XML.
+
+Each row carries schema, table, and statistics name, last-updated timestamp, rows, rows sampled, modification counter, modification percentage, the auto-created / user-created / from-index / filtered flags, and the collection timestamp. The timestamp is on the row rather than only on the line so that a row stays self-describing once it is lifted out of the batch it arrived in.
+
+When more rows are collected than fit in one batch, several lines are emitted and each one says where it sits in the set:
+
+| Property | Meaning |
+| --- | --- |
+| `StatisticsHealthPage` | The **1-based** page number of this line. |
+| `StatisticsHealthPageCount` | How many lines the collection was emitted across. |
+| `StatisticsHealthPageRowCount` | How many rows this line carries. |
+| `StatisticsHealthRowCount` | How many rows were collected in total, across every page. |
+| `StatisticsHealthRows` | The rows themselves, as a compact JSON array. |
+
+Carrying the totals on **every** line is what lets a reader distinguish a legitimately short final page from a set that was cut short by a host that died mid-collection: 18 rows on page 3 of 3 of a 58-row collection is complete, while pages 1 and 2 of 3 arriving alone is not. No line is emitted when nothing was collected — the per-tick summary already reports a count of zero, and an empty page would only make the pages harder to count.
+
+`DiagnosticsTimestamp` on the slow-query and query-plan lines, and `Timestamp` inside each statistics row, are the moment the watchdog collected the data. They are deliberately not named `Timestamp` at the log-property level, because that name collides with the ingestion timestamp log pipelines supply for every record.
 
 ### Field size
 
@@ -178,9 +213,9 @@ Wait statistics are collected by a **separate, best-effort** query and merged in
 
 `Failed` is reserved for that case: a wait read that actually broke. The ordinary outcomes of wait capture being turned off, or of no waits having accrued for a plan inside the window, are an empty result set rather than a failure — those plans carry `WaitStatisticsStatus` of `Unavailable`, with null wait fields and no warning logged.
 
-`SqlException` is caught broadly there on purpose, so that a transient wait-query failure cannot abort the tick and suppress the runtime metrics. The trade-off accepted is that timeouts, deadlocks, permission denials and missing views are not distinguished from one another at that point; the warning carries the exception, and the notification carries the status.
+`SqlException` is caught broadly there on purpose, so that a transient wait-query failure cannot abort the tick and suppress the runtime statistics. The trade-off accepted is that timeouts, deadlocks, permission denials and missing views are not distinguished from one another at that point; the warning carries the exception, and the slow-query line carries the status.
 
-Wait capture is retained locally, rather than deferred entirely to the `QueryStoreWaitStatistics` Log Analytics stream, so that a single emitted slow-query record is self-contained: runtime metrics, waits, query text, and plan identity arrive together without a join against a second telemetry source.
+Wait capture is retained locally, rather than deferred entirely to the `QueryStoreWaitStatistics` Log Analytics stream, so that a single emitted slow-query line is self-contained: runtime statistics, waits, query text, and plan identity arrive together without a join against a second telemetry source.
 
 ### Statistics health
 
@@ -190,19 +225,29 @@ Modification percentage is left null when the row count is null or zero rather t
 
 #### Why the count is capped
 
-`StatisticsHealthCount` is a cap on what is *reported*, not on what is examined: the ordering runs across every qualifying statistic and only the worst are emitted. The cap matters because each reported row is published as its own `StatisticsHealthNotification`, so the setting is a direct multiplier on emission volume — per collection, per database, per host.
+`StatisticsHealthCount` is a cap on what is *reported*, not on what is examined: the ordering runs across every qualifying statistic and only the worst are emitted. It is also the only cap on the number of rows. `StatisticsHealthBatchSize` decides how many rows share a log line, not how many rows exist, so raising it never reports more and lowering it never reports less — the two settings are easy to confuse and do quite different things.
 
-The schema alone defines roughly a hundred index-backed statistics across its user tables, and SQL Server adds auto-created column statistics on top of that as queries run, so the full set on a busy database is comfortably several hundred. Reporting all of them would turn one collection into several hundred notifications, and a fleet multiplies that by database count. `docs/arch/adr-2605-metric-emission-rate-limiting.md` records what that costs: a high-volume emission pattern throttled a *shared* metric account and degraded monitoring for both the FHIR and DICOM services. Metric events are charged on receipt, so volume is both a cost and an availability concern.
+The reason to cap is weaker than it was when each row was emitted as its own metric event, and it is worth being precise about what changed. Rows are now packed into batched log lines, so a row no longer costs a charged metric event and the per-row emission argument that `docs/arch/adr-2605-metric-emission-rate-limiting.md` supports no longer applies here in that form. What batching removes is **record count**, not bytes: 300 rows at a batch size of 20 is 15 log records instead of 300, but it is still 300 rows of ingested and retained data.
 
-Capping is therefore the right shape, and the ordering is what makes a small cap usable — the reported rows are the worst offenders rather than an arbitrary slice. Statistics with no readable row count sort last, so empty and unsampled tables do not consume the budget.
+That residual volume is what the cap is for now. The schema alone defines roughly a hundred index-backed statistics across its user tables, and SQL Server adds auto-created column statistics on top of that as queries run, so the full set on a busy database is comfortably several hundred — every collection, on every database, on every host that holds the lease, for as long as the feature is enabled. Log ingestion and retention are charged by volume, and a fleet multiplies the figure by database count, so reporting everything every hour is a real ongoing cost even though it is a much smaller one than it would have been on the metrics pipeline. The second cost is readability: several hundred rows an hour of mostly healthy statistics is a stream nobody reads, which defeats the purpose of collecting them.
 
-One bias is worth knowing when reading the output. Ranking is by *ratio*, so a small table that churns heavily outranks a large one that has drifted less proportionally: ten rows with a hundred modifications scores 10.0, while a hundred-million-row table with twenty million modifications scores 0.2, even though the second is far more likely to distort a plan. A handful of small, busy tables can therefore fill the report while a consequential stale statistic on a large table sits below the cut. Raising `StatisticsHealthCount` widens the window, at the emission cost described above. If large-table staleness is what is being chased, the ordering — not the cap — is the thing to revisit.
+Capping is therefore still the right shape, and the ordering is what makes a small cap usable — the reported rows are the worst offenders rather than an arbitrary slice. Statistics with no readable row count sort last, so empty and unsampled tables do not consume the budget.
+
+One bias is worth knowing when reading the output. Ranking is by *ratio*, so a small table that churns heavily outranks a large one that has drifted less proportionally: ten rows with a hundred modifications scores 10.0, while a hundred-million-row table with twenty million modifications scores 0.2, even though the second is far more likely to distort a plan. A handful of small, busy tables can therefore fill the report while a consequential stale statistic on a large table sits below the cut. Raising `StatisticsHealthCount` widens the window, at the volume cost described above; on logs that is a defensible thing to do for the length of an investigation, which it was not when every extra row was a metric event. If large-table staleness is what is being chased, the ordering — not the cap — is the thing to revisit.
+
+#### Batch size is capped
+
+`StatisticsHealthBatchSize` is clamped to 64 rows per line, with a warning naming the configured value when the clamp bites.
+
+The reason is the same one that keeps plan XML out of a batch. Batching trades record count for record size, and a large enough batch recreates exactly the oversized record that batching plans was rejected for: a single line that a sink may truncate or reject, taking every row on it with it. A typical serialized statistics row is a little under 400 bytes, so 64 rows keeps a full page well inside the 32 KB budget the feature already applies to its other large fields.
+
+Clamping never drops rows. A batch size above the cap simply produces more pages, and the pagination properties still account for every row. Extra lines are the cheap thing here, which is the whole reason for preferring logs in the first place.
 
 ### Failure containment
 
 `WatchdogsBackgroundService` cancels **every** watchdog if any one of them fails. A diagnostic feature must never be able to take down transaction or cleanup watchdogs, so the collection body contains its own failures: missing views and permission denials are logged and the tick returns rather than propagating.
 
-The missing-view handler spans the whole collection rather than each individual read, so the aborting read can be the last one, after slow queries and plans have already been published. Its warning is worded to hold in that case too: it reports that collection was aborted and that whatever had already been emitted was still published, rather than claiming that nothing was collected.
+The missing-view handler spans the whole collection rather than each individual read, so the aborting read can be the last one, after slow queries and plans have already been emitted. Its warning is worded to hold in that case too: it reports that collection was aborted and that whatever had already been emitted was still logged, rather than claiming that nothing was collected.
 
 That containment covers **per-tick collection**, which is where all of this feature's own database work happens: `FhirTimer` catches whatever a tick throws and keeps ticking, so a failed collection costs one tick. The lease renewal is the only other database call, and it runs on the lease's own `FhirTimer` with the same per-tick catch. There is no initialization step left to fail outside either catch. Watchdogs that derive from `Watchdog<T>` do have one — `ExecuteAsync` awaits `InitParamsAsync`, which seeds `dbo.Parameters`, *before* and *outside* the per-tick catch, so a throw there faults the watchdog task and `WatchdogsBackgroundService` cancels the rest — and not deriving from it removes that failure mode here along with the writes.
 
@@ -220,7 +265,7 @@ The cost is one collection per period against the primary — hourly by default 
 
 A non-positive `SlowQueryCount` or `StatisticsHealthCount` disables the corresponding section: the round-trip is skipped entirely rather than issued as a `TOP (0)` query whose empty result would be indistinguishable from a healthy one. Both cases are logged as a warning once per tick, and a section turned off deliberately through `IncludeQueryPlans` or `IncludeStatisticsHealth` is logged at information level. Misconfiguration is never fatal: a diagnostics feature must not fail the host.
 
-A completed tick logs one information-level line carrying the collection window and the counts of slow queries, plans and statistics rows published, **including zeros**, so that "the watchdog has been dead for three days" is distinguishable from "there were no slow queries". The plan count is the number of plans that actually carried sanitized XML, not the number of plan notifications published, so it is deliberately lower than the slow-query count whenever Query Store held no plan for a query or sanitization rejected one.
+A completed tick logs one information-level line carrying the collection window and the counts of slow queries, plans and statistics rows emitted, **including zeros**, so that "the watchdog has been dead for three days" is distinguishable from "there were no slow queries". The plan count is the number of plans that actually carried sanitized XML, not the number of plan lines emitted, so it is deliberately lower than the slow-query count whenever Query Store held no plan for a query or sanitization rejected one. The statistics count is the number of **rows** collected, not the number of batch lines they were emitted across.
 
 ## Sanitization
 
@@ -250,7 +295,7 @@ Statistics histogram values are never read, because `range_high_key` contains ac
 
 The watchdog runs on the FHIR server's existing SQL connection and requires no additional database principal, role, or grant. Reading the Query Store catalog views requires `VIEW DATABASE STATE`, which the service identity already holds; where it does not, the permission denial is contained and logged rather than being fatal.
 
-Because this is an outbound push from a process that is already trusted with the data, the previous design's audit requirements do not apply. There is no external caller to attribute, and the emitted notifications are themselves the operational record.
+Because this is an outbound emission from a process that is already trusted with the data, the previous design's audit requirements do not apply. There is no external caller to attribute, and the emitted log records are themselves the operational record.
 
 ## Repository ownership
 
@@ -258,7 +303,7 @@ Because this is an outbound push from a process that is already trusted with the
 
 - the watchdog, its inline SQL, and the C# sanitizer;
 - the configuration class and its defaults;
-- the three notification contracts;
+- the three log payload shapes and the structured lines they are emitted on;
 - unit tests for sanitization and integration tests against a live SQL Server; and
 - this specification.
 
@@ -266,7 +311,7 @@ Nothing here is PaaS-specific, and no PaaS identity, storage account, or rollout
 
 ### `fhir-paas`
 
-- binding notification handlers and routing the emissions to Geneva or Log Analytics;
+- routing the FHIR server log stream to Geneva or Log Analytics, and any parsing of the emitted lines built on top of it;
 - setting the configuration gate per environment and ring;
 - setting the collection settings, including the run window, for an investigation;
 - retention, access control, and downstream handling of emitted query text and plans; and
@@ -275,7 +320,7 @@ Nothing here is PaaS-specific, and no PaaS identity, storage account, or rollout
 ### Rollout
 
 1. Merge the OSS change. The feature ships disabled.
-2. Bind a handler and configure routing in `fhir-paas`.
+2. Confirm the FHIR server log stream is routed where the investigation needs it. There is no handler to bind.
 3. Enable the configuration gate in a test ring and confirm emission volume and field sizes.
 4. Enable it for the deployment under investigation through configuration — bounding it with `RunStartDate` and `RunEndDate` when the investigation is time-boxed — and restart that deployment for the change to take effect.
 
@@ -303,7 +348,7 @@ Secondary benefits of the change:
 
 - plan sanitization moves from T-SQL to C#, where it is more reliable and far easier to test;
 - the persistent SQL surface, the database role, and the schema version all disappear; and
-- results are pushed into telemetry continuously rather than requiring someone to be connected and asking at the moment the problem is happening.
+- results are emitted into telemetry continuously rather than requiring someone to be connected and asking at the moment the problem is happening.
 
 ## Testing requirements
 
@@ -319,9 +364,9 @@ Secondary benefits of the change:
 
 ### Collection, integration tested against live SQL
 
-1. With Query Store enabled and a deliberately slow query executed, a `SlowQueryNotification` is emitted carrying a matching `QueryId`/`PlanId`.
-2. A `QueryPlanNotification` is emitted for that plan with status `Sanitized`.
-3. `StatisticsHealthNotification` rows are emitted for user tables.
+1. With Query Store enabled and a deliberately slow query executed, a slow-query line is emitted carrying a matching `QueryId`/`PlanId`.
+2. A query-plan line is emitted for that plan with status `Sanitized`.
+3. Statistics-health rows are emitted for user tables, batched and paginated, with page numbers and totals that account for every collected row.
 4. The watchdog performs no work when the configuration gate is off, and starting it creates no `dbo.Parameters` row and reads none.
 5. A non-`READ_WRITE` Query Store state is handled without error and without emission.
 6. Wait-statistic unavailability degrades to null wait fields while runtime results are still emitted, and `WaitStatisticsStatus` reports which of the three outcomes occurred.
