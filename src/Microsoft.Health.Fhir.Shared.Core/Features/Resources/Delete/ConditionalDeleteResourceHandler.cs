@@ -117,13 +117,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
                 if (results.Results.Count == 1)
                 {
+                    // The single-Match, no-Include path guards the delete with the version the conditional
+                    // search itself observed. If the data store projection did not surface one, the
+                    // precondition cannot be evaluated at all, and silently continuing would downgrade a
+                    // guarded delete into an unguarded one. Fail closed before invoking the deletion service,
+                    // mirroring the Match-with-Includes guard in DeletionService.GetGuardedMatchVersion, and
+                    // avoid formatting an absent version into an empty expected version.
+                    if (string.IsNullOrEmpty(resourceWrapper.Version))
+                    {
+                        _logger.LogInformation("PreconditionFailed: ConditionalDeleteMatchVersionUnavailable");
+                        throw new PreconditionFailedException(string.Format(
+                            Core.Resources.ConditionalDeleteMatchVersionUnavailable,
+                            resourceWrapper.ResourceTypeName,
+                            resourceWrapper.ResourceId));
+                    }
+
                     var result = await _deleter.DeleteAsync(
                         new DeleteResourceRequest(
                             request.ResourceType,
                             resourceWrapper.ResourceId,
                             request.DeleteOperation,
                             bundleResourceContext: request.BundleResourceContext,
-                            weakETag: request.WeakETag),
+                            weakETag: request.WeakETag,
+                            comparedVersion: resourceWrapper.Version),
                         cancellationToken);
 
                     if (string.IsNullOrWhiteSpace(result.VersionId))

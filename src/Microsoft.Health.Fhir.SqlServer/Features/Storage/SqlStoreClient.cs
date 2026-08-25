@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -20,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Task = System.Threading.Tasks.Task;
@@ -35,6 +37,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger _logger;
         private readonly SchemaInformation _schemaInformation;
         private const string _invisibleResource = " ";
+
+        //// Authoritative current-version probe for a resource the batch snapshot already matched to an existing
+        //// row. UPDLOCK takes an update lock on that row, so the statement conflicts with any concurrent writer of
+        //// the same resource - including one that is mid-flight and has not committed yet - forcing this read to
+        //// observe the writer's committed outcome instead of a row-versioned snapshot. That is what makes the
+        //// answer authoritative: under READ_COMMITTED_SNAPSHOT (the Azure SQL default) an ordinary SELECT would
+        //// silently read a pre-write version and would not block on the writer.
+        //// HOLDLOCK is deliberately not added here. Paired with UPDLOCK it escalates the lock to serializable
+        //// key-range locking, and dbo.MergeResources documents that exact UPDLOCK+HOLDLOCK combination as deadlock
+        //// prone on its own, analogous version comparison join (see the commented out hint on the @ResourceInfos
+        //// join in MergeResources.sql) - so claiming the same combination here would repeat a hint that stored
+        //// procedure explicitly rejects. It is also unneeded: this probe only has to be authoritative about a row
+        //// that is already known to exist, not defend a key range against a concurrent insert, so plain UPDLOCK is
+        //// the minimal safe hint. A key that is absent when this runs is simply not returned; the caller treats
+        //// that as a guarded disappearance (see SqlServerFhirDataStore.VerifyNoOpVersionPreconditionAsync).
+        //// IX_Resource_ResourceTypeId_ResourceId is filtered on IsHistory = 0 and includes Version and IsDeleted; its
+        //// definition in Resource.sql exists specifically so that this UPDLOCK read needs no key lookup.
+        private const string CurrentResourceVersionsLockingSql = @"
+SET NOCOUNT ON
+SELECT B.ResourceTypeId
+      ,B.ResourceId
+      ,B.ResourceSurrogateId
+      ,B.Version
+      ,B.IsDeleted
+  FROM @ResourceKeys A
+       JOIN dbo.Resource B WITH (UPDLOCK, INDEX = IX_Resource_ResourceTypeId_ResourceId)
+         ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+  WHERE B.IsHistory = 0
+  OPTION (MAXDOP 1)";
+
+        //// Non-locking form, used only to classify an error that has already happened (see
+        //// SqlServerFhirDataStore.FindOperationWithViolatedVersionPreconditionAsync). It must never block: it can run
+        //// while an ambient bundle transaction on another connection still holds write locks, so LOCK_TIMEOUT turns
+        //// any blocking into a fast, catchable error instead of a stall.
+        private const string CurrentResourceVersionsSql = @"
+SET NOCOUNT ON
+SET LOCK_TIMEOUT 5000
+SELECT B.ResourceTypeId
+      ,B.ResourceId
+      ,B.ResourceSurrogateId
+      ,B.Version
+      ,B.IsDeleted
+  FROM @ResourceKeys A
+       JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId)
+         ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+  WHERE B.IsHistory = 0
+  OPTION (MAXDOP 1)";
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
         {
@@ -128,6 +177,75 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger,
                 cancellationToken);
             return resources;
+        }
+
+        /// <summary>
+        /// Reads the current (non-history) row of each supplied resource key directly from the primary replica.
+        /// </summary>
+        /// <param name="keys">The resource keys to probe. The Version column of each row is ignored.</param>
+        /// <param name="acquireUpdateLocks">
+        /// When true, the read acquires an UPDLOCK on each targeted row, so it is serialized with concurrent writers
+        /// of the same resources instead of observing a row-versioned snapshot. It deliberately does not also take
+        /// HOLDLOCK: see the remarks on <see cref="CurrentResourceVersionsLockingSql"/> for why that combination is
+        /// avoided.
+        /// </param>
+        /// <param name="enlistedConnection">
+        /// An optional ambient connection and transaction to run on. When supplied, any locks acquired are held until
+        /// that transaction commits or rolls back. When null, the statement runs in its own auto-commit transaction,
+        /// which holds the locks for the duration of the statement.
+        /// </param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>One entry per supplied resource key that currently exists; absent keys are simply not returned.</returns>
+        [SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "The command text is one of two private compile time constants; every value is supplied through a typed table valued parameter.")]
+        internal async Task<IReadOnlyList<ResourceDateKey>> GetCurrentResourceVersionsAsync(
+            IReadOnlyList<ResourceKeyListRow> keys,
+            bool acquireUpdateLocks,
+            SqlConnectionWrapper enlistedConnection,
+            CancellationToken cancellationToken)
+        {
+            if (keys == null || keys.Count == 0)
+            {
+                return Array.Empty<ResourceDateKey>();
+            }
+
+            using var cmd = new SqlCommand
+            {
+                CommandType = CommandType.Text,
+                CommandText = acquireUpdateLocks ? CurrentResourceVersionsLockingSql : CurrentResourceVersionsSql,
+                CommandTimeout = 60,
+            };
+            new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, keys);
+
+            if (enlistedConnection == null)
+            {
+                //// isReadOnly is deliberately false. A read-only replica lags the primary by an unbounded amount and
+                //// cannot take update locks, so it can never answer a version precondition authoritatively.
+                return await cmd.ExecuteReaderAsync(_sqlRetryService, ReadCurrentResourceVersion, _logger, cancellationToken, nameof(GetCurrentResourceVersionsAsync), isReadOnly: false);
+            }
+
+            cmd.Connection = enlistedConnection.SqlConnection;
+            cmd.Transaction = enlistedConnection.SqlTransaction;
+
+            var results = new List<ResourceDateKey>();
+            using SqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(ReadCurrentResourceVersion(reader));
+            }
+
+            return results;
+        }
+
+        //// ResourceSurrogateId is the clustering key of dbo.Resource, so it is carried in every nonclustered
+        //// index row and reading it here costs no key lookup.
+        private static ResourceDateKey ReadCurrentResourceVersion(SqlDataReader reader)
+        {
+            return new ResourceDateKey(
+                reader.Read(VLatest.Resource.ResourceTypeId, 0),
+                reader.Read(VLatest.Resource.ResourceId, 1),
+                reader.Read(VLatest.Resource.ResourceSurrogateId, 2),
+                reader.Read(VLatest.Resource.Version, 3).ToString(CultureInfo.InvariantCulture),
+                reader.Read(VLatest.Resource.IsDeleted, 4));
         }
 
         private static Lazy<string> ReadRawResource(SqlDataReader reader, Func<MemoryStream, string> decompress, int index)

@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully()
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("1");
 
             ConditionalDeleteResourceRequest message = SetupConditionalDelete(
                 KnownResourceTypes.Observation,
@@ -60,6 +61,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         public async Task GivenOneMatchingResource_WhenDeletingConditionallyWithHardDeleteFlag_TheServerShouldDeleteSuccessfully()
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("1");
+            string matchId = mockResultEntry.Resource.ResourceId;
+            var currentResource = CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(matchId), false);
+            currentResource.Version.Returns("1");
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(currentResource));
 
             ConditionalDeleteResourceRequest message = SetupConditionalDelete(
                 KnownResourceTypes.Observation,
@@ -76,6 +83,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>());
 
             await _fhirDataStore.Received().HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOneMatchingResourceWithUnavailableVersionAndNoClientWeakETag_WhenDeletingConditionally_ThenFailsClosedWithoutMutation()
+        {
+            // Regression test: the single-Match, no-Include direct delete route must fail closed when the
+            // conditional search did not observe a version for the Match, mirroring the Match-with-Includes
+            // guard in DeletionService.GetGuardedMatchVersion. Before the fix this path forwarded a null/empty
+            // Version as ComparedVersion and proceeded to delete instead of rejecting the request.
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns((string)null);
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: false,
+                count: 1,
+                mockResultEntry);
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().UpsertAsync(
+                Arg.Any<ResourceWrapperOperation>(),
+                Arg.Any<CancellationToken>());
+            await _fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -171,6 +207,92 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.True(matchOperation.RequireETagOnUpdate);
             Assert.Null(includeOperation.WeakETag);
             Assert.False(includeOperation.RequireETagOnUpdate);
+        }
+
+        [Fact]
+        public async Task GivenOneMatchingResourceWithoutClientWeakETag_WhenSoftDeletingConditionally_ThenTheMatchOperationCarriesTheSearchedVersionAsComparedVersion()
+        {
+            // Arrange
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("7");
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: false,
+                count: 1,
+                mockResultEntry);
+
+            // Act
+            await _mediator.SendAsync<DeleteResourceResponse>(message);
+
+            // Assert: the client supplied no If-Match, but the version observed by the conditional search must
+            // still be forwarded internally so persistence can guard against a race with a concurrent write.
+            await _fhirDataStore.Received().UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => x.WeakETag == null && x.ComparedVersion == "7"),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOneMatchingResourceWithStaleCurrentVersion_WhenHardDeletingConditionallyWithoutClientWeakETag_ThenFailsWithoutDeleting()
+        {
+            // Arrange
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("7");
+            string matchId = mockResultEntry.Resource.ResourceId;
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: true,
+                count: 1,
+                mockResultEntry);
+
+            // The resource changed between the conditional search (version "7") and this read (version "8"),
+            // simulating a concurrent write racing with the guarded delete.
+            var currentResource = CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(matchId), false);
+            currentResource.Version.Returns("8");
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(currentResource));
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOneMatchingResourceThatHasDisappeared_WhenHardDeletingConditionallyWithoutClientWeakETag_ThenFailsWithoutDeleting()
+        {
+            // Arrange
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
+            mockResultEntry.Resource.Version.Returns("7");
+            string matchId = mockResultEntry.Resource.ResourceId;
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: true,
+                count: 1,
+                mockResultEntry);
+
+            // The guarded Match disappeared (e.g. concurrently hard deleted) between the conditional search and
+            // this read.
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ResourceWrapper>(null));
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
+
+            await _fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]

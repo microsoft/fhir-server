@@ -190,7 +190,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private class FhirCosmosSerializer : CosmosSerializer
+        /// <summary>
+        /// The serializer the Cosmos DB client is configured with. Exposed to tests so they can observe the
+        /// exact round-trip semantics stored documents are subject to in production.
+        /// </summary>
+        internal sealed class FhirCosmosSerializer : CosmosSerializer
         {
             private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
 

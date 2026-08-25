@@ -418,6 +418,440 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task MergeAsync_GivenNoOpDeleteGuardedByComparedVersion_WhenAuthoritativeVersionMovedOn_ThenOperationFailsPrecondition()
+        {
+            // Arrange - the batch snapshot shows the resource already deleted at exactly the version the caller
+            // guarded against, which reduces the delete to a logical no-op that never reaches dbo.MergeResources and
+            // therefore never gets that stored procedure's atomic version comparison. A concurrent writer has since
+            // recreated the resource at version 2, which only an authoritative, lock-serialized read can observe.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1", deleted: true));
+            List<(string CommandText, bool IsReadOnly)> probes = ConfigureCurrentVersionProbe(
+                sqlRetryService,
+                _ => new[] { new ResourceDateKey(1, "123", 0, "2", isDeleted: false) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1", deleted: true),
+                comparedVersion: "1");
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.False(result.IsOperationSuccessful);
+            PreconditionFailedException exception = Assert.IsType<PreconditionFailedException>(result.Exception);
+            Assert.Equal(string.Format(Core.Resources.ResourceVersionConflict, "1"), exception.Message);
+
+            // The probe has to be authoritative, not merely fresh: a read-only replica lags the primary by an
+            // unbounded amount, and without an update lock the read is not serialized against writers. HOLDLOCK is
+            // deliberately absent: paired with UPDLOCK it escalates to a serializable key-range lock, which is the
+            // exact UPDLOCK+HOLDLOCK combination dbo.MergeResources documents as deadlock prone on its own version
+            // comparison join (see the commented out hint in MergeResources.sql), and it is not needed to serialize
+            // this read against a concurrent writer of the same, already-matched row.
+            (string CommandText, bool IsReadOnly) probe = Assert.Single(probes);
+            Assert.False(probe.IsReadOnly);
+            Assert.Contains("UPDLOCK", probe.CommandText, StringComparison.Ordinal);
+            Assert.DoesNotContain("HOLDLOCK", probe.CommandText, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenVersionGuardedOperation_ThenBatchSnapshotIsReadFromThePrimary()
+        {
+            // Arrange - the batch snapshot decides every version comparison in the merge loop, so serving it
+            // from a read-only replica can reject a client whose If-Match value is in fact the current one.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            List<bool> snapshotReadIsReadOnlyFlags = ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1", deleted: true));
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => new[] { new ResourceDateKey(1, "123", 0, "1", isDeleted: true) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1", deleted: true),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            Assert.False(Assert.Single(snapshotReadIsReadOnlyFlags));
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenNoOpUpdateGuardedByWeakETag_WhenAuthoritativeVersionMovedOn_ThenOperationFailsPrecondition()
+        {
+            // Arrange - the same race on the other no-op shortcut (submitted content byte identical to what is
+            // stored), guarded by a client If-Match header rather than an internal conditional comparison.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            List<(string CommandText, bool IsReadOnly)> probes = ConfigureCurrentVersionProbe(
+                sqlRetryService,
+                _ => new[] { new ResourceDateKey(1, "123", 0, "2", isDeleted: false) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.False(result.IsOperationSuccessful);
+            PreconditionFailedException exception = Assert.IsType<PreconditionFailedException>(result.Exception);
+            Assert.Equal(string.Format(Core.Resources.ResourceVersionConflict, "1"), exception.Message);
+            Assert.Single(probes);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenGuardedNoOpDelete_WhenAuthoritativeVersionStillMatches_ThenSucceedsWithoutCreatingAVersion()
+        {
+            // Arrange - control for the two races above. A guarded no-op that is genuinely uncontended must still be
+            // honored as a no-op, and must not be pushed through dbo.MergeResources just to prove its precondition,
+            // because that would create a gratuitous FHIR version.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            List<string> executedCommands = ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1", deleted: true));
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => new[] { new ResourceDateKey(1, "123", 0, "1", isDeleted: true) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1", deleted: true),
+                comparedVersion: "1");
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            Assert.True(outcome.Results.Values.Single().IsOperationSuccessful);
+            Assert.DoesNotContain("dbo.MergeResources", executedCommands, StringComparer.Ordinal);
+            Assert.DoesNotContain("dbo.MergeResourcesAndSearchParams", executedCommands, StringComparer.Ordinal);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenGuardedNoOpUpdate_WhenWeakETagHasNonCanonicalNumericFormat_ThenAuthoritativeCompareIsNormalizedLikeTheSnapshotCompare()
+        {
+            // Arrange - a client can send If-Match: W/"01" for version 1 (a leading zero is not canonical, but is
+            // still the same integer). The pre-existing batch snapshot comparison already normalizes a WeakETag
+            // through int parsing before comparing it to the stored version (see the eTag computation earlier in
+            // MergeInternalAsync), so "01" is accepted as matching a stored "1". The authoritative no-op probe added
+            // for this guard must apply the same normalization; comparing the raw strings would reject this
+            // identical, uncontended version as a spurious 412 solely because this operation happened to be reduced
+            // to a no-op.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => new[] { new ResourceDateKey(1, "123", 0, "1", isDeleted: false) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("01"));
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.True(result.IsOperationSuccessful);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenGuardedNoOpDelete_WhenAuthoritativeTargetDisappeared_ThenFailsPreconditionRatherThanNotFound()
+        {
+            // Arrange - the guarded target was hard deleted or purged after the snapshot was taken. Cosmos DB reports
+            // a guarded disappearance as a failed precondition, and SQL Server must agree rather than reporting a
+            // generic not-found or silently succeeding as a no-op.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1", deleted: true));
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => Array.Empty<ResourceDateKey>());
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1", deleted: true),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.False(result.IsOperationSuccessful);
+            PreconditionFailedException exception = Assert.IsType<PreconditionFailedException>(result.Exception);
+            Assert.Equal(string.Format(Core.Resources.ResourceVersionConflict, "1"), exception.Message);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenComparedVersionGuardedTargetMissingFromSnapshot_ThenFailsPreconditionRatherThanNotFound()
+        {
+            // Arrange - regression guard for the pre-existing disappearance path, where the target is already absent
+            // from the batch snapshot itself.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService);
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion("{\"resourceType\":\"Patient\",\"id\":\"123\"}", "3"),
+                comparedVersion: "3");
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.False(result.IsOperationSuccessful);
+            PreconditionFailedException exception = Assert.IsType<PreconditionFailedException>(result.Exception);
+            Assert.Equal(string.Format(Core.Resources.ResourceVersionConflict, "3"), exception.Message);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenWeakETagGuardedDeleteAgainstMissingTarget_ThenFailsPreconditionRatherThanSilentSuccess()
+        {
+            // Arrange - the target is entirely absent from the batch snapshot (it never existed, or was hard
+            // deleted/purged before this merge began). dbo.MergeResources is never invoked for this operation, so
+            // nothing else in the merge enforces the client's If-Match here. A supplied WeakETag can never be
+            // satisfied by a target that does not exist, so SQL Server must fail the precondition just as Cosmos DB
+            // does for the same disappearance, rather than silently treating this guarded delete as an idempotent
+            // no-op success.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService);
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion("{\"resourceType\":\"Patient\",\"id\":\"123\"}", "1", deleted: true),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.False(result.IsOperationSuccessful);
+            PreconditionFailedException exception = Assert.IsType<PreconditionFailedException>(result.Exception);
+            Assert.Equal(string.Format(Core.Resources.ResourceVersionConflict, "1"), exception.Message);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenUnguardedDeleteAgainstMissingTarget_ThenSucceedsIdempotently()
+        {
+            // Arrange - control for the guarded case above. A plain delete carrying no client precondition at all
+            // (no WeakETag, no ComparedVersion) must remain the pre-existing idempotent no-op success when its
+            // target does not exist.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService);
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion("{\"resourceType\":\"Patient\",\"id\":\"123\"}", "1", deleted: true));
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.True(result.IsOperationSuccessful);
+            Assert.Null(result.UpsertOutcome);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenGuardedNoOpRacedInMultiResourceBatch_ThenOnlyThatOperationFails()
+        {
+            // Arrange - a failed precondition belongs to one entry of a batch. It must be reported as that entry's
+            // outcome rather than aborting the whole merge, otherwise one racing bundle entry would take unrelated
+            // entries down with it.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string guardedRawResource = "{\"resourceType\":\"Patient\",\"id\":\"guarded-1\"}";
+            const string otherRawResource = "{\"resourceType\":\"Patient\",\"id\":\"other-1\"}";
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(
+                sqlRetryService,
+                CreateResourceWrapperWithVersion(guardedRawResource, "1", deleted: true, resourceId: "guarded-1"),
+                CreateResourceWrapperWithVersion(otherRawResource, "1", deleted: true, resourceId: "other-1"));
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => new[] { new ResourceDateKey(1, "guarded-1", 0, "2", isDeleted: false) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation guarded = CreateOperation(
+                CreateResourceWrapperWithVersion(guardedRawResource, "1", deleted: true, resourceId: "guarded-1"),
+                comparedVersion: "1");
+            ResourceWrapperOperation other = CreateOperation(
+                CreateResourceWrapperWithVersion(otherRawResource, "1", deleted: true, resourceId: "other-1"));
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { guarded, other }, cts.Token);
+
+            // Assert
+            Assert.Equal(2, outcome.Results.Count);
+            DataStoreOperationOutcome guardedResult = outcome.Results[guarded.GetIdentifier()];
+            DataStoreOperationOutcome otherResult = outcome.Results[other.GetIdentifier()];
+
+            Assert.False(guardedResult.IsOperationSuccessful);
+            Assert.IsType<PreconditionFailedException>(guardedResult.Exception);
+            Assert.True(otherResult.IsOperationSuccessful);
+        }
+
+        [Fact]
+        public async Task MergeAsync_OnSqlConflictInMultiResourceBatch_WhenGuardedOperationStillMatches_ThenConflictIsNotReportedAsPreconditionFailure()
+        {
+            // Arrange - dbo.MergeResources raises one generic conflict for a whole batch and does not say which row
+            // caused it. Here the guarded operation's version is still exactly what the client supplied, so the
+            // conflict came from the other, unguarded operation and must not be reported as this client's 412.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
+            const string guardedRawResource = "{\"resourceType\":\"Patient\",\"id\":\"guarded-1\"}";
+            const string otherRawResource = "{\"resourceType\":\"Patient\",\"id\":\"other-1\"}";
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Throws(sqlException);
+
+            List<(string CommandText, bool IsReadOnly)> probes = ConfigureCurrentVersionProbe(
+                sqlRetryService,
+                _ => new[] { new ResourceDateKey(1, "guarded-1", 0, "1", isDeleted: false) });
+
+            var transactionHandler = new SqlTransactionHandler();
+            using var transactionScope = transactionHandler.BeginTransaction();
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, transactionHandler);
+            var resources = new List<ResourceWrapperOperation>
+            {
+                CreateOperation(CreateResourceWrapperWithVersion(guardedRawResource, "1", resourceId: "guarded-1"), weakETag: WeakETag.FromVersionId("1")),
+                CreateOperation(CreateResourceWrapperWithVersion(otherRawResource, "1", resourceId: "other-1")),
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, isBundleTransaction: true), cts.Token));
+
+            // Correlating a failure that already happened must never take locks: the caller's own ambient transaction
+            // may still hold write locks on these rows and cannot be used to release them from here.
+            (string CommandText, bool IsReadOnly) probe = Assert.Single(probes);
+            Assert.DoesNotContain("UPDLOCK", probe.CommandText, StringComparison.Ordinal);
+            Assert.False(probe.IsReadOnly);
+        }
+
+        [Fact]
+        public async Task MergeAsync_OnSqlConflictInMultiResourceBatch_WhenGuardedOperationHasNonCanonicalNumericWeakETagThatStillMatches_ThenConflictIsNotReportedAsPreconditionFailure()
+        {
+            // Arrange - control for the correlation above with a non-canonical numeric WeakETag. A client can send
+            // If-Match: W/"01" for version "1" (a leading zero is not canonical, but is still the same integer). The
+            // batch snapshot comparison and the guarded no-op probe both normalize a WeakETag through int parsing
+            // before comparing it to the stored version (see ParseWeakETagVersionOrSentinel), so the correlation used
+            // to attribute a generic SQL conflict to a specific operation must apply the same normalization. Without
+            // it, this operation's identical, uncontended "01" vs "1" version would be rejected as a raw string
+            // mismatch and the unrelated batch conflict would be misreported as this client's 412.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
+            const string guardedRawResource = "{\"resourceType\":\"Patient\",\"id\":\"guarded-1\"}";
+            const string otherRawResource = "{\"resourceType\":\"Patient\",\"id\":\"other-1\"}";
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Throws(sqlException);
+
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => new[] { new ResourceDateKey(1, "guarded-1", 0, "1", isDeleted: false) });
+
+            var transactionHandler = new SqlTransactionHandler();
+            using var transactionScope = transactionHandler.BeginTransaction();
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, transactionHandler);
+            var resources = new List<ResourceWrapperOperation>
+            {
+                CreateOperation(CreateResourceWrapperWithVersion(guardedRawResource, "1", resourceId: "guarded-1"), weakETag: WeakETag.FromVersionId("01")),
+                CreateOperation(CreateResourceWrapperWithVersion(otherRawResource, "1", resourceId: "other-1")),
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, isBundleTransaction: true), cts.Token));
+        }
+
+        [Fact]
+        public async Task MergeAsync_OnSqlConflictInMultiResourceBatch_WhenGuardedOperationIsStale_ThenPreconditionFailedIsReported()
+        {
+            // Arrange - control for the correlation above. When the guarded operation genuinely lost its race, the
+            // conflict does belong to it and must still surface as a 412 naming the version the client supplied.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            using var cts = new CancellationTokenSource();
+            const string guardedRawResource = "{\"resourceType\":\"Patient\",\"id\":\"guarded-1\"}";
+            const string otherRawResource = "{\"resourceType\":\"Patient\",\"id\":\"other-1\"}";
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Throws(sqlException);
+
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => new[] { new ResourceDateKey(1, "guarded-1", 0, "2", isDeleted: false) });
+
+            var transactionHandler = new SqlTransactionHandler();
+            using var transactionScope = transactionHandler.BeginTransaction();
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, transactionHandler);
+            var resources = new List<ResourceWrapperOperation>
+            {
+                CreateOperation(CreateResourceWrapperWithVersion(guardedRawResource, "1", resourceId: "guarded-1"), weakETag: WeakETag.FromVersionId("1")),
+                CreateOperation(CreateResourceWrapperWithVersion(otherRawResource, "1", resourceId: "other-1")),
+            };
+
+            // Act
+            PreconditionFailedException exception = await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => dataStore.MergeAsync(resources, new MergeOptions(enlistTransaction: true, isBundleTransaction: true), cts.Token));
+
+            // Assert
+            Assert.Equal(string.Format(Core.Resources.ResourceVersionConflict, "1"), exception.Message);
+        }
+
+        [Fact]
         public void GivenKnownResourceType_WhenGettingResourceTypeId_ThenResourceTypeIdIsReturned()
         {
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -437,6 +871,127 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             ResourceNotFoundException exception = Assert.Throws<ResourceNotFoundException>(() => model.GetResourceTypeId("patient"));
 
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
+        }
+
+        private static ResourceWrapper CreateResourceWrapperWithVersion(string rawResourceData, string version, bool deleted = false, string resourceId = "123")
+        {
+            return new ResourceWrapper(
+                resourceId,
+                version,
+                "Patient",
+                new RawResource(rawResourceData, FhirResourceFormat.Json, isMetaSet: true),
+                null,
+                DateTimeOffset.UtcNow,
+                deleted,
+                null,
+                null,
+                null,
+                null);
+        }
+
+        private static ResourceWrapperOperation CreateOperation(ResourceWrapper wrapper, WeakETag weakETag = null, string comparedVersion = null)
+        {
+            return new ResourceWrapperOperation(
+                wrapper,
+                allowCreate: true,
+                keepHistory: false,
+                weakETag: weakETag,
+                requireETagOnUpdate: false,
+                keepVersion: false,
+                bundleResourceContext: null,
+                comparedVersion: comparedVersion);
+        }
+
+        /// <summary>
+        /// Satisfies the non-query SQL seam used by MergeResourcesBeginTransaction, MergeResourcesCommitTransaction and
+        /// dbo.MergeResources without touching a database, recording every command text so a test can prove which
+        /// stored procedures were and were not invoked.
+        /// </summary>
+        private static List<string> ConfigureSuccessfulNonQueryCalls(ISqlRetryService sqlRetryService)
+        {
+            var executedCommands = new List<string>();
+
+            sqlRetryService.ExecuteSql(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>())
+                .Returns(callInfo =>
+                {
+                    var cmd = callInfo.Arg<SqlCommand>();
+                    executedCommands.Add(cmd.CommandText);
+
+                    if (string.Equals(cmd.CommandText, "dbo.MergeResourcesBeginTransaction", StringComparison.Ordinal))
+                    {
+                        if (cmd.Parameters.Contains("@TransactionId"))
+                        {
+                            cmd.Parameters["@TransactionId"].Value = 1L;
+                        }
+
+                        if (cmd.Parameters.Contains("@SequenceRangeFirstValue"))
+                        {
+                            cmd.Parameters["@SequenceRangeFirstValue"].Value = 1;
+                        }
+                    }
+
+                    return Task.CompletedTask;
+                });
+
+            return executedCommands;
+        }
+
+        /// <summary>
+        /// Configures the batch level snapshot read performed at the top of MergeInternalAsync (dbo.GetResources).
+        /// </summary>
+        private static List<bool> ConfigureSnapshotRead(ISqlRetryService sqlRetryService, params ResourceWrapper[] snapshot)
+        {
+            var snapshotReadIsReadOnlyFlags = new List<bool>();
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(callInfo =>
+                {
+                    snapshotReadIsReadOnlyFlags.Add(callInfo.ArgAt<bool>(5));
+                    return Task.FromResult<IReadOnlyList<ResourceWrapper>>(snapshot.ToList());
+                });
+
+            return snapshotReadIsReadOnlyFlags;
+        }
+
+        /// <summary>
+        /// Configures the authoritative current-version probe and records how each probe was issued, so a test can
+        /// assert that it never targets a read-only replica and that it acquires update locks when it must be
+        /// serialized against concurrent writers.
+        /// </summary>
+        private static List<(string CommandText, bool IsReadOnly)> ConfigureCurrentVersionProbe(
+            ISqlRetryService sqlRetryService,
+            Func<string, IReadOnlyList<ResourceDateKey>> probeResult)
+        {
+            var probes = new List<(string CommandText, bool IsReadOnly)>();
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceDateKey>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(callInfo =>
+                {
+                    string commandText = callInfo.Arg<SqlCommand>().CommandText;
+                    probes.Add((commandText, callInfo.ArgAt<bool>(5)));
+                    return Task.FromResult(probeResult(commandText));
+                });
+
+            return probes;
         }
 
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)

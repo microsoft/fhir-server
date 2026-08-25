@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -581,6 +583,94 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         }
 
         [Fact]
+        public async Task GivenSingleMatchWithIncludeAndNoClientWeakETag_WhenSoftDeletingConditionally_ThenOnlyTheMatchOperationCarriesComparedVersion()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            const string matchVersion = "7";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag: null);
+
+            // This resource type does not require an If-Match header, isolating the internal comparedVersion guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, matchVersion, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+            var mergedOperations = new List<ResourceWrapperOperation>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    mergedOperations.AddRange(callInfo.ArgAt<IReadOnlyList<ResourceWrapperOperation>>(0));
+                    return Task.FromResult(MergeOutcome.Empty);
+                });
+
+            // Act
+            await _service.DeleteMultipleAsync(request, CancellationToken.None);
+
+            // Assert: no client If-Match was supplied, but the Match must still carry the version observed by the
+            // conditional search internally, and that must never be copied onto the Include.
+            ResourceWrapperOperation matchOperation = mergedOperations.Single(operation => operation.Wrapper.ResourceId == matchId);
+            ResourceWrapperOperation includeOperation = mergedOperations.Single(operation => operation.Wrapper.ResourceId == includeId);
+            Assert.Null(matchOperation.WeakETag);
+            Assert.Equal(matchVersion, matchOperation.ComparedVersion);
+            Assert.Null(includeOperation.WeakETag);
+            Assert.Null(includeOperation.ComparedVersion);
+        }
+
+        [Fact]
+        public async Task GivenSingleMatchWithIncludeAndStaleComparedVersion_WhenSoftDeletingConditionallyWithoutClientWeakETag_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            const string matchVersion = "7";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag: null);
+
+            // This resource type does not require an If-Match header, isolating the internal comparedVersion guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, matchVersion, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+            var deletedResourceIds = new List<string>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    IReadOnlyList<ResourceWrapperOperation> operations = callInfo.ArgAt<IReadOnlyList<ResourceWrapperOperation>>(0);
+                    var outcomes = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
+                    foreach (ResourceWrapperOperation operation in operations)
+                    {
+                        if (operation.Wrapper.ResourceId == matchId && operation.ComparedVersion == matchVersion)
+                        {
+                            // Simulates the datastore rejecting the guarded Match because the resource's current
+                            // version no longer equals the version observed by the conditional search.
+                            outcomes.Add(
+                                operation.GetIdentifier(),
+                                new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, matchVersion))));
+                        }
+                        else
+                        {
+                            deletedResourceIds.Add(operation.Wrapper.ResourceId);
+                            outcomes.Add(operation.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(operation.Wrapper, SaveOutcomeType.Updated)));
+                        }
+                    }
+
+                    return Task.FromResult(new MergeOutcome(MergeOutcomeFinalState.Completed, outcomes));
+                });
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            Assert.DoesNotContain(includeId, deletedResourceIds);
+            Assert.DoesNotContain(matchId, deletedResourceIds);
+        }
+
+        [Fact]
         public async Task GivenSearchParameterMatchWithIncludeAndStaleWeakETag_WhenSoftDeletingConditionally_ThenNoResourcesAreDeleted()
         {
             // Arrange
@@ -595,6 +685,81 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             var fhirDataStore = SetUpDataStore();
             fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.SearchParameter, matchId, "8")));
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(MergeOutcome.Empty));
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceive().MergeAsync(
+                Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(),
+                Arg.Any<CancellationToken>());
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(
+                Arg.Any<RawResource>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterMatchWithIncludeAndStaleCurrentVersion_WhenSoftDeletingConditionallyWithoutClientWeakETag_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "search-parameter";
+            const string includeId = "include";
+            const string matchVersion = "7";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag: null, KnownResourceTypes.SearchParameter);
+
+            // This resource type does not require an If-Match header, isolating the internal comparedVersion guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.SearchParameter, matchId, matchVersion, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+
+            // The resource changed between the conditional search (version "7") and this read (version "8"),
+            // simulating a concurrent write racing with the guarded delete. SearchParameter deletes bypass
+            // ResourceWrapperOperation, so this must be validated with an explicit read-then-compare.
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.SearchParameter, matchId, "8")));
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(MergeOutcome.Empty));
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceive().MergeAsync(
+                Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(),
+                Arg.Any<CancellationToken>());
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(
+                Arg.Any<RawResource>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterMatchWithIncludeThatHasDisappeared_WhenSoftDeletingConditionallyWithoutClientWeakETag_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "search-parameter";
+            const string includeId = "include";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag: null, KnownResourceTypes.SearchParameter);
+
+            // This resource type does not require an If-Match header, isolating the internal comparedVersion guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.SearchParameter, matchId, "7", SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+
+            // The guarded SearchParameter Match disappeared between the conditional search and this read.
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ResourceWrapper>(null));
             fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(MergeOutcome.Empty));
 
@@ -683,6 +848,76 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         }
 
         [Fact]
+        public async Task GivenSingleMatchWithIncludeAndStaleCurrentVersion_WhenHardDeletingConditionallyWithoutClientWeakETag_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.HardDelete, weakETag: null);
+
+            // This resource type does not require an If-Match header, isolating the internal comparedVersion guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, "7", SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            var fhirDataStore = SetUpDataStore();
+
+            // The resource changed between the conditional search (version "7") and this read (version "8"), even
+            // though the client supplied no If-Match at all.
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.Group, matchId, "8")));
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id == matchId),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id == includeId),
+                false,
+                false,
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenSingleMatchWithIncludeThatHasDisappeared_WhenHardDeletingConditionallyWithoutClientWeakETag_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.HardDelete, weakETag: null);
+
+            // This resource type does not require an If-Match header, isolating the internal comparedVersion guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, "7", SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            var fhirDataStore = SetUpDataStore();
+
+            // The guarded Match disappeared between the conditional search and this read.
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ResourceWrapper>(null));
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task GivenMultipleMatchesWithWeakETag_WhenSoftDeletingConditionally_ThenNoMatchOperationCarriesTheETag()
         {
             // Arrange
@@ -714,7 +949,201 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             {
                 Assert.Null(operation.WeakETag);
                 Assert.False(operation.RequireETagOnUpdate);
+                Assert.Null(operation.ComparedVersion);
             });
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
+        public async Task GivenDestructiveDeleteWithClientWeakETag_WhenCurrentResourceHasDisappeared_ThenRejectsWithoutDeleting(DeleteOperation deleteOperation)
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+
+            // The target disappeared before this delete, so the supplied If-Match can never be honoured.
+            fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ResourceWrapper>(null));
+
+            // This resource type does not require an If-Match header, isolating the supplied-ETag guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            var request = new DeleteResourceRequest(
+                "Patient",
+                "id",
+                deleteOperation,
+                weakETag: WeakETag.FromVersionId("6"));
+
+            // Act
+            PreconditionFailedException exception = await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => _service.DeleteAsync(request, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourceVersionConflict, "6"), exception.Message);
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
+        public async Task GivenDestructiveDeleteWithClientWeakETagAndComparedVersion_WhenCurrentResourceHasDisappeared_ThenTheClientWeakETagIsReported(DeleteOperation deleteOperation)
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ResourceWrapper>(null));
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+
+            // Both guards are present; the client-supplied If-Match must win so the message matches what the caller sent.
+            var request = new DeleteResourceRequest(
+                "Patient",
+                "id",
+                deleteOperation,
+                weakETag: WeakETag.FromVersionId("6"),
+                comparedVersion: "7");
+
+            // Act
+            PreconditionFailedException exception = await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => _service.DeleteAsync(request, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourceVersionConflict, "6"), exception.Message);
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
+        public async Task GivenDestructiveDeleteWithoutPreconditions_WhenCurrentResourceHasDisappeared_ThenDeleteStaysIdempotent(DeleteOperation deleteOperation)
+        {
+            // Arrange
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ResourceWrapper>(null));
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            var request = new DeleteResourceRequest("Patient", "id", deleteOperation);
+
+            // Act: an unguarded delete of an already absent resource must not fail.
+            await _service.DeleteAsync(request, CancellationToken.None);
+
+            // Assert
+            await fhirDataStore.Received(1).HardDeleteAsync(
+                request.ResourceKey,
+                deleteOperation == DeleteOperation.PurgeHistory,
+                false,
+                CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenSingleMatchWithIncludeAndUnavailableMatchVersion_WhenSoftDeletingConditionally_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag: null);
+
+            // This resource type does not require an If-Match header, isolating the internal comparedVersion guard from the missing-header policy check.
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+
+            // The data store projection did not surface a version for the Match, so the guard cannot be enforced.
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, version: null, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(MergeOutcome.Empty));
+
+            // Act
+            PreconditionFailedException exception = await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert: fail loudly instead of degrading to an unguarded delete, and never render an empty expected version.
+            Assert.DoesNotContain("''", exception.Message, StringComparison.Ordinal);
+            Assert.Contains(matchId, exception.Message, StringComparison.Ordinal);
+            await fhirDataStore.DidNotReceive().MergeAsync(
+                Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterMatchWithIncludeAndUnavailableMatchVersion_WhenSoftDeletingConditionally_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "search-parameter";
+            const string includeId = "include";
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag: null, KnownResourceTypes.SearchParameter);
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.SearchParameter, matchId, version: null, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.SearchParameter, matchId, "8")));
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(MergeOutcome.Empty));
+
+            // Act
+            PreconditionFailedException exception = await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert: the SearchParameter status must not be mutated when the guard cannot be enforced.
+            Assert.DoesNotContain("''", exception.Message, StringComparison.Ordinal);
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(
+                Arg.Any<RawResource>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+            await fhirDataStore.DidNotReceive().MergeAsync(
+                Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
+        public async Task GivenSingleMatchWithIncludeAndUnavailableMatchVersion_WhenHardDeletingConditionally_ThenNoResourcesAreDeleted(DeleteOperation deleteOperation)
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            var request = CreateSingleMatchConditionalDeleteRequest(deleteOperation, weakETag: null);
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, version: null, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.Group, matchId, "8")));
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+
+            // Act
+            PreconditionFailedException exception = await Assert.ThrowsAsync<PreconditionFailedException>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert: the failure must precede every Include mutation, and RemoveReferences must not have run either.
+            Assert.DoesNotContain("''", exception.Message, StringComparison.Ordinal);
+            Assert.Contains(matchId, exception.Message, StringComparison.Ordinal);
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Any<ResourceKey>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
         }
 
         private IFhirDataStore SetUpDataStore()

@@ -55,6 +55,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
 
         /// <summary>
+        /// The number of times a write that has been reduced to a logical no-op will try to settle its
+        /// precondition against the current document before giving up on retrying in-process and reporting
+        /// a conflict to the caller instead.
+        /// </summary>
+        /// <remarks>
+        /// The confirming write deliberately preserves the FHIR version, so a competing writer that does the
+        /// same - another no-op settling its own precondition, for instance - re-assigns the <c>_etag</c>
+        /// without moving the version on, and leaves the guard passing on every re-read. Retrying that
+        /// contention cannot converge in-process, so it is capped. What the caller is told after the cap is
+        /// reached depends on why the guard could not be settled: a mismatched or unconfirmable version is a
+        /// genuine <see cref="PreconditionFailedException"/>, but losing every race to other no-ops that kept
+        /// the supplied version intact is not - the client's version was never wrong, so that case is reported
+        /// as a retryable <see cref="ResourceConflictException"/> instead.
+        /// </remarks>
+        internal const int MaxGuardConfirmationAttempts = 5;
+
+        /// <summary>
         /// The fraction of <see cref="QueryRequestOptions.MaxItemCount"/> to attempt to fill before giving up.
         /// </summary>
         internal const double ExecuteDocumentQueryAsyncMinimumFillFactor = 0.5;
@@ -372,6 +389,57 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 ThrowIfETagRequired(resource.ResourceTypeName);
             }
 
+            int guardConfirmationAttempts = 0;
+
+            // Settles a precondition that a no-op has no other way to settle, and reports whether the caller
+            // may go ahead (true) or has to re-read and re-validate against the current document (false). A
+            // precondition that cannot be settled at all ends as a PreconditionFailed version conflict, and one
+            // that keeps losing races to competing no-ops which preserved the same version ends as a retryable
+            // conflict, rather than another lap around the loop.
+            async Task<bool> TryConfirmNoOpGuardAsync(FhirCosmosResourceWrapper documentThatWasRead)
+            {
+                if (weakETag == null && comparedVersion == null)
+                {
+                    // Nothing was asked of the current version of this document, so there is nothing to confirm
+                    // and nothing to write.
+                    return true;
+                }
+
+                guardConfirmationAttempts++;
+
+                GuardConfirmationResult confirmation = await TryConfirmGuardStillHoldsAsync(documentThatWasRead, partitionKey, retryPolicy, cancellationToken);
+
+                if (confirmation == GuardConfirmationResult.Confirmed)
+                {
+                    return true;
+                }
+
+                if (confirmation == GuardConfirmationResult.Superseded && guardConfirmationAttempts < MaxGuardConfirmationAttempts)
+                {
+                    return false;
+                }
+
+                if (confirmation == GuardConfirmationResult.Superseded)
+                {
+                    // The cap was reached, but every re-read still verified the FHIR version the caller
+                    // supplied: only a competing no-op confirmation's physical write - which preserves the
+                    // version while re-assigning _etag - kept beating this one to it. The client's version
+                    // was never stale, so reporting PreconditionFailed/ResourceVersionConflict here would be
+                    // a false claim about the ETag. This is retryable contention between equally-valid
+                    // writers, not a version mismatch, so it is reported as a conflict the caller can retry.
+                    throw CreateRetryableNoOpConfirmationConflict(resource.ResourceTypeName, resource.ResourceId, guardConfirmationAttempts);
+                }
+
+                _logger.LogWarning(
+                    "The precondition on a no-op write to {ResourceType}/{ResourceId} could not be settled against the current document ({Confirmation}) after {Attempts} attempt(s). Reporting a version conflict.",
+                    resource.ResourceTypeName,
+                    resource.ResourceId,
+                    confirmation,
+                    guardConfirmationAttempts);
+
+                throw CreateResourceVersionConflict(weakETag?.VersionId ?? comparedVersion);
+            }
+
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -393,6 +461,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     if (cosmosWrapper.IsDeleted)
                     {
+                        // There is no document left to compare the caller's If-Match against: the target has
+                        // disappeared entirely (a hard delete or a purge, rather than a soft delete, which
+                        // would still be readable as a tombstone). The precondition cannot be shown to hold,
+                        // so fail it rather than taking the no-op shortcut below, which is what SQL Server
+                        // does for the same situation. A delete with no If-Match header stays idempotent for
+                        // a target that is already gone.
+                        if (weakETag != null)
+                        {
+                            ThrowResourceVersionConflict(weakETag.VersionId);
+                        }
+
                         return null;
                     }
 
@@ -416,12 +495,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     ThrowResourceVersionConflict(weakETag.VersionId);
                 }
 
-                if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
-                {
-                    return null;
-                }
+                // Deleting a target that is already deleted is a no-op, handled below. Decide it here but act
+                // on it only after the ComparedVersion guard that follows, so that the shortcut cannot bypass
+                // it: an operation that resolved this target at a particular version must still fail if a
+                // concurrent write has moved the resource on, which is the order SQL Server applies them in.
+                // The requireETagOnUpdate policy immediately below is deliberately not applied to this no-op,
+                // preserving the behaviour the shortcut had when it returned before ever reaching that check: a
+                // target that is already a tombstone has no version left to guard and no new version will be
+                // written for it either way, so a missing If-Match is not rejected here. A live target still
+                // has to satisfy the policy.
+                bool alreadyDeletedNoOp = existingItemResource.IsDeleted && cosmosWrapper.IsDeleted;
 
-                if (requireETagOnUpdate && weakETag == null)
+                if (requireETagOnUpdate && weakETag == null && !alreadyDeletedNoOp)
                 {
                     ThrowIfETagRequired(resource.ResourceTypeName);
                 }
@@ -429,7 +514,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (comparedVersion != null &&
                     !string.Equals(comparedVersion, existingItemResource.Version, StringComparison.Ordinal))
                 {
+                    // The version this guarded operation observed while resolving the condition is not the
+                    // version of the document that was just read - including when the difference is a
+                    // concurrent delete having moved the resource on to a tombstone. The precondition cannot
+                    // hold, so fail it instead of falling through to the no-op shortcut below.
                     ThrowResourceVersionConflict(comparedVersion);
+                }
+
+                if (alreadyDeletedNoOp)
+                {
+                    // Reporting success for this no-op tells the caller their precondition held, so it has to
+                    // be settled against the current document rather than against the tombstone that was read,
+                    // which may already be out of date. Nothing has been written that the service could have
+                    // rejected, so confirm the guard explicitly.
+                    if (!await TryConfirmNoOpGuardAsync(existingItemResource))
+                    {
+                        // Another write got there first. Re-read and re-validate the guard against what is
+                        // current now instead of trusting the document that was read.
+                        continue;
+                    }
+
+                    return null;
                 }
 
                 // If not a delete then check if its an update with no data change
@@ -438,6 +543,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     // check if the new resource data is same as existing resource data
                     if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper), StringComparison.Ordinal))
                     {
+                        // Reporting this unchanged content as stored tells the caller their precondition held,
+                        // so it has to be settled against the current document rather than against the one
+                        // that was read, which may already be out of date. Nothing has been written that the
+                        // service could have rejected, so confirm the guard explicitly.
+                        if (!await TryConfirmNoOpGuardAsync(existingItemResource))
+                        {
+                            // Another write got there first. Re-read and re-validate the guard against what is
+                            // current now instead of trusting the document that was read.
+                            continue;
+                        }
+
                         // Do not store the duplicate data, for a update with no impact - returning existingItemResource as no updates
                         return new UpsertOutcome(existingItemResource, SaveOutcomeType.Updated);
                     }
@@ -536,8 +652,127 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void ThrowResourceVersionConflict(string expectedVersion)
         {
+            throw CreateResourceVersionConflict(expectedVersion);
+        }
+
+        private PreconditionFailedException CreateResourceVersionConflict(string expectedVersion)
+        {
             _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-            throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, expectedVersion));
+            return new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, expectedVersion));
+        }
+
+        /// <summary>
+        /// Builds the conflict reported when a no-op write's precondition keeps losing to competing no-op
+        /// confirmations that preserve the same FHIR version, and cannot be settled within
+        /// <see cref="MaxGuardConfirmationAttempts"/> attempts.
+        /// </summary>
+        /// <remarks>
+        /// Unlike <see cref="CreateResourceVersionConflict"/>, this is not a claim that the caller's ETag or
+        /// version is wrong - every attempt confirmed it still matched. It is retryable contention between
+        /// equally-valid concurrent no-op writers, so it is surfaced as a <see cref="ResourceConflictException"/>
+        /// (HTTP 409) rather than a <see cref="PreconditionFailedException"/> (HTTP 412).
+        /// </remarks>
+        private ResourceConflictException CreateRetryableNoOpConfirmationConflict(string resourceType, string resourceId, int attempts)
+        {
+            _logger.LogWarning(
+                "Conflict: No-op guard confirmation for {ResourceType}/{ResourceId} exhausted its retry budget after {Attempts} attempt(s) due to competing no-op writes that preserved the same version. Reporting a retryable conflict.",
+                resourceType,
+                resourceId,
+                attempts);
+
+            return new ResourceConflictException(string.Format(
+                CultureInfo.InvariantCulture,
+                "The precondition for '{0}/{1}' could not be confirmed after {2} attempt(s) because concurrent no-op writes kept preserving the same version. This is a retryable conflict, not a version mismatch; retry the operation.",
+                resourceType,
+                resourceId,
+                attempts));
+        }
+
+        /// <summary>
+        /// Confirms against the current state of the document, rather than against the document this request
+        /// read, that a client ETag or an internal ComparedVersion guard still holds for a write that has been
+        /// reduced to a logical no-op: a delete of an already deleted target, or an update whose content is
+        /// unchanged.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The guard has already been checked against the document that was read, but a read is not an
+        /// authoritative answer to "is this still the current version": it can be served by a replica that has
+        /// not caught up with another client's write, and a write can land between that read and this point.
+        /// Only a write is evaluated against the current document, so the guard is settled with a conditional
+        /// patch, which Cosmos DB rejects with <see cref="HttpStatusCode.PreconditionFailed"/> unless the
+        /// <c>_etag</c> that was read is still the current one.
+        /// </para>
+        /// <para>
+        /// The patch is the smallest write that leaves the resource exactly as it is: it sets <c>version</c> to
+        /// the version the resource already reports. On a document that carries a <c>version</c> property that
+        /// writes the same value back. A document that has never been updated carries no <c>version</c>
+        /// property at all and derives its version from its <c>_etag</c> (see
+        /// <see cref="FhirCosmosResourceWrapper.GetETagOrVersion"/>); there the patch materialises that derived
+        /// value as an explicit <c>version</c> property, which is what holds the FHIR version steady across the
+        /// new <c>_etag</c> this write assigns. Such a document therefore changes shape - it states its version
+        /// instead of implying it - while the version it reports, before and after, is the same string, and the
+        /// next version is derived from it exactly as before. No new FHIR version is created and no history
+        /// record is written, so the no-op stays a no-op.
+        /// </para>
+        /// <para>
+        /// The document itself is never sent back: patch operations are applied by the service to the stored
+        /// document, leaving every field this request did not name untouched. That matters because the wrapper
+        /// cannot read its own search indices back - <see cref="Search.SearchIndexEntryConverter"/> only writes them -
+        /// so replacing the document with the wrapper that was read would silently strip the resource out of
+        /// every search index it belongs to.
+        /// </para>
+        /// </remarks>
+        /// <param name="existingItemResource">The document this request read and checked the guard against.</param>
+        /// <param name="partitionKey">The partition key of the document.</param>
+        /// <param name="retryPolicy">The retry policy to issue the request under.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>
+        /// <see cref="GuardConfirmationResult.Confirmed"/> if the guard still holds against the current
+        /// document, <see cref="GuardConfirmationResult.Superseded"/> if another write got there first, and
+        /// <see cref="GuardConfirmationResult.Unconfirmable"/> if the guard cannot be settled at all.
+        /// </returns>
+        private async Task<GuardConfirmationResult> TryConfirmGuardStillHoldsAsync(
+            FhirCosmosResourceWrapper existingItemResource,
+            PartitionKey partitionKey,
+            AsyncPolicy retryPolicy,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(existingItemResource.ETag))
+            {
+                // There is nothing to make the write conditional on, so the guard cannot be settled against the
+                // current document at all: an unconditional write would trample whatever a concurrent writer
+                // put there, and reporting success would tell the caller their precondition held when only a
+                // read - which is not authoritative - had ever checked it. Fail closed instead and let the
+                // caller see a version conflict.
+                return GuardConfirmationResult.Unconfirmable;
+            }
+
+            PatchOperation[] pinCurrentVersion =
+            {
+                PatchOperation.Set($"/{KnownResourceWrapperProperties.Version}", existingItemResource.Version),
+            };
+
+            try
+            {
+                await retryPolicy.ExecuteAsync(
+                    async ct => await _containerScope.Value.PatchItemAsync<FhirCosmosResourceWrapper>(
+                        existingItemResource.Id,
+                        partitionKey,
+                        pinCurrentVersion,
+                        new PatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag },
+                        cancellationToken: ct),
+                    cancellationToken);
+
+                return GuardConfirmationResult.Confirmed;
+            }
+            catch (CosmosException e) when (e.StatusCode == HttpStatusCode.PreconditionFailed || e.StatusCode == HttpStatusCode.NotFound)
+            {
+                // Either another write got in first, or the document was hard deleted out from under this
+                // request. Both are answered the same way: go back and re-read, and let the guard be judged
+                // against what is actually there now.
+                return GuardConfirmationResult.Superseded;
+            }
         }
 
         private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)

@@ -96,6 +96,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(Math.Pow(2, count) + RandomNumberGenerator.GetInt32(0, 5)));
         }
 
+        /// <summary>
+        /// Deletes a single resource, honouring the client-supplied If-Match and any internally observed guard version.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Atomicity boundary for destructive deletes (<see cref="DeleteOperation.HardDelete"/> and
+        /// <see cref="DeleteOperation.PurgeHistory"/>). <see cref="IFhirDataStore.HardDeleteAsync"/> accepts no version,
+        /// so version enforcement is a deliberately non-atomic read-before-delete performed here rather than in the store.
+        /// </para>
+        /// <para>
+        /// Guaranteed: no destructive store call is issued once a precondition is known to be violated at check time,
+        /// including when the target has disappeared but a guard (If-Match or compared version) was supplied.
+        /// </para>
+        /// <para>
+        /// Not guaranteed: a concurrent write landing between the read and <see cref="IFhirDataStore.HardDeleteAsync"/>
+        /// is not detected, and the delete proceeds. Only <see cref="DeleteOperation.SoftDelete"/> enforces the version
+        /// atomically, because it flows through <see cref="ResourceWrapperOperation"/> into the store's compare-and-swap.
+        /// This non-atomic contract is intentional and approved; do not widen it without changing the store interface.
+        /// </para>
+        /// </remarks>
         public async Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
@@ -122,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     try
                     {
                         result = await _retryPolicy.ExecuteAsync(() => fhirDataStore.UpsertAsync(
-                            new ResourceWrapperOperation(deletedWrapper, true, keepHistory, request.WeakETag, requireETagOnUpdate, false, bundleResourceContext: request.BundleResourceContext),
+                            new ResourceWrapperOperation(deletedWrapper, true, keepHistory, request.WeakETag, requireETagOnUpdate, false, bundleResourceContext: request.BundleResourceContext, comparedVersion: request.ComparedVersion),
                             cancellationToken));
                     }
                     catch (ResourceConflictException exception) when (
@@ -139,7 +159,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
                     if (resourceWrapper != null)
                     {
-                        ValidatePrecondition(key.ResourceType, resourceWrapper.Version, request.WeakETag, requireETagOnUpdate);
+                        ValidatePrecondition(key.ResourceType, resourceWrapper.Version, request.WeakETag, requireETagOnUpdate, request.ComparedVersion);
+                    }
+                    else
+                    {
+                        // The target has since disappeared (e.g. concurrently hard-deleted). HardDeleteAsync has no version
+                        // parameter, so this remains a non-atomic read-before-delete check; failing here at least ensures the
+                        // operation does not silently proceed as if a version-guarded target still existed.
+                        ValidateMissingTargetPrecondition(request.WeakETag, request.ComparedVersion);
                     }
 
                     if (key.ResourceType == KnownResourceTypes.SearchParameter)
@@ -158,7 +185,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     var currentResourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
                     if (currentResourceWrapper != null)
                     {
-                        ValidatePrecondition(key.ResourceType, currentResourceWrapper.Version, request.WeakETag, requireETagOnUpdate);
+                        ValidatePrecondition(key.ResourceType, currentResourceWrapper.Version, request.WeakETag, requireETagOnUpdate, request.ComparedVersion);
+                    }
+                    else
+                    {
+                        // See HardDelete case above: HardDeleteAsync has no version parameter, so this is a non-atomic read-before-delete check.
+                        ValidateMissingTargetPrecondition(request.WeakETag, request.ComparedVersion);
                     }
 
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, true, request.AllowPartialSuccess, cancellationToken));
@@ -170,7 +202,76 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        private void ValidatePrecondition(string resourceType, string currentVersion, WeakETag weakETag, bool requireETag)
+        /// <summary>
+        /// Enforces version preconditions for a destructive delete whose target no longer exists.
+        /// </summary>
+        /// <remarks>
+        /// Precedence intentionally mirrors <see cref="ValidatePrecondition"/>: the client-supplied If-Match is
+        /// reported first so the caller always sees the version it actually sent, and the internally observed
+        /// <paramref name="comparedVersion"/> is only reported when no If-Match was supplied. When neither guard is
+        /// present the request is a plain unconditional delete and must stay idempotent, so nothing is thrown.
+        /// </remarks>
+        private static void ValidateMissingTargetPrecondition(WeakETag weakETag, string comparedVersion)
+        {
+            if (weakETag != null)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+            }
+
+            if (!string.IsNullOrEmpty(comparedVersion))
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, comparedVersion));
+            }
+        }
+
+        /// <summary>
+        /// Resolves the version observed for the single Match of a guarded conditional delete, failing if it is unavailable.
+        /// </summary>
+        /// <remarks>
+        /// The guard for a single-Match conditional delete is the version the conditional search itself observed. If the
+        /// data store projection did not surface one, the precondition cannot be evaluated at all, and silently continuing
+        /// would downgrade a guarded delete into an unguarded one that mutates Includes. Callers must invoke this before
+        /// any SearchParameter status change, Include mutation or reference removal. The message identifies the resource
+        /// rather than formatting an absent version, so it never renders an empty expected version.
+        /// </remarks>
+        private static string GetGuardedMatchVersion(SearchResultEntry singleMatch)
+        {
+            ResourceWrapper matchResource = singleMatch.Resource;
+            string observedVersion = matchResource?.Version;
+
+            if (string.IsNullOrEmpty(observedVersion))
+            {
+                throw new PreconditionFailedException(string.Format(
+                    Core.Resources.ConditionalDeleteMatchVersionUnavailable,
+                    matchResource?.ResourceTypeName,
+                    matchResource?.ResourceId));
+            }
+
+            return observedVersion;
+        }
+
+        /// <summary>
+        /// Resolves the guarded Match and the version it was observed at for a conditional delete page, or
+        /// (<c>default</c>, <c>null</c>) when the page is unguarded (not a single-resource conditional delete).
+        /// </summary>
+        /// <remarks>
+        /// Callers must resolve this before building any wrapper operation or mutating any Include, so an
+        /// unavailable version (see <see cref="GetGuardedMatchVersion"/>) fails ahead of every mutation.
+        /// </remarks>
+        private static (SearchResultEntry GuardedMatch, string GuardedMatchVersion) ResolveGuardedMatch(
+            bool isSingleResourceConditionalDelete,
+            IReadOnlyCollection<SearchResultEntry> resourcesToDelete)
+        {
+            if (!isSingleResourceConditionalDelete)
+            {
+                return (default, null);
+            }
+
+            SearchResultEntry guardedMatch = resourcesToDelete.Single(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match);
+            return (guardedMatch, GetGuardedMatchVersion(guardedMatch));
+        }
+
+        private void ValidatePrecondition(string resourceType, string currentVersion, WeakETag weakETag, bool requireETag, string comparedVersion = null)
         {
             if (requireETag && weakETag == null)
             {
@@ -187,6 +288,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             if (weakETag != null && weakETag.VersionId != currentVersion)
             {
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+            }
+
+            // comparedVersion is the version internally observed while resolving a guarded (single-match) conditional
+            // delete. It is never derived from, or a substitute for, the client-supplied weakETag above, and it is
+            // only ever set for the single Match resource of a guarded conditional delete -- never for Include
+            // resources or when multiple resources matched. If the resource has since been updated, fail the whole
+            // operation before any Include is mutated.
+            if (!string.IsNullOrEmpty(comparedVersion) && !string.Equals(comparedVersion, currentVersion, StringComparison.Ordinal))
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, comparedVersion));
             }
         }
 
@@ -455,6 +566,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             var guid = Guid.NewGuid();
             bool isSingleResourceConditionalDelete = IsSingleResourceConditionalDelete(request, resourcesToDelete);
+
+            // Resolved before any wrapper operation is built so an unavailable version fails ahead of every mutation.
+            (SearchResultEntry guardedMatch, string guardedMatchVersion) = ResolveGuardedMatch(isSingleResourceConditionalDelete, resourcesToDelete);
+
             _logger.LogInformation("Soft deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
 
             await CreateAuditLog(
@@ -486,7 +601,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     isSingleResourceConditionalDelete ? request.WeakETag : null,
                     requireETagOnUpdate,
                     false,
-                    bundleResourceContext: request.BundleResourceContext);
+                    bundleResourceContext: request.BundleResourceContext,
+                    comparedVersion: guardedMatchVersion);
             }));
 
             var partialResults = new List<(string ResourceType, string ResourceId, bool IsInclude)>();
@@ -496,17 +612,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var fhirDataStore = scopedDataStore.GetDataStore();
 
                 var matchResourcesToDelete = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
-                SearchResultEntry singleMatch = isSingleResourceConditionalDelete ? matchResourcesToDelete.Single() : default;
-                if (isSingleResourceConditionalDelete && singleMatch.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter)
+                if (isSingleResourceConditionalDelete && guardedMatch.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter)
                 {
-                    bool requireETagOnUpdate = await _conformanceProvider.Value.RequireETag(singleMatch.Resource.ResourceTypeName, cancellationToken);
+                    bool requireETagOnUpdate = await _conformanceProvider.Value.RequireETag(guardedMatch.Resource.ResourceTypeName, cancellationToken);
                     ResourceWrapper currentResource = await fhirDataStore.GetAsync(
-                        new ResourceKey(singleMatch.Resource.ResourceTypeName, singleMatch.Resource.ResourceId),
+                        new ResourceKey(guardedMatch.Resource.ResourceTypeName, guardedMatch.Resource.ResourceId),
                         cancellationToken);
                     if (currentResource != null)
                     {
                         // SearchParameter deletes bypass ResourceWrapperOperation, so validate before changing its status.
-                        ValidatePrecondition(singleMatch.Resource.ResourceTypeName, currentResource.Version, request.WeakETag, requireETagOnUpdate);
+                        ValidatePrecondition(guardedMatch.Resource.ResourceTypeName, currentResource.Version, request.WeakETag, requireETagOnUpdate, guardedMatchVersion);
+                    }
+                    else
+                    {
+                        // The guarded Match has disappeared (e.g. concurrently deleted) since the conditional search observed it.
+                        // SearchParameter deletes bypass ResourceWrapperOperation/MergeAsync entirely, so this read-then-act check
+                        // is the only enforcement point and remains non-atomic; failing here still guarantees no Include is mutated.
+                        ValidateMissingTargetPrecondition(request.WeakETag, guardedMatchVersion);
                     }
                 }
 
@@ -600,6 +722,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             var guid = Guid.NewGuid();
             bool isSingleResourceConditionalDelete = IsSingleResourceConditionalDelete(request, resourcesToDelete);
+
+            // Resolved before RemoveReferences and before any Include is deleted so an unavailable version fails ahead of every mutation.
+            (SearchResultEntry guardedMatch, string guardedMatchVersion) = ResolveGuardedMatch(isSingleResourceConditionalDelete, resourcesToDelete);
+
             _logger.LogInformation("Hard deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
 
             await CreateAuditLog(
@@ -619,16 +745,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 bool requireETagOnUpdate = isSingleResourceConditionalDelete &&
                     await _conformanceProvider.Value.RequireETag(request.ResourceType, cancellationToken);
 
-                SearchResultEntry singleMatch = default;
                 if (isSingleResourceConditionalDelete)
                 {
-                    singleMatch = matchedResources.Single();
-                    var key = new ResourceKey(singleMatch.Resource.ResourceTypeName, singleMatch.Resource.ResourceId);
+                    var key = new ResourceKey(guardedMatch.Resource.ResourceTypeName, guardedMatch.Resource.ResourceId);
                     ResourceWrapper currentResource = await fhirDataStore.GetAsync(key, cancellationToken);
                     if (currentResource != null)
                     {
-                        // HardDeleteAsync has no version parameter, so this remains a non-atomic read-before-delete check.
-                        ValidatePrecondition(singleMatch.Resource.ResourceTypeName, currentResource.Version, request.WeakETag, requireETagOnUpdate);
+                        // Same non-atomic read-before-delete boundary documented on DeleteAsync: HardDeleteAsync has no
+                        // version parameter, so a write landing after this read is not detected.
+                        ValidatePrecondition(guardedMatch.Resource.ResourceTypeName, currentResource.Version, request.WeakETag, requireETagOnUpdate, guardedMatchVersion);
+                    }
+                    else
+                    {
+                        // The guarded Match has disappeared (e.g. concurrently deleted) since the conditional search observed it.
+                        // HardDeleteAsync has no version parameter, so this read-then-act check is the only enforcement point and
+                        // remains non-atomic; failing here still guarantees no Include is mutated (Includes are processed below).
+                        // guardedMatchVersion is never empty here, so this always throws.
+                        ValidateMissingTargetPrecondition(request.WeakETag, guardedMatchVersion);
                     }
                 }
 
@@ -664,7 +797,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 if (isSingleResourceConditionalDelete)
                 {
                     // Delete the guarded target first so a stale precondition cannot mutate Includes.
-                    await DeleteResourceAsync(singleMatch, cancellationToken);
+                    await DeleteResourceAsync(guardedMatch, cancellationToken);
                 }
 
                 // Includes are always deleted here; for unguarded requests this happens before matches so an Include failure leaves matches intact for restart.

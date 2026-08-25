@@ -183,7 +183,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
-                            ResourceWrapperOperation resourceWithVersionPrecondition = resources.FirstOrDefault(resource => resource.WeakETag != null || resource.ComparedVersion != null);
+                            // A merge batch can contain several operations, and dbo.MergeResources raises one generic
+                            // conflict for the whole batch without identifying the row that caused it. Picking the
+                            // first guarded operation would report 412 for a resource whose precondition still holds
+                            // whenever an unrelated operation in the same batch is what actually collided, so the
+                            // conflict is correlated to the operation whose comparison no longer matches the database.
+                            ResourceWrapperOperation resourceWithVersionPrecondition = await FindOperationWithViolatedVersionPreconditionAsync(resources, cancellationToken);
                             string expectedVersion = resourceWithVersionPrecondition?.WeakETag?.VersionId ?? resourceWithVersionPrecondition?.ComparedVersion;
 
                             if (wasEnlistedInAmbientTransaction)
@@ -257,7 +262,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             // Ignore input resource version to get latest version from the store.
             // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
-            var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, useReplicasForReads, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
+            //// A read-only replica lags the primary by an unbounded amount, and every version comparison below is
+            //// made against this snapshot - including the ones that reject an operation outright. A batch carrying
+            //// any caller supplied precondition is therefore always read from the primary, so a client whose
+            //// If-Match value is in fact current is never rejected on the strength of a stale replica read.
+            bool hasVersionPreconditions = resources.Any(resource => resource.WeakETag != null || resource.ComparedVersion != null);
+            var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, useReplicasForReads && !hasVersionPreconditions, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // Assume that most likely case is that all resources should be updated.
             // TODO: MergeResourcesBeginTransaction accepts new parameter allowing to throw exception on overload.
@@ -280,9 +290,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 prevResourceKey = resource.ToResourceKey(true);
                 var weakETag = resourceExt.WeakETag;
+
+                // Set the etag to a sentinel value (via ParseWeakETagVersionOrSentinel) to enable expected failure
+                // paths when updating with both existing and nonexistent resources.
                 int? eTag = weakETag == null
                     ? null
-                    : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
+                    : ParseWeakETagVersionOrSentinel(weakETag.VersionId);
 
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
@@ -310,6 +323,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (resource.IsDeleted && !keepAllDeleted)
                     {
+                        if (weakETag != null)
+                        {
+                            // A caller supplied If-Match can never be satisfied by a target that does not exist at all, so this
+                            // guarded delete must fail its precondition rather than silently succeed as an idempotent no-op.
+                            // This matches Cosmos DB's behavior for the same disappearance. An unguarded delete (no WeakETag) of
+                            // an already missing target remains the pre-existing idempotent no-op below.
+                            _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
+                            continue;
+                        }
+
                         // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
                         results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
                         continue;
@@ -368,6 +392,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (resource.IsDeleted && existingResource.IsDeleted && !keepAllDeleted)
                     {
+                        // Deleting an already deleted resource is a no-op, so nothing is sent to dbo.MergeResources and
+                        // the atomic version comparison that stored procedure performs never runs for this operation.
+                        // The batch snapshot above cannot stand in for it: it is an unlocked, point-in-time read
+                        // taken several round trips earlier, so it neither blocks a concurrent writer of this
+                        // resource nor observes one that is already in flight.
+                        PreconditionFailedException noOpDeletePrecondition = await VerifyNoOpVersionPreconditionAsync(resourceExt, enlistInTransaction, cancellationToken);
+                        if (noOpDeletePrecondition != null)
+                        {
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(noOpDeletePrecondition));
+                            continue;
+                        }
+
                         // Already deleted - don't create a new version
                         results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
                         continue;
@@ -379,6 +415,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // check if the new resource data is same as existing resource data
                         if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
                         {
+                            // As with the already-deleted branch above, an update that changes nothing never reaches
+                            // dbo.MergeResources, so a guarded operation must have its precondition confirmed against
+                            // an authoritative, lock-serialized read before this success is returned.
+                            PreconditionFailedException noOpUpdatePrecondition = await VerifyNoOpVersionPreconditionAsync(resourceExt, enlistInTransaction, cancellationToken);
+                            if (noOpUpdatePrecondition != null)
+                            {
+                                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(noOpUpdatePrecondition));
+                                continue;
+                            }
+
                             _logger.LogInformation("Update operation resulted in no changes for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
 
                             // Send the existing resource in the response
@@ -1081,6 +1127,213 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
             throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, expectedVersion));
+        }
+
+        /// <summary>
+        /// Authoritatively re-verifies the caller supplied version preconditions of an operation that has been reduced
+        /// to a logical no-op (a delete of an already deleted resource, or an update whose content is byte identical to
+        /// what is stored).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Every other version comparison in a merge is ultimately enforced by dbo.MergeResources: the stored procedure
+        /// re-reads the current version inside the same transaction that performs the write and raises a conflict when
+        /// it no longer matches, and the unique index on (ResourceTypeId, ResourceId, Version) makes that decision
+        /// atomic with the write. A no-op sends nothing to the stored procedure, so it never gets that protection. The
+        /// batch snapshot taken at the top of <see cref="MergeInternalAsync"/> cannot substitute for it: it is an
+        /// unlocked, point-in-time read taken several round trips earlier and, under READ_COMMITTED_SNAPSHOT (the
+        /// Azure SQL default), it returns a row version from before a concurrent writer's uncommitted change and does
+        /// not block on that writer.
+        /// </para>
+        /// <para>
+        /// This check restores an equivalent guarantee by re-reading the current row with UPDLOCK on the primary,
+        /// which is enough to force the read to observe a concurrent writer of the same, already-matched row: that
+        /// writer either committed before the lock was granted - in which case the new version is observed here and
+        /// the precondition fails - or is forced to wait behind it, which serializes the no-op ahead of that writer.
+        /// HOLDLOCK is deliberately not added: paired with UPDLOCK it would escalate to a serializable key-range lock,
+        /// and dbo.MergeResources documents that exact combination as deadlock prone on its own, analogous version
+        /// comparison join (see the commented out hint in MergeResources.sql), without buying anything here since the
+        /// row being probed is already known to exist. It is the SQL Server counterpart of the ETag guarded write
+        /// Cosmos DB uses for the same decision, and it deliberately performs no write, so a no-op still creates no
+        /// FHIR version. When the merge is enlisted in an ambient transaction (a sequential transaction bundle), the
+        /// read runs on that transaction and its lock is held until the bundle's write boundary commits, making the
+        /// check atomic with the bundle.
+        /// </para>
+        /// <para>
+        /// The caller supplied WeakETag is normalized the same way as the batch snapshot comparison earlier in
+        /// <see cref="MergeInternalAsync"/> (see <see cref="ParseWeakETagVersionOrSentinel"/>), so a non-canonical
+        /// numeric ETag such as <c>W/"01"</c> is still recognized as matching a stored version of <c>"1"</c>; only the
+        /// comparison is normalized; the version reported in a failure is always the caller's original value.
+        /// </para>
+        /// <para>
+        /// Unguarded no-ops are unaffected and issue no additional query.
+        /// </para>
+        /// </remarks>
+        /// <param name="resourceExt">The operation whose preconditions must be re-verified.</param>
+        /// <param name="enlistInTransaction">Whether this merge is enlisted in an ambient SQL transaction.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The failure to report for this operation, or <c>null</c> when every precondition still holds.</returns>
+        private async Task<PreconditionFailedException> VerifyNoOpVersionPreconditionAsync(ResourceWrapperOperation resourceExt, bool enlistInTransaction, CancellationToken cancellationToken)
+        {
+            string rawETagVersion = resourceExt.WeakETag?.VersionId;
+            string comparedVersion = resourceExt.ComparedVersion;
+
+            if (rawETagVersion == null && comparedVersion == null)
+            {
+                return null;
+            }
+
+            // Normalized the same way as the batch snapshot comparison above (ParseWeakETagVersionOrSentinel), so a
+            // non-canonical numeric ETag like "01" still matches a stored "1" instead of failing this no-op's
+            // precondition purely because it happened to take this authoritative, re-read path.
+            string normalizedETagVersion = rawETagVersion == null
+                ? null
+                : ParseWeakETagVersionOrSentinel(rawETagVersion).ToString(CultureInfo.InvariantCulture);
+
+            IReadOnlyDictionary<(short ResourceTypeId, string ResourceId), ResourceDateKey> current =
+                await ReadCurrentResourceVersionsAsync(new[] { resourceExt }, acquireUpdateLocks: true, enlistInTransaction, cancellationToken);
+
+            //// A missing entry means the guarded target disappeared entirely (for example a concurrent hard delete or
+            //// purge) after it was matched. string.Equals with a null current version therefore reports a failed
+            //// precondition rather than a not-found error, matching Cosmos DB's behavior for a guarded disappearance.
+            current.TryGetValue(GetVersionProbeKey(resourceExt), out ResourceDateKey authoritative);
+            string currentVersion = authoritative?.VersionId;
+
+            if (rawETagVersion != null && !string.Equals(normalizedETagVersion, currentVersion, StringComparison.Ordinal))
+            {
+                _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                return new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, rawETagVersion));
+            }
+
+            if (comparedVersion != null && !string.Equals(comparedVersion, currentVersion, StringComparison.Ordinal))
+            {
+                _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                return new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, comparedVersion));
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Parses a caller supplied WeakETag version id the same way for every version comparison in a merge: an
+        /// integer version string compares by value (so a non-canonical form like <c>"01"</c> matches a stored
+        /// <c>"1"</c>), and anything that is not a valid integer is mapped to a sentinel value that can never match a
+        /// real stored version, so it still fails as a precondition mismatch rather than silently comparing equal to
+        /// nothing.
+        /// </summary>
+        /// <param name="versionId">The WeakETag version id to parse. Must not be <c>null</c>.</param>
+        /// <returns>The parsed version, or <c>-1</c> when <paramref name="versionId"/> is not a valid integer.</returns>
+        private static int ParseWeakETagVersionOrSentinel(string versionId)
+        {
+            return int.TryParse(versionId, out var parsedVersion) ? parsedVersion : -1;
+        }
+
+        /// <summary>
+        /// Determines which operation in a merge batch, if any, actually violated its caller supplied version
+        /// precondition when dbo.MergeResources reported a conflict.
+        /// </summary>
+        /// <remarks>
+        /// The stored procedure raises a single, generic conflict for the whole batch. That conflict can originate from
+        /// an operation that carries no precondition at all - for example a plain create whose surrogate id ordering
+        /// collided - so attributing it to whichever guarded operation happens to appear first would turn an unrelated
+        /// batch failure into a 412 against a resource that is still exactly where the client left it. This re-reads
+        /// the guarded operations and returns only one whose comparison genuinely no longer matches the database. The
+        /// read is deliberately non-locking and runs on its own connection: the ambient transaction of a sequential
+        /// transaction bundle may still hold write locks at this point and is itself unusable after the conflict, so a
+        /// locking probe could block on the caller's own transaction.
+        /// <para>
+        /// The comparison against the authoritative version is normalized the same way as the batch snapshot
+        /// comparison and the guarded no-op probe (see <see cref="ParseWeakETagVersionOrSentinel"/>), so a
+        /// non-canonical numeric ETag such as <c>W/"01"</c> is still recognized as matching a stored version of
+        /// <c>"1"</c> and is not falsely correlated to an unrelated conflict elsewhere in the batch.
+        /// </para>
+        /// </remarks>
+        /// <param name="resources">The operations submitted in the failing merge batch.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The operation whose precondition failed, or <c>null</c> when that cannot be established.</returns>
+        private async Task<ResourceWrapperOperation> FindOperationWithViolatedVersionPreconditionAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        {
+            List<ResourceWrapperOperation> guarded = resources.Where(resource => resource.WeakETag != null || resource.ComparedVersion != null).ToList();
+            if (guarded.Count == 0)
+            {
+                return null;
+            }
+
+            // A single operation merge contains no other operation the conflict could be attributed to.
+            if (resources.Count == 1)
+            {
+                return guarded[0];
+            }
+
+            try
+            {
+                IReadOnlyDictionary<(short ResourceTypeId, string ResourceId), ResourceDateKey> current =
+                    await ReadCurrentResourceVersionsAsync(guarded, acquireUpdateLocks: false, enlistInTransaction: false, cancellationToken);
+
+                return guarded.FirstOrDefault(resource =>
+                {
+                    // Normalized the same way as the batch snapshot comparison and the guarded no-op probe
+                    // (ParseWeakETagVersionOrSentinel), so a non-canonical numeric WeakETag like W/"01" is still
+                    // recognized as matching a stored version of "1" here too; comparing the raw client string
+                    // would otherwise falsely correlate an unrelated batch conflict to this operation as a
+                    // spurious 412.
+                    string comparisonVersion = resource.WeakETag != null
+                        ? ParseWeakETagVersionOrSentinel(resource.WeakETag.VersionId).ToString(CultureInfo.InvariantCulture)
+                        : resource.ComparedVersion;
+                    return !current.TryGetValue(GetVersionProbeKey(resource), out ResourceDateKey authoritative)
+                        || !string.Equals(comparisonVersion, authoritative.VersionId, StringComparison.Ordinal);
+                });
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // Correlation is a best effort classification of a failure that has already happened. If it cannot be
+                // performed, reporting the generic conflict is strictly safer than naming an operation whose
+                // precondition was never confirmed to have failed, so the caller falls back to its retry handling.
+                _logger.LogWarning(e, "Unable to correlate a SQL conflict to a specific version precondition.");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Reads the authoritative current version of the supplied operations' resources from the primary replica.
+        /// </summary>
+        /// <param name="operations">The operations whose resources should be probed.</param>
+        /// <param name="acquireUpdateLocks">Whether the probe should acquire update and range locks.</param>
+        /// <param name="enlistInTransaction">Whether the probe should run on the ambient transaction, when one exists.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The current state of each probed resource that exists, keyed by resource type id and resource id.</returns>
+        private async Task<IReadOnlyDictionary<(short ResourceTypeId, string ResourceId), ResourceDateKey>> ReadCurrentResourceVersionsAsync(
+            IReadOnlyList<ResourceWrapperOperation> operations,
+            bool acquireUpdateLocks,
+            bool enlistInTransaction,
+            CancellationToken cancellationToken)
+        {
+            List<ResourceKeyListRow> keys = operations
+                .Select(GetVersionProbeKey)
+                .Distinct()
+                .Select(key => new ResourceKeyListRow(key.ResourceTypeId, key.ResourceId, null))
+                .ToList();
+
+            SqlConnectionWrapper enlistedConnection = null;
+            try
+            {
+                if (enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null)
+                {
+                    enlistedConnection = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                }
+
+                IReadOnlyList<ResourceDateKey> current = await StoreClient.GetCurrentResourceVersionsAsync(keys, acquireUpdateLocks, enlistedConnection, cancellationToken);
+                return current.ToDictionary(resource => (resource.ResourceTypeId, resource.Id));
+            }
+            finally
+            {
+                enlistedConnection?.Dispose();
+            }
+        }
+
+        private (short ResourceTypeId, string ResourceId) GetVersionProbeKey(ResourceWrapperOperation operation)
+        {
+            return (_model.GetResourceTypeId(operation.Wrapper.ResourceTypeName), operation.Wrapper.ResourceId);
         }
 
         private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion)

@@ -56,7 +56,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 }
                 else if (queryOptions.Projection == QueryProjection.IdAndType)
                 {
-                    AppendSelectFromRoot($"r.{KnownResourceWrapperProperties.ResourceId}, r.{KnownResourceWrapperProperties.ResourceTypeName}", queryOptions.Includes);
+                    // The version is projected alongside the id because callers act on these results: a
+                    // conditional delete resolves its target here and then writes against that target under an
+                    // optimistic concurrency guard built from the version the search observed. Dropping the
+                    // version does not make the guard fail, it makes it disappear. Both fields are needed to
+                    // carry it: a resource that has never been updated is stored without a version property and
+                    // reports its _etag as its version. Two short scalars are a negligible addition next to the
+                    // id and type this projection already returns.
+                    AppendSelectFromRoot(
+                        $"r.{KnownResourceWrapperProperties.ResourceId}, r.{KnownResourceWrapperProperties.ResourceTypeName}, r.{KnownResourceWrapperProperties.Version}, r.{KnownDocumentProperties.ETag}",
+                        queryOptions.Includes);
                 }
                 else if (queryOptions.Projection == QueryProjection.ReferencesOnly)
                 {

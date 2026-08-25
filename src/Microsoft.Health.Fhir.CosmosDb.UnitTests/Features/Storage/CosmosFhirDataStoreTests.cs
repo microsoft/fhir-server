@@ -289,6 +289,295 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task GivenAConditionalUpdateWithComparedVersion_WhenTheNoOpResultRacesAConcurrentWrite_ThenPreconditionFailedIsThrownInsteadOfSilentSuccess()
+        {
+            var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "race-no-op";
+            observation.VersionId = "1";
+            ResourceElement typedElement = observation.ToResourceElement();
+
+            var wrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true, keepVersion: true), new ResourceRequest(HttpMethod.Put, "http://fhir"), false, null, null, null);
+            wrapper.SearchIndices = new List<SearchIndexEntry>
+            {
+                new SearchIndexEntry(new SearchParameterInfo("raceParam", "raceParam"), new NumberSearchValue(1)),
+            };
+
+            // The compared version ("1") matches what a conditional search observed, and the submitted body
+            // is byte-for-byte identical to what is already stored, so this update is a logical no-op.
+            var firstRead = new FhirCosmosResourceWrapper(wrapper);
+            SetETag(firstRead, "\"etag-v1\"");
+
+            // Simulate a concurrent writer that changes the resource (to version "2") between our read of
+            // version "1" and the moment the no-op decision would otherwise be trusted without verification.
+            var concurrentObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            concurrentObservation.Id = "race-no-op";
+            concurrentObservation.VersionId = "2";
+            ResourceElement concurrentElement = concurrentObservation.ToResourceElement();
+            var concurrentWrapper = new ResourceWrapper(concurrentElement, rawResourceFactory.Create(concurrentElement, keepMeta: true, keepVersion: true), new ResourceRequest(HttpMethod.Put, "http://fhir"), false, null, null, null);
+            var secondRead = new FhirCosmosResourceWrapper(concurrentWrapper);
+            SetETag(secondRead, "\"etag-v2\"");
+
+            ItemResponse<FhirCosmosResourceWrapper> firstResponse = Substitute.For<ItemResponse<FhirCosmosResourceWrapper>>();
+            firstResponse.Resource.Returns(firstRead);
+
+            ItemResponse<FhirCosmosResourceWrapper> secondResponse = Substitute.For<ItemResponse<FhirCosmosResourceWrapper>>();
+            secondResponse.Resource.Returns(secondRead);
+
+            _container.Value.ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(firstResponse), Task.FromResult(secondResponse));
+
+            // A no-op reported as a success has to be settled against the current document, which takes a
+            // conditional write: here the service rejects it because another writer already advanced the
+            // document past the ETag that was read.
+            _container.Value.PatchItemAsync<FhirCosmosResourceWrapper>(
+                    Arg.Any<string>(),
+                    Arg.Any<PartitionKey>(),
+                    Arg.Any<IReadOnlyList<PatchOperation>>(),
+                    Arg.Any<PatchItemRequestOptions>(),
+                    Arg.Any<CancellationToken>())
+                .Returns<ItemResponse<FhirCosmosResourceWrapper>>(x => throw CreateCosmosException(new Exception("PreconditionFailed"), HttpStatusCode.PreconditionFailed));
+
+            var operation = new ResourceWrapperOperation(wrapper, true, false, null, false, false, null, comparedVersion: "1");
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpsertAsync(operation, CancellationToken.None));
+
+            // The race must be detected by re-reading and re-validating ComparedVersion against the current
+            // state, not by trusting the first snapshot.
+            await _container.Value.Received(2).ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
+
+            // The confirmation is only meaningful if it was conditional on the ETag that was read.
+            await _container.Value.Received(1).PatchItemAsync<FhirCosmosResourceWrapper>(
+                Arg.Any<string>(),
+                Arg.Any<PartitionKey>(),
+                Arg.Any<IReadOnlyList<PatchOperation>>(),
+                Arg.Is<PatchItemRequestOptions>(options => options.IfMatchEtag == "\"etag-v1\""),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAGuardedConditionalDelete_WhenTheSearchedTargetHasAlreadyDisappeared_ThenPreconditionFailedIsThrownInsteadOfSilentSuccess()
+        {
+            var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "vanished-target";
+            ResourceElement typedElement = observation.ToResourceElement();
+
+            var deleteWrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            deleteWrapper.SearchIndices = new List<SearchIndexEntry>
+            {
+                new SearchIndexEntry(new SearchParameterInfo("vanishedParam", "vanishedParam"), new NumberSearchValue(1)),
+            };
+
+            // Between the conditional search (which observed version "1" while the resource was still live)
+            // and this guarded delete reaching persistence, a concurrent actor already soft-deleted the
+            // resource, advancing it to a tombstone at version "2".
+            var tombstoneObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            tombstoneObservation.Id = "vanished-target";
+            tombstoneObservation.VersionId = "2";
+            ResourceElement tombstoneElement = tombstoneObservation.ToResourceElement();
+            var tombstoneWrapper = new ResourceWrapper(tombstoneElement, rawResourceFactory.Create(tombstoneElement, keepMeta: true, keepVersion: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            var existingTombstone = new FhirCosmosResourceWrapper(tombstoneWrapper);
+            SetETag(existingTombstone, "\"etag-tombstone\"");
+
+            ItemResponse<FhirCosmosResourceWrapper> readResponse = Substitute.For<ItemResponse<FhirCosmosResourceWrapper>>();
+            readResponse.Resource.Returns(existingTombstone);
+
+            _container.Value.ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(readResponse));
+
+            var operation = new ResourceWrapperOperation(deleteWrapper, true, false, null, false, false, null, comparedVersion: "1");
+
+            // The disappeared target must fail the precondition authoritatively, the same outcome SQL Server
+            // gives when a compared version no longer matches, rather than being silently treated as an
+            // already-deleted no-op success.
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpsertAsync(operation, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenAGuardedDelete_WhenTheTargetHasEntirelyDisappeared_ThenPreconditionFailedIsThrownInsteadOfSilentSuccess()
+        {
+            var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "hard-deleted-target";
+            observation.VersionId = "1";
+            ResourceElement typedElement = observation.ToResourceElement();
+
+            var deleteWrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            deleteWrapper.SearchIndices = new List<SearchIndexEntry>
+            {
+                new SearchIndexEntry(new SearchParameterInfo("hardDeletedParam", "hardDeletedParam"), new NumberSearchValue(1)),
+            };
+
+            // The client read version "1" and sent it back as an If-Match on the delete, but the target has
+            // since disappeared entirely (for example a concurrent hard delete or purge), so Cosmos DB's
+            // point read now raises NotFound instead of returning a tombstone to compare against.
+            _container.Value.ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())
+                .Returns<ItemResponse<FhirCosmosResourceWrapper>>(ci => throw CreateCosmosException(new Exception("NotFound"), HttpStatusCode.NotFound));
+
+            var operation = new ResourceWrapperOperation(deleteWrapper, true, false, WeakETag.FromVersionId("1"), false, false, null);
+
+            // A caller-supplied client ETag/If-Match on a delete whose target has entirely disappeared must fail
+            // the precondition (matching SQL Server's guarded-disappearance behavior), not be silently treated
+            // as an already-deleted no-op success.
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpsertAsync(operation, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenAnUnguardedDelete_WhenTheTargetHasEntirelyDisappeared_ThenTheDeleteRemainsIdempotent()
+        {
+            var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "already-gone-target";
+            ResourceElement typedElement = observation.ToResourceElement();
+
+            var deleteWrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            deleteWrapper.SearchIndices = new List<SearchIndexEntry>
+            {
+                new SearchIndexEntry(new SearchParameterInfo("alreadyGoneParam", "alreadyGoneParam"), new NumberSearchValue(1)),
+            };
+
+            _container.Value.ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())
+                .Returns<ItemResponse<FhirCosmosResourceWrapper>>(ci => throw CreateCosmosException(new Exception("NotFound"), HttpStatusCode.NotFound));
+
+            // No If-Match header at all - deleting a target that is already missing must remain the idempotent
+            // no-op FHIR delete semantics require, regardless of the guarded case above.
+            var operation = new ResourceWrapperOperation(deleteWrapper, true, false, null, false, false, null);
+
+            UpsertOutcome outcome = await _dataStore.UpsertAsync(operation, CancellationToken.None);
+
+            Assert.Null(outcome);
+        }
+
+        [Fact]
+        public async Task GivenAGuardedDeleteOfAnAlreadyDeletedTarget_WhenTheNoOpResultRacesAConcurrentWrite_ThenPreconditionFailedIsThrownInsteadOfSilentSuccess()
+        {
+            var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "already-deleted-race-target";
+            ResourceElement typedElement = observation.ToResourceElement();
+
+            var deleteWrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            deleteWrapper.SearchIndices = new List<SearchIndexEntry>
+            {
+                new SearchIndexEntry(new SearchParameterInfo("alreadyDeletedRaceParam", "alreadyDeletedRaceParam"), new NumberSearchValue(1)),
+            };
+
+            // The client read the tombstone at version "1" (via a conditional search) and sent it back as an
+            // If-Match on this repeat delete. The target is already deleted, so this is a delete-of-a-delete
+            // no-op - but that no-op decision must not be trusted from the stale pre-read alone.
+            var firstTombstoneObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            firstTombstoneObservation.Id = "already-deleted-race-target";
+            firstTombstoneObservation.VersionId = "1";
+            ResourceElement firstTombstoneElement = firstTombstoneObservation.ToResourceElement();
+            var firstTombstoneWrapper = new ResourceWrapper(firstTombstoneElement, rawResourceFactory.Create(firstTombstoneElement, keepMeta: true, keepVersion: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            var firstRead = new FhirCosmosResourceWrapper(firstTombstoneWrapper);
+            SetETag(firstRead, "\"etag-tombstone-v1\"");
+
+            // Simulate a concurrent writer that advances the tombstone to version "2" (for example, a purge
+            // or an update racing the delete) between our read of version "1" and the moment the no-op
+            // shortcut would otherwise silently return null without any native _etag write to prove it.
+            var secondTombstoneObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            secondTombstoneObservation.Id = "already-deleted-race-target";
+            secondTombstoneObservation.VersionId = "2";
+            ResourceElement secondTombstoneElement = secondTombstoneObservation.ToResourceElement();
+            var secondTombstoneWrapper = new ResourceWrapper(secondTombstoneElement, rawResourceFactory.Create(secondTombstoneElement, keepMeta: true, keepVersion: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            var secondRead = new FhirCosmosResourceWrapper(secondTombstoneWrapper);
+            SetETag(secondRead, "\"etag-tombstone-v2\"");
+
+            ItemResponse<FhirCosmosResourceWrapper> firstResponse = Substitute.For<ItemResponse<FhirCosmosResourceWrapper>>();
+            firstResponse.Resource.Returns(firstRead);
+
+            ItemResponse<FhirCosmosResourceWrapper> secondResponse = Substitute.For<ItemResponse<FhirCosmosResourceWrapper>>();
+            secondResponse.Resource.Returns(secondRead);
+
+            _container.Value.ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(firstResponse), Task.FromResult(secondResponse));
+
+            // A no-op reported as a success has to be settled against the current document, which takes a
+            // conditional write: here the service rejects it because another writer already advanced the
+            // tombstone past the ETag that was read.
+            _container.Value.PatchItemAsync<FhirCosmosResourceWrapper>(
+                    Arg.Any<string>(),
+                    Arg.Any<PartitionKey>(),
+                    Arg.Any<IReadOnlyList<PatchOperation>>(),
+                    Arg.Any<PatchItemRequestOptions>(),
+                    Arg.Any<CancellationToken>())
+                .Returns<ItemResponse<FhirCosmosResourceWrapper>>(x => throw CreateCosmosException(new Exception("PreconditionFailed"), HttpStatusCode.PreconditionFailed));
+
+            var operation = new ResourceWrapperOperation(deleteWrapper, true, false, WeakETag.FromVersionId("1"), false, false, null);
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpsertAsync(operation, CancellationToken.None));
+
+            // The race must be detected by re-reading and re-validating the If-Match guard against the
+            // current state, not by trusting the first snapshot.
+            await _container.Value.Received(2).ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
+
+            // The confirmation is only meaningful if it was conditional on the ETag that was read.
+            await _container.Value.Received(1).PatchItemAsync<FhirCosmosResourceWrapper>(
+                Arg.Any<string>(),
+                Arg.Any<PartitionKey>(),
+                Arg.Any<IReadOnlyList<PatchOperation>>(),
+                Arg.Is<PatchItemRequestOptions>(options => options.IfMatchEtag == "\"etag-tombstone-v1\""),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAnUnguardedDeleteOfAnAlreadyDeletedTarget_WhenNoRaceGuardApplies_ThenTheNoOpSucceedsWithoutAnExtraWrite()
+        {
+            var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "already-deleted-unguarded-target";
+            observation.VersionId = "1";
+            ResourceElement typedElement = observation.ToResourceElement();
+
+            var deleteWrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            deleteWrapper.SearchIndices = new List<SearchIndexEntry>
+            {
+                new SearchIndexEntry(new SearchParameterInfo("alreadyDeletedUnguardedParam", "alreadyDeletedUnguardedParam"), new NumberSearchValue(1)),
+            };
+
+            var existingTombstoneWrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true, keepVersion: true), new ResourceRequest(HttpMethod.Delete, "http://fhir"), true, null, null, null);
+            var existingTombstone = new FhirCosmosResourceWrapper(existingTombstoneWrapper);
+            SetETag(existingTombstone, "\"etag-tombstone-v1\"");
+
+            ItemResponse<FhirCosmosResourceWrapper> readResponse = Substitute.For<ItemResponse<FhirCosmosResourceWrapper>>();
+            readResponse.Resource.Returns(existingTombstone);
+
+            _container.Value.ReadItemAsync<FhirCosmosResourceWrapper>(Arg.Any<string>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(readResponse));
+
+            // No If-Match header and no ComparedVersion guard - a delete of an already deleted target remains
+            // a plain no-op and must not write anything at all to confirm a precondition that was never
+            // supplied.
+            var operation = new ResourceWrapperOperation(deleteWrapper, true, false, null, false, false, null);
+
+            UpsertOutcome outcome = await _dataStore.UpsertAsync(operation, CancellationToken.None);
+
+            Assert.Null(outcome);
+
+            await _container.Value.DidNotReceiveWithAnyArgs().ReplaceItemAsync(
+                Arg.Any<FhirCosmosResourceWrapper>(),
+                Arg.Any<string>(),
+                Arg.Any<PartitionKey?>(),
+                Arg.Any<ItemRequestOptions>(),
+                Arg.Any<CancellationToken>());
+
+            await _container.Value.DidNotReceiveWithAnyArgs().PatchItemAsync<FhirCosmosResourceWrapper>(
+                Arg.Any<string>(),
+                Arg.Any<PartitionKey>(),
+                Arg.Any<IReadOnlyList<PatchOperation>>(),
+                Arg.Any<PatchItemRequestOptions>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task GivenPendingSearchParameterStatusWithPreviousUri_WhenPersisted_ThenCurrentAndPreviousDeletedStatusesAreUpserted()
         {
             var pendingStatus = new ResourceSearchParameterStatus
@@ -409,6 +698,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             }
 
             return cosmosException;
+        }
+
+        /// <summary>
+        /// Sets the Cosmos <c>_etag</c> on a test <see cref="FhirCosmosResourceWrapper"/> via its protected
+        /// setter so tests can control the ETag a mocked ReadItemAsync/ReplaceItemAsync exchange observes.
+        /// </summary>
+        private static void SetETag(FhirCosmosResourceWrapper wrapper, string etag)
+        {
+            typeof(FhirCosmosResourceWrapper)
+                .GetProperty(nameof(FhirCosmosResourceWrapper.ETag), BindingFlags.Public | BindingFlags.Instance)
+                .SetValue(wrapper, etag);
         }
     }
 }

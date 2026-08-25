@@ -168,6 +168,10 @@
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
     <value>The composite separator cannot be found.</value>
   </data>
+  <data name="ConditionalDeleteMatchVersionUnavailable" xml:space="preserve">
+    <value>The current version of the matched resource type '{0}' with id '{1}' could not be determined, so the conditional delete precondition cannot be enforced.</value>
+    <comment>{0} is a resource type, {1} is a resource id.</comment>
+  </data>
   <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
     <value>Conditional operation on {0} was not attempted because search criteria was not selective enough.</value>
     <comment>{0} should be a ResourceType</comment>

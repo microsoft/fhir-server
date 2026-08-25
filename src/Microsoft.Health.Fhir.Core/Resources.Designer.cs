@@ -277,6 +277,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The current version of the matched resource type &apos;{0}&apos; with id &apos;{1}&apos; could not be determined, so the conditional delete precondition cannot be enforced..
+        /// </summary>
+        internal static string ConditionalDeleteMatchVersionUnavailable {
+            get {
+                return ResourceManager.GetString("ConditionalDeleteMatchVersionUnavailable", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Conditional operation on {0} was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {
