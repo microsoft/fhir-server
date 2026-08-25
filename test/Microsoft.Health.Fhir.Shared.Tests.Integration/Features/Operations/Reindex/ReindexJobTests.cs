@@ -1172,10 +1172,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenSurrogateRangeFetchOom_WhenProcessingJobRuns_ThenSplitUsesReducedBatchParameters()
         {
-            Skip.IfNot(_fixture.FhirRuntimeConfiguration is AzureHealthDataServicesRuntimeConfiguration, "SQL Server only test.");
+            Assert.SkipUnless(_fixture.FhirRuntimeConfiguration is AzureHealthDataServicesRuntimeConfiguration, "SQL Server only test.");
 
             const string resourceType = "Patient";
             int searchCallCount = 0;

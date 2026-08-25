@@ -4,11 +4,8 @@
     <PackageReference Include="Azure.Containers.ContainerRegistry" />
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
   <ItemGroup>

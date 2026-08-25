@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fhirClient = fixture.TestFhirClient;
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenBulkUpdateRequestWithInvalidSearchParameters_WhenRequested_ThenBadRequestIsReturned()
         {
             CheckBulkUpdateEnabled();
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenBulkUpdateRequestWithUnsupportedPatchType_WhenRequested_ThenBadRequestIsReturned()
         {
             CheckBulkUpdateEnabled();
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("SearchParameter")]
         [InlineData("StructureDefinition")]
         public async Task GivenBulkUpdateRequestWithUnsupportedResourceTypes_WhenRequested_ThenBadRequestIsReturned(string resourceType)
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkUpdatedAtSystemLevel_ThenAllAreUpdated(bool isParallel)
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunBulkUpdateRequest(patchRequest, expectedResults, queryParams: queryParam);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("Patient", true)]
         [InlineData("Patient", false)]
         [InlineData("Organization", true)]
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunBulkUpdateRequest(patchRequest, expectedResults, true, $"{resourceType}/$bulk-update", queryParams: queryParam);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkUpdateRequestOnSystemLevel_WhenCompleted_ThenExcludedResourcesAreNotUpdatedAndCountedInIgnoredResources(bool isParallel)
@@ -242,13 +242,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact]
+        [Fact]
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async Task GivenBulkUpdateJobWithIncludeSearchWithIsParallelTrue_WhenCompleted_ThenIncludedResourcesAreUpdated()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
 #if Stu3
-    Skip.If(true, "Referenced used isn't present in Stu3");
+    Assert.SkipWhen(true, "Referenced used isn't present in Stu3");
 #else
             CheckBulkUpdateEnabled();
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
@@ -313,13 +313,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
         }
 
-        [SkippableFact]
+        [Fact]
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously. Needed due to the Stu3 condition.
         public async Task GivenBulkUpdateJobWithIncludeSearchWithIsParallelFalse_WhenCompleted_ThenIncludedResourcesAreUpdated()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
 #if Stu3
-    Skip.If(true, "Referenced used isn't present in Stu3");
+    Assert.SkipWhen(true, "Referenced used isn't present in Stu3");
 #else
             CheckBulkUpdateEnabled();
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
@@ -384,7 +384,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkUpdateJobWithRevincludeSearch_WhenCompleted_ThenIncludedResourcesAreUpdated(bool isParallel)
@@ -448,7 +448,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -472,7 +472,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -496,7 +496,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -521,7 +521,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -552,7 +552,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -580,7 +580,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -609,7 +609,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -645,7 +645,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkUpdateJob(responseForIncludedResultsOnDifferentPages.Content.Headers.ContentLocation, expectedResultsForIncludedResultsOnDifferentPages);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenBulkUpdateWithMetaHistoryDisabled_WhenCompleted_ThenNoHistoricalVersionWasCreated()
         {
             CheckBulkUpdateEnabled();
@@ -678,7 +678,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkUpdateWithMetaHistoryEnabled_WhenCompleted_ThenHistoricalVersionWasCreated(bool includeParameter)
@@ -716,7 +716,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -892,7 +892,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var supported = _fixture.TestFhirServer.Metadata.SupportsOperation("bulk-update");
             Console.WriteLine($"Bulk update operation supported: {supported}");
-            Skip.IfNot(supported, "$bulk-update not enabled on this server");
+            Assert.SkipUnless(supported, "$bulk-update not enabled on this server");
         }
 
         private async Task CreateGroupWithPatients(string tag, int count)

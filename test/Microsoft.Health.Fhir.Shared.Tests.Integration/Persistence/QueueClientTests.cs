@@ -317,8 +317,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact(Skip = "Doesn't run within time limits. Bug: 103102")]
         public async Task GivenAJob_WhenExecutedWithHeartbeats_ThenHeartbeatsAreRecorded()
         {
-            await this.RetryAsync(
-                async () =>
+            await ((Func<Task>)(async () =>
                 {
                     var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
                     await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, CancellationToken.None);
@@ -362,7 +361,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Task.WaitAll(execTask, dequeueTask);
 
                     Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
-                });
+                }))();
         }
 
         private static void ValidateJobInfoState(JobInfo job)

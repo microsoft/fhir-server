@@ -1183,7 +1183,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            await this.RetryAsync(new Func<Task>(async () =>
+            await ((Func<Task>)(async () =>
             {
                 List<int> values = new();
                 int count = 0;
@@ -1202,7 +1202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 while (nextLink != null);
                 Assert.Equal(n, count);
                 Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
-            }));
+            }))();
         }
 
         [Fact]
@@ -1228,7 +1228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            await this.RetryAsync(new Func<Task>(async () =>
+            await ((Func<Task>)(async () =>
             {
                 List<int> values = new();
                 int count = 0;
@@ -1247,7 +1247,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 while (nextLink != null);
                 Assert.Equal(n, count);
                 Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
-            }));
+            }))();
         }
 
         [Fact]

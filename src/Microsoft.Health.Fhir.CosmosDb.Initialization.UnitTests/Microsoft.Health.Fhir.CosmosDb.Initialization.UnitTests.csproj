@@ -1,10 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio">
-    </PackageReference>
+    <PackageReference Include="xunit.v3" />
    </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb.Initialization\Microsoft.Health.Fhir.CosmosDb.Initialization.csproj" />

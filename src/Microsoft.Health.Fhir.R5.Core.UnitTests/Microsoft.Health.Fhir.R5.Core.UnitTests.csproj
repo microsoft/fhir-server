@@ -9,11 +9,8 @@
     <PackageReference Include="Hl7.Fhir.Specification.Data.R5" IncludeAssets="contentFiles" />
     <PackageReference Include="Hl7.Fhir.Validation.Legacy.R5" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="xunit.v3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />

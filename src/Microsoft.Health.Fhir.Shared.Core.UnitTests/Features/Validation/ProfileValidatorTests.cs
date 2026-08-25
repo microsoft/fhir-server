@@ -40,10 +40,10 @@ public class ProfileValidatorTests
         _options = Options.Create(config);
     }
 
-    [SkippableFact]
+    [Fact]
     public void GivenR4OrR4BFhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsIgnored()
     {
-        Skip.If(
+        Assert.SkipWhen(
             ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
             ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
             "This test is only valid for R4 and R4B");
@@ -58,10 +58,10 @@ public class ProfileValidatorTests
         Assert.Contains("cid-0", internalValidator.Settings.ConstraintsToIgnore ?? []);
     }
 
-    [SkippableFact]
+    [Fact]
     public void GivenStu3OrR5FhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsNotIgnored()
     {
-        Skip.If(
+        Assert.SkipWhen(
             ModelInfoProvider.Instance.Version != FhirSpecification.Stu3 &&
             ModelInfoProvider.Instance.Version != FhirSpecification.R5,
             "This test is only valid for STU3 and R5");

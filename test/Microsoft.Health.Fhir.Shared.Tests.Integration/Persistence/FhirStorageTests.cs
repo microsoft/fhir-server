@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         protected Mediator Mediator { get; }
 
-        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Theory]
         [InlineData(5)] // should succeed
         [InlineData(35)] // shoul fail
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -116,7 +116,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -260,7 +260,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
