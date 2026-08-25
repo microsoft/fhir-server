@@ -20,7 +20,7 @@ public enum FhirSdkProvider
 
 - `CoreFeatureConfiguration.FhirSdkProvider` defaults to `Firely`. There is no `Hybrid` mode and no runtime fallback from Ignixa to Firely — shadow comparison is a testing technique, not a production mode. (Superseded in part by [ADR 2608](adr-2608-ignixa-fhirpath-seam.md): this setting became a nested section — `Default`, plus a nullable override per seam — once FHIRPath needed to roll out independently of import. The default, the absence of `Hybrid`, and the no-fallback rule are unchanged.)
 - Selecting `Ignixa` means every feature seam already migrated uses its Ignixa implementation; every other seam keeps using Firely until that seam is migrated in its own PR.
-- Startup logs the configured provider and the seams it currently controls (`FhirSdkProviderStartupLogger`: `"FHIR SDK provider configured: {FhirSdkProvider}; migrated seams: Import."`), so the global setting never creates a false impression that the whole server has moved.
+- Startup logs the default and each effective seam provider (`FhirSdkProviderStartupLogger`: `"FHIR SDK providers configured: Default={DefaultProvider}; Import={ImportProvider}; FHIRPath={FhirPathProvider}. FHIRPath Patch remains Firely-backed."`), so the setting never creates a false impression that the whole server has moved.
 - We do not introduce an `IFhirSdkProvider` facade — it would accumulate unrelated serialization, validation, FHIRPath, and persistence responsibilities. Each migrated feature keeps its existing narrow contract (Phase 0 reuses `IImportResourceParser` unchanged) or introduces one narrow contract if none exists.
 
 **Phase 0 migrates only `$import` parsing.**

@@ -53,7 +53,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var modelInfoProvider = ModelInfoProvider.Instance;
             var logger = Substitute.For<ILogger<TypedElementSearchIndexer>>();
 
-            _searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, typedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, new FirelyFhirPathProvider(), logger);
+            _searchIndexer = new TypedElementSearchIndexer(
+                supportedSearchParameterDefinitionManager,
+                typedElementToSearchValueConverterManager,
+                referenceToElementResolver,
+                modelInfoProvider,
+                new FirelyFhirPathProvider(),
+                logger,
+                Substitute.For<IFailureMetricHandler>());
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
             List<string> targetResourceTypes = new List<string>() { "Coverage", "Observation", "Claim", "Patient" };
@@ -125,6 +132,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Arg.Is<IExceptionMetricNotification>(
                     notification => notification.OperationName == "FhirPathSearchIndexEvaluation" &&
                         notification.ExceptionType == nameof(NotSupportedException)));
+        }
+
+        [Fact]
+        public void GivenRepeatedExtraction_WhenExpressionsAreCompiled_ThenCachingIsDelegatedToProvider()
+        {
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "name",
+                    "name",
+                    (ValueSets.SearchParamType)SearchParamType.String,
+                    new Uri(ResourceName),
+                    expression: "Patient.name"),
+            ]);
+            var compiledExpression = Substitute.For<ICompiledFhirPath>();
+            compiledExpression
+                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
+                .Returns([]);
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile("Patient.name").Returns(compiledExpression);
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                Substitute.For<ITypedElementToSearchValueConverterManager>(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                provider,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>(),
+                Substitute.For<IFailureMetricHandler>());
+            ResourceElement patient = new Patient { Id = "patient-1" }.ToResourceElement();
+
+            indexer.Extract(patient);
+            indexer.Extract(patient);
+
+            provider.Received(2).Compile("Patient.name");
         }
 
         [Fact]
