@@ -103,10 +103,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 ? Constants.RestfulSecurityServiceStu3OAuth
                 : Constants.RestfulSecurityServiceOAuth);
 
-            Uri tokenEndpoint = _urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
-            Uri authorizationEndpoint = _urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
+            Uri tokenEndpoint = null;
+            Uri authorizationEndpoint = null;
+            if (_urlResolver.CanResolve)
+            {
+                tokenEndpoint = _urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
+                authorizationEndpoint = _urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
+            }
 
-            var smartExtensions = CreateSmartExtensions(authorizationEndpoint.AbsoluteUri, tokenEndpoint.AbsoluteUri);
+            var smartExtensions = CreateSmartExtensions(authorizationEndpoint?.AbsoluteUri, tokenEndpoint?.AbsoluteUri);
             foreach (var extension in smartExtensions)
             {
                 security.Extension.Add(extension);
@@ -139,7 +144,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         private List<JObject> CreateSmartExtensions(string authorizationEndpoint, string tokenEndpoint)
         {
             var extensions = new List<JObject>();
-            extensions.Add(GetUrlExtension(authorizationEndpoint, tokenEndpoint));
+            var uriExtension = GetUrlExtension(authorizationEndpoint, tokenEndpoint);
+            if (uriExtension != null)
+            {
+                extensions.Add(uriExtension);
+            }
+
             extensions.AddRange(GetAdditionalCapabilities());
             extensions.AddRange(GetClientCapabilities());
             extensions.AddRange(GetContextCapabilities());
@@ -177,20 +187,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
         private JObject GetUrlExtension(string authorizationEndpoint, string tokenEndpoint)
         {
-            var urls = new JArray(
-                new JObject[]
-                {
-                    new JObject
+            var urls = new JArray();
+            var authorizeUri = GetAuthorizationEndpoint(authorizationEndpoint);
+            var tokenUri = GetTokenEndpoint(tokenEndpoint);
+            if (!string.IsNullOrEmpty(authorizeUri) && !string.IsNullOrEmpty(tokenUri))
+            {
+                urls.Add(
+                    new JObject[]
                     {
-                        { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionToken },
-                        { Constants.ValueUriPropertyName, GetTokenEndpoint(tokenEndpoint) },
-                    },
-                    new JObject
-                    {
-                        { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionAuthorize },
-                        { Constants.ValueUriPropertyName, GetAuthorizationEndpoint(authorizationEndpoint) },
-                    },
-                });
+                        new JObject
+                        {
+                            { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionToken },
+                            { Constants.ValueUriPropertyName, tokenUri },
+                        },
+                        new JObject
+                        {
+                            { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionAuthorize },
+                            { Constants.ValueUriPropertyName, authorizeUri },
+                        },
+                    });
+            }
 
             if (!string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Introspection))
             {
@@ -220,6 +236,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                         { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionRevocation },
                         { Constants.ValueUriPropertyName, _smartIdentityProviderConfiguration.Revocation },
                     });
+            }
+
+            if (urls.Count == 0)
+            {
+                return null;
             }
 
             return new JObject
