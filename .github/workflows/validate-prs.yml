@@ -32,7 +32,7 @@ jobs:
         with:
           repository: "microsoft/fhir-server"
       - uses: actions/labeler@b8dd2d9be0f68b860e7dae5dae7d772984eacd6d # v6.2.0
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           TITLE: ${{ env.TITLE }}
           LABELS: ${{ env.LABELS }}
