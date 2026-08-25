@@ -36,7 +36,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IFailureMetricHandler _failureMetricHandler;
         private readonly ILogger<TypedElementSearchIndexer> _logger;
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new();
-        private readonly ConcurrentDictionary<string, ICompiledFhirPath> _expressions = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TypedElementSearchIndexer"/> class.
@@ -55,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IModelInfoProvider modelInfoProvider,
             IFhirPathProvider fhirPathProvider,
             ILogger<TypedElementSearchIndexer> logger,
-            IFailureMetricHandler failureMetricHandler = null)
+            IFailureMetricHandler failureMetricHandler)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
@@ -63,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(fhirPathProvider, nameof(fhirPathProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(failureMetricHandler, nameof(failureMetricHandler));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
-            ICompiledFhirPath expression = _expressions.GetOrAdd(searchParameter.Expression, _fhirPathProvider.Compile);
+            ICompiledFhirPath expression = _fhirPathProvider.Compile(searchParameter.Expression);
 
             IEnumerable<ITypedElement> rootObjects = expression.Select(resource, context);
 
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             try
             {
-                ICompiledFhirPath expression = _expressions.GetOrAdd(fhirPathExpression, _fhirPathProvider.Compile);
+                ICompiledFhirPath expression = _fhirPathProvider.Compile(fhirPathExpression);
 
                 extractedValues = expression.Select(element, context).ToArray();
             }
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     "Failed to extract the values using '{FhirPathExpression}' against '{ElementType}'.",
                     fhirPathExpression,
                     element.GetType());
-                _failureMetricHandler?.EmitException(
+                _failureMetricHandler.EmitException(
                     new ExceptionMetricNotification
                     {
                         OperationName = "FhirPathSearchIndexEvaluation",

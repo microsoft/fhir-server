@@ -107,7 +107,7 @@ FHIRPath changes search index *content*, where import parsing does not, so the t
 
 **Out, and permanently marked so:**
 
-- **FHIRPath Patch.** The six `Operation*.cs` files select nodes and then mutate the returned nodes: `ElementModelExtensions.ToElementNode` is `(element is ElementNode el) ? el : ElementNode.FromElement(element)`, and `OperationDelete` then calls `Target.Parent.Remove(Target)`. Firely returns the input tree's own `ElementNode` instances, so the mutation lands. An Ignixa provider returns adapter-wrapped nodes, fails the type test, receives a **detached copy**, and patches the copy — the operation reports success and the resource is unchanged. Ignixa structurally cannot honour node identity across the adapter boundary. Patch is Phase 7 in ADR 2607 regardless; these files keep `Hl7.FhirPath` and are whitelisted in the seam test with this reason.
+- **FHIRPath Patch node selection.** The six `Operation*.cs` files select nodes and then mutate the returned nodes: `ElementModelExtensions.ToElementNode` is `(element is ElementNode el) ? el : ElementNode.FromElement(element)`, and `OperationDelete` then calls `Target.Parent.Remove(Target)`. Firely returns the input tree's own `ElementNode` instances, so the mutation lands. An Ignixa provider returns adapter-wrapped nodes, fails the type test, receives a **detached copy**, and patches the copy — the operation reports success and the resource is unchanged. Ignixa structurally cannot honour node identity across the adapter boundary. Patch is Phase 7 in ADR 2607 regardless; these operation files keep `Hl7.FhirPath` and are whitelisted in the seam test with this reason. `PatchPayload` only compares immutable scalar values, so it uses the provider seam.
 - **The three AST consumers.** They perform type inference at definition time, never evaluate against a resource, and porting them to Ignixa's AST plus `FhirPathAnalyzer` is a large visitor rewrite with no runtime benefit. They keep `Hl7.FhirPath` for `FhirPathCompiler` and are whitelisted.
 - **`ITypedElement` and `EvaluationContext` stay in the seam signatures.** Both ship in `Hl7.Fhir.Base`, which Core keeps for the element model regardless, so abstracting `EvaluationContext` alone removes no dependency while adding churn. They get replaced together when the element model moves.
 
@@ -119,7 +119,7 @@ A test asserts that no file imports `Hl7.FhirPath` outside the Firely provider a
 
 Stated explicitly because three different policies exist today and none is written down: the extension path uses a shared static 500-entry LRU, `TypedElementSearchIndexer` uses a private unbounded dictionary, and Ignixa keeps its own static unbounded AST and delegate caches. Expressions are influenced by user input through custom search parameters, so unbounded caching is a slow leak.
 
-Each provider owns a **bounded** compile cache. `TypedElementSearchIndexer` keeps holding `ICompiledFhirPath` handles in its own dictionary keyed by search parameter — the `Compile`-returns-a-handle shape means the hot path never consults a string-keyed cache at all, which is strictly better than today and independent of the LRU size. R4 alone ships roughly 1,400 search-parameter expressions, so routing them through a 500-entry LRU would thrash every extract cycle.
+Each provider owns a **bounded** compile cache sized to hold the generated corpus without thrashing (R4 alone ships roughly 1,400 search-parameter expressions). `TypedElementSearchIndexer` does not retain a second raw-expression cache: each extraction obtains an `ICompiledFhirPath` handle through the selected provider, whose bounded cache is the single cache-policy authority.
 
 ### Failure handling
 
@@ -151,7 +151,7 @@ Proposed
 ### Neutral Effects
 
 - `%context` is not bound by name in Ignixa's `GetEnvironmentVariable`; it falls through to the generic environment dictionary. The evaluation-context bridge binds it explicitly, along with `%resource` and `%rootResource` and the `ElementResolver` that backs `resolve()` — which appears 76 times across the R4, R4B, and R5 search parameters and is the single highest-risk behaviour in the bridge.
-- `TypedElementSearchIndexer` moving onto the seam changes two behaviours that were never deliberate: it gains the `ToScopedNode()` wrap the extension path always applied, and it loses its unbounded private cache. Both are pinned by characterization tests before the move.
+- `TypedElementSearchIndexer` moving onto the seam changes two behaviours that were never deliberate: it gains the `ToScopedNode()` wrap the extension path always applied, and its unbounded private cache is replaced by the provider's bounded cache. Both are pinned by characterization tests.
 - Custom search parameters are validated through Firely's AST tooling (out of scope) but indexed through Ignixa, so an accept-versus-index mismatch is possible. The parity corpus covers generated parameters; custom-parameter parity is a bake-in observation, not a pre-merge gate.
 
 ### Delivery
