@@ -148,6 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             }
             catch (OperationCanceledException)
             {
+                // Expected if cancellation fires during Task.Delay inside the loop
             }
 
             // Assert
@@ -183,6 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             }
             catch (OperationCanceledException)
             {
+                // Expected if cancellation fires during Task.Delay inside the loop
             }
 
             // Assert - context was replaced, not the stale one
