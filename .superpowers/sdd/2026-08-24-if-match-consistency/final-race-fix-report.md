@@ -515,3 +515,194 @@ with this round's changes stashed (`git stash push -u`), so neither is caused by
 - `FhirStorageTests(SqlServer)` has 4 pre-existing failures in this environment, and the
   broad `~SqlServer` integration filter aborts its test host; both reproduce on an
   unmodified tree and are out of scope for this round.
+
+## Fix Round 5 - Bounded Merge Transaction Settlement
+
+### Scope
+
+This round resolves the one remaining Important finding against `db52323ed`:
+
+`MergeTransactionSettlement.DisposeAsync` settled with `CancellationToken.None` through the
+normal SQL retry service. On a datastore blip that attempt could spend the configured retry
+count multiplied by the configured (deliberately large) command timeout, blocking an
+already-failing request for minutes, even though the transaction watchdog is the durable
+backstop for exactly this transaction.
+
+### Files
+
+Production:
+
+- `src/Microsoft.Health.Fhir.SqlServer/Features/Storage/MergeTransactionSettlement.cs`
+- `src/Microsoft.Health.Fhir.SqlServer/Features/Storage/SqlStoreClient.cs`
+
+Tests:
+
+- `src/Microsoft.Health.Fhir.SqlServer.UnitTests/Features/Storage/MergeTransactionSettlementTests.cs` (new)
+- `src/Microsoft.Health.Fhir.SqlServer.UnitTests/Features/Storage/SqlServerFhirDataStoreUnitTests.cs`
+
+No SQL statement, schema, stored procedure, Cosmos file, or `IFhirDataStore` contract was
+changed. `SqlServerFhirDataStore` is untouched: the settlement boundary and the
+`TransferToMergeExecution` transfer point are exactly as Round 4 left them.
+
+### Design and implementation
+
+The cleanup attempt is now bounded on three independent axes, and none of them is the
+caller's token:
+
+- **Its own token.** `DisposeAsync` creates `new CancellationTokenSource(SettlementTimeout)`
+  and settles under that token. It is deliberately *not* linked to the caller's token: the
+  most common way to reach disposal without transferring is that the caller's token was
+  already cancelled, and linking would remove the one in-band chance to clean up in exactly
+  the case that most needs it. The requirement "must not use the caller's already-cancelled
+  token as its sole chance" is met by not using it at all.
+- **No retries.** The call passes `disableRetries: true`, so `SqlRetryService.ExecuteSql`
+  rethrows on the first failure (`SqlRetryService.cs` line 271) instead of looping
+  `MaxRetries` times with `RetryMillisecondsDelay` between attempts.
+- **A pinned command timeout.** `SqlStoreClient.MergeResourcesCommitTransactionAsync` gained
+  two optional parameters (`commandTimeoutSeconds`, `disableRetries`). Settlement passes
+  `ceil(SettlementTimeout)` seconds. This matters because `SqlRetryService.ExecuteSql`
+  replaces the command timeout with the large store-wide value *only* when it still holds the
+  `SqlCommand` default of 30 (`SqlRetryService.cs` line 257); any other explicit value
+  survives to the wire. `SettlementTimeout` is asserted to stay in `[1s, 10s]`, so it can
+  never collide with that 30-second sentinel.
+
+`SettlementTimeout` is 5 seconds. That is the extra latency an already-failing request is
+allowed to cost: long enough for a healthy or briefly-loaded store to settle the single-row
+update in band, far below the retry-times-command-timeout budget that produced the finding.
+
+Everything the finding required to be preserved is preserved:
+
+- Every pre-`dbo.MergeResources` exit still attempts settlement. The only skip is the
+  unchanged `_transferred` guard.
+- `catch (Exception e)` still wraps the whole attempt, so a timeout
+  (`OperationCanceledException`/`TaskCanceledException`) and a store failure are both
+  swallowed for the caller and neither can replace the exception that ended the merge.
+- Both outcomes are logged through one `LogWarning` call carrying `{TransactionId}`,
+  `{SettlementTimeoutMs}` and an `{SettlementOutcome}` of `abandoned` or `failed`, so an
+  operator can tell "the bound fired" from "the store refused" without two log shapes.
+- Successful cleanup still runs on its own connection through `ISqlRetryService`
+  (`isReadOnly: false`), and `dbo.MergeResourcesCommitTransaction` is unchanged and still
+  idempotent via its `@IsCompletedBefore` check, so a late-landing settlement is harmless.
+- The two new `SqlStoreClient` parameters are optional; the other
+  `MergeResourcesCommitTransactionAsync` call sites (`SqlServerFhirDataStore.cs` lines 567
+  and 577, and the import/watchdog paths) keep the caller's token and the full retry budget.
+
+### Strict TDD evidence
+
+All new tests are deterministic. The unresponsive-settlement fakes answer *only* when their
+own token is cancelled, so those tests can complete only if the bound actually fires; no
+assertion compares a wall-clock duration and nothing sleeps to create a race. The 30-second
+`Task.WhenAny` guards exist solely to turn "never returned" into a failed assertion instead
+of a hung test host, and are two orders of magnitude above the 250 ms bound they observe.
+
+#### RED
+
+1. Command:
+
+   ```powershell
+   dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --filter "FullyQualifiedName~MergeTransactionSettlementTests|FullyQualifiedName~SqlServerFhirDataStoreUnitTests"
+   ```
+
+   Result: failed as expected - `Build failed with exit code: 1`. The settlement type exposed
+   no bound at all:
+
+   ```text
+   MergeTransactionSettlementTests.cs(68,84): error CS0117: 'MergeTransactionSettlement' does not contain a definition for 'SettlementTimeout'
+   MergeTransactionSettlementTests.cs(96,55): error CS0117: 'MergeTransactionSettlement' does not contain a definition for 'SettlementTimeout'
+   MergeTransactionSettlementTests.cs(107,34): error CS1729: 'MergeTransactionSettlement' does not contain a constructor that takes 4 arguments
+   MergeTransactionSettlementTests.cs(129,34): error CS1729: 'MergeTransactionSettlement' does not contain a constructor that takes 4 arguments
+   ```
+
+2. The bound was then introduced as API surface only - `SettlementTimeout` plus the
+   bound-injecting constructor - with `DisposeAsync` still settling under
+   `CancellationToken.None` through the ordinary retry path, so the behavioral gap could be
+   observed as assertions rather than as a compile error. Command:
+
+   ```powershell
+   dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --filter "FullyQualifiedName~MergeTransactionSettlementTests|FullyQualifiedName~SqlServerFhirDataStoreUnitTests"
+   ```
+
+   Result: failed as expected - `total: 49, failed: 6, succeeded: 43`:
+
+   | Failing test | RED message |
+   | --- | --- |
+   | `MergeTransactionSettlementTests.DisposeAsync_WhenTheMergeNeverReachedMergeResources_ThenSettlementIsBoundedAndDoesNotRetry` | `Settlement must not re-enter the SQL retry loop while the caller waits.` |
+   | `MergeTransactionSettlementTests.DisposeAsync_WhenTheMergeNeverReachedMergeResources_ThenSettlementGetsItsOwnCancellableToken` | `Settlement must run under an explicitly bounded token.` |
+   | `MergeTransactionSettlementTests.DisposeAsync_WhenSettlementNeverResponds_ThenItGivesUpWithinItsBoundInsteadOfBlockingTheCaller` | `Settlement did not give up: an unresponsive datastore blocked disposal.` (30s 209ms) |
+   | `MergeTransactionSettlementTests.DisposeAsync_WhenSettlementIsAbandoned_ThenTheWarningIdentifiesTheTransaction` | `Settlement did not give up: an unresponsive datastore blocked disposal.` (30s 016ms) |
+   | `SqlServerFhirDataStoreUnitTests.MergeAsync_GivenSettlementThatNeverResponds_ThenTheOriginalMergeFailureStillPropagates` | `MergeAsync stayed blocked on an unresponsive settlement instead of surfacing its own failure.` (30s 373ms) |
+   | `SqlServerFhirDataStoreUnitTests.MergeAsync_GivenCallerCancellationBeforeMergeResources_ThenSettlementIsStillAttemptedWithAnUncancelledToken` | `Settlement must not re-enter the SQL retry loop while the caller waits.` |
+
+   Two of the new tests passed in RED and are recorded as regression locks rather than
+   reproductions: `MergeAsync_GivenSettlementThatItselfFails_ThenTheOriginalMergeFailureIsWhatPropagates`
+   (Round 4's blanket catch already preserved the original exception - the defect was the
+   blocking, not a swallow) and
+   `DisposeAsync_AfterTransferToMergeExecution_ThenTheTransactionIsLeftToMergeResources`
+   (the watchdog roll-forward boundary must not regress).
+   `MergeAsync_GivenCallerCancellationBeforeMergeResources_...` additionally locks the
+   half of the contract a naive fix would break: it fails if settlement is ever linked to the
+   caller's cancelled token.
+
+#### GREEN
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --filter "FullyQualifiedName~MergeTransactionSettlementTests|FullyQualifiedName~SqlServerFhirDataStoreUnitTests"
+# Test run summary: Passed!  total: 49, failed: 0, succeeded: 49, skipped: 0
+```
+
+### Full verification
+
+| Command | Result |
+| --- | --- |
+| `dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --filter "FullyQualifiedName~MergeTransactionSettlementTests\|FullyQualifiedName~SqlServerFhirDataStoreUnitTests"` | 49 passed, 0 failed, 0 skipped |
+| `dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj` | 1,083 passed, 0 failed, 0 skipped |
+| `dotnet test test\Microsoft.Health.Fhir.R4.Tests.Integration\Microsoft.Health.Fhir.R4.Tests.Integration.csproj --filter "FullyQualifiedName~SqlServerGuardedNoOpTests"` | 6 passed, 0 failed, 0 skipped (live SQL Server) |
+| `dotnet test test\Microsoft.Health.Fhir.R4.Tests.Integration\Microsoft.Health.Fhir.R4.Tests.Integration.csproj --filter "FullyQualifiedName~SqlServerGuardedNoOpTests\|FullyQualifiedName~SqlServerSetMergeTests\|FullyQualifiedName~SqlServerTransactionScopeTests\|FullyQualifiedName~SqlServerWatchdogTests"` | 20 passed, 0 failed, 0 skipped (live SQL Server) |
+| `git diff --check` | clean (exit 0) |
+
+The live guarded-no-op suite is the one that matters most for this round: it still proves on a
+real database that the enlisted probe holds its clustered-key lock for the life of a bundle,
+that contention surfaces as a 409, and - the assertion this round could have broken - that
+`dbo.Transactions` gains no uncompleted row when a bundle transaction returns early with a
+failed precondition. Bounding the attempt did not cost that settlement.
+
+### Self-review
+
+- The bound is not a lone timeout that a slow-but-alive store could still outlast in the retry
+  loop. Retries are disabled, the command timeout is pinned, and the CTS covers connection
+  acquisition as well as execution, so all three of the ways the old form could reach minutes
+  are closed rather than one.
+- The change deliberately does *not* link the caller's token. Linking is the obvious "bound the
+  cleanup" fix and is wrong here, because cancellation is the most common way to reach
+  disposal untransferred; `MergeAsync_GivenCallerCancellationBeforeMergeResources_...` fails
+  if a later change makes that mistake.
+- Exception semantics were re-verified at both levels: `Assert.Same(probeFailure, thrown)`
+  proves the caller receives the original `SqlException` instance both when settlement throws
+  its own `SqlException` and when settlement is abandoned by its bound.
+- Cleanup is logged, never dropped. `DisposeAsync_WhenSettlementIsAbandoned_ThenTheWarningIdentifiesTheTransaction`
+  and `DisposeAsync_WhenSettlementFails_ThenItLogsAWarningAndDoesNotThrow` assert the warning
+  carries the transaction id and the causing exception, which is what makes an abandoned
+  transaction traceable to the watchdog recovery that follows.
+- The refactor of the non-query test seam kept `ConfigureSuccessfulNonQueryCalls` behaviorally
+  identical (both helpers now delegate to one `ConfigureNonQueryCalls`), so all Round 4
+  settlement and contention tests still assert exactly what they asserted before; they pass
+  unchanged.
+- An independent code review of the diff against the five contract points (attempt preserved,
+  bounded and not caller-token-only, original exception preserved, own connection and
+  idempotent, nothing else weakened) reported no high-confidence defects.
+
+### Remaining limitations
+
+- 5 seconds is a compiled constant, not configuration, matching the existing 10-second probe
+  lock timeout precedent. A store that is merely slow rather than broken can now hand the
+  watchdog a transaction it would previously have settled in band; that is the deliberate
+  trade, since the watchdog already owns recovery and the alternative is a multi-minute
+  failure latency.
+- The bounded path is proven by deterministic seams, not by a live datastore outage: inducing
+  a genuine multi-minute SQL stall in the integration fixture is not something this
+  environment can do reproducibly. The live suite proves the *successful* settlement path
+  still works end to end.
+- Round 4's limitations are unchanged and still apply: hard delete and purge-history keep the
+  approved read/validate-before-delete gap, SearchParameter deletion has no version-bearing
+  datastore operation, Cosmos has no live emulator coverage, and `FhirStorageTests(SqlServer)`
+  retains 4 pre-existing environment failures.

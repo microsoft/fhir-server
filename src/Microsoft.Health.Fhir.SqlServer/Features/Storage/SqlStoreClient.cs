@@ -432,7 +432,7 @@ SELECT B.ResourceTypeId
             return (int)affectedRowsParam.Value;
         }
 
-        internal async Task MergeResourcesCommitTransactionAsync(long transactionId, string failureReason, CancellationToken cancellationToken)
+        internal async Task MergeResourcesCommitTransactionAsync(long transactionId, string failureReason, CancellationToken cancellationToken, int? commandTimeoutSeconds = null, bool disableRetries = false)
         {
             await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesCommitTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
@@ -441,7 +441,14 @@ SELECT B.ResourceTypeId
                 cmd.Parameters.AddWithValue("@FailureReason", failureReason);
             }
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            if (commandTimeoutSeconds.HasValue)
+            {
+                //// ISqlRetryService substitutes the configured (deliberately large) store timeout only for the
+                //// SqlCommand default of 30 seconds, so any other explicit value survives to the wire.
+                cmd.CommandTimeout = commandTimeoutSeconds.Value;
+            }
+
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: disableRetries);
         }
 
         internal async Task MergeResourcesPutTransactionInvisibleHistoryAsync(long transactionId, CancellationToken cancellationToken)

@@ -29,21 +29,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// merge open so the transaction watchdog can roll it forward - so <see cref="TransferToMergeExecution"/> is
     /// called at that boundary and this type does nothing on disposal.
     /// </para>
+    /// <para>
+    /// Settlement is best effort and bounded. It always runs on its own connection and its own token so a caller
+    /// that has already been cancelled still gets an attempt, but it never blocks the failing request beyond
+    /// <see cref="SettlementTimeout"/> and never re-enters the SQL retry loop. Anything it cannot settle in that
+    /// window is logged and left to the transaction watchdog, which is the durable backstop.
+    /// </para>
     /// </remarks>
     internal sealed class MergeTransactionSettlement : IAsyncDisposable
     {
         private const string FailureReason = "Merge failed before any resource was sent to dbo.MergeResources.";
 
+        /// <summary>
+        /// Upper bound on the whole in-band settlement attempt - connection, execution, and any wait inside the
+        /// store - after which the transaction is left to the transaction watchdog.
+        /// </summary>
+        /// <remarks>
+        /// Settlement runs on a request that is already failing, so this is the extra latency that failure is
+        /// allowed to cost. It is deliberately far below the store's configured command timeout and retry budget,
+        /// which together can span minutes on a datastore blip; the watchdog is the durable backstop, so waiting
+        /// longer here buys nothing except a slower failure. It is also never the SqlCommand default of 30 seconds,
+        /// which ISqlRetryService would replace with the large store-wide timeout.
+        /// </remarks>
+        internal static readonly TimeSpan SettlementTimeout = TimeSpan.FromSeconds(5);
+
         private readonly SqlStoreClient _storeClient;
         private readonly ILogger _logger;
         private readonly long _transactionId;
+        private readonly TimeSpan _settlementTimeout;
+        private readonly int _settlementCommandTimeoutSeconds;
         private bool _transferred;
 
         public MergeTransactionSettlement(SqlStoreClient storeClient, ILogger logger, long transactionId)
+            : this(storeClient, logger, transactionId, SettlementTimeout)
+        {
+        }
+
+        internal MergeTransactionSettlement(SqlStoreClient storeClient, ILogger logger, long transactionId, TimeSpan settlementTimeout)
         {
             _storeClient = EnsureArg.IsNotNull(storeClient, nameof(storeClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _transactionId = transactionId;
+            _settlementTimeout = EnsureArg.IsGt(settlementTimeout, TimeSpan.Zero, nameof(settlementTimeout));
+            _settlementCommandTimeoutSeconds = Math.Max(1, (int)Math.Ceiling(settlementTimeout.TotalSeconds));
         }
 
         /// <summary>
@@ -63,17 +91,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
+            //// The token is deliberately not linked to the caller's. The most common way to reach disposal without
+            //// transferring is that the caller's token was already cancelled, and settling under it would remove the
+            //// one in-band chance to clean up. Its own bound - not the caller - is what keeps an already-failing
+            //// request from waiting on a datastore that is not answering.
+            using var settlementTimeout = new CancellationTokenSource(_settlementTimeout);
+
             try
             {
-                //// CancellationToken.None: this settles a transaction that is already known to be unusable, and the
-                //// most common way to get here without transferring is that the caller's token was cancelled.
-                await _storeClient.MergeResourcesCommitTransactionAsync(_transactionId, FailureReason, CancellationToken.None);
+                //// Retries are disabled and the command timeout is pinned to the same bound, so a datastore blip
+                //// cannot spend the store's retry count multiplied by its large command timeout here. The call still
+                //// runs on its own connection and dbo.MergeResourcesCommitTransaction remains idempotent, so a
+                //// settlement that lands late is harmless and a settlement that never lands is rolled forward by the
+                //// transaction watchdog.
+                await _storeClient.MergeResourcesCommitTransactionAsync(
+                    _transactionId,
+                    FailureReason,
+                    settlementTimeout.Token,
+                    commandTimeoutSeconds: _settlementCommandTimeoutSeconds,
+                    disableRetries: true);
             }
             catch (Exception e)
             {
                 // Best effort. The transaction watchdog is the backstop for a transaction that cannot be settled here,
-                // and throwing from disposal would replace the failure that actually ended the merge.
-                _logger.LogWarning(e, "Unable to settle merge transaction {TransactionId}; leaving it to the transaction watchdog.", _transactionId);
+                // and throwing from disposal would replace the failure that actually ended the merge. Both the "gave
+                // up" and the "store refused" outcomes are reported the same way, because both leave exactly one
+                // transaction for the watchdog to recover.
+                _logger.LogWarning(
+                    e,
+                    "Unable to settle merge transaction {TransactionId} within its {SettlementTimeoutMs} ms bound ({SettlementOutcome}); leaving it to the transaction watchdog.",
+                    _transactionId,
+                    _settlementTimeout.TotalMilliseconds,
+                    settlementTimeout.IsCancellationRequested ? "abandoned" : "failed");
             }
         }
     }

@@ -48,6 +48,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerFhirDataStoreUnitTests
     {
+        /// <summary>
+        /// Turns "settlement never returned" into a failed assertion instead of a hung test host. It is far above the
+        /// bound under test, so it never decides a result on a correct implementation.
+        /// </summary>
+        private static readonly TimeSpan UnresponsiveSettlementGuard = TimeSpan.FromSeconds(30);
+
         public static IEnumerable<object[]> RemoveTrailingZerosTestCases()
         {
             // All zero milliseconds - should remove dot and milliseconds
@@ -997,6 +1003,110 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task MergeAsync_GivenSettlementThatItselfFails_ThenTheOriginalMergeFailureIsWhatPropagates()
+        {
+            // Arrange - settling the merge transaction is best effort cleanup running on an already-failing request.
+            // Its own failure must never replace or hide the failure the caller actually needs to see.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            SqlException probeFailure = SqlExceptionFactory.GetSqlException(50000, "probe failed");
+            SqlException settlementFailure = SqlExceptionFactory.GetSqlException(50001, "settlement failed");
+
+            List<RecordedNonQueryCall> executedCommands = ConfigureRecordedNonQueryCalls(
+                sqlRetryService,
+                call => string.Equals(call.CommandText, "dbo.MergeResourcesCommitTransaction", StringComparison.Ordinal)
+                    ? Task.FromException(settlementFailure)
+                    : Task.CompletedTask);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            ConfigureFailingCurrentVersionProbe(sqlRetryService, probeFailure);
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            SqlException thrown = await Assert.ThrowsAsync<SqlException>(() => dataStore.MergeAsync(new[] { operation }, cts.Token));
+
+            // Assert
+            Assert.Same(probeFailure, thrown);
+            Assert.Contains(executedCommands, call => string.Equals(call.CommandText, "dbo.MergeResourcesCommitTransaction", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenSettlementThatNeverResponds_ThenTheOriginalMergeFailureStillPropagates()
+        {
+            // Arrange - a datastore blip must not hold an already-failing request open for the store's full
+            // retry/command-timeout budget. The fake settlement below answers only when its own token is cancelled,
+            // so this test can only complete if the settlement attempt is bounded.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            SqlException probeFailure = SqlExceptionFactory.GetSqlException(50000, "probe failed");
+
+            List<RecordedNonQueryCall> executedCommands = ConfigureRecordedNonQueryCalls(
+                sqlRetryService,
+                call => string.Equals(call.CommandText, "dbo.MergeResourcesCommitTransaction", StringComparison.Ordinal)
+                    ? Task.Delay(Timeout.Infinite, call.CancellationToken)
+                    : Task.CompletedTask);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            ConfigureFailingCurrentVersionProbe(sqlRetryService, probeFailure);
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            Task<SqlException> merge = Assert.ThrowsAsync<SqlException>(() => dataStore.MergeAsync(new[] { operation }, cts.Token));
+            Task finished = await Task.WhenAny(merge, Task.Delay(UnresponsiveSettlementGuard));
+
+            // Assert
+            Assert.True(ReferenceEquals(finished, merge), "MergeAsync stayed blocked on an unresponsive settlement instead of surfacing its own failure.");
+            Assert.Same(probeFailure, await merge);
+
+            RecordedNonQueryCall settlement = Assert.Single(executedCommands, call => string.Equals(call.CommandText, "dbo.MergeResourcesCommitTransaction", StringComparison.Ordinal));
+            Assert.True(settlement.CancellationToken.IsCancellationRequested, "The abandoned settlement attempt must be cancelled by its own bound.");
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenCallerCancellationBeforeMergeResources_ThenSettlementIsStillAttemptedWithAnUncancelledToken()
+        {
+            // Arrange - cancellation is the most common way to leave a merge before dbo.MergeResources. Settling
+            // under the caller's token would mean the one case that most needs cleanup never gets an attempt.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            List<RecordedNonQueryCall> executedCommands = ConfigureRecordedNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            ConfigureCurrentVersionProbe(
+                sqlRetryService,
+                _ =>
+                {
+                    cts.Cancel();
+                    cts.Token.ThrowIfCancellationRequested();
+                    return Array.Empty<ResourceDateKey>();
+                });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => dataStore.MergeAsync(new[] { operation }, cts.Token));
+
+            // Assert
+            RecordedNonQueryCall settlement = Assert.Single(executedCommands, call => string.Equals(call.CommandText, "dbo.MergeResourcesCommitTransaction", StringComparison.Ordinal));
+            Assert.False(settlement.CancellationToken.IsCancellationRequested, "Settlement must not inherit the caller's already-cancelled token.");
+            Assert.True(settlement.DisableRetries, "Settlement must not re-enter the SQL retry loop while the caller waits.");
+        }
+
+        [Fact]
         public void GivenKnownResourceType_WhenGettingResourceTypeId_ThenResourceTypeIdIsReturned()
         {
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -1056,6 +1166,42 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             var executedCommands = new List<string>();
 
+            ConfigureNonQueryCalls(
+                sqlRetryService,
+                (cmd, _, _) =>
+                {
+                    executedCommands.Add(cmd.CommandText);
+                    return Task.CompletedTask;
+                });
+
+            return executedCommands;
+        }
+
+        /// <summary>
+        /// Same seam as <see cref="ConfigureSuccessfulNonQueryCalls"/>, but it also records how each command was
+        /// issued - which token bounded it and whether retries were disabled - and lets a test replace an individual
+        /// command's round trip with a deterministic behavior such as "never answers until cancelled".
+        /// </summary>
+        private static List<RecordedNonQueryCall> ConfigureRecordedNonQueryCalls(
+            ISqlRetryService sqlRetryService,
+            Func<RecordedNonQueryCall, Task> behavior = null)
+        {
+            var executedCommands = new List<RecordedNonQueryCall>();
+
+            ConfigureNonQueryCalls(
+                sqlRetryService,
+                (cmd, cancellationToken, disableRetries) =>
+                {
+                    var call = new RecordedNonQueryCall(cmd.CommandText, cmd.CommandTimeout, cancellationToken, disableRetries);
+                    executedCommands.Add(call);
+                    return behavior == null ? Task.CompletedTask : behavior(call);
+                });
+
+            return executedCommands;
+        }
+
+        private static void ConfigureNonQueryCalls(ISqlRetryService sqlRetryService, Func<SqlCommand, CancellationToken, bool, Task> handler)
+        {
             sqlRetryService.ExecuteSql(
                 Arg.Any<SqlCommand>(),
                 Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
@@ -1068,7 +1214,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 .Returns(callInfo =>
                 {
                     var cmd = callInfo.Arg<SqlCommand>();
-                    executedCommands.Add(cmd.CommandText);
 
                     if (string.Equals(cmd.CommandText, "dbo.MergeResourcesBeginTransaction", StringComparison.Ordinal))
                     {
@@ -1083,10 +1228,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                         }
                     }
 
-                    return Task.CompletedTask;
+                    return handler(cmd, callInfo.ArgAt<CancellationToken>(4), callInfo.ArgAt<bool>(6));
                 });
-
-            return executedCommands;
         }
 
         /// <summary>
@@ -1258,5 +1401,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: weakETag, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null, comparedVersion: comparedVersion),
             };
         }
+
+        /// <summary>
+        /// One non-query SQL call recorded by <see cref="ConfigureRecordedNonQueryCalls"/>, including the bounds it
+        /// was issued under.
+        /// </summary>
+        private sealed record RecordedNonQueryCall(string CommandText, int CommandTimeout, CancellationToken CancellationToken, bool DisableRetries);
     }
 }
