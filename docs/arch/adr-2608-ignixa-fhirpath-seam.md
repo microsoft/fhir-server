@@ -42,7 +42,7 @@ These are pinned by characterization tests written against the Firely provider b
 
 `FirelyFhirPathProvider` and `FirelyCompiledFhirPath` live in Core beside the interfaces. Core already references `Hl7.Fhir.Base`, which contains the engine, `EvaluationContext`, and `AddFhirExtensions`, so this adds no dependency and avoids touching the four version-specific `*.FirelySdk` projects that Phase 0 created. Final cutover deletes two files.
 
-**The seam owns symbol-table registration.** `FhirModule` currently calls `FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions()` in two places; that global mutation is what puts `resolve()` into the engine. Leaving it there means a provider constructed outside full server startup — exactly what the characterization tests do — cannot compile `resolve()` expressions. `FirelyFhirPathProvider` performs the registration itself, and `FhirModule` drops both calls.
+**The seam owns evaluation symbol-table registration.** `FhirModule` previously called `FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions()` in two places; that global mutation is what puts `resolve()` into the engine. Leaving evaluation registration there means a provider constructed outside full server startup — exactly what the characterization tests do — cannot compile `resolve()` expressions. `FirelyFhirPathProvider` therefore performs the guarded, idempotent registration itself, and `FhirModule` drops both calls. Separately, `SearchModule` unconditionally performs the same guarded registration at the composition root, including in Ignixa mode, because FHIRPath Patch remains Firely-backed until Phase 7.
 
 ### Provider selection
 
@@ -69,6 +69,9 @@ Two properties matter. The default is Firely, so **nothing has to call the sette
 `SearchModule` is the single composition point — it already takes `FhirServerConfiguration` and owns the feature area, where `FhirModule` is parameterless:
 
 ```csharp
+// FHIRPath Patch remains Firely-backed even when evaluation uses Ignixa.
+ElementNavFhirExtensions.PrepareFhirSymbolTableFunctions();
+
 FhirPathProvider.SetProviderFactory(
     _configuration.CoreFeatures.FhirSdkProvider.EffectiveFhirPath == FhirSdkProvider.Ignixa
         ? () => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance))

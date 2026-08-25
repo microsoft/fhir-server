@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -38,6 +39,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             var result = _validator.Validate(instanceToValidate);
 
             Assert.False(result.IsValid);
+            FhirValidationFailure failure = Assert.IsType<FhirValidationFailure>(Assert.Single(result.Errors));
+            Assert.Equal("Observation.text.div", failure.PropertyName);
+            Assert.Equal(["Observation.text.div"], failure.IssueComponent.Expression);
         }
 
         [Theory]
