@@ -47,7 +47,6 @@
         <OutputType>Exe</OutputType>
       </PropertyGroup>
       <ItemGroup>
-        <PackageReference Include="YTest.MTP.XUnit2" />
         <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
         <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
