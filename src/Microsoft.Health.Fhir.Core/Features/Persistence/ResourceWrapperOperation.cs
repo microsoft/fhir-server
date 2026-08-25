@@ -19,7 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool requireETagOnUpdate,
             bool keepVersion,
             BundleResourceContext bundleResourceContext,
-            bool metaHistory = true)
+            bool metaHistory = true,
+            string comparedVersion = null)
         {
             Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             AllowCreate = allowCreate;
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             KeepVersion = keepVersion;
             BundleResourceContext = bundleResourceContext;
             MetaHistory = metaHistory;
+            ComparedVersion = comparedVersion;
         }
 
         public ResourceWrapper Wrapper { get; }
@@ -46,6 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public bool MetaHistory { get; }
 
         public BundleResourceContext BundleResourceContext { get; }
+
+        /// <summary>
+        /// Gets the resource version observed while resolving a conditional operation.
+        /// </summary>
+        public string ComparedVersion { get; }
 
         public ResourceSearchParameterStatus PendingSearchParameterStatus { get; internal set; }
 

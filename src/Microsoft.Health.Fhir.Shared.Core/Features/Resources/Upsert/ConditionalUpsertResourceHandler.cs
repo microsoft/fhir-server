@@ -77,7 +77,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
             {
                 resource.Id = resourceWrapper.ResourceId;
-                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleResourceContext, weakETag: request.WeakETag), cancellationToken);
+                return await _mediator.SendAsync<UpsertResourceResponse>(
+                    new UpsertResourceRequest(
+                        resource.ToResourceElement(),
+                        request.BundleResourceContext,
+                        weakETag: request.WeakETag,
+                        comparedVersion: resourceWrapper.Version),
+                    cancellationToken);
             }
             else
             {

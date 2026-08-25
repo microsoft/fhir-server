@@ -88,6 +88,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         }
 
         [Fact]
+        public void GivenTwoDataStoreOperationIdentifiersWithTheDifferentComparedVersions_WhenCompared_BothShouldBeDifferent()
+        {
+            var identifier1 = new DataStoreOperationIdentifier(
+                "2112",
+                "Patient",
+                "1",
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false,
+                comparedVersion: "v1");
+
+            var identifier2 = new DataStoreOperationIdentifier(
+                "2112",
+                "Patient",
+                "1",
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false,
+                comparedVersion: "v2");
+
+            Assert.NotEqual(identifier1, identifier2);
+            Assert.NotEqual(identifier1.GetHashCode(), identifier2.GetHashCode());
+        }
+
+        [Fact]
         public void GivenTwoDataStoreOperationIdentifiersWithTheSameValues_WhenCompared_BothShouldBeEqual()
         {
             var identifier1 = new DataStoreOperationIdentifier(

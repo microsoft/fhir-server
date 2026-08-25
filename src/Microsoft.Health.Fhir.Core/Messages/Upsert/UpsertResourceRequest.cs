@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
     public class UpsertResourceRequest : BaseBundleInnerRequest, IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null, bool metaHistory = true)
+        public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null, bool metaHistory = true, string comparedVersion = null)
             : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
             Resource = resource;
             WeakETag = weakETag;
             MetaHistory = metaHistory;
+            ComparedVersion = comparedVersion;
         }
 
         public ResourceElement Resource { get; }
@@ -30,6 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
         public WeakETag WeakETag { get; }
 
         public bool MetaHistory { get; }
+
+        /// <summary>
+        /// Gets the resource version observed while resolving a conditional update.
+        /// </summary>
+        public string ComparedVersion { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

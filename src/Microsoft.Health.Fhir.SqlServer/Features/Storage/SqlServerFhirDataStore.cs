@@ -183,18 +183,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
+                            ResourceWrapperOperation resourceWithVersionPrecondition = resources.FirstOrDefault(resource => resource.WeakETag != null || resource.ComparedVersion != null);
+                            string expectedVersion = resourceWithVersionPrecondition?.WeakETag?.VersionId ?? resourceWithVersionPrecondition?.ComparedVersion;
+
                             if (wasEnlistedInAmbientTransaction)
                             {
-                                ResourceWrapperOperation resourceWithWeakETag = resources.FirstOrDefault(resource => resource.WeakETag != null);
-                                if (resourceWithWeakETag != null)
+                                if (resourceWithVersionPrecondition != null)
                                 {
-                                    _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-                                    throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, resourceWithWeakETag.WeakETag.VersionId));
+                                    ThrowResourceVersionConflict(expectedVersion);
                                 }
 
                                 // The ambient SqlTransaction is now zombied by this conflict; retrying within it is futile. Fail fast with a 409 so the client can retry the whole transaction bundle.
                                 _logger.LogWarning(e, "Conflict: ResourceConcurrentUpdateConflict in ambient transaction; failing fast (SQL error {SqlErrorNumber}).", sqlEx.Number);
                                 throw new ResourceConflictException(Resources.ResourceConcurrentUpdateConflict);
+                            }
+
+                            if (resourceWithVersionPrecondition?.ComparedVersion != null)
+                            {
+                                ThrowResourceVersionConflict(expectedVersion);
                             }
 
                             if (retries++ >= maxRetries)
@@ -295,6 +301,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // There is no previous version of this resource, check validations and then simply call SP to create new version
                 if (existingResource == null)
                 {
+                    if (resourceExt.ComparedVersion != null)
+                    {
+                        _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, resourceExt.ComparedVersion))));
+                        continue;
+                    }
+
                     if (resource.IsDeleted && !keepAllDeleted)
                     {
                         // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
@@ -342,6 +355,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
                         results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                        continue;
+                    }
+
+                    if (resourceExt.ComparedVersion != null &&
+                        !string.Equals(resourceExt.ComparedVersion, existingResource.Version, StringComparison.Ordinal))
+                    {
+                        _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, resourceExt.ComparedVersion))));
                         continue;
                     }
 
@@ -1054,6 +1075,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
+        }
+
+        private void ThrowResourceVersionConflict(string expectedVersion)
+        {
+            _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, expectedVersion));
         }
 
         private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion)

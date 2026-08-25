@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             string id = Guid.NewGuid().ToString();
 
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(id), false));
+            mockResultEntry.Resource.Version.Returns("7");
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
                 SaveOutcomeType.Updated,
@@ -70,7 +71,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
 
             await _fhirDataStore.Received().UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag == null),
+                Arg.Is<ResourceWrapperOperation>(x =>
+                    x.Wrapper.ResourceId == id &&
+                    x.WeakETag == null &&
+                    x.ComparedVersion == "7"),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAVersionedUpdateResourceWithNoClientWeakETag_WhenUpsertingConditionallyWithOneMatch_ThenTheSearchVersionIsCarriedSeparately()
+        {
+            string id = Guid.NewGuid().ToString();
+
+            var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultPatient().UpdateId(id), false));
+            mockResultEntry.Resource.Version.Returns("7");
+
+            ConditionalUpsertResourceRequest message = SetupConditionalUpdate(
+                SaveOutcomeType.Updated,
+                Samples.GetDefaultPatient().UpdateId(null),
+                null,
+                mockResultEntry);
+
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
+
+            Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
+            await _fhirDataStore.Received().UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x =>
+                    x.Wrapper.ResourceId == id &&
+                    x.WeakETag == null &&
+                    x.RequireETagOnUpdate &&
+                    x.ComparedVersion == "7"),
                 Arg.Any<CancellationToken>());
         }
 

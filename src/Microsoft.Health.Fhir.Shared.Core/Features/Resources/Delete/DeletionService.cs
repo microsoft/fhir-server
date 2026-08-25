@@ -190,6 +190,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
+        private static bool IsSingleResourceConditionalDelete(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resources)
+        {
+            return request.IsSingleResourceConditionalDelete
+                && resources.Count(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match) == 1;
+        }
+
+        private static void ThrowIfSingleMatchOperationFailed(MergeOutcome mergeOutcome, ResourceWrapperOperation operation)
+        {
+            if (mergeOutcome == null)
+            {
+                return;
+            }
+
+            DataStoreOperationOutcome outcome = mergeOutcome.Results
+                .Where(result =>
+                    string.Equals(result.Key.ResourceType, operation.Wrapper.ResourceTypeName, StringComparison.Ordinal) &&
+                    string.Equals(result.Key.Id, operation.Wrapper.ResourceId, StringComparison.Ordinal))
+                .Select(result => result.Value)
+                .SingleOrDefault();
+
+            if (outcome?.Exception != null)
+            {
+                throw outcome.Exception;
+            }
+        }
+
         public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null)
         {
             return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, excludedResourceTypes, null, cancellationToken);
@@ -370,6 +396,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // We need to wait until all running tasks are cancelled to get a count of resources deleted.
                 await Task.WhenAll(deleteTasks);
             }
+            catch (FhirException) when (request.IsSingleResourceConditionalDelete)
+            {
+                throw;
+            }
             catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
             {
                 // If one of the tasks fails, the rest may throw a cancellation exception. Filtering those out as they are noise.
@@ -424,6 +454,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private async Task<Dictionary<string, long>> SoftDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
             var guid = Guid.NewGuid();
+            bool isSingleResourceConditionalDelete = IsSingleResourceConditionalDelete(request, resourcesToDelete);
             _logger.LogInformation("Soft deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
 
             await CreateAuditLog(
@@ -445,8 +476,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var softDeleteMatches = await Task.WhenAll(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match && resource.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter).Select(async item =>
             {
                 bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Resource.ResourceTypeName, cancellationToken);
+                bool requireETagOnUpdate = isSingleResourceConditionalDelete &&
+                    await _conformanceProvider.Value.RequireETag(item.Resource.ResourceTypeName, cancellationToken);
                 ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(item.Resource.ResourceTypeName, item.Resource.ResourceId);
-                return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
+                return new ResourceWrapperOperation(
+                    deletedWrapper,
+                    true,
+                    keepHistory,
+                    isSingleResourceConditionalDelete ? request.WeakETag : null,
+                    requireETagOnUpdate,
+                    false,
+                    bundleResourceContext: request.BundleResourceContext);
             }));
 
             var partialResults = new List<(string ResourceType, string ResourceId, bool IsInclude)>();
@@ -455,9 +495,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
                 var fhirDataStore = scopedDataStore.GetDataStore();
 
-                // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
+                var matchResourcesToDelete = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
+                SearchResultEntry singleMatch = isSingleResourceConditionalDelete ? matchResourcesToDelete.Single() : default;
+                if (isSingleResourceConditionalDelete && singleMatch.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter)
+                {
+                    bool requireETagOnUpdate = await _conformanceProvider.Value.RequireETag(singleMatch.Resource.ResourceTypeName, cancellationToken);
+                    ResourceWrapper currentResource = await fhirDataStore.GetAsync(
+                        new ResourceKey(singleMatch.Resource.ResourceTypeName, singleMatch.Resource.ResourceId),
+                        cancellationToken);
+                    if (currentResource != null)
+                    {
+                        // SearchParameter deletes bypass ResourceWrapperOperation, so validate before changing its status.
+                        ValidatePrecondition(singleMatch.Resource.ResourceTypeName, currentResource.Version, request.WeakETag, requireETagOnUpdate);
+                    }
+                }
+
+                async Task DeleteMatchesAsync(bool trackPartialResults)
+                {
+                    await DeleteSearchParametersAsync(matchResourcesToDelete, cancellationToken);
+
+                    if (softDeleteMatches.Any())
+                    {
+                        MergeOutcome mergeOutcome = await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
+                        if (isSingleResourceConditionalDelete)
+                        {
+                            ThrowIfSingleMatchOperationFailed(mergeOutcome, softDeleteMatches.Single());
+                        }
+                    }
+
+                    if (trackPartialResults)
+                    {
+                        partialResults.AddRange(softDeleteMatches.Select(item => (item.Wrapper.ResourceTypeName, item.Wrapper.ResourceId, false)));
+                    }
+                }
+
+                if (isSingleResourceConditionalDelete)
+                {
+                    // Persist the guarded target before Includes so a version failure cannot mutate Includes.
+                    await DeleteMatchesAsync(trackPartialResults: true);
+                }
+
                 if (softDeleteIncludes.Any())
                 {
+                    // Includes are always merged here; for unguarded requests this happens before matches so an Include failure leaves matches intact for restart.
                     await fhirDataStore.MergeAsync(softDeleteIncludes, cancellationToken);
                     partialResults.AddRange(softDeleteIncludes.Select(item => (
                         item.Wrapper.ResourceTypeName,
@@ -467,12 +547,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
                 }
 
-                await DeleteSearchParametersAsync(resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match), cancellationToken);
-
-                if (softDeleteMatches.Any())
+                if (!isSingleResourceConditionalDelete)
                 {
-                    await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
+                    await DeleteMatchesAsync(trackPartialResults: false);
                 }
+            }
+            catch (FhirException) when (isSingleResourceConditionalDelete)
+            {
+                throw;
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
             {
@@ -517,6 +599,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private async Task<Dictionary<string, long>> HardDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
             var guid = Guid.NewGuid();
+            bool isSingleResourceConditionalDelete = IsSingleResourceConditionalDelete(request, resourcesToDelete);
             _logger.LogInformation("Hard deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
 
             await CreateAuditLog(
@@ -528,6 +611,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var parallelBag = new ConcurrentBag<(string, string, bool)>();
             try
             {
+                using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+                var fhirDataStore = scopedDataStore.GetDataStore();
+
+                var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
+                var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
+                bool requireETagOnUpdate = isSingleResourceConditionalDelete &&
+                    await _conformanceProvider.Value.RequireETag(request.ResourceType, cancellationToken);
+
+                SearchResultEntry singleMatch = default;
+                if (isSingleResourceConditionalDelete)
+                {
+                    singleMatch = matchedResources.Single();
+                    var key = new ResourceKey(singleMatch.Resource.ResourceTypeName, singleMatch.Resource.ResourceId);
+                    ResourceWrapper currentResource = await fhirDataStore.GetAsync(key, cancellationToken);
+                    if (currentResource != null)
+                    {
+                        // HardDeleteAsync has no version parameter, so this remains a non-atomic read-before-delete check.
+                        ValidatePrecondition(singleMatch.Resource.ResourceTypeName, currentResource.Version, request.WeakETag, requireETagOnUpdate);
+                    }
+                }
+
                 if (request.RemoveReferences)
                 {
                     foreach (var item in resourcesToDelete)
@@ -536,43 +640,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                 }
 
-                using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
-                var fhirDataStore = scopedDataStore.GetDataStore();
-
-                var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
-                var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
-
-                // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
-                // This throws AggregateExceptions.
-                // Note: includedResources cannot have search params
-                await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
+                async Task DeleteResourceAsync(SearchResultEntry item, CancellationToken innerCt)
                 {
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
-                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                });
-
-                await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
-                {
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
-                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                });
-
-                // SearchParameter handling depends on whether this is PurgeHistory or HardDelete
-                foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
-                {
-                    if (request.DeleteOperation == DeleteOperation.PurgeHistory)
+                    if (item.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter)
                     {
-                        // For PurgeHistory, delete historical versions directly (keep current version). No status update needed.
-                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), keepCurrentVersion: true, request.AllowPartialSuccess, cancellationToken));
+                        if (request.DeleteOperation == DeleteOperation.PurgeHistory)
+                        {
+                            await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), keepCurrentVersion: true, request.AllowPartialSuccess, innerCt));
+                        }
+                        else
+                        {
+                            await DeleteSearchParameterWithLockAsync(item, true, innerCt);
+                        }
                     }
                     else
                     {
-                        // For HardDelete, only mark with PendingHardDelete status. The actual deletion is performed by the reindex job.
-                        await DeleteSearchParameterWithLockAsync(item, true, cancellationToken);
+                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     }
 
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 }
+
+                if (isSingleResourceConditionalDelete)
+                {
+                    // Delete the guarded target first so a stale precondition cannot mutate Includes.
+                    await DeleteResourceAsync(singleMatch, cancellationToken);
+                }
+
+                // Includes are always deleted here; for unguarded requests this happens before matches so an Include failure leaves matches intact for restart.
+                // This throws AggregateExceptions.
+                // Note: includedResources cannot have search params, so DeleteResourceAsync always takes the non-SearchParameter path for them.
+                await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) => await DeleteResourceAsync(item, innerCt));
+
+                if (!isSingleResourceConditionalDelete)
+                {
+                    await Parallel.ForEachAsync(
+                        matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter),
+                        cancellationToken,
+                        async (item, innerCt) => await DeleteResourceAsync(item, innerCt));
+
+                    // SearchParameter handling depends on whether this is PurgeHistory or HardDelete.
+                    foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
+                    {
+                        await DeleteResourceAsync(item, cancellationToken);
+                    }
+                }
+            }
+            catch (FhirException) when (isSingleResourceConditionalDelete)
+            {
+                throw;
             }
             catch (Exception ex)
             {

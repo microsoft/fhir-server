@@ -136,7 +136,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 else
                 {
                     // Include results were present, use delete multiple to handle them.
-                    return await DeleteMultipleAsync(request, cancellationToken);
+                    ConditionalDeleteResourceRequest deleteRequest = request.Clone();
+                    deleteRequest.IsSingleResourceConditionalDelete = true;
+                    return await DeleteMultipleAsync(deleteRequest, cancellationToken);
                 }
             }
             else if (count == 1 && tooManyIncludeResults)

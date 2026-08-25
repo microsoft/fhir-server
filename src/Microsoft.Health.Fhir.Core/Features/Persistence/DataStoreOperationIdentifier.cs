@@ -18,7 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                   resourceWrapperOperation.AllowCreate,
                   resourceWrapperOperation.KeepHistory,
                   resourceWrapperOperation.WeakETag,
-                  resourceWrapperOperation.RequireETagOnUpdate)
+                  resourceWrapperOperation.RequireETagOnUpdate,
+                  resourceWrapperOperation.ComparedVersion)
         {
         }
 
@@ -29,13 +30,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool allowCreate,
             bool keepHistory,
             WeakETag weakETag,
-            bool requireETagOnUpdate)
+            bool requireETagOnUpdate,
+            string comparedVersion = null)
          : base(resourceType, id, version)
         {
             AllowCreate = allowCreate;
             KeepHistory = keepHistory;
             WeakETag = weakETag; // Can be null.
             RequireETagOnUpdate = requireETagOnUpdate;
+            ComparedVersion = comparedVersion;
         }
 
         public bool AllowCreate { get; }
@@ -45,6 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public WeakETag WeakETag { get; }
 
         public bool RequireETagOnUpdate { get; }
+
+        /// <summary>
+        /// Gets the resource version observed while resolving a conditional operation.
+        /// </summary>
+        public string ComparedVersion { get; }
 
         public bool Equals(DataStoreOperationIdentifier other)
         {
@@ -62,7 +70,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                    AllowCreate == other.AllowCreate &&
                    KeepHistory == other.KeepHistory &&
                    WeakETag == other.WeakETag &&
-                   RequireETagOnUpdate == other.RequireETagOnUpdate;
+                   RequireETagOnUpdate == other.RequireETagOnUpdate &&
+                   string.Equals(ComparedVersion, other.ComparedVersion, StringComparison.Ordinal);
         }
 
         public override bool Equals(object obj)
@@ -87,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(base.GetHashCode(), AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
+            return HashCode.Combine(base.GetHashCode(), AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate, ComparedVersion);
         }
     }
 }

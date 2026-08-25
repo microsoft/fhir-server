@@ -59,11 +59,16 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 
         public WeakETag WeakETag { get; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this request was resolved to one match before include processing.
+        /// </summary>
+        public bool IsSingleResourceConditionalDelete { get; set; }
+
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
 
         public ConditionalDeleteResourceRequest Clone()
         {
-            return new ConditionalDeleteResourceRequest(
+            var clone = new ConditionalDeleteResourceRequest(
                 ResourceType,
                 new List<Tuple<string, string>>(ConditionalParameters),
                 DeleteOperation,
@@ -75,6 +80,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
                 IsIncludesRequest,
                 RemoveReferences,
                 WeakETag);
+
+            clone.IsSingleResourceConditionalDelete = IsSingleResourceConditionalDelete;
+            return clone;
         }
     }
 }

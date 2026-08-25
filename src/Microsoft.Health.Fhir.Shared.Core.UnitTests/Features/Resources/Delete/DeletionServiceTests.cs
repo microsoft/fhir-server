@@ -536,6 +536,187 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenSingleMatchWithIncludeAndStaleWeakETag_WhenSoftDeletingConditionally_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag);
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, weakETag.VersionId, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+            var deletedResourceIds = new List<string>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    IReadOnlyList<ResourceWrapperOperation> operations = callInfo.ArgAt<IReadOnlyList<ResourceWrapperOperation>>(0);
+                    var outcomes = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
+                    foreach (ResourceWrapperOperation operation in operations)
+                    {
+                        if (operation.Wrapper.ResourceId == matchId && operation.WeakETag?.VersionId == weakETag.VersionId)
+                        {
+                            outcomes.Add(
+                                operation.GetIdentifier(),
+                                new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
+                        }
+                        else
+                        {
+                            deletedResourceIds.Add(operation.Wrapper.ResourceId);
+                            outcomes.Add(operation.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(operation.Wrapper, SaveOutcomeType.Updated)));
+                        }
+                    }
+
+                    return Task.FromResult(new MergeOutcome(MergeOutcomeFinalState.Completed, outcomes));
+                });
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            Assert.DoesNotContain(includeId, deletedResourceIds);
+            Assert.DoesNotContain(matchId, deletedResourceIds);
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterMatchWithIncludeAndStaleWeakETag_WhenSoftDeletingConditionally_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "search-parameter";
+            const string includeId = "include";
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.SoftDelete, weakETag, KnownResourceTypes.SearchParameter);
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.SearchParameter, matchId, weakETag.VersionId, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.SearchParameter, matchId, "8")));
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(MergeOutcome.Empty));
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceive().MergeAsync(
+                Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(),
+                Arg.Any<CancellationToken>());
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(
+                Arg.Any<RawResource>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+        }
+
+        [Fact]
+        public async Task GivenSingleMatchWithIncludeAndMatchingWeakETag_WhenHardDeletingConditionally_ThenOnlyTheMatchIsVersionChecked()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.HardDelete, weakETag);
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, weakETag.VersionId, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.Group, matchId, weakETag.VersionId)));
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _service.DeleteMultipleAsync(request, CancellationToken.None);
+
+            // Assert
+            await fhirDataStore.Received(1).GetAsync(
+                Arg.Is<ResourceKey>(key => key.Id == matchId),
+                Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().GetAsync(
+                Arg.Is<ResourceKey>(key => key.Id == includeId),
+                Arg.Any<CancellationToken>());
+            await fhirDataStore.Received(1).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id == matchId),
+                false,
+                false,
+                Arg.Any<CancellationToken>());
+            await fhirDataStore.Received(1).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id == includeId),
+                false,
+                false,
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenSingleMatchWithIncludeAndStaleWeakETag_WhenHardDeletingConditionally_ThenNoResourcesAreDeleted()
+        {
+            // Arrange
+            const string matchId = "match";
+            const string includeId = "include";
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+            var request = CreateSingleMatchConditionalDeleteRequest(DeleteOperation.HardDelete, weakETag);
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, matchId, weakETag.VersionId, SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, includeId, "1", SearchEntryMode.Include));
+            var fhirDataStore = SetUpDataStore();
+            fhirDataStore.GetAsync(Arg.Is<ResourceKey>(key => key.Id == matchId), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(CreateWrapper(KnownResourceTypes.Group, matchId, "8")));
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+
+            // Act and assert
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id == matchId),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id == includeId),
+                false,
+                false,
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenMultipleMatchesWithWeakETag_WhenSoftDeletingConditionally_ThenNoMatchOperationCarriesTheETag()
+        {
+            // Arrange
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+            var request = new ConditionalDeleteResourceRequest(
+                KnownResourceTypes.Group,
+                new List<Tuple<string, string>> { Tuple.Create("_tag", "tag") },
+                DeleteOperation.SoftDelete,
+                maxDeleteCount: 100,
+                weakETag: weakETag);
+            SetUpConditionalSearch(
+                CreateSearchResultEntry(KnownResourceTypes.Group, "first", "7", SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Group, "second", "7", SearchEntryMode.Match));
+            SetUpDeletedWrapperFactory();
+            var fhirDataStore = SetUpDataStore();
+            var mergedOperations = new List<ResourceWrapperOperation>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    mergedOperations.AddRange(callInfo.ArgAt<IReadOnlyList<ResourceWrapperOperation>>(0));
+                    return Task.FromResult(MergeOutcome.Empty);
+                });
+
+            // Act
+            await _service.DeleteMultipleAsync(request, CancellationToken.None);
+
+            // Assert
+            Assert.All(mergedOperations, operation =>
+            {
+                Assert.Null(operation.WeakETag);
+                Assert.False(operation.RequireETagOnUpdate);
+            });
+        }
+
         private IFhirDataStore SetUpDataStore()
         {
             var fhirDataStore = Substitute.For<IFhirDataStore>();
@@ -543,16 +724,71 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             return fhirDataStore;
         }
 
+        private ConditionalDeleteResourceRequest CreateSingleMatchConditionalDeleteRequest(DeleteOperation deleteOperation, WeakETag weakETag, string resourceType = KnownResourceTypes.Group)
+        {
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                new List<Tuple<string, string>> { Tuple.Create("_tag", "tag") },
+                deleteOperation,
+                maxDeleteCount: 1,
+                weakETag: weakETag)
+            {
+                IsSingleResourceConditionalDelete = true,
+            };
+
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+
+            return request;
+        }
+
+        private void SetUpConditionalSearch(params SearchResultEntry[] entries)
+        {
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns(Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+        }
+
+        private void SetUpDeletedWrapperFactory()
+        {
+            _resourceWrapperFactory.Create(Arg.Any<ResourceElement>(), deleted: true, keepMeta: false)
+                .Returns(callInfo =>
+                {
+                    Resource resource = callInfo.ArgAt<ResourceElement>(0).ToPoco<Resource>();
+                    return CreateWrapper(resource.TypeName, resource.Id, version: null, deleted: true);
+                });
+        }
+
+        private static SearchResultEntry CreateSearchResultEntry(string resourceType, string resourceId, string version, SearchEntryMode searchEntryMode)
+        {
+            return new SearchResultEntry(CreateWrapper(resourceType, resourceId, version), searchEntryMode);
+        }
+
         private static ResourceWrapper CreateWrapper(string version)
         {
+            return CreateWrapper("Patient", "id", version);
+        }
+
+        private static ResourceWrapper CreateWrapper(string resourceType, string resourceId, string version, bool deleted = false)
+        {
             return new ResourceWrapper(
-                "id",
+                resourceId,
                 version,
-                "Patient",
+                resourceType,
                 rawResource: null,
                 request: null,
                 lastModified: DateTimeOffset.UtcNow,
-                deleted: false,
+                deleted,
                 searchIndices: null,
                 compartmentIndices: null,
                 lastModifiedClaims: null);

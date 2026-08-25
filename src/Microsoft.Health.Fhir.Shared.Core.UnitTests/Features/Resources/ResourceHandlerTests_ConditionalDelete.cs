@@ -136,6 +136,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
+        public async Task GivenOneMatchingResourceWithIncludeResults_WhenSoftDeletingConditionallyWithMatchingWeakETag_ThenOnlyTheMatchOperationCarriesTheETagAndPolicy()
+        {
+            string matchId = Guid.NewGuid().ToString();
+            string includeId = Guid.NewGuid().ToString();
+            WeakETag weakETag = WeakETag.FromVersionId("7");
+            var matchResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultPatient().UpdateId(matchId), false));
+            matchResultEntry.Resource.Version.Returns(weakETag.VersionId);
+            var includeResultEntry = new SearchResultEntry(
+                CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(includeId), false),
+                ValueSets.SearchEntryMode.Include);
+            var mergedOperations = new List<ResourceWrapperOperation>();
+            _fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    mergedOperations.AddRange(callInfo.ArgAt<IReadOnlyList<ResourceWrapperOperation>>(0));
+                    return Task.FromResult(MergeOutcome.Empty);
+                });
+
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Patient,
+                DefaultSearchParams,
+                hardDelete: false,
+                count: 1,
+                weakETag,
+                matchResultEntry,
+                includeResultEntry);
+
+            await _mediator.SendAsync<DeleteResourceResponse>(message);
+
+            ResourceWrapperOperation matchOperation = mergedOperations.Single(operation => operation.Wrapper.ResourceId == matchId);
+            ResourceWrapperOperation includeOperation = mergedOperations.Single(operation => operation.Wrapper.ResourceId == includeId);
+            Assert.Equal(weakETag, matchOperation.WeakETag);
+            Assert.True(matchOperation.RequireETagOnUpdate);
+            Assert.Null(includeOperation.WeakETag);
+            Assert.False(includeOperation.RequireETagOnUpdate);
+        }
+
+        [Fact]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionally_TheServerShouldReturnError()
         {
             var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));

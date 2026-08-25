@@ -217,7 +217,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         innerCt,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.ComparedVersion);
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
@@ -277,7 +278,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         cancellationToken,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.ComparedVersion);
 
                     if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
                     {
@@ -304,7 +306,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool allowCreate,
             bool keepHistory,
             CancellationToken cancellationToken,
-            bool requireETagOnUpdate = false)
+            bool requireETagOnUpdate = false,
+            string comparedVersion = null)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -338,7 +341,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             _logger.LogInformation("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
-            if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
+            if (weakETag == null && comparedVersion == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
                 // Optimistically try to create this as a new resource
                 try
@@ -383,6 +386,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
+                    if (comparedVersion != null)
+                    {
+                        ThrowResourceVersionConflict(comparedVersion);
+                    }
+
                     if (cosmosWrapper.IsDeleted)
                     {
                         return null;
@@ -405,8 +413,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
                 {
-                    _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                    ThrowResourceVersionConflict(weakETag.VersionId);
                 }
 
                 if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
@@ -417,6 +424,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (requireETagOnUpdate && weakETag == null)
                 {
                     ThrowIfETagRequired(resource.ResourceTypeName);
+                }
+
+                if (comparedVersion != null &&
+                    !string.Equals(comparedVersion, existingItemResource.Version, StringComparison.Ordinal))
+                {
+                    ThrowResourceVersionConflict(comparedVersion);
                 }
 
                 // If not a delete then check if its an update with no data change
@@ -519,6 +532,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
             throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resourceType));
+        }
+
+        private void ThrowResourceVersionConflict(string expectedVersion)
+        {
+            _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+            throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, expectedVersion));
         }
 
         private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)
