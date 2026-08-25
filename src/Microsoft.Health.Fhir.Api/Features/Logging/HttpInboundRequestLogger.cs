@@ -65,9 +65,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
                 IReadOnlyList<KeyValuePair<string, object>> state =
                 [
                     new KeyValuePair<string, object>(DurationColumnName, GetElapsedMilliseconds(context)),
-                    new KeyValuePair<string, object>(HttpHostColumnName, context.Request?.Host.Value ?? string.Empty),
-                    new KeyValuePair<string, object>(HttpMethodColumnName, context.Request?.Method ?? string.Empty),
-                    new KeyValuePair<string, object>(HttpPathColumnName, context.Request?.Path.Value ?? string.Empty),
+                    new KeyValuePair<string, object>(HttpHostColumnName, SanitizeForLog(context.Request?.Host.Value)),
+                    new KeyValuePair<string, object>(HttpMethodColumnName, SanitizeForLog(context.Request?.Method)),
+                    new KeyValuePair<string, object>(HttpPathColumnName, SanitizeForLog(context.Request?.Path.Value)),
                     new KeyValuePair<string, object>(HttpStatusCodeColumnName, httpStatusCode),
                     new KeyValuePair<string, object>(XCorrelationIdColumnName, GetCorrelationId(context)),
                 ];
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
             // X-Correlation-ID is not always present in the request headers, so we need to check for its existence before attempting to retrieve it.
             if (context.Request.Headers.TryGetValue(KnownHeaders.CorrelationId, out var correlationId) && !string.IsNullOrEmpty(correlationId))
             {
-                return correlationId;
+                return SanitizeForLog(correlationId);
             }
 
             return string.Empty;
@@ -110,6 +110,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
                 : activity.Duration;
 
             return Math.Max(0, (long)duration.TotalMilliseconds);
+        }
+
+        private static string SanitizeForLog(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+
+            return value
+                .Replace("\r", string.Empty, StringComparison.Ordinal)
+                .Replace("\n", string.Empty, StringComparison.Ordinal);
         }
 
         private static string FormatLogMessage(
