@@ -7,8 +7,8 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Specification;
-using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using EvaluationContext = Hl7.FhirPath.EvaluationContext;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {

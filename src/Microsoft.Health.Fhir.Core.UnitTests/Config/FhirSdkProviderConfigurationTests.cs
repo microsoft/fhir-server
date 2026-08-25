@@ -18,7 +18,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
         public void GivenDefaultConfiguration_WhenProviderRead_ThenFirelyIsSelected()
         {
             var configuration = new CoreFeatureConfiguration();
-            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider);
+            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveImport);
+            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveFhirPath);
         }
 
         [Fact]
@@ -26,9 +27,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
         {
             var configuration = new CoreFeatureConfiguration
             {
-                FhirSdkProvider = FhirSdkProvider.Ignixa,
+                FhirSdkProvider = new FhirSdkProviderConfiguration
+                {
+                    Default = FhirSdkProvider.Ignixa,
+                },
             };
-            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider);
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider.EffectiveImport);
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider.EffectiveFhirPath);
+        }
+
+        [Fact]
+        public void GivenSeamOverrides_WhenProvidersRead_ThenSelectionsAreIndependent()
+        {
+            var configuration = new CoreFeatureConfiguration
+            {
+                FhirSdkProvider = new FhirSdkProviderConfiguration
+                {
+                    Default = FhirSdkProvider.Firely,
+                    Import = FhirSdkProvider.Ignixa,
+                },
+            };
+
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider.EffectiveImport);
+            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveFhirPath);
         }
     }
 }
