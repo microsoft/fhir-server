@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Logging
 {
@@ -23,6 +24,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
     /// </remarks>
     public sealed class HttpInboundRequestLogger : IHttpInboundRequestLogger
     {
+        internal const string DurationColumnName = "duration";
+        internal const string HttpHostColumnName = "httpHost";
+        internal const string HttpMethodColumnName = "httpMethod";
+        internal const string HttpPathColumnName = "httpPath";
+        internal const string HttpStatusCodeColumnName = "httpStatusCode";
+        internal const string XCorrelationIdColumnName = "XCorrelationId";
+
         private static readonly EventId RequestCompletedEventId = new EventId(1, "RequestCompleted");
         private static readonly EventId RequestProcessingErrorEventId = new EventId(2, "RequestProcessingError");
 
@@ -56,11 +64,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
 
                 IReadOnlyList<KeyValuePair<string, object>> state =
                 [
-                    new KeyValuePair<string, object>("duration", GetElapsedMilliseconds(context)),
-                    new KeyValuePair<string, object>("httpHost", context.Request?.Host.Value ?? string.Empty),
-                    new KeyValuePair<string, object>("httpMethod", context.Request?.Method ?? string.Empty),
-                    new KeyValuePair<string, object>("httpPath", context.Request?.Path.Value ?? string.Empty),
-                    new KeyValuePair<string, object>("httpStatusCode", httpStatusCode),
+                    new KeyValuePair<string, object>(DurationColumnName, GetElapsedMilliseconds(context)),
+                    new KeyValuePair<string, object>(HttpHostColumnName, context.Request?.Host.Value ?? string.Empty),
+                    new KeyValuePair<string, object>(HttpMethodColumnName, context.Request?.Method ?? string.Empty),
+                    new KeyValuePair<string, object>(HttpPathColumnName, context.Request?.Path.Value ?? string.Empty),
+                    new KeyValuePair<string, object>(HttpStatusCodeColumnName, httpStatusCode),
+                    new KeyValuePair<string, object>(XCorrelationIdColumnName, GetCorrelationId(context)),
                 ];
 
                 _logger.Log(
@@ -75,6 +84,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
                 // Generic catch to intercept any logging errors and avoid breaking the request pipeline. The logger should not throw exceptions.
                 _logger.LogError(e, "An error occurred while logging the HTTP Inbound request.");
             }
+        }
+
+        private static string GetCorrelationId(HttpContext context)
+        {
+            // X-Correlation-ID is not always present in the request headers, so we need to check for its existence before attempting to retrieve it.
+            if (context.Request.Headers.TryGetValue(KnownHeaders.CorrelationId, out var correlationId) && !string.IsNullOrEmpty(correlationId))
+            {
+                return correlationId;
+            }
+
+            return string.Empty;
         }
 
         private static long GetElapsedMilliseconds(HttpContext context)

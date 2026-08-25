@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -21,6 +22,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Logging
     public class HttpInboundRequestLoggerTests
     {
         /// <summary>
+        /// Verifies that the logging constants in the logger are in sync with the test.
+        /// </summary>
+        [Fact]
+        public void EnsureThatLoggingConstantsAreInSyncWithLogger()
+        {
+            Assert.Equal(HttpInboundRequestLogger.DurationColumnName, "duration");
+            Assert.Equal(HttpInboundRequestLogger.HttpHostColumnName, "httpHost");
+            Assert.Equal(HttpInboundRequestLogger.HttpMethodColumnName, "httpMethod");
+            Assert.Equal(HttpInboundRequestLogger.HttpPathColumnName, "httpPath");
+            Assert.Equal(HttpInboundRequestLogger.HttpStatusCodeColumnName, "httpStatusCode");
+            Assert.Equal(HttpInboundRequestLogger.XCorrelationIdColumnName, "XCorrelationId");
+        }
+
+        /// <summary>
         /// Verifies that a completed request contains only the selected HTTP dimensions.
         /// </summary>
         [Fact]
@@ -29,9 +44,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Logging
             var innerLogger = new CapturingLogger();
             var inboundRequestLogger = new HttpInboundRequestLogger(innerLogger);
             var context = new DefaultHttpContext();
+
+            // Request
             context.Request.Host = new HostString("fhir.example.com");
             context.Request.Method = HttpMethods.Post;
             context.Request.Path = "/Patient";
+            context.Request.Headers[KnownHeaders.CorrelationId] = "correlation-id";
+
+            // Response
             context.Response.StatusCode = StatusCodes.Status201Created;
 
             inboundRequestLogger.LogRequest(context);
@@ -46,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Logging
                     ["httpMethod"] = HttpMethods.Post,
                     ["httpPath"] = "/Patient",
                     ["httpStatusCode"] = StatusCodes.Status201Created,
+                    ["XCorrelationId"] = "correlation-id",
                 },
                 innerLogger.State);
         }
@@ -64,7 +85,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Logging
             var innerLogger = new CapturingLogger();
             var inboundRequestLogger = new HttpInboundRequestLogger(innerLogger);
             var context = new DefaultHttpContext();
+
+            // Request
+            context.Request.Headers[KnownHeaders.RequestId] = "request-id";
+            context.Request.Headers[KnownHeaders.CorrelationId] = "correlation-id";
+
+            // Response
             context.Response.StatusCode = responseStatusCode;
+
             var exception = new InvalidOperationException("Request failed");
 
             inboundRequestLogger.LogRequest(context, exception: exception);

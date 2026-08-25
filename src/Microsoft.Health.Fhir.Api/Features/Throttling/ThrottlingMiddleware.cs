@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             context.Response.ContentLength = body.Length;
             context.Response.ContentType = ThrottledContentType;
 
-            _inboundRequestLogger.LogRequest(context, exception: exception);
+            _inboundRequestLogger.LogRequest(context);
 
             await context.Response.Body.WriteAsync(body);
         }
