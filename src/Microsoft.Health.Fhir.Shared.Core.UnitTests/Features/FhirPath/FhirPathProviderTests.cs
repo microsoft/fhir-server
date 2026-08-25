@@ -108,6 +108,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         }
 
         [Fact]
+        public void GivenEitherProvider_WhenCallerContextHasNoResource_ThenContextIsPopulated()
+        {
+            var patient = new Patient { Id = "patient-1" }.ToTypedElement();
+            IFhirPathProvider[] providers =
+            [
+                new FirelyFhirPathProvider(),
+                CreateIgnixaProvider(),
+            ];
+
+            foreach (IFhirPathProvider provider in providers)
+            {
+                EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+
+                string[] values = Normalize(provider.Compile("%resource.id | %rootResource.id").Select(patient, context));
+
+                Assert.NotNull(context.Resource);
+                Assert.NotNull(context.RootResource);
+                Assert.Equal("Patient", context.Resource.InstanceType);
+                Assert.Equal("Patient", context.RootResource.InstanceType);
+                Assert.Equal(["System.String|patient-1"], values);
+            }
+        }
+
+        [Fact]
         public async Task GivenVersionedResourceCorpus_WhenGeneratedAndResolverExpressionsAreEvaluated_ThenResultsMatch()
         {
             var fixture = new SearchParameterFixtureData();
@@ -173,6 +197,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.True(nonEmptyExpressionCount >= 10, $"Expected at least 10 non-empty generated-expression results, but observed {nonEmptyExpressionCount}.");
             Assert.True(resolveExpressionCount >= 2, $"Expected at least two resolve() corpus evaluations, but observed {resolveExpressionCount}.");
             Assert.True(nonEmptyResolveExpressionCount >= 1, "The parity corpus must produce a non-empty resolve() result.");
+        }
+
+        [Fact]
+        public async Task GivenEveryGeneratedSearchParameterExpression_WhenEvaluatedByBothProviders_ThenResultsMatch()
+        {
+            var fixture = new SearchParameterFixtureData();
+            SearchParameterDefinitionManager definitions = await fixture.GetSearchDefinitionManagerAsync();
+            IFhirPathProvider firely = new FirelyFhirPathProvider();
+            IFhirPathProvider ignixa = CreateIgnixaProvider();
+            ITypedElement input = new Patient { Id = "synthetic-patient" }.ToTypedElement();
+            string[] expressions = definitions.AllSearchParameters
+                .Where(parameter => parameter.Code != SearchParameterNames.ResourceType)
+                .Select(parameter => parameter.Expression)
+                .Where(expression => !string.IsNullOrWhiteSpace(expression))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(expression => expression, StringComparer.Ordinal)
+                .ToArray();
+
+            foreach (string expression in expressions)
+            {
+                EvaluationContext firelyContext = ModelInfoProvider.Instance.GetEvaluationContext();
+                EvaluationContext ignixaContext = ModelInfoProvider.Instance.GetEvaluationContext();
+                string[] firelyValues;
+                string[] ignixaValues;
+
+                try
+                {
+                    firelyValues = Normalize(firely.Compile(expression).Select(input, firelyContext));
+                    ignixaValues = Normalize(ignixa.Compile(expression).Select(input, ignixaContext));
+                }
+                catch (Exception exception)
+                {
+                    throw new InvalidOperationException($"Failed to evaluate generated expression '{expression}'.", exception);
+                }
+
+                Assert.Equal(firelyValues, ignixaValues);
+            }
+
+            Assert.True(expressions.Length >= 500, $"Expected at least 500 generated expressions, but evaluated {expressions.Length}.");
         }
 
         [Fact]
@@ -245,12 +308,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             var resolver = new CorpusReferenceToElementResolver();
             var firelyFailures = Substitute.For<IFailureMetricHandler>();
             var ignixaFailures = Substitute.For<IFailureMetricHandler>();
+            IFhirPathProvider firelyProvider = new FirelyFhirPathProvider();
+            IFhirPathProvider ignixaProvider = CreateIgnixaProvider();
             var firelyIndexer = new TypedElementSearchIndexer(
                 supportedDefinitions,
                 converters,
                 resolver,
                 ModelInfoProvider.Instance,
-                new FirelyFhirPathProvider(),
+                firelyProvider,
                 NullLogger<TypedElementSearchIndexer>.Instance,
                 firelyFailures);
             var ignixaIndexer = new TypedElementSearchIndexer(
@@ -258,17 +323,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 converters,
                 resolver,
                 ModelInfoProvider.Instance,
-                CreateIgnixaProvider(),
+                ignixaProvider,
                 NullLogger<TypedElementSearchIndexer>.Instance,
                 ignixaFailures);
-            foreach (ResourceElement resource in GetResourceCorpus())
+            try
             {
-                IReadOnlyCollection<SearchIndexEntry> firelyEntries = firelyIndexer.Extract(resource);
-                IReadOnlyCollection<SearchIndexEntry> ignixaEntries = ignixaIndexer.Extract(resource);
-                string[] firelyValues = firelyEntries.Select(Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
-                string[] ignixaValues = ignixaEntries.Select(Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+                foreach (ResourceElement resource in GetResourceCorpus())
+                {
+                    FhirPathProvider.SetProviderFactory(() => firelyProvider);
+                    IReadOnlyCollection<SearchIndexEntry> firelyEntries = firelyIndexer.Extract(resource);
 
-                Assert.Equal(firelyValues, ignixaValues);
+                    FhirPathProvider.SetProviderFactory(() => ignixaProvider);
+                    IReadOnlyCollection<SearchIndexEntry> ignixaEntries = ignixaIndexer.Extract(resource);
+
+                    string[] firelyValues = firelyEntries.Select(Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+                    string[] ignixaValues = ignixaEntries.Select(Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+
+                    Assert.Equal(firelyValues, ignixaValues);
+                }
+            }
+            finally
+            {
+                FhirPathProvider.SetProviderFactory(() => _originalAmbientProvider);
             }
 
             firelyFailures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
