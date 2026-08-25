@@ -5,7 +5,6 @@
 
 using System;
 using Hl7.Fhir.FhirPath;
-using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Features.FhirPath
@@ -23,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPath
         /// </summary>
         public FirelyFhirPathProvider()
         {
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+            ElementNavFhirExtensions.PrepareFhirSymbolTableFunctions();
             _cache = new FhirPathCompilerCache(new FhirPathCompiler(FhirPathCompiler.DefaultSymbolTable), CacheSize);
         }
 

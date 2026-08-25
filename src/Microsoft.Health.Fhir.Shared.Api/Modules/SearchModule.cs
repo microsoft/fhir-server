@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.FhirPath;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -57,6 +58,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
+
+            // FHIRPath Patch remains Firely-backed even when the evaluation seam uses Ignixa.
+            ElementNavFhirExtensions.PrepareFhirSymbolTableFunctions();
 
             Func<IFhirPathProvider> providerFactory = _configuration.CoreFeatures.FhirSdkProvider.EffectiveFhirPath switch
             {

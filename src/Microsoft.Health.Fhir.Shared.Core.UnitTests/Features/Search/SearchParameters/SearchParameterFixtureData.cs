@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         static SearchParameterFixtureData()
         {
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+            ElementNavFhirExtensions.PrepareFhirSymbolTableFunctions();
         }
 
         public static FhirPathCompiler Compiler { get; } = new FhirPathCompiler();
