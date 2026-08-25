@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string ResourceNarrative = "text.`div`";
 
+        public const string ResourceNarrativeDisplayPath = "text.div";
+
         public const string IsSoftDeletedExtension = $"Resource.meta.extension.where(url = '{AzureSoftDeletedExtensionUrl}').where(value='soft-deleted').exists()";
     }
 }

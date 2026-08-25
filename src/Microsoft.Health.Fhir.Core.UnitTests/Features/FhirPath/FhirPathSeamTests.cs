@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             // These consumers inspect Firely's AST and never evaluate an expression.
             "src/Microsoft.Health.Fhir.Shared.Core/Features/Search/Parameters/SearchParameterComparer.cs",
             "src/Microsoft.Health.Fhir.Shared.Core/Features/Search/Parameters/SearchParameterSupportResolver.cs",
+            "src/Microsoft.Health.Fhir.Shared.Core/Features/Search/Parameters/SearchParameterToTypeResolver.cs",
         };
 
         [Fact]
