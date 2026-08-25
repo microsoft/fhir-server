@@ -209,7 +209,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             ITypedElement input = new Patient { Id = "synthetic-patient" }.ToTypedElement();
             string[] expressions = definitions.AllSearchParameters
                 .Where(parameter => parameter.Code != SearchParameterNames.ResourceType)
-                .Select(parameter => parameter.Expression)
+                .SelectMany(parameter => (parameter.Component ?? Array.Empty<SearchParameterComponentInfo>())
+                    .Select(component => component.Expression)
+                    .Append(parameter.Expression))
                 .Where(expression => !string.IsNullOrWhiteSpace(expression))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(expression => expression, StringComparer.Ordinal)
