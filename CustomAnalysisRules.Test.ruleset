@@ -130,6 +130,7 @@
     <Rule Id="CA2234" Action="None" />
   </Rules>
   <Rules AnalyzerId="xunit.analyzers" RuleNamespace="Xunit.Analyzers">
+    <Rule Id="xUnit1031" Action="None" />
     <Rule Id="xUnit1051" Action="None" />
   </Rules>
 </RuleSet>

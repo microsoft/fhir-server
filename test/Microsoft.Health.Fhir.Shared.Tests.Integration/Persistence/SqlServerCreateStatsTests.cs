@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
 using NSubstitute.Core;
 using Xunit;
 using Task = System.Threading.Tasks.Task;

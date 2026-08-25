@@ -26,7 +26,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
 using Newtonsoft.Json;
 using Xunit;
 using static Hl7.Fhir.Model.Bundle;
