@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             }
 
             var errors = _narrativeHtmlSanitizer.Validate(xhtml);
-            var fullFhirPath = typedElement.InstanceType + "." + KnownFhirPaths.ResourceNarrative;
+            var fullFhirPath = typedElement.InstanceType + "." + KnownFhirPaths.ResourceNarrativeDisplayPath;
 
             foreach (var error in errors)
             {
