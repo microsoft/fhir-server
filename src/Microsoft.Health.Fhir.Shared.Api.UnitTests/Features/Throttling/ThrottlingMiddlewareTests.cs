@@ -316,8 +316,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             return output;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-        async Task IAsyncLifetime.DisposeAsync() => await _middleware.Value.DisposeAsync();
+        public async ValueTask DisposeAsync() => await _middleware.Value.DisposeAsync();
     }
 }

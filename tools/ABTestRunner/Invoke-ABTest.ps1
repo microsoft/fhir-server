@@ -452,9 +452,9 @@ if ($OnlyShortTests) {
 }
 
 if ($DataStore -eq 'SqlServer') {
-    $filterParts += 'FullyQualifiedName~SqlServer'
+    $filterParts += 'DataStore=SqlServer'
 } elseif ($DataStore -eq 'CosmosDb') {
-    $filterParts += 'FullyQualifiedName~CosmosDb'
+    $filterParts += 'DataStore=CosmosDb'
 }
 if ($CategoryFilter) {
     $filterParts += $CategoryFilter
