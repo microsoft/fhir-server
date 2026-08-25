@@ -61,14 +61,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             await CancelAnyRunningReindexJobsAsync();
 
-            await DeleteResourcesAsync("Person");
-            await DeleteResourcesAsync("Specimen");
-            await DeleteResourcesAsync("SupplyDelivery");
-            await DeleteResourcesAsync("Immunization");
+            _ = await DeleteResourcesAsync("Person");
+            _ = await DeleteResourcesAsync("Specimen");
+            _ = await DeleteResourcesAsync("SupplyDelivery");
+            _ = await DeleteResourcesAsync("Immunization");
             //// delete search param resources
-            await DeleteResourcesAsync("SearchParameter"); // mark as pending
-            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] }); // true delete
-            await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
+            var deletedSearchParameters = await DeleteResourcesAsync("SearchParameter"); // mark as pending
+
+            if (deletedSearchParameters > 0)
+            {
+                OperationStatus lastStatus = OperationStatus.Queued;
+
+                for (var attempt = 1; attempt <= 3; attempt++)
+                {
+                    var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] }); // true delete
+                    lastStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
+
+                    if (lastStatus == OperationStatus.Completed)
+                    {
+                        break;
+                    }
+
+                    _output.WriteLine($"InitializeAsync cleanup reindex failed on attempt {attempt}/3. Status={lastStatus}.");
+                }
+
+                Assert.True(lastStatus == OperationStatus.Completed, $"InitializeAsync cleanup reindex failed after 3 retries. LastStatus={lastStatus}.");
+            }
+            else
+            {
+                _output.WriteLine("InitializeAsync: skipping cleanup reindex because no SearchParameter resources were deleted.");
+            }
 
             _output.WriteLine($"ReindexTests.InitializeAsync: Completed. Elapsed={(int)sw.Elapsed.TotalMilliseconds} msec.");
         }
@@ -1483,30 +1505,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return await Task.FromResult(supplyDelivery);
         }
 
-        private async Task DeleteResourcesAsync(string resourceType)
+        private async Task<int> DeleteResourcesAsync(string resourceType)
         {
-            try
+            for (var attempt = 1; attempt <= 3; attempt++)
             {
-                var deletedIds = new HashSet<string>();
-                string nextUrl = null;
-                const int pageSize = 100;
-
-                do
+                try
                 {
-                    var searchResponse = nextUrl == null
-                        ? await _fixture.TestFhirClient.SearchAsync($"{resourceType}?_count={pageSize}")
-                        : await _fixture.TestFhirClient.SearchAsync(nextUrl.Contains("_count=") ? nextUrl : $"{nextUrl}&_count={pageSize}");
-
-                    if (searchResponse?.Resource?.Entry == null || searchResponse.Resource.Entry.Count == 0)
+                    const int pageSize = 100;
+                    var nextUrl = $"{resourceType}?_count={pageSize}";
+                    var deleted = 0;
+                    do
                     {
-                        break;
-                    }
-
-                    var bundle = new Bundle { Type = Bundle.BundleType.Batch };
-
-                    foreach (var entry in searchResponse.Resource.Entry.Where(entry => !deletedIds.Contains(entry.Resource.Id)))
-                    {
-                        if (!entry.IsDeleted())
+                        var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextUrl);
+                        var bundle = new Bundle { Type = Bundle.BundleType.Transaction };
+                        foreach (var entry in searchResponse.Resource.Entry.Where(_ => !_.IsDeleted()))
                         {
                             bundle.Entry.Add(new Bundle.EntryComponent
                             {
@@ -1514,30 +1526,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                             });
                         }
 
-                        deletedIds.Add(entry.Resource.Id);
+                        if (bundle.Entry.Count > 0)
+                        {
+                            await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                        }
+
+                        deleted += bundle.Entry.Count;
+                        _output.WriteLine($"{resourceType} deleted={bundle.Entry.Count}");
+                        nextUrl = searchResponse.Resource.Link?.FirstOrDefault(l => l.Relation == "next")?.Url;
                     }
+                    while (!string.IsNullOrEmpty(nextUrl));
 
-                    if (bundle.Entry.Count > 0)
-                    {
-                        await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
-                    }
-
-                    _output.WriteLine($"Deleted {bundle.Entry.Count} {resourceType} resources");
-
-                    var nextLink = searchResponse.Resource.Link?.FirstOrDefault(l => l.Relation == "next");
-                    nextUrl = nextLink?.Url;
-
-                    if (bundle.Entry.Count == 0)
-                    {
-                        break;
-                    }
+                    return deleted;
                 }
-                while (!string.IsNullOrEmpty(nextUrl));
+                catch (Exception ex)
+                {
+                    _output.WriteLine($"Failed to delete {resourceType} resources on attempt {attempt}/3: {ex.Message}");
+                }
             }
-            catch (Exception ex)
-            {
-                _output.WriteLine($"Failed to delete {resourceType} resources: {ex.Message}");
-            }
+
+            return 0;
         }
 
         private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
