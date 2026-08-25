@@ -79,7 +79,7 @@ The only database row this feature causes to exist is its **lease**, in `dbo.Wat
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
 | `IncludeStatisticsHealth` | `true` | Whether statistics metadata is emitted. |
-| `StatisticsHealthCount` | `20` | Number of statistics rows to report per tick. |
+| `StatisticsHealthCount` | `20` | Worst-ranked statistics rows to report per tick. Each row is one notification, so this directly multiplies emission volume; see [Why the count is capped](#why-the-count-is-capped). |
 | `RunStartDate` | `null` (unset) | Inclusive start of the optional run window. Ticks before it collect nothing. `null` means no lower bound. |
 | `RunEndDate` | `null` (unset) | **Exclusive** end of the optional run window. Ticks at or after it collect nothing. `null` means no upper bound. |
 
@@ -187,6 +187,16 @@ Wait capture is retained locally, rather than deferred entirely to the `QuerySto
 Statistics are read from `sys.stats` with an `OUTER APPLY` to `sys.dm_db_stats_properties`, so a statistics object remains visible even when its properties cannot be read. The scan is restricted to user tables and excludes temporal history tables. Rows are ordered by staleness — modification counter over row count — and limited to `StatisticsHealthCount`.
 
 Modification percentage is left null when the row count is null or zero rather than being reported as zero, so "no data" is distinguishable from "not stale". Percentages above 100 are preserved; they are a legitimate signal that a table has churned more than its cardinality.
+
+#### Why the count is capped
+
+`StatisticsHealthCount` is a cap on what is *reported*, not on what is examined: the ordering runs across every qualifying statistic and only the worst are emitted. The cap matters because each reported row is published as its own `StatisticsHealthNotification`, so the setting is a direct multiplier on emission volume — per collection, per database, per host.
+
+The schema alone defines roughly a hundred index-backed statistics across its user tables, and SQL Server adds auto-created column statistics on top of that as queries run, so the full set on a busy database is comfortably several hundred. Reporting all of them would turn one collection into several hundred notifications, and a fleet multiplies that by database count. `docs/arch/adr-2605-metric-emission-rate-limiting.md` records what that costs: a high-volume emission pattern throttled a *shared* metric account and degraded monitoring for both the FHIR and DICOM services. Metric events are charged on receipt, so volume is both a cost and an availability concern.
+
+Capping is therefore the right shape, and the ordering is what makes a small cap usable — the reported rows are the worst offenders rather than an arbitrary slice. Statistics with no readable row count sort last, so empty and unsampled tables do not consume the budget.
+
+One bias is worth knowing when reading the output. Ranking is by *ratio*, so a small table that churns heavily outranks a large one that has drifted less proportionally: ten rows with a hundred modifications scores 10.0, while a hundred-million-row table with twenty million modifications scores 0.2, even though the second is far more likely to distort a plan. A handful of small, busy tables can therefore fill the report while a consequential stale statistic on a large table sits below the cut. Raising `StatisticsHealthCount` widens the window, at the emission cost described above. If large-table staleness is what is being chased, the ordering — not the cap — is the thing to revisit.
 
 ### Failure containment
 
