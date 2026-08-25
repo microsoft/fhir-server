@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -24,9 +25,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             "src/Microsoft.Health.Fhir.Core/Features/FhirPath/FirelyFhirPathProvider.cs",
             "src/Microsoft.Health.Fhir.Core/Features/FhirPath/ICompiledFhirPath.cs",
 
+            // The composition root unconditionally invokes Firely's guarded, idempotent registration
+            // because FHIRPath Patch remains Firely-backed when the evaluation provider is Ignixa.
+            "src/Microsoft.Health.Fhir.Shared.Api/Modules/SearchModule.cs",
+
             // FHIRPath Patch mutates the selected Firely ElementNode instances. Ignixa adapters cannot
             // preserve that node identity, so Patch remains Firely-backed until migration phase 7.
-            "src/Microsoft.Health.Fhir.Core/Features/Operations/Resources/Patch/PatchPayload.cs",
             "src/Microsoft.Health.Fhir.Shared.Core/Features/Resources/Patch/FhirPathPatch/Operations/OperationAdd.cs",
             "src/Microsoft.Health.Fhir.Shared.Core/Features/Resources/Patch/FhirPathPatch/Operations/OperationDelete.cs",
             "src/Microsoft.Health.Fhir.Shared.Core/Features/Resources/Patch/FhirPathPatch/Operations/OperationInsert.cs",
@@ -61,8 +65,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         private static bool ImportsFirelyEngine(string path)
         {
             string source = File.ReadAllText(path);
-            return source.Contains("using Hl7.FhirPath;", StringComparison.Ordinal) ||
-                source.Contains("using Hl7.Fhir.FhirPath;", StringComparison.Ordinal);
+            return Regex.IsMatch(
+                    source,
+                    @"using\s+(?:\w+\s*=\s*)?(?:global::)?Hl7\.FhirPath\s*;",
+                    RegexOptions.CultureInvariant) ||
+                Regex.IsMatch(
+                    source,
+                    @"using\s+(?:\w+\s*=\s*)?(?:global::)?Hl7\.Fhir\.FhirPath\s*;",
+                    RegexOptions.CultureInvariant) ||
+                Regex.IsMatch(
+                    source,
+                    @"(?:global::)?Hl7\.FhirPath\.(?!(?:Expressions|Sprache|EvaluationContext)\b)",
+                    RegexOptions.CultureInvariant) ||
+                Regex.IsMatch(
+                    source,
+                    @"(?:global::)?Hl7\.Fhir\.FhirPath\.(?!FhirEvaluationContext\b)",
+                    RegexOptions.CultureInvariant);
         }
 
         private static string FindRepositoryRoot()
