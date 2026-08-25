@@ -852,6 +852,151 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task MergeAsync_GivenGuardedNoOp_ThenTheAuthoritativeProbeTakesItsUpdateLockOnTheClusteredKey()
+        {
+            // Arrange - the probe waits on, and is waited on by, the same writers dbo.MergeResources runs. Every one
+            // of those writers touches a resource through the clustered key (ResourceTypeId, ResourceSurrogateId)
+            // first - dbo.MergeResources locks it that way in its retry check and again when it stamps the previous
+            // version as history - so a probe that instead claimed its update lock on the
+            // IX_Resource_ResourceTypeId_ResourceId seek would acquire the two lock resources of a single row in the
+            // opposite order and could deadlock a bundle that later writes that row. Locating the row through the
+            // index without a lock and then locking the clustered key keeps this read in the store's established
+            // lock order.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            List<(string CommandText, bool IsReadOnly)> probes = ConfigureCurrentVersionProbe(
+                sqlRetryService,
+                _ => new[] { new ResourceDateKey(1, "123", 0, "1", isDeleted: false) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            string probeCommandText = Assert.Single(probes).CommandText;
+            string[] lines = probeCommandText.Split('\n');
+
+            string lockingJoin = Assert.Single(lines, line => line.Contains("UPDLOCK", StringComparison.Ordinal));
+            Assert.Contains("ROWLOCK", lockingJoin, StringComparison.Ordinal);
+            Assert.DoesNotContain("HOLDLOCK", probeCommandText, StringComparison.Ordinal);
+            Assert.DoesNotContain("IX_Resource_ResourceTypeId_ResourceId", lockingJoin, StringComparison.Ordinal);
+
+            // Every column read here is also carried by IX_Resource_ResourceTypeId_ResourceId, so without an explicit
+            // clustered index hint the optimizer covers the read from that nonclustered index and takes the update
+            // lock on the index row instead of the row itself.
+            Assert.Contains("INDEX = PKC_Resource", lockingJoin, StringComparison.Ordinal);
+            Assert.Contains("ResourceSurrogateId = A.ResourceSurrogateId", probeCommandText, StringComparison.Ordinal);
+
+            // An authoritative probe blocks on a concurrent writer by design. A bounded lock timeout keeps that wait
+            // from turning into an unbounded stall (and, when the merge is enlisted in a bundle's transaction, from
+            // holding that bundle open indefinitely); the resulting error is classified as contention below.
+            Assert.Contains("SET LOCK_TIMEOUT", probeCommandText, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(1205)] // deadlock victim
+        [InlineData(1222)] // lock request timeout
+        public async Task MergeAsync_GivenGuardedNoOpProbeLostToContention_ThenReportsRetryableContentionRatherThanASqlFailure(int sqlErrorNumber)
+        {
+            // Arrange - the authoritative probe takes locks and waits for concurrent writers, so SQL can pick it as a
+            // deadlock victim or time its lock request out. Neither outcome says anything about whether the client's
+            // version is stale, so reporting 412 would be a lie; letting the raw SqlException escape reports a
+            // 500 for an ordinary, retryable contention outcome.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            List<string> executedCommands = ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            ConfigureFailingCurrentVersionProbe(sqlRetryService, SqlExceptionFactory.GetSqlException(sqlErrorNumber, "Lock contention"));
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, cts.Token);
+
+            // Assert
+            DataStoreOperationOutcome result = outcome.Results.Values.Single();
+            Assert.False(result.IsOperationSuccessful);
+            Assert.IsType<TransactionDeadlockException>(result.Exception);
+            Assert.Equal(Core.Resources.TransactionDeadlock, result.Exception.Message);
+
+            // The contention belongs to one operation, so the batch's own merge transaction must still be settled.
+            Assert.Contains("dbo.MergeResourcesCommitTransaction", executedCommands, StringComparer.Ordinal);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenGuardedNoOpProbeFailure_ThenTheMergeTransactionIsSettledInsteadOfOrphaned()
+        {
+            // Arrange - the guarded probe runs after dbo.MergeResourcesBeginTransaction has already handed out a
+            // transaction id. Any failure that escapes from that point on must still settle that transaction,
+            // otherwise every failed probe leaves an open transaction behind for the watchdog to time out, and a
+            // sequential bundle can leak one per entry.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            List<string> executedCommands = ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            ConfigureFailingCurrentVersionProbe(sqlRetryService, SqlExceptionFactory.GetSqlException(50000, "probe failed"));
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                weakETag: WeakETag.FromVersionId("1"));
+
+            // Act - an unclassified probe failure still propagates; only the transaction handling changes.
+            await Assert.ThrowsAsync<SqlException>(() => dataStore.MergeAsync(new[] { operation }, cts.Token));
+
+            // Assert
+            Assert.Contains("dbo.MergeResourcesBeginTransaction", executedCommands, StringComparer.Ordinal);
+            Assert.Contains("dbo.MergeResourcesCommitTransaction", executedCommands, StringComparer.Ordinal);
+        }
+
+        [Fact]
+        public async Task MergeAsync_GivenBundleTransactionWithAFailedPrecondition_ThenTheMergeTransactionIsSettledInsteadOfOrphaned()
+        {
+            // Arrange - a bundle transaction that contains any failed operation returns without sending anything to
+            // dbo.MergeResources. The transaction id handed out before the merge loop is therefore never used, and
+            // must be settled here rather than left open until the transaction watchdog times it out.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            using var cts = new CancellationTokenSource();
+            const string rawResource = "{\"resourceType\":\"Patient\",\"id\":\"123\"}";
+
+            List<string> executedCommands = ConfigureSuccessfulNonQueryCalls(sqlRetryService);
+            ConfigureSnapshotRead(sqlRetryService, CreateResourceWrapperWithVersion(rawResource, "1"));
+            ConfigureCurrentVersionProbe(sqlRetryService, _ => new[] { new ResourceDateKey(1, "123", 0, "2", isDeleted: false) });
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            ResourceWrapperOperation operation = CreateOperation(
+                CreateResourceWrapperWithVersion(rawResource, "1"),
+                comparedVersion: "1");
+
+            // Act
+            MergeOutcome outcome = await dataStore.MergeAsync(
+                new[] { operation },
+                new MergeOptions(enlistTransaction: false, isBundleTransaction: true),
+                cts.Token);
+
+            // Assert
+            Assert.Equal(MergeOutcomeFinalState.CompletedWithFailures, outcome.State);
+            Assert.IsType<PreconditionFailedException>(outcome.Results.Values.Single().Exception);
+            Assert.DoesNotContain("dbo.MergeResources", executedCommands, StringComparer.Ordinal);
+            Assert.Contains("dbo.MergeResourcesCommitTransaction", executedCommands, StringComparer.Ordinal);
+        }
+
+        [Fact]
         public void GivenKnownResourceType_WhenGettingResourceTypeId_ThenResourceTypeIdIsReturned()
         {
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -994,7 +1139,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             return probes;
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
+        /// <summary>
+        /// Configures the authoritative current-version probe to fail, so a test can prove how a probe that never
+        /// produced an answer is classified.
+        /// </summary>
+        private static void ConfigureFailingCurrentVersionProbe(ISqlRetryService sqlRetryService, Exception failure)
+        {
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceDateKey>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .ThrowsAsync(failure);
+        }
+
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(
+            ISqlRetryService sqlRetryService,
+            SqlTransactionHandler sqlTransactionHandler = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -1047,6 +1210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var sqlConnection = new SqlConnection();
             var sqlConnectionBuilder = Substitute.For<ISqlConnectionBuilder>();
             sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(new SqlConnection()));
+
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = sqlConnection.ConnectionString };

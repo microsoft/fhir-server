@@ -39,33 +39,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private const string _invisibleResource = " ";
 
         //// Authoritative current-version probe for a resource the batch snapshot already matched to an existing
-        //// row. UPDLOCK takes an update lock on that row, so the statement conflicts with any concurrent writer of
-        //// the same resource - including one that is mid-flight and has not committed yet - forcing this read to
-        //// observe the writer's committed outcome instead of a row-versioned snapshot. That is what makes the
-        //// answer authoritative: under READ_COMMITTED_SNAPSHOT (the Azure SQL default) an ordinary SELECT would
-        //// silently read a pre-write version and would not block on the writer.
-        //// HOLDLOCK is deliberately not added here. Paired with UPDLOCK it escalates the lock to serializable
-        //// key-range locking, and dbo.MergeResources documents that exact UPDLOCK+HOLDLOCK combination as deadlock
-        //// prone on its own, analogous version comparison join (see the commented out hint on the @ResourceInfos
-        //// join in MergeResources.sql) - so claiming the same combination here would repeat a hint that stored
-        //// procedure explicitly rejects. It is also unneeded: this probe only has to be authoritative about a row
-        //// that is already known to exist, not defend a key range against a concurrent insert, so plain UPDLOCK is
-        //// the minimal safe hint. A key that is absent when this runs is simply not returned; the caller treats
-        //// that as a guarded disappearance (see SqlServerFhirDataStore.VerifyNoOpVersionPreconditionAsync).
-        //// IX_Resource_ResourceTypeId_ResourceId is filtered on IsHistory = 0 and includes Version and IsDeleted; its
-        //// definition in Resource.sql exists specifically so that this UPDLOCK read needs no key lookup.
+        //// row. The lock is what makes the answer authoritative: under READ_COMMITTED_SNAPSHOT (the Azure SQL
+        //// default) an ordinary SELECT returns a row version from before a concurrent writer's uncommitted change
+        //// and does not block on that writer, so it can report a version that is already gone.
+        ////
+        //// The lock is deliberately claimed on the clustered key (ResourceTypeId, ResourceSurrogateId) rather than
+        //// on the IX_Resource_ResourceTypeId_ResourceId seek that locates the row. Every writer of a resource
+        //// reaches its rows through the clustered key first - dbo.MergeResources locks it that way in its retry
+        //// check (ROWLOCK, HOLDLOCK on the surrogate id join) and again when it stamps the previous version as
+        //// history, before the nonclustered indexes are maintained - so locking the same resource here keeps this
+        //// read in the store's established lock order. A probe that instead claimed UPDLOCK on the resource id
+        //// index would take the two lock resources of one row in the opposite order from every writer, which is
+        //// exactly the deadlock MergeResources.sql documents on its own version comparison join. Locating the row
+        //// through the index first without a lock costs one extra seek and cannot produce a false success: if the
+        //// row is replaced between the two statements, the old surrogate id is no longer the current row and is
+        //// simply not returned, and the caller treats a key that is not returned as a guarded disappearance (see
+        //// SqlServerFhirDataStore.VerifyNoOpVersionPreconditionAsync).
+        //// The PKC_Resource hint is what makes that real: every column this reads is also carried by
+        //// IX_Resource_ResourceTypeId_ResourceId, so without the hint the optimizer covers the query from that
+        //// nonclustered index and the update lock lands on the very index row this is trying not to lock first.
+        ////
+        //// HOLDLOCK is not added. UPDLOCK alone is already held to the end of the enclosing transaction, and pairing
+        //// it with HOLDLOCK would escalate to serializable key-range locking, which is unnecessary for a row that is
+        //// already known to exist.
+        ////
+        //// LOCK_TIMEOUT bounds the wait. Blocking on a concurrent writer is the point of this read, but an
+        //// unbounded wait would let one slow writer stall a request thread - and, when the merge is enlisted in a
+        //// sequential transaction bundle, hold that bundle's transaction open for as long as it lasted. The
+        //// resulting error 1222 is classified as contention by the caller instead of surfacing as a server error.
+        //// The setting is restored afterwards because an enlisted probe runs on the bundle's shared connection;
+        //// -1 (wait indefinitely) is SQL Server's default and nothing in this store sets it on that connection.
         private const string CurrentResourceVersionsLockingSql = @"
 SET NOCOUNT ON
+SET LOCK_TIMEOUT 10000
+
+DECLARE @CurrentResources TABLE (ResourceTypeId smallint NOT NULL, ResourceSurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId))
+
+INSERT INTO @CurrentResources
+        (  ResourceTypeId,           ResourceSurrogateId )
+  SELECT B.ResourceTypeId, B.ResourceSurrogateId
+    FROM @ResourceKeys A
+         JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId)
+           ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+    WHERE B.IsHistory = 0
+    OPTION (MAXDOP 1)
+
 SELECT B.ResourceTypeId
       ,B.ResourceId
       ,B.ResourceSurrogateId
       ,B.Version
       ,B.IsDeleted
-  FROM @ResourceKeys A
-       JOIN dbo.Resource B WITH (UPDLOCK, INDEX = IX_Resource_ResourceTypeId_ResourceId)
-         ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+  FROM @CurrentResources A
+       JOIN dbo.Resource B WITH (ROWLOCK, UPDLOCK, INDEX = PKC_Resource)
+         ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   WHERE B.IsHistory = 0
-  OPTION (MAXDOP 1)";
+  OPTION (MAXDOP 1)
+
+SET LOCK_TIMEOUT -1";
 
         //// Non-locking form, used only to classify an error that has already happened (see
         //// SqlServerFhirDataStore.FindOperationWithViolatedVersionPreconditionAsync). It must never block: it can run
@@ -184,10 +214,10 @@ SELECT B.ResourceTypeId
         /// </summary>
         /// <param name="keys">The resource keys to probe. The Version column of each row is ignored.</param>
         /// <param name="acquireUpdateLocks">
-        /// When true, the read acquires an UPDLOCK on each targeted row, so it is serialized with concurrent writers
-        /// of the same resources instead of observing a row-versioned snapshot. It deliberately does not also take
-        /// HOLDLOCK: see the remarks on <see cref="CurrentResourceVersionsLockingSql"/> for why that combination is
-        /// avoided.
+        /// When true, the read acquires an UPDLOCK on the clustered key of each targeted row, so it is serialized
+        /// with concurrent writers of the same resources instead of observing a row-versioned snapshot. See the
+        /// remarks on <see cref="CurrentResourceVersionsLockingSql"/> for why the lock is taken there and not on the
+        /// index that locates the row, and for the bounded lock wait that goes with it.
         /// </param>
         /// <param name="enlistedConnection">
         /// An optional ambient connection and transaction to run on. When supplied, any locks acquired are held until

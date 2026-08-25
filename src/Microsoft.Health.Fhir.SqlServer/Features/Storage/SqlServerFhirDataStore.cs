@@ -54,6 +54,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private const string InitialVersion = "1";
         internal const string MergeApplicationName = "MergeResources";
 
+        //// SQL Server engine error numbers for lock contention. They are engine level, not FHIR schema level, so they
+        //// are not part of FhirSqlErrorCodes.
+        private const int SqlDeadlockVictimErrorNumber = 1205;
+        private const int SqlLockRequestTimeoutErrorNumber = 1222;
+
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
@@ -274,6 +279,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // TODO: Set this parameter to true when 429 instead of intenal waits is desired. Make sure that exception is NOT thrown only for API calls.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
+            // From here on a transaction id exists in dbo.Transactions, and nothing settles it until dbo.MergeResources
+            // runs. Every exit before that point - a guarded version probe that deadlocked, timed out or lost its
+            // connection, a bundle transaction that returns early because one of its operations failed, a
+            // cancellation - would otherwise leave an open transaction behind for the transaction watchdog to time
+            // out, and a sequential bundle can leak one per entry.
+            await using var mergeTransaction = new MergeTransactionSettlement(StoreClient, _logger, transactionId);
+
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             ResourceKey prevResourceKey = null;
@@ -397,7 +409,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // The batch snapshot above cannot stand in for it: it is an unlocked, point-in-time read
                         // taken several round trips earlier, so it neither blocks a concurrent writer of this
                         // resource nor observes one that is already in flight.
-                        PreconditionFailedException noOpDeletePrecondition = await VerifyNoOpVersionPreconditionAsync(resourceExt, enlistInTransaction, cancellationToken);
+                        FhirException noOpDeletePrecondition = await VerifyNoOpVersionPreconditionAsync(resourceExt, enlistInTransaction, cancellationToken);
                         if (noOpDeletePrecondition != null)
                         {
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(noOpDeletePrecondition));
@@ -418,7 +430,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             // As with the already-deleted branch above, an update that changes nothing never reaches
                             // dbo.MergeResources, so a guarded operation must have its precondition confirmed against
                             // an authoritative, lock-serialized read before this success is returned.
-                            PreconditionFailedException noOpUpdatePrecondition = await VerifyNoOpVersionPreconditionAsync(resourceExt, enlistInTransaction, cancellationToken);
+                            FhirException noOpUpdatePrecondition = await VerifyNoOpVersionPreconditionAsync(resourceExt, enlistInTransaction, cancellationToken);
                             if (noOpUpdatePrecondition != null)
                             {
                                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(noOpUpdatePrecondition));
@@ -520,6 +532,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var pendingStatuses = resources.Where(_ => _.PendingSearchParameterStatus != null).Select(_ => _.PendingSearchParameterStatus).ToList();
+
+            // Everything below either sends this transaction to dbo.MergeResources, settles it explicitly, or - for a
+            // merge that is not a single SQL transaction - deliberately leaves it open so the transaction watchdog can
+            // roll it forward, so its fate is no longer this method's to guarantee.
+            mergeTransaction.TransferToMergeExecution();
+
             if (mergeWrappersWithVersions.Count > 0 || pendingStatuses.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
@@ -1146,18 +1164,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// not block on that writer.
         /// </para>
         /// <para>
-        /// This check restores an equivalent guarantee by re-reading the current row with UPDLOCK on the primary,
-        /// which is enough to force the read to observe a concurrent writer of the same, already-matched row: that
+        /// This check restores an equivalent guarantee by re-reading the current row under an update lock on the
+        /// primary, which forces the read to observe a concurrent writer of that same, already-matched row: that
         /// writer either committed before the lock was granted - in which case the new version is observed here and
         /// the precondition fails - or is forced to wait behind it, which serializes the no-op ahead of that writer.
-        /// HOLDLOCK is deliberately not added: paired with UPDLOCK it would escalate to a serializable key-range lock,
-        /// and dbo.MergeResources documents that exact combination as deadlock prone on its own, analogous version
-        /// comparison join (see the commented out hint in MergeResources.sql), without buying anything here since the
-        /// row being probed is already known to exist. It is the SQL Server counterpart of the ETag guarded write
-        /// Cosmos DB uses for the same decision, and it deliberately performs no write, so a no-op still creates no
-        /// FHIR version. When the merge is enlisted in an ambient transaction (a sequential transaction bundle), the
-        /// read runs on that transaction and its lock is held until the bundle's write boundary commits, making the
-        /// check atomic with the bundle.
+        /// The lock is taken on the row's clustered key, which is the lock every writer of that resource acquires
+        /// first, so this read follows the store's established lock order rather than inverting it (see the remarks on
+        /// SqlStoreClient.CurrentResourceVersionsLockingSql). It is the SQL Server counterpart of the ETag guarded
+        /// write Cosmos DB uses for the same decision, and it deliberately performs no write, so a no-op still creates
+        /// no FHIR version. When the merge is enlisted in an ambient transaction (a sequential transaction bundle),
+        /// the read runs on that transaction and its lock is held until the bundle's write boundary commits, making
+        /// the check atomic with the bundle.
+        /// </para>
+        /// <para>
+        /// Losing that lock wait - as a deadlock victim or a lock request timeout - is an expected outcome rather than
+        /// a fault, and is classified by <see cref="ReportGuardedProbeContention"/> as retryable contention instead of
+        /// a stale precondition or a server error.
         /// </para>
         /// <para>
         /// The caller supplied WeakETag is normalized the same way as the batch snapshot comparison earlier in
@@ -1173,7 +1195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="enlistInTransaction">Whether this merge is enlisted in an ambient SQL transaction.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The failure to report for this operation, or <c>null</c> when every precondition still holds.</returns>
-        private async Task<PreconditionFailedException> VerifyNoOpVersionPreconditionAsync(ResourceWrapperOperation resourceExt, bool enlistInTransaction, CancellationToken cancellationToken)
+        private async Task<FhirException> VerifyNoOpVersionPreconditionAsync(ResourceWrapperOperation resourceExt, bool enlistInTransaction, CancellationToken cancellationToken)
         {
             string rawETagVersion = resourceExt.WeakETag?.VersionId;
             string comparedVersion = resourceExt.ComparedVersion;
@@ -1190,8 +1212,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 ? null
                 : ParseWeakETagVersionOrSentinel(rawETagVersion).ToString(CultureInfo.InvariantCulture);
 
-            IReadOnlyDictionary<(short ResourceTypeId, string ResourceId), ResourceDateKey> current =
-                await ReadCurrentResourceVersionsAsync(new[] { resourceExt }, acquireUpdateLocks: true, enlistInTransaction, cancellationToken);
+            IReadOnlyDictionary<(short ResourceTypeId, string ResourceId), ResourceDateKey> current;
+            try
+            {
+                current = await ReadCurrentResourceVersionsAsync(new[] { resourceExt }, acquireUpdateLocks: true, enlistInTransaction, cancellationToken);
+            }
+            catch (Exception e) when (TryGetLockContentionError(e, out SqlException contention))
+            {
+                return ReportGuardedProbeContention(contention, enlistInTransaction);
+            }
 
             //// A missing entry means the guarded target disappeared entirely (for example a concurrent hard delete or
             //// purge) after it was matched. string.Equals with a null current version therefore reports a failed
@@ -1212,6 +1241,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Classifies a guarded version probe that never produced an answer because SQL Server chose it as a deadlock
+        /// victim (1205) or timed out its lock request (1222).
+        /// </summary>
+        /// <remarks>
+        /// The probe exists to be serialized with concurrent writers, so losing to contention is an expected outcome
+        /// rather than a fault. It says nothing about whether the caller's version is still current, so reporting 412
+        /// would fabricate a stale precondition, and letting the raw <see cref="SqlException"/> escape reports a 500
+        /// for a condition the caller can simply retry. Both codes are therefore reported as datastore contention,
+        /// which is a 409.
+        /// <para>
+        /// When the merge is enlisted in a sequential transaction bundle the probe ran on that bundle's transaction: a
+        /// deadlock has already rolled it back and a lock timeout leaves it waiting on locks it cannot obtain, so the
+        /// failure belongs to the whole bundle and is thrown rather than recorded against one operation. A merge that
+        /// is not enlisted loses only the probe's own auto-commit transaction, so the contention is reported as that
+        /// one operation's outcome and the rest of the batch is unaffected; those probes also reach here only after
+        /// the retry service has exhausted its own retries of the statement.
+        /// </para>
+        /// </remarks>
+        /// <param name="contention">The SQL error that ended the probe.</param>
+        /// <param name="enlistInTransaction">Whether this merge is enlisted in an ambient SQL transaction.</param>
+        /// <returns>The failure to report for this operation, when it can be reported per operation.</returns>
+        private TransactionDeadlockException ReportGuardedProbeContention(SqlException contention, bool enlistInTransaction)
+        {
+            _logger.LogWarning(contention, "Conflict: guarded version probe lost to datastore contention (SQL error {SqlErrorNumber}).", contention.Number);
+
+            if (IsEnlistedInAmbientTransaction(enlistInTransaction))
+            {
+                throw new TransactionDeadlockException(Core.Resources.TransactionDeadlock);
+            }
+
+            return new TransactionDeadlockException(Core.Resources.TransactionDeadlock);
+        }
+
+        /// <summary>
+        /// Determines whether an exception reports SQL Server lock contention: a deadlock victim (1205) or a lock
+        /// request that timed out (1222).
+        /// </summary>
+        private static bool TryGetLockContentionError(Exception exception, out SqlException contention)
+        {
+            contention = exception as SqlException ?? (exception as AggregateException)?.InnerException as SqlException;
+            return contention != null
+                && (contention.Number == SqlDeadlockVictimErrorNumber || contention.Number == SqlLockRequestTimeoutErrorNumber);
+        }
+
+        /// <summary>
+        /// Determines whether this merge runs on an ambient C# transaction, which only a sequential transaction bundle
+        /// opens. A merge that asks to enlist without such a scope still runs on its own auto-commit transactions.
+        /// </summary>
+        private bool IsEnlistedInAmbientTransaction(bool enlistInTransaction)
+        {
+            return enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null;
         }
 
         /// <summary>
@@ -1317,7 +1400,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlConnectionWrapper enlistedConnection = null;
             try
             {
-                if (enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null)
+                if (IsEnlistedInAmbientTransaction(enlistInTransaction))
                 {
                     enlistedConnection = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 }

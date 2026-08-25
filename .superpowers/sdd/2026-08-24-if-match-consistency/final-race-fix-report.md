@@ -299,3 +299,219 @@ git diff --check
   version/history is created. Cosmos coverage uses the production serializer
   and deterministic container simulation; it was not run against a live
   emulator/service in this environment.
+
+## Fix Round 4 - Guarded No-Op Lock Ordering, Merge Transaction Settlement, Contention Mapping
+
+### Scope
+
+This round resolves the three review findings against `a163533cc`:
+
+1. the guarded no-op probe took its `UPDLOCK` on `IX_Resource_ResourceTypeId_ResourceId`
+   - the opposite lock order from every writer - and its SQL deadlock/lock-timeout
+   errors (1205/1222) were neither bounded nor mapped, so they could surface as 500;
+2. the new SQL statements had no live-backend execution evidence; and
+3. a guarded probe failure after `MergeResourcesBeginTransactionAsync` escaped without
+   settling the merge transaction, leaving an orphan for the transaction watchdog.
+
+### Files
+
+Production:
+
+- `src/Microsoft.Health.Fhir.SqlServer/Features/Storage/SqlStoreClient.cs`
+- `src/Microsoft.Health.Fhir.SqlServer/Features/Storage/SqlServerFhirDataStore.cs`
+- `src/Microsoft.Health.Fhir.SqlServer/Features/Storage/MergeTransactionSettlement.cs` (new)
+
+Tests:
+
+- `src/Microsoft.Health.Fhir.SqlServer.UnitTests/Features/Storage/SqlServerFhirDataStoreUnitTests.cs`
+- `test/Microsoft.Health.Fhir.Shared.Tests.Integration/Persistence/SqlServerGuardedNoOpTests.cs` (new)
+- `test/Microsoft.Health.Fhir.Shared.Tests.Integration/Microsoft.Health.Fhir.Shared.Tests.Integration.projitems`
+
+No Cosmos production code was changed, no schema/stored procedure was added or
+altered, and `IFhirDataStore.HardDeleteAsync` is untouched.
+
+### Design and implementation
+
+#### Lock ordering (finding 1)
+
+The probe still settles the comparison authoritatively under an update lock on the
+primary - the lock was not removed and no pre-read/replica comparison was
+reintroduced - but it now claims that lock where the store's writers already claim
+theirs:
+
+- the row is located through `IX_Resource_ResourceTypeId_ResourceId` **without** a
+  lock, and its surrogate id is collected into a table variable;
+- the lock is then taken on the clustered key `(ResourceTypeId, ResourceSurrogateId)`
+  with `ROWLOCK, UPDLOCK, INDEX = PKC_Resource`, filtered on `IsHistory = 0`.
+
+`dbo.MergeResources` locks that same clustered key in its retry check
+(`ROWLOCK, HOLDLOCK` on the surrogate id join) and again when it stamps the previous
+version as history, before nonclustered index maintenance. Locking the clustered key
+therefore follows the established order instead of inverting it; the previous form
+took the index lock first and the clustered lock later (via the enclosing bundle),
+which is the inversion the review flagged and the same pairing `MergeResources.sql`
+rejects on its own version comparison join. `HOLDLOCK` is still not used.
+
+The `INDEX = PKC_Resource` hint is load bearing rather than cosmetic: every column the
+statement reads is also carried by `IX_Resource_ResourceTypeId_ResourceId`, so without
+it the optimizer covers the read from that nonclustered index and the update lock lands
+on exactly the index row the change is trying not to lock first. This was caught by the
+live integration tests, not by inspection (see RED #3 below).
+
+Correctness is unchanged by the two-step form: if the current row is replaced between
+the two statements, the old surrogate id is no longer current, is not returned, and the
+caller reports the established guarded-disappearance 412.
+
+#### Bounded wait and error mapping (finding 1)
+
+`SET LOCK_TIMEOUT 10000` bounds the probe's wait and is restored to the SQL Server
+default (`-1`) at the end of the batch, because an enlisted probe runs on the bundle's
+shared connection. Losing the wait is classified rather than propagated:
+
+- 1205 (deadlock victim) and 1222 (lock request timeout) map to
+  `TransactionDeadlockException` (`Core.Resources.TransactionDeadlock`), which the
+  existing `OperationOutcomeExceptionFilterAttribute` already maps to 409;
+- not 412: a lost lock says nothing about whether the caller's version is stale, so no
+  precondition failure is fabricated, and no unrelated bundle conflict is reclassified -
+  the existing conflict-correlation path is untouched;
+- when the merge is enlisted in a sequential transaction bundle the exception is thrown
+  (that transaction is unusable), matching the established fail-fast handling of an
+  ambient SQL conflict; otherwise it is recorded as that one operation's outcome, so the
+  rest of a batch is unaffected and `UpsertAsync` still surfaces it as a 409.
+
+#### Merge transaction settlement (finding 3)
+
+`MergeTransactionSettlement` is an `IAsyncDisposable` that settles the transaction id
+handed out by `dbo.MergeResourcesBeginTransaction` unless the merge reached the point
+where `dbo.MergeResources` and its existing failure handling own it
+(`TransferToMergeExecution`). It covers a throwing probe, a cancellation, and the
+bundle-transaction early return that previously leaked one open transaction per failed
+entry. Settlement is best effort and logged, so it cannot replace the failure that
+ended the merge, and the deliberate "leave it for the watchdog to roll forward" path for
+non single-transaction merges is preserved.
+
+### Strict TDD evidence
+
+#### RED
+
+1. Command:
+
+   ```powershell
+   dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --filter "FullyQualifiedName~SqlServerFhirDataStoreUnitTests"
+   ```
+
+   Result: failed as expected - 40 total, 6 failed. The lock-surface test found no
+   clustered-key lock, both contention cases produced a raw SQL failure instead of a
+   mapped outcome, and both settlement tests showed `dbo.MergeResourcesBeginTransaction`
+   executed with no matching `dbo.MergeResourcesCommitTransaction`
+   (`Collection: ["dbo.MergeResourcesBeginTransaction"]`).
+
+2. Command (live SQL Server):
+
+   ```powershell
+   dotnet test test\Microsoft.Health.Fhir.R4.Tests.Integration\Microsoft.Health.Fhir.R4.Tests.Integration.csproj --filter "FullyQualifiedName~SqlServerGuardedNoOpTests"
+   ```
+
+   Result: failed as expected - 5 total, 1 failed:
+   `GivenASequentialTransactionBundle_WhenAGuardedOperationFailsItsPrecondition_ThenNoMergeTransactionIsLeftOpen`
+   reported `Expected: 0 / Actual: 1` open rows in `dbo.Transactions`. This is finding 3
+   reproduced against a real database.
+
+3. Command (live SQL Server, after the first cut of the lock change):
+
+   ```powershell
+   dotnet test test\Microsoft.Health.Fhir.R4.Tests.Integration\Microsoft.Health.Fhir.R4.Tests.Integration.csproj --filter "FullyQualifiedName~SqlServerGuardedNoOpTests"
+   ```
+
+   Result: failed as expected - 6 total, 2 failed. With `ROWLOCK, UPDLOCK` but no index
+   hint, the enlisted probe held no lock on the resource row after the merge, and a
+   writer holding that row did not block the probe at all. That is what forced the
+   explicit `INDEX = PKC_Resource` hint.
+
+#### GREEN
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --filter "FullyQualifiedName~SqlServerFhirDataStoreUnitTests"
+# 39 passed, 0 failed, 0 skipped
+
+dotnet test test\Microsoft.Health.Fhir.R4.Tests.Integration\Microsoft.Health.Fhir.R4.Tests.Integration.csproj --filter "FullyQualifiedName~SqlServerGuardedNoOpTests"
+# 6 passed, 0 failed, 0 skipped (live SQL Server)
+```
+
+### SQL integration evidence
+
+`SqlServerGuardedNoOpTests` runs against a real SQL Server database created by
+`SqlServerFhirStorageTestsFixture` (local default instance, SQL Server 2025 Developer
+Edition, schema `SchemaVersionConstants.Max`). It executes the guarded statement itself,
+not a stub:
+
+| Test | What it proves on a live database |
+| --- | --- |
+| `GivenAGuardedNoOpUpdate_WhenTheStoredVersionStillMatches_ThenItIsHonoredWithoutCreatingANewVersion` | The two-statement guarded probe parses and runs; a matching guarded no-op succeeds and `dbo.Resource` still holds exactly one row at version 1 (no version, no history). |
+| `GivenAGuardedNoOpUpdate_WhenTheStoredVersionMovedOn_ThenItFailsItsPreconditionWithoutMutatingTheResource` | A stale guard returns `PreconditionFailedException` and leaves the stored rows exactly as they were. |
+| `GivenTheAuthoritativeProbe_WhenAConcurrentWriterHoldsTheRow_ThenItWaitsForThatWriterAndObservesTheCommittedVersion` | With an uncommitted writer holding the row, the probe is still waiting after 2s, and after that writer commits it returns the new version - it is serialized with the writer rather than reading a pre-write state. |
+| `GivenASequentialTransactionBundle_WhenAGuardedNoOpIsHonored_ThenNoVersionIsCreatedAndNoMergeTransactionIsLeftOpen` | The enlisted probe runs on the bundle's transaction, holds an update lock on the resource's clustered row for the life of the bundle (a `LOCK_TIMEOUT 0` clustered read fails with 1222 while it is open and succeeds after commit), creates no version, and leaves no open merge transaction. |
+| `GivenASequentialTransactionBundle_WhenTheGuardedProbeCannotObtainItsLock_ThenItFailsAsRetryableContentionAndLeavesNoOpenMergeTransaction` | A real, unresolvable lock wait inside a bundle produces SQL 1222, which surfaces as `TransactionDeadlockException` (409) instead of a `SqlException`, with no orphan merge transaction and no mutation. This exercises the enlisted mapping end to end. |
+| `GivenASequentialTransactionBundle_WhenAGuardedOperationFailsItsPrecondition_ThenNoMergeTransactionIsLeftOpen` | The finding 3 leak: `dbo.Transactions` gains no uncompleted row when a bundle transaction returns early with a failed precondition. |
+
+### Full verification
+
+| Command | Result |
+| --- | --- |
+| `dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj` | 1,073 passed, 0 failed |
+| `dotnet test src\Microsoft.Health.Fhir.CosmosDb.UnitTests\Microsoft.Health.Fhir.CosmosDb.UnitTests.csproj` | 127 passed, 0 failed |
+| `dotnet test src\Microsoft.Health.Fhir.R4.Core.UnitTests\Microsoft.Health.Fhir.R4.Core.UnitTests.csproj` | 1,785 passed, 0 failed, 1 skipped (pre-existing version-specific skip) |
+| `dotnet test test\...R4.Tests.Integration... --filter "FullyQualifiedName~SqlServerGuardedNoOpTests\|FullyQualifiedName~SqlServerSetMergeTests\|FullyQualifiedName~SqlServerTransactionScopeTests\|FullyQualifiedName~SqlServerWatchdogTests"` | 20 passed, 0 failed (live SQL) |
+| `dotnet test test\...R4.Tests.Integration... --filter "FullyQualifiedName~FhirStorageTests&FullyQualifiedName~SqlServer"` | 45 passed, 4 failed, 2 skipped - identical on a stashed clean tree (see below) |
+| `git diff --check` | clean |
+
+Two SQL-backed results needed a baseline comparison, and both were reproduced exactly
+with this round's changes stashed (`git stash push -u`), so neither is caused by it:
+
+- `FhirStorageTests(SqlServer)`: the same 4 `UpdateSearchParameterIndicesAsync` /
+  `BulkUpdateSearchParameterIndicesAsync` tests fail before and after (51 total,
+  4 failed, 45 succeeded, 2 skipped in both runs).
+- The unfiltered `--filter "FullyQualifiedName~SqlServer"` run aborts the test host with
+  `Error output: Process terminated.` and `error: 1` while reporting 0 test failures.
+  The captured stack is a background history-search `BundleFactory.CreateBundle` call,
+  unrelated to persistence writes, and it reproduces identically on the clean tree
+  (there: 95 total, 0 failed, 2 skipped). SQL-backed classes were therefore run in
+  batches, as listed above.
+
+### Self-review
+
+- The lock-order claim is not left as an assertion about SQL text alone: the live tests
+  verify that the probe blocks behind an uncommitted writer, that it holds a lock on the
+  clustered row for the life of an enlisted bundle, and that the lock is released with
+  that bundle. The first implementation of this round passed a text-level review and
+  still failed both live assertions, which is exactly why the hint is now explicit.
+- Contention mapping deliberately reuses `TransactionDeadlockException`
+  ("There was resource contention with another process in the datastore. Please retry
+  this transaction.") for both 1205 and 1222 rather than inventing a resource string;
+  both are contention, both are retryable, and both are already 409.
+- `TryGetLockContentionError` unwraps a wrapping `AggregateException` the same way
+  `MergeAsync` already does, so classification is consistent with the surrounding code.
+- Settlement is scoped by an explicit transfer point rather than a blanket catch, so the
+  existing, deliberate decision to leave a non single-transaction merge open for the
+  transaction watchdog is preserved; the watchdog integration tests were run and pass.
+- Visible no-op semantics are unchanged: a matching guarded no-op still creates no FHIR
+  version and no history row, verified against a live database rather than a mock.
+
+### Remaining limitations
+
+- The 10s probe lock timeout is a fixed constant rather than configuration. Under
+  sustained contention on one resource a guarded no-op can return 409 where an unbounded
+  wait would eventually have returned 200; that trade is deliberate, since the enlisted
+  form holds a bundle transaction open while it waits.
+- A deadlock (1205) on the guarded probe is mapped and tested by injection at the unit
+  level; the live integration test induces the bounded lock timeout (1222), because
+  provoking a genuine deadlock cycle deterministically would require ordering two
+  in-flight merges against each other.
+- Cosmos DB logic is unchanged this round and still has no live emulator/service
+  execution; its coverage remains the production serializer plus deterministic container
+  simulation.
+- `IFhirDataStore.HardDeleteAsync` is unchanged, so hard delete and purge-history keep
+  the previously approved read/validate-before-delete limitation.
+- `FhirStorageTests(SqlServer)` has 4 pre-existing failures in this environment, and the
+  broad `~SqlServer` integration filter aborts its test host; both reproduce on an
+  unmodified tree and are out of scope for this round.
