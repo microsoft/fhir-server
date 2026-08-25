@@ -80,6 +80,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModuleTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModuleTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModuleTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirPathProviderTestCollection.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\InitialImportLockMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProviderTests.cs" />

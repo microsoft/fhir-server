@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -22,6 +23,7 @@ using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 using EvaluationContext = Hl7.FhirPath.EvaluationContext;
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(FhirPathProviderTestCollection.Name)]
     public class FhirPathProviderTests : IDisposable
     {
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
@@ -105,17 +108,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         }
 
         [Fact]
-        public async Task GivenVersionedResourceCorpus_WhenApplicableGeneratedExpressionsAreEvaluated_ThenResultsMatch()
+        public async Task GivenVersionedResourceCorpus_WhenGeneratedAndResolverExpressionsAreEvaluated_ThenResultsMatch()
         {
             var fixture = new SearchParameterFixtureData();
             SearchParameterDefinitionManager definitions = await fixture.GetSearchDefinitionManagerAsync();
             IFhirPathProvider firely = new FirelyFhirPathProvider();
             IFhirPathProvider ignixa = CreateIgnixaProvider();
             int nonEmptyExpressionCount = 0;
+            int evaluatedExpressionCount = 0;
+            int resolveExpressionCount = 0;
+            int nonEmptyResolveExpressionCount = 0;
+            var resolver = new CorpusReferenceToElementResolver();
 
             foreach (ResourceElement resource in GetResourceCorpus())
             {
-                EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+                EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext(resolver.Resolve);
                 context.Resource = resource.Instance;
                 context.RootResource = resource.Instance;
                 string[] expressions = definitions.GetSearchParameters(resource.InstanceType)
@@ -123,11 +130,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                     .Where(parameter => parameter.Code != SearchParameterNames.ResourceType)
                     .Select(parameter => parameter.Expression)
                     .Where(expression => !string.IsNullOrWhiteSpace(expression))
+                    .Concat(
+                        resource.InstanceType == KnownResourceTypes.Patient
+                            ? new[] { "managingOrganization.resolve().id" }
+                            : Array.Empty<string>())
                     .Distinct(StringComparer.Ordinal)
                     .ToArray();
 
                 foreach (string expression in expressions)
                 {
+                    evaluatedExpressionCount++;
                     string[] firelyValues;
                     string[] ignixaValues;
                     try
@@ -148,10 +160,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                     {
                         nonEmptyExpressionCount++;
                     }
+
+                    if (expression.Contains("resolve()", StringComparison.Ordinal))
+                    {
+                        resolveExpressionCount++;
+                        nonEmptyResolveExpressionCount += firelyValues.Length > 0 ? 1 : 0;
+                    }
                 }
             }
 
-            Assert.True(nonEmptyExpressionCount > 0, "The parity corpus must exercise non-empty generated-expression results.");
+            Assert.True(evaluatedExpressionCount >= 100, $"Expected at least 100 generated expressions, but evaluated {evaluatedExpressionCount}.");
+            Assert.True(nonEmptyExpressionCount >= 10, $"Expected at least 10 non-empty generated-expression results, but observed {nonEmptyExpressionCount}.");
+            Assert.True(resolveExpressionCount >= 2, $"Expected at least two resolve() corpus evaluations, but observed {resolveExpressionCount}.");
+            Assert.True(nonEmptyResolveExpressionCount >= 1, "The parity corpus must produce a non-empty resolve() result.");
         }
 
         [Fact]
@@ -211,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 nonEmptyResultCount += firelyValues.Length > 0 ? 1 : 0;
             }
 
-            Assert.True(nonEmptyResultCount > 0, "The literal-expression corpus must exercise non-empty results.");
+            Assert.True(nonEmptyResultCount >= 10, $"Expected at least 10 non-empty literal-expression results, but observed {nonEmptyResultCount}.");
         }
 
         [Fact]
@@ -221,7 +242,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             SearchParameterDefinitionManager definitions = await fixture.GetSearchDefinitionManagerAsync();
             var supportedDefinitions = new SupportedSearchParameterDefinitionManager(definitions);
             var converters = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
-            var resolver = Substitute.For<IReferenceToElementResolver>();
+            var resolver = new CorpusReferenceToElementResolver();
             var firelyFailures = Substitute.For<IFailureMetricHandler>();
             var ignixaFailures = Substitute.For<IFailureMetricHandler>();
             var firelyIndexer = new TypedElementSearchIndexer(
@@ -249,6 +270,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
                 Assert.Equal(firelyValues, ignixaValues);
             }
+
+            firelyFailures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+            ignixaFailures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         private static IFhirPathProvider CreateIgnixaProvider()
@@ -263,6 +287,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 Samples.GetDefaultCoverage(),
                 Samples.GetDefaultPractitioner(),
                 Samples.GetDefaultMedication(),
+                new Patient
+                {
+                    Id = "patient-with-reference",
+                    ManagingOrganization = new ResourceReference("Organization/org-1"),
+                }.ToResourceElement(),
             ];
 
         private static string[] Normalize(IEnumerable<ITypedElement> elements)
@@ -276,5 +305,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
         public void Dispose()
             => FhirPathProvider.SetProviderFactory(() => _originalAmbientProvider);
+
+        private sealed class CorpusReferenceToElementResolver : IReferenceToElementResolver
+        {
+            public ITypedElement Resolve(string reference)
+            {
+                if (string.IsNullOrWhiteSpace(reference))
+                {
+                    return null;
+                }
+
+                string[] parts = reference.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2 || !ModelInfoProvider.Instance.IsKnownResource(parts[^2]))
+                {
+                    return null;
+                }
+
+                ISourceNode node = FhirJsonNode.Create(
+                    JObject.FromObject(
+                        new
+                        {
+                            resourceType = parts[^2],
+                            id = parts[^1],
+                        }));
+
+                return node.ToTypedElement(ModelInfoProvider.Instance.StructureDefinitionSummaryProvider);
+            }
+        }
     }
 }

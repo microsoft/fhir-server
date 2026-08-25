@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(FhirPathProviderTestCollection.Name)]
     public class SearchModuleTests : IDisposable
     {
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
