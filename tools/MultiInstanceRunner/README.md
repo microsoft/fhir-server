@@ -52,7 +52,7 @@ pwsh ./Tools/MultiInstanceRunner/start-local-fhir-nginx.ps1 -NoLaunchProfile -Re
 ```
 2) In another shell from repo root, run the desired E2E suite pointing at the proxy (env vars are already set by the script):
 ```pwsh
-dotnet test .\test\Microsoft.Health.Fhir.R4.Tests.E2E\Microsoft.Health.Fhir.R4.Tests.E2E.csproj -f net9.0 --no-build --filter "FullyQualifiedName~Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests&DataStore=SqlServer" /p:CollectCoverage=false
+dotnet test .\test\Microsoft.Health.Fhir.R4.Tests.E2E\Microsoft.Health.Fhir.R4.Tests.E2E.csproj -f net10.0 --no-build -- --filter-query "/*/*/ReindexTests/*[DataStore=SqlServer]"
 ```
 Notes:
 - The script sets `TestEnvironmentUrl*` to http://localhost:4343 (via `-PersistTestEnvironment`).

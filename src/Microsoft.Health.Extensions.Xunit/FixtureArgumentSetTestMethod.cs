@@ -31,8 +31,18 @@ namespace Microsoft.Health.Extensions.Xunit
     /// (<c>final</c>) in 3.2.2, so they cannot be overridden. To carry the added <c>Flags</c> across the serialized
     /// (out-of-process) discovery transport this type re-declares <see cref="IXunitSerializable"/> and provides explicit
     /// implementations that chain <c>base.Serialize</c>/<c>base.Deserialize</c> (a sealed method is still callable via
-    /// <c>base.</c>). Do not convert these to <c>override</c> — that will not compile. The base round-trips the merged
-    /// traits, so per-variant traits survive without re-running <see cref="ApplyArgumentSetTraits"/> on the deserialize side.
+    /// <c>base.</c>). Do not convert these to <c>override</c> — that will not compile.
+    /// </para>
+    /// <para>
+    /// Only <c>Flags</c> is carried across serialization; the base does <em>not</em> persist the reflectively-injected
+    /// merged traits, so a method whose CLR attributes carry no <c>[Trait]</c> deserializes without the variant's
+    /// <c>DataStore</c>/<c>Format</c> traits. This is safe for every path this repo uses: trait filtering is consumed at
+    /// discovery time (in-process, before any case is serialized), and on v2 the CI legs filtered on the display name
+    /// (<c>FullyQualifiedName!~SqlServer</c>) so these traits did not exist at all — losing them after deserialization
+    /// cannot regress against v2. The display name, which Azure DevOps test history keys on, does survive. The one
+    /// consumer that would be affected is a post-deserialization reader of variant traits in the execution process — for
+    /// example trait-based TRX categorization or grouping. CI does not do this today; anyone adding it must re-apply
+    /// <see cref="ApplyArgumentSetTraits"/> on the deserialize side.
     /// </para>
     /// </remarks>
     internal sealed class FixtureArgumentSetTestMethod : XunitTestMethod, IXunitSerializable
