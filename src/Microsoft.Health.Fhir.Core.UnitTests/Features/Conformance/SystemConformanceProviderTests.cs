@@ -82,20 +82,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public async Task GivenStaleHttpContextWithReadOnlyHeaders_WhenBackgroudLoopRuns_ThenResponseHeadersAreWritable()
         {
             // Arrange - simulate read-only response headers (like Kestrel after response starts)
-            var readOnlyHeaders = new ReadOnlyHeaderDictionary();
+            _contextAccessor.RequestContext = CreateStaledRequestContext();
 
             // Verify they throw on write (this is the condition that causes the bug)
             Assert.Throws<InvalidOperationException>(() =>
-                readOnlyHeaders["x-ms-request-charge"] = "1.0");
-
-            // Set the stale context (simulating what Task.Run inherits from the HTTP request)
-            _contextAccessor.RequestContext = new FhirRequestContext(
-                method: "GET",
-                uriString: "https://localhost/metadata",
-                baseUriString: "https://localhost/",
-                correlationId: "stale-correlation-id",
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: readOnlyHeaders);
+                _contextAccessor.RequestContext.ResponseHeaders["x-ms-request-charge"] = "1.0");
 
             var provider = CreateProvider();
 
@@ -125,15 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public async Task GivenStaleHttpContext_WhenBackgroudLoopRuns_ThenContextIsMarkedAsBackgroundTask()
         {
             // Arrange
-            var readOnlyHeaders = new ReadOnlyHeaderDictionary();
-
-            _contextAccessor.RequestContext = new FhirRequestContext(
-                method: "GET",
-                uriString: "https://localhost/metadata",
-                baseUriString: "https://localhost/",
-                correlationId: "stale-correlation-id",
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: readOnlyHeaders);
+            _contextAccessor.RequestContext = CreateStaledRequestContext();
 
             var provider = CreateProvider();
 
@@ -159,16 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public async Task GivenStaleHttpContext_WhenBackgroudLoopRuns_ThenContextIsReplacedWithNewInstance()
         {
             // Arrange
-            var readOnlyHeaders = new ReadOnlyHeaderDictionary();
-
-            var staleContext = new FhirRequestContext(
-                method: "GET",
-                uriString: "https://localhost/metadata",
-                baseUriString: "https://localhost/",
-                correlationId: "stale-correlation-id",
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: readOnlyHeaders);
-
+            var staleContext = CreateStaledRequestContext();
             _contextAccessor.RequestContext = staleContext;
 
             var provider = CreateProvider();
@@ -203,6 +177,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _urlResolver,
                 _contextAccessor,
                 _searchParameterStatusManager);
+        }
+
+        private static FhirRequestContext CreateStaledRequestContext(
+            IDictionary<string, StringValues> responseHeaders = null)
+        {
+            return new FhirRequestContext(
+                method: "GET",
+                uriString: "https://localhost/metadata",
+                baseUriString: "https://localhost/",
+                correlationId: Guid.NewGuid().ToString(),
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: responseHeaders ?? new ReadOnlyHeaderDictionary());
         }
 
         /// <summary>
