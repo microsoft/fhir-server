@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             // Configure for faster polling to make tests run quicker
             _jobHosting.PollingFrequencyInSeconds = 1;
-            _jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 500;
+            _jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 50;
             _jobHosting.JobHeartbeatIntervalInSeconds = 5;
 
             _backgroundCts = new CancellationTokenSource();
