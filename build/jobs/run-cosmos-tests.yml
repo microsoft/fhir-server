@@ -76,7 +76,8 @@ jobs:
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter-query "/[(DataStore!=SqlServer)]" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+      # Intentional simple filters (NOT --filter-query): in xunit.v3 3.2.2 any query path segment zeroes the trait predicate, and both clauses are load-bearing to reproduce v2's name+trait exclusion (drop SqlServer-traited AND store-named-but-traitless classes). Do not merge back to --filter-query.
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter-not-trait "DataStore=SqlServer" --filter-not-class "*SqlServer*" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       # Disable the task's built-in (non-retry-aware) result publishing so the
       # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
