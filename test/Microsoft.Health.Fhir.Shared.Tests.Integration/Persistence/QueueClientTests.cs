@@ -316,51 +316,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact(Skip = "Doesn't run within time limits. Bug: 103102")]
         public async Task GivenAJob_WhenExecutedWithHeartbeats_ThenHeartbeatsAreRecorded()
         {
-            await ((Func<Task>)(async () =>
+            var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
+            await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, CancellationToken.None);
+            JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
+            ValidateJobInfoState(job);
+
+            var cancel = new CancellationTokenSource();
+            cancel.CancelAfter(TimeSpan.FromSeconds(30));
+            Task<string> execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
+                _queueClient,
+                queueType,
+                job.Id,
+                job.Version,
+                async cancelSource =>
                 {
-                    var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
-                    await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, CancellationToken.None);
-                    JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
-                    ValidateJobInfoState(job);
+                    await Task.Delay(TimeSpan.FromSeconds(10), cancelSource.Token);
+                    await _queueClient.CompleteJobAsync(job, false, cancelSource.Token);
+                    return "Test";
+                },
+                TimeSpan.FromSeconds(1),
+                cancel);
 
-                    var cancel = new CancellationTokenSource();
-                    cancel.CancelAfter(TimeSpan.FromSeconds(30));
-                    Task<string> execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
-                        _queueClient,
-                        queueType,
-                        job.Id,
-                        job.Version,
-                        async cancelSource =>
+            var currentJob = job;
+            var previousJob = job;
+            var heartbeatChanges = 0;
+            var dequeueTask = Task.Run(
+                async () =>
+                {
+                    while (currentJob.Status == JobStatus.Running)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1), cancel.Token);
+                        currentJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
+                        if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
                         {
-                            await Task.Delay(TimeSpan.FromSeconds(10), cancelSource.Token);
-                            await _queueClient.CompleteJobAsync(job, false, cancelSource.Token);
-                            return "Test";
-                        },
-                        TimeSpan.FromSeconds(1),
-                        cancel);
+                            heartbeatChanges++;
+                            previousJob = currentJob;
+                        }
+                    }
+                },
+                cancel.Token);
+            Task.WaitAll(execTask, dequeueTask);
 
-                    var currentJob = job;
-                    var previousJob = job;
-                    var heartbeatChanges = 0;
-                    var dequeueTask = Task.Run(
-                        async () =>
-                        {
-                            while (currentJob.Status == JobStatus.Running)
-                            {
-                                await Task.Delay(TimeSpan.FromSeconds(1), cancel.Token);
-                                currentJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
-                                if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
-                                {
-                                    heartbeatChanges++;
-                                    previousJob = currentJob;
-                                }
-                            }
-                        },
-                        cancel.Token);
-                    Task.WaitAll(execTask, dequeueTask);
-
-                    Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
-                }))();
+            Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
         }
 
         private static void ValidateJobInfoState(JobInfo job)
