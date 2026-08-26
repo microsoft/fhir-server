@@ -17,8 +17,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics
 {
     /// <summary>
     /// Collects Azure SQL Query Store and statistics diagnostics on a timer and emits them as structured log lines.

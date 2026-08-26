@@ -5,7 +5,7 @@
 
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics
 {
     /// <summary>
     /// Outcome of Showplan sanitization.

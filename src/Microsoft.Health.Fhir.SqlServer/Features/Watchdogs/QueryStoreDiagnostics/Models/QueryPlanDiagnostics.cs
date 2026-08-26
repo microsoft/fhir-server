@@ -5,7 +5,7 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models
 {
     /// <summary>
     /// A sanitized Query Store execution plan, as emitted on a single structured log line. This is a log payload

@@ -5,7 +5,7 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models
 {
     /// <summary>
     /// The aggregated Query Store diagnostics for one slow query plan, as emitted on a single structured log line.

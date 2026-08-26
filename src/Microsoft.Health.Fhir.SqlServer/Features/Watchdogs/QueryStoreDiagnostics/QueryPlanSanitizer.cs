@@ -9,7 +9,7 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics
 {
     /// <summary>
     /// Removes Showplan parameter metadata, which can carry literal values taken from patient data, and verifies

@@ -129,7 +129,7 @@ Everything this feature produces is a **structured log record**, written through
 
 All three payload lines are emitted at **information** level. The warnings this feature raises — misconfiguration, an unavailable Query Store, a failed wait read, a plan that would not sanitize — remain at **warning** level and are unaffected by how the payload is emitted.
 
-The payload shapes are `SlowQueryDiagnostics`, `QueryPlanDiagnostics`, and `StatisticsHealthDiagnostics`, in `Microsoft.Health.Fhir.SqlServer/Features/Watchdogs`. They are `internal` and live beside the watchdog because they are log payload shapes, not contracts another assembly binds to.
+The payload shapes are `SlowQueryDiagnostics`, `QueryPlanDiagnostics`, and `StatisticsHealthDiagnostics`, in `Microsoft.Health.Fhir.SqlServer/Features/Watchdogs/QueryStoreDiagnostics/Models`. They are `internal` and live beside the watchdog because they are log payload shapes, not contracts another assembly binds to.
 
 ### Why logs rather than metrics
 

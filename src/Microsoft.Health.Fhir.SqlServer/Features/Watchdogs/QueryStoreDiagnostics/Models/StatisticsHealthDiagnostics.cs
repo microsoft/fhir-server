@@ -5,7 +5,7 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models
 {
     /// <summary>
     /// Table statistics health for one statistics object. Unlike the slow-query and query-plan payloads, instances of
