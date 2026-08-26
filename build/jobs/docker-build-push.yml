@@ -8,9 +8,14 @@ parameters:
   type: string
 - name: buildPlatform
   type: string
+- name: dependsOn
+  type: object
+  default: []
 
 jobs:
 - job: '${{parameters.version}}_Docker'
+  dependsOn: ${{ parameters.dependsOn }}
+  condition: succeededOrFailed()
   pool:
     name: '$(InternalPool)'
     demands:
@@ -27,7 +32,14 @@ jobs:
 
         # Images variables are defined in azdo library variable group
         BUILDER_NAME="fhir-${{ lower(parameters.version) }}-$(Build.BuildId)-$(System.JobAttempt)"
-        trap 'docker buildx rm "${BUILDER_NAME}" || true' EXIT
+
+        cleanup_builder() {
+          docker buildx rm "${BUILDER_NAME}" || true
+        }
+
+        trap cleanup_builder EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
 
         echo "Creating builder using cached buildkit mirror..."
         docker buildx create --name "${BUILDER_NAME}" --use \
