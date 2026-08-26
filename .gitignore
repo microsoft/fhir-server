@@ -5,6 +5,7 @@
 
 # Local agent planning docs - not part of the tracked history; see docs/arch for ADRs
 docs/superpowers/
+.superpowers/
 
 # User-specific files
 *.suo
