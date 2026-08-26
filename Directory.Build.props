@@ -44,6 +44,7 @@
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <TestingPlatformCaptureOutput>false</TestingPlatformCaptureOutput>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <OutputType>Exe</OutputType>
       </PropertyGroup>
       <ItemGroup>

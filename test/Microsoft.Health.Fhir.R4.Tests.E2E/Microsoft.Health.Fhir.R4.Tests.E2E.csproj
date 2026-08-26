@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
@@ -31,7 +31,7 @@
     <PackageReference Include="Microsoft.Azure.ContainerRegistry" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
-    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
   </ItemGroup>
