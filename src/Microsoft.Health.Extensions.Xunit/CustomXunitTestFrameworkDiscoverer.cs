@@ -297,6 +297,11 @@ namespace Microsoft.Health.Extensions.Xunit
             }
             catch
             {
+                // Residual: if the attribute's constructor itself throws, its flag values are unknowable here, so the
+                // fault case stays untraited - invisible to positive trait filters (e.g. /[(DataStore=CosmosDb)]), though
+                // still visible unfiltered and under negative legs (DataStore!=...). Do not drop this swallow to
+                // "simplify": it is strictly better than v2, where the same input threw out of discovery and dropped the
+                // class silently.
             }
         }
 
