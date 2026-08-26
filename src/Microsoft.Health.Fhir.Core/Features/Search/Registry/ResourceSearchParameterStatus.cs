@@ -19,5 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public SortParameterStatus SortStatus { get; set; }
 
         public DateTimeOffset LastUpdated { get; set; }
+
+        /// <summary>
+        /// Used for search param updates when url changes
+        /// </summary>
+        public Uri PreviousUri { get; set; }
     }
 }

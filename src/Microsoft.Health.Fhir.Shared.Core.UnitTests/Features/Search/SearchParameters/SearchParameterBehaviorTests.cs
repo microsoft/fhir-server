@@ -67,6 +67,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _fhirDataStore = Substitute.For<IFhirDataStore>();
 
+            var defaultContextProperties = new Dictionary<string, object>();
+            var defaultContext = Substitute.For<IFhirRequestContext>();
+            defaultContext.Properties.Returns(defaultContextProperties);
+            _requestContextAccessor.RequestContext.Returns(defaultContext);
+
             _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
 
             // Default: no active resource owns any URL (tests that need a conflict override this).
@@ -93,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenACreateResourceRequest_WhenCreatingASearchParameterResource_ThenValidateSearchParameterIsCalled()
         {
-            var searchParameter = new SearchParameter() { Id = "Id" };
+            var searchParameter = new SearchParameter() { Id = "Id", Url = "http://test" };
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
             var request = new CreateResourceRequest(resource, bundleResourceContext: null);

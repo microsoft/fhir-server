@@ -103,6 +103,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// </summary>
         public const string Serialization = nameof(Serialization);
 
+        public const string ServiceRuntimeState = nameof(ServiceRuntimeState);
+
         public const string SmartOnFhir = nameof(SmartOnFhir);
 
         public const string Sort = nameof(Sort);
