@@ -4,7 +4,7 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 # Local agent planning docs - not part of the tracked history; see docs/arch for ADRs
-/docs/superpowers/
+docs/superpowers/
 
 # User-specific files
 *.suo

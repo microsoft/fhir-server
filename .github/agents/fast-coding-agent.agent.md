@@ -1,7 +1,7 @@
 ---
 name: Fast Coding Agent
 description: 'Quick implementation specialist for simple, focused coding tasks - single-file edits, small refactorings, test fixes, and build errors.'
-model: MAI-Code-1.1-Flash (copilot)
+model: Claude Haiku 4.5 (copilot)
 tools:
   - read
   - edit
