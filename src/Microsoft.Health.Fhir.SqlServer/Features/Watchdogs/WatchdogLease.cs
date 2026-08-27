@@ -16,11 +16,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    // The type argument supplies the lease resource name through typeof(T).Name and nothing else, so it carries no
-    // constraint. It deliberately does not require Watchdog<T>: a component that schedules itself, as
-    // QueryStoreDiagnosticsWatchdog does in order to keep its configuration out of dbo.Parameters, still needs to
-    // elect a single replica. Every existing caller passes a Watchdog<T> and is unaffected.
     internal class WatchdogLease<T>
+        where T : Watchdog<T>
     {
         private const double TimeoutFactor = 0.25;
         private readonly object _locker = new();

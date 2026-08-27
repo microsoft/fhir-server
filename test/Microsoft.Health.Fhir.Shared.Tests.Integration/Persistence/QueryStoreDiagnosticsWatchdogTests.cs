@@ -178,27 +178,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenTheWatchdogIsStarted_WhenItRuns_ThenItNeitherSeedsNorReadsAnyDboParametersRow()
+        public async Task GivenExistingStaleParameterRows_WhenTheWatchdogInitialises_ThenTheRowsAreReconciledToConfiguration()
         {
             // Arrange
-            // The feature is configured exclusively through configuration, so starting it must leave dbo.Parameters
-            // untouched. Only a live database can show that: the seeding insert and the period read this watchdog no
-            // longer performs both happened at startup, before the first tick, and neither is visible to a test that
-            // invokes the collection directly.
+            // The feature now derives from Watchdog<T>, so it accepts the two dbo.Parameters rows the base class
+            // seeds for its period and lease period. The owner's condition is that those rows stay settable from
+            // configuration, which only a live database can demonstrate: dbo.Parameters carries IGNORE_DUP_KEY, so
+            // the base class's seeding INSERT is a silent no-op when the rows already exist and the base class then
+            // reads the stored value back over the configured one. Without the InitAdditionalParamsAsync override the
+            // stale row below would win; with it, configuration wins.
+            const double configuredPeriodSec = 1;
+            const double configuredLeasePeriodSec = 123;
+            const double staleValue = 999999;
+
             var logger = new CapturingLogger();
 
-            // A one-second period keeps the randomized start-up delay inside the test's own budget. The lease's first
-            // acquire attempt is a full lease period away, so no tick of this watchdog reaches a collection here —
-            // which is the point: what is under test is what running it costs the database before it collects
-            // anything.
-            var watchdog = CreateWatchdog(logger, enabled: true, periodSec: 1);
+            // A one-second period keeps the randomized start-up delay inside the test's own budget. Base
+            // initialization runs to completion under CancellationToken.None before the timer starts, so the rows are
+            // reconciled regardless of when the token below trips.
+            var watchdog = CreateWatchdog(logger, enabled: true, periodSec: configuredPeriodSec, leasePeriodSec: configuredLeasePeriodSec);
 
             await using SqlConnection connection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             await connection.OpenAsync(CancellationToken.None);
 
-            // A database this test has run the pre-refactor code against still holds the rows it seeded, and they
-            // would make the assertion below pass for the wrong reason.
+            // Start from a known state, then plant stale rows so the assertion proves reconciliation rather than a
+            // first-time seed. These are exactly the rows a database that ran an earlier configuration would hold.
             await DeleteWatchdogParametersAsync(connection, CancellationToken.None);
+            await SeedWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.PeriodSec", staleValue, CancellationToken.None);
+            await SeedWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.LeasePeriodSec", staleValue, CancellationToken.None);
 
             using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
@@ -209,15 +216,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             catch (OperationCanceledException)
             {
-                // Expected whenever the token trips while a randomized start-up delay is still pending, which is the
-                // usual case. Cancelling between ticks instead returns normally, so neither outcome is asserted on.
+                // Expected whenever the token trips while a randomized start-up delay or a tick is pending, which is
+                // the usual case. Cancelling between ticks instead returns normally, so neither outcome is asserted on.
             }
 
             // Assert
-            // Had the watchdog seeded anything, the rows would be here. Had it read a period or an enablement flag
-            // from a row it did not seed, it would have thrown InvalidOperationException out of ExecuteAsync rather
-            // than being cancelled, because no such row exists.
-            Assert.Equal(0, await CountWatchdogParametersAsync(connection, CancellationToken.None));
+            // Both rows exist and hold the configured values, not the stale ones — the UPDATE in the override forced
+            // the table to mirror configuration. Number is SQL float (IEEE-754 double), so exact equality is correct
+            // here and no epsilon tolerance is warranted.
+            Assert.Equal(2, await CountWatchdogParametersAsync(connection, CancellationToken.None));
+            Assert.Equal(configuredPeriodSec, await ReadWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.PeriodSec", CancellationToken.None));
+            Assert.Equal(configuredLeasePeriodSec, await ReadWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.LeasePeriodSec", CancellationToken.None));
         }
 
         private static void AssertStatisticsHealthOrdinals(CapturingLogger logger, string probeTableName)
@@ -297,11 +306,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(expectedRowCount, pages.Sum(page => page.Rows.Count));
         }
 
-        private QueryStoreDiagnosticsWatchdog CreateWatchdog(ILogger<QueryStoreDiagnosticsWatchdog> logger, bool enabled, double periodSec = 300)
+        private QueryStoreDiagnosticsWatchdog CreateWatchdog(ILogger<QueryStoreDiagnosticsWatchdog> logger, bool enabled, double periodSec = 300, double leasePeriodSec = 600)
         {
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.Enabled = enabled;
             configuration.QueryStoreDiagnostics.PeriodSec = periodSec;
+            configuration.QueryStoreDiagnostics.LeasePeriodSec = leasePeriodSec;
             configuration.QueryStoreDiagnostics.SlowQueryCount = 100;
             configuration.QueryStoreDiagnostics.MinDurationMilliseconds = 1;
             configuration.QueryStoreDiagnostics.IncludeQueryPlans = true;
@@ -353,11 +363,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private static async Task<int> CountWatchdogParametersAsync(SqlConnection connection, CancellationToken cancellationToken)
         {
-            // Matched by prefix rather than by the two names the watchdog used to seed, so a row this feature has no
+            // Matched by prefix rather than by the two names the watchdog seeds, so a row this feature has no
             // business creating is caught whatever it is called.
             await using SqlCommand command = connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*) FROM dbo.Parameters WHERE Id LIKE 'QueryStoreDiagnosticsWatchdog%';";
             return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+        }
+
+        private static async Task SeedWatchdogParameterAsync(SqlConnection connection, string id, double number, CancellationToken cancellationToken)
+        {
+            await using SqlCommand command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO dbo.Parameters (Id, Number) VALUES (@Id, @Number);";
+            command.Parameters.AddWithValue("@Id", id);
+            command.Parameters.AddWithValue("@Number", number);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private static async Task<double> ReadWatchdogParameterAsync(SqlConnection connection, string id, CancellationToken cancellationToken)
+        {
+            // Number is SQL float, which reads back as a .NET double, so the value is returned unboxed as one and
+            // compared for exact equality by the caller — no epsilon, because float equality is exactly what the
+            // reconciliation guarantees.
+            await using SqlCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT Number FROM dbo.Parameters WHERE Id = @Id;";
+            command.Parameters.AddWithValue("@Id", id);
+            return (double)await command.ExecuteScalarAsync(cancellationToken);
         }
 
         private static async Task CreateProbeTableAsync(SqlConnection connection, string tableName, CancellationToken cancellationToken)
@@ -517,7 +547,7 @@ WHERE queryText.query_sql_text LIKE @QueryTextPattern
 
             public IDisposable BeginScope<TState>(TState state)
                 where TState : notnull
-                => null;
+                => NoOpDisposable.Instance;
 
             public bool IsEnabled(LogLevel logLevel) => true;
 
@@ -624,6 +654,20 @@ WHERE queryText.query_sql_text LIKE @QueryTextPattern
 
                 /// <summary>Gets the rows carried on this page, deserialized from the batch property.</summary>
                 internal List<StatisticsHealthDiagnostics> Rows { get; }
+            }
+
+            /// <summary>
+            /// A scope that does nothing on dispose. The base class's InitParamsAsync opens a timed logging scope
+            /// through <c>BeginTimedScope</c>, whose ActionTimer dereferences the value BeginScope returns when it is
+            /// disposed; a real logger returns a non-null scope, so this test double must too.
+            /// </summary>
+            private sealed class NoOpDisposable : IDisposable
+            {
+                internal static readonly NoOpDisposable Instance = new NoOpDisposable();
+
+                public void Dispose()
+                {
+                }
             }
         }
     }

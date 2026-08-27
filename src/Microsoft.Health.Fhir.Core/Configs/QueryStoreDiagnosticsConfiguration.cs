@@ -25,6 +25,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public double PeriodSec { get; set; } = 3600;
 
         /// <summary>
+        /// Gets or sets the lease renewal interval, in seconds, used to elect the single replica that collects each
+        /// period. Must be positive: it is handed to the lease timer, which rejects a non-positive value. The
+        /// watchdog base class writes this value into <c>dbo.Parameters</c>, so it is exposed here to keep the
+        /// stored row settable from an environment variable.
+        /// </summary>
+        public double LeasePeriodSec { get; set; } = 600;
+
+        /// <summary>
         /// Gets or sets the maximum number of slow query plans reported per collection.
         /// </summary>
         public int SlowQueryCount { get; set; } = 10;

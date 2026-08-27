@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -26,13 +25,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
     /// Logs rather than metric events: the payload is not metric-shaped — query text and plan XML are unbounded
     /// free text and wait categories are high cardinality — and metric events are charged on receipt, which
     /// <c>docs/arch/adr-2605-metric-emission-rate-limiting.md</c> records as having throttled a shared metric
-    /// account. Deliberately does not derive from <see cref="Watchdog{T}"/>: that base class seeds and then
-    /// re-reads its period from <c>dbo.Parameters</c> on every start, from a private non-virtual initialization step
-    /// with no override hook, and this feature is configured exclusively through configuration and must write
-    /// nothing to the database. The timer and the lease the base class would have supplied are owned directly
-    /// instead, so the single-collector guarantee is unchanged.
+    /// account. Derives from <see cref="Watchdog{T}"/> for its timer and its single-replica lease, and so accepts
+    /// the two <c>dbo.Parameters</c> rows the base class seeds for its period and lease period. Configuration stays
+    /// authoritative over those rows: the base class re-reads them over the configured values during
+    /// initialization, and <see cref="InitAdditionalParamsAsync"/> is overridden to reconcile them back to
+    /// configuration before the timer starts, so an environment variable always wins over a stale stored row.
     /// </summary>
-    internal sealed class QueryStoreDiagnosticsWatchdog
+    internal sealed class QueryStoreDiagnosticsWatchdog : Watchdog<QueryStoreDiagnosticsWatchdog>
     {
         internal const int MaxFieldLength = 32 * 1024;
 
@@ -41,6 +40,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         /// being unusable or clamped so the remedy does not have to be looked up.
         /// </summary>
         internal const string PeriodSecConfigurationKey = "FhirServer:Watchdog:QueryStoreDiagnostics:PeriodSec";
+
+        /// <summary>
+        /// The configuration key that sets the lease renewal interval, named in the warning that reports the lease
+        /// period being unusable so the remedy does not have to be looked up.
+        /// </summary>
+        internal const string LeasePeriodSecConfigurationKey = "FhirServer:Watchdog:QueryStoreDiagnostics:LeasePeriodSec";
+
+        /// <summary>
+        /// The statement that reconciles the two <c>dbo.Parameters</c> rows the base class seeds — the period and the
+        /// lease period — back to the configured values. An <c>UPDATE</c> rather than an <c>INSERT</c> on purpose:
+        /// the base class's seeding <c>INSERT</c> already guarantees the rows exist, and <c>dbo.Parameters</c> carries
+        /// <c>IGNORE_DUP_KEY = ON</c>, so a re-<c>INSERT</c> of an existing row is silently ignored and would leave a
+        /// stale value overriding configuration. Exposed as internal so a unit test can pin that shape without a
+        /// database, because the reconciliation is otherwise only exercised against a live one.
+        /// </summary>
+        internal const string ReconcileParametersSql = @"
+UPDATE dbo.Parameters SET Number = @PeriodSec WHERE Id = @PeriodSecId
+UPDATE dbo.Parameters SET Number = @LeasePeriodSec WHERE Id = @LeasePeriodSecId";
 
         /// <summary>Wait statistics were read for the plan.</summary>
         internal const string WaitStatisticsAvailableStatus = "Available";
@@ -53,6 +70,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         /// <summary>The collection interval used when configuration does not supply a usable one.</summary>
         private const double DefaultPeriodSec = 3600;
+
+        /// <summary>The lease renewal interval used when configuration does not supply a usable one.</summary>
+        private const double DefaultLeasePeriodSec = 600;
 
         /// <summary>
         /// The statistics-health batch size used when configuration does not supply a usable one. Mirrors the class
@@ -68,26 +88,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         /// Rows above the cap are not dropped; they move to the next page.
         /// </summary>
         private const int MaxStatisticsHealthBatchSize = 64;
-
-        /// <summary>
-        /// The lease renewal interval. Ten minutes lets the lease be picked up promptly after a replica dies without
-        /// expiring in the middle of a collection. It is an internal coordination knob rather than an operator
-        /// setting — nothing an operator can observe changes with it — so it is deliberately not on the
-        /// configuration surface.
-        /// </summary>
-        private const double LeasePeriodSec = 600;
-
-        /// <summary>
-        /// Whether the lease may be handed to another replica to balance watchdogs across a deployment. Matches what
-        /// every other watchdog asks for.
-        /// </summary>
-        private const bool AllowLeaseRebalance = true;
-
-        /// <summary>
-        /// The cap on the randomized start-up delay. A period longer than an hour would otherwise leave a restarted
-        /// host collecting nothing for most of a period before its first tick.
-        /// </summary>
-        private const double MaxInitialDelaySec = 3600;
 
         /// <summary>The shortest lookback window a collection is allowed to use.</summary>
         private const double MinLookbackPeriodSec = 60;
@@ -251,8 +251,14 @@ ORDER BY
         private readonly QueryStoreDiagnosticsConfiguration _configuration;
         private readonly ILogger<QueryStoreDiagnosticsWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly FhirTimer _fhirTimer;
-        private readonly WatchdogLease<QueryStoreDiagnosticsWatchdog> _watchdogLease;
+
+        // The validated collection interval and lease renewal interval, resolved from configuration once at
+        // construction. Held separately from the PeriodSec and LeasePeriodSec properties because the base class
+        // overwrites those properties with the values it reads back out of dbo.Parameters during initialization;
+        // InitAdditionalParamsAsync reconciles the table and the properties back to these fields so configuration
+        // stays authoritative.
+        private readonly double _effectivePeriodSec;
+        private readonly double _effectiveLeasePeriodSec;
 
         // The run-window state observed on the previous tick, used to log only when the state changes. Null until the
         // first observation, so that the state a process starts in is always reported once and an operator never has
@@ -261,43 +267,59 @@ ORDER BY
         // synchronization.
         private RunWindowState? _lastRunWindowState;
 
-        // When the per-tick duration was last reported at information level, so that a short period cannot turn that
-        // line into noise. Written only from the tick, which FhirTimer runs sequentially.
-        private DateTime _lastTickReported;
-
         public QueryStoreDiagnosticsWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<QueryStoreDiagnosticsWatchdog> logger,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
+            : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration)).QueryStoreDiagnostics;
-            _fhirTimer = new FhirTimer(_logger);
-            _watchdogLease = new WatchdogLease<QueryStoreDiagnosticsWatchdog>(_sqlRetryService, _logger);
 
-            // PeriodSec reaches PeriodicTimer through the timer this watchdog now owns (ExecuteAsync ->
+            // PeriodSec reaches PeriodicTimer through the base class timer (Watchdog<T>.ExecuteAsync ->
             // FhirTimer.ExecuteAsync -> new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec))), which rejects a
-            // non-positive period. Owning the timer does not contain that rejection: it would fault this watchdog's
-            // task, and WatchdogsBackgroundService cancels the token shared by every watchdog as soon as one of
-            // their tasks completes — so a single mistyped value in an off-by-default diagnostics feature would
-            // still take the transaction and cleanup watchdogs down with it. A diagnostics feature degrades instead
-            // of failing the host: keep the class default and name the rejected value. Non-finite values are
-            // rejected on the same grounds, because TimeSpan.FromSeconds rejects them for the same reason and with
-            // the same blast radius.
+            // non-positive period. That rejection is not contained: it faults this watchdog's task, and
+            // WatchdogsBackgroundService cancels the token shared by every watchdog as soon as one of their tasks
+            // completes — so a single mistyped value in an off-by-default diagnostics feature would still take the
+            // transaction and cleanup watchdogs down with it. A diagnostics feature degrades instead of failing the
+            // host: keep the class default and name the rejected value. Non-finite values are rejected on the same
+            // grounds, because TimeSpan.FromSeconds rejects them for the same reason and with the same blast radius.
             if (_configuration.PeriodSec > 0 && double.IsFinite(_configuration.PeriodSec))
             {
-                PeriodSec = _configuration.PeriodSec;
+                _effectivePeriodSec = _configuration.PeriodSec;
             }
             else
             {
-                PeriodSec = DefaultPeriodSec;
+                _effectivePeriodSec = DefaultPeriodSec;
                 _logger.LogWarning(
                     "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec}, which is not a usable collection interval. Falling back to {FallbackPeriodSec} seconds. Configure a positive value in '{PeriodSecConfigurationKey}' to change the interval.",
                     _configuration.PeriodSec,
                     DefaultPeriodSec,
                     PeriodSecConfigurationKey);
             }
+
+            // The lease renewal interval reaches PeriodicTimer through the base class the same way the period does,
+            // and a non-positive or non-finite value faults the watchdog with the same shared-token blast radius, so
+            // it is validated identically and falls back to the class default rather than failing the host.
+            if (_configuration.LeasePeriodSec > 0 && double.IsFinite(_configuration.LeasePeriodSec))
+            {
+                _effectiveLeasePeriodSec = _configuration.LeasePeriodSec;
+            }
+            else
+            {
+                _effectiveLeasePeriodSec = DefaultLeasePeriodSec;
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: configured LeasePeriodSec is {ConfiguredLeasePeriodSec}, which is not a usable lease renewal interval. Falling back to {FallbackLeasePeriodSec} seconds. Configure a positive value in '{LeasePeriodSecConfigurationKey}' to change the interval.",
+                    _configuration.LeasePeriodSec,
+                    DefaultLeasePeriodSec,
+                    LeasePeriodSecConfigurationKey);
+            }
+
+            // Assigned here as well as in InitAdditionalParamsAsync so a unit test that never calls ExecuteAsync —
+            // and so never runs base initialization — still observes the configured values on these properties.
+            PeriodSec = _effectivePeriodSec;
+            LeasePeriodSec = _effectiveLeasePeriodSec;
         }
 
         /// <summary>
@@ -318,17 +340,24 @@ ORDER BY
         }
 
         /// <summary>
-        /// Gets the name this watchdog reports itself under in logs and in the lease it takes. Held as a literal
-        /// rather than <c>GetType().Name</c> — identical for a sealed class — so that renaming the type surfaces as
-        /// a deliberate change to a name that appears in operator-facing logs.
+        /// Gets or sets the interval, in seconds, between collections. Overrides the base class property so the base
+        /// timer uses it; set from configuration at construction and reconciled back to configuration in
+        /// <see cref="InitAdditionalParamsAsync"/> after the base class reads it out of <c>dbo.Parameters</c>.
         /// </summary>
-        public string Name => nameof(QueryStoreDiagnosticsWatchdog);
+        public override double PeriodSec { get; internal set; }
 
         /// <summary>
-        /// Gets the interval, in seconds, between collections. Set once from configuration at construction, because
-        /// that is the only source for it and <see cref="IOptions{T}"/> does not reload in place.
+        /// Gets or sets the lease renewal interval, in seconds. Overrides the base class property so the base lease
+        /// uses it; set from configuration at construction and reconciled back to configuration in
+        /// <see cref="InitAdditionalParamsAsync"/> after the base class reads it out of <c>dbo.Parameters</c>.
         /// </summary>
-        public double PeriodSec { get; }
+        public override double LeasePeriodSec { get; internal set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the lease may be handed to another replica to balance watchdogs
+        /// across a deployment. Matches what every other watchdog asks for.
+        /// </summary>
+        public override bool AllowRebalance { get; internal set; } = true;
 
         /// <summary>
         /// Exposes RunWorkAsync for unit testing purposes.
@@ -338,66 +367,72 @@ ORDER BY
         internal Task RunWorkForTestingAsync(CancellationToken cancellationToken) => RunWorkAsync(cancellationToken);
 
         /// <summary>
-        /// Runs the collection timer and the lease until the supplied token is cancelled. Called by
-        /// <see cref="WatchdogsBackgroundService"/>, which only starts this watchdog when the feature is enabled in
-        /// configuration.
+        /// Reconciles the two <c>dbo.Parameters</c> rows the base class seeds — the period and the lease period — back
+        /// to configuration, and reports the configured run window. Runs after the base class has seeded those rows
+        /// and read them back over the configured values, and before the base class starts the timer, so the values
+        /// the timer and the lease run at are the configured ones.
+        /// <para>
+        /// This override is the mechanism that keeps configuration authoritative. <c>dbo.Parameters</c> has
+        /// <c>PRIMARY KEY CLUSTERED (Id) WITH (IGNORE_DUP_KEY = ON)</c>, so on a database that already holds these
+        /// rows the base class's seeding <c>INSERT</c> is a silent no-op — it neither inserts nor errors — and the
+        /// base class then reads the stale stored value back over the configured one. Without this override an
+        /// environment variable would be silently overridden by whatever was first stored. The <c>UPDATE</c> forces
+        /// the stored rows to the configured values, so the table stays an accurate mirror of configuration rather
+        /// than a misleading stale copy, and the properties are then re-assigned to undo the base class's read-back.
+        /// An <c>UPDATE</c> is used rather than an <c>INSERT</c> precisely because <c>IGNORE_DUP_KEY</c> would make a
+        /// re-<c>INSERT</c> a no-op; the base class's seeding <c>INSERT</c> already guarantees the rows exist by the
+        /// time this hook runs.
+        /// </para>
+        /// <para>
+        /// A failure of the reconciling <c>UPDATE</c> is reported and swallowed. This hook runs inside the base
+        /// class's initialization, before and outside the per-tick catch, so a throw here would fault this
+        /// watchdog's task and cause <c>WatchdogsBackgroundService</c> to cancel every other watchdog with it. The
+        /// property assignments that make configuration authoritative are therefore performed outside the try, so
+        /// that the functional guarantee does not depend on the cosmetic one.
+        /// </para>
         /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        protected override async Task InitAdditionalParamsAsync()
         {
-            _logger.LogDebug("{WatchdogName}.ExecuteAsync: starting...", Name);
+            try
+            {
+                await using var cmd = new SqlCommand(ReconcileParametersSql);
+                cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
+                cmd.Parameters.AddWithValue("@PeriodSec", _effectivePeriodSec);
+                cmd.Parameters.AddWithValue("@LeasePeriodSecId", LeasePeriodSecId);
+                cmd.Parameters.AddWithValue("@LeasePeriodSec", _effectiveLeasePeriodSec);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None, "InitAdditionalParamsAsync failed.");
+            }
+            catch (Exception exception)
+            {
+                // Reported and swallowed rather than propagated, and deliberately so. This runs inside
+                // Watchdog<T>.ExecuteAsync's initialization, which is before and outside FhirTimer's per-tick catch,
+                // so a throw here faults this watchdog's task — and WatchdogsBackgroundService cancels the token
+                // shared by EVERY watchdog as soon as one task completes. Letting an off-by-default diagnostics
+                // feature fail the transaction and cleanup watchdogs over a cosmetic row update is the wrong trade.
+                // Nothing about the collection depends on the update succeeding: the rows are a mirror of
+                // configuration, not an input to it, and the assignments below make configuration authoritative in
+                // this process whether or not the mirror was written. The cost of failure is a stale pair of rows
+                // that disagree with the running configuration, which is what this warning names.
+                _logger.LogWarning(
+                    exception,
+                    "{WatchdogName}: could not reconcile the {PeriodSecId} and {LeasePeriodSecId} rows in dbo.Parameters to the configured values. Collection is unaffected and continues to run at the configured period, but those rows may now disagree with configuration and should not be read as the values in use.",
+                    Name,
+                    PeriodSecId,
+                    LeasePeriodSecId);
+            }
 
-            // Reported once per process rather than once per tick. A mistyped window collects nothing and raises
-            // nothing, which is indistinguishable from a window that has simply not opened yet, so it has to be
-            // stated at startup — repeating it hourly for the weeks until the window was meant to open would bury
-            // it. Nothing here touches the database, so it needs no initialization step to hang off.
+            // Undo the base class's read-back of the (now reconciled) stored values, so the properties match
+            // configuration exactly even if the UPDATE and a concurrent write were to race.
+            PeriodSec = _effectivePeriodSec;
+            LeasePeriodSec = _effectiveLeasePeriodSec;
+
+            // Reported once per process rather than once per tick, and from here — after seeding, before the timer
+            // starts — because that is where the base class initialization lifecycle now provides a single hook. A
+            // mistyped window collects nothing and raises nothing, which is indistinguishable from a window that has
+            // simply not opened yet, so it has to be stated at startup; repeating it hourly for the weeks until the
+            // window was meant to open would bury it.
             ReportConfiguredRunWindow();
-
-            // The timer and the lease run concurrently and neither returns until the token is cancelled. The initial
-            // delay is randomized up to one period and capped at an hour so that replicas started together do not
-            // all collect on the same second, and so that a long period does not leave a restarted host silent for
-            // most of it.
-            await Task.WhenAll(
-                _fhirTimer.ExecuteAsync(Name, PeriodSec, OnNextTickAsync, cancellationToken, PeriodSec > MaxInitialDelaySec ? MaxInitialDelaySec : PeriodSec),
-                _watchdogLease.ExecuteAsync($"{Name}Lease", AllowLeaseRebalance, LeasePeriodSec, cancellationToken));
-
-            _logger.LogDebug("{WatchdogName}.ExecuteAsync: completed.", Name);
-        }
-
-        /// <summary>
-        /// Runs one tick, on the replica that holds the lease.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private async Task OnNextTickAsync(CancellationToken cancellationToken)
-        {
-            if (!_watchdogLease.IsLeaseHolder)
-            {
-                // The lease is what keeps one collection per period rather than one per replica: without this gate
-                // an eight-instance deployment would issue eight concurrent Query Store scans an hour and emit
-                // eight copies of every diagnostics line.
-                _logger.LogDebug("{WatchdogName}.OnNextTickAsync: skipping because this instance does not hold the lease.", Name);
-                return;
-            }
-
-            var stopwatch = Stopwatch.StartNew();
-
-            await RunWorkAsync(cancellationToken);
-
-            // Reports that a tick happened at all, which the collection summary inside RunWorkAsync cannot: a tick
-            // that returned early — outside the run window, or with Query Store unavailable — logs its reason but
-            // nothing about the timer still being alive. Throttled to hourly at information level so that a short
-            // configured period cannot turn it into noise.
-            if (DateTime.UtcNow - _lastTickReported > TimeSpan.FromHours(1))
-            {
-                _lastTickReported = DateTime.UtcNow;
-                _logger.LogInformation("{WatchdogName}.OnNextTickAsync ran in {ElapsedMilliseconds} ms.", Name, stopwatch.ElapsedMilliseconds);
-            }
-            else
-            {
-                _logger.LogDebug("{WatchdogName}.OnNextTickAsync ran in {ElapsedMilliseconds} ms.", Name, stopwatch.ElapsedMilliseconds);
-            }
         }
 
         /// <summary>
@@ -555,7 +590,7 @@ ORDER BY
             }
         }
 
-        private async Task RunWorkAsync(CancellationToken cancellationToken)
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
             try
             {

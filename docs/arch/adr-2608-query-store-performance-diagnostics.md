@@ -44,7 +44,11 @@ Logs are also the cheap place to start. If a specific number later turns out to 
 
 The statistics health rows are the one payload that is batched. They are small, uniform, and free of free text, so several of them fit on one line as a JSON array without any risk of an oversized record. Each line carries its page number, the page count, and the total row count, so a reader can tell a short final page from a set that was cut short. The slow query and plan lines are not batched. Each field there is its own named log property, which is what keeps it queryable as a column, and plan XML is large enough that batching it would risk a single oversized record.
 
-We also decided that every setting lives in configuration and none in `dbo.Parameters`. The first iteration followed the existing watchdog convention of keeping runtime values in that table. That meant an operator had to run an `UPDATE` to arm the feature, and the collection period was read back from the database over the top of the configured value. Both work against the goal: a feature whose purpose is to remove the need for database access should not require a write to the database to switch on, and configuration that is silently overridden by a stored row is not really configuration. Honoring this meant the watchdog could no longer derive from the shared `Watchdog<T>` base class, whose initialization writes those rows and reads them back from a private, non-virtual step with no override hook. The distributed lease that stops every replica collecting the same data was kept.
+We also decided that every setting is set in configuration, and that configuration always wins over `dbo.Parameters`. The first iteration followed the existing watchdog convention of keeping runtime values in that table. That meant an operator had to run an `UPDATE` to arm the feature, and the collection period was read back from the database over the top of the configured value. Both work against the goal: a feature whose purpose is to remove the need for database access should not require a write to the database to switch on, and configuration that is silently overridden by a stored row is not really configuration.
+
+That second problem is sharper than it first appears. `dbo.Parameters` is declared `WITH (IGNORE_DUP_KEY = ON)`, so the base class's seeding `INSERT` is a silent no-op on any database that already holds the row — it neither inserts nor errors — and the value stored on some earlier deployment then wins over the environment variable indefinitely. We reproduced this directly against SQL Server: seeding `3600` and then `60` for the same key reports *"Duplicate key was ignored. (0 rows affected)"* and leaves `3600` in place. A fresh database appears to honor configuration while an upgraded one quietly does not.
+
+An interim iteration avoided the whole mechanism by not deriving from `Watchdog<T>` at all. We reverted that in favor of keeping the shared base class and using `InitAdditionalParamsAsync`, the one initialization step the base class does make overridable, to `UPDATE` both rows to the configured values and re-assign the properties before the timer is built. Configuration is authoritative on every database, the rows become a readable mirror of what the service is running with rather than an input to it, and no shared file is modified. The distributed lease that stops every replica collecting the same data was kept throughout.
 
 ## Consequences
 
@@ -54,6 +58,7 @@ We also decided that every setting lives in configuration and none in `dbo.Param
 - Diagnostics are enabled and tuned per environment through normal configuration, including an optional run window, and are off by default.
 - The PHI boundary is enforced in C#, is covered by unit tests, and fails closed rather than emitting an unverified plan.
 - Collection is single-instance through the existing lease, so the emitted lines are not multiplied by replica count.
+- The feature modifies no shared file. It derives from the same `Watchdog<T>` base class as every other watchdog, so it inherits the shared timer, lease orchestration, and any future improvement to them.
 - Emission costs a log record rather than a charged metric event, so enabling the feature does not add load to the metrics pipeline.
 
 ### Adverse effects
@@ -61,8 +66,8 @@ We also decided that every setting lives in configuration and none in `dbo.Param
 - Diagnostics cannot be pulled on demand. Data appears on the collection period, hourly by default, so an incident is served by data that was already being collected rather than by an engineer asking a question and getting an answer straight away. A run window has to be configured in advance.
 - Settings bind through `IOptions<T>`, so changing them on a running host requires a restart.
 - Logs are not aggregated for you. Nothing here arrives as a pre-computed time series, so trend questions need a query over the emitted lines rather than a metric chart.
-- This watchdog no longer shares the `Watchdog<T>` base class, so it re-implements that class's timer and lease orchestration and will not pick up future improvements to it. That is the cost of keeping configuration out of `dbo.Parameters`, and it should be revisited if the base class itself moves to configuration.
-- One shared type changed. `WatchdogLease<T>` was constrained to `T : Watchdog<T>` but used its type argument only for `typeof(T).Name`. The constraint was relaxed so that a component which schedules itself can still elect a single replica. It restricted nothing the class actually used, and every existing caller still satisfies it, but it is a change to a shared file and reviewers should confirm they are comfortable with it.
+- This watchdog still writes two rows to `dbo.Parameters`, because the shared base class does so during initialization and we chose to keep that base class rather than fork it. The rows are reconciled to configuration on every start, so they cannot override it, but a reader who inspects the table between a configuration change and the next restart will see values that are briefly out of date.
+- The reconciliation is one extra `UPDATE` per process start. It is wrapped in a catch that logs and continues, because it runs inside the base class's initialization, outside the per-tick catch, where an unhandled throw would fault this watchdog's task and cause `WatchdogsBackgroundService` to cancel every other watchdog with it.
 - Collection depends on Query Store being enabled and in `READ_WRITE` state on the database. Otherwise the job reports why it cannot collect and does nothing.
 - One piece of pre-existing database state can still suppress collection silently. `dbo.AcquireWatchdogLease` honors watchdog lease include and exclude patterns held in `dbo.Parameters`. A worker excluded by such a row never becomes lease holder, so the feature can be enabled and stay quiet. This applies to every watchdog in the process and is not something this feature sets or reads, but it is the first thing to check on a long-lived database.
 
@@ -70,7 +75,7 @@ We also decided that every setting lives in configuration and none in `dbo.Param
 
 - The emitted lines are ordinary log records. There is no handler to bind and this repository prescribes no sink. Whatever a deployment already does with FHIR server logs, it does with these.
 - The statistics health rows arrive as a JSON array inside one log property rather than as separate columns. A reader has to parse them. That is the trade accepted for batching, and it is affordable because the fields are few and uniform.
-- The lease continues to write to its own table. That is runtime coordination rather than configuration, and is not part of what this decision removed.
+- The lease continues to write to its own table. That is runtime coordination rather than configuration, and is not part of what this decision changed.
 
 ## References
 
