@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await RefreshSearchParameterCache(true);
 
-                _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _jobInfo.Status);
+                _logger.LogJobInformation(jobInfo, $"Reindex started, Id={_jobInfo.Id} ");
 
                 await CreateReindexProcessingJobsAsync();
 
@@ -154,12 +154,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                _logger.LogJobInformation(jobInfo, $"The reindex job was cancelled by caller, Id={_jobInfo.Id}");
+                _logger.LogJobInformation(jobInfo, $"Reindex cancelled by caller, Id={_jobInfo.Id}");
                 throw;
             }
             catch (OperationCanceledException ex)
             {
-                _logger.LogJobError(ex, _jobInfo, $"The reindex job was canceled, Id={_jobInfo.Id}");
+                _logger.LogJobError(ex, _jobInfo, $"Reindex canceled, Id={_jobInfo.Id}");
                 throw;
             }
             catch (JobExecutionException ex) when (ex.Error is ReindexOrchestratorJobResult)
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                var msg = $"The reindex id={_jobInfo.Id} failed.";
+                var msg = $"Reindex failed, Id={_jobInfo.Id}";
                 _logger.LogJobError(ex, _jobInfo, msg);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
                 throw new JobExecutionException(msg, _result, ex, false);
@@ -279,18 +279,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Filter to only those search parameters which have valid definitions
             var targetParams = new List<SearchParameterInfo>();
-            foreach (var validUrl in searchParams.Select(_ => _.Uri.OriginalString))
+            foreach (var searchParam in searchParams)
             {
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(validUrl, out var param))
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var param))
                 {
                     targetParams.Add(param);
-                    var msg = $"GetDefinitionFromCache: {validUrl} status={param.SearchParameterStatus}";
+                    var msg = $"GetDefinitionFromCache: {searchParam.Uri.OriginalString} input status={searchParam.Status}, cache status={param.SearchParameterStatus}";
                     _logger.LogJobInformation(_jobInfo, msg);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}", "Warn", msg, null);
                 }
                 else
                 {
-                    var msg = $"GetDefinitionFromCache: {validUrl} not found in cache.";
+                    var msg = $"GetDefinitionFromCache: {searchParam.Uri.OriginalString} not found in cache. Input status={searchParam.Status}";
                     AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
                     throw new JobExecutionException(msg, _result, false);
                 }
