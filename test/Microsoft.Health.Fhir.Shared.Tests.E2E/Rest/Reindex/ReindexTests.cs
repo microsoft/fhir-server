@@ -85,8 +85,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         await Task.Delay(TimeSpan.FromSeconds(10));
                     }
 
-                    Assert.True(status.Status == OperationStatus.Completed, $"ReindexTests.InitializeAsync: reindex status=[{status.Status}] retries=[{retries}] failure=[{status.FailureReason}]");
                     retries++;
+                    Assert.True(status.Status == OperationStatus.Completed, $"ReindexTests.InitializeAsync: reindex status=[{status.Status}] retries=[{retries}] failure=[{status.FailureReason}]");
                 });
             }
             else
