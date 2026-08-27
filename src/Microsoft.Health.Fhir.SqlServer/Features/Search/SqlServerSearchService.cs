@@ -558,6 +558,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludeRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
+            expression = AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions);
 
             await CreateStats(expression, cancellationToken);
 
@@ -1998,6 +1999,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludesOperationRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
+            expression = AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions);
 
             await CreateStats(expression, cancellationToken);
 
@@ -2248,6 +2250,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        private SqlRootExpression AttachSmartCompartmentMembership(SqlRootExpression sqlExpression, Expression coreExpression, SqlSearchOptions searchOptions)
+        {
+            var sqlCompartmentSearchRewriter = (SqlCompartmentSearchRewriter)_compartmentSearchRewriter;
+            SmartCompartmentMembershipContext membership =
+                SmartCompartmentMembershipContextFactory.Create(coreExpression, sqlCompartmentSearchRewriter, _smartCompartmentSearchRewriter);
+
+            if (membership == null)
+            {
+                // Fail-closed guard. AccessControlContext.CompartmentResourceType is populated only from a
+                // parsed fhirUser claim (system scopes never set it, so system-scope searches never enter this
+                // branch), and SearchOptionsFactory adds a SmartCompartmentSearchExpression whenever it is set —
+                // so a compartment-bound request whose expression yields no membership context means the include
+                // CTEs are about to be generated WITHOUT compartment authorization (the pre-fix
+                // _include/_revinclude leak). This should be unreachable; if it ever fires, a rewrite step is
+                // hiding or dropping the compartment expression, and we refuse to serve unauthorized includes.
+                if (!string.IsNullOrWhiteSpace(_requestContextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType)
+                    && sqlExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                {
+                    _logger.LogCritical(
+                        "SMART {CompartmentResourceType} compartment restriction is active but no include authorization context was constructed; refusing to generate _include/_revinclude SQL without compartment authorization.",
+                        _requestContextAccessor.RequestContext.AccessControlContext.CompartmentResourceType);
+
+                    throw new InvalidOperationException(
+                        "SMART compartment restriction is active but no include authorization context was constructed for this request.");
+                }
+
+                return sqlExpression;
+            }
+
+            // Record on the options that this SQL generation MUST carry the membership context; the query
+            // generator re-checks this so that any future rewrite step that reconstructs SqlRootExpression
+            // after this point (dropping the attached context) fails loudly instead of silently generating
+            // unauthorized include CTEs.
+            searchOptions.IsSmartCompartmentSearch = true;
+            return sqlExpression.WithSmartCompartmentMembership(membership);
         }
 
         /// <summary>

@@ -419,7 +419,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenASystemLevelExport_WhenRequestSentToMediator_CorrectIsParallelValueInRequest(bool isApiForFhir, bool expectedIsParallel, bool? inputIsParallelValue)
         {
             // Get export controller with specific runtime configuration (if needed).
-            IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? Substitute.For<AzureApiForFhirRuntimeConfiguration>() : Substitute.For<IFhirRuntimeConfiguration>();
+            IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? new AzureApiForFhirRuntimeConfiguration(runtimeState: FhirRuntimeState.Active) : new AzureHealthDataServicesRuntimeConfiguration();
             var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig, fhirConfig);
 
             // Setup additional dependencies needed for test execution.

@@ -527,7 +527,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return;
             }
 
-            await _searchParameterStatusDataStore.UpsertStatuses([status], cancellationToken);
+            IReadOnlyList<ResourceSearchParameterStatus> statuses =
+                status.PreviousUri == null
+                    ? [status]
+                    :
+                    [
+                        status,
+                        new ResourceSearchParameterStatus
+                        {
+                            Uri = status.PreviousUri,
+                            Status = SearchParameterStatus.Deleted,
+                            IsPartiallySupported = status.IsPartiallySupported,
+                            SortStatus = status.SortStatus,
+                            LastUpdated = status.LastUpdated,
+                        },
+                    ];
+
+            await _searchParameterStatusDataStore.UpsertStatuses(statuses, cancellationToken);
             _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
         }
 
