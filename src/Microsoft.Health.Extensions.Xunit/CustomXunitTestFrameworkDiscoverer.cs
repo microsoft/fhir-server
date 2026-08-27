@@ -65,7 +65,8 @@ namespace Microsoft.Health.Extensions.Xunit
             {
                 // A throw out of discovery is silently dropped by xUnit v3: the class vanishes, the run reports fewer
                 // tests, and it still exits 0. Emit a failing case per method so the failure lands in the results and the
-                // exit code. The variants are unknown here, so these fault cases are untraited.
+                // exit code. Exact variants may be unavailable here, but ReportFault attaches a best-effort union of raw
+                // class/method flags so positive trait filters can still retain the failure.
                 return await ReportFault(testClass, TryGetMethods(testClass), null, ex, callback);
             }
 
@@ -208,10 +209,10 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         // Emit one execution-error case per (method, variant) so a discovery failure fails loudly and carries the variant
-        // traits. The fault path deliberately builds cases from the base XunitTestMethod and attaches traits from raw flag
-        // values; it never re-enters FixtureArgumentSetTestClass/FixtureArgumentSetTestMethod, whose reflection points are
-        // exactly what fails when a fault needs reporting. A fault handler that re-triggered that same failure would throw
-        // out of discovery, which v3 swallows - the class would vanish and the run would still exit 0.
+        // traits. The fault path deliberately builds cases from the base XunitTestMethod and attaches best-effort raw
+        // trait values; it never re-enters FixtureArgumentSetTestClass/FixtureArgumentSetTestMethod, whose reflection
+        // points are exactly what fails when a fault needs reporting. A fault handler that re-triggered that same failure
+        // would throw out of discovery, which v3 swallows - the class would vanish and the run would still exit 0.
         private static async ValueTask<bool> ReportFault(IXunitTestClass testClass, IEnumerable<MethodInfo> methods, SingleFlag[][] variants, Exception ex, Func<ITestCase, ValueTask<bool>> callback)
         {
             foreach (MethodInfo method in methods)
@@ -230,8 +231,8 @@ namespace Microsoft.Health.Extensions.Xunit
                 {
                     // The exact variants could not be computed. Attach a conservative union of the raw class/method flag
                     // values so the fault still carries DataStore/Format traits and stays visible to a positive filter
-                    // (e.g. /[(DataStore=CosmosDb)]) - the E2E/export legs run only under positive predicates, so an
-                    // untraited fault would vanish there into a green run.
+                    // (e.g. /[(DataStore=CosmosDb)]). Exact variants may be unavailable, but this best-effort union keeps
+                    // the failure visible to positive trait filters instead of dropping it into a green run.
                     if (!await EmitFaultCase(testClass, method, null, TryGetRawFlags(testClass, method), ex, callback))
                     {
                         return false;
@@ -276,8 +277,7 @@ namespace Microsoft.Health.Extensions.Xunit
             }
         }
 
-        // Best-effort union of every raw flag value declared on the class and method attributes, used when the exact
-        // Cartesian variants cannot be computed. Never throws.
+        // Best-effort union of the raw class/method flags used when exact Cartesian variants cannot be computed.
         private static List<SingleFlag> TryGetRawFlags(IXunitTestClass testClass, MethodInfo method)
         {
             var flags = new List<SingleFlag>();
@@ -290,21 +290,19 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             try
             {
-                if (member()?.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), false).SingleOrDefault() is FixtureArgumentSetsAttribute attribute)
+                FixtureArgumentSetsAttribute attribute = member()?.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), false).SingleOrDefault() as FixtureArgumentSetsAttribute;
+                if (attribute != null)
                 {
                     flags.AddRange(attribute.GetArgumentSets().Where(s => s != null).SelectMany(GetSingleValuedFlags));
                 }
             }
             catch
             {
-                // Residual: if the attribute's constructor itself throws, its flag values are unknowable here, so the
-                // fault case stays untraited - invisible to positive trait filters (e.g. /[(DataStore=CosmosDb)]), though
-                // still visible unfiltered and under negative legs (DataStore!=...). Do not drop this swallow to
-                // "simplify": it is strictly better than v2, where the same input threw out of discovery and dropped the
-                // class silently.
+                // Attribute constructor throws make the flags unknowable, but discovery can continue with the rest.
             }
         }
 
+        // Best-effort method list: if xUnit cannot enumerate visible members, the helper returns an empty array.
         private static MethodInfo[] TryGetMethods(IXunitTestClass testClass)
         {
             try

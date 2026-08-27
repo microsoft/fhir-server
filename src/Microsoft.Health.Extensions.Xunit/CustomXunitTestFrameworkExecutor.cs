@@ -26,10 +26,10 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <inheritdoc/>
         public override async ValueTask RunTestCases(IReadOnlyCollection<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions, CancellationToken cancellationToken)
         {
-            // Deliberately not calling base.RunTestCases: the base additionally copies assertion-formatting options into
-            // environment variables and installs a parallelism semaphore. Both are cosmetic here - they affect
-            // assertion-message truncation and MaxParallelThreads, never which tests run or their pass/fail result - and
-            // substituting the assembly runner is what lets the class runner seed fixture arguments.
+            // Deliberately not calling base.RunTestCases: it sets assertion-formatting environment variables before
+            // invoking its fixed assembly runner. The custom runner is needed so the class runner can seed fixture
+            // arguments; its context preserves xUnit's parallelism configuration and applies the conservative
+            // collection limit to the custom dispatch path.
             var runner = new CustomXunitTestAssemblyRunner();
             await runner.Run(TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
         }
