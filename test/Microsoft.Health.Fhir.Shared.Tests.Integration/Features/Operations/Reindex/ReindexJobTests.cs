@@ -853,6 +853,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenSecondCacheWithMissingSearchParameter_WhenStatusUpdatedToPendingWithoutCacheRefresh_ThenSyncLoadsDefinitionInCache()
+        {
+            var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+            var searchParam = await CreateSearchParam(randomName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", randomName + "Code");
+
+            Assert.False(_searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out _));
+
+            var maxLastUpdated = (await _searchParameterStatusManager2.GetAllSearchParameterStatus(CancellationToken.None)).Max(s => s.LastUpdated);
+
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.PendingDelete, CancellationToken.None, lastUpdated: maxLastUpdated);
+
+            await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
+
+            var exists = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out var syncedSearchParam);
+            Assert.True(exists);
+            Assert.NotNull(syncedSearchParam);
+            Assert.Equal(SearchParameterStatus.PendingDelete, syncedSearchParam.SearchParameterStatus);
+            Assert.False(syncedSearchParam.IsSearchable);
+            Assert.False(syncedSearchParam.IsSupported);
+        }
+
+        [Fact]
         public async Task GivenNewSearchParamWithResourceBaseType_WhenReindexJobCompleted_ThenAllResourcesAreIndexedAndParamIsSearchable()
         {
             string patientId = Guid.NewGuid().ToString();

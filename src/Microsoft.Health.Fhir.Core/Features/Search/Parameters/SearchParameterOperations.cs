@@ -255,8 +255,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Identify all System Defined Search Parameters and filter them from statuses
                 var systemDefinedSearchParameterUris = new HashSet<string>(_searchParameterDefinitionManager.AllSearchParameters.Where(p => p.IsSystemDefined).Select(p => p.Url.OriginalString));
 
+                // Fetch statuses that require definition materialization during incremental refresh.
                 var statusesToFetch = statuses
-                                        .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
+                                        .Where(p => p.Status == SearchParameterStatus.Enabled
+                                                    || p.Status == SearchParameterStatus.Supported
+                                                    || p.Status == SearchParameterStatus.PendingDelete
+                                                    || p.Status == SearchParameterStatus.PendingHardDelete)
                                         .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
 
                 // Batch fetch all SearchParameter resources in one call
