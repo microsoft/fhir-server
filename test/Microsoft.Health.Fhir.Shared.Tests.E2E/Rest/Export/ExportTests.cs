@@ -569,5 +569,48 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             Assert.Equal(HttpStatusCode.NotFound, cancelAgainResponse.StatusCode);
         }
+
+        /// <summary>
+        /// Verifies that when an export job is created with an invalid resource type in the _type
+        /// query parameter, the orchestrator validates the types before processing and the job
+        /// fails with a 400 Bad Request (not 500 Internal Server Error).
+        ///
+        /// Steps:
+        ///   1. Request $export with _type=InvalidResourceType → 202 Accepted (job is queued).
+        ///   2. Poll the status endpoint until the job completes or fails.
+        ///   3. Assert the status endpoint returns 400 Bad Request.
+        /// </summary>
+        [Fact]
+        public async Task GivenExportWithInvalidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsBadRequest()
+        {
+            // Step 1 — Create an export job with an invalid _type query parameter
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Type, "InvalidResourceType" },
+                { KnownQueryParameterNames.IsParallel, "true" },
+            };
+            using HttpRequestMessage exportRequest = GenerateExportRequest("$export", queryParams: queryParam);
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            // Step 2 — Poll the status endpoint until the job fails
+            HttpStatusCode statusCode = HttpStatusCode.Accepted;
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (DateTime.UtcNow < deadline && statusCode == HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2));
+
+                using HttpRequestMessage statusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+                using HttpResponseMessage statusResponse = await _client.SendAsync(statusRequest);
+                statusCode = statusResponse.StatusCode;
+            }
+
+            // Step 3 — Assert the job failed with 400 Bad Request
+            Assert.Equal(HttpStatusCode.BadRequest, statusCode);
+        }
     }
 }

@@ -282,6 +282,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <inheritdoc />
+        public virtual bool IsValidResourceType(string resourceType)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
