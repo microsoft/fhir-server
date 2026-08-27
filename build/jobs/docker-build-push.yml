@@ -8,19 +8,20 @@ parameters:
   type: string
 - name: buildPlatform
   type: string
-- name: dependsOn
-  type: object
-  default: []
 
 jobs:
 - job: '${{parameters.version}}_Docker'
-  dependsOn: ${{ parameters.dependsOn }}
-  condition: succeededOrFailed()
   pool:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
   steps:
+  - task: Bash@3
+    displayName: 'Configure Docker storage'
+    inputs:
+      targetType: 'filePath'
+      filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Configure-DockerStorage.sh'
+
   - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:
@@ -31,32 +32,22 @@ jobs:
         set -euo pipefail
 
         # Images variables are defined in azdo library variable group
-        BUILDER_NAME="fhir-${{ lower(parameters.version) }}-$(Build.BuildId)-$(System.JobAttempt)"
-
-        cleanup_builder() {
-          docker buildx rm "${BUILDER_NAME}" || true
-        }
-
-        trap cleanup_builder EXIT
-        trap 'exit 130' INT
-        trap 'exit 143' TERM
-
         echo "Creating builder using cached buildkit mirror..."
-        docker buildx create --name "${BUILDER_NAME}" --use \
+        docker buildx create --name fhir-multi-platform --use \
             --driver docker-container --driver-opt image=$(mobyBuildkitImage)
         
         echo "Setting up QEMU for cross-platform builds..."
         docker run --rm --privileged $(multiarchQemuImage) --reset -p yes
         
         echo "Inspecting builder to confirm setup..."
-        docker buildx inspect "${BUILDER_NAME}" --bootstrap
+        docker buildx inspect fhir-multi-platform --bootstrap
 
         echo "Building FHIR ${{ parameters.version }} for platform ${{ parameters.buildPlatform }}..."
         TAG="$(azureContainerRegistry)/${{ parameters.version }}_fhir-server:${{ parameters.tag }}"
         az acr login --name $(azureContainerRegistryName)
         docker buildx build --tag ${TAG,,} \
                       --file ./build/docker/Dockerfile \
-                      --builder "${BUILDER_NAME}" \
+                      --builder fhir-multi-platform \
                       --platform ${{ parameters.buildPlatform }} \
                       --build-arg FHIR_VERSION=${{ parameters.version }} \
                       --build-arg ASSEMBLY_VER=$(assemblySemFileVer) \
