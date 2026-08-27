@@ -107,18 +107,17 @@ docker_config_backup="$(mktemp)"
 docker_config_candidate="$(mktemp)"
 if sudo test -f "${DOCKER_CONFIG}"; then
   docker_config_existed=true
-  sudo cp "${DOCKER_CONFIG}" "${docker_config_backup}"
+  sudo cat "${DOCKER_CONFIG}" > "${docker_config_backup}"
 fi
 
-sudo python3 - "${DOCKER_CONFIG}" "${DOCKER_ROOT}" "${docker_config_candidate}" <<'PYTHON'
+python3 - "${docker_config_backup}" "${docker_config_existed}" "${DOCKER_ROOT}" "${docker_config_candidate}" <<'PYTHON'
 import json
-import os
 import sys
 
-config_path, docker_root, output_path = sys.argv[1:]
+config_path, config_exists, docker_root, output_path = sys.argv[1:]
 config = {}
 
-if os.path.exists(config_path):
+if config_exists == "true":
     with open(config_path, encoding="utf-8") as config_file:
         config = json.load(config_file)
 
