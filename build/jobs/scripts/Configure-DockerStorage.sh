@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-readonly STORAGE_MOUNT='/mnt/storage/sdc'
-readonly DOCKER_ROOT="${STORAGE_MOUNT}/docker"
+readonly EXPECTED_STORAGE_MOUNT='/mnt/storage/sdc'
 readonly DOCKER_CONFIG='/etc/docker/daemon.json'
 readonly DATA_DISK_LINK='/dev/disk/azure/scsi1/lun0'
 docker_config_backup=''
@@ -57,8 +56,10 @@ cleanup() {
 
 trap cleanup EXIT
 
-if ! mountpoint --quiet "${STORAGE_MOUNT}"; then
-  echo "Managed DevOps Pools did not mount ${STORAGE_MOUNT}; inspecting the requested Azure data disk."
+if mountpoint --quiet "${EXPECTED_STORAGE_MOUNT}"; then
+  storage_mount="${EXPECTED_STORAGE_MOUNT}"
+else
+  echo "Managed DevOps Pools did not mount ${EXPECTED_STORAGE_MOUNT}; locating the requested Azure data disk."
   lsblk --output NAME,PATH,SIZE,TYPE,FSTYPE,MOUNTPOINTS
   findmnt --real --output TARGET,SOURCE,FSTYPE,OPTIONS
 
@@ -68,54 +69,37 @@ if ! mountpoint --quiet "${STORAGE_MOUNT}"; then
   fi
 
   data_disk="$(readlink --canonicalize-existing "${DATA_DISK_LINK}")"
-  root_device_id="$(findmnt --raw --noheadings --output MAJ:MIN /)"
-  if lsblk --noheadings --raw --output MAJ:MIN "${data_disk}" | grep --fixed-strings --line-regexp --quiet "${root_device_id}"; then
-    echo "Refusing to use ${data_disk} because it backs the root filesystem." >&2
-    exit 1
+  filesystem_output="$(lsblk --paths --noheadings --raw --output PATH,FSTYPE "${data_disk}")"
+  filesystem_rows="$(awk 'NF == 2 { print $1 "|" $2 }' <<< "${filesystem_output}")"
+  filesystems=()
+  if [[ -n "${filesystem_rows}" ]]; then
+    mapfile -t filesystems <<< "${filesystem_rows}"
   fi
-
-  mapfile -t data_devices < <(lsblk --paths --noheadings --raw --output PATH "${data_disk}")
-  for device in "${data_devices[@]}"; do
-    existing_mount="$(findmnt --raw --noheadings --output TARGET --source "${device}" 2>/dev/null || true)"
-    if [[ -n "${existing_mount}" ]]; then
-      echo "Azure data disk device ${device} is already mounted at ${existing_mount}, not ${STORAGE_MOUNT}." >&2
-      exit 1
-    fi
-  done
-
-  mapfile -t filesystems < <(lsblk --paths --noheadings --raw --output PATH,FSTYPE "${data_disk}" | awk 'NF == 2 { print $1 "|" $2 }')
   if (( ${#filesystems[@]} > 1 )); then
     echo "Azure data disk ${data_disk} contains multiple filesystems; refusing to choose one." >&2
     exit 1
   fi
 
-  if (( ${#filesystems[@]} == 1 )); then
-    IFS='|' read -r mount_device filesystem_type <<< "${filesystems[0]}"
-  else
-    mount_device="${data_disk}"
-    filesystem_type=''
+  if (( ${#filesystems[@]} == 0 )); then
+    echo "Azure data disk ${data_disk} has no filesystem." >&2
+    exit 1
   fi
 
-  if [[ -z "${filesystem_type}" ]]; then
-    if (( ${#data_devices[@]} != 1 )); then
-      echo "Azure data disk ${data_disk} is partitioned but has no filesystem; refusing to format it." >&2
-      exit 1
-    fi
-
-    echo "Creating an ext4 filesystem on empty Azure data disk ${mount_device}."
-    sudo mkfs.ext4 -F "${mount_device}"
-    filesystem_type='ext4'
+  IFS='|' read -r mount_device filesystem_type <<< "${filesystems[0]}"
+  if ! storage_mount="$(findmnt --first-only --raw --noheadings --output TARGET --source "${mount_device}")"; then
+    echo "Azure data disk filesystem ${mount_device} is not mounted." >&2
+    exit 1
   fi
 
-  sudo mkdir --parents "${STORAGE_MOUNT}"
-  sudo mount --types "${filesystem_type}" "${mount_device}" "${STORAGE_MOUNT}"
+  echo "Using Azure data disk filesystem ${mount_device} (${filesystem_type}) mounted at ${storage_mount}."
 fi
 
-if ! mountpoint --quiet "${STORAGE_MOUNT}"; then
-  echo "Expected Docker storage disk is not mounted at ${STORAGE_MOUNT}." >&2
+if [[ "${storage_mount}" == '/' ]] || ! mountpoint --quiet "${storage_mount}"; then
+  echo "Resolved Docker storage path ${storage_mount} is not a valid data disk mount." >&2
   exit 1
 fi
 
+readonly DOCKER_ROOT="${storage_mount}/docker"
 echo "Configuring Docker storage at ${DOCKER_ROOT}..."
 sudo mkdir --parents "${DOCKER_ROOT}"
 
