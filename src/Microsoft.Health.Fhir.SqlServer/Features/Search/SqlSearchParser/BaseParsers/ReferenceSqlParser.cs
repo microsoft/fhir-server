@@ -81,6 +81,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 resourceId = value;
             }
 
+            // If a type modifier is provided (e.g., :Practitioner), use it as the reference type filter.
+            // This takes precedence over any type parsed from the value itself.
+            if (!string.IsNullOrEmpty(modifier) && resourceType == null)
+            {
+                resourceType = modifier;
+            }
+
             var conditions = new StringBuilder();
 
             // Build WHERE conditions

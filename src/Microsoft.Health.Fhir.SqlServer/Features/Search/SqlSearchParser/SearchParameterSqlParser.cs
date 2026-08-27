@@ -89,6 +89,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
             var parametersCopy = DeepCopyParameters(parameters);
 
+            // Enforce parameter count limit (matches SQL Server's 2100 parameter limit from the old parameterized query approach)
+            const int maxParameterValues = 2048;
+            int totalValues = 0;
+            foreach (var kvp in parametersCopy)
+            {
+                foreach (var v in kvp.Value)
+                {
+                    totalValues += v.Split(',').Length;
+                }
+            }
+
+            if (totalValues > maxParameterValues)
+            {
+                throw new Microsoft.Health.Fhir.Core.Exceptions.RequestNotValidException(Core.Resources.TooManyParameters);
+            }
+
             var cteIndex = 0;
             string? lastCteName = null;
             Dictionary<string, IList<string>> includeParameters = new();
