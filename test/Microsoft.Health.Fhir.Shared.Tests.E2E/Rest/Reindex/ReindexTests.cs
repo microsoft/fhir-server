@@ -80,11 +80,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 {
                     var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] }); // true delete
                     var status = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
-                    if (status.Status != OperationStatus.Completed)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(10));
-                    }
-
                     Assert.True(status.Status == OperationStatus.Completed, $"ReindexTests.InitializeAsync: reindex status=[{status.Status}] retries=[{retries++}] failure=[{status.FailureReason}]");
                 });
             }
