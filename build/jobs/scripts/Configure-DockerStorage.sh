@@ -131,6 +131,7 @@ PYTHON
 docker_restart_needed=true
 sudo systemctl stop docker.service docker.socket
 docker_config_changed=true
+sudo mkdir --parents "$(dirname "${DOCKER_CONFIG}")"
 sudo install --mode=0644 "${docker_config_candidate}" "${DOCKER_CONFIG}"
 sudo systemctl start docker.socket docker.service
 
