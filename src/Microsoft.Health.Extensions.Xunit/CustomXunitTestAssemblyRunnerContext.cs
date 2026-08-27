@@ -21,53 +21,17 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </remarks>
     internal sealed class CustomXunitTestAssemblyRunnerContext : XunitTestAssemblyRunnerContext
     {
-        private SemaphoreSlim _collectionSemaphore;
-
         public CustomXunitTestAssemblyRunnerContext(IXunitTestAssembly testAssembly, IReadOnlyCollection<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions, CancellationToken cancellationToken)
             : base(testAssembly, testCases, executionMessageSink, executionOptions, cancellationToken)
         {
         }
 
-        public override async ValueTask DisposeAsync()
+        public ValueTask<RunSummary> RunCollection(IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases, ITestCaseOrderer orderer)
         {
-            _collectionSemaphore?.Dispose();
-            await base.DisposeAsync();
-        }
+            var runner = new CustomXunitTestCollectionRunner();
 
-        public async ValueTask<RunSummary> RunCollection(IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases, ITestCaseOrderer orderer)
-        {
-            bool permitAcquired = false;
-
-            try
-            {
-                if (_collectionSemaphore != null)
-                {
-                    await _collectionSemaphore.WaitAsync(CancellationTokenSource.Token);
-                    permitAcquired = true;
-                }
-
-                var runner = new CustomXunitTestCollectionRunner();
-
-                // Aggregator is a struct wrapping a mutable list; clone so collections don't share one.
-                return await runner.Run(testCollection, testCases, ExplicitOption, MessageBus, orderer, Aggregator.Clone(), CancellationTokenSource, AssemblyFixtureMappings);
-            }
-            finally
-            {
-                if (permitAcquired)
-                {
-                    _collectionSemaphore.Release();
-                }
-            }
-        }
-
-        public override void SetupParallelism()
-        {
-            base.SetupParallelism();
-
-            if (ParallelAlgorithm == ParallelAlgorithm.Conservative && MaxParallelThreads > 0)
-            {
-                _collectionSemaphore = new SemaphoreSlim(MaxParallelThreads);
-            }
+            // Aggregator is a struct wrapping a mutable list; clone so collections don't share one.
+            return runner.Run(testCollection, testCases, ExplicitOption, MessageBus, orderer, Aggregator.Clone(), CancellationTokenSource, AssemblyFixtureMappings);
         }
     }
 }

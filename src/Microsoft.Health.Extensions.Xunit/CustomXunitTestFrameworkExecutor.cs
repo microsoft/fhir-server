@@ -28,8 +28,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             // Deliberately not calling base.RunTestCases: it sets assertion-formatting environment variables before
             // invoking its fixed assembly runner. The custom runner is needed so the class runner can seed fixture
-            // arguments; its context preserves xUnit's parallelism configuration and applies the conservative
-            // collection limit to the custom dispatch path.
+            // arguments. Collection scheduling is left to xUnit's default assembly-runner fan-out.
             var runner = new CustomXunitTestAssemblyRunner();
             await runner.Run(TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
         }
