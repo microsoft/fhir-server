@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             builder.IncreaseIndent();
 
             // When in a chain, select the target resource columns (what we're searching against)
-            builder.SelectWithModifier("DISTINCT", $"r.{surrogateIdColumn}", $"r.{typeIdColumn}");
+            builder.SelectWithModifier("DISTINCT", $"r.{typeIdColumn}", $"r.{surrogateIdColumn}");
 
             if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase))
             {

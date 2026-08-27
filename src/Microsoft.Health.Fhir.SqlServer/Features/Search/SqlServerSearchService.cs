@@ -542,24 +542,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning restore IDE0300 // Simplify collection initialization
             }
 
-            // ! - Trace
-            SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
-                ?.AcceptVisitor(IncludeRewriter.Instance)
-                ?? SqlRootExpression.WithResourceTableExpressions();
-            expression = AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions);
-
-            await CreateStats(expression, cancellationToken);
-
-            /*
-            // Reads by resource ids is handled directly via GetAsync().
-            // Search result is set only on success, otherwise it is null.
-            // SqlServerFhirDataStore uses the same retry class, so it is not needed to call this inside _sqlRetryService.ExecuteSql down below.
-            if (await GetResourcesByIdsAsync(expression, clonedSearchOptions, _fhirDataStore, cancellationToken) is SearchResult result)
-            {
-                _logger.LogInformation("Get resources by ids was handled via GetAsync()");
-                return result;
-            }
-            */
+            // Old expression tree pipeline removed - SQL generation is now handled by SearchParameterSqlParser.ParseMultiple
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
@@ -2124,13 +2107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
 
-            // ! - Trace
-            SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
-                ?.AcceptVisitor(IncludesOperationRewriter.Instance)
-                ?? SqlRootExpression.WithResourceTableExpressions();
-            expression = AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions);
-
-            await CreateStats(expression, cancellationToken);
+            // Old expression tree pipeline removed - SQL generation is now handled by SearchParameterSqlParser.ParseMultiple
 
             SearchResult searchResult = null;
 
@@ -2626,8 +2603,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal class ResourceSearchParamStats
         {
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId), bool> _stats;
-            
-            // private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
             public ResourceSearchParamStats(
                 ISqlRetryService sqlRetryService,
@@ -2635,8 +2610,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 CancellationToken cancel)
             {
                 _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId), bool>();
-                
-                // _queryGeneratorFactory = queryGeneratorFactory;
                 Init(sqlRetryService, logger, cancel).Wait(cancel);
             }
 
