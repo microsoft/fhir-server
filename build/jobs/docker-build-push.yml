@@ -15,6 +15,8 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
+      - DiskSizeGiB -equals 250
+      - StorageAccountType -equals StandardSSD_LRS
   steps:
   - task: Bash@3
     displayName: 'Configure Docker storage'
