@@ -20,6 +20,49 @@ function Assert-Condition {
     }
 }
 
+function Get-OutputTreeSnapshot {
+    param([string] $Path)
+
+    if (-not (Test-Path $Path)) {
+        return @('<missing>')
+    }
+
+    $entries = [System.Collections.Generic.List[string]]::new()
+    $entries.Add('<root>')
+    foreach ($item in @(Get-ChildItem -Path $Path -Recurse -Force | Sort-Object FullName)) {
+        $relativePath = [System.IO.Path]::GetRelativePath($Path, $item.FullName)
+        if ($item.PSIsContainer) {
+            $entries.Add("directory:$relativePath")
+        } else {
+            $hash = (Get-FileHash -Path $item.FullName -Algorithm SHA256).Hash
+            $entries.Add("file:${relativePath}:$hash")
+        }
+    }
+    return @($entries)
+}
+
+function Assert-NoPersistedProbeValue {
+    param(
+        [string] $Root,
+        [string] $ProbeValue
+    )
+
+    $artifacts = @(
+        Get-ChildItem -Path $Root -Recurse -File |
+            Where-Object { $_.Extension -in @('.json', '.csv', '.md') }
+    )
+    Assert-Condition ($artifacts.Count -gt 0) 'No generated JSON, CSV, or Markdown artifacts were found.'
+    foreach ($artifact in $artifacts) {
+        $content = Get-Content -Path $artifact.FullName -Raw
+        Assert-Condition (-not $content.Contains($ProbeValue)) "Probe value was persisted in $($artifact.FullName)."
+    }
+}
+
+$repositoryRoot = (& git rev-parse --show-toplevel 2>$null).Trim()
+$initialGitStatus = (& git -C $repositoryRoot status --short --untracked-files=all | Out-String).Trim()
+$repositoryOutputRoot = Join-Path $repositoryRoot 'ab-test-results'
+$initialOutputTree = @(Get-OutputTreeSnapshot -Path $repositoryOutputRoot)
+
 function Assert-FailsWith {
     param([scriptblock] $Operation, [string] $Pattern)
 
@@ -150,6 +193,7 @@ try {
         Subscription = 'credential-free'
         ResourceGroupPrefix = 'dryrun'
         DryRun = $true
+        OutputDirectory = (Join-Path $temporaryRoot 'bundle-plan-output')
     }
 
     $bundlePlanPath = Join-Path $temporaryRoot 'bundle-plan.json'
@@ -166,11 +210,12 @@ try {
         ResourceGroupPrefix = 'dryrun'
         ImportInputUrl = 'https://fhirperftest.blob.core.windows.net/input/patients.ndjson'
         ImportResourceType = 'Patient'
-        ImportSearchProbe = 'Patient?identifier=known-patient'
+        ImportSearchProbe = 'Patient?identifier=secret-like-probe-value'
         ImportExpectedResourceCount = 3
         ImportStorageAccountUri = 'https://fhirperftest.blob.core.windows.net/'
         ImportStorageAccountResourceId = '/subscriptions/mock/resourceGroups/mock/providers/Microsoft.Storage/storageAccounts/fhirperftest'
         DryRun = $true
+        OutputDirectory = (Join-Path $temporaryRoot 'import-plan-output')
         PlanOutputPath = $importPlanPath
     }
     & $runner @importDryRun | Out-Null
@@ -185,6 +230,9 @@ try {
     Assert-Condition ($metadataObject.schemaVersion -eq 1 -and $metadataObject.images.control -and
         $metadataObject.providers.treatment -and $metadataObject.workload -eq 'Import') 'Run metadata omitted stable provenance fields.'
     Assert-Condition ($metadata -notmatch '(?i)[?&](sig|token|key|se)=') 'Run metadata contains a SAS query parameter.'
+    Assert-Condition ($importPlan.workloadPlan.importSearchProbes[0].resourceType -eq 'Patient' -and
+    $importPlan.workloadPlan.importSearchProbes[0].path -eq 'Patient' -and
+    @($importPlan.workloadPlan.importSearchProbes[0].parameterNames) -contains 'identifier') 'Import probe provenance was not retained safely.'
 
     $invalidHost = $importDryRun.Clone()
     $invalidHost.ImportInputUrl = 'https://different.blob.core.windows.net/input/patients.ndjson'
@@ -252,7 +300,7 @@ try {
         MeasuredIterations = 1
         ImportInputUrl = 'https://fhirperftest.blob.core.windows.net/input/measured.ndjson'
         ImportResourceType = 'Patient'
-        ImportSearchProbe = 'Patient?identifier=measured'
+        ImportSearchProbe = 'Patient?identifier=secret-like-probe-value'
         ImportExpectedResourceCount = 3
         ImportWarmupInputUrl = 'https://fhirperftest.blob.core.windows.net/input/warmup.ndjson'
         ImportWarmupResourceType = 'Patient'
@@ -277,6 +325,7 @@ try {
     $failedProbe.WarmupIterations = 0
     Assert-FailsWith { & $workloadRunner @failedProbe } 'indexed correctness probe failed.*no Patient result'
 
+    Assert-NoPersistedProbeValue -Root $temporaryRoot -ProbeValue 'secret-like-probe-value'
     Write-Host 'Credential-free deployment plans and local Bundle/Import mocks passed.' -ForegroundColor Green
 } finally {
     if ($mockJob) {
@@ -285,4 +334,8 @@ try {
         Remove-Job -Job $mockJob -Force -ErrorAction SilentlyContinue
     }
     Remove-Item -Path $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
+    $finalGitStatus = (& git -C $repositoryRoot status --short --untracked-files=all | Out-String).Trim()
+    $finalOutputTree = @(Get-OutputTreeSnapshot -Path $repositoryOutputRoot)
+    Assert-Condition ($initialGitStatus -eq $finalGitStatus) 'Repository git status changed during the self-test.'
+    Assert-Condition ((@($initialOutputTree) -join "`n") -eq (@($finalOutputTree) -join "`n")) 'Repository output tree changed during the self-test.'
 }
