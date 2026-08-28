@@ -59,7 +59,88 @@ param(
     [int] $Iterations = 1,
 
     [Parameter(Mandatory = $false)]
-    [string] $TestDllPath
+    [string] $TestDllPath,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('BaselineImageBranch', 'SameImageProvider')]
+    [string] $ComparisonMode = 'BaselineImageBranch',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('E2E', 'Bundle', 'Import')]
+    [string] $Workload = 'E2E',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('Firely', 'Ignixa')]
+    [string] $ControlDefaultProvider = 'Firely',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('Firely', 'Ignixa')]
+    [string] $ControlImportProvider = 'Firely',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('Firely', 'Ignixa')]
+    [string] $ControlFhirPathProvider = 'Firely',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('Firely', 'Ignixa')]
+    [string] $TreatmentDefaultProvider = 'Firely',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('Firely', 'Ignixa')]
+    [string] $TreatmentImportProvider = 'Firely',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('Firely', 'Ignixa')]
+    [string] $TreatmentFhirPathProvider = 'Ignixa',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 100000)]
+    [int] $BundleCount = 100,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 500)]
+    [int] $BundleSize = 100,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 128)]
+    [int] $Concurrency = 4,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 20)]
+    [int] $WarmupIterations = 1,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 20)]
+    [int] $MeasuredIterations = 3,
+
+    [Parameter(Mandatory = $false)]
+    [uri[]] $ImportInputUrl,
+
+    [Parameter(Mandatory = $false)]
+    [uri] $ImportStorageAccountUri,
+
+    [Parameter(Mandatory = $false)]
+    [string] $ImportStorageAccountResourceId,
+
+    [Parameter(Mandatory = $false)]
+    [string[]] $ImportResourceType = @('Patient'),
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, [long]::MaxValue)]
+    [long] $ImportExpectedResourceCount,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 360)]
+    [int] $ImportTimeoutMinutes = 120,
+
+    [Parameter(Mandatory = $false)]
+    [switch] $ParallelWorkloads,
+
+    [Parameter(Mandatory = $false)]
+    [switch] $DryRun,
+
+    [Parameter(Mandatory = $false)]
+    [string] $PlanOutputPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,6 +156,71 @@ if (-not $repoRoot) {
 }
 
 $scriptsDir = $PSScriptRoot
+
+function Get-DeploymentEnvironmentVariables {
+    param([System.Collections.IDictionary] $Providers)
+
+    $settings = @()
+    if ($ComparisonMode -eq 'SameImageProvider') {
+        $settings += @(
+            "FhirServer__CoreFeatures__FhirSdkProvider__Default=$($Providers.Default)",
+            "FhirServer__CoreFeatures__FhirSdkProvider__Import=$($Providers.Import)",
+            "FhirServer__CoreFeatures__FhirSdkProvider__FhirPath=$($Providers.FhirPath)"
+        )
+    }
+    if ($Workload -eq 'Import') {
+        $settings += @(
+            'FhirServer__Operations__Import__Enabled=true',
+            "FhirServer__Operations__IntegrationDataStore__StorageAccountUri=$($ImportStorageAccountUri.AbsoluteUri)"
+        )
+    }
+    return $settings
+}
+
+$providerParameterNames = @(
+    'ControlDefaultProvider',
+    'ControlImportProvider',
+    'ControlFhirPathProvider',
+    'TreatmentDefaultProvider',
+    'TreatmentImportProvider',
+    'TreatmentFhirPathProvider'
+)
+if ($ComparisonMode -eq 'BaselineImageBranch' -and
+    ($providerParameterNames | Where-Object { $PSBoundParameters.ContainsKey($_) })) {
+    throw 'Provider parameters require -ComparisonMode SameImageProvider.'
+}
+if ($Workload -eq 'Import') {
+    if ($DataStore -ne 'SqlServer') {
+        throw 'The Import workload requires -DataStore SqlServer.'
+    }
+    if (-not $ImportInputUrl) {
+        throw '-ImportInputUrl is required for the Import workload.'
+    }
+    if (-not $ImportStorageAccountUri -or [string]::IsNullOrWhiteSpace($ImportStorageAccountResourceId)) {
+        throw '-ImportStorageAccountUri and -ImportStorageAccountResourceId are required for the Import workload.'
+    }
+    if (-not $PSBoundParameters.ContainsKey('ImportExpectedResourceCount')) {
+        throw '-ImportExpectedResourceCount is required for the Import workload.'
+    }
+    if ($ImportResourceType.Count -ne $ImportInputUrl.Count) {
+        throw '-ImportResourceType must contain one entry per -ImportInputUrl.'
+    }
+    if (-not $PSBoundParameters.ContainsKey('MeasuredIterations')) {
+        $MeasuredIterations = 1
+    }
+} elseif ($PSBoundParameters.ContainsKey('ImportInputUrl') -or
+          $PSBoundParameters.ContainsKey('ImportStorageAccountUri') -or
+          $PSBoundParameters.ContainsKey('ImportStorageAccountResourceId') -or
+          $PSBoundParameters.ContainsKey('ImportExpectedResourceCount') -or
+          $PSBoundParameters.ContainsKey('ImportResourceType')) {
+    throw 'Import input parameters require -Workload Import.'
+}
+if ($Workload -eq 'E2E' -and
+    ($PSBoundParameters.ContainsKey('WarmupIterations') -or
+     $PSBoundParameters.ContainsKey('MeasuredIterations') -or
+     $ParallelWorkloads)) {
+    throw 'Warm-up, measured iteration, and workload parallelism parameters require an ingestion workload.'
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Generate unique names
@@ -105,9 +251,38 @@ if ($acaEnvironmentName.Length -gt 32) {
 $baselineImage = "$ContainerRegistry/$($FhirVersion.ToLower())_fhir-server:$BaselineTag"
 $branchImageTag = "abtest-$runId-$shortSha"
 $branchImage = "$ContainerRegistry/$($FhirVersion.ToLower())_fhir-server:$branchImageTag"
+if ($ComparisonMode -eq 'SameImageProvider') {
+    $baselineImage = $branchImage
+}
+
+$controlProviders = [ordered]@{
+    Default = $ControlDefaultProvider
+    Import = $ControlImportProvider
+    FhirPath = $ControlFhirPathProvider
+}
+$treatmentProviders = [ordered]@{
+    Default = $TreatmentDefaultProvider
+    Import = $TreatmentImportProvider
+    FhirPath = $TreatmentFhirPathProvider
+}
+if ($ComparisonMode -eq 'BaselineImageBranch') {
+    $controlProviders = [ordered]@{ Default = 'Firely'; Import = 'Firely'; FhirPath = 'Firely' }
+    $treatmentProviders = [ordered]@{ Default = 'Firely'; Import = 'Firely'; FhirPath = 'Firely' }
+}
+$comparisonLabel = if ($ComparisonMode -eq 'SameImageProvider') {
+    'same-image provider comparison'
+} else {
+    'baseline-image branch comparison'
+}
+$controlReportLabel = if ($ComparisonMode -eq 'SameImageProvider') {
+    "control (D=$($controlProviders.Default), I=$($controlProviders.Import), F=$($controlProviders.FhirPath))"
+} else { "main ($BaselineTag)" }
+$treatmentReportLabel = if ($ComparisonMode -eq 'SameImageProvider') {
+    "treatment (D=$($treatmentProviders.Default), I=$($treatmentProviders.Import), F=$($treatmentProviders.FhirPath))"
+} else { "$branchName ($shortSha)" }
 
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host " FHIR Server A/B E2E Test Runner" -ForegroundColor Cyan
+Write-Host " FHIR Server A/B Test Runner" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 Write-Host " FHIR Version:    $FhirVersion"
@@ -115,9 +290,57 @@ Write-Host " Data Store:      $DataStore"
 Write-Host " Branch:          $branchName ($shortSha)"
 Write-Host " Baseline Image:  $baselineImage"
 Write-Host " Branch Image:    $branchImage"
+Write-Host " Comparison:      $comparisonLabel"
+Write-Host " Workload:        $Workload"
+Write-Host " Control SDK:     Default=$($controlProviders.Default), Import=$($controlProviders.Import), FhirPath=$($controlProviders.FhirPath)"
+Write-Host " Treatment SDK:   Default=$($treatmentProviders.Default), Import=$($treatmentProviders.Import), FhirPath=$($treatmentProviders.FhirPath)"
 Write-Host " Resource Group:  $ResourceGroupName"
 Write-Host " Location:        $Location"
 Write-Host ""
+
+$plan = [ordered]@{
+    comparison = $comparisonLabel
+    comparisonMode = $ComparisonMode
+    workload = $Workload
+    execution = if ($Workload -eq 'E2E' -or $ParallelWorkloads) { 'parallel' } else { 'sequential' }
+    control = [ordered]@{
+        image = $baselineImage
+        providers = $controlProviders
+        deploymentSettings = @(Get-DeploymentEnvironmentVariables -Providers $controlProviders)
+    }
+    treatment = [ordered]@{
+        image = $branchImage
+        providers = $treatmentProviders
+        deploymentSettings = @(Get-DeploymentEnvironmentVariables -Providers $treatmentProviders)
+    }
+    workloadPlan = [ordered]@{
+        warmupIterations = if ($Workload -eq 'E2E') { 0 } else { $WarmupIterations }
+        measuredIterations = if ($Workload -eq 'E2E') { $Iterations } else { $MeasuredIterations }
+        bundleCount = if ($Workload -eq 'Bundle') { $BundleCount } else { $null }
+        bundleSize = if ($Workload -eq 'Bundle') { $BundleSize } else { $null }
+        concurrency = if ($Workload -eq 'Bundle') { $Concurrency } else { $null }
+        importInput = if ($Workload -eq 'Import') {
+            @($ImportInputUrl | ForEach-Object -Begin { $index = 0 } -Process {
+                [ordered]@{
+                    type = $ImportResourceType[$index++]
+                    url = $_.GetLeftPart([System.UriPartial]::Path)
+                }
+            })
+        } else { @() }
+        importExpectedResourceCount = if ($Workload -eq 'Import') { $ImportExpectedResourceCount } else { $null }
+        importStorageAccountUri = if ($Workload -eq 'Import') { $ImportStorageAccountUri.AbsoluteUri } else { $null }
+    }
+}
+
+if ($PlanOutputPath) {
+    $plan | ConvertTo-Json -Depth 8 | Set-Content -Path $PlanOutputPath -Encoding utf8
+    Write-Host " Plan:            $PlanOutputPath"
+}
+if ($DryRun) {
+    $plan | ConvertTo-Json -Depth 8
+    Write-Host 'Dry run complete; no Docker or Azure commands were executed.' -ForegroundColor Green
+    return
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 1: Pull baseline image / Build branch image
@@ -131,9 +354,11 @@ Write-Host "`n► Logging into container registry..."
 az acr login --name ($ContainerRegistry -replace '\.azurecr\.io$', '')
 if ($LASTEXITCODE -ne 0) { throw "Failed to login to ACR" }
 
-Write-Host "`n► Pulling baseline image: $baselineImage"
-docker pull $baselineImage
-if ($LASTEXITCODE -ne 0) { throw "Failed to pull baseline image. Ensure the '$BaselineTag' tag exists." }
+if ($ComparisonMode -eq 'BaselineImageBranch') {
+    Write-Host "`n► Pulling baseline image: $baselineImage"
+    docker pull $baselineImage
+    if ($LASTEXITCODE -ne 0) { throw "Failed to pull baseline image. Ensure the '$BaselineTag' tag exists." }
+}
 
 Write-Host "`n► Building branch image from local source..."
 docker buildx build `
@@ -267,6 +492,17 @@ az role assignment create `
     --scope $acrResourceId `
     --output none 2>$null
 
+if ($Workload -eq 'Import') {
+    Write-Host '► Assigning Storage Blob Data Contributor for import integration storage...'
+    az role assignment create `
+        --assignee-object-id $identityPrincipalId `
+        --assignee-principal-type ServicePrincipal `
+        --role 'Storage Blob Data Contributor' `
+        --scope $ImportStorageAccountResourceId `
+        --output none 2>$null
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to assign import storage role.' }
+}
+
 # Wait for role assignment propagation
 Write-Host "  Waiting 30s for role propagation..."
 Start-Sleep -Seconds 30
@@ -283,7 +519,8 @@ function Deploy-FhirContainerApp {
     param(
         [string] $AppName,
         [string] $Image,
-        [string] $DatabaseName
+        [string] $DatabaseName,
+        [System.Collections.IDictionary] $Providers
     )
 
 
@@ -294,6 +531,7 @@ function Deploy-FhirContainerApp {
         "FhirServer__Security__Authentication__Authority=invalid",
         "FhirServer__Security__Authentication__Audience=invalid"
     )
+    $envVars += Get-DeploymentEnvironmentVariables -Providers $Providers
 
     if ($DataStore -eq 'SqlServer') {
         $connStr = "Server=tcp:${sqlServerName}.database.windows.net,1433;Initial Catalog=$DatabaseName;Persist Security Info=False;Authentication=Active Directory Managed Identity;User Id=$sqlManagedIdentityClientId;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
@@ -352,8 +590,8 @@ function Deploy-FhirContainerApp {
 $baselineDbName = if ($DataStore -eq 'SqlServer') { "FHIRBaseline$FhirVersion" } else { $null }
 $branchDbName = if ($DataStore -eq 'SqlServer') { "FHIRBranch$FhirVersion" } else { $null }
 
-$baselineUrl = Deploy-FhirContainerApp -AppName $baselineAppName -Image $baselineImage -DatabaseName $baselineDbName
-$branchUrl = Deploy-FhirContainerApp -AppName $branchAppName -Image $branchImage -DatabaseName $branchDbName
+$baselineUrl = Deploy-FhirContainerApp -AppName $baselineAppName -Image $baselineImage -DatabaseName $baselineDbName -Providers $controlProviders
+$branchUrl = Deploy-FhirContainerApp -AppName $branchAppName -Image $branchImage -DatabaseName $branchDbName -Providers $treatmentProviders
 
 Write-Host "`n  Baseline URL: $baselineUrl" -ForegroundColor Green
 Write-Host "  Branch URL:   $branchUrl" -ForegroundColor Green
@@ -411,6 +649,7 @@ Wait-ForHealthy -Url $branchUrl -Label "Branch"
 # Step 5: Run E2E tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+if ($Workload -eq 'E2E') {
 Write-Host "`n┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
 Write-Host "│ Step 5: Run E2E tests                                       │" -ForegroundColor Yellow
 Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
@@ -583,15 +822,39 @@ if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
     -BaselineTrxPaths $baselineTrxPaths `
     -BranchTrxPaths $branchTrxPaths `
     -OutputPath (Join-Path $outputDir "comparison-report.md") `
-    -BaselineLabel "main ($BaselineTag)" `
-    -BranchLabel "$branchName ($shortSha)"
+    -BaselineLabel $controlReportLabel `
+    -BranchLabel $treatmentReportLabel
 
 & "$scriptsDir/Export-DetailedCsv.ps1" `
     -BaselineTrxPaths $baselineTrxPaths `
     -BranchTrxPaths $branchTrxPaths `
     -OutputPath (Join-Path $outputDir "detailed-results.csv") `
-    -BaselineLabel "main ($BaselineTag)" `
-    -BranchLabel "$branchName ($shortSha)"
+    -BaselineLabel $controlReportLabel `
+    -BranchLabel $treatmentReportLabel
+} else {
+    Write-Host "`n┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+    Write-Host "│ Step 5: Run ingestion workload                              │" -ForegroundColor Yellow
+    Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+
+    $workloadArgs = @{
+        ControlUrl = $baselineUrl
+        TreatmentUrl = $branchUrl
+        Workload = $Workload
+        OutputDirectory = $outputDir
+        ComparisonLabel = $comparisonLabel
+        WarmupIterations = $WarmupIterations
+        MeasuredIterations = $MeasuredIterations
+        BundleCount = $BundleCount
+        BundleSize = $BundleSize
+        Concurrency = $Concurrency
+        ImportInputUrl = $ImportInputUrl
+        ImportResourceType = $ImportResourceType
+        ImportExpectedResourceCount = $ImportExpectedResourceCount
+        ImportTimeoutMinutes = $ImportTimeoutMinutes
+        Parallel = $ParallelWorkloads
+    }
+    & "$scriptsDir/Invoke-IngestionWorkload.ps1" @workloadArgs
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 7: Cleanup
@@ -624,5 +887,6 @@ Write-Host " A/B Test Complete" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 Write-Host " Results directory: $outputDir"
-Write-Host " Comparison report: $(Join-Path $outputDir 'comparison-report.md')"
+$comparisonReportName = if ($Workload -eq 'E2E') { 'comparison-report.md' } else { 'ingestion-comparison.md' }
+Write-Host " Comparison report: $(Join-Path $outputDir $comparisonReportName)"
 Write-Host ""
