@@ -341,6 +341,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 """{"resourceType":"CapabilityStatement","rest":[{"resource":[{"type":"Patient","versioning":"versioned-update","updateCreate":true,"readHistory":true,"interaction":[{"code":"read"}]}]}]}""";
             ITypedElement capability = ModelInfoProvider.Instance.ToTypedElement(
                 new RawResource(capabilityJson, FhirResourceFormat.Json, isMetaSet: false));
+            const string immutableResourceJson =
+                """{"resourceType":"Patient","id":"patient-1","meta":{"lastUpdated":"2024-01-02T03:04:05Z","versionId":"1"},"text":{"status":"generated","div":"<div xmlns=\"http://www.w3.org/1999/xhtml\">Narrative</div>"}}""";
+            ITypedElement immutableResource = ModelInfoProvider.Instance.ToTypedElement(
+                new RawResource(immutableResourceJson, FhirResourceFormat.Json, isMetaSet: false));
             ITypedElement address = new Address
             {
                 City = "Seattle",
@@ -371,7 +375,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 (address, "state"),
                 (address, "text"),
             ];
-            cases = cases.Concat(PatchPayload.ImmutableProperties.Select(expression => (narrative, expression))).ToArray();
             int nonEmptyResultCount = 0;
 
             foreach ((ITypedElement input, string expression) in cases)
@@ -386,6 +389,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 }
 
                 nonEmptyResultCount += firelyValues.Length > 0 ? 1 : 0;
+            }
+
+            foreach (string expression in PatchPayload.ImmutableProperties)
+            {
+                string[] firelyValues = Normalize(firely.Compile(expression).Select(immutableResource));
+                string[] ignixaValues = Normalize(ignixa.Compile(expression).Select(immutableResource));
+
+                Assert.Equal(firelyValues, ignixaValues);
+                Assert.NotEmpty(firelyValues);
             }
 
             Assert.True(nonEmptyResultCount >= 10, $"Expected at least 10 non-empty literal-expression results, but observed {nonEmptyResultCount}.");
