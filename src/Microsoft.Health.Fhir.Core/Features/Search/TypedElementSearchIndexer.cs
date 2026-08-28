@@ -236,23 +236,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // http://community.fhir.org/t/expression-seems-incorrect-for-reference-search-parameter-thats-only-applicable-to-certain-types/916/2).
                 // Therefore, for now, we will need to compare the reference value itself (which can be internal or external references), and restrict
                 // the values ourselves.
-                extractedValues = extractedValues.Where(ev =>
-                {
-                    if (ev == null)
+                extractedValues = extractedValues
+                    .Where(ev =>
                     {
-                        _logger.LogWarning(
-                            "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
-                            fhirPathExpression,
-                            element.GetType());
-                    }
+                        if (ev == null)
+                        {
+                            _logger.LogWarning(
+                                "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
+                                fhirPathExpression,
+                                element.GetType());
+                        }
 
-                    if (ev?.InstanceType != null && ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return ev.Scalar("reference") is string rr && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
-                    }
+                        if (ev?.InstanceType != null && ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return EvaluateFhirPath(
+                                searchParameterDefinitionUrl,
+                                ev,
+                                "reference",
+                                null).SingleOrDefault()?.Value is string rr &&
+                                targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
+                        }
 
-                    return true;
-                });
+                        return true;
+                    })
+                    .ToArray();
             }
 
             foreach (var extractedValue in extractedValues)
