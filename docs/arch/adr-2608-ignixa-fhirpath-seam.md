@@ -134,7 +134,7 @@ Each provider owns a **bounded** compile cache sized to hold the generated corpu
 
 ### Failure handling
 
-`TypedElementSearchIndexer` catches all exceptions from expression evaluation, logs a warning, and yields an empty index entry set. Ignixa throws `NotSupportedException` for unimplemented functions where Firely would return empty, so that catch is the exact mechanism by which a conformance gap becomes silent index drift. In Ignixa mode, evaluation failure is surfaced as a metric and is a bake-in gate, not a swallowed warning.
+`TypedElementSearchIndexer` catches non-cancellation exceptions from expression evaluation, logs a warning, emits a failure metric, and yields an empty index entry set; cancellation continues to propagate. Ignixa throws `NotSupportedException` for unimplemented functions where Firely would return empty, so that catch is the exact mechanism by which a conformance gap becomes silent index drift. In Ignixa mode, the metric is a bake-in gate, not a swallowed warning.
 
 ## Status
 
@@ -157,7 +157,7 @@ Proposed
 - **A process-wide static cannot express per-server configuration.** `TestFhirServerFactory` caches multiple in-process servers, so two in-proc servers configured with different providers cross-contaminate — which is precisely the shape an Ignixa-versus-Firely E2E comparison would take. Constructor injection into `TypedElementSearchIndexer` covers the parity corpus; a genuine per-server FHIRPath provider would require removing the ambient, which in turn requires the ~1,000 direct-`new` converter tests to gain a fixture. Deferred, and the E2E constraint is documented at the static.
 - **`$patch` remains Firely-backed until Phase 7** even when the flag says Ignixa. The startup log names the seams the setting actually controls, so this does not silently mislead operators.
 - **Reshaping the config node is a breaking change.** An existing scalar `"FhirSdkProvider": "Firely"` binds to the new object type as *nothing*, so an operator who had set `Ignixa` silently reverts to Firely. The direction is fail-safe, and Phase 0's flag is opt-in and unreleased, but the startup log must make the effective values unambiguous.
-- **A prerequisite lands in another repository.** The Ignixa adapters passed `Value` through untranslated in both directions, so Firely's `P.DateTime` reached Ignixa's comparison helpers — which narrow operands through a `string`/`DateTime`/`DateTimeOffset` switch and fall through to `null` — turning every date comparison into an empty result instead of a boolean, silently. Fixed in [ignixa-fhir#398](https://github.com/brendankowitz/ignixa-fhir/pull/398); enabling Ignixa in production is blocked on a package release containing it.
+- **A prerequisite landed in another repository.** The Ignixa adapters passed `Value` through untranslated in both directions, so Firely's `P.DateTime` reached Ignixa's comparison helpers — which narrow operands through a `string`/`DateTime`/`DateTimeOffset` switch and fall through to `null` — turning every date comparison into an empty result instead of a boolean, silently. Fixed in [ignixa-fhir#398](https://github.com/brendankowitz/ignixa-fhir/pull/398) and released in Ignixa 0.6.68, which this change consumes; date-comparison parity is covered by the provider context-and-resolver tests.
 
 ### Neutral Effects
 
