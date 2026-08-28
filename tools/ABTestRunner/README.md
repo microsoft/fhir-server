@@ -1,71 +1,161 @@
-# A/B E2E Test Runner
+# A/B Test Runner
 
-Runs E2E tests against two FHIR server instances side-by-side:
-- **Baseline**: The latest `master`-tagged Docker image from CI (the most recent passing main branch build).
-- **Branch**: A freshly-built Docker image from your current local branch.
+Deploys two isolated FHIR servers to Azure Container Apps and compares either E2E
+tests or purpose-built ingestion workloads.
 
-Both services are deployed as Azure Container Apps with **authorization disabled** for simplicity. The tool then runs the E2E test suite against both endpoints, collects `.trx` results, and produces a comparison report highlighting:
-1. **Failures unique to one service** (most critical)
-2. **Latency differences** (next most important)
-3. **Overall pass/fail summary**
+The existing behavior remains the default:
+
+- **Baseline:** latest `master` image from CI.
+- **Branch:** an image built from the current checkout.
+- **Workload:** E2E tests, run in parallel as before.
+
+`-ComparisonMode SameImageProvider` instead deploys the current checkout image on
+both sides. It explicitly configures all three SDK seams. Its default is an
+isolated FHIRPath comparison:
+
+| Side | Default | Import | FhirPath |
+|---|---|---|---|
+| Control | Firely | Firely | Firely |
+| Treatment | Firely | Firely | Ignixa |
 
 ## Prerequisites
 
-- Azure CLI (`az`) installed and authenticated
-- Docker CLI with buildx support
-- .NET SDK (matching `global.json`)
-- Access to the `healthplatformregistry.azurecr.io` container registry
-- An Azure subscription with permissions to create resource groups and Container Apps
-- Docker Desktop or Docker Engine running locally (for building the branch image)
-- User Access Administrator permissions on the subscription
+- PowerShell 7, Azure CLI, Docker with buildx, and the repository .NET SDK.
+- An authenticated Azure CLI session with permission to create resource groups,
+  Container Apps, SQL resources, identities, and role assignments.
+- Access to `healthplatformregistry.azurecr.io` (or `-ContainerRegistry`).
+- User Access Administrator (or equivalent role-assignment permission).
+- For `$import`, an existing Azure Storage account for integration output and
+  one or more blob URLs containing NDJSON. Input URLs must be readable by the
+  service (for example, SAS URLs). The runner grants its managed identity
+  `Storage Blob Data Contributor` on `-ImportStorageAccountResourceId`; the
+  caller must be allowed to create that assignment.
 
-## Usage
+## Existing E2E comparison
 
 ```powershell
-# From the repository root:
 ./tools/ABTestRunner/Invoke-ABTest.ps1 `
     -FhirVersion R4 `
     -DataStore SqlServer `
     -Subscription "your-subscription-name-or-id" `
-    -ResourceGroupPrefix "abtest" `
-    -Location "westus2"
+    -ResourceGroupPrefix "abtest"
 ```
 
-### Parameters
+Existing defaults, image selection, test filters, replica count, and E2E
+parallel execution are unchanged. TRX duration comparison is useful regression
+evidence, but it is **not a load-test gate**: E2E tests perform heterogeneous
+setup and assertions, do not hold request concurrency constant, and report
+whole-test duration rather than isolated ingestion throughput.
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `-FhirVersion` | No | `R4` | FHIR version: `Stu3`, `R4`, `R4B`, or `R5` |
-| `-DataStore` | No | `SqlServer` | Backend: `SqlServer` or `CosmosDb` |
-| `-Subscription` | Yes | — | Azure subscription name or ID |
-| `-Location` | No | `westus2` | Azure region for resources |
-| `-ResourceGroupName` | No | auto-generated | Override the resource group name |
-| `-ContainerRegistry` | No | `healthplatformregistry.azurecr.io` | ACR for baseline image |
-| `-BaselineTag` | No | `master` | Docker tag for the baseline image |
-| `-CategoryFilter` | No | `''` | xUnit test category filter |
-| `-SkipCleanup` | No | `$false` | Keep Azure resources after run |
-| `-TestDllPath` | No | auto-built | Path to pre-built E2E test DLL |
+## Bundle ingestion: FHIRPath-only comparison
+
+```powershell
+./tools/ABTestRunner/Invoke-ABTest.ps1 `
+    -ComparisonMode SameImageProvider `
+    -Workload Bundle `
+    -FhirVersion R4 `
+    -DataStore SqlServer `
+    -Subscription "your-subscription-name-or-id" `
+    -ResourceGroupPrefix "fhirpath-bundle" `
+    -BundleCount 100 `
+    -BundleSize 100 `
+    -Concurrency 8 `
+    -WarmupIterations 1 `
+    -MeasuredIterations 5
+```
+
+The bundle workload creates the same deterministic transaction bundles on both
+sides. It records successful resources, failures, elapsed time, resources/sec,
+and request p50/p95/p99. A direct read and an indexed family-name search gate
+each iteration.
+
+## `$import`: FHIRPath-only comparison
+
+`Import=Firely` on both sides is the default in same-image mode.
+
+```powershell
+./tools/ABTestRunner/Invoke-ABTest.ps1 `
+    -ComparisonMode SameImageProvider `
+    -Workload Import `
+    -FhirVersion R4 `
+    -DataStore SqlServer `
+    -Subscription "your-subscription-name-or-id" `
+    -ResourceGroupPrefix "fhirpath-import" `
+    -ImportInputUrl "https://data.blob.core.windows.net/input/patients.ndjson?<sas>" `
+    -ImportResourceType Patient `
+    -ImportExpectedResourceCount 100000 `
+    -ImportStorageAccountUri "https://results.blob.core.windows.net/" `
+    -ImportStorageAccountResourceId "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Storage/storageAccounts/<account>" `
+    -WarmupIterations 1 `
+    -MeasuredIterations 1
+```
+
+The runner submits a FHIR `Parameters` request to `$import`, polls its status URL
+to completion, and records imported resources, failures, total time, and
+resources/sec. The same URL manifest is submitted to each isolated database.
+Any job errors, count mismatch, or empty representative type search fails the
+run. Import defaults to one measured iteration; its warm-up is a metadata
+request so the measured corpus is not preloaded. Use multiple measured import
+iterations only with replay-safe NDJSON, or run separate experiments with clean
+databases.
+
+## Combined Ignixa import parser and FHIRPath
+
+```powershell
+./tools/ABTestRunner/Invoke-ABTest.ps1 `
+    -ComparisonMode SameImageProvider `
+    -Workload Import `
+    -TreatmentImportProvider Ignixa `
+    -TreatmentFhirPathProvider Ignixa `
+    -Subscription "your-subscription-name-or-id" `
+    -ResourceGroupPrefix "ignixa-combined" `
+    -ImportInputUrl "https://data.blob.core.windows.net/input/patients.ndjson?<sas>" `
+    -ImportResourceType Patient `
+    -ImportExpectedResourceCount 100000 `
+    -ImportStorageAccountUri "https://results.blob.core.windows.net/" `
+    -ImportStorageAccountResourceId "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Storage/storageAccounts/<account>"
+```
+
+## Dry-run validation
+
+Dry-run performs parameter compatibility checks and emits the complete
+deployment/workload plan without invoking Docker or Azure:
+
+```powershell
+./tools/ABTestRunner/Invoke-ABTest.ps1 `
+    -ComparisonMode SameImageProvider `
+    -Workload Bundle `
+    -Subscription unused-in-dry-run `
+    -ResourceGroupPrefix dryrun `
+    -DryRun `
+    -PlanOutputPath ./ab-plan.json
+```
+
+Provider overrides are rejected in the default baseline-image mode. Import
+inputs are rejected for other workloads, and import mode requires an input URL,
+matching resource types, expected count, and integration storage details.
+
+## Methodology
+
+- Each side has a separate database and fixed two-replica Container App.
+- Control and treatment run sequentially by default to reduce shared
+  infrastructure interference. `-ParallelWorkloads` is an explicit opt-in.
+- Use the same corpus, region, database tier, and input blobs on both sides.
+- Use warm-up iterations to reduce startup effects and multiple measured
+  iterations to expose variance.
+- Do not reuse databases between experiments; allow cleanup or manually reset
+  all data.
+- During production bake-in, monitor failure telemetry whose operation name is
+  `FhirPathSearchIndexEvaluation`. The runner does not automate this because it
+  has no Application Insights/telemetry workspace access.
 
 ## Output
 
-Results are written to `./ab-test-results/<timestamp>` containing:
-- `baseline.trx` — Raw test results for the baseline service
-- `branch.trx` — Raw test results for the branch service
-- `comparison-report.md` — Human-readable comparison highlighting differences
-- `detailed-results.csv` — CSV with per-test latency and pass/fail data
+Results are written to `./ab-test-results/<timestamp>`.
 
-## How It Works
+E2E mode produces TRX files, `comparison-report.md`, and
+`detailed-results.csv`. Ingestion mode produces:
 
-```mermaid
-flowchart TD
-    A[Pull baseline image<br/>master tag from ACR] --> C[Deploy baseline ACA<br/>auth disabled]
-    B[Build local branch image] --> D[Deploy branch ACA<br/>auth disabled]
-    C --> E[Health check baseline]
-    D --> F[Health check branch]
-    E --> G[Run E2E tests<br/>against baseline]
-    F --> H[Run E2E tests<br/>against branch]
-    G --> I[Parse TRX results]
-    H --> I
-    I --> J[Generate comparison report]
-    J --> K[Cleanup Azure resources]
-```
+- `ingestion-results.json` — machine-readable per-iteration results.
+- `ingestion-results.csv` — tabular per-iteration results.
+- `ingestion-comparison.md` — concise aggregate and percentage comparison.
