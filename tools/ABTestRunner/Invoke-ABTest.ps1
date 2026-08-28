@@ -126,8 +126,24 @@ param(
     [string[]] $ImportResourceType = @('Patient'),
 
     [Parameter(Mandatory = $false)]
+    [string[]] $ImportSearchProbe,
+
+    [Parameter(Mandatory = $false)]
     [ValidateRange(1, [long]::MaxValue)]
     [long] $ImportExpectedResourceCount,
+
+    [Parameter(Mandatory = $false)]
+    [uri[]] $ImportWarmupInputUrl,
+
+    [Parameter(Mandatory = $false)]
+    [string[]] $ImportWarmupResourceType,
+
+    [Parameter(Mandatory = $false)]
+    [string[]] $ImportWarmupSearchProbe,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, [long]::MaxValue)]
+    [long] $ImportWarmupExpectedResourceCount,
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(1, 360)]
@@ -182,6 +198,98 @@ function Get-DeploymentEnvironmentVariables {
         )
     }
     return $settings
+}
+
+function ConvertTo-SanitizedUriString {
+    param([uri] $Uri)
+
+    if (-not $Uri) {
+        return $null
+    }
+
+    return $Uri.GetLeftPart([System.UriPartial]::Path)
+}
+
+function Assert-ImportManifest {
+    param(
+        [string] $ParameterPrefix,
+        [uri[]] $InputUrl,
+        [string[]] $ResourceType,
+        [string[]] $SearchProbe,
+        [uri] $StorageAccountUri
+    )
+
+    if (-not $InputUrl -or -not $ResourceType -or -not $SearchProbe) {
+        throw "-${ParameterPrefix}InputUrl, -${ParameterPrefix}ResourceType, and -${ParameterPrefix}SearchProbe are required."
+    }
+    if (-not $StorageAccountUri.IsAbsoluteUri -or $StorageAccountUri.Query) {
+        throw '-ImportStorageAccountUri must be an absolute URI without a query string.'
+    }
+    if ($ResourceType.Count -ne $InputUrl.Count) {
+        throw "-${ParameterPrefix}ResourceType must contain one entry per -${ParameterPrefix}InputUrl."
+    }
+
+    foreach ($input in $InputUrl) {
+        if (-not $input.IsAbsoluteUri) {
+            throw "-${ParameterPrefix}InputUrl values must be absolute URIs."
+        }
+        if ($input.Query) {
+            throw "-${ParameterPrefix}InputUrl '$($input.GetLeftPart([System.UriPartial]::Path))' must not contain a query string."
+        }
+        if (-not [string]::Equals($input.Scheme, $StorageAccountUri.Scheme, [StringComparison]::OrdinalIgnoreCase) -or
+            -not [string]::Equals($input.IdnHost, $StorageAccountUri.IdnHost, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "-${ParameterPrefix}InputUrl scheme and host must match -ImportStorageAccountUri (expected $($StorageAccountUri.Scheme)://$($StorageAccountUri.IdnHost))."
+        }
+    }
+
+    $distinctTypes = @($ResourceType | Sort-Object -Unique)
+    if ($SearchProbe.Count -ne $distinctTypes.Count) {
+        throw "-${ParameterPrefix}SearchProbe must contain one indexed query per distinct resource type ($($distinctTypes -join ', '))."
+    }
+    for ($index = 0; $index -lt $distinctTypes.Count; $index++) {
+        $type = $distinctTypes[$index]
+        $probe = $SearchProbe[$index]
+        if ($probe -notmatch "^$([regex]::Escape($type))\?(.+)$") {
+            throw "-${ParameterPrefix}SearchProbe[$index] must be a relative $type query."
+        }
+        $queryParameters = @($Matches[1] -split '&')
+        if (-not ($queryParameters | Where-Object { $_ -match '^[^_=][^=]*=.+$' })) {
+            throw "-${ParameterPrefix}SearchProbe[$index] must include a deterministic indexed search parameter; type-only and _count-only probes are not allowed."
+        }
+    }
+}
+
+function Get-DeploymentCommandPlan {
+    param(
+        [string] $AppName,
+        [string] $Image
+    )
+
+    $create = @(
+        'az', 'containerapp', 'create',
+        '--name', $AppName,
+        '--resource-group', $ResourceGroupName,
+        '--environment', $acaEnvironmentName,
+        '--image', $Image,
+        '--registry-server', $ContainerRegistry,
+        '--registry-identity', '<acr-sql-uami-resource-id>',
+        '--user-assigned', '<acr-sql-uami-resource-id>',
+        '--system-assigned'
+    )
+    $role = @(
+        'az', 'role', 'assignment', 'create',
+        '--assignee-object-id', "<system-principal-id:$AppName>",
+        '--assignee-principal-type', 'ServicePrincipal',
+        '--role', 'Storage Blob Data Contributor',
+        '--scope', $ImportStorageAccountResourceId
+    )
+
+    return [ordered]@{
+        create = $create -join ' '
+        systemPrincipalLookup = "az containerapp show --name $AppName --resource-group $ResourceGroupName --query identity.principalId --output tsv"
+        importStorageRoleAssignment = if ($Workload -eq 'Import') { $role -join ' ' } else { $null }
+        rolePropagationWaitSeconds = if ($Workload -eq 'Import') { 30 } else { 0 }
+    }
 }
 
 function Invoke-ProtectedRun {
@@ -297,17 +405,48 @@ if ($Workload -eq 'Import') {
     if (-not $PSBoundParameters.ContainsKey('ImportExpectedResourceCount')) {
         throw '-ImportExpectedResourceCount is required for the Import workload.'
     }
-    if ($ImportResourceType.Count -ne $ImportInputUrl.Count) {
-        throw '-ImportResourceType must contain one entry per -ImportInputUrl.'
-    }
+    Assert-ImportManifest `
+        -ParameterPrefix 'Import' `
+        -InputUrl $ImportInputUrl `
+        -ResourceType $ImportResourceType `
+        -SearchProbe $ImportSearchProbe `
+        -StorageAccountUri $ImportStorageAccountUri
     if (-not $PSBoundParameters.ContainsKey('MeasuredIterations')) {
         $MeasuredIterations = 1
+    }
+    if (-not $PSBoundParameters.ContainsKey('WarmupIterations')) {
+        $WarmupIterations = 0
+    }
+    if ($WarmupIterations -gt 0) {
+        if (-not $PSBoundParameters.ContainsKey('ImportWarmupExpectedResourceCount')) {
+            throw '-ImportWarmupExpectedResourceCount is required when Import warm-up iterations are requested.'
+        }
+        Assert-ImportManifest `
+            -ParameterPrefix 'ImportWarmup' `
+            -InputUrl $ImportWarmupInputUrl `
+            -ResourceType $ImportWarmupResourceType `
+            -SearchProbe $ImportWarmupSearchProbe `
+            -StorageAccountUri $ImportStorageAccountUri
+        $measuredInputSet = [Collections.Generic.HashSet[string]]::new(
+            [string[]]@($ImportInputUrl.AbsoluteUri),
+            [StringComparer]::OrdinalIgnoreCase)
+        if ($ImportWarmupInputUrl | Where-Object { $measuredInputSet.Contains($_.AbsoluteUri) }) {
+            throw 'Import warm-up and measured input URLs must not collide.'
+        }
+    } elseif ($ImportWarmupInputUrl -or $ImportWarmupResourceType -or $ImportWarmupSearchProbe -or
+              $PSBoundParameters.ContainsKey('ImportWarmupExpectedResourceCount')) {
+        throw 'Import warm-up corpus parameters require -WarmupIterations greater than zero.'
     }
 } elseif ($PSBoundParameters.ContainsKey('ImportInputUrl') -or
           $PSBoundParameters.ContainsKey('ImportStorageAccountUri') -or
           $PSBoundParameters.ContainsKey('ImportStorageAccountResourceId') -or
           $PSBoundParameters.ContainsKey('ImportExpectedResourceCount') -or
           $PSBoundParameters.ContainsKey('ImportResourceType') -or
+          $PSBoundParameters.ContainsKey('ImportSearchProbe') -or
+          $PSBoundParameters.ContainsKey('ImportWarmupInputUrl') -or
+          $PSBoundParameters.ContainsKey('ImportWarmupResourceType') -or
+          $PSBoundParameters.ContainsKey('ImportWarmupSearchProbe') -or
+          $PSBoundParameters.ContainsKey('ImportWarmupExpectedResourceCount') -or
           $PSBoundParameters.ContainsKey('ImportPollIntervalSeconds')) {
     throw 'Import input parameters require -Workload Import.'
 }
@@ -399,16 +538,23 @@ $plan = [ordered]@{
     comparison = $comparisonLabel
     comparisonMode = $ComparisonMode
     workload = $Workload
+    outputDirectory = $outputDir
     execution = if ($Workload -eq 'E2E' -or $ParallelWorkloads) { 'parallel' } else { 'sequential' }
+    reporting = [ordered]@{
+        e2eCsvLabels = [ordered]@{ control = $controlE2eLabel; treatment = $treatmentE2eLabel }
+        metadataFile = 'run-metadata.json'
+    }
     control = [ordered]@{
         image = $baselineImage
         providers = $controlProviders
         deploymentSettings = @(Get-DeploymentEnvironmentVariables -Providers $controlProviders)
+        deploymentCommands = Get-DeploymentCommandPlan -AppName $baselineAppName -Image $baselineImage
     }
     treatment = [ordered]@{
         image = $branchImage
         providers = $treatmentProviders
         deploymentSettings = @(Get-DeploymentEnvironmentVariables -Providers $treatmentProviders)
+        deploymentCommands = Get-DeploymentCommandPlan -AppName $branchAppName -Image $branchImage
     }
     workloadPlan = [ordered]@{
         warmupIterations = if ($Workload -eq 'E2E') { 0 } else { $WarmupIterations }
@@ -420,14 +566,36 @@ $plan = [ordered]@{
             @($ImportInputUrl | ForEach-Object -Begin { $index = 0 } -Process {
                 [ordered]@{
                     type = $ImportResourceType[$index++]
-                    url = $_.GetLeftPart([System.UriPartial]::Path)
+                    url = ConvertTo-SanitizedUriString -Uri $_
                 }
             })
         } else { @() }
+        importSearchProbes = if ($Workload -eq 'Import') { @($ImportSearchProbe) } else { @() }
         importExpectedResourceCount = if ($Workload -eq 'Import') { $ImportExpectedResourceCount } else { $null }
-        importStorageAccountUri = if ($Workload -eq 'Import') { $ImportStorageAccountUri.AbsoluteUri } else { $null }
+        importWarmupInput = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
+            @($ImportWarmupInputUrl | ForEach-Object -Begin { $index = 0 } -Process {
+                [ordered]@{
+                    type = $ImportWarmupResourceType[$index++]
+                    url = ConvertTo-SanitizedUriString -Uri $_
+                }
+            })
+        } else { @() }
+        importWarmupSearchProbes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { @($ImportWarmupSearchProbe) } else { @() }
+        importWarmupExpectedResourceCount = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { $ImportWarmupExpectedResourceCount } else { $null }
+        importStorageAccountUri = if ($Workload -eq 'Import') { ConvertTo-SanitizedUriString -Uri $ImportStorageAccountUri } else { $null }
     }
 }
+
+$metadata = [ordered]@{
+    schemaVersion = 1
+    comparisonMode = $ComparisonMode
+    comparison = $comparisonLabel
+    images = [ordered]@{ control = $baselineImage; treatment = $branchImage }
+    providers = [ordered]@{ control = $controlProviders; treatment = $treatmentProviders }
+    workload = $Workload
+    parameters = $plan.workloadPlan
+}
+$metadata | ConvertTo-Json -Depth 10 | Set-Content -Path (Join-Path $outputDir 'run-metadata.json') -Encoding utf8
 
 if ($PlanOutputPath) {
     $plan | ConvertTo-Json -Depth 8 | Set-Content -Path $PlanOutputPath -Encoding utf8
@@ -626,17 +794,6 @@ az role assignment create `
     --scope $acrResourceId `
     --output none 2>$null
 
-if ($Workload -eq 'Import') {
-    Write-Host '► Assigning Storage Blob Data Contributor for import integration storage...'
-    az role assignment create `
-        --assignee-object-id $identityPrincipalId `
-        --assignee-principal-type ServicePrincipal `
-        --role 'Storage Blob Data Contributor' `
-        --scope $ImportStorageAccountResourceId `
-        --output none 2>$null
-    if ($LASTEXITCODE -ne 0) { throw 'Failed to assign import storage role.' }
-}
-
 # Wait for role assignment propagation
 Write-Host "  Waiting 30s for role propagation..."
 Start-Sleep -Seconds 30
@@ -696,6 +853,7 @@ function Deploy-FhirContainerApp {
         '--registry-server', $ContainerRegistry,
         '--registry-identity', $uamiResourceId,
         '--user-assigned', $uamiResourceId,
+        '--system-assigned',
         '--target-port', '8080',
         '--ingress', 'external',
         '--min-replicas', '2',
@@ -709,6 +867,31 @@ function Deploy-FhirContainerApp {
 
     & az @createArgs
     if ($LASTEXITCODE -ne 0) { throw "Failed to deploy container app: $AppName" }
+
+    if ($Workload -eq 'Import') {
+        $systemPrincipalId = az containerapp show `
+            --name $AppName `
+            --resource-group $ResourceGroupName `
+            --query 'identity.principalId' `
+            --output tsv
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($systemPrincipalId)) {
+            throw "Failed to resolve system-assigned principal for container app: $AppName"
+        }
+
+        Write-Host "  Assigning Storage Blob Data Contributor to $AppName system identity..."
+        az role assignment create `
+            --assignee-object-id $systemPrincipalId `
+            --assignee-principal-type ServicePrincipal `
+            --role 'Storage Blob Data Contributor' `
+            --scope $ImportStorageAccountResourceId `
+            --output none 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to assign import storage role to container app: $AppName"
+        }
+
+        Write-Host '  Waiting 30s for import storage role propagation...'
+        Start-Sleep -Seconds 30
+    }
 
     # Get the FQDN
     $fqdn = az containerapp show `
@@ -959,6 +1142,17 @@ if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
     -BaselineLabel $controlE2eLabel `
     -BranchLabel $treatmentE2eLabel
 
+@"
+
+## Run provenance
+
+- **Comparison:** $comparisonLabel
+- **Control image:** ``$baselineImage``
+- **Treatment image:** ``$branchImage``
+- **Control providers:** Default=$($controlProviders.Default), Import=$($controlProviders.Import), FhirPath=$($controlProviders.FhirPath)
+- **Treatment providers:** Default=$($treatmentProviders.Default), Import=$($treatmentProviders.Import), FhirPath=$($treatmentProviders.FhirPath)
+"@ | Add-Content -Path (Join-Path $outputDir 'comparison-report.md') -Encoding utf8
+
 & "$scriptsDir/Export-DetailedCsv.ps1" `
     -BaselineTrxPaths $baselineTrxPaths `
     -BranchTrxPaths $branchTrxPaths `
@@ -976,6 +1170,11 @@ if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
         Workload = $Workload
         OutputDirectory = $outputDir
         ComparisonLabel = $comparisonLabel
+        ComparisonMode = $ComparisonMode
+        ControlImage = $baselineImage
+        TreatmentImage = $branchImage
+        ControlProviders = $controlProviders
+        TreatmentProviders = $treatmentProviders
         WarmupIterations = $WarmupIterations
         MeasuredIterations = $MeasuredIterations
         BundleCount = $BundleCount
@@ -983,7 +1182,12 @@ if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
         Concurrency = $Concurrency
         ImportInputUrl = $ImportInputUrl
         ImportResourceType = $ImportResourceType
+        ImportSearchProbe = $ImportSearchProbe
         ImportExpectedResourceCount = $ImportExpectedResourceCount
+        ImportWarmupInputUrl = $ImportWarmupInputUrl
+        ImportWarmupResourceType = $ImportWarmupResourceType
+        ImportWarmupSearchProbe = $ImportWarmupSearchProbe
+        ImportWarmupExpectedResourceCount = $ImportWarmupExpectedResourceCount
         ImportTimeoutMinutes = $ImportTimeoutMinutes
         ImportPollIntervalSeconds = $ImportPollIntervalSeconds
         ControlLabel = $controlReportLabel
