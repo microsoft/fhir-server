@@ -27,6 +27,16 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $TreatmentLabel,
 
+    [string] $ComparisonMode = 'unspecified',
+
+    [string] $ControlImage = 'unspecified',
+
+    [string] $TreatmentImage = 'unspecified',
+
+    [System.Collections.IDictionary] $ControlProviders = @{},
+
+    [System.Collections.IDictionary] $TreatmentProviders = @{},
+
     [ValidateRange(0, 20)]
     [int] $WarmupIterations = 1,
 
@@ -46,7 +56,17 @@ param(
 
     [string[]] $ImportResourceType = @('Patient'),
 
+    [string[]] $ImportSearchProbe,
+
     [long] $ImportExpectedResourceCount,
+
+    [uri[]] $ImportWarmupInputUrl,
+
+    [string[]] $ImportWarmupResourceType,
+
+    [string[]] $ImportWarmupSearchProbe,
+
+    [long] $ImportWarmupExpectedResourceCount,
 
     [ValidateRange(1, 360)]
     [int] $ImportTimeoutMinutes = 120,
@@ -58,8 +78,79 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if ($Workload -eq 'Import') {
+    if (-not $ImportInputUrl -or -not $ImportResourceType -or -not $ImportSearchProbe -or
+        $ImportResourceType.Count -ne $ImportInputUrl.Count) {
+        throw 'Import requires input URLs, one resource type per URL, and indexed search probes.'
+    }
+
+    $distinctTypes = @($ImportResourceType | Sort-Object -Unique)
+    if ($ImportSearchProbe.Count -ne $distinctTypes.Count) {
+        throw 'Import requires one indexed search probe per distinct resource type.'
+    }
+    for ($index = 0; $index -lt $distinctTypes.Count; $index++) {
+        if ($ImportSearchProbe[$index] -notmatch "^$([regex]::Escape($distinctTypes[$index]))\?(.+)$" -or
+            -not (@($Matches[1] -split '&') | Where-Object { $_ -match '^[^_=][^=]*=.+$' })) {
+            throw "Import search probe $index must be a relative, deterministic indexed query for $($distinctTypes[$index])."
+        }
+    }
+
+    if ($WarmupIterations -gt 0) {
+        if (-not $ImportWarmupInputUrl -or -not $ImportWarmupResourceType -or -not $ImportWarmupSearchProbe -or
+            $ImportWarmupResourceType.Count -ne $ImportWarmupInputUrl.Count -or
+            $ImportWarmupExpectedResourceCount -lt 1) {
+            throw 'Import warm-up iterations require a complete warm-up corpus and expected resource count.'
+        }
+        $warmupTypes = @($ImportWarmupResourceType | Sort-Object -Unique)
+        if ($ImportWarmupSearchProbe.Count -ne $warmupTypes.Count) {
+            throw 'Import warm-up requires one indexed search probe per distinct resource type.'
+        }
+        for ($index = 0; $index -lt $warmupTypes.Count; $index++) {
+            if ($ImportWarmupSearchProbe[$index] -notmatch "^$([regex]::Escape($warmupTypes[$index]))\?(.+)$" -or
+                -not (@($Matches[1] -split '&') | Where-Object { $_ -match '^[^_=][^=]*=.+$' })) {
+                throw "Import warm-up search probe $index must be a relative, deterministic indexed query for $($warmupTypes[$index])."
+            }
+        }
+        $measuredInputSet = [Collections.Generic.HashSet[string]]::new(
+            [string[]]@($ImportInputUrl.AbsoluteUri),
+            [StringComparer]::OrdinalIgnoreCase)
+        if ($ImportWarmupInputUrl | Where-Object { $measuredInputSet.Contains($_.AbsoluteUri) }) {
+            throw 'Import warm-up and measured input URLs must not collide.'
+        }
+    }
+}
 if (-not (Test-Path $OutputDirectory)) {
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+}
+$metadataPath = Join-Path $OutputDirectory 'run-metadata.json'
+if (-not (Test-Path $metadataPath)) {
+    [ordered]@{
+        schemaVersion = 1
+        comparisonMode = $ComparisonMode
+        comparison = $ComparisonLabel
+        images = [ordered]@{ control = $ControlImage; treatment = $TreatmentImage }
+        providers = [ordered]@{ control = $ControlProviders; treatment = $TreatmentProviders }
+        workload = $Workload
+        parameters = [ordered]@{
+            warmupIterations = $WarmupIterations
+            measuredIterations = $MeasuredIterations
+            bundleCount = if ($Workload -eq 'Bundle') { $BundleCount } else { $null }
+            bundleSize = if ($Workload -eq 'Bundle') { $BundleSize } else { $null }
+            concurrency = if ($Workload -eq 'Bundle') { $Concurrency } else { $null }
+            importInput = if ($Workload -eq 'Import') {
+                @($ImportInputUrl | ForEach-Object { $_.GetLeftPart([UriPartial]::Path) })
+            } else { @() }
+            importResourceType = if ($Workload -eq 'Import') { @($ImportResourceType) } else { @() }
+            importSearchProbes = if ($Workload -eq 'Import') { @($ImportSearchProbe) } else { @() }
+            importExpectedResourceCount = if ($Workload -eq 'Import') { $ImportExpectedResourceCount } else { $null }
+            importWarmupInput = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
+                @($ImportWarmupInputUrl | ForEach-Object { $_.GetLeftPart([UriPartial]::Path) })
+            } else { @() }
+            importWarmupResourceType = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { @($ImportWarmupResourceType) } else { @() }
+            importWarmupSearchProbes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { @($ImportWarmupSearchProbe) } else { @() }
+            importWarmupExpectedResourceCount = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { $ImportWarmupExpectedResourceCount } else { $null }
+        }
+    } | ConvertTo-Json -Depth 8 | Set-Content -Path $metadataPath -Encoding utf8
 }
 
 function Get-Percentile {
@@ -126,6 +217,7 @@ function New-TransactionBundleJson {
 
 function Invoke-BundleIteration {
     param(
+        [string] $Side,
         [uri] $Endpoint,
         [int] $Iteration,
         [int] $RequestCount,
@@ -144,6 +236,7 @@ function Invoke-BundleIteration {
         $target = $using:Endpoint
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         try {
+            $expectedPerRequest = $using:ResourcesPerBundle
             $response = Invoke-WebRequest `
                 -Uri $target `
                 -Method Post `
@@ -168,7 +261,17 @@ function Invoke-BundleIteration {
                 StatusCode = [int]$response.StatusCode
                 LatencyMs = $stopwatch.Elapsed.TotalMilliseconds
                 SuccessfulResources = $successfulResources
-                Failed = ($response.StatusCode -lt 200 -or $response.StatusCode -ge 300)
+                Failed = ($response.StatusCode -lt 200 -or $response.StatusCode -ge 300 -or
+                    $successfulResources -ne $expectedPerRequest)
+                ErrorMessage = if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 300 -or
+                    $successfulResources -ne $expectedPerRequest) {
+                    $errorContent = if ($response.Content -is [byte[]]) {
+                        [System.Text.Encoding]::UTF8.GetString($response.Content)
+                    } else {
+                        [string]$response.Content
+                    }
+                    "HTTP $($response.StatusCode), successful entries $successfulResources/$expectedPerRequest`: $errorContent"
+                } else { $null }
             }
         } catch {
             $stopwatch.Stop()
@@ -177,6 +280,7 @@ function Invoke-BundleIteration {
                 LatencyMs = $stopwatch.Elapsed.TotalMilliseconds
                 SuccessfulResources = 0
                 Failed = $true
+                ErrorMessage = $_.Exception.Message
             }
         }
     } -ThrottleLimit $ThrottleLimit)
@@ -186,15 +290,25 @@ function Invoke-BundleIteration {
     $successfulResources = ($requestResults | Measure-Object SuccessfulResources -Sum).Sum
     $expectedResources = $RequestCount * $ResourcesPerBundle
     if ($failedRequests -gt 0 -or $successfulResources -ne $expectedResources) {
-        throw "Bundle iteration failed: requests=$failedRequests, resources=$successfulResources/$expectedResources."
+        $representativeError = @($requestResults | Where-Object Failed | Select-Object -First 1).ErrorMessage
+        throw "Bundle iteration failed for $Side at $Endpoint, iteration $Iteration`: requests=$failedRequests, resources=$successfulResources/$expectedResources; representative error: $representativeError"
     }
 
     $probeId = 'ab-{0:D2}-{1:D6}' -f $Iteration, 0
-    $directProbe = Invoke-WebRequest -Uri ([uri]::new($Endpoint, "Patient/$probeId")) -SkipHttpErrorCheck
+    $directProbeUri = [uri]::new($Endpoint, "Patient/$probeId")
+    $directProbe = Invoke-WebRequest -Uri $directProbeUri -Headers @{ Accept = 'application/fhir+json' } -SkipHttpErrorCheck
+    if ($directProbe.StatusCode -ne 200) {
+        throw "Bundle direct correctness probe failed for $Side at $Endpoint, iteration $Iteration, probe $directProbeUri`: HTTP $($directProbe.StatusCode)."
+    }
     $familyToken = Get-CorpusFamilyToken -Iteration $Iteration
-    $searchProbe = Invoke-RestMethod -Uri ([uri]::new($Endpoint, "Patient?family:exact=$familyToken&_summary=count"))
-    if ($directProbe.StatusCode -ne 200 -or $searchProbe.total -ne $expectedResources) {
-        throw "Bundle correctness probe failed for iteration $Iteration (search total $($searchProbe.total)/$expectedResources)."
+    $searchProbeUri = [uri]::new($Endpoint, "Patient?family:exact=$familyToken&_summary=count")
+    $searchResponse = Invoke-WebRequest -Uri $searchProbeUri -Headers @{ Accept = 'application/fhir+json' } -SkipHttpErrorCheck
+    if ($searchResponse.StatusCode -ne 200) {
+        throw "Bundle indexed correctness probe failed for $Side at $Endpoint, iteration $Iteration, probe $searchProbeUri`: HTTP $($searchResponse.StatusCode)."
+    }
+    $searchProbe = ConvertFrom-ResponseJson -Content $searchResponse.Content
+    if ($searchProbe.total -ne $expectedResources) {
+        throw "Bundle indexed correctness probe failed for $Side at $Endpoint, iteration $Iteration, probe $searchProbeUri`: search total $($searchProbe.total)/$expectedResources."
     }
 
     $latencies = [double[]]@($requestResults.LatencyMs)
@@ -243,7 +357,11 @@ function Resolve-ResponseHeaderUri {
         [uri] $BaseUri
     )
 
-    $headerValue = @($Value) | Select-Object -First 1
+    $headerValue = @($Value) |
+        ForEach-Object { [string]$_ -split ',' } |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -First 1
     if ($null -eq $headerValue -or [string]::IsNullOrWhiteSpace([string]$headerValue)) {
         return $null
     }
@@ -258,9 +376,12 @@ function Resolve-ResponseHeaderUri {
 
 function Invoke-ImportIteration {
     param(
+        [string] $Side,
+        [int] $Iteration,
         [uri] $Endpoint,
         [uri[]] $InputUrl,
         [string[]] $ResourceType,
+        [string[]] $SearchProbe,
         [long] $ExpectedResourceCount,
         [int] $TimeoutMinutes,
         [double] $PollIntervalSeconds
@@ -275,7 +396,7 @@ function Invoke-ImportIteration {
         -Body (New-ImportParametersJson -InputUrl $InputUrl -ResourceType $ResourceType) `
         -SkipHttpErrorCheck
     if ($submitResponse.StatusCode -ne 202) {
-        throw "Import submission failed with HTTP $($submitResponse.StatusCode)."
+        throw "Import submission failed for $Side at $Endpoint, iteration $Iteration, probe `$import: HTTP $($submitResponse.StatusCode)."
     }
 
     $statusUrl = Resolve-ResponseHeaderUri -Value $submitResponse.Headers.Location -BaseUri $Endpoint
@@ -283,7 +404,7 @@ function Invoke-ImportIteration {
         $statusUrl = Resolve-ResponseHeaderUri -Value $submitResponse.Headers['Content-Location'] -BaseUri $Endpoint
     }
     if (-not $statusUrl) {
-        throw 'Import response did not include a status URL.'
+        throw "Import response for $Side at $Endpoint, iteration $Iteration did not include a status URL."
     }
 
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
@@ -304,24 +425,35 @@ function Invoke-ImportIteration {
     $stopwatch.Stop()
 
     if ($statusResponse.StatusCode -eq 202) {
-        throw "Import did not complete within $TimeoutMinutes minutes."
+        throw "Import for $Side at $Endpoint, iteration $Iteration did not complete within $TimeoutMinutes minutes (probe $statusUrl)."
     }
     if ($statusResponse.StatusCode -ne 200) {
-        throw "Import job failed with HTTP $($statusResponse.StatusCode)."
+        throw "Import job failed for $Side at $Endpoint, iteration $Iteration, probe $statusUrl`: HTTP $($statusResponse.StatusCode)."
     }
 
     $job = ConvertFrom-ResponseJson -Content $statusResponse.Content
     $importedResources = ($job.output | Measure-Object count -Sum).Sum
-    $failedResources = ($job.error | Measure-Object count -Sum).Sum
-    if ($failedResources -gt 0 -or $importedResources -ne $ExpectedResourceCount) {
-        throw "Import result failed correctness gate: failures=$failedResources, resources=$importedResources/$ExpectedResourceCount."
+    $errorEntries = @($job.error | Where-Object { $null -ne $_ })
+    $failedResources = ($errorEntries | Measure-Object count -Sum).Sum
+    if ($null -eq $failedResources) {
+        $failedResources = 0
+    }
+    if ($errorEntries.Count -gt 0 -or $importedResources -ne $ExpectedResourceCount) {
+        throw "Import result failed correctness gate for $Side at $Endpoint, iteration $Iteration`: errorEntries=$($errorEntries.Count), failures=$failedResources, resources=$importedResources/$ExpectedResourceCount."
     }
 
-    foreach ($type in ($ResourceType | Sort-Object -Unique)) {
-        $searchProbe = Invoke-RestMethod -Uri ([uri]::new($Endpoint, "$type`?_count=1"))
-        if ($searchProbe.total -lt 1 -or
-            $searchProbe.entry[0].resource.resourceType -ne $type) {
-            throw "Import correctness search returned no representative $type resource."
+    $distinctTypes = @($ResourceType | Sort-Object -Unique)
+    for ($probeIndex = 0; $probeIndex -lt $SearchProbe.Count; $probeIndex++) {
+        $type = $distinctTypes[$probeIndex]
+        $probeUri = [uri]::new($Endpoint, $SearchProbe[$probeIndex])
+        $probeResponse = Invoke-WebRequest -Uri $probeUri -Headers @{ Accept = 'application/fhir+json' } -SkipHttpErrorCheck
+        if ($probeResponse.StatusCode -ne 200) {
+            throw "Import indexed correctness probe failed for $Side at $Endpoint, iteration $Iteration, probe $probeUri`: HTTP $($probeResponse.StatusCode)."
+        }
+        $probeResult = ConvertFrom-ResponseJson -Content $probeResponse.Content
+        $matchingEntries = @($probeResult.entry | Where-Object { $_.resource.resourceType -eq $type })
+        if ($probeResult.total -lt 1 -or $matchingEntries.Count -lt 1) {
+            throw "Import indexed correctness probe failed for $Side at $Endpoint, iteration $Iteration, probe $probeUri`: no $type result."
         }
     }
 
@@ -349,7 +481,12 @@ function Invoke-SideWorkload {
         [int] $ThrottleLimit,
         [uri[]] $InputUrl,
         [string[]] $ResourceType,
+        [string[]] $SearchProbe,
         [long] $ExpectedResourceCount,
+        [uri[]] $WarmupInputUrl,
+        [string[]] $WarmupResourceType,
+        [string[]] $WarmupSearchProbe,
+        [long] $WarmupExpectedResourceCount,
         [int] $TimeoutMinutes,
         [double] $PollIntervalSeconds
     )
@@ -359,26 +496,27 @@ function Invoke-SideWorkload {
     for ($iteration = -$Warmups; $iteration -lt $Measurements; $iteration++) {
         $isWarmup = $iteration -lt 0
         $corpusIteration = if ($isWarmup) { 100 + $iteration + $Warmups } else { $iteration }
-        if ($isWarmup -and $WorkloadName -eq 'Import') {
-            $warmupResponse = Invoke-WebRequest -Uri ([uri]::new($Endpoint, 'metadata')) -SkipHttpErrorCheck
-            if ($warmupResponse.StatusCode -ne 200) {
-                throw "Import warm-up metadata request failed with HTTP $($warmupResponse.StatusCode)."
-            }
-            continue
-        }
         $result = if ($WorkloadName -eq 'Bundle') {
             Invoke-BundleIteration `
+                -Side $Side `
                 -Endpoint $Endpoint `
                 -Iteration $corpusIteration `
                 -RequestCount $RequestCount `
                 -ResourcesPerBundle $ResourcesPerBundle `
                 -ThrottleLimit $ThrottleLimit
         } else {
+            $iterationInputUrl = if ($isWarmup) { $WarmupInputUrl } else { $InputUrl }
+            $iterationResourceType = if ($isWarmup) { $WarmupResourceType } else { $ResourceType }
+            $iterationSearchProbe = if ($isWarmup) { $WarmupSearchProbe } else { $SearchProbe }
+            $iterationExpectedCount = if ($isWarmup) { $WarmupExpectedResourceCount } else { $ExpectedResourceCount }
             Invoke-ImportIteration `
+                -Side $Side `
+                -Iteration $corpusIteration `
                 -Endpoint $Endpoint `
-                -InputUrl $InputUrl `
-                -ResourceType $ResourceType `
-                -ExpectedResourceCount $ExpectedResourceCount `
+                -InputUrl $iterationInputUrl `
+                -ResourceType $iterationResourceType `
+                -SearchProbe $iterationSearchProbe `
+                -ExpectedResourceCount $iterationExpectedCount `
                 -TimeoutMinutes $TimeoutMinutes `
                 -PollIntervalSeconds $PollIntervalSeconds
         }
@@ -432,7 +570,10 @@ if ($Parallel) {
             Warmups = $WarmupIterations; Measurements = $MeasuredIterations
             RequestCount = $BundleCount; ResourcesPerBundle = $BundleSize; ThrottleLimit = $Concurrency
             InputUrl = $ImportInputUrl; ResourceType = $ImportResourceType
+            SearchProbe = $ImportSearchProbe
             ExpectedResourceCount = $ImportExpectedResourceCount; TimeoutMinutes = $ImportTimeoutMinutes
+            WarmupInputUrl = $ImportWarmupInputUrl; WarmupResourceType = $ImportWarmupResourceType
+            WarmupSearchProbe = $ImportWarmupSearchProbe; WarmupExpectedResourceCount = $ImportWarmupExpectedResourceCount
             PollIntervalSeconds = $ImportPollIntervalSeconds
         }
     }
@@ -451,7 +592,12 @@ if ($Parallel) {
             -ThrottleLimit $Concurrency `
             -InputUrl $ImportInputUrl `
             -ResourceType $ImportResourceType `
+            -SearchProbe $ImportSearchProbe `
             -ExpectedResourceCount $ImportExpectedResourceCount `
+            -WarmupInputUrl $ImportWarmupInputUrl `
+            -WarmupResourceType $ImportWarmupResourceType `
+            -WarmupSearchProbe $ImportWarmupSearchProbe `
+            -WarmupExpectedResourceCount $ImportWarmupExpectedResourceCount `
             -TimeoutMinutes $ImportTimeoutMinutes `
             -PollIntervalSeconds $ImportPollIntervalSeconds
     }
