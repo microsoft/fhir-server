@@ -151,6 +151,7 @@ system-principal lookup, per-app storage-role assignment, and propagation wait:
     -Subscription unused-in-dry-run `
     -ResourceGroupPrefix dryrun `
     -DryRun `
+    -OutputDirectory ./ab-test-results/dryrun `
     -ValidateCleanupOnFailure `
     -PlanOutputPath ./ab-plan.json
 ```
@@ -158,6 +159,8 @@ system-principal lookup, per-app storage-role assignment, and propagation wait:
 `-ValidateCleanupOnFailure` uses mock cleanup commands, forces a workload-style
 failure, verifies that both cleanup actions run, and verifies that the original
 failure remains the reported error. It never calls Docker or Azure.
+Use `-OutputDirectory` to place generated artifacts under a caller-selected
+temporary root, such as when running credential-free validation.
 
 Provider overrides are rejected in the default baseline-image mode. Import
 inputs are rejected for other workloads, and import mode requires an input URL,
