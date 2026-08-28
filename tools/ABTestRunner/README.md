@@ -91,7 +91,8 @@ each iteration.
 ```
 
 The runner submits a FHIR `Parameters` request to `$import`, polls its status URL
-to completion, and records imported resources, failures, total time, and
+immediately and then at a configurable short interval (`-ImportPollIntervalSeconds`,
+default 1 second), and records imported resources, failures, total time, and
 resources/sec. The same URL manifest is submitted to each isolated database.
 Any job errors, count mismatch, or empty representative type search fails the
 run. Import defaults to one measured iteration; its warm-up is a metadata
@@ -128,8 +129,13 @@ deployment/workload plan without invoking Docker or Azure:
     -Subscription unused-in-dry-run `
     -ResourceGroupPrefix dryrun `
     -DryRun `
+    -ValidateCleanupOnFailure `
     -PlanOutputPath ./ab-plan.json
 ```
+
+`-ValidateCleanupOnFailure` uses mock cleanup commands, forces a workload-style
+failure, verifies that both cleanup actions run, and verifies that the original
+failure remains the reported error. It never calls Docker or Azure.
 
 Provider overrides are rejected in the default baseline-image mode. Import
 inputs are rejected for other workloads, and import mode requires an input URL,

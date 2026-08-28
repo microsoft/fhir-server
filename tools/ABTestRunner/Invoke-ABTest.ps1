@@ -134,13 +134,20 @@ param(
     [int] $ImportTimeoutMinutes = 120,
 
     [Parameter(Mandatory = $false)]
+    [ValidateRange(0.1, 60)]
+    [double] $ImportPollIntervalSeconds = 1,
+
+    [Parameter(Mandatory = $false)]
     [switch] $ParallelWorkloads,
 
     [Parameter(Mandatory = $false)]
     [switch] $DryRun,
 
     [Parameter(Mandatory = $false)]
-    [string] $PlanOutputPath
+    [string] $PlanOutputPath,
+
+    [Parameter(Mandatory = $false)]
+    [switch] $ValidateCleanupOnFailure
 )
 
 $ErrorActionPreference = 'Stop'
@@ -175,6 +182,94 @@ function Get-DeploymentEnvironmentVariables {
         )
     }
     return $settings
+}
+
+function Invoke-ProtectedRun {
+    param(
+        [scriptblock] $Operation,
+        [scriptblock] $Cleanup
+    )
+
+    $operationError = $null
+    $cleanupError = $null
+    try {
+        & $Operation
+    } catch {
+        $operationError = $_
+    } finally {
+        try {
+            & $Cleanup
+        } catch {
+            $cleanupError = $_
+        }
+    }
+
+    if ($operationError) {
+        if ($cleanupError) {
+            Write-Warning "Cleanup also failed: $($cleanupError.Exception.Message)"
+        }
+        throw $operationError
+    }
+    if ($cleanupError) {
+        throw $cleanupError
+    }
+}
+
+function Invoke-RunCleanup {
+    param(
+        [System.Collections.IDictionary] $State,
+        [switch] $Skip,
+        [string] $ResourceGroup,
+        [string] $Registry,
+        [string] $Image,
+        [scriptblock] $CommandInvoker
+    )
+
+    if ($Skip) {
+        Write-Host "`n⚠ Skipping cleanup. Remember to delete resource group '$ResourceGroup' and image '$Image' manually." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "`n┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+    Write-Host "│ Cleanup Azure resources                                     │" -ForegroundColor Yellow
+    Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+
+    if (-not $CommandInvoker) {
+        $CommandInvoker = {
+            param([string[]] $CommandArguments)
+            & az @CommandArguments
+            if ($LASTEXITCODE -ne 0) {
+                throw "az $($CommandArguments -join ' ') failed with exit code $LASTEXITCODE."
+            }
+        }
+    }
+
+    $cleanupErrors = [System.Collections.Generic.List[string]]::new()
+    if ($State.ResourceGroupCreated) {
+        Write-Host "`n► Deleting resource group: $ResourceGroup"
+        try {
+            & $CommandInvoker -CommandArguments @('group', 'delete', '--name', $ResourceGroup, '--yes')
+        } catch {
+            $cleanupErrors.Add($_.Exception.Message)
+        }
+    }
+    if ($State.BranchImagePushed) {
+        Write-Host "`n► Removing branch image tag from registry..."
+        try {
+            & $CommandInvoker -CommandArguments @(
+                'acr', 'repository', 'delete',
+                '--name', $Registry,
+                '--image', $Image,
+                '--yes'
+            )
+        } catch {
+            $cleanupErrors.Add($_.Exception.Message)
+        }
+    }
+
+    if ($cleanupErrors.Count -gt 0) {
+        throw "Cleanup failed: $($cleanupErrors -join '; ')"
+    }
 }
 
 $providerParameterNames = @(
@@ -212,7 +307,8 @@ if ($Workload -eq 'Import') {
           $PSBoundParameters.ContainsKey('ImportStorageAccountUri') -or
           $PSBoundParameters.ContainsKey('ImportStorageAccountResourceId') -or
           $PSBoundParameters.ContainsKey('ImportExpectedResourceCount') -or
-          $PSBoundParameters.ContainsKey('ImportResourceType')) {
+          $PSBoundParameters.ContainsKey('ImportResourceType') -or
+          $PSBoundParameters.ContainsKey('ImportPollIntervalSeconds')) {
     throw 'Import input parameters require -Workload Import.'
 }
 if ($Workload -eq 'E2E' -and
@@ -220,6 +316,9 @@ if ($Workload -eq 'E2E' -and
      $PSBoundParameters.ContainsKey('MeasuredIterations') -or
      $ParallelWorkloads)) {
     throw 'Warm-up, measured iteration, and workload parallelism parameters require an ingestion workload.'
+}
+if ($ValidateCleanupOnFailure -and -not $DryRun) {
+    throw '-ValidateCleanupOnFailure requires -DryRun.'
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -274,12 +373,8 @@ $comparisonLabel = if ($ComparisonMode -eq 'SameImageProvider') {
 } else {
     'baseline-image branch comparison'
 }
-$controlReportLabel = if ($ComparisonMode -eq 'SameImageProvider') {
-    "control (D=$($controlProviders.Default), I=$($controlProviders.Import), F=$($controlProviders.FhirPath))"
-} else { "main ($BaselineTag)" }
-$treatmentReportLabel = if ($ComparisonMode -eq 'SameImageProvider') {
-    "treatment (D=$($treatmentProviders.Default), I=$($treatmentProviders.Import), F=$($treatmentProviders.FhirPath))"
-} else { "$branchName ($shortSha)" }
+$controlReportLabel = "control (image=$baselineImage; Default=$($controlProviders.Default); Import=$($controlProviders.Import); FhirPath=$($controlProviders.FhirPath))"
+$treatmentReportLabel = "treatment (image=$branchImage; Default=$($treatmentProviders.Default); Import=$($treatmentProviders.Import); FhirPath=$($treatmentProviders.FhirPath))"
 
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host " FHIR Server A/B Test Runner" -ForegroundColor Cyan
@@ -338,10 +433,45 @@ if ($PlanOutputPath) {
 }
 if ($DryRun) {
     $plan | ConvertTo-Json -Depth 8
+    if ($ValidateCleanupOnFailure) {
+        $cleanupEvidence = [System.Collections.Generic.List[string]]::new()
+        $mockState = @{ ResourceGroupCreated = $true; BranchImagePushed = $true }
+        $mockInvoker = {
+            param([string[]] $CommandArguments)
+            $cleanupEvidence.Add($CommandArguments -join ' ')
+            if ($CommandArguments[0] -eq 'group') {
+                throw 'Simulated resource-group cleanup failure.'
+            }
+        }
+        $forcedFailure = $null
+        try {
+            Invoke-ProtectedRun -Operation {
+                throw 'Forced workload failure.'
+            } -Cleanup {
+                Invoke-RunCleanup `
+                    -State $mockState `
+                    -ResourceGroup 'mock-resource-group' `
+                    -Registry 'mock-registry' `
+                    -Image 'mock-image:tag' `
+                    -CommandInvoker $mockInvoker
+            }
+        } catch {
+            $forcedFailure = $_
+        }
+        if ($forcedFailure.Exception.Message -ne 'Forced workload failure.' -or
+            $cleanupEvidence.Count -ne 2 -or
+            $cleanupEvidence[0] -notmatch '^group delete ' -or
+            $cleanupEvidence[1] -notmatch '^acr repository delete ') {
+            throw 'Cleanup-on-failure validation failed.'
+        }
+        Write-Host 'Cleanup-on-failure validation passed; cleanup ran and the original workload failure was preserved.' -ForegroundColor Green
+    }
     Write-Host 'Dry run complete; no Docker or Azure commands were executed.' -ForegroundColor Green
     return
 }
 
+$runState = @{ ResourceGroupCreated = $false; BranchImagePushed = $false }
+Invoke-ProtectedRun -Operation {
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 1: Pull baseline image / Build branch image
 # ─────────────────────────────────────────────────────────────────────────────
@@ -374,6 +504,7 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to build branch Docker image" }
 Write-Host "`n► Pushing branch image to registry..."
 docker push $branchImage
 if ($LASTEXITCODE -ne 0) { throw "Failed to push branch image to registry" }
+$runState.BranchImagePushed = $true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 2: Provision Azure infrastructure
@@ -390,6 +521,7 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to set subscription" }
 Write-Host "`n► Creating resource group: $ResourceGroupName"
 az group create --name $ResourceGroupName --location $Location --output none
 if ($LASTEXITCODE -ne 0) { throw "Failed to create resource group" }
+$runState.ResourceGroupCreated = $true
 
 # Deploy ACA managed environment
 Write-Host "`n► Creating ACA managed environment: $acaEnvironmentName"
@@ -851,31 +983,21 @@ if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
         ImportResourceType = $ImportResourceType
         ImportExpectedResourceCount = $ImportExpectedResourceCount
         ImportTimeoutMinutes = $ImportTimeoutMinutes
+        ImportPollIntervalSeconds = $ImportPollIntervalSeconds
+        ControlLabel = $controlReportLabel
+        TreatmentLabel = $treatmentReportLabel
         Parallel = $ParallelWorkloads
     }
     & "$scriptsDir/Invoke-IngestionWorkload.ps1" @workloadArgs
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Step 7: Cleanup
-# ─────────────────────────────────────────────────────────────────────────────
-
-if (-not $SkipCleanup) {
-    Write-Host "`n┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-    Write-Host "│ Step 7: Cleanup Azure resources                             │" -ForegroundColor Yellow
-    Write-Host "└─────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-
-    Write-Host "`n► Deleting resource group: $ResourceGroupName"
-    az group delete --name $ResourceGroupName --yes
-
-    Write-Host "`n► Removing branch image tag from registry..."
-    $registryName = $ContainerRegistry -replace '\.azurecr\.io$', ''
-    az acr repository delete `
-        --name $registryName `
-        --image "$($FhirVersion.ToLower())_fhir-server:$branchImageTag" `
-        --yes
-} else {
-    Write-Host "`n⚠ Skipping cleanup. Remember to delete resource group '$ResourceGroupName' and image '$($FhirVersion.ToLower())_fhir-server:$branchImageTag' manually." -ForegroundColor Yellow
+} -Cleanup {
+    Invoke-RunCleanup `
+        -State $runState `
+        -Skip:$SkipCleanup `
+        -ResourceGroup $ResourceGroupName `
+        -Registry ($ContainerRegistry -replace '\.azurecr\.io$', '') `
+        -Image "$($FhirVersion.ToLower())_fhir-server:$branchImageTag"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
