@@ -373,6 +373,8 @@ $comparisonLabel = if ($ComparisonMode -eq 'SameImageProvider') {
 } else {
     'baseline-image branch comparison'
 }
+$controlE2eLabel = 'Baseline'
+$treatmentE2eLabel = 'Branch'
 $controlReportLabel = "control (image=$baselineImage; Default=$($controlProviders.Default); Import=$($controlProviders.Import); FhirPath=$($controlProviders.FhirPath))"
 $treatmentReportLabel = "treatment (image=$branchImage; Default=$($treatmentProviders.Default); Import=$($treatmentProviders.Import); FhirPath=$($treatmentProviders.FhirPath))"
 
@@ -954,15 +956,15 @@ if (-not $branchTrxPaths) { $branchTrxPaths = @($branchTrx) }
     -BaselineTrxPaths $baselineTrxPaths `
     -BranchTrxPaths $branchTrxPaths `
     -OutputPath (Join-Path $outputDir "comparison-report.md") `
-    -BaselineLabel $controlReportLabel `
-    -BranchLabel $treatmentReportLabel
+    -BaselineLabel $controlE2eLabel `
+    -BranchLabel $treatmentE2eLabel
 
 & "$scriptsDir/Export-DetailedCsv.ps1" `
     -BaselineTrxPaths $baselineTrxPaths `
     -BranchTrxPaths $branchTrxPaths `
     -OutputPath (Join-Path $outputDir "detailed-results.csv") `
-    -BaselineLabel $controlReportLabel `
-    -BranchLabel $treatmentReportLabel
+    -BaselineLabel $controlE2eLabel `
+    -BranchLabel $treatmentE2eLabel
 } else {
     Write-Host "`n┌─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
     Write-Host "│ Step 5: Run ingestion workload                              │" -ForegroundColor Yellow
