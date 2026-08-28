@@ -115,11 +115,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
-            ICompiledFhirPath expression = _fhirPathProvider.Compile(searchParameter.Expression);
-
-            IEnumerable<ITypedElement> rootObjects = expression.Select(resource, context);
-
-            foreach (var rootObject in rootObjects)
+            foreach (ITypedElement rootObject in EvaluateFhirPath(
+                searchParameter.Url.ToString(),
+                resource,
+                searchParameter.Expression,
+                context))
             {
                 int numberOfComponents = searchParameter.Component.Count;
                 bool skip = false;
@@ -212,36 +212,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var results = new List<ISearchValue>();
 
             // For simple value type, we can parse the expression directly.
-            IEnumerable<ITypedElement> extractedValues = Enumerable.Empty<ITypedElement>();
-
-            try
-            {
-                ICompiledFhirPath expression = _fhirPathProvider.Compile(fhirPathExpression);
-
-                extractedValues = expression.Select(element, context).ToArray();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to extract the values using '{FhirPathExpression}' against '{ElementType}'.",
-                    fhirPathExpression,
-                    element.GetType());
-                _failureMetricHandler.EmitException(
-                    new ExceptionMetricNotification
-                    {
-                        OperationName = "FhirPathSearchIndexEvaluation",
-                        ExceptionType = ex.GetType().Name,
-                        Severity = LogLevel.Warning.ToString(),
-                    });
-            }
-
-            Debug.Assert(extractedValues != null, "The extracted values should not be null.");
-            if (extractedValues == null)
-            {
-                _logger.LogWarning("The extracted values should not be null.");
-                return results;
-            }
+            IEnumerable<ITypedElement> extractedValues = EvaluateFhirPath(
+                searchParameterDefinitionUrl,
+                element,
+                fhirPathExpression,
+                context);
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
@@ -329,6 +304,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return results;
+        }
+
+        private ITypedElement[] EvaluateFhirPath(
+            string searchParameterDefinitionUrl,
+            ITypedElement element,
+            string fhirPathExpression,
+            EvaluationContext context)
+        {
+            try
+            {
+                ICompiledFhirPath expression = _fhirPathProvider.Compile(fhirPathExpression);
+                return expression.Select(element, context).ToArray();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to extract search parameter '{SearchParameterDefinitionUrl}' using '{FhirPathExpression}' against '{ElementType}'.",
+                    searchParameterDefinitionUrl,
+                    fhirPathExpression,
+                    element.InstanceType);
+                _failureMetricHandler.EmitException(
+                    new ExceptionMetricNotification
+                    {
+                        OperationName = "FhirPathSearchIndexEvaluation",
+                        ExceptionType = ex.GetType().Name,
+                        Severity = LogLevel.Warning.ToString(),
+                    });
+
+                return Array.Empty<ITypedElement>();
+            }
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)

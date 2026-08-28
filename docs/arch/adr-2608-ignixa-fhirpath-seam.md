@@ -72,10 +72,14 @@ Two properties matter. The default is Firely, so **nothing has to call the sette
 // FHIRPath Patch remains Firely-backed even when evaluation uses Ignixa.
 ElementNavFhirExtensions.PrepareFhirSymbolTableFunctions();
 
-FhirPathProvider.SetProviderFactory(
-    _configuration.CoreFeatures.FhirSdkProvider.EffectiveFhirPath == FhirSdkProvider.Ignixa
-        ? () => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance))
-        : () => new FirelyFhirPathProvider());
+Func<IFhirPathProvider> providerFactory = _configuration.CoreFeatures.FhirSdkProvider.EffectiveFhirPath switch
+{
+    FhirSdkProvider.Firely => () => new FirelyFhirPathProvider(),
+    FhirSdkProvider.Ignixa => () => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance)),
+    var provider => throw new InvalidOperationException($"Unsupported FHIR SDK provider: {provider}."),
+};
+
+FhirPathProvider.SetProviderFactory(providerFactory);
 
 services.AddSingleton<IFhirPathProvider>(_ => FhirPathProvider.Instance);
 ```
