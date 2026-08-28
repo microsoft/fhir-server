@@ -92,7 +92,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(record, nameof(record));
 
-            var invalidTypes = resourceTypes?.Where(t => !searchService.IsValidResourceType(t)).ToList();
+            var invalidTypes = resourceTypes?
+                .Select(t => t?.Trim())
+                .Where(t => string.IsNullOrEmpty(t) || !searchService.IsValidResourceType(t))
+                .ToList();
             if (invalidTypes != null && invalidTypes.Count > 0)
             {
                 var message = $"Invalid resource type(s): {string.Join(", ", invalidTypes)}";
