@@ -51,20 +51,24 @@ The provider is a process-wide ambient, following the pattern `ModelInfoProvider
 ```csharp
 public static class FhirPathProvider
 {
-    private static Func<IFhirPathProvider> _factory = static () => new FirelyFhirPathProvider();
-    private static Lazy<IFhirPathProvider> _instance = new(() => _factory());
+    private static Lazy<IFhirPathProvider> _instance = CreateLazy(static () => new FirelyFhirPathProvider());
 
-    public static IFhirPathProvider Instance => _instance.Value;
+    public static IFhirPathProvider Instance => Volatile.Read(ref _instance).Value;
 
     public static void SetProviderFactory(Func<IFhirPathProvider> factory)
     {
-        _factory = EnsureArg.IsNotNull(factory, nameof(factory));
-        _instance = new Lazy<IFhirPathProvider>(() => _factory());
+        Func<IFhirPathProvider> providerFactory = EnsureArg.IsNotNull(factory, nameof(factory));
+        Interlocked.Exchange(ref _instance, CreateLazy(providerFactory));
     }
+
+    private static Lazy<IFhirPathProvider> CreateLazy(Func<IFhirPathProvider> factory)
+        => new(
+            () => factory() ?? throw new InvalidOperationException("The FHIRPath provider factory returned null."),
+            LazyThreadSafetyMode.ExecutionAndPublication);
 }
 ```
 
-Two properties matter. The default is Firely, so **nothing has to call the setter for current behaviour to hold** — roughly a thousand unit tests that construct converters directly need no fixture change, unlike `ModelInfoProvider`, which throws when unset. And resolution is lazy behind a `Lazy<T>`, so the provider is built after `ModelInfoProvider` is set and two threads cannot race into two expression caches. `SetProviderFactory` replaces the `Lazy`, so a pre-registration read cannot latch Firely permanently.
+Two properties matter. The default is Firely, so **nothing has to call the setter for current behaviour to hold** — roughly a thousand unit tests that construct converters directly need no fixture change, unlike `ModelInfoProvider`, which throws when unset. Resolution is lazy behind a `Lazy<T>`, so the provider is built after `ModelInfoProvider` is set and two threads cannot race into two expression caches. `SetProviderFactory` validates and captures the factory, then atomically replaces the lazy generation; readers observe either the complete old generation or the complete new one, so a pre-registration read cannot latch Firely permanently. A factory that returns `null` is rejected when its generation is first resolved.
 
 `SearchModule` is the single composition point — it already takes `FhirServerConfiguration` and owns the feature area, where `FhirModule` is parameterless:
 

@@ -135,6 +135,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenReferenceTargetFilterEvaluationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
+        {
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "organization",
+                    "organization",
+                    (ValueSets.SearchParamType)SearchParamType.Reference,
+                    new Uri("http://hl7.org/fhir/SearchParameter/Patient-organization"),
+                    expression: "Patient.managingOrganization",
+                    targetResourceTypes: ["Organization"]),
+            ]);
+            var referenceExpression = Substitute.For<ICompiledFhirPath>();
+            referenceExpression
+                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
+                .Returns(_ => throw new NotSupportedException("Unsupported expression."));
+            var resourceReference = Substitute.For<ITypedElement>();
+            resourceReference.InstanceType.Returns("ResourceReference");
+            var mainExpression = Substitute.For<ICompiledFhirPath>();
+            mainExpression
+                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
+                .Returns([resourceReference]);
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile("Patient.managingOrganization").Returns(mainExpression);
+            provider.Compile("reference").Returns(referenceExpression);
+            var metricHandler = Substitute.For<IFailureMetricHandler>();
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                Substitute.For<ITypedElementToSearchValueConverterManager>(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                provider,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>(),
+                metricHandler);
+            ResourceElement patient = new Patient
+            {
+                Id = "patient-1",
+                ManagingOrganization = new ResourceReference("Organization/organization-1"),
+            }.ToResourceElement();
+
+            IReadOnlyCollection<SearchIndexEntry> entries = indexer.Extract(patient);
+
+            Assert.Empty(entries);
+            metricHandler.Received(1).EmitException(
+                Arg.Is<IExceptionMetricNotification>(
+                    notification => notification.OperationName == "FhirPathSearchIndexEvaluation" &&
+                        notification.ExceptionType == nameof(NotSupportedException)));
+        }
+
+        [Fact]
         public void GivenCompositeRootFhirPathEvaluationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
         {
             var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
