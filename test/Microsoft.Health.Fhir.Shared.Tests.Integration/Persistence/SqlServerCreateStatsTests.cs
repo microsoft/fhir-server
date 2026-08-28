@@ -216,7 +216,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // The BaseResourceTypes fallback is intentionally not used for NotExists, so the gender stat is
             // not newly created for any resource type other than the one in the search URL. Existing entries
-            // are ignored because the statistics cache is process-wide and populated by other test classes.
+            // are ignored because earlier tests may populate the process-wide cache. This test class belongs
+            // to a non-parallel collection, so no other test can modify the cache between the two snapshots.
             Assert.DoesNotContain(newStatsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId != patientResourceTypeId
