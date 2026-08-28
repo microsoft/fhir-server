@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -15,7 +16,9 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
@@ -37,6 +40,80 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
     public class FhirPathProviderTests : IDisposable
     {
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
+
+        [Fact]
+        public void GivenProviderFactory_WhenProviderIsReadMultipleTimes_ThenItIsCreatedLazilyOnce()
+        {
+            var expectedProvider = Substitute.For<IFhirPathProvider>();
+            int factoryInvocationCount = 0;
+
+            FhirPathProvider.SetProviderFactory(() =>
+            {
+                Interlocked.Increment(ref factoryInvocationCount);
+                return expectedProvider;
+            });
+
+            Assert.Equal(0, Volatile.Read(ref factoryInvocationCount));
+            Assert.Same(expectedProvider, FhirPathProvider.Instance);
+            Assert.Same(expectedProvider, FhirPathProvider.Instance);
+            Assert.Equal(1, Volatile.Read(ref factoryInvocationCount));
+        }
+
+        [Fact]
+        public void GivenMaterializedProvider_WhenFactoryIsReplaced_ThenNewProviderIsCreatedLazily()
+        {
+            var originalProvider = Substitute.For<IFhirPathProvider>();
+            var replacementProvider = Substitute.For<IFhirPathProvider>();
+            int originalFactoryInvocationCount = 0;
+            int replacementFactoryInvocationCount = 0;
+
+            FhirPathProvider.SetProviderFactory(() =>
+            {
+                Interlocked.Increment(ref originalFactoryInvocationCount);
+                return originalProvider;
+            });
+            Assert.Same(originalProvider, FhirPathProvider.Instance);
+
+            FhirPathProvider.SetProviderFactory(() =>
+            {
+                Interlocked.Increment(ref replacementFactoryInvocationCount);
+                return replacementProvider;
+            });
+
+            Assert.Equal(1, Volatile.Read(ref originalFactoryInvocationCount));
+            Assert.Equal(0, Volatile.Read(ref replacementFactoryInvocationCount));
+            Assert.Same(replacementProvider, FhirPathProvider.Instance);
+            Assert.Equal(1, Volatile.Read(ref replacementFactoryInvocationCount));
+        }
+
+        [Fact]
+        public void GivenProviderFactoryReturningNull_WhenProviderIsRead_ThenAnExceptionIsThrown()
+        {
+            FhirPathProvider.SetProviderFactory(static () => null);
+
+            Assert.Throws<InvalidOperationException>(() => FhirPathProvider.Instance);
+        }
+
+        [Fact]
+        public async Task GivenConcurrentProviderReads_WhenProviderHasNotBeenCreated_ThenItIsCreatedOnce()
+        {
+            var expectedProvider = Substitute.For<IFhirPathProvider>();
+            int factoryInvocationCount = 0;
+            FhirPathProvider.SetProviderFactory(() =>
+            {
+                Interlocked.Increment(ref factoryInvocationCount);
+                return expectedProvider;
+            });
+
+            System.Threading.Tasks.Task<IFhirPathProvider>[] reads = Enumerable.Range(0, 32)
+                .Select(_ => System.Threading.Tasks.Task.Run(() => FhirPathProvider.Instance))
+                .ToArray();
+
+            IFhirPathProvider[] providers = await System.Threading.Tasks.Task.WhenAll(reads);
+
+            Assert.All(providers, provider => Assert.Same(expectedProvider, provider));
+            Assert.Equal(1, Volatile.Read(ref factoryInvocationCount));
+        }
 
         [Fact]
         public void GivenFirelyProvider_WhenHelpersEvaluate_ThenFirely5114BehaviorIsPreserved()
@@ -207,12 +284,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             IFhirPathProvider firely = new FirelyFhirPathProvider();
             IFhirPathProvider ignixa = CreateIgnixaProvider();
             ITypedElement input = new Patient { Id = "synthetic-patient" }.ToTypedElement();
-            string[] expressions = definitions.AllSearchParameters
+            string[] parentExpressions = definitions.AllSearchParameters
                 .Where(parameter => parameter.Code != SearchParameterNames.ResourceType)
-                .SelectMany(parameter => (parameter.Component ?? Array.Empty<SearchParameterComponentInfo>())
-                    .Select(component => component.Expression)
-                    .Append(parameter.Expression))
+                .Select(parameter => parameter.Expression)
                 .Where(expression => !string.IsNullOrWhiteSpace(expression))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(expression => expression, StringComparer.Ordinal)
+                .ToArray();
+            string[] componentExpressions = definitions.AllSearchParameters
+                .Where(parameter => parameter.Code != SearchParameterNames.ResourceType)
+                .SelectMany(parameter => parameter.Component ?? Array.Empty<SearchParameterComponentInfo>())
+                .Select(component => component.Expression)
+                .Where(expression => !string.IsNullOrWhiteSpace(expression))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(expression => expression, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.True(parentExpressions.Length >= 500, $"Expected at least 500 generated parent expressions, but evaluated {parentExpressions.Length}.");
+            Assert.NotEmpty(componentExpressions);
+
+            string[] expressions = parentExpressions
+                .Concat(componentExpressions)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(expression => expression, StringComparer.Ordinal)
                 .ToArray();
@@ -236,8 +328,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
                 Assert.Equal(firelyValues, ignixaValues);
             }
-
-            Assert.True(expressions.Length >= 500, $"Expected at least 500 generated expressions, but evaluated {expressions.Length}.");
         }
 
         [Fact]
@@ -281,6 +371,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 (address, "state"),
                 (address, "text"),
             ];
+            cases = cases.Concat(PatchPayload.ImmutableProperties.Select(expression => (narrative, expression))).ToArray();
             int nonEmptyResultCount = 0;
 
             foreach ((ITypedElement input, string expression) in cases)
@@ -328,6 +419,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 ignixaProvider,
                 NullLogger<TypedElementSearchIndexer>.Instance,
                 ignixaFailures);
+            var firelyEntriesByResourceType = new Dictionary<string, IReadOnlyCollection<SearchIndexEntry>>(StringComparer.Ordinal);
+            int totalFirelyEntryCount = 0;
             try
             {
                 foreach (ResourceElement resource in GetResourceCorpus())
@@ -337,6 +430,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
                     FhirPathProvider.SetProviderFactory(() => ignixaProvider);
                     IReadOnlyCollection<SearchIndexEntry> ignixaEntries = ignixaIndexer.Extract(resource);
+                    firelyEntriesByResourceType.TryAdd(resource.InstanceType, firelyEntries);
+                    totalFirelyEntryCount += firelyEntries.Count;
 
                     string[] firelyValues = firelyEntries.Select(Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
                     string[] ignixaValues = ignixaEntries.Select(Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
@@ -351,6 +446,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
             firelyFailures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
             ignixaFailures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+            Assert.True(
+                totalFirelyEntryCount >= 10,
+                "The index parity corpus must produce at least 10 search index entries.");
+            Assert.Contains(
+                firelyEntriesByResourceType[KnownResourceTypes.Patient],
+                entry => entry.SearchParameter.Code == "name" &&
+                    entry.Value is StringSearchValue value &&
+                    value.String == "Chalmers");
+            Assert.Contains(
+                firelyEntriesByResourceType[KnownResourceTypes.Observation],
+                entry => entry.SearchParameter.Code == "code" &&
+                    entry.Value is TokenSearchValue value &&
+                    value.System == "http://loinc.org" &&
+                    value.Code == "29463-7");
         }
 
         private static IFhirPathProvider CreateIgnixaProvider()
