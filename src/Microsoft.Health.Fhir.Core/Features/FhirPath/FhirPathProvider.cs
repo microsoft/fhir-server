@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.FhirPath
@@ -17,22 +18,26 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPath
     /// </remarks>
     public static class FhirPathProvider
     {
-        private static Func<IFhirPathProvider> _factory = static () => new FirelyFhirPathProvider();
-        private static Lazy<IFhirPathProvider> _instance = new(() => _factory());
+        private static Lazy<IFhirPathProvider> _instance = CreateLazy(static () => new FirelyFhirPathProvider());
 
         /// <summary>
         /// Gets the configured provider.
         /// </summary>
-        public static IFhirPathProvider Instance => _instance.Value;
+        public static IFhirPathProvider Instance => Volatile.Read(ref _instance).Value;
 
         /// <summary>
-        /// Replaces the provider factory. The provider is created lazily and exactly once.
+        /// Replaces the provider factory. The provider is created lazily and exactly once for each factory.
         /// </summary>
         /// <param name="factory">The provider factory.</param>
         public static void SetProviderFactory(Func<IFhirPathProvider> factory)
         {
-            _factory = EnsureArg.IsNotNull(factory, nameof(factory));
-            _instance = new Lazy<IFhirPathProvider>(() => _factory());
+            Func<IFhirPathProvider> providerFactory = EnsureArg.IsNotNull(factory, nameof(factory));
+            Interlocked.Exchange(ref _instance, CreateLazy(providerFactory));
         }
+
+        private static Lazy<IFhirPathProvider> CreateLazy(Func<IFhirPathProvider> factory)
+            => new(
+                () => factory() ?? throw new InvalidOperationException("The FHIRPath provider factory returned null."),
+                LazyThreadSafetyMode.ExecutionAndPublication);
     }
 }
