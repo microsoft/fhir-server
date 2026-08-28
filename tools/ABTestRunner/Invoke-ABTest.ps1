@@ -163,6 +163,9 @@ param(
     [string] $PlanOutputPath,
 
     [Parameter(Mandatory = $false)]
+    [string] $OutputDirectory,
+
+    [Parameter(Mandatory = $false)]
     [switch] $ValidateCleanupOnFailure
 )
 
@@ -208,6 +211,26 @@ function ConvertTo-SanitizedUriString {
     }
 
     return $Uri.GetLeftPart([System.UriPartial]::Path)
+}
+
+function ConvertTo-SanitizedProbeDefinition {
+    param(
+        [string] $Probe,
+        [string] $ExpectedResourceType
+    )
+
+    $questionMark = $Probe.IndexOf('?')
+    $path = $Probe.Substring(0, $questionMark)
+    $parameterNames = @(
+        $Probe.Substring($questionMark + 1) -split '&' |
+            ForEach-Object { [uri]::UnescapeDataString(($_ -split '=', 2)[0]) }
+    )
+
+    return [ordered]@{
+        resourceType = $ExpectedResourceType
+        path = $path
+        parameterNames = $parameterNames
+    }
 }
 
 function Assert-ImportManifest {
@@ -468,7 +491,11 @@ $runId = (Get-Date -Format 'yyyyMMddHHmmss')
 $branchName = (git rev-parse --abbrev-ref HEAD 2>$null) ?? 'local'
 $shortSha = (git rev-parse --short HEAD 2>$null) ?? 'unknown'
 
-$outputDir = Join-Path $repoRoot "ab-test-results/$runId"
+$outputDir = if ($OutputDirectory) {
+    [System.IO.Path]::GetFullPath($OutputDirectory)
+} else {
+    Join-Path $repoRoot "ab-test-results/$runId"
+}
 if (-not (Test-Path $outputDir)) {
     New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 }
@@ -516,6 +543,12 @@ $controlE2eLabel = 'Baseline'
 $treatmentE2eLabel = 'Branch'
 $controlReportLabel = "control (image=$baselineImage; Default=$($controlProviders.Default); Import=$($controlProviders.Import); FhirPath=$($controlProviders.FhirPath))"
 $treatmentReportLabel = "treatment (image=$branchImage; Default=$($treatmentProviders.Default); Import=$($treatmentProviders.Import); FhirPath=$($treatmentProviders.FhirPath))"
+[string[]] $importProbeTypes = if ($Workload -eq 'Import') { @($ImportResourceType | Sort-Object -Unique) } else { @() }
+[string[]] $importWarmupProbeTypes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
+    @($ImportWarmupResourceType | Sort-Object -Unique)
+} else {
+    @()
+}
 
 Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host " FHIR Server A/B Test Runner" -ForegroundColor Cyan
@@ -570,7 +603,11 @@ $plan = [ordered]@{
                 }
             })
         } else { @() }
-        importSearchProbes = if ($Workload -eq 'Import') { @($ImportSearchProbe) } else { @() }
+        importSearchProbes = if ($Workload -eq 'Import') {
+            @($ImportSearchProbe | ForEach-Object -Begin { $index = 0 } -Process {
+                ConvertTo-SanitizedProbeDefinition -Probe $_ -ExpectedResourceType $importProbeTypes[$index++]
+            })
+        } else { @() }
         importExpectedResourceCount = if ($Workload -eq 'Import') { $ImportExpectedResourceCount } else { $null }
         importWarmupInput = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
             @($ImportWarmupInputUrl | ForEach-Object -Begin { $index = 0 } -Process {
@@ -580,7 +617,11 @@ $plan = [ordered]@{
                 }
             })
         } else { @() }
-        importWarmupSearchProbes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { @($ImportWarmupSearchProbe) } else { @() }
+        importWarmupSearchProbes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
+            @($ImportWarmupSearchProbe | ForEach-Object -Begin { $index = 0 } -Process {
+                ConvertTo-SanitizedProbeDefinition -Probe $_ -ExpectedResourceType $importWarmupProbeTypes[$index++]
+            })
+        } else { @() }
         importWarmupExpectedResourceCount = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { $ImportWarmupExpectedResourceCount } else { $null }
         importStorageAccountUri = if ($Workload -eq 'Import') { ConvertTo-SanitizedUriString -Uri $ImportStorageAccountUri } else { $null }
     }
