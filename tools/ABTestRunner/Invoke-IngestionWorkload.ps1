@@ -21,6 +21,12 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $ComparisonLabel,
 
+    [Parameter(Mandatory = $true)]
+    [string] $ControlLabel,
+
+    [Parameter(Mandatory = $true)]
+    [string] $TreatmentLabel,
+
     [ValidateRange(0, 20)]
     [int] $WarmupIterations = 1,
 
@@ -44,6 +50,9 @@ param(
 
     [ValidateRange(1, 360)]
     [int] $ImportTimeoutMinutes = 120,
+
+    [ValidateRange(0.1, 60)]
+    [double] $ImportPollIntervalSeconds = 1,
 
     [switch] $Parallel
 )
@@ -69,6 +78,24 @@ function Get-Percentile {
     return [double]$sorted[$index]
 }
 
+function ConvertFrom-ResponseJson {
+    param([object] $Content)
+
+    $json = if ($Content -is [byte[]]) {
+        [System.Text.Encoding]::UTF8.GetString($Content)
+    } else {
+        [string]$Content
+    }
+
+    return $json | ConvertFrom-Json
+}
+
+function Get-CorpusFamilyToken {
+    param([int] $Iteration)
+
+    return 'ABPerfIteration{0:D4}' -f $Iteration
+}
+
 function New-TransactionBundleJson {
     param(
         [int] $BundleIndex,
@@ -84,7 +111,10 @@ function New-TransactionBundleJson {
                 resourceType = 'Patient'
                 id = $id
                 active = $true
-                name = @([ordered]@{ family = "ABPerf$Iteration"; given = @("Patient$resourceIndex") })
+                name = @([ordered]@{
+                    family = Get-CorpusFamilyToken -Iteration $Iteration
+                    given = @("Patient$resourceIndex")
+                })
             }
             request = [ordered]@{ method = 'PUT'; url = "Patient/$id" }
         }
@@ -124,7 +154,12 @@ function Invoke-BundleIteration {
             $stopwatch.Stop()
             $successfulResources = 0
             if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
-                $responseBundle = $response.Content | ConvertFrom-Json
+                $responseJson = if ($response.Content -is [byte[]]) {
+                    [System.Text.Encoding]::UTF8.GetString($response.Content)
+                } else {
+                    [string]$response.Content
+                }
+                $responseBundle = $responseJson | ConvertFrom-Json
                 $successfulResources = @(
                     $responseBundle.entry | Where-Object { $_.response.status -match '^2' }
                 ).Count
@@ -156,7 +191,8 @@ function Invoke-BundleIteration {
 
     $probeId = 'ab-{0:D2}-{1:D6}' -f $Iteration, 0
     $directProbe = Invoke-WebRequest -Uri ([uri]::new($Endpoint, "Patient/$probeId")) -SkipHttpErrorCheck
-    $searchProbe = Invoke-RestMethod -Uri ([uri]::new($Endpoint, "Patient?family=ABPerf$Iteration&_summary=count"))
+    $familyToken = Get-CorpusFamilyToken -Iteration $Iteration
+    $searchProbe = Invoke-RestMethod -Uri ([uri]::new($Endpoint, "Patient?family:exact=$familyToken&_summary=count"))
     if ($directProbe.StatusCode -ne 200 -or $searchProbe.total -ne $expectedResources) {
         throw "Bundle correctness probe failed for iteration $Iteration (search total $($searchProbe.total)/$expectedResources)."
     }
@@ -201,13 +237,33 @@ function New-ImportParametersJson {
         ConvertTo-Json -Depth 8 -Compress)
 }
 
+function Resolve-ResponseHeaderUri {
+    param(
+        [object] $Value,
+        [uri] $BaseUri
+    )
+
+    $headerValue = @($Value) | Select-Object -First 1
+    if ($null -eq $headerValue -or [string]::IsNullOrWhiteSpace([string]$headerValue)) {
+        return $null
+    }
+
+    $uri = [uri]$headerValue
+    if ($uri.IsAbsoluteUri) {
+        return $uri
+    }
+
+    return [uri]::new($BaseUri, $uri)
+}
+
 function Invoke-ImportIteration {
     param(
         [uri] $Endpoint,
         [uri[]] $InputUrl,
         [string[]] $ResourceType,
         [long] $ExpectedResourceCount,
-        [int] $TimeoutMinutes
+        [int] $TimeoutMinutes,
+        [double] $PollIntervalSeconds
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -222,9 +278,9 @@ function Invoke-ImportIteration {
         throw "Import submission failed with HTTP $($submitResponse.StatusCode)."
     }
 
-    $statusUrl = $submitResponse.Headers.Location
+    $statusUrl = Resolve-ResponseHeaderUri -Value $submitResponse.Headers.Location -BaseUri $Endpoint
     if (-not $statusUrl) {
-        $statusUrl = $submitResponse.Headers['Content-Location']
+        $statusUrl = Resolve-ResponseHeaderUri -Value $submitResponse.Headers['Content-Location'] -BaseUri $Endpoint
     }
     if (-not $statusUrl) {
         throw 'Import response did not include a status URL.'
@@ -232,9 +288,19 @@ function Invoke-ImportIteration {
 
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     do {
-        Start-Sleep -Seconds 5
         $statusResponse = Invoke-WebRequest -Uri $statusUrl -Headers @{ Accept = 'application/json' } -SkipHttpErrorCheck
-    } while ($statusResponse.StatusCode -eq 202 -and (Get-Date) -lt $deadline)
+        if ($statusResponse.StatusCode -ne 202) {
+            break
+        }
+
+        $remainingMilliseconds = ($deadline - (Get-Date)).TotalMilliseconds
+        if ($remainingMilliseconds -le 0) {
+            break
+        }
+
+        $sleepMilliseconds = [Math]::Min($PollIntervalSeconds * 1000, $remainingMilliseconds)
+        Start-Sleep -Milliseconds ([Math]::Max(1, [Math]::Ceiling($sleepMilliseconds)))
+    } while ((Get-Date) -lt $deadline)
     $stopwatch.Stop()
 
     if ($statusResponse.StatusCode -eq 202) {
@@ -244,7 +310,7 @@ function Invoke-ImportIteration {
         throw "Import job failed with HTTP $($statusResponse.StatusCode)."
     }
 
-    $job = $statusResponse.Content | ConvertFrom-Json
+    $job = ConvertFrom-ResponseJson -Content $statusResponse.Content
     $importedResources = ($job.output | Measure-Object count -Sum).Sum
     $failedResources = ($job.error | Measure-Object count -Sum).Sum
     if ($failedResources -gt 0 -or $importedResources -ne $ExpectedResourceCount) {
@@ -273,6 +339,7 @@ function Invoke-ImportIteration {
 function Invoke-SideWorkload {
     param(
         [string] $Side,
+        [string] $SideLabel,
         [uri] $Endpoint,
         [string] $WorkloadName,
         [int] $Warmups,
@@ -283,7 +350,8 @@ function Invoke-SideWorkload {
         [uri[]] $InputUrl,
         [string[]] $ResourceType,
         [long] $ExpectedResourceCount,
-        [int] $TimeoutMinutes
+        [int] $TimeoutMinutes,
+        [double] $PollIntervalSeconds
     )
 
     Write-Host "► Running $Side $WorkloadName workload against $Endpoint"
@@ -311,12 +379,14 @@ function Invoke-SideWorkload {
                 -InputUrl $InputUrl `
                 -ResourceType $ResourceType `
                 -ExpectedResourceCount $ExpectedResourceCount `
-                -TimeoutMinutes $TimeoutMinutes
+                -TimeoutMinutes $TimeoutMinutes `
+                -PollIntervalSeconds $PollIntervalSeconds
         }
 
         if (-not $isWarmup) {
             $rows.Add([pscustomobject][ordered]@{
                 side = $Side
+                label = $SideLabel
                 iteration = $iteration + 1
                 workload = $WorkloadName
                 elapsedSeconds = $result.elapsedSeconds
@@ -334,16 +404,19 @@ function Invoke-SideWorkload {
 }
 
 $sideArguments = @(
-    @('control', $ControlUrl),
-    @('treatment', $TreatmentUrl)
+    @('control', $ControlLabel, $ControlUrl),
+    @('treatment', $TreatmentLabel, $TreatmentUrl)
 )
 
 if ($Parallel) {
     $functionNames = @(
         'Get-Percentile',
+        'ConvertFrom-ResponseJson',
+        'Get-CorpusFamilyToken',
         'New-TransactionBundleJson',
         'Invoke-BundleIteration',
         'New-ImportParametersJson',
+        'Resolve-ResponseHeaderUri',
         'Invoke-ImportIteration',
         'Invoke-SideWorkload'
     )
@@ -355,11 +428,12 @@ if ($Parallel) {
             param($Arguments)
             Invoke-SideWorkload @Arguments
         } -ArgumentList @{
-            Side = $side[0]; Endpoint = $side[1]; WorkloadName = $Workload
+            Side = $side[0]; SideLabel = $side[1]; Endpoint = $side[2]; WorkloadName = $Workload
             Warmups = $WarmupIterations; Measurements = $MeasuredIterations
             RequestCount = $BundleCount; ResourcesPerBundle = $BundleSize; ThrottleLimit = $Concurrency
             InputUrl = $ImportInputUrl; ResourceType = $ImportResourceType
             ExpectedResourceCount = $ImportExpectedResourceCount; TimeoutMinutes = $ImportTimeoutMinutes
+            PollIntervalSeconds = $ImportPollIntervalSeconds
         }
     }
     $results = @($jobs | Receive-Job -Wait -AutoRemoveJob)
@@ -367,7 +441,8 @@ if ($Parallel) {
     $results = foreach ($side in $sideArguments) {
         Invoke-SideWorkload `
             -Side $side[0] `
-            -Endpoint $side[1] `
+            -SideLabel $side[1] `
+            -Endpoint $side[2] `
             -WorkloadName $Workload `
             -Warmups $WarmupIterations `
             -Measurements $MeasuredIterations `
@@ -377,7 +452,8 @@ if ($Parallel) {
             -InputUrl $ImportInputUrl `
             -ResourceType $ImportResourceType `
             -ExpectedResourceCount $ImportExpectedResourceCount `
-            -TimeoutMinutes $ImportTimeoutMinutes
+            -TimeoutMinutes $ImportTimeoutMinutes `
+            -PollIntervalSeconds $ImportPollIntervalSeconds
     }
 }
 
@@ -413,7 +489,7 @@ if ($Workload -eq 'Bundle') {
     }
 }
 $reportRows = $results | ForEach-Object {
-    "| $($_.side) | $($_.iteration) | $([Math]::Round($_.successfulResources, 0)) | $([Math]::Round($_.elapsedSeconds, 2)) | $([Math]::Round($_.resourcesPerSecond, 2)) | $(if ($null -eq $_.p50Milliseconds) { 'n/a' } else { [Math]::Round($_.p50Milliseconds, 2) }) | $(if ($null -eq $_.p95Milliseconds) { 'n/a' } else { [Math]::Round($_.p95Milliseconds, 2) }) | $(if ($null -eq $_.p99Milliseconds) { 'n/a' } else { [Math]::Round($_.p99Milliseconds, 2) }) |"
+    "| $($_.label) | $($_.iteration) | $([Math]::Round($_.successfulResources, 0)) | $([Math]::Round($_.elapsedSeconds, 2)) | $([Math]::Round($_.resourcesPerSecond, 2)) | $(if ($null -eq $_.p50Milliseconds) { 'n/a' } else { [Math]::Round($_.p50Milliseconds, 2) }) | $(if ($null -eq $_.p95Milliseconds) { 'n/a' } else { [Math]::Round($_.p95Milliseconds, 2) }) | $(if ($null -eq $_.p99Milliseconds) { 'n/a' } else { [Math]::Round($_.p99Milliseconds, 2) }) |"
 }
 @"
 # Ingestion A/B Comparison
@@ -423,6 +499,10 @@ $reportRows = $results | ForEach-Object {
 **Workload:** $Workload
 
 **Execution:** $(if ($Parallel) { 'parallel (opt-in)' } else { 'sequential' })
+
+**Control:** $ControlLabel
+
+**Treatment:** $TreatmentLabel
 
 | Side | Iteration | Resources | Seconds | Resources/sec | p50 ms | p95 ms | p99 ms |
 |---|---:|---:|---:|---:|---:|---:|---:|
