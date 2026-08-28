@@ -135,6 +135,80 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenCompositeRootFhirPathEvaluationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
+        {
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "composite",
+                    "composite",
+                    (ValueSets.SearchParamType)SearchParamType.Composite,
+                    new Uri("http://hl7.org/fhir/SearchParameter/composite"),
+                    components: Array.Empty<SearchParameterComponentInfo>(),
+                    expression: "Patient.name"),
+            ]);
+            var compiledExpression = Substitute.For<ICompiledFhirPath>();
+            compiledExpression
+                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
+                .Returns(_ => throw new NotSupportedException("Unsupported expression."));
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile("Patient.name").Returns(compiledExpression);
+            var metricHandler = Substitute.For<IFailureMetricHandler>();
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                Substitute.For<ITypedElementToSearchValueConverterManager>(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                provider,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>(),
+                metricHandler);
+            ResourceElement patient = new Patient { Id = "patient-1" }.ToResourceElement();
+
+            IReadOnlyCollection<SearchIndexEntry> entries = indexer.Extract(patient);
+
+            Assert.Empty(entries);
+            metricHandler.Received(1).EmitException(
+                Arg.Is<IExceptionMetricNotification>(
+                    notification => notification.OperationName == "FhirPathSearchIndexEvaluation" &&
+                        notification.ExceptionType == nameof(NotSupportedException)));
+        }
+
+        [Fact]
+        public void GivenFhirPathEvaluationCancellation_WhenExtract_ThenCancellationIsRethrown()
+        {
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "name",
+                    "name",
+                    (ValueSets.SearchParamType)SearchParamType.String,
+                    new Uri(ResourceName),
+                    expression: "Patient.name"),
+            ]);
+            var compiledExpression = Substitute.For<ICompiledFhirPath>();
+            compiledExpression
+                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
+                .Returns(_ => throw new OperationCanceledException());
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile("Patient.name").Returns(compiledExpression);
+            var metricHandler = Substitute.For<IFailureMetricHandler>();
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                Substitute.For<ITypedElementToSearchValueConverterManager>(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                provider,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>(),
+                metricHandler);
+            ResourceElement patient = new Patient { Id = "patient-1" }.ToResourceElement();
+
+            Assert.Throws<OperationCanceledException>(() => indexer.Extract(patient));
+            metricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Fact]
         public void GivenRepeatedExtraction_WhenExpressionsAreCompiled_ThenCachingIsDelegatedToProvider()
         {
             var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
