@@ -119,39 +119,72 @@ if ($Workload -eq 'Import') {
         }
     }
 }
+
+function ConvertTo-SanitizedProbeDefinition {
+    param(
+        [string] $Probe,
+        [string] $ExpectedResourceType
+    )
+
+    $questionMark = $Probe.IndexOf('?')
+    $path = $Probe.Substring(0, $questionMark)
+    $parameterNames = @(
+        $Probe.Substring($questionMark + 1) -split '&' |
+            ForEach-Object { [uri]::UnescapeDataString(($_ -split '=', 2)[0]) }
+    )
+
+    return [ordered]@{
+        resourceType = $ExpectedResourceType
+        path = $path
+        parameterNames = $parameterNames
+    }
+}
+
 if (-not (Test-Path $OutputDirectory)) {
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 }
 $metadataPath = Join-Path $OutputDirectory 'run-metadata.json'
-if (-not (Test-Path $metadataPath)) {
-    [ordered]@{
-        schemaVersion = 1
-        comparisonMode = $ComparisonMode
-        comparison = $ComparisonLabel
-        images = [ordered]@{ control = $ControlImage; treatment = $TreatmentImage }
-        providers = [ordered]@{ control = $ControlProviders; treatment = $TreatmentProviders }
-        workload = $Workload
-        parameters = [ordered]@{
-            warmupIterations = $WarmupIterations
-            measuredIterations = $MeasuredIterations
-            bundleCount = if ($Workload -eq 'Bundle') { $BundleCount } else { $null }
-            bundleSize = if ($Workload -eq 'Bundle') { $BundleSize } else { $null }
-            concurrency = if ($Workload -eq 'Bundle') { $Concurrency } else { $null }
-            importInput = if ($Workload -eq 'Import') {
-                @($ImportInputUrl | ForEach-Object { $_.GetLeftPart([UriPartial]::Path) })
-            } else { @() }
-            importResourceType = if ($Workload -eq 'Import') { @($ImportResourceType) } else { @() }
-            importSearchProbes = if ($Workload -eq 'Import') { @($ImportSearchProbe) } else { @() }
-            importExpectedResourceCount = if ($Workload -eq 'Import') { $ImportExpectedResourceCount } else { $null }
-            importWarmupInput = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
-                @($ImportWarmupInputUrl | ForEach-Object { $_.GetLeftPart([UriPartial]::Path) })
-            } else { @() }
-            importWarmupResourceType = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { @($ImportWarmupResourceType) } else { @() }
-            importWarmupSearchProbes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { @($ImportWarmupSearchProbe) } else { @() }
-            importWarmupExpectedResourceCount = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { $ImportWarmupExpectedResourceCount } else { $null }
-        }
-    } | ConvertTo-Json -Depth 8 | Set-Content -Path $metadataPath -Encoding utf8
+[string[]] $importProbeTypes = if ($Workload -eq 'Import') { @($ImportResourceType | Sort-Object -Unique) } else { @() }
+[string[]] $importWarmupProbeTypes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
+    @($ImportWarmupResourceType | Sort-Object -Unique)
+} else {
+    @()
 }
+[ordered]@{
+    schemaVersion = 1
+    comparisonMode = $ComparisonMode
+    comparison = $ComparisonLabel
+    images = [ordered]@{ control = $ControlImage; treatment = $TreatmentImage }
+    providers = [ordered]@{ control = $ControlProviders; treatment = $TreatmentProviders }
+    workload = $Workload
+    parameters = [ordered]@{
+        warmupIterations = $WarmupIterations
+        measuredIterations = $MeasuredIterations
+        bundleCount = if ($Workload -eq 'Bundle') { $BundleCount } else { $null }
+        bundleSize = if ($Workload -eq 'Bundle') { $BundleSize } else { $null }
+        concurrency = if ($Workload -eq 'Bundle') { $Concurrency } else { $null }
+        importInput = if ($Workload -eq 'Import') {
+            @($ImportInputUrl | ForEach-Object { $_.GetLeftPart([UriPartial]::Path) })
+        } else { @() }
+        importResourceType = if ($Workload -eq 'Import') { @($ImportResourceType) } else { @() }
+        importSearchProbes = if ($Workload -eq 'Import') {
+            @($ImportSearchProbe | ForEach-Object -Begin { $index = 0 } -Process {
+                ConvertTo-SanitizedProbeDefinition -Probe $_ -ExpectedResourceType $importProbeTypes[$index++]
+            })
+        } else { @() }
+        importExpectedResourceCount = if ($Workload -eq 'Import') { $ImportExpectedResourceCount } else { $null }
+        importWarmupInput = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
+            @($ImportWarmupInputUrl | ForEach-Object { $_.GetLeftPart([UriPartial]::Path) })
+        } else { @() }
+        importWarmupResourceType = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { @($ImportWarmupResourceType) } else { @() }
+        importWarmupSearchProbes = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) {
+            @($ImportWarmupSearchProbe | ForEach-Object -Begin { $index = 0 } -Process {
+                ConvertTo-SanitizedProbeDefinition -Probe $_ -ExpectedResourceType $importWarmupProbeTypes[$index++]
+            })
+        } else { @() }
+        importWarmupExpectedResourceCount = if ($Workload -eq 'Import' -and $WarmupIterations -gt 0) { $ImportWarmupExpectedResourceCount } else { $null }
+    }
+} | ConvertTo-Json -Depth 8 | Set-Content -Path $metadataPath -Encoding utf8
 
 function Get-Percentile {
     param(
