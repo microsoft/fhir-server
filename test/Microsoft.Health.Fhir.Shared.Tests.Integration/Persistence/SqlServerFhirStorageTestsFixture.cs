@@ -260,10 +260,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
 
             // Create operation data store with real SqlQueueClient for reindex tests
-            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
 
             // Create operation data store with TestQueueClient for export tests
-            _testSqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, _testQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+            _testSqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(_testQueueClient, NullLoggerFactory.Instance);
 
             // Use the real SqlQueueClient for IFhirOperationDataStore
             _fhirOperationDataStore = _sqlServerFhirOperationDataStore;
