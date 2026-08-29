@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                     }
                     else
                     {
-                        throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe)
+                        throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
                     }
                 }
             }
