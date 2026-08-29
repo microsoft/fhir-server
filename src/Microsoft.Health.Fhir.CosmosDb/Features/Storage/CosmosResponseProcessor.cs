@@ -170,22 +170,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             IFhirRequestContext requestContext = _fhirRequestContextAccessor.RequestContext;
 
-            lock (requestContext.ResponseHeaders)
+            try
             {
-                // If there has already been a request to the database for this request, then we want to add to it.
-                if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
+                lock (requestContext.ResponseHeaders)
                 {
-                    if (double.TryParse(existingHeaderValue.ToString(), out double existing))
+                    // If there has already been a request to the database for this request, then we want to add to it.
+                    if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
                     {
-                        responseRequestCharge += existing;
+                        if (double.TryParse(existingHeaderValue.ToString(), out double existing))
+                        {
+                            responseRequestCharge += existing;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Unable to parse request charge header: {Request change}", existingHeaderValue);
+                        }
                     }
-                    else
-                    {
-                        _logger.LogWarning("Unable to parse request charge header: {Request change}", existingHeaderValue);
-                    }
-                }
 
-                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+                    requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+                }
+            }
+            catch (Exception e)
+            {
+                // InvalidOperationException can be thrown if the headers collection is read-only.
+                // Adding this catch to avoid potential crashes in such scenarios and track how often this occurs.
+                _logger.LogWarning(e, "Error setting request charge in response headers.");
             }
 
             var cosmosMetrics = new CosmosStorageRequestMetricsNotification(requestContext.AuditEventType, requestContext.ResourceType)
