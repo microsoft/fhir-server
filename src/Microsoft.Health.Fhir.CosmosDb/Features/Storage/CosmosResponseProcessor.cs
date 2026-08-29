@@ -114,8 +114,55 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cancellationToken">Cancellation token</param>
         public async Task ProcessResponseAsync(CosmosResponseMessage responseMessage, CancellationToken cancellationToken)
         {
-            var responseRequestCharge = responseMessage.Headers.RequestCharge;
+            // Logic Handling Exceptions:
+            //   InvalidOperationException can be thrown if the headers collection is read-only.
+            //   Adding catch blocks for InvalidOperationException to avoid potential crashes in such scenarios and track how often this occurs.
+            //   Adopting multiple try-catch blocks to ensure that if one operation fails, it doesn't prevent the execution of subsequent operations.
 
+            double responseRequestCharge = 0D;
+
+            try
+            {
+                responseRequestCharge = responseMessage.Headers.RequestCharge;
+
+                LogQueryResults(responseMessage);
+            }
+            catch (InvalidOperationException e)
+            {
+                _logger.LogWarning(e, "Error logging query execution results.");
+            }
+
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+            if (fhirRequestContext == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var sessionToken = responseMessage.Headers.Session;
+                if (!string.IsNullOrEmpty(sessionToken))
+                {
+                    fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
+                }
+            }
+            catch (InvalidOperationException e)
+            {
+                _logger.LogWarning(e, "Error setting session token in response headers.");
+            }
+
+            if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessagesProperty, out object propertyValue))
+            {
+                // This is planted in FhirCosmosSearchService in order for us to relay the individual responses
+                // back for analysis of the selectivity of the search.
+                ((ConcurrentBag<CosmosResponseMessage>)propertyValue).Add(responseMessage);
+            }
+
+            await AddRequestChargeToFhirRequestContextAsync(responseRequestCharge, responseMessage.StatusCode, cancellationToken);
+        }
+
+        private void LogQueryResults(CosmosResponseMessage responseMessage)
+        {
             _queryLogger.LogQueryExecutionResult(
                 responseMessage.Headers.ActivityId,
                 responseMessage.Headers.RequestCharge,
@@ -133,37 +180,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _queryLogger.LogQueryClientElapsedTime(responseMessage.Headers.ActivityId, responseMessage.Diagnostics.GetClientElapsedTime().ToString());
             }
-
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
-            if (fhirRequestContext == null)
-            {
-                return;
-            }
-
-            var sessionToken = responseMessage.Headers.Session;
-
-            if (!string.IsNullOrEmpty(sessionToken))
-            {
-                try
-                {
-                    fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
-                }
-                catch (InvalidOperationException e)
-                {
-                    // InvalidOperationException can be thrown if the headers collection is read-only.
-                    // Adding this catch to avoid potential crashes in such scenarios and track how often this occurs.
-                    _logger.LogWarning(e, "Error setting session token in response headers.");
-                }
-            }
-
-            if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessagesProperty, out object propertyValue))
-            {
-                // This is planted in FhirCosmosSearchService in order for us to relay the individual responses
-                // back for analysis of the selectivity of the search.
-                ((ConcurrentBag<CosmosResponseMessage>)propertyValue).Add(responseMessage);
-            }
-
-            await AddRequestChargeToFhirRequestContextAsync(responseRequestCharge, responseMessage.StatusCode, cancellationToken);
         }
 
         private async Task AddRequestChargeToFhirRequestContextAsync(double responseRequestCharge, HttpStatusCode? statusCode, CancellationToken cancellationToken)
@@ -190,7 +206,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
                 }
             }
-            catch (Exception e)
+            catch (InvalidOperationException e)
             {
                 // InvalidOperationException can be thrown if the headers collection is read-only.
                 // Adding this catch to avoid potential crashes in such scenarios and track how often this occurs.
