@@ -88,7 +88,16 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 catch (InvalidOperationException ioe)
                 {
                     // Catching operations that change non-concurrent collections.
-                    throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
+
+                    if (context.HttpContext is DefaultHttpContext)
+                    {
+                        // Should we ignore it? Open for discussion.
+                        // Otherwise, add log to all the places inheriting from ResourceActionResult and log the exception.
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe)
+                    }
                 }
             }
 
