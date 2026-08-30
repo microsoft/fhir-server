@@ -149,7 +149,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 // This makes sense only for status other than Deleted.
                 if (status != SearchParameterStatus.Deleted)
                 {
-                    _searchParameterDefinitionManager.GetSearchParameter(uri);
+                    if (ignoreSearchParameterNotSupportedException)
+                    {
+                        _searchParameterDefinitionManager.TryGetSearchParameter(uri, out _);
+                    }
+                    else
+                    {
+                        _searchParameterDefinitionManager.GetSearchParameter(uri);
+                    }
                 }
 
                 // It does not make sense to keep any of existing ResourceSearchParameterStatus components as results do not depend on them.

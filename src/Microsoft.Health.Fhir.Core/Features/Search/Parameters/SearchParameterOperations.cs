@@ -181,7 +181,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 await GetAndApplySearchParameterUpdates(cancellationToken);
                 var status = isHardDelete ? SearchParameterStatus.PendingHardDelete : SearchParameterStatus.PendingDelete;
                 _logger.LogInformation("DeleteSearchParameterAsync: Deleting the search parameter '{Url}' with status {Status}", searchParameterUrl, status);
-                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, status, cancellationToken, lastUpdated: SearchParamLastUpdated);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(
+                    new[] { searchParameterUrl },
+                    status,
+                    cancellationToken,
+                    ignoreSearchParameterNotSupportedException: ignoreSearchParameterNotSupportedException,
+                    lastUpdated: SearchParamLastUpdated);
             }
             catch (FhirException fex)
             {
