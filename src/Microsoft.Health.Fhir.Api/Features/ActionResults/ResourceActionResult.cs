@@ -11,6 +11,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
@@ -21,19 +22,22 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     public abstract class ResourceActionResult<TResult> : ActionResult, IResourceActionResult
     {
-        protected ResourceActionResult()
+        private readonly ILogger _logger;
+
+        protected ResourceActionResult(ILogger logger)
         {
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             Headers = new HeaderDictionary();
         }
 
-        protected ResourceActionResult(TResult result)
-            : this()
+        protected ResourceActionResult(TResult result, ILogger logger)
+            : this(logger)
         {
             Result = result;
         }
 
-        protected ResourceActionResult(TResult result, HttpStatusCode statusCode)
-            : this(result)
+        protected ResourceActionResult(TResult result, HttpStatusCode statusCode, ILogger logger)
+            : this(result, logger)
         {
             StatusCode = statusCode;
         }
@@ -91,8 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
                     if (context.HttpContext is DefaultHttpContext)
                     {
-                        // Should we ignore it? Open for discussion.
-                        // Otherwise, add log to all the places inheriting from ResourceActionResult and log the exception.
+                        _logger.LogWarning(ioe, "Failed to set response header {HeaderName} because the HTTP headers collection was modified concurrently.", header.Key);
                     }
                     else
                     {

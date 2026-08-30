@@ -71,7 +71,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             LastUpdated = Clock.UtcNow,
                         },
                     },
-                    HttpStatusCode.BadRequest);
+                    HttpStatusCode.BadRequest,
+                    _logger);
 
                 switch (fhirException)
                 {
@@ -304,7 +305,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         LastUpdated = Clock.UtcNow,
                     },
                 },
-                httpStatusCode);
+                httpStatusCode,
+                _logger);
         }
     }
 }

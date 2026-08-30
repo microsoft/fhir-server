@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(exportOperationUrl);
 
-            var exportResult = ExportResult.Accepted().SetContentLocationHeader(urlResolver, opName, id);
+            var exportResult = ExportResult.Accepted(NullLogger.Instance).SetContentLocationHeader(urlResolver, opName, id);
 
             Assert.Equal(exportOperationUrl.AbsoluteUri, exportResult.Headers[HeaderNames.ContentLocation]);
         }
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         public void GivenAnExportResult_WhenSettingAContentTypeHeader_ThenExportResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";
-            var exportResult = ExportResult.Accepted().SetContentTypeHeader(contentTypeValue);
+            var exportResult = ExportResult.Accepted(NullLogger.Instance).SetContentTypeHeader(contentTypeValue);
 
             Assert.Equal(contentTypeValue, exportResult.Headers[HeaderNames.ContentType]);
         }
