@@ -1100,6 +1100,66 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.Equal(hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone, notFoundEx.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenSearchParamConditionalDeleteByUrl_ThenSuccessAndDeletedAfterReindex()
+        {
+            const string code = "conditional-delete-by-url";
+            var searchParam = CreatePersonSearchParam(code, $"http://reindex/{code}");
+            var create = await _fixture.TestFhirClient.UpdateAsync(searchParam);
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code, create.Resource.Id);
+
+            var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter?url={searchParam.Url}");
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            var gone = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+            Assert.Equal(HttpStatusCode.Gone, gone.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenSearchParamConditionalDeleteByMultipleUrlsWithCount_ThenSuccessAndDeletedAfterReindex()
+        {
+            const string code1 = "conditional-delete-by-url-1";
+            var searchParam1 = CreatePersonSearchParam(code1, $"http://reindex/{code1}");
+            var create1 = await _fixture.TestFhirClient.UpdateAsync(searchParam1);
+            Assert.True(create1.StatusCode == HttpStatusCode.OK || create1.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code1, create1.Resource.Id);
+
+            const string code2 = "conditional-delete-by-url-2";
+            var searchParam2 = CreatePersonSearchParam(code2, $"http://reindex/{code2}");
+            var create2 = await _fixture.TestFhirClient.UpdateAsync(searchParam2);
+            Assert.True(create2.StatusCode == HttpStatusCode.OK || create2.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code2, create2.Resource.Id);
+
+            var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter?url={searchParam1.Url},{searchParam2.Url}&_count=2");
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            var resource1 = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code1}");
+            Assert.NotNull(resource1?.Resource);
+
+            var resource2 = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code2}");
+            Assert.NotNull(resource2?.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            var gone1 = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code1}"));
+            Assert.Equal(HttpStatusCode.Gone, gone1.StatusCode);
+
+            var gone2 = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code2}"));
+            Assert.Equal(HttpStatusCode.Gone, gone2.StatusCode);
+        }
+
         [Theory]
         [InlineData(true, false)]
         [InlineData(true, true)]

@@ -109,6 +109,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             switch (request.DeleteOperation)
             {
                 case DeleteOperation.SoftDelete:
+                    if (key.ResourceType == KnownResourceTypes.SearchParameter)
+                    {
+                        await DeleteSearchParameter(key, fhirDataStore, isHardDelete: false, cancellationToken);
+                        break;
+                    }
+
                     ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(key.ResourceType, request.ResourceKey.Id);
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
@@ -120,12 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 case DeleteOperation.HardDelete:
                     if (key.ResourceType == KnownResourceTypes.SearchParameter)
                     {
-                        var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
-                        if (resourceWrapper != null && !resourceWrapper.IsDeleted)
-                        {
-                            await _retryPolicy.ExecuteAsync(async () => await _searchParameterOperations.DeleteSearchParameterAsync(resourceWrapper.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: true));
-                        }
-
+                        await DeleteSearchParameter(key, fhirDataStore, isHardDelete: true, cancellationToken);
                         break;
                     }
 
@@ -518,8 +519,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                     else
                     {
-                        // For HardDelete, only mark with PendingHardDelete status. The actual deletion is performed by the reindex job.
-                        await DeleteSearchParameterWithLockAsync(item, true, cancellationToken);
+                        await DeleteSearchParameterWithLockAsync(item.Resource.RawResource, true, cancellationToken);
                     }
 
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
@@ -697,11 +697,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             foreach (var entry in entries.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
             {
-                await DeleteSearchParameterWithLockAsync(entry, false, cancellationToken);
+                await DeleteSearchParameterWithLockAsync(entry.Resource.RawResource, false, cancellationToken);
             }
         }
 
-        private async Task DeleteSearchParameterWithLockAsync(SearchResultEntry item, bool isHardDelete, CancellationToken cancellationToken)
+        private async Task DeleteSearchParameter(ResourceKey key, IFhirDataStore fhirDataStore, bool isHardDelete, CancellationToken cancellationToken)
+        {
+            var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
+            if (resourceWrapper != null && !resourceWrapper.IsDeleted)
+            {
+                await DeleteSearchParameterWithLockAsync(resourceWrapper.RawResource, isHardDelete, cancellationToken);
+            }
+        }
+
+        private async Task DeleteSearchParameterWithLockAsync(RawResource rawResource, bool isHardDelete, CancellationToken cancellationToken)
         {
             await _searchParamDeleteSemaphore.WaitAsync(cancellationToken);
             try
@@ -709,7 +718,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await SearchParameterRetry.ExecuteAsync(
                     async () =>
                     {
-                        await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: isHardDelete);
+                        // Only mark with pending status. The actual deletion is performed by the reindex job.
+                        await _searchParameterOperations.DeleteSearchParameterAsync(rawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: isHardDelete);
                     },
                     "Deletion");
             }
