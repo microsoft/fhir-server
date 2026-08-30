@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                     else
                     {
-                        await DeleteSearchParameterWithLockAsync(item.Resource.RawResource, true, cancellationToken);
+                        await DeleteSearchParameterAsync(item.Resource.RawResource, true, cancellationToken);
                     }
 
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
@@ -697,7 +697,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             foreach (var entry in entries.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
             {
-                await DeleteSearchParameterWithLockAsync(entry.Resource.RawResource, false, cancellationToken);
+                await DeleteSearchParameterAsync(entry.Resource.RawResource, false, cancellationToken);
             }
         }
 
@@ -706,11 +706,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
             if (resourceWrapper != null && !resourceWrapper.IsDeleted)
             {
-                await DeleteSearchParameterWithLockAsync(resourceWrapper.RawResource, isHardDelete, cancellationToken);
+                await DeleteSearchParameterAsync(resourceWrapper.RawResource, isHardDelete, cancellationToken);
             }
         }
 
-        private async Task DeleteSearchParameterWithLockAsync(RawResource rawResource, bool isHardDelete, CancellationToken cancellationToken)
+        private async Task DeleteSearchParameterAsync(RawResource rawResource, bool isHardDelete, CancellationToken cancellationToken)
         {
             await _searchParamDeleteSemaphore.WaitAsync(cancellationToken);
             try
@@ -725,6 +725,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             finally
             {
+                // Search param status is persisted directly above. Clear any queued context status
+                // to prevent it from leaking into unrelated subsequent writes in the same request context.
+                _contextAccessor?.RequestContext?.Properties?.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
                 _searchParamDeleteSemaphore.Release();
             }
         }
