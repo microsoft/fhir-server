@@ -138,14 +138,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             var retryAfter = TimeSpan.FromMilliseconds(200);
 
-            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(HttpStatusCode.TooManyRequests, new Headers { { "x-ms-retry-after-ms", ((int)retryAfter.TotalMilliseconds).ToString() } }, "too many requests", CancellationToken.None));
+            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(
+                async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(
+                    HttpStatusCode.TooManyRequests,
+                    CosmosResponseHeaders.Create(new Headers { { "x-ms-retry-after-ms", ((int)retryAfter.TotalMilliseconds).ToString() } }),
+                    "too many requests",
+                    CancellationToken.None));
             Assert.Equal(retryAfter, exception.RetryAfter);
         }
 
         [Fact]
         public async Task GivenAThrottlingResponseWithoutRetryAfterHeader_WhenProcessed_ThrowsWithoutRetryAfter()
         {
-            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(HttpStatusCode.TooManyRequests, new Headers(), "too many requests", CancellationToken.None));
+            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(
+                async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(
+                    HttpStatusCode.TooManyRequests,
+                    CosmosResponseHeaders.Create(new Headers()),
+                    "too many requests",
+                    CancellationToken.None));
             Assert.Null(exception.RetryAfter);
         }
 

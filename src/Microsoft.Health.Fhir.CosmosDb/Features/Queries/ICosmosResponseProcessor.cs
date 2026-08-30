@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
     {
         Task ProcessErrorResponseAsync(CosmosResponseMessage response, CancellationToken cancellationToken);
 
-        Task ProcessErrorResponseAsync(HttpStatusCode statusCode, Headers headers, string errorMessage, CancellationToken cancellationToken);
+        Task ProcessErrorResponseAsync(HttpStatusCode statusCode, CosmosResponseHeaders headers, string errorMessage, CancellationToken cancellationToken);
 
         Task ProcessResponseAsync(CosmosResponseMessage responseMessage, CancellationToken cancellationToken);
     }
