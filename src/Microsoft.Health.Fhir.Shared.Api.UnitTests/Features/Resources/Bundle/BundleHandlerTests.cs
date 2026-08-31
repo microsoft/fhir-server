@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 });
 
             // Act
-            BundleResponse response = await _bundleHandler.Handle(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+            BundleResponse response = await _bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
 
             // Assert
             Assert.Equal(BundleProcessingLogic.Parallel, response.Info.ProcessingLogic);

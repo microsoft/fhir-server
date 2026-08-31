@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 Deserializers.ResourceDeserializer,
                 Options.Create(new VectorSearchConfiguration()));
 
-            SemanticSearchResponse response = await handler.Handle(
+            SemanticSearchResponse response = await handler.HandleAsync(
                 new SemanticSearchRequest("breathing difficulty", patientId, 3),
                 CancellationToken.None);
 
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 Deserializers.ResourceDeserializer,
                 Options.Create(new VectorSearchConfiguration()));
 
-            await handler.Handle(
+            await handler.HandleAsync(
                 new SemanticSearchRequest("breathing difficulty", "123", 3, new[] { "Observation" }),
                 CancellationToken.None);
 
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         {
             SemanticSearchHandler handler = CreateHandler();
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => handler.Handle(
+            await Assert.ThrowsAsync<RequestNotValidException>(() => handler.HandleAsync(
                 new SemanticSearchRequest("breathing difficulty", "123", 3, new[] { "Condition" }),
                 CancellationToken.None));
 
@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 Deserializers.ResourceDeserializer,
                 Options.Create(new VectorSearchConfiguration()));
 
-            SemanticSearchResponse response = await handler.Handle(
+            SemanticSearchResponse response = await handler.HandleAsync(
                 new SemanticSearchRequest("breathing difficulty", "123", 3, new[] { "Observation" }),
                 CancellationToken.None);
 

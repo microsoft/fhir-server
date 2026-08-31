@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _semanticSearchEvidenceFilter.FilterAsync(unfilteredResult, CancellationToken.None).Returns(filteredResult);
             _bundleFactory.CreateSearchBundle(filteredResult).Returns(expectedBundle);
 
-            SearchResourceResponse response = await _searchResourceHandler.Handle(request, CancellationToken.None);
+            SearchResourceResponse response = await _searchResourceHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(expectedBundle, response.Bundle);
             _bundleFactory.Received(1).CreateSearchBundle(filteredResult);
