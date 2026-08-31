@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 case DeleteOperation.SoftDelete:
                     if (key.ResourceType == KnownResourceTypes.SearchParameter
-                        //// we should skip direct status updates when context does not contain pending
+                        //// we should skip direct status updates when context contains pending status
                         && (_contextAccessor.RequestContext == null
                             || _contextAccessor.RequestContext.Properties == null
                             || !_contextAccessor.RequestContext.Properties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus)))
