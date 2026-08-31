@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null, DateTimeOffset? lastUpdated = null)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, long? reindexId = null, DateTimeOffset? lastUpdated = null)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
@@ -149,14 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 // This makes sense only for status other than Deleted.
                 if (status != SearchParameterStatus.Deleted)
                 {
-                    if (ignoreSearchParameterNotSupportedException)
-                    {
-                        _searchParameterDefinitionManager.TryGetSearchParameter(uri, out _);
-                    }
-                    else
-                    {
-                        _searchParameterDefinitionManager.GetSearchParameter(uri);
-                    }
+                    _searchParameterDefinitionManager.GetSearchParameter(uri);
                 }
 
                 // It does not make sense to keep any of existing ResourceSearchParameterStatus components as results do not depend on them.

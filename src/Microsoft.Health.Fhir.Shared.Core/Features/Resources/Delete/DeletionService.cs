@@ -719,7 +719,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     async () =>
                     {
                         // Only mark with pending status. The actual deletion is performed by the reindex job.
-                        await _searchParameterOperations.DeleteSearchParameterAsync(rawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: isHardDelete);
+                        await _searchParameterOperations.DeleteSearchParameterAsync(rawResource, cancellationToken, isHardDelete);
                     },
                     "Deletion");
             }

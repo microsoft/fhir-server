@@ -168,9 +168,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// </summary>
         /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        /// <param name="ignoreSearchParameterNotSupportedException">The value indicating whether to ignore SearchParameterNotSupportedException.</param>
         /// <param name="isHardDelete">True for hard delete (PendingHardDelete), false for soft delete (PendingDelete).</param>
-        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, bool isHardDelete = false)
+        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool isHardDelete = false)
         {
             var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
             var searchParameterUrl = searchParam.GetStringScalar("url");
@@ -185,7 +184,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     new[] { searchParameterUrl },
                     status,
                     cancellationToken,
-                    ignoreSearchParameterNotSupportedException: ignoreSearchParameterNotSupportedException,
                     lastUpdated: SearchParamLastUpdated);
             }
             catch (FhirException fex)
@@ -211,9 +209,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken)
         {
-            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(searchParameterUris, status, cancellationToken, ignoreSearchParameterNotSupportedException);
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(searchParameterUris, status, cancellationToken);
         }
 
         /// <summary>
