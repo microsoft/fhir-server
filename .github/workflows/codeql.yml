@@ -40,7 +40,10 @@ jobs:
       run: |
         git fetch --prune --unshallow
 
+    # The .NET SDK is only needed to build the C# code. The JavaScript analysis
+    # does not require a build, so skip the .NET steps for that language.
     - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      if: matrix.language == 'csharp'
       with:
         global-json-file: ./global.json
 
@@ -58,6 +61,7 @@ jobs:
                   - cs/web/missing-function-level-access-control
 
     - name: dotnet restore
+      if: matrix.language == 'csharp'
       run: dotnet restore
 
     - name: Autobuild
