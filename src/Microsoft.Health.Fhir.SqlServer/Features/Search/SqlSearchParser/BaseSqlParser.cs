@@ -162,6 +162,59 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// <returns>The SQL WHERE clause.</returns>
         public abstract string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t");
 
+        /// <summary>
+        /// Returns the search table name, search param ID, and WHERE clause for use in a combined CTE.
+        /// This avoids creating a separate CTE for each search condition when multiple conditions
+        /// target the same resource type (e.g., in reverse chain groups).
+        /// </summary>
+        public (string tableName, int searchParamId, string whereClause)? GetSearchJoinInfo(
+            string name,
+            string value,
+            short resourceTypeId)
+        {
+            var modifier = string.Empty;
+            if (name.Contains(':', StringComparison.Ordinal))
+            {
+                var parts = name.Split(':', 2);
+                name = parts[0];
+                modifier = parts[1];
+            }
+
+            // :missing and :not modifiers need full CTE — can't be combined
+            if (modifier.Equals("missing", StringComparison.OrdinalIgnoreCase) ||
+                modifier.Equals("not", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var parameter = _parameterCollection.GetByCode(name, resourceTypeId);
+            if (parameter == null)
+            {
+                return null;
+            }
+
+            var tableName = GetTableName(modifier);
+            var values = SplitWithEscapeChar(value, ',', '\\');
+
+            var whereParts = new StringBuilder();
+            bool first = true;
+            foreach (var v in values)
+            {
+                var clause = BuildWhereClause(v, modifier, columnSuffix: null, tableName: "t_placeholder");
+                if (!first)
+                {
+                    whereParts.Append(" OR ");
+                }
+
+                whereParts.Append(clause);
+                first = false;
+            }
+
+            var whereClause = values.Length > 1 ? $"({whereParts})" : whereParts.ToString();
+
+            return (tableName, parameter.Id, whereClause);
+        }
+
         protected static string EscapeSqlValue(string value)
         {
             if (string.IsNullOrEmpty(value))

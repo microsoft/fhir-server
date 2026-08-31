@@ -445,32 +445,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 {
                     if (group.Entries.Count > 1)
                     {
-                        parserOptions.IsLastInChainGroup = false;
+                        // Try combined approach: build one CTE with multiple JOINs instead of N sequential CTEs
+                        bool usedCombined = TryBuildCombinedReverseChain(group, parserOptions, ref cteIndex);
 
-                        // Multiple entries share the same reference lookup — generate the ref CTE once
-                        var sharedRefCteName = $"cte{cteIndex}chain0_ref";
-                        var firstEntry = group.Entries[0];
-                        var walkBackCteNames = new List<string>();
-
-                        // Generate the shared ref CTE by parsing the first entry without a shared ref
-                        parserOptions.CteNumber = cteIndex;
-                        _reversedChainSqlParser.Parse(firstEntry.FullParameterName, firstEntry.Value, parserOptions, sharedRefCteName: null, firstRefCteName: null);
-                        walkBackCteNames.Add($"cte{cteIndex}");
-                        cteIndex++;
-
-                        // For remaining entries, reuse the shared ref CTE
-                        for (int i = 1; i < group.Entries.Count; i++)
+                        if (usedCombined)
                         {
-                            var entry = group.Entries[i];
-                            parserOptions.CteNumber = cteIndex;
-                            parserOptions.IsLastInChainGroup = i == group.Entries.Count - 1;
-                            _reversedChainSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions, sharedRefCteName: parserOptions.ResultCteName, firstRefCteName: sharedRefCteName);
-                            walkBackCteNames.Add($"cte{cteIndex}");
-                            lastCteName = $"cte{cteIndex}";
-                            cteIndex++;
+                            lastCteName = parserOptions.LastCteName;
                         }
+                        else
+                        {
+                            // Fallback to sequential chaining for entries that can't be combined
+                            parserOptions.IsLastInChainGroup = false;
 
-                        parserOptions.LastCteName = lastCteName;
+                            var sharedRefCteName = $"cte{cteIndex}chain0_ref";
+                            var firstEntry = group.Entries[0];
+
+                            parserOptions.CteNumber = cteIndex;
+                            _reversedChainSqlParser.Parse(firstEntry.FullParameterName, firstEntry.Value, parserOptions, sharedRefCteName: null, firstRefCteName: null);
+                            cteIndex++;
+
+                            for (int i = 1; i < group.Entries.Count; i++)
+                            {
+                                var entry = group.Entries[i];
+                                parserOptions.CteNumber = cteIndex;
+                                parserOptions.IsLastInChainGroup = i == group.Entries.Count - 1;
+                                _reversedChainSqlParser.Parse(entry.FullParameterName, entry.Value, parserOptions, sharedRefCteName: parserOptions.ResultCteName, firstRefCteName: sharedRefCteName);
+                                lastCteName = $"cte{cteIndex}";
+                                cteIndex++;
+                            }
+
+                            parserOptions.LastCteName = lastCteName;
+                        }
                     }
                     else
                     {
@@ -805,6 +810,182 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             return parser;
+        }
+
+        /// <summary>
+        /// Attempts to build a single combined CTE for a reverse chain group instead of N sequential CTEs.
+        /// This is much more efficient because SQL Server can optimize one CTE with multiple JOINs
+        /// better than N sequential CTE chains.
+        /// </summary>
+        /// <returns>True if the combined approach was used; false if fallback is needed.</returns>
+        private bool TryBuildCombinedReverseChain(ChainSearchGroup group, ParserOptions parserOptions, ref int cteIndex)
+        {
+            // Parse the group key to get source resource type and reference param
+            var groupParts = group.GroupKey.Split(':');
+            if (groupParts.Length < 2)
+            {
+                return false;
+            }
+
+            var sourceResourceType = groupParts[0];
+            var referenceParamCode = groupParts[1];
+
+            short sourceResourceTypeId;
+            try
+            {
+                sourceResourceTypeId = _sqlServerFhirModel.GetResourceTypeId(sourceResourceType);
+            }
+            catch
+            {
+                return false;
+            }
+
+            var referenceParameter = _parameterCollection.GetByCode(referenceParamCode, sourceResourceTypeId);
+            if (referenceParameter == null)
+            {
+                return false;
+            }
+
+            // Try to get join info for all entries
+            var joinInfos = new List<(string tableName, int searchParamId, string whereClause, string alias)>();
+            int aliasIndex = 0;
+
+            foreach (var entry in group.Entries)
+            {
+                // Parse the search param code from the _has: format
+                var parts = entry.FullParameterName.Split(':', 4);
+                if (parts.Length < 4)
+                {
+                    return false;
+                }
+
+                var searchParamCode = parts[3];
+
+                // Special params like _type can't use the combined approach
+                if (searchParamCode.Equals(KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                var parser = GetParser(searchParamCode, sourceResourceTypeId);
+                if (parser is not BaseSqlParser baseParser)
+                {
+                    return false;
+                }
+
+                var joinInfo = baseParser.GetSearchJoinInfo(searchParamCode, entry.Value, sourceResourceTypeId);
+                if (joinInfo == null)
+                {
+                    return false; // :missing or :not modifier — fallback
+                }
+
+                var alias = $"t{aliasIndex}";
+                var (tableName, searchParamId, whereClause) = joinInfo.Value;
+
+                // Replace the placeholder alias with the actual alias
+                whereClause = whereClause.Replace("t_placeholder", alias, StringComparison.Ordinal);
+
+                joinInfos.Add((tableName, searchParamId, whereClause, alias));
+                aliasIndex++;
+            }
+
+            var builder = parserOptions.SqlQueryBuilder;
+            var refCteName = $"cte{cteIndex}chain0_ref";
+
+            // Step 1: Build the reference CTE (same as ReversedChainSqlParser)
+            builder.BeginCte(refCteName);
+            builder.Select(
+                "refSource.ResourceTypeId AS RefResourceTypeId",
+                "refSource.ResourceSurrogateId AS RefResourceSurrogateId",
+                "refTarget.ResourceTypeId AS ResourceTypeId",
+                "refTarget.ResourceSurrogateId AS ResourceSurrogateId");
+            builder.From("dbo.ReferenceSearchParam", "refSource");
+            builder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
+
+            if (parserOptions.LastCteName != null)
+            {
+                builder.InnerJoin(
+                    parserOptions.LastCteName,
+                    "prev",
+                    "prev.ResourceSurrogateId = refTarget.ResourceSurrogateId AND prev.ResourceTypeId = refTarget.ResourceTypeId");
+            }
+
+            builder.Where($"refSource.SearchParamId = {referenceParameter.Id}");
+            builder.And($"refSource.ResourceTypeId = {sourceResourceTypeId}");
+            ParserUtil.AddFirstCteFilters(builder, parserOptions, "refTarget");
+
+            if (parserOptions.LastCteName == null)
+            {
+                if (parserOptions.ResourceTypes != null && parserOptions.ResourceTypes.Count > 0)
+                {
+                    var targetResourceTypeIds = string.Join(", ", parserOptions.ResourceTypes);
+                    builder.And($"refTarget.ResourceTypeId IN ({targetResourceTypeIds})");
+                }
+
+                if (parserOptions.ContinuationToken != null)
+                {
+                    var surrogateOperator = parserOptions.SortDescending ? "<" : ">";
+                    builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {parserOptions.ContinuationToken.ResourceSurrogateId}");
+
+                    if (parserOptions.ContinuationToken.ResourceTypeId != null)
+                    {
+                        var typeOperator = parserOptions.SortDescending ? "<" : ">";
+                        builder.And($"refTarget.ResourceTypeId {typeOperator}= {parserOptions.ContinuationToken.ResourceTypeId}");
+                    }
+                }
+            }
+
+            builder.EndCte();
+
+            // Step 2: Build ONE combined search CTE with multiple JOINs
+            var searchCteName = $"cte{cteIndex}chain1";
+            builder.BeginCte(searchCteName);
+            builder.SelectWithModifier("DISTINCT", "r.RefResourceTypeId", "r.RefResourceSurrogateId");
+            builder.From(refCteName, "r");
+
+            foreach (var (tableName, searchParamId, whereClause, alias) in joinInfos)
+            {
+                builder.InnerJoin(
+                    $"dbo.{tableName}",
+                    alias,
+                    $"{alias}.ResourceSurrogateId = r.RefResourceSurrogateId AND {alias}.ResourceTypeId = r.RefResourceTypeId");
+            }
+
+            // Add WHERE clauses
+            bool firstWhere = true;
+            foreach (var (tableName, searchParamId, whereClause, alias) in joinInfos)
+            {
+                if (firstWhere)
+                {
+                    builder.Where($"{alias}.SearchParamId = {searchParamId}");
+                    firstWhere = false;
+                }
+                else
+                {
+                    builder.And($"{alias}.SearchParamId = {searchParamId}");
+                }
+
+                builder.And(whereClause);
+            }
+
+            builder.EndCte();
+
+            // Step 3: Walk back to target resources (Patient)
+            var resultCteName = $"cte{cteIndex}";
+            builder.BeginCte(resultCteName);
+            builder.SelectWithModifier("DISTINCT", "ref_cte.ResourceTypeId", "ref_cte.ResourceSurrogateId");
+            builder.From(searchCteName, "search");
+            builder.InnerJoin(
+                refCteName,
+                "ref_cte",
+                "ref_cte.RefResourceSurrogateId = search.RefResourceSurrogateId AND ref_cte.RefResourceTypeId = search.RefResourceTypeId");
+            builder.EndCte();
+
+            parserOptions.LastCteName = resultCteName;
+            parserOptions.ResultCteName = resultCteName;
+            cteIndex++;
+
+            return true;
         }
 
         /// <summary>
