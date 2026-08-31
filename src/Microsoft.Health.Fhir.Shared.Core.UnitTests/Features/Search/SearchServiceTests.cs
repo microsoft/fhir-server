@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 return Task.FromResult(SearchImplementation(searchOptions));
             }
 
-            protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+            public override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
             {
                 return Task.FromResult(SearchImplementation(searchOptions));
             }

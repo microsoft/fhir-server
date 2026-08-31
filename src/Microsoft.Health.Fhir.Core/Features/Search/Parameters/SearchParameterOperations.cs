@@ -255,8 +255,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Identify all System Defined Search Parameters and filter them from statuses
                 var systemDefinedSearchParameterUris = new HashSet<string>(_searchParameterDefinitionManager.AllSearchParameters.Where(p => p.IsSystemDefined).Select(p => p.Url.OriginalString));
 
+                // Fetch statuses that require definition materialization during incremental refresh.
                 var statusesToFetch = statuses
-                                        .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
+                                        .Where(p => p.Status == SearchParameterStatus.Enabled
+                                                    || p.Status == SearchParameterStatus.Supported
+                                                    || p.Status == SearchParameterStatus.PendingDelete
+                                                    || p.Status == SearchParameterStatus.PendingHardDelete)
                                         .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
 
                 // Batch fetch all SearchParameter resources in one call
@@ -428,29 +432,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             for (var i = 0; i < searchParameterUrls.Count; i += chunkSize)
             {
                 var urlParam = string.Join(",", searchParameterUrls.Skip(i).Take(chunkSize));
-                var queryParams = new List<Tuple<string, string>>
-                {
-                    Tuple.Create("url", urlParam),
-                    Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
-                };
 
-                var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-                if (searchResult?.Results != null)
+                // TODO: Remove ContinuationToken when we stop cosmos support.
+                var continuationToken = string.Empty;
+                do
                 {
-                    foreach (var entry in searchResult.Results)
+                    var queryParams = new List<Tuple<string, string>>
                     {
-                        var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
-                        if (typedElement != null)
+                        Tuple.Create("url", urlParam),
+                        Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
+                    };
+
+                    if (!string.IsNullOrEmpty(continuationToken))
+                    {
+                        queryParams.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(continuationToken)));
+                    }
+
+                    var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+                    if (searchResult?.Results != null)
+                    {
+                        foreach (var entry in searchResult.Results)
                         {
-                            var url = typedElement.GetStringScalar("url");
-                            if (!string.IsNullOrEmpty(url) && unresolvedUrls.Contains(url))
+                            var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
+                            if (typedElement != null)
                             {
-                                result[url] = typedElement;
-                                unresolvedUrls.Remove(url);
+                                var url = typedElement.GetStringScalar("url");
+                                if (!string.IsNullOrEmpty(url) && unresolvedUrls.Contains(url))
+                                {
+                                    result[url] = typedElement;
+                                    unresolvedUrls.Remove(url);
+                                }
                             }
                         }
                     }
+
+                    continuationToken = searchResult?.ContinuationToken;
                 }
+                while (!string.IsNullOrEmpty(continuationToken) && unresolvedUrls.Count > 0);
             }
 
             if (unresolvedUrls.Count > 0)

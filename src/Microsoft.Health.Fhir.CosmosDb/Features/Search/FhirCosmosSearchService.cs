@@ -374,7 +374,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                 Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList()));
         }
 
-        protected override async Task<SearchResult> SearchForReindexInternalAsync(
+        public override async Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken)

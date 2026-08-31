@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -132,10 +134,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var request = new CancelReindexRequest("id");
 
             var jobRecord = CreateJobRecord(OperationStatus.Running);
+            var canceledJobRecord = CreateJobRecord(OperationStatus.Canceled);
 
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
+            var canceledJobWrapper = new ReindexJobWrapper(canceledJobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
-            _fhirOperationDataStore.UpdateReindexJobAsync(jobRecord, WeakETag.FromVersionId("id"), Arg.Any<CancellationToken>()).Returns(jobWrapper);
+            _fhirOperationDataStore.CancelReindexJobAsync("id", Arg.Any<CancellationToken>()).Returns(canceledJobWrapper);
 
             var handler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
@@ -144,9 +148,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Canceled, result.Job.JobRecord.Status);
         }
 
+        [Fact]
+        public async Task GivenNoActiveReindexJob_WhenCreatingReindexRequest_ThenNewJobIsCreated()
+        {
+            var request = new CreateReindexRequest(new List<string>(), new List<string>());
+            var createdWrapper = new ReindexJobWrapper(CreateJobRecord(OperationStatus.Queued), WeakETag.FromVersionId("1"));
+
+            _fhirOperationDataStore.CheckActiveReindexJobsAsync(Arg.Any<CancellationToken>())
+                .Returns((false, null));
+            _fhirOperationDataStore.CreateReindexJobAsync(Arg.Any<ReindexJobRecord>(), Arg.Any<CancellationToken>())
+                .Returns(createdWrapper);
+
+            var handler = new CreateReindexRequestHandler(
+                _fhirOperationDataStore,
+                DisabledFhirAuthorizationService.Instance,
+                Options.Create(new ReindexJobConfiguration()));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Same(createdWrapper, response.Job);
+            await _fhirOperationDataStore.Received(1).CreateReindexJobAsync(Arg.Any<ReindexJobRecord>(), Arg.Any<CancellationToken>());
+            await _fhirOperationDataStore.DidNotReceive().GetReindexJobByIdAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenActiveReindexJob_WhenCreatingReindexRequest_ThenExistingJobIsReturned()
+        {
+            var request = new CreateReindexRequest(new List<string>(), new List<string>());
+            var existingWrapper = new ReindexJobWrapper(CreateJobRecord(OperationStatus.Running), WeakETag.FromVersionId("1"));
+
+            _fhirOperationDataStore.CheckActiveReindexJobsAsync(Arg.Any<CancellationToken>())
+                .Returns((true, "123"));
+            _fhirOperationDataStore.GetReindexJobByIdAsync("123", Arg.Any<CancellationToken>())
+                .Returns(existingWrapper);
+
+            var handler = new CreateReindexRequestHandler(
+                _fhirOperationDataStore,
+                DisabledFhirAuthorizationService.Instance,
+                Options.Create(new ReindexJobConfiguration()));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Same(existingWrapper, response.Job);
+            await _fhirOperationDataStore.Received(1).GetReindexJobByIdAsync("123", Arg.Any<CancellationToken>());
+            await _fhirOperationDataStore.DidNotReceive().CreateReindexJobAsync(Arg.Any<ReindexJobRecord>(), Arg.Any<CancellationToken>());
+        }
+
         private ReindexJobRecord CreateJobRecord(OperationStatus status = OperationStatus.Queued)
         {
-            return new ReindexJobRecord(new List<string>(), 1)
+            return new ReindexJobRecord(1)
             {
                 Status = status,
             };
