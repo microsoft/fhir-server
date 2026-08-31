@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var resourceWrapper = await dataStore.GetAsync(key, cancellationToken);
             if (resourceWrapper != null && !resourceWrapper.IsDeleted)
             {
-                await _retryPolicy.ExecuteAsync(async () => await _searchParameterOperations.DeleteSearchParameterAsync(resourceWrapper.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: isHardDelete));
+                await _retryPolicy.ExecuteAsync(async () => await _searchParameterOperations.MarkSearchParameterForDeletionAsync(resourceWrapper.RawResource, cancellationToken, isHardDelete: isHardDelete));
             }
         }
 
@@ -723,7 +723,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await SearchParameterRetry.ExecuteAsync(
                     async () =>
                     {
-                        await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: isHardDelete);
+                        await _searchParameterOperations.MarkSearchParameterForDeletionAsync(item.Resource.RawResource, cancellationToken, isHardDelete: isHardDelete);
                     },
                     "Deletion");
             }
