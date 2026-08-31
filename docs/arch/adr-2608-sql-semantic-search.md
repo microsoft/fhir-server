@@ -31,3 +31,22 @@ Apply ordinary FHIR filters, Patient compartments, resource authorization, and l
 - The current storage contract is fixed at `vector(1536)` and cosine distance; changing dimensions requires schema and backfill work.
 - Exact kNN is appropriate only while deterministic filters keep candidate sets bounded; approximate indexing remains future work.
 - Cosmos DB, asynchronous indexing, multi-hop semantic chains, OCR, and clinical answer generation are outside this decision.
+
+## Known Limitation — Build-Time Code Generation Dependency (Blocker)
+
+The SQL vector tables declare a `vector(1536)` column. Generating the SQL schema model classes requires `Microsoft.Health.Extensions.BuildTimeCodeGenerator` to recognize the `vector` column type. The released generator does not, so this feature currently depends on an unreleased change to the shared `healthcare-shared-components` code generator ("Support vector columns in generated SQL schema models").
+
+That shared-components change is not expected to merge or ship as an official package. Consequently:
+
+- The feature cannot be merged into `microsoft/fhir-server` main while it hard-depends on the unreleased generator, because upstream CI can only restore officially released `Microsoft.Health.*` packages.
+- The branch builds only against a locally built preview package set (`1.0.0-fix-vector-schema-model-*`) served from a local NuGet feed. `HealthcareSharedPackageVersion` is pointed at that preview for local and demo builds and must be reverted to an official version before any upstream PR.
+- The feature is otherwise complete and demonstrable end-to-end against the local preview packages.
+
+### Recommended path to unblock (future work)
+
+Decouple the feature from the code generator so it builds with the released packages. Two options:
+
+- Exclude the vector tables from generated-model production and hand-author the required row and table model types, or
+- Represent the vector column with a generator-supported type in the model layer and cast to `vector(1536)` in SQL at query and stored-procedure time.
+
+Either approach removes the dependency on the unreleased shared-components change and makes the feature independently mergeable.
