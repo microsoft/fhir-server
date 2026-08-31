@@ -308,22 +308,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            // Skip write for SearchParameter in pending delete - just return existing
-            if (resource.ResourceTypeName == KnownResourceTypes.SearchParameter && resource.IsDeleted)
-            {
-                var pending = GetPendingSearchParameterStatus();
-                if (pending?.Status == SearchParameterStatus.PendingDelete || pending?.Status == SearchParameterStatus.PendingHardDelete)
-                {
-                    var existing = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
-                    if (existing == null)
-                    {
-                        throw new ResourceNotFoundException(string.Format(Fhir.Core.Resources.ResourceNotFoundById, resource.ResourceTypeName, resource.ResourceId));
-                    }
-
-                    return new UpsertOutcome(existing, SaveOutcomeType.Updated);
-                }
-            }
-
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 

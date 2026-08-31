@@ -412,13 +412,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                // exclude resources for search param deletes, as they are handled by reindex
-                if (resourceExt.PendingSearchParameterStatus == null
-                    || (resourceExt.PendingSearchParameterStatus.Status != SearchParameterStatus.PendingDelete
-                        && resourceExt.PendingSearchParameterStatus.Status != SearchParameterStatus.PendingHardDelete))
-                {
-                    mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && metaHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
-                }
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && metaHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
 
                 index++;
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
