@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(nameof(ModelInfoProviderSerialCollection))]
     public class VectorSearchExpressionParserTests
     {
         private const string SearchParameterCode = "semantic-text";
