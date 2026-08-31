@@ -6,11 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.AspNetCore.Http;
@@ -19,7 +21,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -198,8 +200,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
-                    bool includeFhirUserClaim = true;
-
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
                     var scopeClaimsBuilder = new StringBuilder();
@@ -242,9 +242,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     }
                     catch (Exception ex) when (ex is UriFormatException || ex is FormatException || ex is ArgumentException)
                     {
-                        throw new BadHttpRequestException(string.Format(
-                            Api.Resources.SmartScopeInvalidSearchParameters,
-                            scopeClaims));
+                        var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, scopeClaims);
+                        _logger.LogWarning(ex, error);
+                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                        return;
                     }
 
                     MatchCollection matches;
@@ -252,23 +253,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     {
                         matches = ClinicalScopeRegEx.Matches(scopeClaims);
                     }
-                    catch (RegexMatchTimeoutException)
+                    catch (RegexMatchTimeoutException ex)
                     {
-                        throw new BadHttpRequestException(string.Format(
-                            Api.Resources.SmartScopeInvalidSearchParameters,
-                            scopeClaims));
+                        var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, scopeClaims);
+                        _logger.LogWarning(ex, error);
+                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                        return;
                     }
 
-                    bool smartV1AccessLevelUsed = false;
-                    bool smartV2AccessLevelUsed = false;
+                    string clinicalScopeContext = null;
                     foreach (Match match in matches)
                     {
-                        var accessLevel = match.Groups["accessLevel"]?.Value;
-                        if (string.IsNullOrEmpty(accessLevel))
-                        {
-                            continue;
-                        }
-
                         // The regex finds clinical-scope substrings rather than matching whole tokens, so a
                         // malformed scope whose token is only partially valid (e.g. "patient/Observation.read-only",
                         // "patient/Observation.rs?active", "patient/Observation.rsXYZ") still produces a match for
@@ -278,9 +273,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         int matchEnd = match.Index + match.Length;
                         if (matchEnd < scopeClaims.Length && !char.IsWhiteSpace(scopeClaims[matchEnd]))
                         {
-                            throw new BadHttpRequestException(string.Format(
-                                Api.Resources.SmartScopeInvalidSearchParameters,
-                                scopeClaims));
+                            var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, scopeClaims);
+                            _logger.LogWarning(error);
+                            await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                            return;
+                        }
+
+                        string currentClinicalScopeContext = match.Groups["id"].Value;
+                        if (clinicalScopeContext != null
+                            && !clinicalScopeContext.Equals(currentClinicalScopeContext, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger.LogWarning(Api.Resources.MixedSMARTScopeContextsAreNotAllowed);
+                            await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, Api.Resources.MixedSMARTScopeContextsAreNotAllowed);
+                            return;
+                        }
+
+                        clinicalScopeContext = currentClinicalScopeContext;
+                    }
+
+                    bool includeFhirUserClaim = !string.Equals("system", clinicalScopeContext, StringComparison.OrdinalIgnoreCase);
+                    bool smartV1AccessLevelUsed = false;
+                    bool smartV2AccessLevelUsed = false;
+                    foreach (Match match in matches)
+                    {
+                        var accessLevel = match.Groups["accessLevel"]?.Value;
+                        if (string.IsNullOrEmpty(accessLevel))
+                        {
+                            continue;
                         }
 
                         // Detect v1 vs v2 based on the accessLevel value.
@@ -303,16 +322,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             // malformed access level is not silently accepted.
                             if (accessLevel.Distinct().Count() != accessLevel.Length)
                             {
-                                throw new BadHttpRequestException(string.Format(
-                                    Api.Resources.SmartScopeInvalidSearchParameters,
-                                    match.Value.Trim()));
+                                var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, match.Value?.Trim());
+                                _logger.LogWarning(error);
+                                await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                return;
                             }
                         }
 
-                        // If both types are detected, throw an error.
+                        // If both types are detected, write an error and return.
                         if (smartV1AccessLevelUsed && smartV2AccessLevelUsed)
                         {
-                            throw new BadHttpRequestException(string.Format(Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed));
+                            _logger.LogWarning(Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed);
+                            await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, Api.Resources.MixedSMARTV1AndV2ScopesAreNotAllowed);
+                            return;
                         }
 
                         fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
@@ -335,13 +357,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             // silently stored as a ScopeRestriction that matches nothing, masking client
                             // misconfiguration. The "all" wildcard is not a concrete resource type, so it is
                             // excluded from the check.
-                            if (!resource.Equals(KnownResourceTypes.All, StringComparison.OrdinalIgnoreCase)
-                                && !ModelInfoProvider.IsKnownResource(resource))
+                            if (!resource.Equals(KnownResourceTypes.All, StringComparison.Ordinal)
+                                && !ModelInfoProvider.IsKnownResource(resource, ignoreCase: false))
                             {
-                                throw new BadHttpRequestException(string.Format(
-                                    Api.Resources.SmartScopeUnknownResourceType,
-                                    match.Value.Trim(),
-                                    resource));
+                                var error = string.Format(Api.Resources.SmartScopeUnknownResourceType, match.Value.Trim(), resource);
+                                _logger.LogWarning(error);
+                                await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                return;
                             }
 
                             // If Finer-grained resource constraints using search parameters present
@@ -370,20 +392,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     // (e.g., "_has:Observation:patient:code").
                                     if (IsChainedSearchParameter(paramKey))
                                     {
-                                        throw new BadHttpRequestException(string.Format(
-                                            Api.Resources.SmartScopeSearchParameterChainedSearchNotSupported,
-                                            match.Value.Trim(),
-                                            $"{paramKey}={paramValue}"));
+                                        var error = string.Format(Api.Resources.SmartScopeSearchParameterChainedSearchNotSupported, match.Value?.Trim(), $"{paramKey}={paramValue}");
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
                                     }
 
                                     // Detect FHIR search modifiers anywhere in the parameter key (e.g.
                                     // "name:exact", "category:not", "value-quantity:ofType").
                                     if (ContainsSearchModifier(paramKey))
                                     {
-                                        throw new BadHttpRequestException(string.Format(
-                                            Api.Resources.SmartScopeSearchParameterModifiersNotSupported,
-                                            match.Value.Trim(),
-                                            $"{paramKey}={paramValue}"));
+                                        var error = string.Format(Api.Resources.SmartScopeSearchParameterModifiersNotSupported, match.Value?.Trim(), $"{paramKey}={paramValue}");
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
                                     }
 
                                     // Result parameters that pull in additional resources (_include/_revinclude)
@@ -391,19 +413,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     // resource types the scope does not grant, so reject them.
                                     if (IsIncludeParameter(paramKey))
                                     {
-                                        throw new BadHttpRequestException(string.Format(
-                                            Api.Resources.SmartScopeSearchParameterIncludesNotSupported,
-                                            match.Value.Trim(),
-                                            $"{paramKey}={paramValue}"));
+                                        var error = string.Format(Api.Resources.SmartScopeSearchParameterIncludesNotSupported, match.Value?.Trim(), $"{paramKey}={paramValue}");
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
                                     }
 
                                     // Reject malformed key-value pairs (a missing '=' or a value that still
                                     // contains '=') instead of silently dropping the constraint (fail-open).
                                     if (parts.Length != 2 || paramValue.Contains('=', StringComparison.Ordinal))
                                     {
-                                        throw new BadHttpRequestException(string.Format(
-                                            Api.Resources.SmartScopeInvalidSearchParameters,
-                                            match.Value.Trim()));
+                                        var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, match.Value?.Trim());
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
                                     }
 
                                     smartScopeSearchParameters.Add(paramKey, paramValue);
@@ -418,11 +441,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id, smartScopeSearchParameters.Parameters.Any() ? smartScopeSearchParameters : null));
 
                             scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
-
-                            if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
-                            {
-                                includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
-                            }
                         }
                     }
 
@@ -449,14 +467,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         {
                             if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
                             {
-                                throw new BadHttpRequestException(string.Format(Api.Resources.FhirUserClaimMustBeURL, fhirUser));
+                                var error = string.Format(Api.Resources.FhirUserClaimMustBeURL, fhirUser);
+                                _logger.LogError(error);
+                                await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                return;
                             }
                         }
                         catch (ArgumentNullException)
                         {
                             if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
                             {
-                                throw new BadHttpRequestException(Api.Resources.FhirUserClaimCannotBeNull);
+                                _logger.LogWarning(Api.Resources.FhirUserClaimCannotBeNull);
+                                await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, Api.Resources.FhirUserClaimCannotBeNull);
+                                return;
                             }
                         }
                     }
@@ -465,6 +488,49 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);
+        }
+
+        private async Task WriteErrorResponseAsync(
+            IFhirRequestContext requestContext,
+            HttpContext httpContext,
+            HttpStatusCode statusCode,
+            string errorMessage,
+            OperationOutcome.IssueType issueType = OperationOutcome.IssueType.Invalid)
+        {
+            EnsureArg.IsNotNull(requestContext, nameof(requestContext));
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
+            EnsureArg.IsNotNull(httpContext.Response, nameof(httpContext.Response));
+
+            try
+            {
+                var body = new
+                {
+                    resourceType = nameof(OperationOutcome),
+                    id = requestContext.CorrelationId,
+                    meta = new
+                    {
+                        lastUpdated = Clock.UtcNow.ToString("o"),
+                    },
+                    issue = new[]
+                    {
+                        new
+                        {
+                           severity = OperationOutcome.IssueSeverity.Error.GetLiteral(),
+                           code = issueType.GetLiteral(),
+                           diagnostics = errorMessage,
+                        },
+                    },
+                };
+
+                httpContext.Response.Clear();
+                httpContext.Response.StatusCode = (int)statusCode;
+                await httpContext.Response.WriteAsJsonAsync(body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to write error response.");
+                throw;
+            }
         }
     }
 }

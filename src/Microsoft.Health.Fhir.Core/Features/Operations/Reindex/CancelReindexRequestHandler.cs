@@ -8,8 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
-using Microsoft.Health.Core;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -49,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
 
-        public async Task<CancelReindexResponse> Handle(CancelReindexRequest request, CancellationToken cancellationToken)
+        public async Task<CancelReindexResponse> HandleAsync(CancelReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -66,13 +65,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         string.Format(Core.Resources.ReindexJobInCompletedState, outcome.JobRecord.Id, outcome.JobRecord.Status));
                 }
 
-                // Try to cancel the job.
-                outcome.JobRecord.Status = OperationStatus.Canceled;
-                outcome.JobRecord.CanceledTime = Clock.UtcNow;
+                var canceledJob = await _fhirOperationDataStore.CancelReindexJobAsync(request.JobId, cancellationToken);
 
-                await _fhirOperationDataStore.UpdateReindexJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
-
-                return new CancelReindexResponse(HttpStatusCode.Conflict, outcome);
+                return new CancelReindexResponse(HttpStatusCode.Conflict, canceledJob);
             });
         }
     }

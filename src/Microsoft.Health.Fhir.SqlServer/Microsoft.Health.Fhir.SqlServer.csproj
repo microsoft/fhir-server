@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.Health.SqlServer.Api" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" />
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" />
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />

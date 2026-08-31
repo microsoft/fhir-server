@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using Azure.Core;
 using Azure.Identity;
 using Azure.ResourceManager;
-using MediatR;
+using Medino;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SearchParameterStatusManager _searchParameterStatusManager;
         private CosmosClient _cosmosClient;
         private CosmosQueueClient _queueClient;
+        private TestQueueClient _testQueueClient;
         private CosmosFhirOperationDataStore _cosmosFhirOperationDataStore;
         private ISearchIndexer _searchIndexer;
 
@@ -248,10 +249,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClient = new NonDisposingScope(_container);
 
+            var mockQueueClientForSearchParams = Substitute.For<IQueueClient>();
+            mockQueueClientForSearchParams.GetActiveJobsByQueueTypeAsync(Arg.Any<byte>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult((IReadOnlyList<JobInfo>)Array.Empty<JobInfo>()));
+
             _searchParameterStatusDataStore = new CosmosDbSearchParameterStatusDataStore(
                 () => documentClient,
                 _cosmosDataStoreConfiguration,
-                cosmosDocumentQueryFactory);
+                cosmosDocumentQueryFactory,
+                () => mockQueueClientForSearchParams.CreateMockScope());
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
@@ -311,7 +317,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             await compartmentDefinitionManager.StartAsync(CancellationToken.None);
             var compartmentSearchRewriter = new CosmosCompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
-            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
+            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager), Options.Create(new CoreFeatureConfiguration()));
 
             ICosmosDbCollectionPhysicalPartitionInfo cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbCollectionPhysicalPartitionInfo>();
             cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
@@ -330,6 +336,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var queueClient = new TestQueueClient();
+            _testQueueClient = queueClient;
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 queueClient,
                 documentClient,
@@ -445,6 +452,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(ISearchIndexer))
             {
                 return _searchIndexer;
+            }
+
+            if (serviceType == typeof(TestQueueClient))
+            {
+                return _testQueueClient;
             }
 
             return null;

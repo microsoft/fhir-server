@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
+            configuration["FhirServer:Operations:Reindex:JobsPollingIntervalSec"] = "1";
 
             // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
@@ -190,6 +191,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         internal override HttpMessageHandler CreateMessageHandler()
         {
             return Server.CreateHandler();
+        }
+
+        protected override Uri GetClientCredentialTokenEndpoint()
+        {
+            var authority = new Uri(_builtConfiguration["FhirServer:Security:Authentication:Authority"]);
+            return new Uri(authority, "connect/token");
         }
 
         public override async ValueTask DisposeAsync()

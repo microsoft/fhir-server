@@ -76,8 +76,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Health\ImproperBehaviorHealthCheckTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Health\StorageInitializedHealthCheckTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Logging\HttpInboundRequestLoggerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Metrics\AuthenticationFailureExceptionMetricEmissionFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Metrics\SecurityAbuseExceptionMetricEmissionFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModuleTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModuleTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\InitialImportLockMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProviderTests.cs" />
@@ -94,6 +97,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\ResourceTypesRouteConstraintTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\RuntimeState\RuntimeStateMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\RequestHandlerCheckAccessTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\SMART\SmartClinicalScopesMiddlewareTests.cs" />

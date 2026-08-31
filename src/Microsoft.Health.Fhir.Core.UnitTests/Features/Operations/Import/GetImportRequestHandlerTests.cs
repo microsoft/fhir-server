@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -158,6 +158,109 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         public async Task WhenGettingANotExistingJob_ThenNotFoundShouldBeReturned()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(1, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task WhenStatusIsRequestedByProcessingJobId_ThenOrchestratorJobIsSkippedAndResponseCodeShouldBeOk()
+        {
+            var orchestratorResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var orchestrator = new JobInfo()
+            {
+                Id = 0,
+                Status = JobStatus.Completed,
+                Result = JsonConvert.SerializeObject(orchestratorResult),
+                Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition() { TypeId = (int)JobType.ImportOrchestrator }),
+            };
+
+            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
+            var worker = new JobInfo()
+            {
+                Id = 2,
+                Status = JobStatus.Completed,
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { TypeId = (int)JobType.ImportProcessing, ResourceLocation = "http://xyz" }),
+            };
+
+            // status is requested with the id of a processing job, so the orchestrator job is not filtered out of the group
+            var polled = new JobInfo()
+            {
+                Id = 1,
+                Status = JobStatus.Completed,
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { TypeId = (int)JobType.ImportProcessing, ResourceLocation = "http://xyz" }),
+            };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(polled, [orchestrator, worker]);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+
+            // The orchestrator job records no input file, so it is not reported. The job whose id was requested is excluded
+            // from its own group results, exactly as the orchestrator job is when its id is requested, so only the remaining
+            // processing job is reported.
+            var output = Assert.Single(result.JobResult.Output);
+            Assert.Equal(1L, output.Count);
+            Assert.Equal(new Uri("http://xyz"), output.InputUrl);
+            var error = Assert.Single(result.JobResult.Error);
+            Assert.Equal(1L, error.Count);
+        }
+
+        [Fact]
+        public async Task WhenCompletedJobHasNoInputLocation_ThenJobIsSkippedAndResponseCodeShouldBeOk()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
+            var workerWithoutLocation = new JobInfo() { Id = 1, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition()) };
+            var worker = new JobInfo() { Id = 2, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [workerWithoutLocation, worker]);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Single(result.JobResult.Output);
+            Assert.Single(result.JobResult.Error);
+        }
+
+        [Fact]
+        public async Task WhenCompletedJobHasNoDefinitionOrResult_ThenJobIsSkippedAndResponseCodeShouldBeOk()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Completed };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Empty(result.JobResult.Output);
+            Assert.Empty(result.JobResult.Error);
+        }
+
+        [Fact]
+        public async Task WhenCompletedJobHasNoResult_ThenJobIsSkippedAndResponseCodeShouldBeOk()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+
+            // a completed job with no persisted result reports no counts, so it is not reported as a zero count outcome
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { TypeId = (int)JobType.ImportProcessing, ResourceLocation = "http://xyz" }) };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Empty(result.JobResult.Output);
+            Assert.Empty(result.JobResult.Error);
+        }
+
+        [Fact]
+        public async Task WhenGettingFailedJobWithoutInputLocation_ThenExceptionIsThrownWithoutErrorFile()
+        {
+            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var workerResult = new ImportJobErrorResult() { ErrorMessage = "Error", HttpStatusCode = HttpStatusCode.BadRequest };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition() { TypeId = (int)JobType.ImportOrchestrator }) };
+
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, "Error"), ofe.Message);
         }
 
         private async Task<GetImportResponse> SetupAndExecuteGetBulkImportJobByIdAsync(JobInfo coord, List<JobInfo> workers)

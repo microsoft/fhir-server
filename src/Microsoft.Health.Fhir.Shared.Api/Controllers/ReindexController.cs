@@ -9,7 +9,7 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -68,8 +68,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ValidateParams(inputParams);
 
-            uint? maxResourcesPerQuery = (uint?)ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerQuery);
-            uint? maxResourcesPerWrite = (uint?)ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerWrite);
+            int? maxResourcesPerQuery = ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerQuery);
+            int? maxResourcesPerWrite = ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerWrite);
             int? queryDelay = ReadNumericParameter(inputParams, JobRecordProperties.QueryDelayIntervalInMilliseconds);
             ushort? targetDataStoreResourcePercentage = (ushort?)ReadNumericParameter(inputParams, JobRecordProperties.TargetDataStoreUsagePercentage);
             string targetResourceTypes = ReadStringParameter(inputParams, JobRecordProperties.TargetResourceTypes);

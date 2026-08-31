@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.FhirPath;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -59,10 +61,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             await _fixture.InitializeAsync();
 
             var typedElementToSearchValueConverterManager = await CreateFhirTypedElementToSearchValueConverterManagerAsync();
+
+            // resolve() support must match the production server (registered in FhirModule). Several
+            // compartment membership parameters are resolve()-filtered — clinical-patient, AuditEvent-patient,
+            // Provenance-patient, Person-patient, Encounter-practitioner, EpisodeOfCare-care-manager — so a
+            // stub resolver silently indexes none of them and SMART compartment results under-return here in a
+            // way that never happens in production.
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+            var referenceToElementResolver = new LightweightReferenceToElementResolver(
+                Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor()),
+                ModelInfoProvider.Instance);
+
             _searchIndexer = new TypedElementSearchIndexer(
                 _fixture.SupportedSearchParameterDefinitionManager,
                 typedElementToSearchValueConverterManager,
-                Substitute.For<IReferenceToElementResolver>(),
+                referenceToElementResolver,
                 ModelInfoProvider.Instance,
                 NullLogger<TypedElementSearchIndexer>.Instance);
             _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
@@ -73,6 +86,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             await LoadBundleAsync("SmartPatientC");
             await LoadBundleAsync("SmartPatientD");
             await LoadBundleAsync("SmartCommon");
+
+            // Cross-compartment data used to reproduce the _include/_revinclude compartment leak.
+            await LoadBundleAsync("SmartCompartmentLeak");
 
             await UpsertResource(Samples.GetJsonSample<Medication>("Medication"));
             await UpsertResource(Samples.GetJsonSample<Organization>("Organization"));
@@ -98,8 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var resourceRequest = new ResourceRequest(httpMethod);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);
-            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
-            wrapper.SearchParameterHash = "hash";
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
         }

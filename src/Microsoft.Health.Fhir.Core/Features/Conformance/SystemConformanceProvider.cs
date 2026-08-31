@@ -11,9 +11,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -208,6 +209,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public async Task BackgroudLoop()
         {
+            // Set a dedicated request context for the background loop so that downstream services
+            // (e.g., CosmosResponseProcessor) don't write to a stale HTTP request's response headers.
+            _contextAccessor.RequestContext = new FhirRequestContext(
+                method: nameof(BackgroudLoop),
+                uriString: "https://localhost/system/capability-rebuild",
+                baseUriString: "https://localhost/",
+                correlationId: Guid.NewGuid().ToString(),
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>())
+            {
+                IsBackgroundTask = true,
+            };
+
             Stopwatch loggingTimer = Stopwatch.StartNew();
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
@@ -328,7 +342,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _logger.LogInformation("SystemConformanceProvider: DisposeAsync completed.");
         }
 
-        public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
             if (_disposed)
             {

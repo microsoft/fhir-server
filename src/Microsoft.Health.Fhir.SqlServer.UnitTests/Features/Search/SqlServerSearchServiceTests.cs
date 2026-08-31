@@ -101,7 +101,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
-                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+                Options.Create(new CoreFeatureConfiguration()));
 
             _searchService = new SqlServerSearchService(
                 _searchOptionsFactory,
@@ -144,7 +145,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
-                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+                Options.Create(new CoreFeatureConfiguration()));
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -192,7 +194,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
-                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+                Options.Create(new CoreFeatureConfiguration()));
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -240,7 +243,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
                 compartmentSearchRewriter,
-                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+                Options.Create(new CoreFeatureConfiguration()));
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>

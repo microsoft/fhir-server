@@ -10,7 +10,7 @@ using System.Globalization;
 using System.Linq;
 using Azure.Core;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
-using MediatR;
+using Medino;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -35,7 +35,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
@@ -88,7 +87,6 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
                 .AddMemberMatch();
-
             services.AddDevelopmentIdentityProvider(Configuration);
 
             // Set the runtime configuration for the up and running service.
@@ -158,14 +156,15 @@ namespace Microsoft.Health.Fhir.Web
             services.AddScoped<IDocumentReferenceSemanticSearch, SqlDocumentReferenceSemanticSearch>();
         }
 
-        private IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
+        private static IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
         {
             IFhirRuntimeConfiguration runtimeConfiguration = null;
 
-            string dataStore = Configuration["DataStore"];
+            string dataStore = configuration["DataStore"];
             if (KnownDataStores.IsCosmosDbDataStore(dataStore))
             {
-                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration(
+                    RuntimeStateConfigurationExtensions.GetRuntimeStateConfiguration(configuration));
             }
             else if (KnownDataStores.IsSqlServerDataStore(dataStore))
             {
@@ -214,6 +213,10 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder app)
         {
+            IFhirRuntimeConfiguration runtimeConfiguration = app.ApplicationServices.GetRequiredService<IFhirRuntimeConfiguration>();
+            ILogger<Startup> logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
+            logger.LogInformation("The effective FHIR runtime state is {RuntimeState}.", runtimeConfiguration.RuntimeState);
+
             app.Use(async (context, next) =>
             {
                 if (instanceId != null)

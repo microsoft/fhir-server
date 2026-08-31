@@ -1,4 +1,4 @@
-﻿# Configuration based on https://help.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates
+# Configuration based on https://help.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates
 
 version: 2
 updates:
@@ -17,6 +17,8 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "docker"
     directory: "/build/docker"

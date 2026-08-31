@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -128,7 +129,12 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
-            services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
+
+            // Extended HTTP Inbound Request logging for FHIR server.
+            services.AddSingleton<IHttpInboundRequestLogger, HttpInboundRequestLogger>();
+
+            // IStartupFilter registering.
+            services.AddTransient<IStartupFilter, FhirServerStartupFilter>((x) => new FhirServerStartupFilter(fhirServerConfiguration));
 
             // Register global instance configuration for storing base URI and instance ID
             // This is available to all services including background tasks that don't have access to HttpContext
@@ -194,6 +200,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // Feature specific metric handlers.
             services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
             services.TryAddSingleton<ISearchParameterCacheRefresherMetricHandler, DefaultSearchParameterCacheRefresherMetricHandler>();
+            services.TryAddSingleton<IServiceMetricHandler, DefaultServiceMetricHandler>();
 
             // Job metric handlers.
             services.TryAddSingleton<IBulkDeleteMetricHandler, DefaultBulkDeleteMetricHandler>();
@@ -223,6 +230,15 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         private class FhirServerStartupFilter : IStartupFilter
         {
+            private readonly FhirServerConfiguration _fhirServerConfiguration;
+
+            public FhirServerStartupFilter(FhirServerConfiguration fhirServerConfiguration)
+            {
+                EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+
+                _fhirServerConfiguration = fhirServerConfiguration;
+            }
+
             public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
             {
                 return app =>
@@ -271,7 +287,11 @@ namespace Microsoft.Extensions.DependencyInjection
                     // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
 
+                    // Platform network validation and application authentication.
                     app.UseFhirRequestContextAuthentication();
+
+                    // Add FHIR runtime middleware, that runs validations on top of the state of the FHIR service.
+                    app.UseFhirRuntimeState(_fhirServerConfiguration);
 
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
 

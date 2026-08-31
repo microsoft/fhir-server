@@ -11,7 +11,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _authorizationService = authorizationService;
         }
 
-        public async Task<GetImportResponse> Handle(GetImportRequest request, CancellationToken cancellationToken)
+        public async Task<GetImportResponse> HandleAsync(GetImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else if (coord.Status == JobStatus.Failed)
             {
-                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coord.Result);
+                var errorResult = DeserializeOrDefault<ImportJobErrorResult>(coord.Result);
                 if (errorResult.HttpStatusCode == 0)
                 {
                     errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
@@ -85,23 +85,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 else if (failedJobsExist)
                 {
                     var failed = jobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
-                    var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
-                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(failed.Definition);
+                    var errorResult = DeserializeOrDefault<ImportJobErrorResult>(failed.Result);
                     if (errorResult.HttpStatusCode == 0)
                     {
                         errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
                     }
 
-                    var resourceLocation = new Uri(definition.ResourceLocation);
-
                     // hide error message for InternalServerError
                     var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
 
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, failureReason, resourceLocation.OriginalString), errorResult.HttpStatusCode);
+                    // The input file location is not available on every job record in the group, so the error file cannot always be reported.
+                    var message = TryGetProcessingJobInput(failed, out _, out var resourceLocation)
+                        ? string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, failureReason, resourceLocation.OriginalString)
+                        : string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason);
+
+                    throw new OperationFailedException(message, errorResult.HttpStatusCode);
                 }
                 else // no failures here
                 {
-                    var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(coord.Result);
+                    var coordResult = DeserializeOrDefault<ImportOrchestratorJobResult>(coord.Result);
                     var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = results.Completed, Error = results.Failed };
                     return new GetImportResponse(!inFlightJobsExist ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
                 }
@@ -117,12 +119,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var failed = new List<ImportFailedOperationOutcome>();
                 foreach (var job in jobs.Where(_ => _.Status == JobStatus.Completed))
                 {
-                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(job.Definition);
-                    var result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
-                    completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = new Uri(definition.ResourceLocation) });
+                    // The job group also contains the orchestrator job, which is returned here whenever status is requested
+                    // by a job id other than the orchestrator's. It records no input file url, and neither does a job whose
+                    // state was not persisted. Such records cannot be reported as a processed input file, so they are
+                    // skipped rather than allowed to fail the whole status request.
+                    if (!TryGetProcessingJobInput(job, out var definition, out var inputUrl) || string.IsNullOrWhiteSpace(job.Result))
+                    {
+                        continue;
+                    }
+
+                    var result = DeserializeOrDefault<ImportProcessingJobResult>(job.Result);
+                    completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = inputUrl });
                     if (result.FailedResources > 0)
                     {
-                        failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
+                        failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = inputUrl, Url = result.ErrorLogLocation });
                     }
                 }
 
@@ -136,6 +146,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 return (groupped, failed);
             }
+        }
+
+        /// <summary>
+        /// Resolves the import processing job definition and the url of the input file it processed.
+        /// </summary>
+        /// <param name="job">The job to inspect.</param>
+        /// <param name="definition">When this method returns true, the import processing job definition; otherwise null.</param>
+        /// <param name="inputUrl">When this method returns true, the url of the processed input file; otherwise null.</param>
+        /// <returns>True when the job records the url of an input file it processed; otherwise false.</returns>
+        private static bool TryGetProcessingJobInput(JobInfo job, out ImportProcessingJobDefinition definition, out Uri inputUrl)
+        {
+            // Recording an input file url is what separates a processing job from the orchestrator job, whose definition has
+            // no such property. Matching on the url rather than on the job type keeps every record the status response
+            // reported before, including any written before job types were persisted.
+            definition = DeserializeOrDefault<ImportProcessingJobDefinition>(job.Definition);
+
+            if (!Uri.TryCreate(definition.ResourceLocation, UriKind.Absolute, out inputUrl))
+            {
+                definition = null;
+                inputUrl = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Deserializes persisted job state, returning a default instance when the state is absent or null valued.
+        /// </summary>
+        /// <typeparam name="T">The type of the persisted job state.</typeparam>
+        /// <param name="json">The persisted job state.</param>
+        /// <returns>The deserialized job state, or a default instance.</returns>
+        private static T DeserializeOrDefault<T>(string json)
+            where T : new()
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new T();
+            }
+
+            return JsonConvert.DeserializeObject<T>(json) ?? new T();
         }
     }
 }

@@ -44,7 +44,8 @@ param(
     [Parameter(Mandatory = $true)] [int]    $TaskHostingMaxRunningTaskCount,
     [Parameter(Mandatory = $true)] [int]    $SearchParameterCacheRefreshIntervalSeconds,
     [Parameter(Mandatory = $true)] [int]    $SystemConformanceProviderRefreshIntervalSeconds,
-    [Parameter(Mandatory = $true)] [int]    $ReindexCacheRefreshWaitMultiplier
+    [Parameter(Mandatory = $true)] [int]    $ReindexCacheRefreshWaitMultiplier,
+    [Parameter(Mandatory = $true)] [int]    $ReindexJobsPollingIntervalSec
 )
 
 $ErrorActionPreference = 'Stop'
@@ -69,6 +70,7 @@ $additionalProperties["TaskHosting__MaxRunningTaskCount"] = $TaskHostingMaxRunni
 $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = $SearchParameterCacheRefreshIntervalSeconds
 $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = $SystemConformanceProviderRefreshIntervalSeconds
 $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = $ReindexCacheRefreshWaitMultiplier
+$additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"] = $ReindexJobsPollingIntervalSec
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
 $staticEnvNames = @(
