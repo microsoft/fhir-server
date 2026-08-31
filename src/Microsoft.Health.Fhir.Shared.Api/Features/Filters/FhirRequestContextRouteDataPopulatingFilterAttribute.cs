@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -26,16 +27,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
+        private readonly ILogger<FhirRequestContextRouteDataPopulatingFilterAttribute> _logger;
 
         public FhirRequestContextRouteDataPopulatingFilterAttribute(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            IAuditEventTypeMapping auditEventTypeMapping)
+            IAuditEventTypeMapping auditEventTypeMapping,
+            ILogger<FhirRequestContextRouteDataPopulatingFilterAttribute> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditEventTypeMapping = auditEventTypeMapping;
+            _logger = logger;
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
@@ -107,7 +112,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                         },
                                     },
                                 },
-                                HttpStatusCode.BadRequest);
+                                HttpStatusCode.BadRequest,
+                                _logger);
                             return;
                         }
                     }

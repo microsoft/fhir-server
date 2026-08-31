@@ -11,6 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
@@ -30,16 +31,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IDocRefRequestConverter _converter;
         private readonly USCoreConfiguration _configuration;
+        private readonly ILogger<DocRefController> _logger;
 
         public DocRefController(
             IDocRefRequestConverter converter,
-            IOptions<USCoreConfiguration> configuration)
+            IOptions<USCoreConfiguration> configuration,
+            ILogger<DocRefController> logger)
         {
             EnsureArg.IsNotNull(converter, nameof(converter));
             EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _converter = converter;
             _configuration = configuration.Value;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -56,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var response = await _converter.ConvertAsync(
                 Request.GetQueriesForSearch(),
                 HttpContext.RequestAborted);
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         [HttpPost]
@@ -76,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var response = await _converter.ConvertAsync(
                 parameterList,
                 HttpContext.RequestAborted);
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         private static string Convert(DataType value)
