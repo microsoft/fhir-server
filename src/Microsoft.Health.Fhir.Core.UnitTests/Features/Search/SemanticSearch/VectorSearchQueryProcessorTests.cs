@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(nameof(ModelInfoProviderSerialCollection))]
     public sealed class VectorSearchQueryProcessorTests
     {
         private static readonly Uri VectorCanonical = new Uri("https://example.org/fhir/SearchParameter/semantic-text");
