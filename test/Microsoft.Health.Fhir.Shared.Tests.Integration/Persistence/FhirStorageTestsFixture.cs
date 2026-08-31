@@ -391,12 +391,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             collection.AddTransient<IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>>(
                 sp => new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(
-                    _searchParameterOperations,
                     DataStore,
-                    SearchParameterDefinitionManager,
-                    SearchParameterStatusManager,
-                    FhirRequestContextAccessor,
-                    ModelInfoProvider.Instance));
+                    SearchParameterDefinitionManager));
 
             ServiceProvider services = collection.BuildServiceProvider();
 

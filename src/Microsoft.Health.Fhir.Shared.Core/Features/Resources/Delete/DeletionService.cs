@@ -725,9 +725,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             finally
             {
-                // Search param status is persisted directly above. Clear any queued context status
-                // to prevent it from leaking into unrelated subsequent writes in the same request context.
-                _contextAccessor?.RequestContext?.Properties?.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
                 _searchParamDeleteSemaphore.Release();
             }
         }
