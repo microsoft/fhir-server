@@ -585,13 +585,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         ///   2. Poll the status endpoint until the job completes or fails.
         ///   3. Assert the status endpoint returns 400 Bad Request.
         /// </summary>
-        [Fact]
-        public async Task GivenExportWithInvalidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsBadRequest()
+        [Theory]
+        [InlineData("InvalidResourceType", "InvalidResourceType")]
+        [InlineData("Patient,InvalidResourceType", "InvalidResourceType")]
+        [InlineData("Patient,,Observation", "<empty>")]
+        public async Task GivenExportWithInvalidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsBadRequest(
+            string resourceTypes,
+            string invalidResourceType)
         {
             // Step 1 — Create an export job with an invalid _type query parameter
             var queryParam = new Dictionary<string, string>()
             {
-                { KnownQueryParameterNames.Type, "InvalidResourceType" },
+                { KnownQueryParameterNames.Type, resourceTypes },
                 { KnownQueryParameterNames.IsParallel, "true" },
             };
             using HttpRequestMessage exportRequest = GenerateExportRequest("$export", queryParams: queryParam);
@@ -620,6 +625,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.BadRequest, statusCode);
 
             // Step 3a - Make sure the response content is not empty and contains an OperationOutcome with the expected invalid resource type
+            Assert.False(string.IsNullOrEmpty(responseContent));
             var resource = _fhirJsonParser.Parse<Resource>(responseContent);
             var operationOutcome = Assert.IsType<OperationOutcome>(resource);
             Assert.Contains(
@@ -628,7 +634,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 {
                     return issue != null
                         && issue.Severity == OperationOutcome.IssueSeverity.Error
-                        && issue.Diagnostics?.Contains("InvalidResourceType") == true;
+                        && issue.Diagnostics?.Contains(invalidResourceType) == true;
                 });
         }
     }

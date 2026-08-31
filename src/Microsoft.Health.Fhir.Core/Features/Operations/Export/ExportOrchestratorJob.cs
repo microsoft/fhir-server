@@ -95,12 +95,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var invalidTypes = resourceTypes?
                 .Select(t => t?.Trim())
                 .Where(t => string.IsNullOrEmpty(t) || !searchService.IsValidResourceType(t))
+                .Select(t => string.IsNullOrEmpty(t) ? "<empty>" : t)
                 .ToList();
             if (invalidTypes != null && invalidTypes.Count > 0)
             {
                 var message = $"Invalid resource type(s): {string.Join(", ", invalidTypes)}";
                 record.FailureDetails = new JobFailureDetails(message, HttpStatusCode.BadRequest);
-                throw new JobExecutionException(message, record, false);
+                throw new JobExecutionException(message, record, true);
             }
         }
     }
