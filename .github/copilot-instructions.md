@@ -23,12 +23,6 @@ When creating or updating an ADR in `docs/arch/`:
 - Reference prior ADRs and the FHIR specification.
 - If the decision obsoletes a prior ADR, update that ADR to say so.
 
-## MCP Development
-
-- The local read-only FHIR MCP server lives in `tools/FhirMcp/` and uses stdio transport.
-- Follow the [official Model Context Protocol C# SDK documentation](https://csharp.sdk.modelcontextprotocol.io/) for SDK APIs and protocol behavior.
-- Keep stdio logs on standard error and load FHIR credentials only from the process environment.
-
 ---
 
 Happy coding!

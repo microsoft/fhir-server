@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Url = SemanticSearchTestParameterResolver.CoverageCanonical.ToString(),
                 Name = "CoverageSemantic",
                 Status = PublicationStatus.Active,
-                Code = "semantic",
+                Code = "semantic-text",
                 Type = SearchParamType.Special,
                 Expression = "Coverage.class.name",
                 Description = new Markdown("Semantic text in the Coverage plan name."),

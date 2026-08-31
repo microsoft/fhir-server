@@ -15,10 +15,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     internal sealed class SemanticSearchTestParameterResolver : IVectorSearchParameterResolver
     {
-        internal static readonly Uri DocumentReferenceCanonical = new Uri("https://azurehealthcareapis.com/search-parameters/document-reference-semantic-text");
-        internal static readonly Uri ObservationCanonical = new Uri("https://azurehealthcareapis.com/search-parameters/observation-semantic-text");
-        internal static readonly Uri DiagnosticReportCanonical = new Uri("https://azurehealthcareapis.com/search-parameters/diagnostic-report-semantic-text");
-        internal static readonly Uri CoverageCanonical = new Uri("https://example.org/fhir/SearchParameter/coverage-semantic");
+        internal static readonly Uri DocumentReferenceCanonical = new Uri("https://example.org/fhir/SearchParameter/e2e-document-reference-semantic-text");
+        internal static readonly Uri ObservationCanonical = new Uri("https://example.org/fhir/SearchParameter/e2e-observation-semantic-text");
+        internal static readonly Uri DiagnosticReportCanonical = new Uri("https://example.org/fhir/SearchParameter/e2e-diagnostic-report-semantic-text");
+        internal static readonly Uri CoverageCanonical = new Uri("https://example.org/fhir/SearchParameter/e2e-coverage-semantic-text");
 
         private readonly IReadOnlyDictionary<string, SearchParameterInfo> _searchParameters = new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal)
         {
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 vectorConfig: new VectorSearchParameterConfig()),
             [ResourceType.Coverage.ToString()] = new SearchParameterInfo(
                 name: "CoverageSemantic",
-                code: "semantic",
+                code: "semantic-text",
                 searchParamType: CoreSearchParamType.Special,
                 url: CoverageCanonical,
                 expression: "Coverage.class.name",

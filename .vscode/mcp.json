@@ -1,31 +1,19 @@
 {
     "servers": {
-        "ado_microsofthealthoss": {
-            "type": "stdio",
-            "command": "npx",
-            "args": [
-                "--registry",
-                "https://registry.npmjs.org",
-                "-y",
-                "@azure-devops/mcp",
-                "microsofthealthoss"
-            ]
-        },
-        "github": {
-            "type": "http",
-            "url": "https://api.githubcopilot.com/mcp/"
-        },
-        "fhir": {
-            "type": "stdio",
-            "command": "dotnet",
-            "args": [
-                "${workspaceFolder}/tools/FhirMcp/bin/Debug/net9.0/Microsoft.Health.Fhir.Mcp.dll"
-            ],
-            "env": {
-                "FHIR_MCP_BASE_URL": "https://localhost:44348",
-                "FHIR_MCP_TOKEN_URL": "https://localhost:44348/connect/token",
-                "FHIR_MCP_ALLOW_INSECURE_LOCALHOST": "true"
-            }
+            "ado_microsofthealthoss": {
+                "type": "stdio",
+                "command": "npx",
+                "args": [
+                    "--registry",
+                    "https://registry.npmjs.org",
+                    "-y",
+                    "@azure-devops/mcp",
+                    "microsofthealthoss"
+                ],                
+            },
+            "github": {
+                "type": "http",
+                "url": "https://api.githubcopilot.com/mcp/"
+		    },
         }
-    }
 }

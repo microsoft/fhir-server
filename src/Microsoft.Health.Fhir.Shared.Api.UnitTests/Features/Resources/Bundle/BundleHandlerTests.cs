@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _bundleConfiguration.SupportsBundleOrchestrator = true;
             var searchParameter = new SearchParameterInfo(
                 name: "DocumentReferenceSemanticText",
-                code: "semantic",
+                code: "semantic-text",
                 searchParamType: Microsoft.Health.Fhir.ValueSets.SearchParamType.Special,
                 url: new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic-text"),
                 expression: "DocumentReference.content.attachment.url.toString()",
