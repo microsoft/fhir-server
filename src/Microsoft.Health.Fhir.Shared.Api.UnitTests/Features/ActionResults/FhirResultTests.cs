@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             await result.ExecuteResultAsync(context);
 
             var logCall = Assert.Single(logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log));
-            Assert.Equal(LogLevel.Error, logCall.GetArguments()[0]);
+            Assert.Equal(LogLevel.Warning, logCall.GetArguments()[0]);
             Assert.Same(exception, logCall.GetArguments()[3]);
         }
     }
