@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         }
 
         /// <inheritdoc />
-        public async Task<SemanticSearchResponse> Handle(SemanticSearchRequest request, CancellationToken cancellationToken)
+        public async Task<SemanticSearchResponse> HandleAsync(SemanticSearchRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
             await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);

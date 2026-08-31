@@ -8,7 +8,7 @@ using System.Net;
 using System.Reflection;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenPatientSemanticSearch_WhenValid_ThenPatientIdComesFromRoute()
         {
-            _mediator.Send(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync<SemanticSearchResponse>(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new SemanticSearchResponse(new Bundle { Type = Bundle.BundleType.Searchset }.ToResourceElement()));
             var parameters = new Parameters
             {
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             Assert.NotNull(result);
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync<SemanticSearchResponse>(
                 Arg.Is<SemanticSearchRequest>(request =>
                     request.Query == "breathing difficulty" &&
                     request.PatientId == "123" &&
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenPatientSemanticSearchWithoutCount_WhenValid_ThenDefaultCountIsUsed()
         {
-            _mediator.Send(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync<SemanticSearchResponse>(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new SemanticSearchResponse(new Bundle { Type = Bundle.BundleType.Searchset }.ToResourceElement()));
             var parameters = new Parameters
             {
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await _controller.Search("123", parameters);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync<SemanticSearchResponse>(
                 Arg.Is<SemanticSearchRequest>(request => request.Count == 10),
                 Arg.Any<CancellationToken>());
         }
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => _controller.Search("123", parameters));
-            await _mediator.DidNotReceive().Send(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceive().SendAsync<SemanticSearchResponse>(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>());
         }
 
         [Theory]
@@ -131,13 +131,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => _controller.Search("123", parameters));
-            await _mediator.DidNotReceive().Send(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceive().SendAsync<SemanticSearchResponse>(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task GivenPatientSemanticSearchWithResourceType_WhenHandled_ThenTypeIsForwardedForMetadataValidation()
         {
-            _mediator.Send(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync<SemanticSearchResponse>(Arg.Any<SemanticSearchRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new SemanticSearchResponse(new Bundle { Type = Bundle.BundleType.Searchset }.ToResourceElement()));
             var parameters = new Parameters
             {
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await _controller.Search("123", parameters);
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync<SemanticSearchResponse>(
                 Arg.Is<SemanticSearchRequest>(request => request.ResourceTypes.SequenceEqual(new[] { "Condition" })),
                 Arg.Any<CancellationToken>());
         }

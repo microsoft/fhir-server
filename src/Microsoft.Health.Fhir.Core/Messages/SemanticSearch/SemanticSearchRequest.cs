@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using MediatR;
+using Medino;
 
 namespace Microsoft.Health.Fhir.Core.Messages.SemanticSearch
 {

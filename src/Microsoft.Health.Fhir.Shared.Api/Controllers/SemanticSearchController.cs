@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException($"Semantic search count must not exceed {_queryConfiguration.MaxCount}.");
             }
 
-            SemanticSearchResponse response = await _mediator.Send(
+            SemanticSearchResponse response = await _mediator.SendAsync<SemanticSearchResponse>(
                 new SemanticSearchRequest(query.Value, idParameter, count?.Value ?? _queryConfiguration.DefaultCount, resourceTypes),
                 HttpContext.RequestAborted);
             return FhirResult.Create(response.Bundle);
