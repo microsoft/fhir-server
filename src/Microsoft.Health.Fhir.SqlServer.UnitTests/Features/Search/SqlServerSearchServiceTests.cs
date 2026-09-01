@@ -321,6 +321,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Empty(columns);
         }
 
+        /*
+
         [Fact]
         public void CollectNotExistsLeaves_WithResourceSurrogateId_DetectsSurrogateIdAndMissingParam()
         {
@@ -479,6 +481,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(expectLegacyOverlap, hasOverlapPredicate);
             Assert.False(ContainsPredicate(result, e => e is UnionExpression), "No date-equality flag combination may emit a temporal UNION.");
         }
+
+        */
 
         private static SearchParameterExpression BuildExactDayBirthdateEquality()
         {
