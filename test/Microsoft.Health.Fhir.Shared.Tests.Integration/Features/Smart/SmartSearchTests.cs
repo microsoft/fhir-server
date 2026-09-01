@@ -1742,7 +1742,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
 
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-immunization-A1");
+
+            // A direct legacy/provider comparison found six resources with changed patient-parameter output,
+            // but only this Immunization changed Patient A compartment membership. The provider path therefore
+            // adds exactly this resource to the previous 40-result set.
+            Assert.Contains(
+                results.Results,
+                r => r.Resource.ResourceTypeName == KnownResourceTypes.Immunization &&
+                    r.Resource.ResourceId == "smart-immunization-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-C1");
