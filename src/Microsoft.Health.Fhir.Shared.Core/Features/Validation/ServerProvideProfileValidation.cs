@@ -241,7 +241,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     {
                         do
                         {
-                            var queryParameters = new List<Tuple<string, string>>();
+                            var queryParameters = new List<Tuple<string, string>>()
+                            {
+                                new Tuple<string, string>(KnownQueryParameterNames.Type, type),
+                            };
+
                             if (ct != null)
                             {
                                 ct = ContinuationTokenEncoder.Encode(ct);

@@ -6,7 +6,6 @@
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -24,21 +23,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public bool ValidateSearchParameter(SearchParameterInfo searchParameter, out string errorMessage)
         {
-            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
-            errorMessage = null;
-
-            var factory = new SearchParamTableExpressionQueryGeneratorFactory(_searchParameterToSearchValueTypeMap);
-
-            try
-            {
-                factory.GetGenerator(searchParameter);
-                return true;
-            }
-            catch
-            {
-                errorMessage = string.Format(Resources.SearchParameterTypeNotSupportedBySQLServer, searchParameter.Type);
-                return false;
-            }
+            errorMessage = string.Empty;
+            return true;
         }
     }
 }

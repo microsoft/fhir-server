@@ -202,6 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 }
 
                 results.Entry.AddRange(bundle.Entry);
+                loop++;
             }
 
             ValidateBundle(results, Fixture.Observation, Fixture.Encounter, Fixture.Condition);

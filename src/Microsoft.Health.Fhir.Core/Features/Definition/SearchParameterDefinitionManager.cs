@@ -386,6 +386,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
                 searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
                 searchOptions.MaxItemCount = 10;
+
+                searchOptions.QueryParams = new Dictionary<string, IList<string>>();
+                searchOptions.QueryParams.Add("_count", new List<string> { "10" });
+                searchOptions.QueryParams.Add("_type", new List<string> { KnownResourceTypes.SearchParameter });
+
                 searchOptions.ResourceVersionTypes = ResourceVersionType.Latest;
                 if (continuationToken != null)
                 {
