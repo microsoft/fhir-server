@@ -50,8 +50,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             string root = FindRepositoryRoot();
             string[] sourceRoots =
             [
-                Path.Combine(root, "src"),
-                Path.Combine(root, "tools", "Microsoft.Health.Fhir.R4.ResourceParser"),
+                Path.Join(root, "src"),
+                Path.Join(root, "tools", "Microsoft.Health.Fhir.R4.ResourceParser"),
             ];
 
             string[] violations = sourceRoots.SelectMany(sourceRoot => Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         private static string FindRepositoryRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Microsoft.Health.Fhir.sln")))
+            while (directory is not null && !File.Exists(Path.Join(directory.FullName, "Microsoft.Health.Fhir.sln")))
             {
                 directory = directory.Parent;
             }

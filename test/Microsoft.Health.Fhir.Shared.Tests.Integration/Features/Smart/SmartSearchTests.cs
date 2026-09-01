@@ -726,7 +726,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
-            Assert.Equal(40, results.Results.Count());
+
+            // Verify the access-control contract rather than the aggregate count, which changes when
+            // fixture-owned universal resources are added.
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-C1");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-B");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-C");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-D");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
         }
 
         [SkippableFact]
