@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         [Fact]
         public void GivenAController_WhenExecutedAction_ThenAuditLogShouldBeLogged()
         {
-            var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement());
+            var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement(), NullLogger.Instance);
             _httpContext.Items["timer"] = Stopwatch.StartNew();
 
             var resultExecutedContext = new ResultExecutedContext(

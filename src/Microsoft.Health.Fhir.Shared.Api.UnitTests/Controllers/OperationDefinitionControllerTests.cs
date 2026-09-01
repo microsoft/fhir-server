@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -61,7 +62,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Options.Create(_featureConfiguration),
                 Options.Create(_coreFeatureConfiguration),
                 Options.Create(_implementationGuidesConfiguration),
-                _fhirRuntimeConfiguration);
+                _fhirRuntimeConfiguration,
+                NullLogger<OperationDefinitionController>.Instance);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),

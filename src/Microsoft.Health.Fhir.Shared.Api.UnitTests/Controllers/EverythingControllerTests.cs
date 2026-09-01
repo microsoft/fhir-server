@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         public EverythingControllerTests()
         {
-            _everythingController = new EverythingController(_mediator, _fhirRequestContextAccessor)
+            _everythingController = new EverythingController(_mediator, _fhirRequestContextAccessor, NullLogger<EverythingController>.Instance)
             {
                 ControllerContext = new ControllerContext
                 {

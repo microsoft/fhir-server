@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -628,7 +629,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 optionsOperationConfiguration,
                 optionsArtifactStoreConfiguration,
                 optionsFeatures,
-                fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>());
+                fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>(),
+                NullLogger<ExportController>.Instance);
         }
 
         // Configures mocks so the controller can dispatch through MediatR without throwing.
