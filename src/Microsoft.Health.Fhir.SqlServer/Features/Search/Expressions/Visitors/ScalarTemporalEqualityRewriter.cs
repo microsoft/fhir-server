@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return Precision.NotRewritable;
             }
 
-            if (end == start.AddDays(1).AddTicks(-1))
+            if (end == start.SafeAddDays(1).SafeAddTicks(-1))
             {
                 return Precision.ExactDay;
             }

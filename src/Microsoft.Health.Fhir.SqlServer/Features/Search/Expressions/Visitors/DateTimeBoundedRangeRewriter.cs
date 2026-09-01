@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return Expression.And(
                     Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, left.ComponentIndex, false),
                     new BinaryExpression(left.BinaryOperator, FieldName.DateTimeEnd, left.ComponentIndex, left.Value),
-                    new BinaryExpression(left.BinaryOperator, FieldName.DateTimeStart, left.ComponentIndex, ((DateTimeOffset)left.Value).AddTicks(-TimeSpan.TicksPerDay)),
+                    new BinaryExpression(left.BinaryOperator, FieldName.DateTimeStart, left.ComponentIndex, ((DateTimeOffset)left.Value).SafeAddTicks(-TimeSpan.TicksPerDay)),
                     new BinaryExpression(right.BinaryOperator, FieldName.DateTimeStart, right.ComponentIndex, right.Value));
             }
 
