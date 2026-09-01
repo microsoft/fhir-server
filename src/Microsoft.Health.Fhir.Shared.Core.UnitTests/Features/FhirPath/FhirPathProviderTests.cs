@@ -269,19 +269,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 foreach (string expression in expressions)
                 {
                     evaluatedExpressionCount++;
-                    string[] firelyValues;
-                    string[] ignixaValues;
-                    try
-                    {
-                        firelyValues = Normalize(firely.Compile(expression).Select(resource.Instance, context));
-                        ignixaValues = Normalize(ignixa.Compile(expression).Select(resource.Instance, context));
-                    }
-                    catch (Exception exception)
-                    {
-                        throw new InvalidOperationException(
-                            $"Failed to evaluate generated expression '{expression}' against '{resource.InstanceType}'.",
-                            exception);
-                    }
+                    string[] firelyValues = Normalize(firely.Compile(expression).Select(resource.Instance, context));
+                    string[] ignixaValues = Normalize(ignixa.Compile(expression).Select(resource.Instance, context));
 
                     Assert.Equal(firelyValues, ignixaValues);
 
@@ -341,18 +330,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             {
                 EvaluationContext firelyContext = ModelInfoProvider.Instance.GetEvaluationContext();
                 EvaluationContext ignixaContext = ModelInfoProvider.Instance.GetEvaluationContext();
-                string[] firelyValues;
-                string[] ignixaValues;
-
-                try
-                {
-                    firelyValues = Normalize(firely.Compile(expression).Select(input, firelyContext));
-                    ignixaValues = Normalize(ignixa.Compile(expression).Select(input, ignixaContext));
-                }
-                catch (Exception exception)
-                {
-                    throw new InvalidOperationException($"Failed to evaluate generated expression '{expression}'.", exception);
-                }
+                string[] firelyValues = Normalize(firely.Compile(expression).Select(input, firelyContext));
+                string[] ignixaValues = Normalize(ignixa.Compile(expression).Select(input, ignixaContext));
 
                 Assert.Equal(firelyValues, ignixaValues);
             }
