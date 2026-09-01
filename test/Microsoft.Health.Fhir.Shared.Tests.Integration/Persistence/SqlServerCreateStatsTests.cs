@@ -197,8 +197,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
-            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
-            var newStatsFromCache = statsFromCache.Where(stat => !statsBefore.Contains(stat));
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache().ToList();
+            var newStatsFromCache = statsFromCache.Where(stat => !statsBefore.Contains(stat)).ToList();
             foreach (var stat in statsFromCache)
             {
                 _output.WriteLine($"cache {stat}");
