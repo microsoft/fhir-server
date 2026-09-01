@@ -1742,6 +1742,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
 
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-immunization-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-C1");
