@@ -321,6 +321,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             // Contain provider compile and evaluation failures for every root and component expression
             // to preserve write availability; warning telemetry makes any resulting index drift observable.
+            // OperationCanceledException is rethrown unchanged.
             try
             {
                 ICompiledFhirPath expression = _fhirPathProvider.Compile(fhirPathExpression);
