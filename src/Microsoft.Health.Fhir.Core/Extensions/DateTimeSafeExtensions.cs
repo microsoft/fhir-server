@@ -14,6 +14,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     /// </summary>
     public static class DateTimeSafeExtensions
     {
+        private const long MaxDaysBeforeTicksOverflow = long.MaxValue / TimeSpan.TicksPerDay;
+
         /// <summary>
         /// Adds the specified number of ticks to a <see cref="DateTime"/>, clamping the result
         /// to <see cref="DateTime.MinValue"/> or <see cref="DateTime.MaxValue"/> on overflow.
@@ -23,17 +25,17 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             if (ticks == long.MinValue)
             {
                 // Can't negate long.MinValue; adding it always underflows within DateTime's range.
-                return DateTime.MinValue;
+                return new DateTime(DateTime.MinValue.Ticks, value.Kind);
             }
 
             if (ticks > 0 && value.Ticks > DateTime.MaxValue.Ticks - ticks)
             {
-                return DateTime.MaxValue;
+                return new DateTime(DateTime.MaxValue.Ticks, value.Kind);
             }
 
             if (ticks < 0 && value.Ticks < DateTime.MinValue.Ticks - ticks)
             {
-                return DateTime.MinValue;
+                return new DateTime(DateTime.MinValue.Ticks, value.Kind);
             }
 
             return value.AddTicks(ticks);
@@ -70,6 +72,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static DateTime SafeAddDays(this DateTime value, int days)
         {
+            // Detect if days * TimeSpan.TicksPerDay would overflow long.
+            if (days > MaxDaysBeforeTicksOverflow || days < -MaxDaysBeforeTicksOverflow)
+            {
+                return days > 0 ? new DateTime(DateTime.MaxValue.Ticks, value.Kind) : new DateTime(DateTime.MinValue.Ticks, value.Kind);
+            }
+
             long ticks = days * TimeSpan.TicksPerDay;
             return value.SafeAddTicks(ticks);
         }
@@ -80,6 +88,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static DateTimeOffset SafeAddDays(this DateTimeOffset value, int days)
         {
+            // Detect if days * TimeSpan.TicksPerDay would overflow long.
+            if (days > MaxDaysBeforeTicksOverflow || days < -MaxDaysBeforeTicksOverflow)
+            {
+                return days > 0 ? new DateTimeOffset(DateTimeOffset.MaxValue.Ticks, value.Offset) : new DateTimeOffset(DateTimeOffset.MinValue.Ticks, value.Offset);
+            }
+
             long ticks = days * TimeSpan.TicksPerDay;
             return value.SafeAddTicks(ticks);
         }

@@ -71,6 +71,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.Equal(DateTime.MinValue, result);
         }
 
+        [Fact]
+        public void GivenUtcDateTime_WhenSafeAddTicksClampsToMaxValue_ThenPreservesKind()
+        {
+            var dt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime result = DateTime.MaxValue.AddTicks(-1).SafeAddTicks(TimeSpan.TicksPerDay);
+            Assert.Equal(DateTimeKind.Unspecified, result.Kind);
+            Assert.Equal(DateTime.MaxValue.Ticks, result.Ticks);
+        }
+
+        [Fact]
+        public void GivenLocalDateTime_WhenSafeAddTicksClampsToMinValue_ThenPreservesKind()
+        {
+            var dt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Local);
+            DateTime result = dt.AddTicks(1).SafeAddTicks(-TimeSpan.TicksPerDay);
+            Assert.Equal(DateTimeKind.Local, result.Kind);
+            Assert.Equal(DateTime.MinValue.Ticks, result.Ticks);
+        }
+
         // SafeAddTicks - DateTimeOffset
 
         [Fact]
@@ -147,6 +165,66 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             var dto = DateTimeOffset.MinValue.AddDays(0.5);
             DateTimeOffset result = dto.SafeAddDays(-1);
             Assert.Equal(DateTimeOffset.MinValue, result);
+        }
+
+        [Fact]
+        public void GivenDateTime_WhenSafeAddDaysIntMaxValue_ThenClampsToMaxValue()
+        {
+            var dt = new DateTime(2024, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+            DateTime result = dt.SafeAddDays(int.MaxValue);
+            Assert.Equal(DateTime.MaxValue.Ticks, result.Ticks);
+        }
+
+        [Fact]
+        public void GivenDateTime_WhenSafeAddDaysIntMinValue_ThenClampsToMinValue()
+        {
+            var dt = new DateTime(2024, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+            DateTime result = dt.SafeAddDays(int.MinValue);
+            Assert.Equal(DateTime.MinValue.Ticks, result.Ticks);
+        }
+
+        [Fact]
+        public void GivenUtcDateTime_WhenSafeAddDaysClampsToMaxValue_ThenPreservesKind()
+        {
+            var dt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime result = dt.SafeAddDays(int.MaxValue);
+            Assert.Equal(DateTimeKind.Utc, result.Kind);
+            Assert.Equal(DateTime.MaxValue.Ticks, result.Ticks);
+        }
+
+        [Fact]
+        public void GivenLocalDateTime_WhenSafeAddDaysClampsToMinValue_ThenPreservesKind()
+        {
+            var dt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Local);
+            DateTime result = dt.SafeAddDays(int.MinValue);
+            Assert.Equal(DateTimeKind.Local, result.Kind);
+            Assert.Equal(DateTime.MinValue.Ticks, result.Ticks);
+        }
+
+        [Fact]
+        public void GivenDateTimeOffset_WhenSafeAddDaysIntMaxValue_ThenClampsToMaxValue()
+        {
+            var dto = new DateTimeOffset(2024, 6, 15, 0, 0, 0, TimeSpan.Zero);
+            DateTimeOffset result = dto.SafeAddDays(int.MaxValue);
+            Assert.Equal(DateTimeOffset.MaxValue.Ticks, result.Ticks);
+        }
+
+        [Fact]
+        public void GivenDateTimeOffset_WhenSafeAddDaysIntMinValue_ThenClampsToMinValue()
+        {
+            var dto = new DateTimeOffset(2024, 6, 15, 0, 0, 0, TimeSpan.Zero);
+            DateTimeOffset result = dto.SafeAddDays(int.MinValue);
+            Assert.Equal(DateTimeOffset.MinValue.Ticks, result.Ticks);
+        }
+
+        [Fact]
+        public void GivenDateTimeOffset_WhenSafeAddDaysClampsToMaxValue_ThenPreservesOffset()
+        {
+            var offset = TimeSpan.FromHours(5);
+            var dto = new DateTimeOffset(2024, 1, 1, 0, 0, 0, offset);
+            DateTimeOffset result = dto.SafeAddDays(int.MaxValue);
+            Assert.Equal(offset, result.Offset);
+            Assert.Equal(DateTimeOffset.MaxValue.Ticks, result.Ticks);
         }
     }
 }
