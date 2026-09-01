@@ -116,6 +116,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         }
 
         [Fact]
+        public async Task GivenConcurrentIgnixaCompileRequests_WhenCacheIsCold_ThenCompiledInstanceIsShared()
+        {
+            IFhirPathProvider provider = CreateIgnixaProvider();
+            const int RequestCount = 8;
+            using var gate = new Barrier(RequestCount);
+
+            System.Threading.Tasks.Task<ICompiledFhirPath>[] requests = Enumerable.Range(0, RequestCount)
+                .Select(_ => System.Threading.Tasks.Task.Factory.StartNew(
+                    () =>
+                    {
+                        if (!gate.SignalAndWait(TimeSpan.FromSeconds(30)))
+                        {
+                            throw new TimeoutException("Concurrent compile requests did not become ready.");
+                        }
+
+                        return provider.Compile("Patient.id");
+                    },
+                    CancellationToken.None,
+                    System.Threading.Tasks.TaskCreationOptions.LongRunning,
+                    System.Threading.Tasks.TaskScheduler.Default))
+                .ToArray();
+
+            ICompiledFhirPath[] compiledExpressions = await System.Threading.Tasks.Task.WhenAll(requests);
+
+            Assert.All(compiledExpressions, compiled => Assert.Same(compiledExpressions[0], compiled));
+        }
+
+        [Fact]
         public void GivenFirelyProvider_WhenHelpersEvaluate_ThenFirely5114BehaviorIsPreserved()
         {
             var patient = new Patient
