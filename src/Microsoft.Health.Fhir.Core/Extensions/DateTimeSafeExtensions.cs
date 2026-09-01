@@ -20,6 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static DateTime SafeAddTicks(this DateTime value, long ticks)
         {
+            if (ticks == long.MinValue)
+            {
+                // Can't negate long.MinValue; adding it always underflows within DateTime's range.
+                return DateTime.MinValue;
+            }
+
             if (ticks > 0 && value.Ticks > DateTime.MaxValue.Ticks - ticks)
             {
                 return DateTime.MaxValue;
@@ -39,6 +45,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static DateTimeOffset SafeAddTicks(this DateTimeOffset value, long ticks)
         {
+            if (ticks == long.MinValue)
+            {
+                // Can't negate long.MinValue; adding it always underflows within DateTimeOffset's range.
+                return DateTimeOffset.MinValue;
+            }
+
             if (ticks > 0 && value.Ticks > DateTimeOffset.MaxValue.Ticks - ticks)
             {
                 return DateTimeOffset.MaxValue;

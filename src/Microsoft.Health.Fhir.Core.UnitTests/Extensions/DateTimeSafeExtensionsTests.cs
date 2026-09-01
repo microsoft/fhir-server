@@ -63,6 +63,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.Equal(dt, result);
         }
 
+        [Fact]
+        public void GivenAnyDateTime_WhenSafeAddTicksLongMinValue_ThenClampsToMinValue()
+        {
+            var dt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime result = dt.SafeAddTicks(long.MinValue);
+            Assert.Equal(DateTime.MinValue, result);
+        }
+
         // SafeAddTicks - DateTimeOffset
 
         [Fact]

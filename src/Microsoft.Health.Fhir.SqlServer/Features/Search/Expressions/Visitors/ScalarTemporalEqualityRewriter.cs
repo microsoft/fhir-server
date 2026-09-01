@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return Precision.NotRewritable;
             }
 
-            if (end == start.SafeAddDays(1).SafeAddTicks(-1))
+            if (end == start.SafeAddTicks(TimeSpan.TicksPerDay - 1))
             {
                 return Precision.ExactDay;
             }
