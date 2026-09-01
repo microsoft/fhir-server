@@ -49,6 +49,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             yield return new object[] { new SearchParameterInfo("test", "test", ValueSets.SearchParamType.Reference) };
             yield return new object[] { new SearchParameterInfo("test", "test", ValueSets.SearchParamType.String) };
             yield return new object[] { new SearchParameterInfo("test", "test", ValueSets.SearchParamType.Uri) };
+            yield return new object[]
+            {
+                new SearchParameterInfo(
+                    "test",
+                    "test",
+                    ValueSets.SearchParamType.Special,
+                    vectorConfig: new VectorSearchParameterConfig()),
+            };
 
             var components = new List<SearchParameterComponentInfo>();
             var component = new SearchParameterComponentInfo();
@@ -64,6 +72,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public static IEnumerable<object[]> GetInValidSearchParameters()
         {
             yield return new object[] { new SearchParameterInfo("test", "test", ValueSets.SearchParamType.Special) };
+            yield return new object[]
+            {
+                new SearchParameterInfo(
+                    "test",
+                    "test",
+                    ValueSets.SearchParamType.String,
+                    vectorConfig: new VectorSearchParameterConfig()),
+            };
 
             var components = new List<SearchParameterComponentInfo>();
             var component = new SearchParameterComponentInfo();

@@ -26,11 +26,16 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -163,6 +168,64 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 null,
                 null,
                 null);
+        }
+
+        [Fact]
+        public void GivenVectorSearchIndices_WhenGeneratingMergeRows_ThenAllVectorMetadataIsPreserved()
+        {
+            // Arrange
+            SqlServerFhirDataStore dataStore = CreateSqlServerFhirDataStore(Substitute.For<ISqlRetryService>());
+            SqlServerFhirModel model = GetModel(dataStore);
+            var canonicalUri = new Uri("https://example.org/fhir/SearchParameter/patient-summary-vector");
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(model, new Dictionary<Uri, short>());
+            model.TryAddSearchParamIdToUriMapping(canonicalUri.OriginalString, 17);
+            var searchParameter = new SearchParameterInfo(
+                "PatientSummaryVector",
+                "summary-vector",
+                SearchParamType.Special,
+                canonicalUri);
+            ResourceWrapper resource = CreateResourceWrapper("{}");
+            resource.ResourceSurrogateId = 42;
+            resource.UpdateVectorSearchIndices(
+                new[]
+                {
+                    new VectorSearchIndexEntry(
+                        searchParameter,
+                        embeddingModelId: 5,
+                        new[]
+                        {
+                            new VectorSearchChunk(
+                                3,
+                                "clinical passage",
+                                new byte[32],
+                                new[] { 0.25f, -1.5f },
+                                "Patient",
+                                "source-id",
+                                "9",
+                                "Patient.note.text"),
+                        }),
+                });
+            var generator = new VectorSearchParamListRowGenerator(model);
+
+            // Act
+            VectorSearchParamListRow row = Assert.Single(
+                generator.GenerateRows(new[] { new MergeResourceWrapper(resource, keepHistory: true, hasVersionToCompare: true) }));
+
+            // Assert
+            Assert.Equal(1, row.ResourceTypeId);
+            Assert.Equal(42, row.ResourceSurrogateId);
+            Assert.Equal(17, row.SearchParamId);
+            Assert.Equal(3, row.ChunkOrdinal);
+            Assert.Equal(5, row.EmbeddingModelId);
+            Assert.Equal("clinical passage", row.ChunkText);
+            Assert.Equal(new byte[32], row.SourceTextHash);
+            Assert.Equal(1, row.SourceResourceTypeId);
+            Assert.Equal("source-id", row.SourceResourceId);
+            Assert.Equal("9", row.SourceResourceVersion);
+            Assert.Equal("Patient.note.text", row.SourcePath);
+            Assert.Equal("[0.25,-1.5]", row.Embedding);
         }
 
         private static string InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
@@ -371,7 +434,50 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
+        [Theory]
+        [InlineData(SchemaVersionConstants.VectorSearchReindexVersion, true, "dbo.UpdateResourceSearchParamsWithVectors", true)]
+        [InlineData(SchemaVersionConstants.VectorSearchReindexVersion, false, "dbo.UpdateResourceSearchParams", false)]
+        [InlineData((int)SchemaVersion.V117, true, "dbo.UpdateResourceSearchParams", false)]
+        public void BulkUpdateSearchParameterIndicesAsync_SelectsProcedureForSchemaAndVectorUpdateIntent(
+            int schemaVersion,
+            bool vectorSearchIndicesUpdated,
+            string expectedProcedure,
+            bool expectedVectorParameters)
+        {
+            // Arrange
+            ResourceWrapper resource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
+            resource.ResourceSurrogateId = 42;
+            if (vectorSearchIndicesUpdated)
+            {
+                resource.UpdateVectorSearchIndices(Array.Empty<VectorSearchIndexEntry>());
+            }
+
+            // Act
+            bool updateVectorSearchIndices = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, schemaVersion);
+            using SqlCommand command = SqlServerFhirDataStore.CreateBulkUpdateSearchParameterIndicesCommand(updateVectorSearchIndices, resourceCount: 1);
+
+            // Assert
+            Assert.Equal(expectedVectorParameters, updateVectorSearchIndices);
+            Assert.Equal(expectedProcedure, command.CommandText);
+        }
+
+        [Theory]
+        [InlineData((int)SchemaVersion.V119, true, true)]
+        [InlineData((int)SchemaVersion.V118, true, false)]
+        [InlineData((int)SchemaVersion.V119, false, false)]
+        public void SourceRefreshScheduling_SelectsOnlySupportedEnabledConfigurations(
+            int schemaVersion,
+            bool vectorSearchEnabled,
+            bool expected)
+        {
+            IVectorSearchIndexer vectorSearchIndexer = vectorSearchEnabled ? Substitute.For<IVectorSearchIndexer>() : null;
+
+            bool actual = SqlServerFhirDataStore.ShouldEnqueueVectorSearchSourceRefresh(vectorSearchIndexer, schemaVersion);
+
+            Assert.Equal(expected, actual);
+        }
+
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, int? currentSchemaVersion = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -379,7 +485,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
-                Current = SchemaVersionConstants.Max,
+                Current = currentSchemaVersion ?? SchemaVersionConstants.Max,
             };
 
             var searchService = Substitute.For<ISearchService>();

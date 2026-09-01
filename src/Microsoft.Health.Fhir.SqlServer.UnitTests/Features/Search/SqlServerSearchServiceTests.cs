@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -59,10 +60,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly IVectorSearchQueryProcessor _vectorSearchQueryProcessor;
         private readonly SqlServerSearchService _searchService;
 
         public SqlServerSearchServiceTests()
         {
+            ModelInfoProvider.SetProvider(
+                MockModelInfoProviderBuilder.Create(FhirSpecification.R4)
+                    .AddKnownTypes(KnownResourceTypes.DocumentReference)
+                    .Build());
             _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _model = Substitute.For<ISqlServerFhirModel>();
@@ -72,6 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
+            _vectorSearchQueryProcessor = Substitute.For<IVectorSearchQueryProcessor>();
 
             var config = new SqlServerDataStoreConfiguration
             {
@@ -116,7 +123,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
-                NullLogger<SqlServerSearchService>.Instance);
+                NullLogger<SqlServerSearchService>.Instance,
+                _vectorSearchQueryProcessor);
         }
 
         [Fact]
@@ -305,11 +313,200 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Same(_model, model);
         }
 
+        [Fact]
+        public async Task GivenSemanticSearchWithExplicitSort_WhenSearching_ThenVectorQueryIsPrepared()
+        {
+            // Arrange
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var expectedException = new InvalidOperationException("Stop after vector query preparation.");
+            _vectorSearchQueryProcessor
+                .PrepareAsync(Arg.Any<Expression>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<PreparedVectorSearchQuery>(expectedException));
+            var searchOptions = new SearchOptions
+            {
+                MaxItemCount = 10,
+                Expression = new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"),
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = new[] { (new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Descending) },
+            };
+
+            // Act
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
+
+            // Assert
+            Assert.Same(expectedException, exception);
+            await _vectorSearchQueryProcessor.Received(1).PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public void GivenChainedLinkedSourceEvidenceJson_WhenDeserialized_ThenWitnessAndSourceAreDistinctVersionedReferences()
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "DocumentReferenceSemantic",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic"),
+                expression: "DocumentReference.content.attachment.url",
+                vectorConfig: new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
+            var preparedQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray());
+            ResourceWrapper root = CreateResourceWrapper("Patient", "patient", "1", 100);
+            _model.GetResourceTypeName(22).Returns("Binary");
+            _model.GetResourceTypeName(105).Returns("Observation");
+            const string evidenceJson = """
+                [{
+                  "chunkOrdinal": 0,
+                  "text": "Matched Binary passage",
+                  "distance": 0.2,
+                  "sourceResourceTypeId": 22,
+                  "sourceResourceId": "binary",
+                  "sourceResourceVersion": "2",
+                  "sourcePath": "Binary.data",
+                  "witnessResourceTypeId": 105,
+                  "witnessResourceId": "document",
+                  "witnessResourceVersion": 3
+                }]
+                """;
+
+            SemanticSearchEvidence evidence = Assert.Single(
+                _searchService.DeserializeSemanticEvidence(evidenceJson, preparedQuery, root));
+
+            Assert.Equal("Binary/binary/_history/2", evidence.SourceReference);
+            Assert.Equal("Observation/document/_history/3", evidence.WitnessReference);
+            Assert.Equal("Binary.data", evidence.SourcePath);
+        }
+
+        [Theory]
+        [InlineData("not-json")]
+        [InlineData("[{\"text\":\"passage\",\"witnessResourceVersion\":\"invalid\"}]")]
+        public void GivenMalformedSemanticEvidenceJson_WhenDeserialized_ThenEvidenceIsDiscarded(string evidenceJson)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "DocumentReferenceSemantic",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic"),
+                expression: "DocumentReference.content.attachment.url",
+                vectorConfig: new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
+            var preparedQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray());
+            ResourceWrapper root = CreateResourceWrapper("Patient", "patient", "1", 100);
+
+            IReadOnlyList<SemanticSearchEvidence> evidence = _searchService.DeserializeSemanticEvidence(evidenceJson, preparedQuery, root);
+
+            Assert.Empty(evidence);
+        }
+
+        [Theory]
+        [InlineData(true, TotalType.None)]
+        [InlineData(false, TotalType.Accurate)]
+        public async Task GivenLinkedSourceSemanticSearchWithExactTotal_WhenSearching_ThenSearchIsRejected(
+            bool countOnly,
+            TotalType includeTotal)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"),
+                vectorConfig: new VectorSearchParameterConfig
+                {
+                    SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference,
+                });
+            var preparedQuery = new PreparedVectorSearchQuery(
+                vectorSearchParameter,
+                embeddingModelId: 3,
+                Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray());
+            _vectorSearchQueryProcessor
+                .PrepareAsync(Arg.Any<Expression>(), Arg.Any<CancellationToken>())
+                .Returns(preparedQuery);
+            var searchOptions = new SearchOptions
+            {
+                CountOnly = countOnly,
+                IncludeTotal = includeTotal,
+                MaxItemCount = 10,
+                Expression = new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"),
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            };
+
+            InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
+
+            Assert.Contains("localBinaryReference", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenSemanticRelevanceSort_WhenSortUpdated_ThenDistanceAndStableKeysArePreserved(bool explicitScoreSort)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var searchOptions = new SqlSearchOptions(new SearchOptions
+            {
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = explicitScoreSort
+                    ? [(SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending)]
+                    : [],
+                ResourceVersionTypes = ResourceVersionType.Latest,
+            })
+            {
+                PreparedVectorQuery = new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 3,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                    minimumScore: 0.65m),
+            };
+
+            SqlSearchOptions updated = _searchService.UpdateSort(searchOptions, searchExpression: null);
+
+            Assert.Equal(
+                [SearchParameterNames.Score, SearchParameterNames.ResourceType, SearchParameterNames.LastUpdated],
+                updated.Sort.Select(sort => sort.searchParameterInfo.Name));
+            Assert.All(updated.Sort, sort => Assert.Equal(SortOrder.Ascending, sort.sortOrder));
+        }
+
         public static IEnumerable<object[]> SingleColumnTableData()
         {
             yield return new object[] { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.Code.Metadata.Name };
             yield return new object[] { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.Text.Metadata.Name };
             yield return new object[] { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name };
+        }
+
+        private static ResourceWrapper CreateResourceWrapper(
+            string resourceType,
+            string resourceId,
+            string version,
+            long resourceSurrogateId)
+        {
+            return new ResourceWrapper(
+                resourceId,
+                version,
+                resourceType,
+                new RawResource($"{{\"resourceType\":\"{resourceType}\",\"id\":\"{resourceId}\"}}", FhirResourceFormat.Json, isMetaSet: false),
+                request: null,
+                DateTimeOffset.MinValue,
+                deleted: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null,
+                resourceSurrogateId: resourceSurrogateId);
         }
 
         [Theory]

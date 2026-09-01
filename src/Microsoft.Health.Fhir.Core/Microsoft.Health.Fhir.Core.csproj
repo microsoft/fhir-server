@@ -28,6 +28,7 @@
     <EmbeddedResource Include="Data\OperationDefinition\patient-export.json" />
     <EmbeddedResource Include="Data\OperationDefinition\reindex.json" />
     <EmbeddedResource Include="Data\OperationDefinition\resource-reindex.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\semantic-search.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-delete.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-update.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-delete-soft-deleted.json" />
@@ -64,6 +65,7 @@
     <PackageReference Include="Microsoft.Rest.ClientRuntime" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Newtonsoft.Json.Schema" />
+    <PackageReference Include="PdfPig" />
     <PackageReference Include="Polly" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.Net.Http" />

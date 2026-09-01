@@ -27,9 +27,15 @@ param imageTag string = 'latest'
 @description('Existing SQL server name.')
 param sqlServerName string
 
+@description('Existing SQL database name.')
+param sqlDatabaseName string = 'FHIR${fhirVersion}'
+
 @description('Schema automatic updates mode.')
 @allowed(['auto', 'tool'])
 param sqlSchemaAutomaticUpdatesEnabled string = 'auto'
+
+@description('Delete all FHIR data when the application starts. Enable only for a controlled one-time reset.')
+param deleteAllDataOnStartup bool = false
 
 @description('Authority URL for AAD authentication.')
 param securityAuthenticationAuthority string = ''
@@ -73,7 +79,6 @@ param additionalEnvVars array = []
 
 var normalizedSqlServerName = toLower(sqlServerName)
 var sqlManagedIdentityName = '${normalizedSqlServerName}-uami'
-var sqlDatabaseName = 'FHIR${fhirVersion}'
 
 var sqlManagedIdentityResourceId = resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', sqlManagedIdentityName)
 
@@ -89,7 +94,7 @@ var datastoreEnvVars = [
     name: 'SqlServer__SchemaOptions__AutomaticUpdatesEnabled'
     value: sqlSchemaAutomaticUpdatesEnabled == 'auto' ? 'true' : 'false'
   }
-  { name: 'SqlServer__DeleteAllDataOnStartup', value: 'false' }
+  { name: 'SqlServer__DeleteAllDataOnStartup', value: deleteAllDataOnStartup ? 'true' : 'false' }
   { name: 'SqlServer__AllowDatabaseCreation', value: 'true' }
 ]
 

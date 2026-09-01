@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -57,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IVectorSearchIndexer _vectorSearchIndexer;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _result;
@@ -72,7 +74,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
-            ILogger<ReindexProcessingJob> logger)
+            ILogger<ReindexProcessingJob> logger,
+            IVectorSearchIndexer vectorSearchIndexer = null)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
@@ -85,6 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _resourceWrapperFactory = resourceWrapperFactory;
             _searchParameterOperations = searchParameterOperations;
             _logger = logger;
+            _vectorSearchIndexer = vectorSearchIndexer;
         }
 
         public static int OomRetryDelayBaseSec { get; set; } = 120;
@@ -298,6 +302,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             foreach (var resource in resources)
             {
                 _resourceWrapperFactory.Update(resource);
+            }
+
+            if (_vectorSearchIndexer != null)
+            {
+                await _vectorSearchIndexer.IndexAsync(resources, cancellationToken);
             }
 
             await _bulkUpdateRetries.ExecuteAsync(async () => await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken));

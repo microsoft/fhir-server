@@ -805,6 +805,23 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+## PdfPig 0.1.15
+* Component Source:   https://github.com/UglyToad/PdfPig
+* Component Copyright and License: Apache License 2.0
+  > This product is derived from software developed at
+  > The Apache Software Foundation (http://www.apache.org/).
+  >
+  > Based on source code originally developed in the PDFBox and
+  > FontBox projects.
+  >
+  > Copyright (c) 2002-2007, www.pdfbox.org
+  >
+  > Includes the Adobe Glyph List
+  > Copyright 1997, 1998, 2002, 2007, 2010 Adobe Systems Incorporated.
+  >
+  > Includes the Zapf Dingbats Glyph List
+  > Copyright 2002, 2010 Adobe Systems Incorporated.
+
 ## prometheus-net.AspNetCore 4.1.1
 * Component Source:   https://github.com/prometheus-net/prometheus-net
 * Component Copyright and License:

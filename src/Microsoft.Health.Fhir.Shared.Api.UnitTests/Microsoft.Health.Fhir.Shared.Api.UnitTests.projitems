@@ -26,6 +26,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationDefinitionControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\SemanticSearchControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TokenIntrospectionControllerTests.cs" />
@@ -101,6 +102,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\SMART\SmartClinicalScopesMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Throttling\ThrottlingMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensionsTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Controllers\openid-configuration.json">

@@ -9,6 +9,7 @@ using EnsureThat;
 using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -25,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IBundleFactory _bundleFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IDataResourceFilter _dataResourceFilter;
+        private readonly ISemanticSearchEvidenceFilter _semanticSearchEvidenceFilter;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchResourceHandler"/> class.
@@ -33,17 +35,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="bundleFactory">The bundle factory.</param>
         /// <param name="authorizationService">The authorization service.</param>
         /// <param name="dataResourceFilter">The search result filter.</param>
-        public SearchResourceHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService, IDataResourceFilter dataResourceFilter)
+        /// <param name="semanticSearchEvidenceFilter">The semantic evidence authorization filter.</param>
+        public SearchResourceHandler(
+            ISearchService searchService,
+            IBundleFactory bundleFactory,
+            IAuthorizationService<DataActions> authorizationService,
+            IDataResourceFilter dataResourceFilter,
+            ISemanticSearchEvidenceFilter semanticSearchEvidenceFilter)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(dataResourceFilter, nameof(dataResourceFilter));
+            EnsureArg.IsNotNull(semanticSearchEvidenceFilter, nameof(semanticSearchEvidenceFilter));
 
             _searchService = searchService;
             _bundleFactory = bundleFactory;
             _authorizationService = authorizationService;
             _dataResourceFilter = dataResourceFilter;
+            _semanticSearchEvidenceFilter = semanticSearchEvidenceFilter;
         }
 
         /// <inheritdoc />
@@ -68,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 cancellationToken: cancellationToken,
                 isIncludesOperation: request.IsIncludesRequest);
             searchResult = _dataResourceFilter.Filter(searchResult: searchResult);
+            searchResult = await _semanticSearchEvidenceFilter.FilterAsync(searchResult, cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 

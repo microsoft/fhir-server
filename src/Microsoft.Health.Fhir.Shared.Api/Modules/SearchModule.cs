@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -165,6 +166,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddTransient<MissingDataFilterCriteria>();
             services.AddTransient<IDataResourceFilter, DataResourceFilter>();
+            services.AddTransient<ISemanticSearchEvidenceFilter, SemanticSearchEvidenceFilter>();
             services.AddTransient<IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>, CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>>();
             services.AddTransient<IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>, CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>>();
             services.AddTransient<IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>, DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>>();

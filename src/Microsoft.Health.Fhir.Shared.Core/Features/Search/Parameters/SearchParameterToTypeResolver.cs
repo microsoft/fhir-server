@@ -143,6 +143,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                             yield break;
                         }
 
+                    case "toString":
+                        {
+                            yield return new SearchParameterTypeResult(GetMapping(typeof(FhirString)), ctx.SearchParamType, null, ctx.Definition);
+
+                            yield break;
+                        }
+
                     case "as":
                     case "ofType":
                         {

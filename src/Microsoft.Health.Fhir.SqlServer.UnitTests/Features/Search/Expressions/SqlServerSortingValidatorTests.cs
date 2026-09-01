@@ -49,6 +49,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Empty(errorMessage);
         }
 
+        [Fact]
+        public void GivenScoreSortParameter_WhenValidating_ThenReturnsTrue()
+        {
+            IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList =
+                [(SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending)];
+
+            bool sortingValid = _sqlServerSortingValidator.ValidateSorting(searchList, out IReadOnlyList<string> errorMessages);
+
+            Assert.True(sortingValid);
+            Assert.Empty(errorMessages);
+        }
+
         [Theory]
         [MemberData(nameof(GetSupportedSearchParamTypes))]
         public void GivenSupportedSortParametersTypeForSchemaOlderThanV17_WhenValidating_ThenReturnsFalse(SearchParamType searchParamType)
