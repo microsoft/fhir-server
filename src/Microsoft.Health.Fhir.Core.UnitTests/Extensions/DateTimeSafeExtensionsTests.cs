@@ -115,6 +115,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.Equal(DateTimeOffset.MinValue, result);
         }
 
+        [Fact]
+        public void GivenDateTimeOffset_WhenSafeAddTicksZero_ThenReturnsOriginal()
+        {
+            var offset = TimeSpan.FromHours(5);
+            var dto = new DateTimeOffset(2024, 6, 15, 12, 0, 0, offset);
+            DateTimeOffset result = dto.SafeAddTicks(0);
+            Assert.Equal(dto, result);
+            Assert.Equal(offset, result.Offset);
+        }
+
+        [Fact]
+        public void GivenDateTimeOffset_WhenSafeAddTicksClampsWithNonZeroOffset_ThenPreservesOffset()
+        {
+            var offset = TimeSpan.FromHours(5);
+            var dto = new DateTimeOffset(9999, 12, 31, 23, 59, 59, offset);
+            DateTimeOffset result = dto.SafeAddTicks(TimeSpan.TicksPerDay);
+            Assert.Equal(offset, result.Offset);
+            Assert.Equal(DateTimeOffset.MaxValue.Ticks, result.Ticks);
+        }
+
         // SafeAddDays - DateTime
 
         [Fact]
