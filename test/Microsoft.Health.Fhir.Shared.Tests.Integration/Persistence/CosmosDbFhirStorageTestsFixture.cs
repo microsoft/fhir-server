@@ -331,6 +331,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDbPhysicalPartitionInfo,
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
+                ModelInfoProvider.Instance,
                 NullLogger<FhirCosmosSearchService>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);

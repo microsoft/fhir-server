@@ -43,6 +43,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private const int _chainedSearchMaxSubqueryItemLimit = 1000;
 
         public FhirCosmosSearchService(
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
+            IModelInfoProvider modelInfoProvider,
             ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -64,6 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
@@ -74,6 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _logger = logger;
             _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
             _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
+            _modelInfoProvider = modelInfoProvider;
 
             _expressionRewriters = new Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>>(() =>
                 new IExpressionVisitorWithInitialContext<object, Expression>[]
@@ -223,6 +227,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+        }
+
+        public override bool IsValidResourceType(string resourceType)
+        {
+            return _modelInfoProvider.IsKnownResource(resourceType);
         }
 
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
