@@ -93,6 +93,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public void GivenWhitespaceResourceType_WhenValidating_ThenExceptionMessageContainsEmptyPlaceholder()
+        {
+            var record = CreateRecord(" ");
+            var resourceTypes = new[] { " " };
+
+            var ex = Assert.Throws<JobExecutionException>(
+                () => TestableExportOrchestratorJob.InvokeValidateResourceTypes(_searchService, resourceTypes, record));
+
+            Assert.Contains("<empty>", ex.Message);
+            Assert.Equal(HttpStatusCode.BadRequest, record.FailureDetails.FailureStatusCode);
+        }
+
+        [Fact]
         public void GivenConcatenatedResourceTypes_WhenValidating_ThenJobExecutionExceptionWithBadRequestIsThrown()
         {
             // Simulates the ASP.NET model binding bug where _type=Specimen&_type=Person becomes "SpecimenPerson"
