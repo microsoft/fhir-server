@@ -727,9 +727,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
 
-            // Verify the access-control contract rather than the aggregate count, which changes when
-            // fixture-owned universal resources are added.
+            // Firely symbol registration allows the R4 multi-base patient expression containing resolve()
+            // to compile, so Patient A's Immunization is correctly indexed into the compartment.
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-immunization-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-C1");
@@ -737,6 +738,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-C");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-D");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+            Assert.Equal(41, results.Results.Count());
         }
 
         [SkippableFact]

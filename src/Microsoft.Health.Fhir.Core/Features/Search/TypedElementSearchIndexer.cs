@@ -319,6 +319,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string fhirPathExpression,
             EvaluationContext context)
         {
+            // Contain provider compile and evaluation failures for every root and component expression
+            // to preserve write availability; warning telemetry makes any resulting index drift observable.
             try
             {
                 ICompiledFhirPath expression = _fhirPathProvider.Compile(fhirPathExpression);
