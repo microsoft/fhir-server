@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.FhirPath;
 
@@ -15,9 +16,9 @@ namespace Microsoft.Health.Fhir.Ignixa
     public sealed class IgnixaFhirPathProvider : IFhirPathProvider
     {
         private const int CacheSize = 4096;
-        private readonly Dictionary<string, ICompiledFhirPath> _cache = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, ICompiledFhirPath> _cache = new(StringComparer.Ordinal);
         private readonly Queue<string> _insertionOrder = new();
-        private readonly object _sync = new();
+        private readonly object _cacheMutationSync = new();
         private readonly IgnixaEvaluationContextBridge _contextBridge;
 
         /// <summary>
@@ -34,20 +35,33 @@ namespace Microsoft.Health.Fhir.Ignixa
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(expression);
 
-            lock (_sync)
+            if (_cache.TryGetValue(expression, out ICompiledFhirPath compiled))
             {
-                if (_cache.TryGetValue(expression, out ICompiledFhirPath compiled))
+                return compiled;
+            }
+
+            lock (_cacheMutationSync)
+            {
+                if (_cache.TryGetValue(expression, out compiled))
                 {
                     return compiled;
                 }
 
                 compiled = new IgnixaCompiledFhirPath(expression, _contextBridge);
-                _cache.Add(expression, compiled);
+                if (!_cache.TryAdd(expression, compiled))
+                {
+                    throw new InvalidOperationException("The compiled FHIRPath cache changed while holding its mutation lock.");
+                }
+
                 _insertionOrder.Enqueue(expression);
 
-                if (_cache.Count > CacheSize)
+                if (_insertionOrder.Count > CacheSize)
                 {
-                    _cache.Remove(_insertionOrder.Dequeue());
+                    string oldestExpression = _insertionOrder.Dequeue();
+                    if (!_cache.TryRemove(oldestExpression, out _))
+                    {
+                        throw new InvalidOperationException("The compiled FHIRPath cache and its eviction queue are inconsistent.");
+                    }
                 }
 
                 return compiled;
