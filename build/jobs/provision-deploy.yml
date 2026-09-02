@@ -31,6 +31,12 @@ parameters:
 - name: sqlElasticPoolName
   type: string
   default: ''
+- name: sqlDatabaseName
+  type: string
+  default: ''
+- name: fhirSdkProviderDefault
+  type: string
+  default: 'Firely'
 - name: keyVaultName
   type: string
 
@@ -71,6 +77,8 @@ jobs:
         -TenantIdGuid "$(tenant-id-guid)"
         -SqlServerName "${{ parameters.sqlServerName }}"
         -SqlElasticPoolName "${{ parameters.sqlElasticPoolName }}"
+        -SqlDatabaseName "${{ parameters.sqlDatabaseName }}"
+        -FhirSdkProviderDefault "${{ parameters.fhirSdkProviderDefault }}"
         -SchemaAutomaticUpdatesEnabled "${{ parameters.schemaAutomaticUpdatesEnabled }}"
         -ReindexEnabled "${{ parameters.reindexEnabled }}"
         -MinReplicas $(minReplicas)

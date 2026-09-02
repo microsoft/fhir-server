@@ -27,6 +27,13 @@ param imageTag string = 'latest'
 @description('Existing SQL server name.')
 param sqlServerName string
 
+@description('SQL database name. Defaults to the version-specific legacy name.')
+param sqlDatabaseName string = 'FHIR${fhirVersion}'
+
+@description('Default FHIR SDK provider. Firely preserves the legacy deployment environment.')
+@allowed(['Firely', 'Ignixa'])
+param fhirSdkProviderDefault string = 'Firely'
+
 @description('Schema automatic updates mode.')
 @allowed(['auto', 'tool'])
 param sqlSchemaAutomaticUpdatesEnabled string = 'auto'
@@ -73,8 +80,6 @@ param additionalEnvVars array = []
 
 var normalizedSqlServerName = toLower(sqlServerName)
 var sqlManagedIdentityName = '${normalizedSqlServerName}-uami'
-var sqlDatabaseName = 'FHIR${fhirVersion}'
-
 var sqlManagedIdentityResourceId = resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', sqlManagedIdentityName)
 
 var userAssignedIdentities = {
@@ -82,7 +87,11 @@ var userAssignedIdentities = {
   '${acrPullUserAssignedManagedIdentityResourceId}': {}
 }
 
-var datastoreEnvVars = [
+var sdkProviderEnvVars = fhirSdkProviderDefault == 'Firely' ? [] : [
+  { name: 'FhirServer__CoreFeatures__FhirSdkProvider__Default', value: fhirSdkProviderDefault }
+]
+
+var datastoreEnvVars = concat([
   { name: 'DataStore', value: 'SqlServer' }
   { name: 'SqlServer__Initialize', value: 'true' }
   {
@@ -91,7 +100,7 @@ var datastoreEnvVars = [
   }
   { name: 'SqlServer__DeleteAllDataOnStartup', value: 'false' }
   { name: 'SqlServer__AllowDatabaseCreation', value: 'true' }
-]
+], sdkProviderEnvVars)
 
 // ──────────────────────────────────────────────
 // Modules
