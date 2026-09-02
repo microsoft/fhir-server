@@ -47,7 +47,7 @@ steps:
                     throw "$($secret.Name) is empty"
                 }
 
-                Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+                Write-Host "##vso[task.setvariable variable=$($environmentVariableName);issecret=true]$($plainValue)"
             }
         }
 
