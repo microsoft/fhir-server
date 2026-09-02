@@ -25,6 +25,18 @@ parameters:
 - name: expectedFhirSdkProviderDefault
   type: string
   default: ''
+- name: expectedKeyVaultName
+  type: string
+  default: ''
+- name: expectedSqlServerName
+  type: string
+  default: ''
+- name: expectedSqlDatabaseName
+  type: string
+  default: ''
+- name: expectedSqlElasticPoolName
+  type: string
+  default: ''
 jobs:
 
 - job: "SqlIntegrationTests"
@@ -135,6 +147,10 @@ jobs:
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
       testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }}'
       expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+      expectedKeyVaultName: '${{ parameters.expectedKeyVaultName }}'
+      expectedSqlServerName: '${{ parameters.expectedSqlServerName }}'
+      expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
+      expectedSqlElasticPoolName: '${{ parameters.expectedSqlElasticPoolName }}'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'sqlE2eTests_Reindex'
@@ -156,6 +172,10 @@ jobs:
         categoryFilter: 'Category=IndexAndReindex'
         testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} Reindex'
         expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+        expectedKeyVaultName: '${{ parameters.expectedKeyVaultName }}'
+        expectedSqlServerName: '${{ parameters.expectedSqlServerName }}'
+        expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
+        expectedSqlElasticPoolName: '${{ parameters.expectedSqlElasticPoolName }}'
 
 - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
   - job: 'sqlE2eTests_BulkUpdate'
@@ -177,3 +197,7 @@ jobs:
         categoryFilter: 'Category=BulkUpdate'
         testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} BulkUpdate'
         expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+        expectedKeyVaultName: '${{ parameters.expectedKeyVaultName }}'
+        expectedSqlServerName: '${{ parameters.expectedSqlServerName }}'
+        expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
+        expectedSqlElasticPoolName: '${{ parameters.expectedSqlElasticPoolName }}'

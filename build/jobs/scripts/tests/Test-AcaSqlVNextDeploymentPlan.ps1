@@ -6,6 +6,8 @@ $repositoryRoot = (Resolve-Path "$PSScriptRoot/../../../..").Path
 $resolver = Join-Path $repositoryRoot 'build/jobs/scripts/Resolve-AcaSqlDeploymentPlan.ps1'
 $providerAssertion = Join-Path $repositoryRoot 'build/jobs/scripts/Assert-EffectiveFhirSdkProvider.ps1'
 . $providerAssertion
+$topologyTests = Join-Path $repositoryRoot 'build/jobs/scripts/tests/Test-AcaSqlTopology.ps1'
+& $topologyTests
 
 function Assert-Equal {
     param(
@@ -219,6 +221,27 @@ foreach ($pipeline in @($prPipeline, $mainPipeline)) {
     Assert-Equal -Expected '$(System.DefaultWorkingDirectory)/build/jobs/scripts/tests/Test-AcaSqlVNextDeploymentPlan.ps1' -Actual $validationJob[0].steps[0].inputs.filePath -Description 'CI validation runs the wrong deployment-plan test'
 }
 
+foreach ($pipeline in @($prPipeline, $mainPipeline)) {
+    foreach ($testPlan in @(
+        @{
+            Stage = 'testStu3SqlVNext'
+            KeyVault = '$(KeyVaultNameSqlVNext)'
+            Database = 'FHIRStu3VNext'
+        },
+        @{
+            Stage = 'testR4SqlVNext'
+            KeyVault = '$(KeyVaultNameR4SqlVNext)'
+            Database = 'FHIRR4VNext'
+        }
+    )) {
+        $parameters = (Get-Stage -Pipeline $pipeline -Name $testPlan.Stage).jobs[0].parameters
+        Assert-Equal -Expected $testPlan.KeyVault -Actual $parameters.expectedKeyVaultName -Description "$($testPlan.Stage) Key Vault expectation is incorrect"
+        Assert-Equal -Expected '$(DeploymentEnvironmentName)' -Actual $parameters.expectedSqlServerName -Description "$($testPlan.Stage) SQL server expectation is incorrect"
+        Assert-Equal -Expected $testPlan.Database -Actual $parameters.expectedSqlDatabaseName -Description "$($testPlan.Stage) SQL database expectation is incorrect"
+        Assert-Equal -Expected '$(SqlVNextElasticPoolName)' -Actual $parameters.expectedSqlElasticPoolName -Description "$($testPlan.Stage) SQL pool expectation is incorrect"
+    }
+}
+
 $aggregateDependencies = @(Get-Stage -Pipeline $mainPipeline -Name aggregateCoverage).dependsOn
 $tagDependencies = @(Get-Stage -Pipeline $mainPipeline -Name DockerAddTag).dependsOn
 $scaleDependencies = @(Get-Stage -Pipeline $mainPipeline -Name scaleDownContainerApps).dependsOn
@@ -235,16 +258,34 @@ Assert-Equal -Expected '${{ parameters.fhirSdkProviderDefault }}' -Actual (Get-S
 
 $runSqlTemplate = $yamlDocuments['build/jobs/run-sql-tests.yml']
 $e2eInvocations = @(Find-TemplateInvocation -Node $runSqlTemplate.jobs -Template 'e2e-tests.yml')
-Assert-Equal -Expected 3 -Actual $e2eInvocations.Count -Description 'SQL E2E provider propagation count changed'
+Assert-Equal -Expected 3 -Actual $e2eInvocations.Count -Description 'SQL E2E expectation propagation count changed'
+Assert-True -Condition ('${{ parameters.mainCategoryFilter }}' -in @($e2eInvocations.parameters.categoryFilter)) -Description 'Main SQL E2E invocation is missing'
+Assert-True -Condition ('Category=IndexAndReindex' -in @($e2eInvocations.parameters.categoryFilter)) -Description 'Reindex SQL E2E invocation is missing'
 foreach ($invocation in $e2eInvocations) {
     Assert-Equal -Expected '${{ parameters.expectedFhirSdkProviderDefault }}' -Actual $invocation.parameters.expectedFhirSdkProviderDefault -Description 'run-sql-tests provider expectation is not forwarded'
+    Assert-Equal -Expected '${{ parameters.expectedKeyVaultName }}' -Actual $invocation.parameters.expectedKeyVaultName -Description 'run-sql-tests Key Vault expectation is not forwarded'
+    Assert-Equal -Expected '${{ parameters.expectedSqlServerName }}' -Actual $invocation.parameters.expectedSqlServerName -Description 'run-sql-tests SQL server expectation is not forwarded'
+    Assert-Equal -Expected '${{ parameters.expectedSqlDatabaseName }}' -Actual $invocation.parameters.expectedSqlDatabaseName -Description 'run-sql-tests SQL database expectation is not forwarded'
+    Assert-Equal -Expected '${{ parameters.expectedSqlElasticPoolName }}' -Actual $invocation.parameters.expectedSqlElasticPoolName -Description 'run-sql-tests SQL pool expectation is not forwarded'
 }
 
 $e2eTemplate = $yamlDocuments['build/jobs/e2e-tests.yml']
 $variableInvocation = @($e2eTemplate.steps | Where-Object { $_.template -eq '../tasks/e2e-set-variables.yml' })[0]
+Assert-Equal -Expected '../tasks/e2e-set-variables.yml' -Actual $e2eTemplate.steps[1].template -Description 'E2E variable and topology validation no longer runs before the test command'
 Assert-Equal -Expected '${{ parameters.expectedFhirSdkProviderDefault }}' -Actual $variableInvocation.parameters.expectedFhirSdkProviderDefault -Description 'e2e-tests provider expectation is not forwarded'
+Assert-Equal -Expected '${{ parameters.expectedKeyVaultName }}' -Actual $variableInvocation.parameters.expectedKeyVaultName -Description 'e2e-tests Key Vault expectation is not forwarded'
+Assert-Equal -Expected '${{ parameters.expectedSqlServerName }}' -Actual $variableInvocation.parameters.expectedSqlServerName -Description 'e2e-tests SQL server expectation is not forwarded'
+Assert-Equal -Expected '${{ parameters.expectedSqlDatabaseName }}' -Actual $variableInvocation.parameters.expectedSqlDatabaseName -Description 'e2e-tests SQL database expectation is not forwarded'
+Assert-Equal -Expected '${{ parameters.expectedSqlElasticPoolName }}' -Actual $variableInvocation.parameters.expectedSqlElasticPoolName -Description 'e2e-tests SQL pool expectation is not forwarded'
 $providerParameter = @($yamlDocuments['build/tasks/e2e-set-variables.yml'].parameters | Where-Object { $_.name -eq 'expectedFhirSdkProviderDefault' })
 Assert-Equal -Expected 1 -Actual $providerParameter.Count -Description 'e2e-set-variables does not declare the provider expectation'
+foreach ($parameterName in @('expectedKeyVaultName', 'expectedSqlServerName', 'expectedSqlDatabaseName', 'expectedSqlElasticPoolName')) {
+    foreach ($templatePath in @('build/jobs/run-sql-tests.yml', 'build/jobs/e2e-tests.yml', 'build/tasks/e2e-set-variables.yml')) {
+        $topologyParameter = @($yamlDocuments[$templatePath].parameters | Where-Object { $_.name -eq $parameterName })
+        Assert-Equal -Expected 1 -Actual $topologyParameter.Count -Description "$templatePath does not declare '$parameterName'"
+        Assert-Equal -Expected '' -Actual $topologyParameter[0].default -Description "$templatePath '$parameterName' default changes legacy lanes"
+    }
+}
 $setVariablesTask = $yamlDocuments['build/tasks/e2e-set-variables.yml'].steps[0]
 $inlineTokens = $null
 $inlineParseErrors = $null
@@ -257,6 +298,12 @@ $providerAssertionCommands = @($inlineAst.FindAll({
         $node.GetCommandName() -eq 'Assert-EffectiveFhirSdkProvider'
 }, $true))
 Assert-Equal -Expected 1 -Actual $providerAssertionCommands.Count -Description 'e2e-set-variables does not invoke effective-provider validation'
+$topologyAssertionCommands = @($inlineAst.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Assert-AcaSqlTopology'
+}, $true))
+Assert-Equal -Expected 1 -Actual $topologyAssertionCommands.Count -Description 'e2e-set-variables does not invoke SQL topology validation'
 
 $provisionScriptPath = Join-Path $repositoryRoot 'build/jobs/scripts/Provision-AcaDeploy.ps1'
 $tokens = $null

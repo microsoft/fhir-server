@@ -14,6 +14,18 @@ parameters:
 - name: expectedFhirSdkProviderDefault
   type: string
   default: ''
+- name: expectedKeyVaultName
+  type: string
+  default: ''
+- name: expectedSqlServerName
+  type: string
+  default: ''
+- name: expectedSqlDatabaseName
+  type: string
+  default: ''
+- name: expectedSqlElasticPoolName
+  type: string
+  default: ''
 
 steps:
   - template: e2e-tests-extract.yml
@@ -26,6 +38,10 @@ steps:
       version: ${{ parameters.version }}
       appServiceType: ${{ parameters.appServiceType }}
       expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+      expectedKeyVaultName: '${{ parameters.expectedKeyVaultName }}'
+      expectedSqlServerName: '${{ parameters.expectedSqlServerName }}'
+      expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
+      expectedSqlElasticPoolName: '${{ parameters.expectedSqlElasticPoolName }}'
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
