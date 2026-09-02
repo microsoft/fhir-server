@@ -6,8 +6,6 @@ $repositoryRoot = (Resolve-Path "$PSScriptRoot/../../../..").Path
 $resolver = Join-Path $repositoryRoot 'build/jobs/scripts/Resolve-AcaSqlDeploymentPlan.ps1'
 $providerAssertion = Join-Path $repositoryRoot 'build/jobs/scripts/Assert-EffectiveFhirSdkProvider.ps1'
 . $providerAssertion
-$topologyTests = Join-Path $repositoryRoot 'build/jobs/scripts/tests/Test-AcaSqlTopology.ps1'
-& $topologyTests
 
 function Assert-Equal {
     param(
@@ -53,16 +51,49 @@ function Assert-Throws {
     throw "$Description. Expected an exception."
 }
 
+function Get-PythonWithPyYaml {
+    $pythonCommand = $null
+    foreach ($commandName in @('python', 'python3')) {
+        $pythonCommand = Get-Command $commandName -ErrorAction SilentlyContinue
+        if ($null -ne $pythonCommand) {
+            break
+        }
+    }
+
+    if ($null -eq $pythonCommand) {
+        throw 'Python is required to validate the SQL vNext deployment plan.'
+    }
+
+    & $pythonCommand.Source -c 'import sys' 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Python is required to validate the SQL vNext deployment plan.'
+    }
+
+    & $pythonCommand.Source -c 'import yaml' 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "The Python package 'PyYAML' is required to validate the SQL vNext deployment plan."
+    }
+
+    return $pythonCommand.Source
+}
+
+function Assert-AzureCliBicepAvailable {
+    $azureCli = Get-Command az -ErrorAction SilentlyContinue
+    if ($null -eq $azureCli) {
+        throw 'Azure CLI is required to compile the SQL vNext Bicep template.'
+    }
+
+    & $azureCli.Source bicep version | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Azure CLI Bicep is required to compile the SQL vNext Bicep template.'
+    }
+}
+
 function ConvertFrom-YamlFile {
     param([Parameter(Mandatory = $true)] [string] $Path)
 
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    if ($null -eq $python) {
-        $python = Get-Command python3 -ErrorAction Stop
-    }
-
     $yaml = Get-Content -Raw $Path
-    $json = $yaml | & $python.Source -c 'import json, sys, yaml; json.dump(yaml.safe_load(sys.stdin), sys.stdout)'
+    $json = $yaml | & $script:pythonPath -c 'import json, sys, yaml; json.dump(yaml.safe_load(sys.stdin), sys.stdout)'
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to parse YAML file '$Path'."
     }
@@ -115,6 +146,12 @@ function Find-TemplateInvocation {
         }
     }
 }
+
+$script:pythonPath = Get-PythonWithPyYaml
+Assert-AzureCliBicepAvailable
+
+$topologyTests = Join-Path $repositoryRoot 'build/jobs/scripts/tests/Test-AcaSqlTopology.ps1'
+& $topologyTests
 
 $legacyPlan = & $resolver -Version Stu3
 Assert-Equal -Expected 'FHIRStu3' -Actual $legacyPlan.SqlDatabaseName -Description 'Legacy database default changed'
@@ -204,7 +241,7 @@ foreach ($pipeline in @($prPipeline, $ciDeployPipeline)) {
     Assert-Equal -Expected 1 -Actual @($poolStage.jobs).Count -Description 'vNext pool stage contains unrelated jobs'
     $poolParameters = $poolStage.jobs[0].parameters
     Assert-Equal -Expected '$(SqlVNextElasticPoolName)' -Actual $poolParameters.elasticPoolName -Description 'vNext pool name is incorrect'
-    Assert-Equal -Expected 2 -Actual $poolParameters.capacity -Description 'vNext pool capacity is not conservative'
+    Assert-Equal -Expected 4 -Actual $poolParameters.capacity -Description 'vNext pool capacity does not support both canaries'
     Assert-Equal -Expected 2 -Actual $poolParameters.dbMaxCapacity -Description 'vNext per-database cap is incorrect'
 }
 Assert-Equal -Expected 2 -Actual @((Get-Stage -Pipeline $prPipeline -Name deploySqlServer).jobs).Count -Description 'PR SQL server stage topology changed'
@@ -257,6 +294,12 @@ Assert-Equal -Expected '${{ parameters.sqlDatabaseName }}' -Actual (Get-ScriptAr
 Assert-Equal -Expected '${{ parameters.fhirSdkProviderDefault }}' -Actual (Get-ScriptArgument -Arguments $provisionTask.inputs.ScriptArguments -Name FhirSdkProviderDefault) -Description 'Provider parameter is not forwarded'
 
 $runSqlTemplate = $yamlDocuments['build/jobs/run-sql-tests.yml']
+$integrationGateName = '${{ if eq(parameters.runIntegrationTests, true) }}'
+$integrationGates = @($runSqlTemplate.jobs | Where-Object { $_.PSObject.Properties[$integrationGateName] })
+Assert-Equal -Expected 1 -Actual $integrationGates.Count -Description 'SQL integration tests are not compile-time gated'
+$integrationJob = $integrationGates[0].PSObject.Properties[$integrationGateName].Value[0]
+Assert-Equal -Expected 'SqlIntegrationTests' -Actual $integrationJob.job -Description 'Compile-time integration gate contains the wrong job'
+Assert-True -Condition (-not $integrationJob.PSObject.Properties['condition']) -Description 'SQL integration job still uses runtime gating'
 $e2eInvocations = @(Find-TemplateInvocation -Node $runSqlTemplate.jobs -Template 'e2e-tests.yml')
 Assert-Equal -Expected 3 -Actual $e2eInvocations.Count -Description 'SQL E2E expectation propagation count changed'
 Assert-True -Condition ('${{ parameters.mainCategoryFilter }}' -in @($e2eInvocations.parameters.categoryFilter)) -Description 'Main SQL E2E invocation is missing'

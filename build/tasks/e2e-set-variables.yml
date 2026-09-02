@@ -47,6 +47,7 @@ steps:
                     throw "$($secret.Name) is empty"
                 }
 
+                # Secret variables are masked by Azure Pipelines when later tasks reference them.
                 Write-Host "##vso[task.setvariable variable=$($environmentVariableName);issecret=true]$($plainValue)"
             }
         }
