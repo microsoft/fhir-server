@@ -193,9 +193,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // and must NOT fan out a stat for every base resource type of the parameter.
             const string resourceType = "Patient";
             var query = new[] { Tuple.Create("gender:missing", "true") };
+            var statsBefore = SqlServerSearchService.GetStatsFromCache().ToList();
+
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
-            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache().ToList();
+            var statsCreatedBySearch = statsFromCache.Except(statsBefore).ToList();
             foreach (var stat in statsFromCache)
             {
                 _output.WriteLine($"cache {stat}");
@@ -212,8 +215,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.SearchParamId == genderParamId);
 
             // The BaseResourceTypes fallback is intentionally not used for NotExists, so the gender stat is
-            // never created for any resource type other than the one in the search URL.
-            Assert.DoesNotContain(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+            // not newly created for any resource type other than the one in the search URL. Existing cache
+            // entries may have been created by valid searches from earlier tests.
+            Assert.DoesNotContain(statsCreatedBySearch, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId != patientResourceTypeId
                   && _.SearchParamId == genderParamId);
