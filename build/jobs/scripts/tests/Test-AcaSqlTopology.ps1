@@ -9,7 +9,8 @@ function Assert-Throws {
     param(
         [Parameter(Mandatory = $true)] [scriptblock] $Action,
         [Parameter(Mandatory = $true)] [string] $ExpectedMessage,
-        [Parameter(Mandatory = $true)] [string] $Description
+        [Parameter(Mandatory = $true)] [string] $Description,
+        [Parameter(Mandatory = $false)] [string] $ExpectedInnerMessage
     )
 
     try {
@@ -18,6 +19,11 @@ function Assert-Throws {
     catch {
         if ($_.Exception.Message -notlike "*$ExpectedMessage*") {
             throw "$Description. Expected error containing '$ExpectedMessage', actual '$($_.Exception.Message)'."
+        }
+
+        if (-not [string]::IsNullOrEmpty($ExpectedInnerMessage) -and
+            ($null -eq $_.Exception.InnerException -or $_.Exception.InnerException.Message -notlike "*$ExpectedInnerMessage*")) {
+            throw "$Description. Expected inner error containing '$ExpectedInnerMessage'."
         }
 
         return
@@ -51,7 +57,7 @@ $matchingDatabaseResolver = {
 $matchingAzureEnvironmentResolver = {
     [pscustomobject]@{
         KeyVaultDnsSuffix = 'vault.azure.net'
-        SqlDatabaseDnsSuffix = 'database.windows.net'
+        SqlDatabaseDnsSuffix = '.database.windows.net'
     }
 }
 $matchingArguments = @{
@@ -68,6 +74,47 @@ $matchingArguments = @{
 }
 
 Assert-AcaSqlTopology @matchingArguments
+
+$nullAzureEnvironmentResolver = {
+    $null
+}
+Assert-Throws -Action {
+    Assert-AcaSqlTopology @matchingArguments -AzureEnvironmentResolver $nullAzureEnvironmentResolver
+} -ExpectedMessage 'SQL vNext topology validation could not resolve the active Azure environment' -Description 'Null Azure environment metadata was accepted'
+
+foreach ($azureEnvironmentMetadata in @(
+    [pscustomobject]@{ SqlDatabaseDnsSuffix = '.database.windows.net' },
+    [pscustomobject]@{ KeyVaultDnsSuffix = '   '; SqlDatabaseDnsSuffix = '.database.windows.net' }
+)) {
+    $missingKeyVaultDnsSuffixResolver = {
+        $azureEnvironmentMetadata
+    }.GetNewClosure()
+    Assert-Throws -Action {
+        Assert-AcaSqlTopology @matchingArguments -AzureEnvironmentResolver $missingKeyVaultDnsSuffixResolver
+    } -ExpectedMessage 'define a Key Vault DNS suffix' -Description 'Missing or blank Key Vault DNS suffix was accepted'
+}
+
+foreach ($azureEnvironmentMetadata in @(
+    [pscustomobject]@{ KeyVaultDnsSuffix = 'vault.azure.net' },
+    [pscustomobject]@{ KeyVaultDnsSuffix = 'vault.azure.net'; SqlDatabaseDnsSuffix = '   ' }
+)) {
+    $missingSqlDnsSuffixResolver = {
+        $azureEnvironmentMetadata
+    }.GetNewClosure()
+    Assert-Throws -Action {
+        Assert-AcaSqlTopology @matchingArguments -AzureEnvironmentResolver $missingSqlDnsSuffixResolver
+    } -ExpectedMessage 'define a SQL Database DNS suffix' -Description 'Missing or blank SQL DNS suffix was accepted'
+}
+
+$throwingAzureEnvironmentResolver = {
+    throw 'Simulated Azure context failure.'
+}
+Assert-Throws -Action {
+    Assert-AcaSqlTopology @matchingArguments -AzureEnvironmentResolver $throwingAzureEnvironmentResolver
+} `
+    -ExpectedMessage 'SQL vNext topology validation could not resolve the active Azure environment. Verify that the Azure service connection is authenticated and configured for the target cloud.' `
+    -ExpectedInnerMessage 'Simulated Azure context failure.' `
+    -Description 'Azure environment resolver failure was not wrapped'
 
 $wrongKeyVaultEnvironment = @(
     [pscustomobject]@{
