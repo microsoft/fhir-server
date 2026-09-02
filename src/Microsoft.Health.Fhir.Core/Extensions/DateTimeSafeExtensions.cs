@@ -27,23 +27,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 return value;
             }
 
-            if (ticks == long.MinValue)
+            try
             {
-                // Can't negate long.MinValue; adding it always underflows within DateTime's range.
-                return new DateTime(DateTime.MinValue.Ticks, value.Kind);
+                return value.AddTicks(ticks);
             }
-
-            if (ticks > 0 && value.Ticks > DateTime.MaxValue.Ticks - ticks)
+            catch (ArgumentOutOfRangeException)
             {
-                return new DateTime(DateTime.MaxValue.Ticks, value.Kind);
+                return ticks > 0
+                    ? new DateTime(DateTime.MaxValue.Ticks, value.Kind)
+                    : new DateTime(DateTime.MinValue.Ticks, value.Kind);
             }
-
-            if (ticks < 0 && value.Ticks < DateTime.MinValue.Ticks - ticks)
-            {
-                return new DateTime(DateTime.MinValue.Ticks, value.Kind);
-            }
-
-            return value.AddTicks(ticks);
         }
 
         /// <summary>
@@ -52,38 +45,26 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static DateTimeOffset SafeAddTicks(this DateTimeOffset value, long ticks)
         {
-            // Clamp against the representable *local ticks* range for the current offset, so we never throw.
-            long offsetTicks = value.Offset.Ticks;
-            long minTicks = offsetTicks > 0 ? DateTime.MinValue.Ticks + offsetTicks : DateTime.MinValue.Ticks;
-            long maxTicks = offsetTicks < 0 ? DateTime.MaxValue.Ticks + offsetTicks : DateTime.MaxValue.Ticks;
-
             if (ticks == 0)
             {
                 return value;
             }
 
-            if (ticks == long.MinValue)
+            try
             {
-                return new DateTimeOffset(minTicks, value.Offset);
+                return value.AddTicks(ticks);
             }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Clamp to the representable range for the current offset.
+                long offsetTicks = value.Offset.Ticks;
+                long maxTicks = offsetTicks < 0 ? DateTime.MaxValue.Ticks + offsetTicks : DateTime.MaxValue.Ticks;
+                long minTicks = offsetTicks > 0 ? DateTime.MinValue.Ticks + offsetTicks : DateTime.MinValue.Ticks;
 
-            if (ticks > 0)
-            {
-                if (value.Ticks >= maxTicks || maxTicks - value.Ticks < ticks)
-                {
-                    return new DateTimeOffset(maxTicks, value.Offset);
-                }
+                return ticks > 0
+                    ? new DateTimeOffset(maxTicks, value.Offset)
+                    : new DateTimeOffset(minTicks, value.Offset);
             }
-            else
-            {
-                long negTicks = -ticks;
-                if (value.Ticks <= minTicks || value.Ticks - minTicks < negTicks)
-                {
-                    return new DateTimeOffset(minTicks, value.Offset);
-                }
-            }
-
-            return value.AddTicks(ticks);
         }
 
         /// <summary>
