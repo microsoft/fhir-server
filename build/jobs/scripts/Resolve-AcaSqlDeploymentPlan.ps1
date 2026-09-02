@@ -8,8 +8,11 @@ param(
     [string] $SqlDatabaseName = '',
 
     [Parameter(Mandatory = $false)]
-    [ValidateSet('Firely', 'Ignixa')]
-    [string] $FhirSdkProviderDefault = 'Firely'
+    [ValidateSet('', 'Firely', 'Ignixa')]
+    [string] $FhirSdkProviderDefault = '',
+
+    [Parameter(Mandatory = $false)]
+    [string] $ConfiguredFhirSdkProviderDefault = ''
 )
 
 $resolvedSqlDatabaseName = if ([string]::IsNullOrWhiteSpace($SqlDatabaseName)) {
@@ -18,8 +21,27 @@ $resolvedSqlDatabaseName = if ([string]::IsNullOrWhiteSpace($SqlDatabaseName)) {
     $SqlDatabaseName
 }
 
+$hasRequestedProvider = -not [string]::IsNullOrWhiteSpace($FhirSdkProviderDefault)
+$hasConfiguredProvider = -not [string]::IsNullOrWhiteSpace($ConfiguredFhirSdkProviderDefault)
+
+if ($hasConfiguredProvider -and $ConfiguredFhirSdkProviderDefault -notin @('Firely', 'Ignixa')) {
+    throw "Configured FHIR SDK provider '$ConfiguredFhirSdkProviderDefault' is unsupported. Expected 'Firely' or 'Ignixa'."
+}
+
+if ($hasRequestedProvider -and $hasConfiguredProvider -and $FhirSdkProviderDefault -ne $ConfiguredFhirSdkProviderDefault) {
+    throw "Deployment FHIR SDK provider '$FhirSdkProviderDefault' conflicts with configured provider '$ConfiguredFhirSdkProviderDefault'."
+}
+
+$effectiveProvider = if ($hasRequestedProvider) {
+    $FhirSdkProviderDefault
+} elseif ($hasConfiguredProvider) {
+    $ConfiguredFhirSdkProviderDefault
+} else {
+    'Firely'
+}
+
 [pscustomobject]@{
     SqlDatabaseName = $resolvedSqlDatabaseName
-    FhirSdkProviderDefault = $FhirSdkProviderDefault
-    EmitFhirSdkProviderEnvironmentVariable = $FhirSdkProviderDefault -ne 'Firely'
+    FhirSdkProviderDefault = $effectiveProvider
+    EmitFhirSdkProviderEnvironmentVariable = $hasConfiguredProvider -or $effectiveProvider -ne 'Firely'
 }
