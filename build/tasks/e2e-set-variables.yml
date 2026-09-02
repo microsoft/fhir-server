@@ -5,6 +5,21 @@ parameters:
   type: string
 - name: appServiceType
   type: string
+- name: expectedFhirSdkProviderDefault
+  type: string
+  default: ''
+- name: expectedKeyVaultName
+  type: string
+  default: ''
+- name: expectedSqlServerName
+  type: string
+  default: ''
+- name: expectedSqlDatabaseName
+  type: string
+  default: ''
+- name: expectedSqlElasticPoolName
+  type: string
+  default: ''
 
 steps:
 - task: AzurePowerShell@5
@@ -32,7 +47,8 @@ steps:
                     throw "$($secret.Name) is empty"
                 }
 
-                Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+                # Secret variables are masked by Azure Pipelines when later tasks reference them.
+                Write-Host "##vso[task.setvariable variable=$($environmentVariableName);issecret=true]$($plainValue)"
             }
         }
 
@@ -87,6 +103,9 @@ steps:
             Write-Host "##vso[task.setvariable variable=$versionVariableName]$url"
         }
 
+        . "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-EffectiveFhirSdkProvider.ps1"
+        . "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-AcaSqlTopology.ps1"
+
         $keyVault = "$(KeyVaultBaseName)-ts"
         Set-SecretsAsPipelineVariables -VaultName $keyVault
 
@@ -101,6 +120,17 @@ steps:
         if ($null -eq $envSettings) {
             throw "Container App '$containerAppName' has no environment variables configured."
         }
+
+        $expectedFhirSdkProviderDefault = '${{ parameters.expectedFhirSdkProviderDefault }}'
+        Assert-EffectiveFhirSdkProvider -EnvironmentSettings $envSettings -ExpectedProvider $expectedFhirSdkProviderDefault -ContainerAppName $containerAppName
+        Assert-AcaSqlTopology `
+            -EnvironmentSettings $envSettings `
+            -ContainerAppName $containerAppName `
+            -ResourceGroupName '$(UniqueResourceGroupName)' `
+            -ExpectedKeyVaultName '${{ parameters.expectedKeyVaultName }}' `
+            -ExpectedSqlServerName '${{ parameters.expectedSqlServerName }}' `
+            -ExpectedSqlDatabaseName '${{ parameters.expectedSqlDatabaseName }}' `
+            -ExpectedSqlElasticPoolName '${{ parameters.expectedSqlElasticPoolName }}'
 
         Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
 

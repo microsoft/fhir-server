@@ -130,6 +130,18 @@ stages:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
+  - job: ValidateAcaSqlDeploymentPlan
+    displayName: 'Validate ACA SQL deployment plan'
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: PowerShell@2
+      displayName: 'Validate SQL vNext deployment plan'
+      inputs:
+        filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/tests/Test-AcaSqlVNextDeploymentPlan.ps1'
+        pwsh: true
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -170,6 +182,19 @@ stages:
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
 
+- stage: redeployStu3SqlVNext
+  displayName: 'Redeploy STU3 SQL vNext SDK Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters:
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameSqlVNext)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      imageTag: $(ImageTag)
+
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
   dependsOn:
@@ -200,6 +225,27 @@ stages:
       runReindexJob: false
       runBulkUpdateJob: false
 
+- stage: testStu3SqlVNext
+  displayName: 'Run Stu3 SQL vNext SDK Tests'
+  dependsOn:
+  - BuildArtifacts
+  - redeployStu3SqlVNext
+  jobs:
+  - template: ./jobs/run-sql-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(KeyVaultNameSqlVNext)
+      containerAppName: $(DeploymentEnvironmentNameSqlVNext)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runIntegrationTests: false
+      runBulkUpdateJob: false
+      testRunTitleSuffix: ' vNext SDK'
+      expectedFhirSdkProviderDefault: Ignixa
+      expectedKeyVaultName: $(KeyVaultNameSqlVNext)
+      expectedSqlServerName: $(DeploymentEnvironmentName)
+      expectedSqlDatabaseName: FHIRStu3VNext
+      expectedSqlElasticPoolName: $(SqlVNextElasticPoolName)
+
 # *********************** R4 ***********************
 - stage: redeployR4
   displayName: 'Redeploy R4 CosmosDB Site'
@@ -226,6 +272,19 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
+
+- stage: redeployR4SqlVNext
+  displayName: 'Redeploy R4 SQL vNext SDK Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters:
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4SqlVNext)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      imageTag: $(ImageTag)
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -256,6 +315,27 @@ stages:
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
+
+- stage: testR4SqlVNext
+  displayName: 'Run R4 SQL vNext SDK Tests'
+  dependsOn:
+  - BuildArtifacts
+  - redeployR4SqlVNext
+  jobs:
+  - template: ./jobs/run-sql-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(KeyVaultNameR4SqlVNext)
+      containerAppName: $(DeploymentEnvironmentNameR4SqlVNext)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runIntegrationTests: false
+      runBulkUpdateJob: false
+      testRunTitleSuffix: ' vNext SDK'
+      expectedFhirSdkProviderDefault: Ignixa
+      expectedKeyVaultName: $(KeyVaultNameR4SqlVNext)
+      expectedSqlServerName: $(DeploymentEnvironmentName)
+      expectedSqlDatabaseName: FHIRR4VNext
+      expectedSqlElasticPoolName: $(SqlVNextElasticPoolName)
 
 # *********************** R5 ***********************
 - stage: redeployR5Sql
@@ -313,8 +393,10 @@ stages:
   dependsOn:
   - testStu3Cosmos
   - testStu3Sql
+  - testStu3SqlVNext
   - testR4Cosmos
   - testR4Sql
+  - testR4SqlVNext
   - testR5Sql
   # Only scale down on success. On failure we leave the apps at min=3 so developers can investigate
   # via the live endpoints and ADO "Rerun failed stages" (which does NOT re-execute scaleUpContainerApps)

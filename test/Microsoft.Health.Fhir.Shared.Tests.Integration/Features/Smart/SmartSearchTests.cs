@@ -726,7 +726,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
-            Assert.Equal(40, results.Results.Count());
+
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+
+            // A direct legacy/provider comparison found six resources with changed patient-parameter output,
+            // but only this Immunization changed Patient A compartment membership. The provider path therefore
+            // adds exactly this resource to the previous 40-result set.
+            Assert.Contains(
+                results.Results,
+                r => r.Resource.ResourceTypeName == KnownResourceTypes.Immunization &&
+                    r.Resource.ResourceId == "smart-immunization-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-C1");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-B");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-C");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-D");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+            Assert.Equal(41, results.Results.Count());
         }
 
         [SkippableFact]
