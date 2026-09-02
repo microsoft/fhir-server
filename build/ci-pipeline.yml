@@ -170,6 +170,29 @@ stages:
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
 
+- stage: deployStu3SqlVNext
+  displayName: 'Deploy STU3 SQL vNext SDK Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameSqlVNext)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameSqlVNext)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
+      sqlDatabaseName: FHIRStu3VNext
+      fhirSdkProviderDefault: Ignixa
+      reindexEnabled: true
+
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
   dependsOn:
@@ -200,6 +223,26 @@ stages:
       runReindexJob: false
       runBulkUpdateJob: false
 
+- stage: testStu3SqlVNext
+  displayName: 'Run Stu3 SQL vNext SDK Tests'
+  dependsOn:
+  - BuildArtifacts
+  - deployStu3SqlVNext
+  variables:
+    TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployStu3SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
+  jobs:
+  - template: ./jobs/run-sql-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(KeyVaultNameSqlVNext)
+      containerAppName: $(DeploymentEnvironmentNameSqlVNext)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runIntegrationTests: false
+      runBulkUpdateJob: false
+      testRunTitleSuffix: ' vNext SDK'
+      expectedFhirSdkProviderDefault: Ignixa
+
 # *********************** R4 ***********************
 - stage: redeployR4
   displayName: 'Redeploy R4 CosmosDB Site'
@@ -226,6 +269,29 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
+
+- stage: deployR4SqlVNext
+  displayName: 'Deploy R4 SQL vNext SDK Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters:
+      dataStore: sql
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4SqlVNext)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4SqlVNext)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
+      sqlDatabaseName: FHIRR4VNext
+      fhirSdkProviderDefault: Ignixa
+      reindexEnabled: true
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -256,6 +322,26 @@ stages:
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
+
+- stage: testR4SqlVNext
+  displayName: 'Run R4 SQL vNext SDK Tests'
+  dependsOn:
+  - BuildArtifacts
+  - deployR4SqlVNext
+  variables:
+    TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployR4SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
+  jobs:
+  - template: ./jobs/run-sql-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(KeyVaultNameR4SqlVNext)
+      containerAppName: $(DeploymentEnvironmentNameR4SqlVNext)
+      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      runIntegrationTests: false
+      runBulkUpdateJob: false
+      testRunTitleSuffix: ' vNext SDK'
+      expectedFhirSdkProviderDefault: Ignixa
 
 # *********************** R5 ***********************
 - stage: redeployR5Sql
@@ -293,8 +379,10 @@ stages:
   - BuildUnitTests
   - testStu3Cosmos
   - testStu3Sql
+  - testStu3SqlVNext
   - testR4Cosmos
   - testR4Sql
+  - testR4SqlVNext
   - testR5Sql
   condition: succeeded()
   jobs:
@@ -313,8 +401,10 @@ stages:
   dependsOn:
   - testStu3Cosmos
   - testStu3Sql
+  - testStu3SqlVNext
   - testR4Cosmos
   - testR4Sql
+  - testR4SqlVNext
   - testR5Sql
   # Only scale down on success. On failure we leave the apps at min=3 so developers can investigate
   # via the live endpoints and ADO "Rerun failed stages" (which does NOT re-execute scaleUpContainerApps)
@@ -332,8 +422,10 @@ stages:
   dependsOn:
   - testStu3Cosmos
   - testStu3Sql
+  - testStu3SqlVNext
   - testR4Cosmos
   - testR4Sql
+  - testR4SqlVNext
   - testR5Sql
   jobs:
   - template: ./jobs/docker-add-tag.yml
