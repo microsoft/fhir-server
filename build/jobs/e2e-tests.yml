@@ -11,6 +11,9 @@ parameters:
 - name: testRunTitleSuffix
   type: string
   default: ''
+- name: expectedFhirSdkProviderDefault
+  type: string
+  default: ''
 
 steps:
   - template: e2e-tests-extract.yml
@@ -22,6 +25,7 @@ steps:
       containerAppName: ${{ parameters.containerAppName }}
       version: ${{ parameters.version }}
       appServiceType: ${{ parameters.appServiceType }}
+      expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'

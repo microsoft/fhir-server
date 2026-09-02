@@ -5,6 +5,9 @@ parameters:
   type: string
 - name: appServiceType
   type: string
+- name: expectedFhirSdkProviderDefault
+  type: string
+  default: ''
 
 steps:
 - task: AzurePowerShell@5
@@ -100,6 +103,17 @@ steps:
         $envSettings = $containerAppData.Properties.template.containers[0].env
         if ($null -eq $envSettings) {
             throw "Container App '$containerAppName' has no environment variables configured."
+        }
+
+        $expectedFhirSdkProviderDefault = '${{ parameters.expectedFhirSdkProviderDefault }}'
+        if (-not [string]::IsNullOrWhiteSpace($expectedFhirSdkProviderDefault)) {
+            $settingName = 'FhirServer__CoreFeatures__FhirSdkProvider__Default'
+            $actualFhirSdkProviderDefault = Get-ContainerEnvValue -EnvSettings $envSettings -Name $settingName
+            if ($actualFhirSdkProviderDefault -ne $expectedFhirSdkProviderDefault) {
+                throw "Container App '$containerAppName' has '$settingName' set to '$actualFhirSdkProviderDefault'; expected '$expectedFhirSdkProviderDefault'."
+            }
+
+            Write-Host "Verified Container App '$containerAppName' uses FHIR SDK provider '$actualFhirSdkProviderDefault'."
         }
 
         Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'

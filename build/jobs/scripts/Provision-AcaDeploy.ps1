@@ -27,6 +27,8 @@ param(
 
     [Parameter(Mandatory = $false)] [string] $SqlServerName = '',
     [Parameter(Mandatory = $false)] [string] $SqlElasticPoolName = '',
+    [Parameter(Mandatory = $false)] [string] $SqlDatabaseName = '',
+    [Parameter(Mandatory = $false)] [ValidateSet('Firely', 'Ignixa')] [string] $FhirSdkProviderDefault = 'Firely',
     [Parameter(Mandatory = $false)] [string] $SchemaAutomaticUpdatesEnabled = 'auto',
     [Parameter(Mandatory = $false)] [string] $ReindexEnabled = 'true',
 
@@ -100,7 +102,8 @@ if ($DataStore -eq 'sql') {
         "SqlServer__Initialize",
         "SqlServer__SchemaOptions__AutomaticUpdatesEnabled",
         "SqlServer__DeleteAllDataOnStartup",
-        "SqlServer__AllowDatabaseCreation"
+        "SqlServer__AllowDatabaseCreation",
+        "FhirServer__CoreFeatures__FhirSdkProvider__Default"
     )
 } else {
     $staticEnvNames += @(
@@ -147,7 +150,11 @@ $resourceGroupName = $ResourceGroup
 # --- Data-store-specific pre-deploy setup ---
 if ($DataStore -eq 'sql') {
     $sqlServerName = $SqlServerName.ToLowerInvariant()
-    $sqlDatabaseName = "FHIR$Version"
+    $sqlDeploymentPlan = & "$PSScriptRoot/Resolve-AcaSqlDeploymentPlan.ps1" `
+        -Version $Version `
+        -SqlDatabaseName $SqlDatabaseName `
+        -FhirSdkProviderDefault $FhirSdkProviderDefault
+    $sqlDatabaseName = $sqlDeploymentPlan.SqlDatabaseName
     $sqlElasticPoolName = $SqlElasticPoolName
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
     if ($null -eq $existingDb) {
@@ -279,6 +286,8 @@ $templateParameters = @{
 
 if ($DataStore -eq 'sql') {
     $templateParameters["sqlServerName"] = $sqlServerName
+    $templateParameters["sqlDatabaseName"] = $sqlDatabaseName
+    $templateParameters["fhirSdkProviderDefault"] = $sqlDeploymentPlan.FhirSdkProviderDefault
     $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = $SchemaAutomaticUpdatesEnabled
 } else {
     $templateParameters["cosmosDbAccountName"] = $cosmosDbAccountName
