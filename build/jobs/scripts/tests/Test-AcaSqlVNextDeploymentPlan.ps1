@@ -30,6 +30,16 @@ function Assert-True {
     }
 }
 
+function Assert-SequenceEqual {
+    param(
+        [Parameter(Mandatory = $true)] [object[]] $Expected,
+        [Parameter(Mandatory = $true)] [object[]] $Actual,
+        [Parameter(Mandatory = $true)] [string] $Description
+    )
+
+    Assert-Equal -Expected ($Expected -join ',') -Actual ($Actual -join ',') -Description $Description
+}
+
 function Assert-Throws {
     param(
         [Parameter(Mandatory = $true)] [scriptblock] $Action,
@@ -147,6 +157,63 @@ function Find-TemplateInvocation {
     }
 }
 
+function Get-CiDeployStages {
+    param(
+        [Parameter(Mandatory = $true)] $Pipeline,
+        [Parameter(Mandatory = $true)] [bool] $BuildImages
+    )
+
+    $buildCondition = '${{ if eq(parameters.buildImages, true) }}'
+    $recoveryCondition = '${{ if eq(parameters.buildImages, false) }}'
+
+    foreach ($entry in $Pipeline.stages) {
+        if ($entry.PSObject.Properties['stage']) {
+            Write-Output $entry
+        } elseif ($BuildImages -and $entry.PSObject.Properties[$buildCondition]) {
+            Write-Output $entry.PSObject.Properties[$buildCondition].Value
+        } elseif (-not $BuildImages -and $entry.PSObject.Properties[$recoveryCondition]) {
+            Write-Output $entry.PSObject.Properties[$recoveryCondition].Value
+        }
+    }
+}
+
+function Get-CiDeployDependencies {
+    param(
+        [Parameter(Mandatory = $true)] $Stage,
+        [Parameter(Mandatory = $true)] [bool] $BuildImages
+    )
+
+    $buildCondition = '${{ if eq(parameters.buildImages, true) }}'
+    $recoveryCondition = '${{ if eq(parameters.buildImages, false) }}'
+
+    foreach ($dependency in @($Stage.dependsOn)) {
+        if ($dependency -is [string]) {
+            Write-Output $dependency
+        } elseif ($BuildImages -and $dependency.PSObject.Properties[$buildCondition]) {
+            Write-Output $dependency.PSObject.Properties[$buildCondition].Value
+        } elseif (-not $BuildImages -and $dependency.PSObject.Properties[$recoveryCondition]) {
+            Write-Output $dependency.PSObject.Properties[$recoveryCondition].Value
+        }
+    }
+}
+
+function Get-CiDeployImageTag {
+    param(
+        [Parameter(Mandatory = $true)] $Stage,
+        [Parameter(Mandatory = $true)] [bool] $BuildImages
+    )
+
+    $condition = if ($BuildImages) {
+        '${{ if eq(parameters.buildImages, true) }}'
+    } else {
+        '${{ else }}'
+    }
+
+    $parameters = $Stage.jobs[0].parameters
+    $conditionalParameters = $parameters.PSObject.Properties[$condition].Value
+    return $conditionalParameters.imageTag
+}
+
 $script:pythonPath = Get-PythonWithPyYaml
 Assert-AzureCliBicepAvailable
 
@@ -210,6 +277,85 @@ Assert-Equal -Expected '$(KeyVaultBaseName)-r4-vn' -Actual $variables.KeyVaultNa
 $prPipeline = $yamlDocuments['build/pr-pipeline.yml']
 $ciDeployPipeline = $yamlDocuments['build/ci-deploy.yml']
 $mainPipeline = $yamlDocuments['build/ci-pipeline.yml']
+
+$buildImagesParameter = @($ciDeployPipeline.parameters | Where-Object { $_.name -eq 'buildImages' })
+Assert-Equal -Expected 1 -Actual $buildImagesParameter.Count -Description 'CI deploy pipeline does not declare buildImages once'
+Assert-Equal -Expected 'boolean' -Actual $buildImagesParameter[0].type -Description 'buildImages parameter is not boolean'
+Assert-Equal -Expected $true -Actual $buildImagesParameter[0].default -Description 'Default CI deploy mode no longer builds images'
+$imageTagOverrideParameter = @($ciDeployPipeline.parameters | Where-Object { $_.name -eq 'imageTagOverride' })
+Assert-Equal -Expected 1 -Actual $imageTagOverrideParameter.Count -Description 'CI deploy pipeline does not declare imageTagOverride once'
+Assert-Equal -Expected 'string' -Actual $imageTagOverrideParameter[0].type -Description 'imageTagOverride parameter is not a string'
+Assert-Equal -Expected '' -Actual $imageTagOverrideParameter[0].default -Description 'imageTagOverride parameter should default to empty'
+
+$defaultCiDeployStages = @(Get-CiDeployStages -Pipeline $ciDeployPipeline -BuildImages $true)
+$recoveryCiDeployStages = @(Get-CiDeployStages -Pipeline $ciDeployPipeline -BuildImages $false)
+$defaultCiDeployStageNames = @($defaultCiDeployStages.stage)
+$recoveryCiDeployStageNames = @($recoveryCiDeployStages.stage)
+$environmentStageNames = @(
+    'provisionEnvironment',
+    'createAcaEnvironment',
+    'createNsp',
+    'aadTestEnvironment',
+    'deploySqlServer',
+    'deploySqlElasticPool',
+    'deploySqlVNextElasticPool',
+    'deployStu3',
+    'deployStu3Sql',
+    'deployStu3SqlVNext',
+    'deployR4',
+    'deployR4Sql',
+    'deployR4SqlVNext',
+    'deployR5Sql'
+)
+Assert-SequenceEqual -Expected (@('UpdateVersion', 'DockerBuild') + $environmentStageNames) -Actual $defaultCiDeployStageNames -Description 'Default CI deploy stage plan changed'
+Assert-SequenceEqual -Expected (@('ValidateRecoveryParameters') + $environmentStageNames) -Actual $recoveryCiDeployStageNames -Description 'Recovery CI deploy stage plan is incomplete'
+Assert-True -Condition ('UpdateVersion' -in $defaultCiDeployStageNames) -Description 'Default CI deploy plan omits UpdateVersion'
+Assert-True -Condition ('DockerBuild' -in $defaultCiDeployStageNames) -Description 'Default CI deploy plan omits DockerBuild'
+Assert-True -Condition ('ValidateRecoveryParameters' -notin $defaultCiDeployStageNames) -Description 'Default CI deploy plan includes recovery validation'
+Assert-True -Condition ('UpdateVersion' -notin $recoveryCiDeployStageNames) -Description 'Recovery CI deploy plan includes UpdateVersion'
+Assert-True -Condition ('DockerBuild' -notin $recoveryCiDeployStageNames) -Description 'Recovery CI deploy plan includes DockerBuild'
+Assert-True -Condition ('ValidateRecoveryParameters' -in $recoveryCiDeployStageNames) -Description 'Recovery CI deploy plan omits parameter validation'
+
+$deploymentStageNames = @(
+    'deployStu3',
+    'deployStu3Sql',
+    'deployStu3SqlVNext',
+    'deployR4',
+    'deployR4Sql',
+    'deployR4SqlVNext',
+    'deployR5Sql'
+)
+foreach ($stageName in $deploymentStageNames) {
+    $defaultStage = @($defaultCiDeployStages | Where-Object { $_.stage -eq $stageName })[0]
+    $recoveryStage = @($recoveryCiDeployStages | Where-Object { $_.stage -eq $stageName })[0]
+    Assert-True -Condition ('DockerBuild' -in @(Get-CiDeployDependencies -Stage $defaultStage -BuildImages $true)) -Description "$stageName default plan does not depend on DockerBuild"
+    Assert-True -Condition ('DockerBuild' -notin @(Get-CiDeployDependencies -Stage $recoveryStage -BuildImages $false)) -Description "$stageName recovery plan depends on DockerBuild"
+    Assert-Equal -Expected '$(ImageTag)' -Actual (Get-CiDeployImageTag -Stage $defaultStage -BuildImages $true) -Description "$stageName default image tag changed"
+    Assert-Equal -Expected '${{ parameters.imageTagOverride }}' -Actual (Get-CiDeployImageTag -Stage $recoveryStage -BuildImages $false) -Description "$stageName recovery image tag does not use the override"
+}
+
+$defaultProvisionStage = @($defaultCiDeployStages | Where-Object { $_.stage -eq 'provisionEnvironment' })[0]
+$recoveryProvisionStage = @($recoveryCiDeployStages | Where-Object { $_.stage -eq 'provisionEnvironment' })[0]
+Assert-Equal -Expected 0 -Actual @(Get-CiDeployDependencies -Stage $defaultProvisionStage -BuildImages $true).Count -Description 'Default environment provisioning dependencies changed'
+Assert-SequenceEqual -Expected @('ValidateRecoveryParameters') -Actual @(Get-CiDeployDependencies -Stage $recoveryProvisionStage -BuildImages $false) -Description 'Recovery provisioning can start before parameter validation'
+
+$recoveryValidationStage = @($recoveryCiDeployStages | Where-Object { $_.stage -eq 'ValidateRecoveryParameters' })[0]
+$recoveryValidationTask = $recoveryValidationStage.jobs[0].steps[0]
+Assert-Equal -Expected '${{ parameters.imageTagOverride }}' -Actual $recoveryValidationTask.env.IMAGE_TAG_OVERRIDE -Description 'Recovery validation does not receive imageTagOverride'
+$recoveryValidationScript = [scriptblock]::Create($recoveryValidationTask.inputs.script)
+$originalImageTagOverride = $env:IMAGE_TAG_OVERRIDE
+try {
+    $env:IMAGE_TAG_OVERRIDE = 'master'
+    & $recoveryValidationScript
+
+    $env:IMAGE_TAG_OVERRIDE = ' '
+    Assert-Throws -Action {
+        & $recoveryValidationScript
+    } -ExpectedMessage "Parameter 'imageTagOverride' must be non-empty when 'buildImages' is false." -Description 'Blank recovery image tag was accepted'
+}
+finally {
+    $env:IMAGE_TAG_OVERRIDE = $originalImageTagOverride
+}
 
 foreach ($pipelinePlan in @(
     @{ Pipeline = $prPipeline; Stu3Stage = 'deployStu3SqlVNext'; R4Stage = 'deployR4SqlVNext'; ResourceGroup = '$(UniqueResourceGroupName)' },
