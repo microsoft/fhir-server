@@ -18,6 +18,7 @@ variables:
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
   DeploymentEnvironmentNameSqlVNext: '$(DeploymentEnvironmentName)-svn'
+  SqlVNextElasticPoolName: '$(DeploymentEnvironmentName)-vnext-pool'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
   DeploymentEnvironmentNameR4SqlVNext: '$(DeploymentEnvironmentName)-r4vn'

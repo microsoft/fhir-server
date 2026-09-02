@@ -90,6 +90,18 @@ stages:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
+  - job: ValidateAcaSqlDeploymentPlan
+    displayName: 'Validate ACA SQL deployment plan'
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: PowerShell@2
+      displayName: 'Validate SQL vNext deployment plan'
+      inputs:
+        filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/tests/Test-AcaSqlVNextDeploymentPlan.ps1'
+        pwsh: true
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -266,6 +278,21 @@ stages:
       deploymentName: "IntegrationTests"
       nspName: 'nsp-$(UniqueResourceGroupName)'
 
+- stage: deploySqlVNextElasticPool
+  displayName: 'Deploy SQL vNext Elastic Pool (PR)'
+  dependsOn:
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-sqlElasticPool.yml
+    parameters:
+      resourceGroup: $(UniqueResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
+      elasticPoolName: $(SqlVNextElasticPoolName)
+      capacity: 2
+      maxSizeBytes: '68719476736'
+      dbMinCapacity: 0
+      dbMaxCapacity: 2
+
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
@@ -314,6 +341,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - deploySqlVNextElasticPool
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters:
@@ -328,6 +356,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlElasticPoolName: $(SqlVNextElasticPoolName)
       sqlDatabaseName: FHIRStu3VNext
       fhirSdkProviderDefault: Ignixa
       reindexEnabled: true
@@ -380,6 +409,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - deploySqlVNextElasticPool
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters:
@@ -394,6 +424,7 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
+      sqlElasticPoolName: $(SqlVNextElasticPoolName)
       sqlDatabaseName: FHIRR4VNext
       fhirSdkProviderDefault: Ignixa
       reindexEnabled: true
@@ -551,10 +582,8 @@ stages:
   - BuildUnitTests
   - testStu3Cosmos
   - testStu3Sql
-  - testStu3SqlVNext
   - testR4Cosmos
   - testR4Sql
-  - testR4SqlVNext
   - testR5Sql
   jobs:
   - job: AggregateCoverage
