@@ -38,6 +38,31 @@ function Assert-AcaSqlTopology {
         [scriptblock] $DatabaseResolver = {
             param($ResourceGroup, $ServerName, $DatabaseName)
             Get-AzSqlDatabase -ResourceGroupName $ResourceGroup -ServerName $ServerName -DatabaseName $DatabaseName -ErrorAction Stop
+        },
+
+        [Parameter(Mandatory = $false)]
+        [scriptblock] $AzureEnvironmentResolver = {
+            $context = Get-AzContext -ErrorAction Stop
+            if ($null -eq $context -or $null -eq $context.Environment) {
+                throw 'No active Azure context is available.'
+            }
+
+            $environmentName = if ($context.Environment -is [string]) {
+                $context.Environment
+            }
+            else {
+                [string]$context.Environment.Name
+            }
+
+            if ([string]::IsNullOrWhiteSpace($environmentName)) {
+                throw 'The active Azure context does not identify an Azure environment.'
+            }
+
+            $environment = Get-AzEnvironment -Name $environmentName -ErrorAction Stop
+            [pscustomobject]@{
+                KeyVaultDnsSuffix = $environment.AzureKeyVaultDnsSuffix
+                SqlDatabaseDnsSuffix = $environment.SqlDatabaseDnsSuffix
+            }
         }
     )
 
@@ -56,6 +81,17 @@ function Assert-AcaSqlTopology {
         throw 'ACA SQL topology validation requires a resource group and all four expected topology values.'
     }
 
+    $azureEnvironment = & $AzureEnvironmentResolver
+    if ($null -eq $azureEnvironment) {
+        throw 'The active Azure environment could not be resolved.'
+    }
+
+    $keyVaultDnsSuffix = ([string]$azureEnvironment.KeyVaultDnsSuffix).Trim().Trim('.')
+    $sqlDatabaseDnsSuffix = ([string]$azureEnvironment.SqlDatabaseDnsSuffix).Trim().Trim('.')
+    if ([string]::IsNullOrWhiteSpace($keyVaultDnsSuffix) -or [string]::IsNullOrWhiteSpace($sqlDatabaseDnsSuffix)) {
+        throw 'The active Azure environment does not define Key Vault and SQL Database DNS suffixes.'
+    }
+
     $keyVaultSettingName = 'KeyVault__Endpoint'
     $keyVaultSettings = @($EnvironmentSettings | Where-Object { $_.name -eq $keyVaultSettingName })
     if ($keyVaultSettings.Count -ne 1) {
@@ -69,9 +105,10 @@ function Assert-AcaSqlTopology {
         throw "Container App '$ContainerAppName' has invalid '$keyVaultSettingName' value '$keyVaultEndpoint'."
     }
 
-    $actualKeyVaultName = $endpointUri.DnsSafeHost.Split('.')[0]
-    if ($actualKeyVaultName -ine $ExpectedKeyVaultName) {
-        throw "Container App '$ContainerAppName' targets Key Vault '$actualKeyVaultName'; expected '$ExpectedKeyVaultName'."
+    $actualKeyVaultHost = $endpointUri.DnsSafeHost.TrimEnd('.')
+    $expectedKeyVaultHost = "$ExpectedKeyVaultName.$keyVaultDnsSuffix"
+    if ($actualKeyVaultHost -ine $expectedKeyVaultHost) {
+        throw "Container App '$ContainerAppName' targets Key Vault host '$actualKeyVaultHost'; expected '$expectedKeyVaultHost'."
     }
 
     $connectionString = [string](& $SecretResolver $ExpectedKeyVaultName 'SqlServer--ConnectionString')
@@ -108,11 +145,9 @@ function Assert-AcaSqlTopology {
     }
 
     $actualServerHost = ($serverValue -replace '^(?i:tcp):', '').Split(',')[0].Trim()
-    $expectedServerHost = ($ExpectedSqlServerName -replace '^(?i:tcp):', '').Split(',')[0].Trim()
-    $actualServerName = $actualServerHost.Split('.')[0]
-    $expectedServerName = $expectedServerHost.Split('.')[0]
-    if ([string]::IsNullOrWhiteSpace($actualServerName) -or $actualServerName -ine $expectedServerName) {
-        throw "Key Vault '$ExpectedKeyVaultName' SQL connection string targets server '$actualServerHost'; expected '$ExpectedSqlServerName'."
+    $expectedServerHost = "$ExpectedSqlServerName.$sqlDatabaseDnsSuffix"
+    if ([string]::IsNullOrWhiteSpace($actualServerHost) -or $actualServerHost.TrimEnd('.') -ine $expectedServerHost) {
+        throw "Key Vault '$ExpectedKeyVaultName' SQL connection string targets server '$actualServerHost'; expected '$expectedServerHost'."
     }
 
     if ([string]::IsNullOrWhiteSpace($databaseValue) -or $databaseValue -ine $ExpectedSqlDatabaseName) {

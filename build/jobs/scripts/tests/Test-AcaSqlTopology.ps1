@@ -48,6 +48,12 @@ $matchingDatabaseResolver = {
 
     [pscustomobject]@{ ElasticPoolName = 'vnext-pool' }
 }
+$matchingAzureEnvironmentResolver = {
+    [pscustomobject]@{
+        KeyVaultDnsSuffix = 'vault.azure.net'
+        SqlDatabaseDnsSuffix = 'database.windows.net'
+    }
+}
 $matchingArguments = @{
     EnvironmentSettings = $matchingEnvironment
     ContainerAppName = 'expected-app'
@@ -58,6 +64,7 @@ $matchingArguments = @{
     ExpectedSqlElasticPoolName = 'vnext-pool'
     SecretResolver = $matchingSecretResolver
     DatabaseResolver = $matchingDatabaseResolver
+    AzureEnvironmentResolver = $matchingAzureEnvironmentResolver
 }
 
 Assert-AcaSqlTopology @matchingArguments
@@ -70,7 +77,17 @@ $wrongKeyVaultEnvironment = @(
 )
 Assert-Throws -Action {
     Assert-AcaSqlTopology @matchingArguments -EnvironmentSettings $wrongKeyVaultEnvironment
-} -ExpectedMessage "targets Key Vault 'wrong-vault'" -Description 'Wrong Key Vault endpoint was accepted'
+} -ExpectedMessage "targets Key Vault host 'wrong-vault.vault.azure.net'" -Description 'Wrong Key Vault endpoint was accepted'
+
+$lookalikeKeyVaultEnvironment = @(
+    [pscustomobject]@{
+        name = 'KeyVault__Endpoint'
+        value = 'https://expected-vault.example.invalid/'
+    }
+)
+Assert-Throws -Action {
+    Assert-AcaSqlTopology @matchingArguments -EnvironmentSettings $lookalikeKeyVaultEnvironment
+} -ExpectedMessage "expected-vault.vault.azure.net" -Description 'Lookalike Key Vault DNS suffix was accepted'
 
 $wrongServerResolver = {
     'Server=tcp:wrong-sql.database.windows.net,1433;Initial Catalog=FHIRR4VNext;Encrypt=True'
@@ -78,6 +95,13 @@ $wrongServerResolver = {
 Assert-Throws -Action {
     Assert-AcaSqlTopology @matchingArguments -SecretResolver $wrongServerResolver
 } -ExpectedMessage "targets server 'wrong-sql.database.windows.net'" -Description 'Wrong SQL server was accepted'
+
+$lookalikeServerResolver = {
+    'Server=tcp:shared-sql.example.invalid,1433;Initial Catalog=FHIRR4VNext;Encrypt=True'
+}
+Assert-Throws -Action {
+    Assert-AcaSqlTopology @matchingArguments -SecretResolver $lookalikeServerResolver
+} -ExpectedMessage "expected 'shared-sql.database.windows.net'" -Description 'Lookalike SQL DNS suffix was accepted'
 
 $wrongDatabaseResolver = {
     'Server=tcp:shared-sql.database.windows.net,1433;Initial Catalog=WrongDatabase;Encrypt=True'
@@ -100,6 +124,28 @@ Assert-AcaSqlTopology `
     -EnvironmentSettings @() `
     -ContainerAppName 'legacy-app' `
     -SecretResolver $unexpectedResolver `
-    -DatabaseResolver $unexpectedResolver
+    -DatabaseResolver $unexpectedResolver `
+    -AzureEnvironmentResolver $unexpectedResolver
+
+$sovereignEnvironment = @(
+    [pscustomobject]@{
+        name = 'KeyVault__Endpoint'
+        value = 'https://expected-vault.vault.azure.cn/'
+    }
+)
+$sovereignSecretResolver = {
+    'Server=tcp:shared-sql.database.chinacloudapi.cn,1433;Initial Catalog=FHIRR4VNext;Encrypt=True'
+}
+$sovereignAzureEnvironmentResolver = {
+    [pscustomobject]@{
+        KeyVaultDnsSuffix = '.vault.azure.cn.'
+        SqlDatabaseDnsSuffix = 'database.chinacloudapi.cn'
+    }
+}
+Assert-AcaSqlTopology `
+    @matchingArguments `
+    -EnvironmentSettings $sovereignEnvironment `
+    -SecretResolver $sovereignSecretResolver `
+    -AzureEnvironmentResolver $sovereignAzureEnvironmentResolver
 
 Write-Host 'ACA SQL topology behavioral tests passed.'
