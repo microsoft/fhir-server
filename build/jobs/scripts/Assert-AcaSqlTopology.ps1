@@ -81,15 +81,26 @@ function Assert-AcaSqlTopology {
         throw 'ACA SQL topology validation requires a resource group and all four expected topology values.'
     }
 
-    $azureEnvironment = & $AzureEnvironmentResolver
+    try {
+        $azureEnvironment = & $AzureEnvironmentResolver
+    }
+    catch {
+        $message = 'SQL vNext topology validation could not resolve the active Azure environment. Verify that the Azure service connection is authenticated and configured for the target cloud.'
+        throw [System.InvalidOperationException]::new($message, $_.Exception)
+    }
+
     if ($null -eq $azureEnvironment) {
-        throw 'The active Azure environment could not be resolved.'
+        throw 'SQL vNext topology validation could not resolve the active Azure environment.'
     }
 
     $keyVaultDnsSuffix = ([string]$azureEnvironment.KeyVaultDnsSuffix).Trim().Trim('.')
     $sqlDatabaseDnsSuffix = ([string]$azureEnvironment.SqlDatabaseDnsSuffix).Trim().Trim('.')
-    if ([string]::IsNullOrWhiteSpace($keyVaultDnsSuffix) -or [string]::IsNullOrWhiteSpace($sqlDatabaseDnsSuffix)) {
-        throw 'The active Azure environment does not define Key Vault and SQL Database DNS suffixes.'
+    if ([string]::IsNullOrWhiteSpace($keyVaultDnsSuffix)) {
+        throw 'SQL vNext topology validation requires the active Azure environment to define a Key Vault DNS suffix.'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($sqlDatabaseDnsSuffix)) {
+        throw 'SQL vNext topology validation requires the active Azure environment to define a SQL Database DNS suffix.'
     }
 
     $keyVaultSettingName = 'KeyVault__Endpoint'
