@@ -292,6 +292,22 @@ $inlineParseErrors = $null
 $normalizedInline = [regex]::Replace($setVariablesTask.inputs.Inline, '\$\{\{.*?\}\}', 'TemplateValue')
 $inlineAst = [System.Management.Automation.Language.Parser]::ParseInput($normalizedInline, [ref]$inlineTokens, [ref]$inlineParseErrors)
 Assert-Equal -Expected 0 -Actual $inlineParseErrors.Count -Description 'e2e-set-variables inline PowerShell has parse errors'
+$secretVariableFunction = @($inlineAst.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -eq 'Set-SecretsAsPipelineVariables'
+}, $true))
+Assert-Equal -Expected 1 -Actual $secretVariableFunction.Count -Description 'Secret pipeline-variable helper is missing'
+$secretLoggingCommands = @($secretVariableFunction[0].Body.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Write-Host' -and
+        $node.Extent.Text.Contains('##vso[task.setvariable')
+}, $true))
+Assert-Equal -Expected 1 -Actual $secretLoggingCommands.Count -Description 'Secret pipeline-variable command shape changed'
+Assert-True `
+    -Condition ($secretLoggingCommands[0].Extent.Text.Contains(';issecret=true]')) `
+    -Description 'Key Vault values are not emitted as secret Azure Pipelines variables'
 $providerAssertionCommands = @($inlineAst.FindAll({
     param($node)
     $node -is [System.Management.Automation.Language.CommandAst] -and
