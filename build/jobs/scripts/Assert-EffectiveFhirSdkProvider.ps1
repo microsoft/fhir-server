@@ -18,16 +18,16 @@ function Assert-EffectiveFhirSdkProvider {
     }
 
     $settingName = 'FhirServer__CoreFeatures__FhirSdkProvider__Default'
-    $matches = @($EnvironmentSettings | Where-Object { $_.name -eq $settingName })
-    if ($matches.Count -eq 0) {
+    $matchingSettings = @($EnvironmentSettings | Where-Object { $_.name -eq $settingName })
+    if ($matchingSettings.Count -eq 0) {
         throw "Container App '$ContainerAppName' does not define '$settingName'; expected '$ExpectedProvider'."
     }
 
-    if ($matches.Count -gt 1) {
+    if ($matchingSettings.Count -gt 1) {
         throw "Container App '$ContainerAppName' defines '$settingName' more than once."
     }
 
-    $actualProvider = [string]$matches[0].value
+    $actualProvider = [string]$matchingSettings[0].value
     if ($actualProvider -ne $ExpectedProvider) {
         throw "Container App '$ContainerAppName' has '$settingName' set to '$actualProvider'; expected '$ExpectedProvider'."
     }
