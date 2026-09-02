@@ -63,7 +63,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 var query = new List<Tuple<string, string>>();
                 query.Add(new Tuple<string, string>(KnownQueryParameterNames.Id, key.Id));
 
-                var results = await _searchService.SearchAsync(key.ResourceType, query, cancellationToken);
+                var results = await _searchService.SearchAsync(
+                    key.ResourceType,
+                    query,
+                    DataActions.Read | DataActions.ReadById,
+                    cancellationToken);
 
                 if (results.Results.Any())
                 {

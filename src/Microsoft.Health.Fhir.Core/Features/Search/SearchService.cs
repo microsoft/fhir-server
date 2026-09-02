@@ -16,6 +16,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -64,6 +65,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
 
             // Execute the actual search.
+            return await SearchAsync(searchOptions, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public virtual async Task<SearchResult> SearchAsync(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            DataActions scopeDataActions,
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, scopeDataActions, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+
             return await SearchAsync(searchOptions, cancellationToken);
         }
 
