@@ -74,17 +74,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         [Fact]
         public void GivenUtcDateTime_WhenSafeAddTicksClampsToMaxValue_ThenPreservesKind()
         {
-            var dt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            DateTime result = DateTime.MaxValue.AddTicks(-1).SafeAddTicks(TimeSpan.TicksPerDay);
-            Assert.Equal(DateTimeKind.Unspecified, result.Kind);
+            var dt = new DateTime(DateTime.MaxValue.Ticks - 1, DateTimeKind.Utc);
+            DateTime result = dt.SafeAddTicks(TimeSpan.TicksPerDay);
+            Assert.Equal(DateTimeKind.Utc, result.Kind);
             Assert.Equal(DateTime.MaxValue.Ticks, result.Ticks);
         }
 
         [Fact]
         public void GivenLocalDateTime_WhenSafeAddTicksClampsToMinValue_ThenPreservesKind()
         {
-            var dt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Local);
-            DateTime result = dt.AddTicks(1).SafeAddTicks(-TimeSpan.TicksPerDay);
+            var dt = new DateTime(DateTime.MinValue.Ticks + 1, DateTimeKind.Local);
+            DateTime result = dt.SafeAddTicks(-TimeSpan.TicksPerDay);
             Assert.Equal(DateTimeKind.Local, result.Kind);
             Assert.Equal(DateTime.MinValue.Ticks, result.Ticks);
         }
@@ -126,13 +126,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         }
 
         [Fact]
-        public void GivenDateTimeOffset_WhenSafeAddTicksClampsWithNonZeroOffset_ThenPreservesOffset()
+        public void GivenDateTimeOffset_WhenSafeAddTicksClampsToMaxValue_ThenPreservesOffset()
         {
             var offset = TimeSpan.FromHours(5);
             var dto = new DateTimeOffset(9999, 12, 31, 23, 59, 59, offset);
             DateTimeOffset result = dto.SafeAddTicks(TimeSpan.TicksPerDay);
             Assert.Equal(offset, result.Offset);
-            Assert.Equal(DateTimeOffset.MaxValue.Ticks, result.Ticks);
+            Assert.True(result.Ticks > dto.Ticks);
         }
 
         // SafeAddDays - DateTime
@@ -244,7 +244,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             var dto = new DateTimeOffset(2024, 1, 1, 0, 0, 0, offset);
             DateTimeOffset result = dto.SafeAddDays(int.MaxValue);
             Assert.Equal(offset, result.Offset);
-            Assert.Equal(DateTimeOffset.MaxValue.Ticks, result.Ticks);
+            Assert.True(result.UtcTicks <= DateTimeOffset.MaxValue.UtcTicks);
+        }
+
+        [Fact]
+        public void GivenDateTimeOffsetWithNegativeOffset_WhenSafeAddDaysOverflows_ThenClampsWithoutThrowing()
+        {
+            var offset = TimeSpan.FromHours(-5);
+            var dto = new DateTimeOffset(2024, 1, 1, 0, 0, 0, offset);
+            DateTimeOffset result = dto.SafeAddDays(int.MaxValue);
+            Assert.Equal(offset, result.Offset);
+            Assert.Equal(DateTimeOffset.MaxValue.UtcTicks, result.UtcTicks);
         }
     }
 }

@@ -48,10 +48,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
         /// <summary>
         /// Adds the specified number of ticks to a <see cref="DateTimeOffset"/>, clamping the result
-        /// to <see cref="DateTimeOffset.MinValue"/> or <see cref="DateTimeOffset.MaxValue"/> on overflow.
+        /// to the nearest representable value (for the current offset) instead of throwing on overflow.
         /// </summary>
         public static DateTimeOffset SafeAddTicks(this DateTimeOffset value, long ticks)
         {
+            // Clamp against the representable *local ticks* range for the current offset, so we never throw.
+            long offsetTicks = value.Offset.Ticks;
+            long minTicks = offsetTicks > 0 ? DateTime.MinValue.Ticks + offsetTicks : DateTime.MinValue.Ticks;
+            long maxTicks = offsetTicks < 0 ? DateTime.MaxValue.Ticks + offsetTicks : DateTime.MaxValue.Ticks;
+
             if (ticks == 0)
             {
                 return value;
@@ -59,18 +64,23 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             if (ticks == long.MinValue)
             {
-                // Can't negate long.MinValue; adding it always underflows within DateTimeOffset's range.
-                return new DateTimeOffset(DateTimeOffset.MinValue.Ticks, value.Offset);
+                return new DateTimeOffset(minTicks, value.Offset);
             }
 
-            if (ticks > 0 && value.Ticks > DateTimeOffset.MaxValue.Ticks - ticks)
+            if (ticks > 0)
             {
-                return new DateTimeOffset(DateTimeOffset.MaxValue.Ticks, value.Offset);
+                if (value.Ticks >= maxTicks || maxTicks - value.Ticks < ticks)
+                {
+                    return new DateTimeOffset(maxTicks, value.Offset);
+                }
             }
-
-            if (ticks < 0 && value.Ticks < DateTimeOffset.MinValue.Ticks - ticks)
+            else
             {
-                return new DateTimeOffset(DateTimeOffset.MinValue.Ticks, value.Offset);
+                long negTicks = -ticks;
+                if (value.Ticks <= minTicks || value.Ticks - minTicks < negTicks)
+                {
+                    return new DateTimeOffset(minTicks, value.Offset);
+                }
             }
 
             return value.AddTicks(ticks);
@@ -94,14 +104,18 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
         /// <summary>
         /// Adds the specified number of days to a <see cref="DateTimeOffset"/>, clamping the result
-        /// to <see cref="DateTimeOffset.MinValue"/> or <see cref="DateTimeOffset.MaxValue"/> on overflow.
+        /// to the nearest representable value (for the current offset) instead of throwing on overflow.
         /// </summary>
         public static DateTimeOffset SafeAddDays(this DateTimeOffset value, int days)
         {
             // Detect if days * TimeSpan.TicksPerDay would overflow long.
             if (days > MaxDaysBeforeTicksOverflow || days < -MaxDaysBeforeTicksOverflow)
             {
-                return days > 0 ? new DateTimeOffset(DateTimeOffset.MaxValue.Ticks, value.Offset) : new DateTimeOffset(DateTimeOffset.MinValue.Ticks, value.Offset);
+                // Clamp to the representable range for the current offset.
+                long offsetTicks = value.Offset.Ticks;
+                long maxTicks = offsetTicks < 0 ? DateTime.MaxValue.Ticks + offsetTicks : DateTime.MaxValue.Ticks;
+                long minTicks = offsetTicks > 0 ? DateTime.MinValue.Ticks + offsetTicks : DateTime.MinValue.Ticks;
+                return days > 0 ? new DateTimeOffset(maxTicks, value.Offset) : new DateTimeOffset(minTicks, value.Offset);
             }
 
             long ticks = days * TimeSpan.TicksPerDay;
