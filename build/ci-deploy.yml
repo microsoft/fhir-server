@@ -6,38 +6,74 @@
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
+parameters:
+- name: buildImages
+  displayName: Build images
+  type: boolean
+  default: true
+- name: imageTagOverride
+  displayName: Existing image tag (required when images are not built)
+  type: string
+  default: ''
+
 variables:
 - template: ci-variables.yml
 - template: build-variables.yml
 
 stages:
-- stage: UpdateVersion
-  displayName: 'Determine Semver'
-  dependsOn: []
-  jobs:
-  - job: Semver
-    pool:
-      name: '$(InternalPool)'
-      demands:
-        - ImageOverride -equals $(InternalLinuxImage)
-    steps:
-    - template: ./jobs/update-semver.yml 
+- ${{ if eq(parameters.buildImages, true) }}:
+  - stage: UpdateVersion
+    displayName: 'Determine Semver'
+    dependsOn: []
+    jobs:
+    - job: Semver
+      pool:
+        name: '$(InternalPool)'
+        demands:
+          - ImageOverride -equals $(InternalLinuxImage)
+      steps:
+      - template: ./jobs/update-semver.yml
 
-- stage: DockerBuild  
-  displayName: 'Build images'
-  dependsOn:
-  - UpdateVersion
-  variables:
-    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
-  jobs:
-  - template: ./jobs/docker-build-all.yml
-    parameters: 
-      tag: $(ImageTag)
-      buildPlatform: $(publicDockerImagePlatforms)
+  - stage: DockerBuild
+    displayName: 'Build images'
+    dependsOn:
+    - UpdateVersion
+    variables:
+      assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+    jobs:
+    - template: ./jobs/docker-build-all.yml
+      parameters:
+        tag: $(ImageTag)
+        buildPlatform: $(publicDockerImagePlatforms)
+
+- ${{ if eq(parameters.buildImages, false) }}:
+  - stage: ValidateRecoveryParameters
+    displayName: 'Validate recovery parameters'
+    dependsOn: []
+    jobs:
+    - job: ValidateRecoveryParameters
+      displayName: 'Validate recovery parameters'
+      pool:
+        name: '$(AzurePipelinesPool)'
+        vmImage: '$(LinuxVmImage)'
+      steps:
+      - task: PowerShell@2
+        displayName: 'Require an existing image tag'
+        env:
+          IMAGE_TAG_OVERRIDE: ${{ parameters.imageTagOverride }}
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            if ([string]::IsNullOrWhiteSpace($env:IMAGE_TAG_OVERRIDE)) {
+                throw "Parameter 'imageTagOverride' must be non-empty when 'buildImages' is false."
+            }
 
 - stage: provisionEnvironment
   displayName: Provision Environment
-  dependsOn: []
+  dependsOn:
+  - ${{ if eq(parameters.buildImages, false) }}:
+    - ValidateRecoveryParameters
   jobs:
   - template: ./jobs/cleanup-resourcegroup-aad.yml
   - job: provision
@@ -187,7 +223,8 @@ stages:
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
   - aadTestEnvironment
-  - DockerBuild
+  - ${{ if eq(parameters.buildImages, true) }}:
+    - DockerBuild
   - createNsp
   - createAcaEnvironment
   jobs:
@@ -201,14 +238,18 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
+      ${{ if eq(parameters.buildImages, true) }}:
+        imageTag: $(ImageTag)
+      ${{ else }}:
+        imageTag: ${{ parameters.imageTagOverride }}
       reindexEnabled: true
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
   - aadTestEnvironment
-  - DockerBuild
+  - ${{ if eq(parameters.buildImages, true) }}:
+    - DockerBuild
   - deploySqlServer
   - deploySqlElasticPool
   - createAcaEnvironment
@@ -223,7 +264,10 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
+      ${{ if eq(parameters.buildImages, true) }}:
+        imageTag: $(ImageTag)
+      ${{ else }}:
+        imageTag: ${{ parameters.imageTagOverride }}
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
@@ -234,7 +278,8 @@ stages:
   displayName: 'Deploy STU3 SQL vNext SDK Site'
   dependsOn:
   - aadTestEnvironment
-  - DockerBuild
+  - ${{ if eq(parameters.buildImages, true) }}:
+    - DockerBuild
   - deploySqlServer
   - deploySqlVNextElasticPool
   - createAcaEnvironment
@@ -249,7 +294,10 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
+      ${{ if eq(parameters.buildImages, true) }}:
+        imageTag: $(ImageTag)
+      ${{ else }}:
+        imageTag: ${{ parameters.imageTagOverride }}
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlElasticPoolName: $(SqlVNextElasticPoolName)
@@ -261,7 +309,8 @@ stages:
   displayName: 'Deploy R4 CosmosDB Site'
   dependsOn:
   - aadTestEnvironment
-  - DockerBuild
+  - ${{ if eq(parameters.buildImages, true) }}:
+    - DockerBuild
   - createNsp
   - createAcaEnvironment
   jobs:
@@ -275,14 +324,18 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
+      ${{ if eq(parameters.buildImages, true) }}:
+        imageTag: $(ImageTag)
+      ${{ else }}:
+        imageTag: ${{ parameters.imageTagOverride }}
       reindexEnabled: true
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
   dependsOn:
   - aadTestEnvironment
-  - DockerBuild
+  - ${{ if eq(parameters.buildImages, true) }}:
+    - DockerBuild
   - deploySqlServer
   - deploySqlElasticPool
   - createAcaEnvironment
@@ -297,7 +350,10 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
+      ${{ if eq(parameters.buildImages, true) }}:
+        imageTag: $(ImageTag)
+      ${{ else }}:
+        imageTag: ${{ parameters.imageTagOverride }}
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
@@ -308,7 +364,8 @@ stages:
   displayName: 'Deploy R4 SQL vNext SDK Site'
   dependsOn:
   - aadTestEnvironment
-  - DockerBuild
+  - ${{ if eq(parameters.buildImages, true) }}:
+    - DockerBuild
   - deploySqlServer
   - deploySqlVNextElasticPool
   - createAcaEnvironment
@@ -323,7 +380,10 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
+      ${{ if eq(parameters.buildImages, true) }}:
+        imageTag: $(ImageTag)
+      ${{ else }}:
+        imageTag: ${{ parameters.imageTagOverride }}
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlElasticPoolName: $(SqlVNextElasticPoolName)
@@ -335,7 +395,8 @@ stages:
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
   - aadTestEnvironment
-  - DockerBuild
+  - ${{ if eq(parameters.buildImages, true) }}:
+    - DockerBuild
   - deploySqlServer
   - deploySqlElasticPool
   - createAcaEnvironment
@@ -350,7 +411,10 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
+      ${{ if eq(parameters.buildImages, true) }}:
+        imageTag: $(ImageTag)
+      ${{ else }}:
+        imageTag: ${{ parameters.imageTagOverride }}
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
