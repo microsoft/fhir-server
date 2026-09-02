@@ -288,7 +288,7 @@ stages:
       resourceGroup: $(UniqueResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
       elasticPoolName: $(SqlVNextElasticPoolName)
-      capacity: 2
+      capacity: 4
       maxSizeBytes: '68719476736'
       dbMinCapacity: 0
       dbMaxCapacity: 2
