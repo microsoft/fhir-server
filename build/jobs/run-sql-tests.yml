@@ -16,9 +16,19 @@ parameters:
 - name: runBulkUpdateJob
   type: boolean
   default: true
+- name: runIntegrationTests
+  type: boolean
+  default: true
+- name: testRunTitleSuffix
+  type: string
+  default: ''
+- name: expectedFhirSdkProviderDefault
+  type: string
+  default: ''
 jobs:
 
 - job: "SqlIntegrationTests"
+  condition: and(succeeded(), ${{ eq(parameters.runIntegrationTests, true) }})
   timeoutInMinutes: 75
   pool:
     name: '$(InternalPool)'
@@ -123,6 +133,8 @@ jobs:
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }}'
+      expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'sqlE2eTests_Reindex'
@@ -142,7 +154,8 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=IndexAndReindex'
-        testRunTitleSuffix: ' Reindex'
+        testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} Reindex'
+        expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
 
 - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
   - job: 'sqlE2eTests_BulkUpdate'
@@ -162,4 +175,5 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=BulkUpdate'
-        testRunTitleSuffix: ' BulkUpdate'
+        testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} BulkUpdate'
+        expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
