@@ -438,6 +438,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchResult;
         }
 
+        public override bool IsValidResourceType(string resourceType)
+        {
+            return _model.TryGetResourceTypeId(resourceType, out _);
+        }
+
         private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
         {
             var fhirContext = _requestContextAccessor.RequestContext;

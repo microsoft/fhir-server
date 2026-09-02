@@ -37,6 +37,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
         private IQueueClient _mockQueueClient = Substitute.For<IQueueClient>();
         private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration());
 
+        public SqlExportOrchestratorJobTests()
+        {
+            _mockSearchService.IsValidResourceType(Arg.Any<string>()).Returns(true);
+        }
+
         [Theory]
         [InlineData(ExportJobType.Patient, 100, 100)]
         [InlineData(ExportJobType.Group, 1, 1)]
@@ -103,6 +108,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
             CheckJobsQueued(2, numExpectedJobs * 2);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithInvalidResourceType_WhenRun_ThenJobExecutionExceptionIsThrown()
+        {
+            long orchestratorJobId = 10000;
+
+            _mockSearchService.IsValidResourceType("InvalidType").Returns(false);
+            SetupMockQueue(1, orchestratorJobId);
+
+            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,InvalidType").First();
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+            var ex = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None));
+
+            Assert.Contains("InvalidType", ex.Message);
         }
 
         private IReadOnlyList<JobInfo> GetJobInfoArray(

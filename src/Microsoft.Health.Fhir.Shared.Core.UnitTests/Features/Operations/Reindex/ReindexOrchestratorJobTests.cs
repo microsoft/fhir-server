@@ -987,7 +987,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         Arg.Is<IReadOnlyCollection<string>>(l => l.Contains(searchParam.Url.ToString())),
                         SearchParameterStatus.Disabled,
                         Arg.Any<CancellationToken>(),
-                        Arg.Any<bool>(),
                         Arg.Any<long?>(),
                         Arg.Any<DateTimeOffset?>());
         }
@@ -1038,7 +1037,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     urls.Contains(orphanCustom.Url.OriginalString)),
                 SearchParameterStatus.Deleted,
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
                 Arg.Is<long?>(id => id == jobInfo.Id),
                 Arg.Any<DateTimeOffset?>());
         }
@@ -1088,7 +1086,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<IReadOnlyCollection<string>>(),
                 SearchParameterStatus.Deleted,
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
                 Arg.Is<long?>(id => id == jobInfo.Id),
                 Arg.Any<DateTimeOffset?>());
         }
@@ -1125,7 +1122,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<IReadOnlyCollection<string>>(),
                 SearchParameterStatus.Deleted,
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
                 Arg.Is<long?>(id => id == jobInfo.Id),
                 Arg.Any<DateTimeOffset?>());
         }
@@ -1177,7 +1173,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Is<List<string>>(l => l.Contains(searchParam.Url.ToString())),
                 SearchParameterStatus.Deleted,
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool>(),
                 Arg.Any<long?>());
         }
 
@@ -1828,7 +1823,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                             l.Contains(patientBirthdateParam.Url.ToString())),
                         SearchParameterStatus.Enabled,
                         Arg.Any<CancellationToken>(),
-                        false,
                         Arg.Is<long?>(id => id == jobInfo.Id));
 
                     receivedCall = true;
@@ -2064,7 +2058,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<IReadOnlyCollection<string>>(),
                 SearchParameterStatus.Enabled,
                 Arg.Any<CancellationToken>(),
-                false,
                 Arg.Is<long?>(id => id == jobInfo.Id));
         }
 
@@ -2233,13 +2226,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         Arg.Is<IReadOnlyCollection<string>>(l => l.Contains(searchParamLowercase.Url.ToString())),
                         SearchParameterStatus.Enabled,
                         Arg.Any<CancellationToken>(),
-                        false,
                         Arg.Is<long?>(id => id == jobInfo.Id));
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                         Arg.Is<IReadOnlyCollection<string>>(l => l.Contains(searchParamMixedCase.Url.ToString())),
                         SearchParameterStatus.Deleted,
                         Arg.Any<CancellationToken>(),
-                        false,
                         Arg.Is<long?>(id => id == jobInfo.Id));
         }
 
@@ -2314,14 +2305,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         Arg.Is<IReadOnlyCollection<string>>(l => l.Contains(searchParam1.Url.ToString())),
                         SearchParameterStatus.Disabled,
                         Arg.Any<CancellationToken>(),
-                        false,
                         Arg.Is<long?>(id => id == jobInfo.Id));
 
             await _searchParameterStatusManager.Received().UpdateSearchParameterStatusAsync(
                         Arg.Is<IReadOnlyCollection<string>>(l => l.Contains(searchParam2.Url.ToString())),
                         SearchParameterStatus.Disabled,
                         Arg.Any<CancellationToken>(),
-                        false,
                         Arg.Is<long?>(id => id == jobInfo.Id));
         }
 
