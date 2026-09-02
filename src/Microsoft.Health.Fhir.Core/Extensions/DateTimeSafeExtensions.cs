@@ -52,38 +52,34 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static DateTimeOffset SafeAddTicks(this DateTimeOffset value, long ticks)
         {
-            // Clamp against the representable *local ticks* range for the current offset, so we never throw.
-            long offsetTicks = value.Offset.Ticks;
-            long minTicks = offsetTicks > 0 ? DateTime.MinValue.Ticks + offsetTicks : DateTime.MinValue.Ticks;
-            long maxTicks = offsetTicks < 0 ? DateTime.MaxValue.Ticks + offsetTicks : DateTime.MaxValue.Ticks;
-
             if (ticks == 0)
             {
                 return value;
             }
 
-            if (ticks == long.MinValue)
+            try
             {
-                return new DateTimeOffset(minTicks, value.Offset);
+                return value.AddTicks(ticks);
             }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Calculate max/min representable local ticks for this offset.
+                // UTC = Local - Offset, so Local = UTC + Offset.
+                // Max UTC ticks = DateTimeOffset.MaxValue.Ticks, so max Local ticks = DateTimeOffset.MaxValue.Ticks + Offset.Ticks.
+                // When Offset >= 0, max stays at DateTimeOffset.MaxValue.Ticks (no UTC overflow).
+                // When Offset < 0, max = DateTimeOffset.MaxValue.Ticks + Offset.Ticks (safe addition).
+                long maxTicks = value.Offset.Ticks >= 0
+                    ? DateTimeOffset.MaxValue.Ticks
+                    : DateTimeOffset.MaxValue.Ticks + value.Offset.Ticks;
 
-            if (ticks > 0)
-            {
-                if (value.Ticks >= maxTicks || maxTicks - value.Ticks < ticks)
-                {
-                    return new DateTimeOffset(maxTicks, value.Offset);
-                }
-            }
-            else
-            {
-                long negTicks = -ticks;
-                if (value.Ticks <= minTicks || value.Ticks - minTicks < negTicks)
-                {
-                    return new DateTimeOffset(minTicks, value.Offset);
-                }
-            }
+                long minTicks = value.Offset.Ticks <= 0
+                    ? DateTimeOffset.MinValue.Ticks
+                    : DateTimeOffset.MinValue.Ticks + value.Offset.Ticks;
 
-            return value.AddTicks(ticks);
+                return ticks > 0
+                    ? new DateTimeOffset(maxTicks, value.Offset)
+                    : new DateTimeOffset(minTicks, value.Offset);
+            }
         }
 
         /// <summary>

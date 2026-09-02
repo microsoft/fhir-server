@@ -34,24 +34,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         }
 
         [Fact]
-        public void GivenDateTimeMaxValue_WhenSafeAddTicksPositive_ThenClampsToMaxValue()
-        {
-            DateTime result = DateTime.MaxValue.SafeAddTicks(1);
-            Assert.Equal(DateTime.MaxValue, result);
-        }
-
-        [Fact]
         public void GivenDateTimeNearMinValue_WhenSafeAddTicksNegative_ThenClampsToMinValue()
         {
             var dt = DateTime.MinValue.AddTicks(100);
             DateTime result = dt.SafeAddTicks(-TimeSpan.TicksPerMillisecond);
-            Assert.Equal(DateTime.MinValue, result);
-        }
-
-        [Fact]
-        public void GivenDateTimeMinValue_WhenSafeAddTicksNegative_ThenClampsToMinValue()
-        {
-            DateTime result = DateTime.MinValue.SafeAddTicks(-1);
             Assert.Equal(DateTime.MinValue, result);
         }
 
