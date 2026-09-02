@@ -241,6 +241,10 @@ stages:
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
       expectedFhirSdkProviderDefault: Ignixa
+      expectedKeyVaultName: $(KeyVaultNameSqlVNext)
+      expectedSqlServerName: $(DeploymentEnvironmentName)
+      expectedSqlDatabaseName: FHIRStu3VNext
+      expectedSqlElasticPoolName: $(SqlVNextElasticPoolName)
 
 # *********************** R4 ***********************
 - stage: redeployR4
@@ -328,6 +332,10 @@ stages:
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
       expectedFhirSdkProviderDefault: Ignixa
+      expectedKeyVaultName: $(KeyVaultNameR4SqlVNext)
+      expectedSqlServerName: $(DeploymentEnvironmentName)
+      expectedSqlDatabaseName: FHIRR4VNext
+      expectedSqlElasticPoolName: $(SqlVNextElasticPoolName)
 
 # *********************** R5 ***********************
 - stage: redeployR5Sql
