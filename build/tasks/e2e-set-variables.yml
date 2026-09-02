@@ -90,6 +90,8 @@ steps:
             Write-Host "##vso[task.setvariable variable=$versionVariableName]$url"
         }
 
+        . "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-EffectiveFhirSdkProvider.ps1"
+
         $keyVault = "$(KeyVaultBaseName)-ts"
         Set-SecretsAsPipelineVariables -VaultName $keyVault
 
@@ -106,15 +108,7 @@ steps:
         }
 
         $expectedFhirSdkProviderDefault = '${{ parameters.expectedFhirSdkProviderDefault }}'
-        if (-not [string]::IsNullOrWhiteSpace($expectedFhirSdkProviderDefault)) {
-            $settingName = 'FhirServer__CoreFeatures__FhirSdkProvider__Default'
-            $actualFhirSdkProviderDefault = Get-ContainerEnvValue -EnvSettings $envSettings -Name $settingName
-            if ($actualFhirSdkProviderDefault -ne $expectedFhirSdkProviderDefault) {
-                throw "Container App '$containerAppName' has '$settingName' set to '$actualFhirSdkProviderDefault'; expected '$expectedFhirSdkProviderDefault'."
-            }
-
-            Write-Host "Verified Container App '$containerAppName' uses FHIR SDK provider '$actualFhirSdkProviderDefault'."
-        }
+        Assert-EffectiveFhirSdkProvider -EnvironmentSettings $envSettings -ExpectedProvider $expectedFhirSdkProviderDefault -ContainerAppName $containerAppName
 
         Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
 

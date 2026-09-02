@@ -36,7 +36,7 @@ parameters:
   default: ''
 - name: fhirSdkProviderDefault
   type: string
-  default: 'Firely'
+  default: ''
 - name: keyVaultName
   type: string
 

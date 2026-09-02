@@ -28,7 +28,7 @@ param(
     [Parameter(Mandatory = $false)] [string] $SqlServerName = '',
     [Parameter(Mandatory = $false)] [string] $SqlElasticPoolName = '',
     [Parameter(Mandatory = $false)] [string] $SqlDatabaseName = '',
-    [Parameter(Mandatory = $false)] [ValidateSet('Firely', 'Ignixa')] [string] $FhirSdkProviderDefault = 'Firely',
+    [Parameter(Mandatory = $false)] [ValidateSet('', 'Firely', 'Ignixa')] [string] $FhirSdkProviderDefault = '',
     [Parameter(Mandatory = $false)] [string] $SchemaAutomaticUpdatesEnabled = 'auto',
     [Parameter(Mandatory = $false)] [string] $ReindexEnabled = 'true',
 
@@ -77,6 +77,22 @@ $additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"]
 $additionalProperties["FhirServer__Operations__Import__InMemoryTestEnabled"] = $importInMemoryTestEnabledBool.ToString().ToLowerInvariant()
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
+$fhirSdkProviderSettingName = "FhirServer__CoreFeatures__FhirSdkProvider__Default"
+$sqlDeploymentPlan = $null
+if ($DataStore -eq 'sql') {
+    $configuredFhirSdkProviderDefault = if ($additionalProperties.ContainsKey($fhirSdkProviderSettingName)) {
+        [string]$additionalProperties[$fhirSdkProviderSettingName]
+    } else {
+        ''
+    }
+
+    $sqlDeploymentPlan = & "$PSScriptRoot/Resolve-AcaSqlDeploymentPlan.ps1" `
+        -Version $Version `
+        -SqlDatabaseName $SqlDatabaseName `
+        -FhirSdkProviderDefault $FhirSdkProviderDefault `
+        -ConfiguredFhirSdkProviderDefault $configuredFhirSdkProviderDefault
+}
+
 $staticEnvNames = @(
     "ASPNETCORE_FORWARDEDHEADERS_ENABLED",
     "KeyVault__Endpoint",
@@ -103,7 +119,7 @@ if ($DataStore -eq 'sql') {
         "SqlServer__SchemaOptions__AutomaticUpdatesEnabled",
         "SqlServer__DeleteAllDataOnStartup",
         "SqlServer__AllowDatabaseCreation",
-        "FhirServer__CoreFeatures__FhirSdkProvider__Default"
+        $fhirSdkProviderSettingName
     )
 } else {
     $staticEnvNames += @(
@@ -150,10 +166,6 @@ $resourceGroupName = $ResourceGroup
 # --- Data-store-specific pre-deploy setup ---
 if ($DataStore -eq 'sql') {
     $sqlServerName = $SqlServerName.ToLowerInvariant()
-    $sqlDeploymentPlan = & "$PSScriptRoot/Resolve-AcaSqlDeploymentPlan.ps1" `
-        -Version $Version `
-        -SqlDatabaseName $SqlDatabaseName `
-        -FhirSdkProviderDefault $FhirSdkProviderDefault
     $sqlDatabaseName = $sqlDeploymentPlan.SqlDatabaseName
     $sqlElasticPoolName = $SqlElasticPoolName
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
@@ -287,7 +299,9 @@ $templateParameters = @{
 if ($DataStore -eq 'sql') {
     $templateParameters["sqlServerName"] = $sqlServerName
     $templateParameters["sqlDatabaseName"] = $sqlDatabaseName
-    $templateParameters["fhirSdkProviderDefault"] = $sqlDeploymentPlan.FhirSdkProviderDefault
+    if ($sqlDeploymentPlan.EmitFhirSdkProviderEnvironmentVariable) {
+        $templateParameters["fhirSdkProviderDefault"] = $sqlDeploymentPlan.FhirSdkProviderDefault
+    }
     $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = $SchemaAutomaticUpdatesEnabled
 } else {
     $templateParameters["cosmosDbAccountName"] = $cosmosDbAccountName

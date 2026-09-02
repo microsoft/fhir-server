@@ -130,6 +130,18 @@ stages:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
+  - job: ValidateAcaSqlDeploymentPlan
+    displayName: 'Validate ACA SQL deployment plan'
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: PowerShell@2
+      displayName: 'Validate SQL vNext deployment plan'
+      inputs:
+        filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/tests/Test-AcaSqlVNextDeploymentPlan.ps1'
+        pwsh: true
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -170,28 +182,18 @@ stages:
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
 
-- stage: deployStu3SqlVNext
-  displayName: 'Deploy STU3 SQL vNext SDK Site'
+- stage: redeployStu3SqlVNext
+  displayName: 'Redeploy STU3 SQL vNext SDK Site'
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/redeploy-webapp.yml
     parameters:
-      dataStore: sql
       version: Stu3
       webAppName: $(DeploymentEnvironmentNameSqlVNext)
-      acaEnvironmentName: $(AcaEnvironmentName)
-      keyVaultName: $(KeyVaultNameSqlVNext)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      sqlDatabaseName: FHIRStu3VNext
-      fhirSdkProviderDefault: Ignixa
-      reindexEnabled: true
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
@@ -227,10 +229,7 @@ stages:
   displayName: 'Run Stu3 SQL vNext SDK Tests'
   dependsOn:
   - BuildArtifacts
-  - deployStu3SqlVNext
-  variables:
-    TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
-    TestEnvironmentUrl_Sql: $[stageDependencies.deployStu3SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
+  - redeployStu3SqlVNext
   jobs:
   - template: ./jobs/run-sql-tests.yml
     parameters:
@@ -270,28 +269,18 @@ stages:
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
 
-- stage: deployR4SqlVNext
-  displayName: 'Deploy R4 SQL vNext SDK Site'
+- stage: redeployR4SqlVNext
+  displayName: 'Redeploy R4 SQL vNext SDK Site'
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/redeploy-webapp.yml
     parameters:
-      dataStore: sql
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4SqlVNext)
-      acaEnvironmentName: $(AcaEnvironmentName)
-      keyVaultName: $(KeyVaultNameR4SqlVNext)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      sqlDatabaseName: FHIRR4VNext
-      fhirSdkProviderDefault: Ignixa
-      reindexEnabled: true
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -327,10 +316,7 @@ stages:
   displayName: 'Run R4 SQL vNext SDK Tests'
   dependsOn:
   - BuildArtifacts
-  - deployR4SqlVNext
-  variables:
-    TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
-    TestEnvironmentUrl_Sql: $[stageDependencies.deployR4SqlVNext.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
+  - redeployR4SqlVNext
   jobs:
   - template: ./jobs/run-sql-tests.yml
     parameters:
@@ -379,10 +365,8 @@ stages:
   - BuildUnitTests
   - testStu3Cosmos
   - testStu3Sql
-  - testStu3SqlVNext
   - testR4Cosmos
   - testR4Sql
-  - testR4SqlVNext
   - testR5Sql
   condition: succeeded()
   jobs:
@@ -422,10 +406,8 @@ stages:
   dependsOn:
   - testStu3Cosmos
   - testStu3Sql
-  - testStu3SqlVNext
   - testR4Cosmos
   - testR4Sql
-  - testR4SqlVNext
   - testR5Sql
   jobs:
   - template: ./jobs/docker-add-tag.yml

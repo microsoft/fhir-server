@@ -30,9 +30,9 @@ param sqlServerName string
 @description('SQL database name. Defaults to the version-specific legacy name.')
 param sqlDatabaseName string = 'FHIR${fhirVersion}'
 
-@description('Default FHIR SDK provider. Firely preserves the legacy deployment environment.')
-@allowed(['Firely', 'Ignixa'])
-param fhirSdkProviderDefault string = 'Firely'
+@description('Default FHIR SDK provider. Empty preserves the legacy deployment environment.')
+@allowed(['', 'Firely', 'Ignixa'])
+param fhirSdkProviderDefault string = ''
 
 @description('Schema automatic updates mode.')
 @allowed(['auto', 'tool'])
@@ -87,7 +87,7 @@ var userAssignedIdentities = {
   '${acrPullUserAssignedManagedIdentityResourceId}': {}
 }
 
-var sdkProviderEnvVars = fhirSdkProviderDefault == 'Firely' ? [] : [
+var sdkProviderEnvVars = empty(fhirSdkProviderDefault) ? [] : [
   { name: 'FhirServer__CoreFeatures__FhirSdkProvider__Default', value: fhirSdkProviderDefault }
 ]
 
