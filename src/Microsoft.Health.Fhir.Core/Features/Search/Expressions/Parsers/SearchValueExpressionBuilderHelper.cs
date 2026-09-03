@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     var startTicks = dateTime.Start.UtcTicks;
                     var endTicks = dateTime.End.UtcTicks;
 
-                    var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
+                    var differenceTicks = (long)(Math.Abs(Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
 
                     var approximateStart = dateTime.Start.SafeAddTicks(-differenceTicks);
                     var approximateEnd = dateTime.End.SafeAddTicks(differenceTicks);
