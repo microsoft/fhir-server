@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -35,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 
         private readonly ResourceWrapperFactory _wrapperFactory;
 
-        private readonly FirelyImportResourceParser _importResourceParser;
+        private readonly ImportResourceParser _importResourceParser;
 
         public ImportResourceParserTests()
         {
