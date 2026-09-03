@@ -3,12 +3,37 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#nullable enable
+
 using System;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
     /// <summary>
-    /// Extension methods for <see cref="DateTime"/> and <see cref="DateTimeOffset"/> that clamp
+    /// Defines behavior when DateTime or DateTimeOffset arithmetic overflows.
+    /// </summary>
+    public enum OverflowBehavior
+    {
+        /// <summary>
+        /// Constrain the result to <see cref="DateTime.MinValue"/> or <see cref="DateTime.MaxValue"/>.
+        /// This is the default and safest option.
+        /// </summary>
+        Constrain = 0,
+
+        /// <summary>
+        /// Throw <see cref="ArgumentOutOfRangeException"/> on overflow (same as standard AddTicks/AddDays).
+        /// </summary>
+        Throw = 1,
+
+        /// <summary>
+        /// Return the original value unchanged on overflow.
+        /// </summary>
+        ReturnOriginal = 2,
+    }
+
+    /// <summary>
+    /// Extension methods for <see cref="DateTime"/> and <see cref="DateTimeOffset"/> that constrain
     /// results to <see cref="DateTime.MinValue"/>/<see cref="DateTime.MaxValue"/> instead of
     /// throwing on overflow.
     /// </summary>
@@ -17,40 +42,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         private const long MaxDaysBeforeTicksOverflow = long.MaxValue / TimeSpan.TicksPerDay;
 
         /// <summary>
-        /// Adds the specified number of ticks to a <see cref="DateTime"/>, clamping the result
+        /// Adds the specified number of ticks to a <see cref="DateTime"/>, constraining the result
         /// to <see cref="DateTime.MinValue"/> or <see cref="DateTime.MaxValue"/> on overflow.
         /// </summary>
-        public static DateTime SafeAddTicks(this DateTime value, long ticks)
-        {
-            if (ticks == 0)
-            {
-                return value;
-            }
-
-            if (ticks == long.MinValue)
-            {
-                // Can't negate long.MinValue; adding it always underflows within DateTime's range.
-                return new DateTime(DateTime.MinValue.Ticks, value.Kind);
-            }
-
-            if (ticks > 0 && value.Ticks > DateTime.MaxValue.Ticks - ticks)
-            {
-                return new DateTime(DateTime.MaxValue.Ticks, value.Kind);
-            }
-
-            if (ticks < 0 && value.Ticks < DateTime.MinValue.Ticks - ticks)
-            {
-                return new DateTime(DateTime.MinValue.Ticks, value.Kind);
-            }
-
-            return value.AddTicks(ticks);
-        }
-
-        /// <summary>
-        /// Adds the specified number of ticks to a <see cref="DateTimeOffset"/>, clamping the result
-        /// to the nearest representable value (for the current offset) instead of throwing on overflow.
-        /// </summary>
-        public static DateTimeOffset SafeAddTicks(this DateTimeOffset value, long ticks)
+        /// <param name="value">The DateTime value.</param>
+        /// <param name="ticks">The number of ticks to add.</param>
+        /// <param name="behavior">The behavior to apply on overflow (default: Constrain).</param>
+        /// <param name="logger">Optional logger for overflow events.</param>
+        /// <returns>The result of adding ticks, or constrained/original value based on behavior.</returns>
+        public static DateTime SafeAddTicks(this DateTime value, long ticks, OverflowBehavior behavior = OverflowBehavior.Constrain, ILogger? logger = null)
         {
             if (ticks == 0)
             {
@@ -61,8 +61,60 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             {
                 return value.AddTicks(ticks);
             }
-            catch (ArgumentOutOfRangeException)
+            catch (ArgumentOutOfRangeException ex)
             {
+                logger?.LogWarning(ex, "DateTime.AddTicks overflow: value={DateTime}, ticks={Ticks}", value, ticks);
+
+                if (behavior == OverflowBehavior.Throw)
+                {
+                    throw;
+                }
+
+                if (behavior == OverflowBehavior.ReturnOriginal)
+                {
+                    return value;
+                }
+
+                return ticks > 0
+                    ? new DateTime(DateTime.MaxValue.Ticks, value.Kind)
+                    : new DateTime(DateTime.MinValue.Ticks, value.Kind);
+            }
+        }
+
+        /// <summary>
+        /// Adds the specified number of ticks to a <see cref="DateTimeOffset"/>, constraining the result
+        /// to the nearest representable value (for the current offset) on overflow.
+        /// </summary>
+        /// <param name="value">The DateTimeOffset value.</param>
+        /// <param name="ticks">The number of ticks to add.</param>
+        /// <param name="behavior">The behavior to apply on overflow (default: Constrain).</param>
+        /// <param name="logger">Optional logger for overflow events.</param>
+        /// <returns>The result of adding ticks, or constrained/original value based on behavior.</returns>
+        public static DateTimeOffset SafeAddTicks(this DateTimeOffset value, long ticks, OverflowBehavior behavior = OverflowBehavior.Constrain, ILogger? logger = null)
+        {
+            if (ticks == 0)
+            {
+                return value;
+            }
+
+            try
+            {
+                return value.AddTicks(ticks);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                logger?.LogWarning(ex, "DateTimeOffset.AddTicks overflow: value={DateTimeOffset}, ticks={Ticks}", value, ticks);
+
+                if (behavior == OverflowBehavior.Throw)
+                {
+                    throw;
+                }
+
+                if (behavior == OverflowBehavior.ReturnOriginal)
+                {
+                    return value;
+                }
+
                 // Calculate max/min representable local ticks for this offset.
                 // UTC = Local - Offset, so Local = UTC + Offset.
                 // Max UTC ticks = DateTimeOffset.MaxValue.Ticks, so max Local ticks = DateTimeOffset.MaxValue.Ticks + Offset.Ticks.
@@ -83,31 +135,65 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         }
 
         /// <summary>
-        /// Adds the specified number of days to a <see cref="DateTime"/>, clamping the result
+        /// Adds the specified number of days to a <see cref="DateTime"/>, constraining the result
         /// to <see cref="DateTime.MinValue"/> or <see cref="DateTime.MaxValue"/> on overflow.
         /// </summary>
-        public static DateTime SafeAddDays(this DateTime value, int days)
+        /// <param name="value">The DateTime value.</param>
+        /// <param name="days">The number of days to add.</param>
+        /// <param name="behavior">The behavior to apply on overflow (default: Constrain).</param>
+        /// <param name="logger">Optional logger for overflow events.</param>
+        /// <returns>The result of adding days, or constrained/original value based on behavior.</returns>
+        public static DateTime SafeAddDays(this DateTime value, int days, OverflowBehavior behavior = OverflowBehavior.Constrain, ILogger? logger = null)
         {
             // Detect if days * TimeSpan.TicksPerDay would overflow long.
             if (days > MaxDaysBeforeTicksOverflow || days < -MaxDaysBeforeTicksOverflow)
             {
+                logger?.LogWarning("DateTime.AddDays overflow: value={DateTime}, days={Days}", value, days);
+
+                if (behavior == OverflowBehavior.Throw)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(days));
+                }
+
+                if (behavior == OverflowBehavior.ReturnOriginal)
+                {
+                    return value;
+                }
+
                 return days > 0 ? new DateTime(DateTime.MaxValue.Ticks, value.Kind) : new DateTime(DateTime.MinValue.Ticks, value.Kind);
             }
 
             long ticks = days * TimeSpan.TicksPerDay;
-            return value.SafeAddTicks(ticks);
+            return value.SafeAddTicks(ticks, behavior, logger);
         }
 
         /// <summary>
-        /// Adds the specified number of days to a <see cref="DateTimeOffset"/>, clamping the result
-        /// to the nearest representable value (for the current offset) instead of throwing on overflow.
+        /// Adds the specified number of days to a <see cref="DateTimeOffset"/>, constraining the result
+        /// to the nearest representable value (for the current offset) on overflow.
         /// </summary>
-        public static DateTimeOffset SafeAddDays(this DateTimeOffset value, int days)
+        /// <param name="value">The DateTimeOffset value.</param>
+        /// <param name="days">The number of days to add.</param>
+        /// <param name="behavior">The behavior to apply on overflow (default: Constrain).</param>
+        /// <param name="logger">Optional logger for overflow events.</param>
+        /// <returns>The result of adding days, or constrained/original value based on behavior.</returns>
+        public static DateTimeOffset SafeAddDays(this DateTimeOffset value, int days, OverflowBehavior behavior = OverflowBehavior.Constrain, ILogger? logger = null)
         {
             // Detect if days * TimeSpan.TicksPerDay would overflow long.
             if (days > MaxDaysBeforeTicksOverflow || days < -MaxDaysBeforeTicksOverflow)
             {
-                // Clamp to the representable range for the current offset.
+                logger?.LogWarning("DateTimeOffset.AddDays overflow: value={DateTimeOffset}, days={Days}", value, days);
+
+                if (behavior == OverflowBehavior.Throw)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(days));
+                }
+
+                if (behavior == OverflowBehavior.ReturnOriginal)
+                {
+                    return value;
+                }
+
+                // Constrain to the representable range for the current offset.
                 long offsetTicks = value.Offset.Ticks;
                 long maxTicks = offsetTicks < 0 ? DateTime.MaxValue.Ticks + offsetTicks : DateTime.MaxValue.Ticks;
                 long minTicks = offsetTicks > 0 ? DateTime.MinValue.Ticks + offsetTicks : DateTime.MinValue.Ticks;
@@ -115,7 +201,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             long ticks = days * TimeSpan.TicksPerDay;
-            return value.SafeAddTicks(ticks);
+            return value.SafeAddTicks(ticks, behavior, logger);
         }
     }
 }
