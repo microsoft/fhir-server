@@ -905,9 +905,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.True(resourceTypeParam.IsSupported, $"_type should remain supported after initialization cycle {i + 1}");
             }
 
-            // Also verify that ApplySearchParameterStatus (called during refresh) doesn't
+            // Also verify that ApplySearchParameterStatuses (called during refresh) doesn't
             // affect _type, since it only processes statuses passed to it and _type has none.
-            await statusManager.ApplySearchParameterStatus(
+            await statusManager.ApplySearchParameterStatuses(
                 new[]
                 {
                     new ResourceSearchParameterStatus

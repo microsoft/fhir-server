@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
 
             await _authorizationService.CheckAccess(DataActions.SearchParameter, true, cancellationToken);
 
-            _resourceSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            _resourceSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatuses(cancellationToken);
             Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate = ParseRequestForUpdate(request, out List<OperationOutcomeIssue> invalidSearchParameters);
 
             foreach (var statusGroup in searchParametersToUpdate)
