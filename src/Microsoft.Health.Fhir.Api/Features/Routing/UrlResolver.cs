@@ -342,6 +342,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.BulkDelete:
                     routeName = RouteNames.BulkDeleteDefinition;
                     break;
+                case OperationsConstants.DeleteSearch:
+                    routeName = RouteNames.DeleteSearchOperationDefinition;
+                    break;
                 case OperationsConstants.BulkUpdate:
                     routeName = RouteNames.BulkUpdateDefinition;
                     break;

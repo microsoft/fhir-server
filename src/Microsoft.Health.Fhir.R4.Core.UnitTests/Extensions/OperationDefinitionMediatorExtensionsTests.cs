@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Extensions
         [InlineData("member-match")]
         [InlineData("convert-data")]
         [InlineData("purge-history")]
+        [InlineData("delete-search")]
         public async Task GivenVariousOperationNames_WhenGetOperationDefinitionAsync_ThenCorrectRequestIsSent(string operationName)
         {
             // Arrange

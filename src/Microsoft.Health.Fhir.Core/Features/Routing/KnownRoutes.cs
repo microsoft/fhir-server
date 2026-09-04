@@ -96,6 +96,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string ResourceTypeBulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkDelete;
         public const string BulkDeleteSoftDeletedOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDeleteSoftDeleted;
 
+        public const string DeleteSearch = "$delete-search";
+        public const string DeleteSearchResourceType = ResourceType + "/" + DeleteSearch;
+        public const string DeleteSearchOperationDefinition = OperationDefinition + "/" + OperationsConstants.DeleteSearch;
+
         public const string BulkUpdate = "$bulk-update";
         public const string BulkUpdateResourceType = ResourceType + "/" + BulkUpdate;
         public const string BulkUpdateJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.BulkUpdate + "/" + IdRouteSegment;

@@ -407,6 +407,50 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             Assert.Equal(OperationDefinitionUrl, restComponent.Operation.First().Definition?.Reference, StringComparer.OrdinalIgnoreCase);
         }
 
+        [Fact]
+        public async Task GivenAConformanceBuilder_WhenCallingOperationsCapability_ThenDeleteSearchDetailsAreAdded()
+        {
+            var provider = new OperationsCapabilityProvider(
+                _operationsOptions,
+                _featureOptions,
+                _coreFeatureOptions,
+                _implementationGuidesOptions,
+                _watchdogOptions,
+                _urlResolver,
+                _fhirRuntimeConfiguration);
+            ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
+
+            await provider.BuildAsync(builder, CancellationToken.None);
+
+            builder.Received(1)
+                .Apply(Arg.Is<Action<ListedCapabilityStatement>>(x => x.Method.Name == nameof(OperationsCapabilityProvider.AddDeleteSearchDetails)));
+        }
+
+        [Fact]
+        public void GivenProvider_WhenAddingDetails_ThenDeleteSearchOperationShouldBeAdded()
+        {
+            var provider = new OperationsCapabilityProvider(
+                _operationsOptions,
+                _featureOptions,
+                _coreFeatureOptions,
+                _implementationGuidesOptions,
+                _watchdogOptions,
+                _urlResolver,
+                _fhirRuntimeConfiguration);
+            var restComponent = new ListedRestComponent
+            {
+                Mode = ListedCapabilityStatement.ServerMode,
+            };
+            var capabilityStatement = new ListedCapabilityStatement();
+            capabilityStatement.Rest.Add(restComponent);
+
+            provider.AddDeleteSearchDetails(capabilityStatement);
+
+            Assert.Single(restComponent.Operation);
+            Assert.Equal(OperationsConstants.DeleteSearch, restComponent.Operation.First().Name, StringComparer.OrdinalIgnoreCase);
+            Assert.Equal(OperationDefinitionUrl, restComponent.Operation.First().Definition?.Reference, StringComparer.OrdinalIgnoreCase);
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
