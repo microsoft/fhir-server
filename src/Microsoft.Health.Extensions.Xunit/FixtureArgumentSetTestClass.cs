@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Xunit.Sdk;
 using Xunit.v3;
@@ -34,11 +35,13 @@ namespace Microsoft.Health.Extensions.Xunit
     /// reflected <c>uniqueID</c> survives for free because the base serializes the field that was set.
     /// </para>
     /// </remarks>
-    internal sealed class FixtureArgumentSetTestClass : XunitTestClass, IXunitSerializable
+    internal sealed class FixtureArgumentSetTestClass : XunitTestClass, IXunitSerializable, ITestClassMetadata
     {
         private static readonly FieldInfo UniqueIdField =
             typeof(XunitTestClass).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("XunitTestClass.uniqueID (private) was not found. The xunit.v3 3.2.2 pin has changed; per-variant class identity cannot be set.");
+
+        private readonly Lazy<IReadOnlyDictionary<string, IReadOnlyCollection<string>>> _traits;
 
 #pragma warning disable CS0618 // The base parameterless constructor is obsolete but is required by the IXunitSerializable deserializer.
         /// <summary>
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Extensions.Xunit
         /// </summary>
         public FixtureArgumentSetTestClass()
         {
+            _traits = new(CreateTraits);
         }
 #pragma warning restore CS0618
 
@@ -55,6 +59,7 @@ namespace Microsoft.Health.Extensions.Xunit
             : base(type, collection)
         {
             Flags = flags;
+            _traits = new(CreateTraits);
             UniqueIdField.SetValue(this, uniqueId);
         }
 
@@ -62,6 +67,28 @@ namespace Microsoft.Health.Extensions.Xunit
         /// Gets the single-bit flag values (one per dimension) that identify this variant.
         /// </summary>
         public SingleFlag[] Flags { get; private set; }
+
+        // Native methods and deferred theory rows inherit traits through the class metadata interface.
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> ITestClassMetadata.Traits => _traits.Value;
+
+        private Dictionary<string, IReadOnlyCollection<string>> CreateTraits()
+        {
+            var traits = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, IReadOnlyCollection<string>> trait in Traits)
+            {
+                traits[trait.Key] = new List<string>(trait.Value);
+            }
+
+            foreach (SingleFlag flag in Flags)
+            {
+                string key = flag.EnumValue.GetType().Name;
+                var values = traits.TryGetValue(key, out IReadOnlyCollection<string> existing) ? new List<string>(existing) : new List<string>();
+                values.Add(flag.EnumValue.ToString());
+                traits[key] = values;
+            }
+
+            return traits;
+        }
 
 #pragma warning disable SA1100 // base. is REQUIRED: the sealed (virtual final) base Serialize/Deserialize cannot be reached via this. from an explicit interface implementation.
         void IXunitSerializable.Serialize(IXunitSerializationInfo info)
