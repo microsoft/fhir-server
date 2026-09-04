@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
@@ -94,7 +95,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _urlResolver,
                 _configuration,
                 _authorizationService,
-                _searchParameterOperations);
+                _searchParameterOperations,
+                NullLogger<FhirController>.Instance);
             _fhirController.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),

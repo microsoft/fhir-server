@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
-            _searchParameterOperations.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>(), Arg.Any<bool>()).Returns(Task.CompletedTask);
+            _searchParameterOperations.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
             var searchParamDefinitionStore = new List<SearchParameterInfo>
             {
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
             Assert.True(urlPart.Value.ToString() == ResourceId);
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.Supported.ToString());
-            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.Supported, Arg.Any<CancellationToken>(), false);
+            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.Supported, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
             Assert.True(urlPart.Value.ToString() == ResourceId);
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.PendingDisable.ToString());
-            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.PendingDisable, Arg.Any<CancellationToken>(), false);
+            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.PendingDisable, Arg.Any<CancellationToken>());
         }
 
         [Fact]

@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
@@ -33,8 +34,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// </summary>
         /// <param name="versionsResult">The result for the versions operation.</param>
         /// <param name="statusCode">The HTTP status code.</param>
-        public OperationVersionsResult(VersionsResult versionsResult, HttpStatusCode statusCode)
-            : base(versionsResult, statusCode)
+        /// <param name="logger">The logger.</param>
+        public OperationVersionsResult(VersionsResult versionsResult, HttpStatusCode statusCode, ILogger logger)
+            : base(versionsResult, statusCode, logger)
         {
             EnsureArg.IsNotNull(versionsResult, nameof(versionsResult));
             _versionsResult = versionsResult;

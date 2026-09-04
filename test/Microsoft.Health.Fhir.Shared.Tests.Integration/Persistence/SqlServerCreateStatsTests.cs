@@ -191,9 +191,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // and must NOT fan out a stat for every base resource type of the parameter.
             const string resourceType = "Patient";
             var query = new[] { Tuple.Create("gender:missing", "true") };
+            var statsBefore = SqlServerSearchService.GetStatsFromCache().ToHashSet();
+
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
-            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache().ToList();
+            var newStatsFromCache = statsFromCache.Where(stat => !statsBefore.Contains(stat)).ToList();
             foreach (var stat in statsFromCache)
             {
                 _output.WriteLine($"cache {stat}");
@@ -210,8 +213,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.SearchParamId == genderParamId);
 
             // The BaseResourceTypes fallback is intentionally not used for NotExists, so the gender stat is
-            // never created for any resource type other than the one in the search URL.
-            Assert.DoesNotContain(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+            // not newly created for any resource type other than the one in the search URL. Existing entries
+            // are ignored because earlier tests may populate the process-wide cache. This test class belongs
+            // to a non-parallel collection, so no other test can modify the cache between the two snapshots.
+            Assert.DoesNotContain(newStatsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId != patientResourceTypeId
                   && _.SearchParamId == genderParamId);

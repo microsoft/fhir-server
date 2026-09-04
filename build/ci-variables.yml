@@ -25,3 +25,4 @@ variables:
     searchParameterCacheRefreshIntervalSeconds: 2
     systemConformanceProviderRefreshIntervalSeconds: 5
     reindexCacheRefreshWaitMultiplier: 6
+    reindexJobsPollingIntervalSec: 1

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Features.RuntimeState;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -135,9 +136,11 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             IFhirRuntimeConfiguration configuration = Substitute.For<IFhirRuntimeConfiguration>();
             configuration.RuntimeState.Returns(runtimeState);
 
+            IHttpInboundRequestLogger inboundRequestLogger = Substitute.For<IHttpInboundRequestLogger>();
+
             ILogger<RuntimeStateMiddleware> logger = Substitute.For<ILogger<RuntimeStateMiddleware>>();
 
-            return new RuntimeStateMiddleware(next, configuration, logger);
+            return new RuntimeStateMiddleware(next, configuration, inboundRequestLogger, logger);
         }
 
         private static DefaultHttpContext CreateContext(string method, string path)

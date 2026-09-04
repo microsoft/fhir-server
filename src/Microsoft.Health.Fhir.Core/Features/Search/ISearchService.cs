@@ -110,8 +110,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool activeOnly = false);
 
+        Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, CancellationToken cancellationToken);
+
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Determines whether the specified resource type name is valid for the current FHIR version and storage backend.
+        /// </summary>
+        /// <param name="resourceType">The resource type name to validate.</param>
+        /// <returns><c>true</c> if the resource type is recognized; otherwise, <c>false</c>.</returns>
+        bool IsValidResourceType(string resourceType);
     }
 }

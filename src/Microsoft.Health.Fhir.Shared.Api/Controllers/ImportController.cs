@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.ProcessingUnitBytesToRead,
                  HttpContext.RequestAborted);
 
-            var bulkImportResult = ImportResult.Accepted();
+            var bulkImportResult = ImportResult.Accepted(_logger);
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
             return bulkImportResult;
         }
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CancelImportResponse response = await _mediator.CancelImportAsync(idParameter, HttpContext.RequestAborted);
 
             _logger.LogInformation("CancelImport {StatusCode}", response.StatusCode);
-            return new ImportResult(response.StatusCode);
+            return new ImportResult(response.StatusCode, _logger);
         }
 
         [HttpGet]
@@ -158,18 +158,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ImportResult bulkImportActionResult;
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
-                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.JobResult);
+                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.JobResult, _logger);
                 bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
             }
             else
             {
                 if (getBulkImportResult.JobResult == null)
                 {
-                    bulkImportActionResult = ImportResult.Accepted();
+                    bulkImportActionResult = ImportResult.Accepted(_logger);
                 }
                 else
                 {
-                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.JobResult);
+                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.JobResult, _logger);
                     bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
                 }
             }

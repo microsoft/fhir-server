@@ -36,6 +36,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
         private List<JobInfo> _enqueuedJobs = [];
         private long _orchestratorJobId = 10000;
 
+        public CosmosExportOrchestratorJobTests()
+        {
+            _mockSearchService.IsValidResourceType(Arg.Any<string>()).Returns(true);
+        }
+
         [Theory]
         [InlineData(ExportJobType.Patient)]
         [InlineData(ExportJobType.Group)]
@@ -164,6 +169,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
             CheckJobsQueued(numExpectedEnqueueCalls - numJobsBeforeStop, numExpectedJobs);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithInvalidResourceType_WhenRun_ThenJobExecutionExceptionIsThrown()
+        {
+            _mockSearchService.IsValidResourceType("InvalidType").Returns(false);
+
+            var initialJobList = CreateOrchestratorJobList(_orchestratorJobId, isParallel: true, typeFilter: "Patient,InvalidType");
+            SetupMockQueue(_orchestratorJobId, initialJobList.ToList());
+            var orchestratorJobInfo = initialJobList.First();
+
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService.CreateMockScopeFactory(), _logger);
+            var ex = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
+
+            Assert.Contains("InvalidType", ex.Message);
         }
 
         private List<JobInfo> CreateOrchestratorJobList(
