@@ -46,6 +46,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenABundleWithAnEntryThatHasNoResource_WhenValidated_ThenNoInternalLogicFailureIsReturned()
+        {
+            // A transaction bundle that mixes entries carrying a resource with a DELETE entry that carries only a
+            // request. Resolving the reference in the first entry forces the Firely bundle cache to build, which
+            // walks every entry looking for a "resource" child - including the resource-less one.
+            var bundleAsString = Samples.GetJson("Bundle-TransactionWithResourcelessEntry");
+
+            OperationOutcome outcome = await _client.ValidateAsync("Bundle/$validate", bundleAsString);
+
+            // Ordinary validation issues are expected and fine. $validate returns HTTP 200 with the outcome in the
+            // body, so a catastrophic internal failure here would otherwise be invisible to status-code telemetry.
+            Assert.DoesNotContain(
+                outcome.Issue,
+                issue => issue.Details?.Text?.Contains("Internal logic failure", StringComparison.OrdinalIgnoreCase) == true
+                    || (issue.Severity == OperationOutcome.IssueSeverity.Fatal
+                        && issue.Details?.Coding?.Any(coding => string.Equals(coding.Code, "5003", StringComparison.Ordinal)) == true));
+        }
+
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallel()
         {
