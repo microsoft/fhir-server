@@ -785,6 +785,33 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
 
+        [Fact]
+        public async Task GivenIncrementalLoad_WithInMemorySource_ResourcesAreImportedSuccessfully()
+        {
+            // "inmemorytest" is a reserved scheme served by AzureBlobIntegrationDataStoreClient from an embedded,
+            // production-distribution-representative 1000-resource sample, instead of real Azure Storage. It is
+            // only active when FhirServer:Operations:IntegrationDataStore:EnableTestSourceOverride is set to true,
+            // which InProcTestFhirServer does for E2E test runs. See InMemoryTestIntegrationDataSource.cs.
+            var location = new Uri("inmemorytest://whatever");
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false);
+            var result = await ImportCheckAsync(request, null, 0);
+            var totalImported = result.Output.Sum(o => o.Count);
+            Assert.Equal(1000, totalImported);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
+        {
+            // Multiple distinct inmemorytest:// URLs (with different suffixes) all serve the same embedded payload.
+            // This allows testing of multi-file imports without needing separate real storage blobs.
+            var location1 = new Uri("inmemorytest://whatever-1");
+            var location2 = new Uri("inmemorytest://whatever-2");
+            var request = CreateImportRequest(new[] { location1, location2 }, ImportMode.IncrementalLoad, setResourceType: false);
+            var result = await ImportCheckAsync(request, null, 0);
+            var totalImported = result.Output.Sum(o => o.Count);
+            Assert.Equal(2000, totalImported);
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]

@@ -49,6 +49,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
+            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            {
+                return InMemoryTestIntegrationDataSource.GetStream(startOffset);
+            }
+
             return new AzureBlobSourceStream(async () => await _integrationDataStoreClientInitializer.GetAuthorizedBlobClientAsync(resourceUri), startOffset, _logger);
         }
 
@@ -163,6 +168,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
+            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            {
+                return InMemoryTestIntegrationDataSource.GetProperties();
+            }
+
             try
             {
                 return await _integrationStoreRetryExceptionPolicyFactory
@@ -202,6 +212,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
+            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            {
+                return InMemoryTestIntegrationDataSource.AcquireLease();
+            }
+
             try
             {
                 BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
@@ -224,6 +239,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         public async Task TryReleaseLeaseAsync(Uri resourceUri, string leaseId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+
+            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            {
+                return;
+            }
 
             try
             {

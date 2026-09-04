@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<ImportController> _logger;
         private readonly ImportJobConfiguration _importConfig;
         private readonly Uri _configuredStorageAccountUri;
+        private readonly bool _enableTestSourceOverride;
 
         public ImportController(
             IMediator mediator,
@@ -86,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _urlResolver = urlResolver;
             _features = features.Value;
             _configuredStorageAccountUri = GetConfiguredStorageAccountUri(integrationDataStoreConfiguration.Value);
+            _enableTestSourceOverride = integrationDataStoreConfiguration.Value.EnableTestSourceOverride;
             _mediator = mediator;
             _logger = logger;
         }
@@ -251,6 +253,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private bool IsConfiguredStorageAccountEndpoint(Uri inputUri)
         {
+            // Only recognized when explicitly enabled via IntegrationDataStore:EnableTestSourceOverride; this
+            // never applies in a production deployment, where the flag defaults to false.
+            if (_enableTestSourceOverride
+                && string.Equals(inputUri.Scheme, IntegrationDataStoreClientConstants.InMemoryTestSourceScheme, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
             if (_configuredStorageAccountUri == null)
             {
                 return false;
