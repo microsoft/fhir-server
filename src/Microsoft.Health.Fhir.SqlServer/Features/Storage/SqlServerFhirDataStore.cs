@@ -873,6 +873,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 resource.PendingSearchParameterStatus = (ResourceSearchParameterStatus)value;
                 _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+                _logger.LogInformation($"SetAndClearPendingSearchParameterStatus: uri={resource.PendingSearchParameterStatus.Uri} status={resource.PendingSearchParameterStatus.Status} previousUri={resource.PendingSearchParameterStatus.PreviousUri}");
             }
         }
 

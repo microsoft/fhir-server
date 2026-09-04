@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await RefreshSearchParameterCache(true);
 
-                _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _jobInfo.Status);
+                _logger.LogJobInformation(_jobInfo, $"The reindex job started. Id={_jobInfo.Id} isSql={_isSql}");
 
                 await CreateReindexProcessingJobsAsync();
 
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task RefreshSearchParameterCache(bool isReindexStart)
         {
             var suffix = isReindexStart ? "Start" : "End";
-            _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
+            _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null);
 
             if (_isSql)
@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (!isConsistent)
                 {
                     var msg = "Unable to sync search parameter cache. Please resubmit reindex. If issue persists please contact your administrator.";
-                    _logger.LogJobError(_jobInfo, msg);
+                    _logger.LogJobError(_jobInfo, $"Reindex: {msg}");
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Error", msg, null);
                     AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
                     throw new JobExecutionException(msg, _result, false);
@@ -230,11 +230,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     if (result.IsConsistent)
                     {
-                        _logger.LogJobInformation(_jobInfo, $"Cache sync check: All {result.ActiveHosts} active host(s) have converged to SearchParamLastUpdated={_searchParameterOperations.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}.");
+                        _logger.LogJobInformation(_jobInfo, $"Reindex: Cache sync check: All {result.ActiveHosts} active host(s) have converged to SearchParamLastUpdated={_searchParameterOperations.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}.");
                         break;
                     }
 
-                    _logger.LogJobInformation(_jobInfo, $"Cache sync check: {result.ConvergedHosts}/{result.ActiveHosts} hosts synced. Waiting...");
+                    _logger.LogJobInformation(_jobInfo, $"Reindex: Cache sync check: {result.ConvergedHosts}/{result.ActiveHosts} hosts synced. Waiting...");
                     await Task.Delay(waitInterval, cancellationToken);
                 }
 
@@ -244,19 +244,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task DeleteOrphans()
         {
-            _logger.LogJobInformation(_jobInfo, "DeleteOrphans: Starting...");
+            _logger.LogJobInformation(_jobInfo, "Reindex.DeleteOrphans: Starting...");
 
-            var all = (await _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)).Select(_ => _.Uri.OriginalString).ToList();
+            var all = (await _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)).Select(_ => _.Uri.OriginalString).ToList();
             var systemDefined = new HashSet<string>(_searchParameterDefinitionManager.AllSearchParameters.Where(p => p.IsSystemDefined).Select(p => p.Url.OriginalString));
             var custom = all.Where(_ => !systemDefined.Contains(_)).ToList();
-            _logger.LogJobInformation(_jobInfo, $"DeleteOrphans: Custom params total={custom.Count}.");
+            _logger.LogJobInformation(_jobInfo, $"Reindex.DeleteOrphans: Custom params total={custom.Count}.");
 
             var searchParamsWithResources = await _retries.ExecuteAsync(async () => await _searchParameterOperations.GetSearchParametersByUrlsAsync(custom, _cancellationToken));
 
             var toMarkDeleted = new List<string>();
             foreach (var url in custom.Where(_ => !searchParamsWithResources.ContainsKey(_)))
             {
-                _logger.LogJobWarning(_jobInfo, $"DeleteOrphans: {url} - Resource not found.");
+                _logger.LogJobWarning(_jobInfo, $"Reindex.DeleteOrphans: {url} - Resource not found.");
                 toMarkDeleted.Add(url);
             }
 
@@ -264,18 +264,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 await _retries.ExecuteAsync(
                     async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(toMarkDeleted, SearchParameterStatus.Deleted, _cancellationToken, reindexId: _jobInfo.Id));
-                _logger.LogJobInformation(_jobInfo, $"DeleteOrphans: {toMarkDeleted.Count} search parameter(s) marked as Deleted.");
+                _logger.LogJobInformation(_jobInfo, $"Reindex.DeleteOrphans: {toMarkDeleted.Count} search parameter(s) marked as Deleted.");
             }
 
-            _logger.LogJobInformation(_jobInfo, "DeleteOrphans: Completed.");
+            _logger.LogJobInformation(_jobInfo, "Reindex.DeleteOrphans: Completed.");
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync()
         {
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             var targetStatuses = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingHardDelete, SearchParameterStatus.PendingDisable };
-            var searchParams = (await _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)).Where(_ => targetStatuses.Contains(_.Status)).ToList();
-            _logger.LogJobInformation(_jobInfo, $"CreateReindexProcessingJobsAsync: Get search param(s) for processing. Total={searchParams.Count}.");
+            var searchParams = (await _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)).Where(_ => targetStatuses.Contains(_.Status)).ToList();
+            _logger.LogJobInformation(_jobInfo, $"Reindex.CreateReindexProcessingJobsAsync: Get search param(s) for processing. Total={searchParams.Count}.");
 
             // Filter to only those search parameters which have valid definitions
             var targetParams = new List<SearchParameterInfo>();
@@ -284,13 +284,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(validUrl, out var param))
                 {
                     targetParams.Add(param);
-                    var msg = $"GetDefinitionFromCache: {validUrl} status={param.SearchParameterStatus}";
+                    var msg = $"Reindex.GetDefinitionFromCache: url=[{validUrl}] status={param.SearchParameterStatus}";
                     _logger.LogJobInformation(_jobInfo, msg);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}", "Warn", msg, null);
                 }
                 else
                 {
-                    var msg = $"GetDefinitionFromCache: {validUrl} not found in cache.";
+                    var msg = $"Reindex.GetDefinitionFromCache: url=[{validUrl}] not found in cache.";
                     AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
                     throw new JobExecutionException(msg, _result, false);
                 }
@@ -373,7 +373,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var startId = 0L;
                     var endId = long.MaxValue;
 
-                    _logger.LogJobInformation(_jobInfo, "Fetching and enqueueing surrogate ID ranges for resource type {ResourceType} in batches of {BatchSize}. StartId={StartId}, EndId={EndId}", resourceType, numberOfRangesPerBatch, startId, endId);
+                    _logger.LogJobInformation(_jobInfo, $"Reindex: Fetching and enqueueing surrogate ID ranges for resource type {resourceType} in batches of {numberOfRangesPerBatch}. StartId={startId}, EndId={endId}");
 
                     using var searchService = _searchServiceFactory();
                     IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
@@ -394,20 +394,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     while (ranges.Any());
 
-                    _logger.LogJobInformation(_jobInfo, "Completed fetching and enqueueing {RangeCount} surrogate ID ranges for resource type {ResourceType}.", totalRangesEnqueued, resourceType);
+                    _logger.LogJobInformation(_jobInfo, $"Reindex: Completed fetching and enqueueing {totalRangesEnqueued} surrogate ID ranges for resource type {resourceType}.");
                 }
                 else
                 {
                     // Cosmos does not support surrogate ID ranges, so a single processing job is created per resource type.
                     // That job drains all continuation tokens internally, fetching and writing one batch at a time.
                     var resourceCount = _resourceCounts[resourceType]; // Resource counts are calculated only for Cosmos
-                    _logger.LogJobInformation(_jobInfo, "Creating single processing job for resource type {ResourceType}. Total resource count: {Count}.", resourceType, resourceCount.Count);
+                    _logger.LogJobInformation(_jobInfo, $"Reindex: Creating single processing job for resource type {resourceType}. Total resource count: {resourceCount.Count}.");
                     var processingRanges = new List<(long StartId, long EndId, int Count)>() { (0L, 0L, (int)resourceCount.Count) };
 
                     IReadOnlyList<long> batchJobIds;
                     if (existingCosmosJobs.TryGetValue(resourceType, out var existingJobIds))
                     {
-                        _logger.LogJobInformation(_jobInfo, "Skipping Cosmos processing job creation for resource type {ResourceType}. Reusing {Count} existing job(s).", resourceType, existingJobIds.Count);
+                        _logger.LogJobInformation(_jobInfo, $"Reindex: Skipping Cosmos processing job creation for resource type {resourceType}. Reusing {existingJobIds.Count} existing job(s).");
                         batchJobIds = existingJobIds;
                     }
                     else
@@ -420,10 +420,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     allEnqueuedJobIds.AddRange(batchJobIds);
                 }
 
-                _logger.LogJobInformation(_jobInfo, "Created jobs for resource type {ResourceType} with {Count} valid search parameters: {SearchParams}", resourceType, urlsToProcess.Count, string.Join(", ", urlsToProcess));
+                _logger.LogJobInformation(_jobInfo, $"Reindex: Created jobs for resource type {resourceType} with {urlsToProcess.Count} search parameters. urls=[{string.Join(", ", urlsToProcess)}]");
             }
 
-            _logger.LogJobInformation(_jobInfo, "Enqueued {Count} total query processing jobs.", allEnqueuedJobIds.Count);
+            _logger.LogJobInformation(_jobInfo, $"Reindex: Enqueued {allEnqueuedJobIds.Count} processing jobs.");
             return allEnqueuedJobIds;
         }
 
@@ -495,12 +495,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 var jobIds = await _timeoutRetries.ExecuteAsync(
                     async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, _cancellationToken)).Select(job => job.Id).ToList());
-                _logger.LogJobInformation(_jobInfo, "Enqueued batch of {Count} jobs for resource type {ResourceType}.", jobIds.Count, resourceType);
+                _logger.LogJobInformation(_jobInfo, $"Reindex: Enqueued batch of {jobIds.Count} jobs for resource type {resourceType}.");
                 return jobIds;
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Failed to enqueue jobs for resource type {ResourceType}.", resourceType);
+                _logger.LogJobError(ex, _jobInfo, $"Reindex: Failed to enqueue jobs for resource type {resourceType}.");
                 throw;
             }
         }
@@ -540,7 +540,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                var msg = $"Error running reindex query for resource type {resourceType}.";
+                var msg = $"Reindex: Error running cosmos query for resource type {resourceType}.";
                 _logger.LogJobError(ex, _jobInfo, msg);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
                 throw new JobExecutionException(msg, _result, false);
@@ -559,7 +559,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                     : spStatus == SearchParameterStatus.Supported || spStatus == SearchParameterStatus.Enabled
                                         ? SearchParameterStatus.Enabled
                                         : throw new InvalidOperationException("Unexpected input status");
-                _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to {Status}.", searchParameterUrl, output);
+                _logger.LogJobInformation(_jobInfo, $"Reindex: updating status of fully reindexed search parameter. url=['{searchParameterUrl}'] status={output}.");
 
                 if (output == SearchParameterStatus.Deleted)
                 {
@@ -626,7 +626,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _result.SucceededResources += succeededResourceCount;
                         _result.FailedResources += def.ResourceCount.Count - succeededResourceCount;
 
-                        var msg = $"Processing job = {job.Id} failed. Resource type = {def.ResourceType}{(result == null ? "." : " Error = " + result.Error)}";
+                        var msg = $"Reindex: processing job = {job.Id} failed. Resource type = {def.ResourceType}{(result == null ? "." : " Error = " + result.Error)}";
                         _logger.LogJobError(_jobInfo, msg);
                         AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
 
@@ -659,7 +659,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.Count == 0);
             if (allJobsComplete)
             {
-                _logger.LogJobInformation(_jobInfo, $"Finished processing jobs. Completed={_result.CompletedJobs} created={_result.CreatedJobs}");
+                _logger.LogJobInformation(_jobInfo, $"Reindex: Finished processing jobs. Completed={_result.CompletedJobs} created={_result.CreatedJobs}");
             }
         }
 
