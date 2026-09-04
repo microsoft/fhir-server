@@ -279,6 +279,49 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [Fact]
+        public async Task GivenABundleWithAnEntryThatHasNoResource_WhenValidateCalled_ThenNoInternalLogicFailureIsReturned()
+        {
+            // A transaction bundle that mixes entries carrying a resource with a DELETE entry that carries only a
+            // request. Resolving the reference in the first entry forces the bundle cache to build, which walks
+            // every entry looking for a "resource" child - including the resource-less one.
+            var payload = @"{
+                ""resourceType"": ""Bundle"",
+                ""type"": ""transaction"",
+                ""entry"": [
+                    {
+                        ""fullUrl"": ""urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0002"",
+                        ""resource"": {
+                            ""resourceType"": ""Patient"",
+                            ""managingOrganization"": { ""reference"": ""urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0001"" }
+                        },
+                        ""request"": { ""method"": ""POST"", ""url"": ""Patient"" }
+                    },
+                    {
+                        ""fullUrl"": ""urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0001"",
+                        ""resource"": {
+                            ""resourceType"": ""Organization"",
+                            ""name"": ""Contoso Health""
+                        },
+                        ""request"": { ""method"": ""POST"", ""url"": ""Organization"" }
+                    },
+                    {
+                        ""request"": { ""method"": ""DELETE"", ""url"": ""Patient/does-not-exist"" }
+                    }
+                ]
+            }";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Bundle/$validate", payload);
+
+            // Ordinary validation issues are expected and fine. $validate returns HTTP 200 with the outcome in the
+            // body, so a catastrophic internal failure here would otherwise be invisible to status-code telemetry.
+            Assert.DoesNotContain(
+                outcome.Issue,
+                issue => issue.Details?.Text?.Contains("Internal logic failure", StringComparison.OrdinalIgnoreCase) == true
+                    || (issue.Severity == OperationOutcome.IssueSeverity.Fatal
+                        && issue.Details?.Coding?.Any(coding => string.Equals(coding.Code, "5003", StringComparison.Ordinal)) == true));
+        }
+
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,
             OperationOutcome.IssueSeverity? expectedSeverity,
