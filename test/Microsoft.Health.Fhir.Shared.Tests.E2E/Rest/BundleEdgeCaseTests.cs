@@ -46,8 +46,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
         public async Task GivenABundleWithAnEntryThatHasNoResource_WhenValidated_ThenNoInternalLogicFailureIsReturned()
         {
+            // The payload is posted as a raw JSON string, so this test is JSON-only - the Xml argument set would
+            // set an Xml content type and fail to parse it.
             // A transaction bundle that mixes entries carrying a resource with a DELETE entry that carries only a
             // request. Resolving the reference in the first entry forces the Firely bundle cache to build, which
             // walks every entry looking for a "resource" child - including the resource-less one.
