@@ -2432,7 +2432,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var orchestrator = CreateReindexOrchestratorJob();
 
             var ex = await Assert.ThrowsAsync<JobExecutionException>(() => orchestrator.ExecuteAsync(jobInfo, _cancellationToken));
-            var expectedMessage = $"GetDefinitionFromCache: {missingUrl} not found in cache.";
+            var expectedMessage = $"Reindex.GetDefinitionFromCache: url=[{missingUrl}] not found in cache.";
 
             Assert.Contains(expectedMessage, ex.Message);
             var result = Assert.IsType<ReindexOrchestratorJobResult>(ex.Error);
