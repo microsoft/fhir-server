@@ -207,8 +207,8 @@ namespace Microsoft.Health.Extensions.Xunit
 
         // Emit one execution-error case per (method, variant) so a discovery failure fails loudly and carries the variant
         // traits. The fault path deliberately builds cases from the base XunitTestMethod and attaches best-effort raw
-        // trait values; it never re-enters FixtureArgumentSetTestClass, whose reflection
-        // point may be what failed when a fault needs reporting. A fault handler that re-triggered that same failure
+        // trait values; it never retries the variant construction that may have failed.
+        // A fault handler that re-triggered that same failure
         // would throw out of discovery, which v3 swallows - the class would vanish and the run would still exit 0.
         private static async ValueTask<bool> ReportFault(IXunitTestClass testClass, IEnumerable<MethodInfo> methods, SingleFlag[][] variants, Exception ex, Func<ITestCase, ValueTask<bool>> callback)
         {
