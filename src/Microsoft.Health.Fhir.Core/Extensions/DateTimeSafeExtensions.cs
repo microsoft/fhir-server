@@ -16,7 +16,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     public enum OverflowBehavior
     {
         /// <summary>
-        /// Constrain the result to <see cref="DateTime.MinValue"/> or <see cref="DateTime.MaxValue"/>.
+        /// Constrain the result to representable bounds. For DateTime, this is <see cref="DateTime.MinValue"/> or <see cref="DateTime.MaxValue"/>.
+        /// For DateTimeOffset with a non-zero offset, the bounds are adjusted to the nearest representable value for that offset.
         /// This is the default and safest option.
         /// </summary>
         Constrain = 0,
@@ -33,9 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     }
 
     /// <summary>
-    /// Extension methods for <see cref="DateTime"/> and <see cref="DateTimeOffset"/> that constrain
-    /// results to <see cref="DateTime.MinValue"/>/<see cref="DateTime.MaxValue"/> instead of
-    /// throwing on overflow.
+    /// Extension methods for <see cref="DateTime"/> and <see cref="DateTimeOffset"/> that provide safe arithmetic
+    /// operations with configurable overflow behavior. Default behavior constrains results to representable bounds
+    /// instead of throwing on overflow. For DateTime, bounds are <see cref="DateTime.MinValue"/>/<see cref="DateTime.MaxValue"/>.
+    /// For DateTimeOffset, bounds are adjusted to the nearest representable values for the current offset.
     /// </summary>
     public static class DateTimeSafeExtensions
     {
