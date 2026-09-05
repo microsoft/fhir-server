@@ -537,7 +537,16 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ExportOperationCompleted", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Export operations ($export) are not supported within batch or transaction bundles. Please submit export requests as standalone operations..
+        /// </summary>
+        internal static string ExportOperationNotSupportedInBundle {
+            get {
+                return ResourceManager.GetString("ExportOperationNotSupportedInBundle", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The FHIR Server ran out of memory while processing an export job. Please use the _maxCount parameter when requesting an export job to reduce the number of resources exported at one time. The count used in this job was {0}.
         /// </summary>
