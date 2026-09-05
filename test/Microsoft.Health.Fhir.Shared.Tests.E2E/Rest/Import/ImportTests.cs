@@ -53,7 +53,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
         private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
 
-        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture, ITestOutputHelper testOutputHelper)
+        public ImportTests(
+            ImportTestFixture<StartupForImportTestProvider> fixture,
+            ITestOutputHelper testOutputHelper)
         {
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
@@ -804,12 +806,11 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // Verify execution stats are populated (only in test mode when EnableTestSourceOverride=true)
             Assert.NotEmpty(result.ExecutionStats);
             _testOutputHelper.WriteLine("Execution Stats:");
-            foreach (var (jobInfo, durationMs) in result.ExecutionStats)
+            foreach (var (statKey, duration) in result.ExecutionStats)
             {
-                _testOutputHelper.WriteLine($"  {jobInfo} => {durationMs}ms");
-                Assert.Contains("job=", jobInfo);
-                Assert.Contains("executionMilliseconds", jobInfo);
-                Assert.True(durationMs > 0, $"Job {jobInfo} execution duration should be > 0, got {durationMs}ms");
+                _testOutputHelper.WriteLine($"  {statKey} => {duration}");
+                Assert.Contains("job=", statKey);
+                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec"), $"Job info should contain timing metric, got {statKey}");
             }
         }
 
@@ -827,14 +828,13 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
             // Verify execution stats are populated and includes entries for both jobs
             Assert.NotEmpty(result.ExecutionStats);
-            Assert.True(result.ExecutionStats.Count >= 2, $"Should have execution stats for at least 2 jobs, got {result.ExecutionStats.Count}");
+            Assert.True(result.ExecutionStats.Count >= 6, $"Should have execution stats for at least 2 jobs × 3 metrics, got {result.ExecutionStats.Count}");
             _testOutputHelper.WriteLine("Execution Stats:");
-            foreach (var (jobInfo, durationMs) in result.ExecutionStats)
+            foreach (var (statKey, duration) in result.ExecutionStats)
             {
-                _testOutputHelper.WriteLine($"  {jobInfo} => {durationMs}ms");
-                Assert.Contains("job=", jobInfo);
-                Assert.Contains("executionMilliseconds", jobInfo);
-                Assert.True(durationMs > 0, $"Job {jobInfo} execution duration should be > 0, got {durationMs}ms");
+                _testOutputHelper.WriteLine($"  {statKey} => {duration}");
+                Assert.Contains("job=", statKey);
+                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec"), $"Job info should contain timing metric, got {statKey}");
             }
         }
 

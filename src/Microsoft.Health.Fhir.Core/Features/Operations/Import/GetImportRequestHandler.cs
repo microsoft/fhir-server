@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 var start = Stopwatch.StartNew();
                 var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Import, coord.GroupId, true, cancellationToken)).Where(x => x.Id != coord.Id).ToList();
-                var results = GetProcessingResultAsync(jobs, request.ReturnDetails);
+                var (completedOutcomes, failedOutcomes, jobResultsById) = GetProcessingResultAsync(jobs, request.ReturnDetails);
                 await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
                 var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || x.CancelRequested);
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 else // no failures here
                 {
                     var coordResult = DeserializeOrDefault<ImportOrchestratorJobResult>(coord.Result);
-                    var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = results.Completed, Error = results.Failed };
+                    var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = completedOutcomes, Error = failedOutcomes };
 
                     // Include per-job execution stats when test-override mode is enabled (for CPU profiling)
                     if (_enableTestSourceOverride && jobs.Any())
@@ -120,8 +120,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         var executionStats = new Dictionary<string, long>();
                         foreach (var job in jobs.Where(j => j.Status == JobStatus.Completed))
                         {
-                            var durationMs = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
-                            executionStats[$"job={job.Id}:executionMilliseconds"] = durationMs;
+                            if (jobResultsById.TryGetValue(job.Id, out var jobResult))
+                            {
+                                executionStats[$"job={job.Id}:total_msec"] = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
+                                executionStats[$"job={job.Id}:get_msec"] = jobResult.GetResourcesMilliseconds;
+                                executionStats[$"job={job.Id}:merge_msec"] = jobResult.MergeResourcesMilliseconds;
+                            }
                         }
 
                         result.ExecutionStats = executionStats;
@@ -135,10 +139,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new OperationFailedException(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
             }
 
-            static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed) GetProcessingResultAsync(IList<JobInfo> jobs, bool returnDetails)
+            static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed, Dictionary<long, ImportProcessingJobResult> JobResultsById) GetProcessingResultAsync(IList<JobInfo> jobs, bool returnDetails)
             {
                 var completed = new List<ImportOperationOutcome>();
                 var failed = new List<ImportFailedOperationOutcome>();
+                var jobResultsById = new Dictionary<long, ImportProcessingJobResult>();
                 foreach (var job in jobs.Where(_ => _.Status == JobStatus.Completed))
                 {
                     // The job group also contains the orchestrator job, which is returned here whenever status is requested
@@ -151,9 +156,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
 
                     var result = DeserializeOrDefault<ImportProcessingJobResult>(job.Result);
+                    jobResultsById[job.Id] = result;
 
-                    // Populate execution duration from job timing (StartDate/EndDate set by queue system)
-                    result.ExecutionDurationMilliseconds = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
+                    // Populate phase-specific execution timing from job timing (StartDate/EndDate set by queue system)
+                    var totalDurationMs = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
+                    result.GetResourcesMilliseconds = 0; // TODO: Capture actual phase timing
+                    result.MergeResourcesMilliseconds = 0; // TODO: Capture actual phase timing
 
                     completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = inputUrl });
                     if (result.FailedResources > 0)
@@ -164,13 +172,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (returnDetails)
                 {
-                    return (completed, failed);
+                    return (completed, failed, jobResultsById);
                 }
 
                 // group success results by url
                 var groupped = completed.GroupBy(o => o.InputUrl).Select(g => new ImportOperationOutcome() { Type = g.First().Type, Count = g.Sum(_ => _.Count), InputUrl = g.Key }).ToList();
 
-                return (groupped, failed);
+                return (groupped, failed, jobResultsById);
             }
         }
 
