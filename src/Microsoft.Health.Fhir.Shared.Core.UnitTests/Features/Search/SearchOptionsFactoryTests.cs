@@ -800,6 +800,74 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
         }
 
+        [Fact]
+        public void GivenQueryParameters_WhenSearchOptionsCreated_ThenNormalizedQueryContainsOnlySortedNames()
+        {
+            // Arrange
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Count, "25"),
+                Tuple.Create("name", "Alice"),
+                Tuple.Create("name", "Bob"),
+            };
+
+            // Act
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            // Assert
+            Assert.Equal("Patient?_count&name&name", options.NormalizedQueryShape);
+            Assert.DoesNotContain("Alice", options.NormalizedQueryShape, StringComparison.Ordinal);
+            Assert.DoesNotContain("Bob", options.NormalizedQueryShape, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenCompartmentSearch_WhenSearchOptionsCreated_ThenCompartmentIdIsNotIncluded()
+        {
+            // Act
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Observation",
+                queryParameters: [],
+                compartmentType: "Patient",
+                compartmentId: "recognizable-patient-id");
+
+            // Assert
+            Assert.Equal("Patient/$compartment/Observation", options.NormalizedQueryShape);
+            Assert.DoesNotContain("recognizable-patient-id", options.NormalizedQueryShape, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenHistorySearch_WhenSearchOptionsCreated_ThenHistoryScopeIsIncluded()
+        {
+            // Act
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: [],
+                resourceVersionTypes: ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted);
+
+            // Assert
+            Assert.Equal("Patient/_history", options.NormalizedQueryShape);
+        }
+
+        [Fact]
+        public void GivenUnsupportedParameterName_WhenSearchOptionsCreated_ThenRawNameIsNotIncluded()
+        {
+            // Arrange
+            const string unsupportedName = "MRN-123456789";
+            _expressionParser.Parse(Arg.Any<string[]>(), unsupportedName, Arg.Any<string>())
+                .Throws(new SearchParameterNotSupportedException(typeof(Patient), unsupportedName));
+            var queryParameters = new[]
+            {
+                Tuple.Create(unsupportedName, "ignored"),
+            };
+
+            // Act
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            // Assert
+            Assert.Equal("Patient?_unsupported", options.NormalizedQueryShape);
+            Assert.DoesNotContain(unsupportedName, options.NormalizedQueryShape, StringComparison.Ordinal);
+        }
+
         [Theory]
         [MemberData(nameof(GetSearchParameterTestData))]
         public void Create_AddsFineGrainedAccessControlWithSearchParametersExpressions_UsingMemberData(string resourceType, List<ScopeRestriction> scopeRestrictions, List<Tuple<string, string>> queryParameters, string expectedSubstring)

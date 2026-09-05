@@ -153,6 +153,28 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
+    public void GivenNormalizedFhirQuery_WhenSqlGenerated_ThenHashCommentContainsSafeQueryShapeWithoutChangingHash()
+    {
+        // Arrange
+        const string rawValue = "Alice-Recognizable-Value";
+        const string normalizedQuery = "Patient?birthdate&name";
+        string sqlWithoutAnnotation = GenerateSqlWithHashedParameter(rawValue, normalizedQuery: null);
+
+        // Act
+        string sqlWithAnnotation = GenerateSqlWithHashedParameter(rawValue, normalizedQuery);
+
+        // Assert
+        Assert.Contains($" fhir={normalizedQuery} */", sqlWithAnnotation, StringComparison.Ordinal);
+        Assert.DoesNotContain(rawValue, sqlWithAnnotation, StringComparison.Ordinal);
+        Assert.Equal(
+            SqlServerSearchService.ExtractParameterHash(sqlWithoutAnnotation),
+            SqlServerSearchService.ExtractParameterHash(sqlWithAnnotation));
+        Assert.Equal(
+            new SqlQueryHashCalculator().CalculateHash(sqlWithoutAnnotation),
+            new SqlQueryHashCalculator().CalculateHash(sqlWithAnnotation));
+    }
+
+    [Fact]
     public void GivenReferenceSearchParameterWithMultipleTargetTypes_WhenSqlGenerated_ThenSqlIncludesOrClauseForReferenceResourceTypeId()
     {
         // Setup mock to return resource type IDs
@@ -217,6 +239,35 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Verify both type IDs were passed as parameters by checking the mock was called
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
+    }
+
+    private string GenerateSqlWithHashedParameter(string parameterValue, string normalizedQuery)
+    {
+        var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+        using Data.SqlClient.SqlCommand command = new();
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        parameters.AddParameter(parameterValue, includeInHash: true);
+        var queryGenerator = new SqlQueryGenerator(
+            stringBuilder,
+            parameters,
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            reuseQueryPlans: false,
+            isAsyncOperation: false);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = new SearchOptions
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+            NormalizedQueryShape = normalizedQuery,
+        };
+
+        queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        return stringBuilder.ToString();
     }
 
     [Theory]

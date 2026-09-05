@@ -112,6 +112,74 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenMultipleHashCommentsWithNormalizedQueryShapes_WhenCalculateHash_ThenHashIsUnchanged()
+        {
+            // Arrange
+            const string queryWithoutAnnotations = """
+                WITH cte0 AS (SELECT 1)
+                /* HASH first-hash params=@p0 */
+                SELECT * FROM cte0
+                /* HASH second-hash params=@p1 */
+                """;
+            const string queryWithAnnotations = """
+                WITH cte0 AS (SELECT 1)
+                /* HASH first-hash params=@p0 fhir=Patient?name */
+                SELECT * FROM cte0
+                /* HASH second-hash params=@p1 fhir=Patient?name */
+                """;
+
+            // Act
+            string hashWithoutAnnotations = _calculator.CalculateHash(queryWithoutAnnotations);
+            string hashWithAnnotations = _calculator.CalculateHash(queryWithAnnotations);
+
+            // Assert
+            Assert.Equal(hashWithoutAnnotations, hashWithAnnotations);
+        }
+
+        [Fact]
+        public void GivenMalformedHashCommentBeforeValidHashComment_WhenCalculateHash_ThenHashIsUnchanged()
+        {
+            // Arrange
+            const string queryWithoutAnnotations = """
+                /* HASH first-hash params=@p0 */
+                SELECT 0
+                /* HASH malformed
+                SELECT 1
+                /* HASH second-hash params=@p1 */
+                """;
+            const string queryWithAnnotations = """
+                /* HASH first-hash params=@p0 fhir=Patient?name */
+                SELECT 0
+                /* HASH malformed fhir=Patient?name
+                SELECT 1
+                /* HASH second-hash params=@p1 fhir=Patient?name */
+                """;
+
+            // Act
+            string hashWithoutAnnotations = _calculator.CalculateHash(queryWithoutAnnotations);
+            string hashWithAnnotations = _calculator.CalculateHash(queryWithAnnotations);
+
+            // Assert
+            Assert.Equal(hashWithoutAnnotations, hashWithAnnotations);
+        }
+
+        [Fact]
+        public void GivenNormalizedQueryShapeTextOutsideHashComment_WhenRemoveParametersHash_ThenTextIsPreserved()
+        {
+            // Arrange
+            const string query = """
+                /* HASH first-hash params=@p0 fhir=Patient?name */
+                SELECT ' fhir=Patient?name'
+                """;
+
+            // Act
+            string result = SqlQueryHashCalculator.RemoveParametersHash(query);
+
+            // Assert
+            Assert.Contains("' fhir=Patient?name'", result, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void GivenNullQuery_WhenRemoveParametersHash_ThenThrowsArgumentNullException()
         {
             // Act & Assert
