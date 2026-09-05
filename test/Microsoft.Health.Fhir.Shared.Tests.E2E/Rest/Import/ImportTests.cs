@@ -810,7 +810,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             {
                 _testOutputHelper.WriteLine($"  {statKey} => {duration}");
                 Assert.Contains("job=", statKey);
-                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec"), $"Job info should contain timing metric, got {statKey}");
+                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec") || statKey.Contains("get_calls") || statKey.Contains("merge_calls"), $"Job info should contain execution metric, got {statKey}");
             }
         }
 
@@ -821,20 +821,21 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // This allows testing of multi-file imports without needing separate real storage blobs.
             var location1 = new Uri("inmemorytest://whatever-1");
             var location2 = new Uri("inmemorytest://whatever-2");
-            var request = CreateImportRequest(new[] { location1, location2 }, ImportMode.IncrementalLoad, setResourceType: false);
+            var location3 = new Uri("inmemorytest://whatever-3");
+            var request = CreateImportRequest(new[] { location1, location2, location3 }, ImportMode.IncrementalLoad, setResourceType: false);
             var result = await ImportCheckAsync(request, null, 0);
             var totalImported = result.Output.Sum(o => o.Count);
-            Assert.Equal(2000, totalImported);
+            Assert.Equal(3000, totalImported);
 
-            // Verify execution stats are populated and includes entries for both jobs
+            // Verify execution stats are populated and includes entries for all three jobs
             Assert.NotEmpty(result.ExecutionStats);
-            Assert.True(result.ExecutionStats.Count >= 6, $"Should have execution stats for at least 2 jobs × 3 metrics, got {result.ExecutionStats.Count}");
+            Assert.True(result.ExecutionStats.Count >= 15, $"Should have execution stats for at least 3 jobs * 5 metrics, got {result.ExecutionStats.Count}");
             _testOutputHelper.WriteLine("Execution Stats:");
             foreach (var (statKey, duration) in result.ExecutionStats)
             {
                 _testOutputHelper.WriteLine($"  {statKey} => {duration}");
                 Assert.Contains("job=", statKey);
-                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec"), $"Job info should contain timing metric, got {statKey}");
+                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec") || statKey.Contains("get_calls") || statKey.Contains("merge_calls"), $"Job info should contain execution metric, got {statKey}");
             }
         }
 

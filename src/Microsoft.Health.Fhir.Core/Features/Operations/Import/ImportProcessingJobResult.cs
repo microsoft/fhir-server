@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public string ErrorDetails { get; set; }
 
         /// <summary>
-        /// Wall-clock time to retrieve and parse resources from the source in milliseconds.
+        /// Wall-clock time to retrieve existing resources from the data store in milliseconds.
         /// Always populated for internal telemetry. Exposed in API responses only when IntegrationDataStore:EnableTestSourceOverride is enabled.
         /// </summary>
         public long GetResourcesMilliseconds { get; set; }
@@ -43,5 +43,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Always populated for internal telemetry. Exposed in API responses only when IntegrationDataStore:EnableTestSourceOverride is enabled.
         /// </summary>
         public long MergeResourcesMilliseconds { get; set; }
+
+        /// <summary>
+        /// Number of resource retrieval calls made to the data store.
+        /// </summary>
+        public long GetResourcesCallCount { get; set; }
+
+        /// <summary>
+        /// Number of resource merge calls made to the data store.
+        /// </summary>
+        public long MergeResourcesCallCount { get; set; }
     }
 }

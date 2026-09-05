@@ -65,6 +65,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
+
+            // TEMPORARY: run import jobs single-threaded so timing/call-count measurements are not
+            // distorted by concurrent jobs contending for the same database.
+            configuration["FhirServer:Operations:Import:MaxRunningTaskCount"] = "1";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
             // Allows E2E tests to opt into an in-memory synthetic import source (via input url scheme "inmemorytest://")

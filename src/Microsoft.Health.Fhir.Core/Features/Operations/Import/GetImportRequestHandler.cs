@@ -125,6 +125,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                 executionStats[$"job={job.Id}:total_msec"] = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
                                 executionStats[$"job={job.Id}:get_msec"] = jobResult.GetResourcesMilliseconds;
                                 executionStats[$"job={job.Id}:merge_msec"] = jobResult.MergeResourcesMilliseconds;
+                                executionStats[$"job={job.Id}:get_calls"] = jobResult.GetResourcesCallCount;
+                                executionStats[$"job={job.Id}:merge_calls"] = jobResult.MergeResourcesCallCount;
                             }
                         }
 
@@ -157,11 +159,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     var result = DeserializeOrDefault<ImportProcessingJobResult>(job.Result);
                     jobResultsById[job.Id] = result;
-
-                    // Populate phase-specific execution timing from job timing (StartDate/EndDate set by queue system)
-                    var totalDurationMs = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
-                    result.GetResourcesMilliseconds = 0; // TODO: Capture actual phase timing
-                    result.MergeResourcesMilliseconds = 0; // TODO: Capture actual phase timing
 
                     completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = inputUrl });
                     if (result.FailedResources > 0)
