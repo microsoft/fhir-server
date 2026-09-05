@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return Expression.GreaterThanOrEqual(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(truncated.AddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                        new DateTimeOffset(truncated.SafeAddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
                 case BinaryOperator.GreaterThanOrEqual:
                     if (original == truncated)
                     {
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return Expression.LessThan(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(truncated.AddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                        new DateTimeOffset(truncated.SafeAddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
                 case BinaryOperator.NotEqual:
                 case BinaryOperator.Equal: // expecting eq to have been rewritten as a range
                 default:
