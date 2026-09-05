@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Xunit.Sdk;
@@ -15,7 +14,7 @@ namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
     /// The class runner that seeds each variant's <c>(DataStore, Format)</c> values into the collection-scoped fixture
-    /// cache and into the test class constructor before the class runs.
+    /// cache so xUnit can resolve fixture and test-class constructor arguments.
     /// </summary>
     internal sealed class CustomXunitTestClassRunner : XunitTestClassRunner
     {
@@ -34,25 +33,6 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             InjectFixtureArguments(context);
             return await base.OnTestClassStarting(context);
-        }
-
-        /// <summary>
-        /// Supplies <c>DataStore</c>/<c>Format</c> directly to the test class constructor.
-        /// </summary>
-        protected override ValueTask<object> GetConstructorArgument(XunitTestClassRunnerContext context, ConstructorInfo constructor, int index, ParameterInfo parameter)
-        {
-            if (context?.TestClass is FixtureArgumentSetTestClass variantClass)
-            {
-                Enum match = variantClass.Flags
-                    .Select(f => f.EnumValue)
-                    .FirstOrDefault(e => e != null && parameter.ParameterType == e.GetType());
-                if (match != null)
-                {
-                    return new ValueTask<object>(match);
-                }
-            }
-
-            return base.GetConstructorArgument(context, constructor, index, parameter);
         }
 
         // Seeds DataStore/Format into the fixture cache so a class fixture ctor taking them resolves.

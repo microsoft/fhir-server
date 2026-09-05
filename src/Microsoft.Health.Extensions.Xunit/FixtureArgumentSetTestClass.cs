@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit.Sdk;
 using Xunit.v3;
 
@@ -77,13 +78,13 @@ namespace Microsoft.Health.Extensions.Xunit
         void IXunitSerializable.Serialize(IXunitSerializationInfo info)
         {
             base.Serialize(info);
-            info.AddValue("variantFlags", FlagCodec.Encode(Flags));
+            info.AddValue("variantFlags", Flags.Select(f => (object)f.EnumValue).ToArray());
         }
 
         void IXunitSerializable.Deserialize(IXunitSerializationInfo info)
         {
             base.Deserialize(info);
-            Flags = FlagCodec.Decode(info.GetValue<string[]>("variantFlags"));
+            Flags = info.GetValue<object[]>("variantFlags").Select(value => new SingleFlag((Enum)value)).ToArray();
         }
 #pragma warning restore SA1100
     }
