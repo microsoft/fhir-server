@@ -8,7 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -104,6 +106,72 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var nameSearchValue = serachIndexEntry.First().Value as StringSearchValue;
             Assert.Equal(familyName, nameSearchValue.String);
          }
+
+        [Fact]
+        public void GivenAResourceWithAContainedReference_WhenExtractingAResolveBasedSearchParameter_ThenTheContainedResourceIsResolvedInInstance()
+        {
+            // TypedElementSearchIndexer historically bypassed the ToScopedNode() wrap that Hl7.FhirPath's own
+            // Select()/Scalar() extension methods always apply - see LightweightReferenceToElementResolverTests,
+            // which exercises resolve() through those extension methods directly and so never surfaced this
+            // gap. ToScopedNode() is what lets resolve() find a contained resource from inside the instance
+            // rather than only through the external IReferenceToElementResolver.
+            //
+            // No shipped search parameter is affected by this: every resolve() usage in the generated R4/R4B/R5
+            // definitions is shaped `.where(resolve() is X)` for type filtering only, and
+            // ResourceReferenceToReferenceSearchValueConverter drops '#'-prefixed references before they'd ever
+            // reach a SearchIndexEntry regardless of whether resolve() succeeds. This test therefore uses a
+            // synthetic non-Reference search parameter that navigates *past* resolve() into the resolved
+            // resource's own data - the case this fix actually protects: a custom search parameter that does
+            // more than type-filter.
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+
+            var encounter = new Encounter
+            {
+                Contained = new List<Resource>
+                {
+                    new Practitioner { Id = "p1", Name = new List<HumanName> { new HumanName { Family = "Contained" } } },
+                },
+            };
+
+            var participant = new Encounter.ParticipantComponent();
+#if Stu3 || R4
+            participant.Individual = new ResourceReference("#p1");
+            const string participantPath = "Encounter.participant.individual";
+#else
+            participant.Actor = new ResourceReference("#p1");
+            const string participantPath = "Encounter.participant.actor";
+#endif
+            encounter.Participant = new List<Encounter.ParticipantComponent> { participant };
+
+            var supportedSearchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            var referenceToElementResolver = Substitute.For<IReferenceToElementResolver>();
+
+            // No external resolver match - proves the fix cannot be relying on it. LightweightReferenceToElementResolver
+            // parses "#p1" into a reference with no resource type and would return null here in production too.
+            referenceToElementResolver.Resolve(Arg.Any<string>()).Returns((ITypedElement)null);
+
+            var searchParameterInfo = new SearchParameterInfo(
+                "contained-practitioner-name",
+                "contained-practitioner-name",
+                (ValueSets.SearchParamType)SearchParamType.String,
+                new Uri("http://example.org/SearchParameter/contained-practitioner-name"),
+                expression: $"{participantPath}.resolve().name.family",
+                baseResourceTypes: new List<string> { "Encounter" });
+            supportedSearchParameterDefinitionManager.GetSearchParameters(Arg.Any<string>()).Returns(new[] { searchParameterInfo });
+
+            var indexer = new TypedElementSearchIndexer(
+                supportedSearchParameterDefinitionManager,
+                GetTypeConverterAsync().Result,
+                referenceToElementResolver,
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+
+            var searchIndexEntries = indexer.Extract(encounter.ToResourceElement());
+
+            var stringSearchValue = Assert.Single(searchIndexEntries).Value as StringSearchValue;
+            Assert.NotNull(stringSearchValue);
+            Assert.Equal("Contained", stringSearchValue.String);
+        }
 
 #if !Stu3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
