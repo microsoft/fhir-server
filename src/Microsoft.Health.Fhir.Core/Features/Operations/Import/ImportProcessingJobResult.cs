@@ -31,5 +31,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Critical error during data processing.
         /// </summary>
         public string ErrorDetails { get; set; }
+
+        /// <summary>
+        /// Wall-clock execution time of this processing job in milliseconds.
+        /// Always populated for internal telemetry. Exposed in API responses only when IntegrationDataStore:EnableTestSourceOverride is enabled.
+        /// Later, SQL call durations can be subtracted to isolate CPU-only processing time.
+        /// </summary>
+        public long ExecutionDurationMilliseconds { get; set; }
     }
 }

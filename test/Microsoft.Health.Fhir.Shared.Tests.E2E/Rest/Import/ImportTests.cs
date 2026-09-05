@@ -34,6 +34,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
@@ -48,14 +49,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly TestFhirClient _client;
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
+        private readonly ITestOutputHelper _testOutputHelper;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
         private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
 
-        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
+        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture, ITestOutputHelper testOutputHelper)
         {
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+            _testOutputHelper = testOutputHelper;
         }
 
         [Fact]
@@ -797,6 +800,17 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var result = await ImportCheckAsync(request, null, 0);
             var totalImported = result.Output.Sum(o => o.Count);
             Assert.Equal(1000, totalImported);
+
+            // Verify execution stats are populated (only in test mode when EnableTestSourceOverride=true)
+            Assert.NotEmpty(result.ExecutionStats);
+            _testOutputHelper.WriteLine("Execution Stats:");
+            foreach (var (jobInfo, durationMs) in result.ExecutionStats)
+            {
+                _testOutputHelper.WriteLine($"  {jobInfo} => {durationMs}ms");
+                Assert.Contains("job=", jobInfo);
+                Assert.Contains("executionMilliseconds", jobInfo);
+                Assert.True(durationMs > 0, $"Job {jobInfo} execution duration should be > 0, got {durationMs}ms");
+            }
         }
 
         [Fact]
@@ -810,6 +824,18 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var result = await ImportCheckAsync(request, null, 0);
             var totalImported = result.Output.Sum(o => o.Count);
             Assert.Equal(2000, totalImported);
+
+            // Verify execution stats are populated and includes entries for both jobs
+            Assert.NotEmpty(result.ExecutionStats);
+            Assert.True(result.ExecutionStats.Count >= 2, $"Should have execution stats for at least 2 jobs, got {result.ExecutionStats.Count}");
+            _testOutputHelper.WriteLine("Execution Stats:");
+            foreach (var (jobInfo, durationMs) in result.ExecutionStats)
+            {
+                _testOutputHelper.WriteLine($"  {jobInfo} => {durationMs}ms");
+                Assert.Contains("job=", jobInfo);
+                Assert.Contains("executionMilliseconds", jobInfo);
+                Assert.True(durationMs > 0, $"Job {jobInfo} execution duration should be > 0, got {durationMs}ms");
+            }
         }
 
         [Theory]

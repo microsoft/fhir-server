@@ -12,7 +12,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -27,14 +29,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private readonly IQueueClient _queueClient;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly bool _enableTestSourceOverride;
 
-        public GetImportRequestHandler(IQueueClient queueClient, IAuthorizationService<DataActions> authorizationService)
+        public GetImportRequestHandler(
+            IQueueClient queueClient,
+            IAuthorizationService<DataActions> authorizationService,
+            IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration, nameof(integrationDataStoreConfiguration));
 
             _queueClient = queueClient;
             _authorizationService = authorizationService;
+            _enableTestSourceOverride = integrationDataStoreConfiguration.Value.EnableTestSourceOverride;
         }
 
         public async Task<GetImportResponse> HandleAsync(GetImportRequest request, CancellationToken cancellationToken)
@@ -105,6 +113,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     var coordResult = DeserializeOrDefault<ImportOrchestratorJobResult>(coord.Result);
                     var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = results.Completed, Error = results.Failed };
+
+                    // Include per-job execution stats when test-override mode is enabled (for CPU profiling)
+                    if (_enableTestSourceOverride && jobs.Any())
+                    {
+                        var executionStats = new Dictionary<string, long>();
+                        foreach (var job in jobs.Where(j => j.Status == JobStatus.Completed))
+                        {
+                            var durationMs = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
+                            executionStats[$"job={job.Id}:executionMilliseconds"] = durationMs;
+                        }
+
+                        result.ExecutionStats = executionStats;
+                    }
+
                     return new GetImportResponse(!inFlightJobsExist ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
                 }
             }
@@ -129,6 +151,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
 
                     var result = DeserializeOrDefault<ImportProcessingJobResult>(job.Result);
+
+                    // Populate execution duration from job timing (StartDate/EndDate set by queue system)
+                    result.ExecutionDurationMilliseconds = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
+
                     completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = inputUrl });
                     if (result.FailedResources > 0)
                     {
