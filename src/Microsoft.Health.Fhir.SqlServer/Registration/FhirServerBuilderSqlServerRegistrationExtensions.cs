@@ -37,6 +37,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Api.Registration;
@@ -209,6 +210,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
             services.Add<ExpiredResourceCleanupWatchdog>().Singleton().AsSelf();
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
+            services.Add<QueryStoreDiagnosticsWatchdog>().Singleton().AsSelf();
             services.Add<JobMonitorWatchdog>().Singleton().AsSelf();
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
             services.AddFactory<IScoped<TransactionWatchdog>>();
