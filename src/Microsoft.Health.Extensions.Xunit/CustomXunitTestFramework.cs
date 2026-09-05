@@ -1,49 +1,29 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Reflection;
-using Xunit.Abstractions;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
-    /// An XunitTestFramework implementation that allows parameterizing class fixtures with combinations of argument values.
-    /// To use, decorate the test assembly with
-    /// [assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
-    /// Also allows an assembly to declare one or more <see cref="AssemblyFixtureAttribute"/>, which are created before any tests
-    /// are executed and disposed at the end of the test run.
+    /// An <see cref="XunitTestFramework"/> implementation that allows parameterizing class fixtures with combinations of
+    /// argument values (see <see cref="FixtureArgumentSetsAttribute"/>).
+    /// To use, decorate the test assembly with <c>[assembly: TestFramework(typeof(CustomXunitTestFramework))]</c>.
     /// </summary>
+    /// <remarks>
+    /// Assembly-level fixtures are supported natively by xUnit v3 via <c>[assembly: AssemblyFixture(...)]</c>, so this
+    /// framework no longer carries a custom assembly-fixture implementation.
+    /// </remarks>
     public sealed class CustomXunitTestFramework : XunitTestFramework
     {
-        /// <summary>
-        /// This type's assembly name.
-        /// </summary>
-        public const string AssemblyName = nameof(Microsoft) + "." +
-                                           nameof(Microsoft.Health) + "." +
-                                           nameof(Microsoft.Health.Extensions) + "." +
-                                           nameof(Microsoft.Health.Extensions.Xunit);
+        /// <inheritdoc/>
+        protected override ITestFrameworkDiscoverer CreateDiscoverer(Assembly assembly) => new CustomXunitTestFrameworkDiscoverer(assembly);
 
-        /// <summary>
-        /// The full name of this type. Intended to be used as an attribute argument.
-        /// </summary>
-        public const string TypeName = AssemblyName + "." + nameof(CustomXunitTestFramework);
-
-        public CustomXunitTestFramework(IMessageSink messageSink)
-            : base(messageSink)
-        {
-        }
-
-        protected override ITestFrameworkDiscoverer CreateDiscoverer(IAssemblyInfo assemblyInfo)
-        {
-            return new CustomXunitTestFrameworkDiscoverer(assemblyInfo, SourceInformationProvider, DiagnosticMessageSink);
-        }
-
-        protected override ITestFrameworkExecutor CreateExecutor(AssemblyName assemblyName)
-        {
-            return new CustomXunitTestFrameworkExecutor(assemblyName, SourceInformationProvider, DiagnosticMessageSink);
-        }
+        /// <inheritdoc/>
+        protected override ITestFrameworkExecutor CreateExecutor(Assembly assembly) => new CustomXunitTestFrameworkExecutor(assembly);
     }
 }

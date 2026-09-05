@@ -37,8 +37,9 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
-        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
+        $categoryPredicates = "${{ parameters.categoryFilter }}".Split('&') | ForEach-Object { "($_)" }
+        $query = "/[(DataStore=${{ parameters.appServiceType }})&$($categoryPredicates -join '&')]"
+        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--report-trx')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args

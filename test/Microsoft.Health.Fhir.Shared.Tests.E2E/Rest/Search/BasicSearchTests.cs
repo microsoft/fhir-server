@@ -1183,26 +1183,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            await this.RetryAsync(new Func<Task>(async () =>
+            List<int> values = new();
+            int count = 0;
+            string nextLink = $"Observation?_count=20&_tag={tag}";
+            do
             {
-                List<int> values = new();
-                int count = 0;
-                string nextLink = $"Observation?_count=20&_tag={tag}";
-                do
+                Bundle firstBundle = await Client.SearchAsync(nextLink);
+                foreach (var entity in firstBundle.Entry)
                 {
-                    Bundle firstBundle = await Client.SearchAsync(nextLink);
-                    foreach (var entity in firstBundle.Entry)
-                    {
-                        values.Add((int)((Quantity)((Observation)entity.Resource).Value).Value);
-                    }
-
-                    count += firstBundle.Entry.Count;
-                    nextLink = firstBundle.NextLink?.ToString();
+                    values.Add((int)((Quantity)((Observation)entity.Resource).Value).Value);
                 }
-                while (nextLink != null);
-                Assert.Equal(n, count);
-                Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
-            }));
+
+                count += firstBundle.Entry.Count;
+                nextLink = firstBundle.NextLink?.ToString();
+            }
+            while (nextLink != null);
+            Assert.Equal(n, count);
+            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
         }
 
         [Fact]
@@ -1228,26 +1225,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            await this.RetryAsync(new Func<Task>(async () =>
+            List<int> values = new();
+            int count = 0;
+            string nextLink = $"Patient?_count=20&_tag={tag}&_sort=-_lastUpdated";
+            do
             {
-                List<int> values = new();
-                int count = 0;
-                string nextLink = $"Patient?_count=20&_tag={tag}&_sort=-_lastUpdated";
-                do
+                Bundle firstBundle = await Client.SearchAsync(nextLink);
+                foreach (var entity in firstBundle.Entry)
                 {
-                    Bundle firstBundle = await Client.SearchAsync(nextLink);
-                    foreach (var entity in firstBundle.Entry)
-                    {
-                        values.Add(DateTime.Parse(((Patient)entity.Resource).BirthDate).Subtract(date).Days);
-                    }
-
-                    count += firstBundle.Entry.Count;
-                    nextLink = firstBundle.NextLink?.ToString();
+                    values.Add(DateTime.Parse(((Patient)entity.Resource).BirthDate).Subtract(date).Days);
                 }
-                while (nextLink != null);
-                Assert.Equal(n, count);
-                Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
-            }));
+
+                count += firstBundle.Entry.Count;
+                nextLink = firstBundle.NextLink?.ToString();
+            }
+            while (nextLink != null);
+            Assert.Equal(n, count);
+            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
         }
 
         [Fact]
