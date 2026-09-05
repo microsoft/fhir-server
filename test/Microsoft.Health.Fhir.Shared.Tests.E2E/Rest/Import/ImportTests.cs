@@ -805,13 +805,16 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
             // Verify execution stats are populated (only in test mode when EnableTestSourceOverride=true)
             Assert.NotEmpty(result.ExecutionStats);
-            _testOutputHelper.WriteLine("Execution Stats:");
-            foreach (var (statKey, duration) in result.ExecutionStats)
-            {
-                _testOutputHelper.WriteLine($"  {statKey} => {duration}");
-                Assert.Contains("job=", statKey);
-                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec") || statKey.Contains("get_calls") || statKey.Contains("merge_calls"), $"Job info should contain execution metric, got {statKey}");
-            }
+            _testOutputHelper.WriteLine("ExecutionStats:");
+            _testOutputHelper.WriteLine(JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented));
+
+            Assert.StartsWith("jobs=1 ", result.ExecutionStats.First());
+            var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=", StringComparison.Ordinal)).ToList();
+            Assert.Single(jobLines);
+            Assert.Contains("cpu_msec=", jobLines[0]);
+            Assert.Contains("clock_msec=", jobLines[0]);
+            Assert.Contains("database_msec=", jobLines[0]);
+            Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=1 ", StringComparison.Ordinal));
         }
 
         [Fact]
@@ -822,21 +825,35 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var location1 = new Uri("inmemorytest://whatever-1");
             var location2 = new Uri("inmemorytest://whatever-2");
             var location3 = new Uri("inmemorytest://whatever-3");
-            var request = CreateImportRequest(new[] { location1, location2, location3 }, ImportMode.IncrementalLoad, setResourceType: false);
+            var location4 = new Uri("inmemorytest://whatever-4");
+            var location5 = new Uri("inmemorytest://whatever-5");
+            var location6 = new Uri("inmemorytest://whatever-6");
+            var location7 = new Uri("inmemorytest://whatever-7");
+            var location8 = new Uri("inmemorytest://whatever-8");
+            var location9 = new Uri("inmemorytest://whatever-9");
+            var location10 = new Uri("inmemorytest://whatever-10");
+            var request = CreateImportRequest(new[] { location1, location2, location3, location4, location5, location6, location7, location8, location9, location10 }, ImportMode.IncrementalLoad, setResourceType: false);
             var result = await ImportCheckAsync(request, null, 0);
             var totalImported = result.Output.Sum(o => o.Count);
-            Assert.Equal(3000, totalImported);
+            Assert.Equal(10000, totalImported);
 
-            // Verify execution stats are populated and includes entries for all three jobs
+            // Verify execution stats are populated and includes entries for all ten jobs plus total line
             Assert.NotEmpty(result.ExecutionStats);
-            Assert.True(result.ExecutionStats.Count >= 15, $"Should have execution stats for at least 3 jobs * 5 metrics, got {result.ExecutionStats.Count}");
-            _testOutputHelper.WriteLine("Execution Stats:");
-            foreach (var (statKey, duration) in result.ExecutionStats)
+            Assert.True(result.ExecutionStats.Count >= 11, $"Should have execution stats for at least 10 job lines plus 1 total line, got {result.ExecutionStats.Count}");
+            _testOutputHelper.WriteLine("ExecutionStats:");
+            _testOutputHelper.WriteLine(JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented));
+
+            Assert.StartsWith("jobs=10 ", result.ExecutionStats.First());
+            var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=", StringComparison.Ordinal)).ToList();
+            Assert.Equal(10, jobLines.Count);
+            foreach (var jobLine in jobLines)
             {
-                _testOutputHelper.WriteLine($"  {statKey} => {duration}");
-                Assert.Contains("job=", statKey);
-                Assert.True(statKey.Contains("total_msec") || statKey.Contains("get_msec") || statKey.Contains("merge_msec") || statKey.Contains("get_calls") || statKey.Contains("merge_calls"), $"Job info should contain execution metric, got {statKey}");
+                Assert.Contains("cpu_msec=", jobLine);
+                Assert.Contains("clock_msec=", jobLine);
+                Assert.Contains("database_msec=", jobLine);
             }
+
+            Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=10 ", StringComparison.Ordinal));
         }
 
         [Theory]

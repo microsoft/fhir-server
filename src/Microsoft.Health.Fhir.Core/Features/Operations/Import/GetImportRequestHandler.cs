@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -27,6 +28,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class GetImportRequestHandler : IRequestHandler<GetImportRequest, GetImportResponse>
     {
+        private const int MaxDetailedJobs = 100;
+
         private readonly IQueueClient _queueClient;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly bool _enableTestSourceOverride;
@@ -117,18 +120,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     // Include per-job execution stats when test-override mode is enabled (for CPU profiling)
                     if (_enableTestSourceOverride && jobs.Any())
                     {
-                        var executionStats = new Dictionary<string, long>();
-                        foreach (var job in jobs.Where(j => j.Status == JobStatus.Completed))
-                        {
-                            if (jobResultsById.TryGetValue(job.Id, out var jobResult))
+                        var jobLines = jobs
+                            .Where(j => j.Status == JobStatus.Completed && j.StartDate.HasValue && j.EndDate.HasValue)
+                            .Where(j => jobResultsById.ContainsKey(j.Id))
+                            .OrderBy(j => j.StartDate.Value)
+                            .Select(j =>
                             {
-                                executionStats[$"job={job.Id}:total_msec"] = (long)(job.EndDate.Value - job.StartDate.Value).TotalMilliseconds;
-                                executionStats[$"job={job.Id}:get_msec"] = jobResult.GetResourcesMilliseconds;
-                                executionStats[$"job={job.Id}:merge_msec"] = jobResult.MergeResourcesMilliseconds;
-                                executionStats[$"job={job.Id}:get_calls"] = jobResult.GetResourcesCallCount;
-                                executionStats[$"job={job.Id}:merge_calls"] = jobResult.MergeResourcesCallCount;
-                            }
-                        }
+                                var clockMilliseconds = (long)(j.EndDate.Value - j.StartDate.Value).TotalMilliseconds;
+                                var databaseMilliseconds = jobResultsById[j.Id].DatabaseMilliseconds;
+                                var cpuMilliseconds = databaseMilliseconds.HasValue ? clockMilliseconds - databaseMilliseconds.Value : (long?)null;
+                                return new
+                                {
+                                    Line = $"job={j.Id} cpu_msec={(cpuMilliseconds.HasValue ? cpuMilliseconds.Value.ToString(CultureInfo.InvariantCulture) : "null")} clock_msec={clockMilliseconds} database_msec={(databaseMilliseconds.HasValue ? databaseMilliseconds.Value.ToString(CultureInfo.InvariantCulture) : "null")}",
+                                    CpuMilliseconds = cpuMilliseconds,
+                                    ClockMilliseconds = clockMilliseconds,
+                                    DatabaseMilliseconds = databaseMilliseconds,
+                                };
+                            })
+                            .ToList();
+
+                        var retriedJobs = jobLines.Count(x => x.DatabaseMilliseconds is null);
+                        var executionStats = new List<string>(jobLines.Count + 1);
+                        executionStats.Add($"jobs={jobLines.Count} cpu_msec={jobLines.Where(x => x.CpuMilliseconds.HasValue).Sum(x => x.CpuMilliseconds.Value)} clock_msec={jobLines.Sum(x => x.ClockMilliseconds)} database_msec={jobLines.Where(x => x.DatabaseMilliseconds.HasValue).Sum(x => x.DatabaseMilliseconds.Value)} retried_jobs={retriedJobs}");
+                        executionStats.AddRange(jobLines.Select(x => x.Line));
 
                         result.ExecutionStats = executionStats;
                     }
@@ -146,7 +160,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var completed = new List<ImportOperationOutcome>();
                 var failed = new List<ImportFailedOperationOutcome>();
                 var jobResultsById = new Dictionary<long, ImportProcessingJobResult>();
-                foreach (var job in jobs.Where(_ => _.Status == JobStatus.Completed))
+                IEnumerable<JobInfo> completedJobs = jobs.Where(_ => _.Status == JobStatus.Completed).OrderBy(_ => _.StartDate).ThenBy(_ => _.Id);
+                if (returnDetails)
+                {
+                    completedJobs = completedJobs.Take(MaxDetailedJobs);
+                }
+
+                foreach (var job in completedJobs)
                 {
                     // The job group also contains the orchestrator job, which is returned here whenever status is requested
                     // by a job id other than the orchestrator's. It records no input file url, and neither does a job whose

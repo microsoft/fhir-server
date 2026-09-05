@@ -51,10 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 long succeededCount = 0;
                 long processedBytes = 0;
-                long getResourcesMilliseconds = 0;
-                long mergeResourcesMilliseconds = 0;
-                long getResourcesCallCount = 0;
-                long mergeResourcesCallCount = 0;
+                long? databaseMilliseconds = 0;
                 long currentIndex = -1;
                 var errors = new List<string>();
                 var resourceBatch = new List<ImportResource>();
@@ -73,21 +70,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                     succeededCount += resultInt.LoadedCount;
                     processedBytes += resultInt.ProcessedBytes;
-                    getResourcesMilliseconds += resultInt.GetResourcesMilliseconds;
-                    mergeResourcesMilliseconds += resultInt.MergeResourcesMilliseconds;
-                    getResourcesCallCount += resultInt.GetResourcesCallCount;
-                    mergeResourcesCallCount += resultInt.MergeResourcesCallCount;
+                    databaseMilliseconds = databaseMilliseconds is null || resultInt.DatabaseMilliseconds is null ? null : databaseMilliseconds + resultInt.DatabaseMilliseconds;
                 }
 
                 var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                 succeededCount += result.LoadedCount;
                 processedBytes += result.ProcessedBytes;
-                getResourcesMilliseconds += result.GetResourcesMilliseconds;
-                mergeResourcesMilliseconds += result.MergeResourcesMilliseconds;
-                getResourcesCallCount += result.GetResourcesCallCount;
-                mergeResourcesCallCount += result.MergeResourcesCallCount;
+                databaseMilliseconds = databaseMilliseconds is null || result.DatabaseMilliseconds is null ? null : databaseMilliseconds + result.DatabaseMilliseconds;
 
-                return await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, getResourcesMilliseconds, mergeResourcesMilliseconds, getResourcesCallCount, mergeResourcesCallCount, cancellationToken);
+                return await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, databaseMilliseconds, cancellationToken);
             }
             finally
             {
@@ -95,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<(long LoadedCount, long ProcessedBytes, long GetResourcesMilliseconds, long MergeResourcesMilliseconds, long GetResourcesCallCount, long MergeResourcesCallCount)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
+        private async Task<(long LoadedCount, long ProcessedBytes, long? DatabaseMilliseconds)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
             //// exclude resources with parsing error (ImportError != null)
@@ -104,10 +95,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             errors.AddRange(importResult.Errors);
             var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();
-            return (validResources.Count - importResult.Errors.Count, totalBytes, importResult.GetResourcesMilliseconds, importResult.MergeResourcesMilliseconds, importResult.GetResourcesCallCount, importResult.MergeResourcesCallCount);
+            return (validResources.Count - importResult.Errors.Count, totalBytes, importResult.DatabaseMilliseconds);
         }
 
-        private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeededCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, long getResourcesMilliseconds, long mergeResourcesMilliseconds, long getResourcesCallCount, long mergeResourcesCallCount, CancellationToken cancellationToken)
+        private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeededCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, long? databaseMilliseconds, CancellationToken cancellationToken)
         {
             try
             {
@@ -124,10 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             progress.FailedResources = failedCount;
             progress.ProcessedBytes = processedBytes;
             progress.CurrentIndex = lastIndex + 1;
-            progress.GetResourcesMilliseconds = getResourcesMilliseconds;
-            progress.MergeResourcesMilliseconds = mergeResourcesMilliseconds;
-            progress.GetResourcesCallCount = getResourcesCallCount;
-            progress.MergeResourcesCallCount = mergeResourcesCallCount;
+            progress.DatabaseMilliseconds = databaseMilliseconds;
 
             return progress;
         }

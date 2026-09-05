@@ -232,7 +232,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<MergeOutcome> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, bool isBundleTransaction, CancellationToken cancellationToken)
+        /// <summary>
+        /// Runs <paramref name="call"/>, adding its elapsed duration to <paramref name="addDatabaseMilliseconds"/> on success.
+        /// Does not catch/poison on exception; the caller's existing exception handling is responsible for that.
+        /// </summary>
+        private static async Task<T> TimeAsync<T>(Func<Task<T>> call, Action<long?> addDatabaseMilliseconds)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var result = await call();
+            addDatabaseMilliseconds?.Invoke(stopwatch.ElapsedMilliseconds);
+            return result;
+        }
+
+        /// <summary>
+        /// Runs <paramref name="call"/>, adding its elapsed duration to <paramref name="addDatabaseMilliseconds"/> on success.
+        /// Does not catch/poison on exception; the caller's existing exception handling is responsible for that.
+        /// </summary>
+        private static async Task TimeAsync(Func<Task> call, Action<long?> addDatabaseMilliseconds)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            await call();
+            addDatabaseMilliseconds?.Invoke(stopwatch.ElapsedMilliseconds);
+        }
+
+        private async Task<MergeOutcome> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, bool isBundleTransaction, CancellationToken cancellationToken, Action<long?> addDatabaseMilliseconds = null)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -244,12 +267,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             // Ignore input resource version to get latest version from the store.
             // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
-            var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, useReplicasForReads, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
+            var existingResources = (await TimeAsync(() => GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, useReplicasForReads, cancellationToken), addDatabaseMilliseconds)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // Assume that most likely case is that all resources should be updated.
             // TODO: MergeResourcesBeginTransaction accepts new parameter allowing to throw exception on overload.
             // TODO: Set this parameter to true when 429 instead of intenal waits is desired. Make sure that exception is NOT thrown only for API calls.
-            (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+            (var transactionId, var minSequenceId) = await TimeAsync(() => StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken), addDatabaseMilliseconds);
 
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
@@ -464,11 +487,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, cancellationToken);
+                            await TimeAsync(() => MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, cancellationToken), addDatabaseMilliseconds);
+
                             break;
                         }
                         catch (Exception e)
                         {
+                            // Any exception, including one followed by a successful retry, poisons the timing for this operation.
+                            addDatabaseMilliseconds?.Invoke(null);
+
                             retries++;
                             if (!enlistInTransaction && (e.IsRetriable() || (e.IsExecutionTimeout() && timeoutRetries++ < 3)))
                             {
@@ -490,7 +517,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
+                await TimeAsync(() => StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken), addDatabaseMilliseconds);
             }
 
             // If this is not an atomic operations, even if there are unsuccessful results, the operation state will be set as 'Completed'.
@@ -498,17 +525,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
         }
 
-        internal async Task<(IReadOnlyList<string> Errors, long GetResourcesMilliseconds, long MergeResourcesMilliseconds, long GetResourcesCallCount, long MergeResourcesCallCount)> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
+        internal async Task<(IReadOnlyList<string> Errors, long? DatabaseMilliseconds)> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             if (resources.Count == 0) // do not go to the database
             {
-                return (new List<string>(), 0, 0, 0, 0);
+                return (new List<string>(), 0);
             }
 
-            long getResourcesMilliseconds = 0;
-            long mergeResourcesMilliseconds = 0;
-            long getResourcesCallCount = 0;
-            long mergeResourcesCallCount = 0;
+            long? databaseMilliseconds = 0;
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
             var maxRetries = GetMaxRetries(resources, importMode);
             var retries = 0;
@@ -521,6 +545,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
+                    databaseMilliseconds = null; // a retry occurred; do not report a partial/inflated duration
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
                     if (sqlEx != null && sqlEx.Number == FhirSqlErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
@@ -546,7 +571,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var dups = resources.Except(results.Loaded).Except(results.Conflicts)?.ToList();
 
-            return (GetErrors(dups, results.Conflicts), getResourcesMilliseconds, mergeResourcesMilliseconds, getResourcesCallCount, mergeResourcesCallCount);
+            return (GetErrors(dups, results.Conflicts), databaseMilliseconds);
 
             int GetMaxRetries(IReadOnlyList<ImportResource> resources, ImportMode importMode)
             {
@@ -569,46 +594,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return errors;
             }
 
-            // Instrumentation helpers below count and time only calls that actually reach the database.
-            // The underlying store methods short-circuit on empty input, so those invocations are skipped.
-            async Task<IReadOnlyList<ResourceWrapper>> GetResourcesAsync(IReadOnlyList<ResourceKey> keys)
-            {
-                if (keys.Count == 0)
-                {
-                    return Array.Empty<ResourceWrapper>();
-                }
-
-                getResourcesCallCount++;
-                var stopwatch = Stopwatch.StartNew();
-                try
-                {
-                    return await GetAsync(keys, cancellationToken);
-                }
-                finally
-                {
-                    getResourcesMilliseconds += stopwatch.ElapsedMilliseconds;
-                }
-            }
-
-            async Task<IReadOnlyList<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys)
-            {
-                if (keys.Count == 0)
-                {
-                    return Array.Empty<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>();
-                }
-
-                getResourcesCallCount++;
-                var stopwatch = Stopwatch.StartNew();
-                try
-                {
-                    return await StoreClient.GetResourceVersionsAsync(keys, _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken);
-                }
-                finally
-                {
-                    getResourcesMilliseconds += stopwatch.ElapsedMilliseconds;
-                }
-            }
-
             async Task<(List<ImportResource> Loaded, List<ImportResource> Conflicts)> ImportResourcesInternalAsync(bool useReplicasForReads)
             {
                 var loaded = new List<ImportResource>();
@@ -616,7 +601,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (importMode == ImportMode.InitialLoad)
                 {
                     var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
-                    var current = new HashSet<ResourceKey>((await GetResourcesAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList())).Select(_ => _.ToResourceKey(true)));
+                    var current = new HashSet<ResourceKey>((await TimeAsync(() => GetAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken), ms => databaseMilliseconds += ms)).Select(_ => _.ToResourceKey(true)));
+
                     loaded.AddRange(inputsDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
                     await Merge(loaded, false, useReplicasForReads);
                 }
@@ -645,7 +631,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     // Dedup on lastUpdated against database
                     var matchedOnLastUpdated =
-                        (await GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList()))
+                        (await TimeAsync(() => StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken), ms => databaseMilliseconds += ms))
                             .Where(_ => _.Key.VersionId == "0")
                             .ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
                     var fullyDedupped = new List<ImportResource>();
@@ -731,7 +717,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var inputsWithVersion = RemoveVersionOutOfSyncWithLastUpdatedConflicts(inputsWithVersionTemp);
 
                     // Search the db for versions that match the import resources with version so we can filter duplicates from the import.
-                    var versionsInDb = (await GetResourcesAsync(inputsWithVersion.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList())).ToDictionary(_ => _.ToResourceKey(), _ => _);
+                    var versionsInDb = (await TimeAsync(() => GetAsync(inputsWithVersion.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken), ms => databaseMilliseconds += ms)).ToDictionary(_ => _.ToResourceKey(), _ => _);
 
                     // If resources are identical consider already loaded. We should compare both last updated and raw resource
                     // if dates or raw resource do not match consider as conflict
@@ -751,7 +737,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // check whether input last updated and version are in sync with the database. skip for negatives.
                     var loadCandidatesWithIntVersion = loadCandidates.Select(_ => new { Resource = _, IntVersion = int.Parse(_.ResourceWrapper.Version) }).ToList();
                     var toBeLoaded = loadCandidatesWithIntVersion.Where(_ => _.IntVersion < 0).ToList();
-                    var currentInDb = (await GetResourcesAsync(loadCandidatesWithIntVersion.Where(_ => _.IntVersion > 0).Select(_ => _.Resource.ResourceWrapper.ToResourceKey(true)).Distinct().ToList())).ToDictionary(_ => _.ToResourceKey(true), _ => new { Resource = _, IntVersion = int.Parse(_.Version) });
+                    var currentInDb = (await TimeAsync(() => GetAsync(loadCandidatesWithIntVersion.Where(_ => _.IntVersion > 0).Select(_ => _.Resource.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken), ms => databaseMilliseconds += ms)).ToDictionary(_ => _.ToResourceKey(true), _ => new { Resource = _, IntVersion = int.Parse(_.Version) });
                     foreach (var input in loadCandidatesWithIntVersion.Where(_ => _.IntVersion > 0))
                     {
                         if (currentInDb.TryGetValue(input.Resource.ResourceWrapper.ToResourceKey(true), out var inDb)
@@ -776,7 +762,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 async Task MergeUnversioned(List<ImportResource> inputs, bool keepLastUpdated, bool useReplicasForReads)
                 {
                     // Check curent version in the database.
-                    var currentInDb = (await GetResourcesAsync(inputs.Select(_ => _.ResourceWrapper.ToResourceKey(true)).Distinct().ToList())).ToDictionary(_ => _.ToResourceKey(true), _ => _);
+                    var currentInDb = (await TimeAsync(() => GetAsync(inputs.Select(_ => _.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken), ms => databaseMilliseconds += ms)).ToDictionary(_ => _.ToResourceKey(true), _ => _);
 
                     // If last updated on input resource is below current, then need to check the "fit".
                     var inputsNoVersionForCheck = new List<ImportResource>();
@@ -791,7 +777,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     // Ensure that the imported resources can "fit" in the db. We want to keep versionId alinged to lastUpdated and sequential if possible.
                     // Note: surrogate id is populated from last updated by ToResourceDateKey(), therefore we can trust this value as part of dictionary key.
-                    var versionSlots = (await GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList())).ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
+                    var versionSlots = (await TimeAsync(() => StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken), ms => databaseMilliseconds += ms)).ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
                     foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ToResourceKey(true)).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
                         var resourceDateKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
@@ -857,16 +843,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return;
                 }
 
-                mergeResourcesCallCount++;
-                var stopwatch = Stopwatch.StartNew();
-                try
-                {
-                    await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, false, cancellationToken);
-                }
-                finally
-                {
-                    mergeResourcesMilliseconds += stopwatch.ElapsedMilliseconds;
-                }
+                await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, false, cancellationToken, elapsed => databaseMilliseconds += elapsed);
             }
         }
 

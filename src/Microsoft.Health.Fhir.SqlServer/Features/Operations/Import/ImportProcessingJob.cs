@@ -115,10 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 result.FailedResources = importProgress.FailedResources;
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
                 result.ProcessedBytes = importProgress.ProcessedBytes;
-                result.GetResourcesMilliseconds = importProgress.GetResourcesMilliseconds;
-                result.MergeResourcesMilliseconds = importProgress.MergeResourcesMilliseconds;
-                result.GetResourcesCallCount = importProgress.GetResourcesCallCount;
-                result.MergeResourcesCallCount = importProgress.MergeResourcesCallCount;
+                result.DatabaseMilliseconds = importProgress.DatabaseMilliseconds;
 
                 _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, result.SucceededResources, result.FailedResources);
 

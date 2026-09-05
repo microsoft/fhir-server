@@ -364,10 +364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];
                     var progress = new ImportProcessingProgress
                     {
-                        GetResourcesMilliseconds = 101,
-                        MergeResourcesMilliseconds = 202,
-                        GetResourcesCallCount = 3,
-                        MergeResourcesCallCount = 4,
+                        DatabaseMilliseconds = 303,
                     };
                     await foreach (var resource in resourceChannel.Reader.ReadAllAsync())
                     {
@@ -390,10 +387,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);
-            Assert.Equal(101, result.GetResourcesMilliseconds);
-            Assert.Equal(202, result.MergeResourcesMilliseconds);
-            Assert.Equal(3, result.GetResourcesCallCount);
-            Assert.Equal(4, result.MergeResourcesCallCount);
+            Assert.Equal(303, result.DatabaseMilliseconds);
         }
 
         private ImportProcessingJobDefinition GetInputData()
