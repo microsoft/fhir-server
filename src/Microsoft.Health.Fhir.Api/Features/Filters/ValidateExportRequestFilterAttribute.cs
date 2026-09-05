@@ -63,7 +63,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (!context.HttpContext.Request.Headers.TryGetValue(HeaderNames.Accept, out var acceptHeaderValue) ||
                 acceptHeaderValue.Count != 1 ||
-                !string.Equals(acceptHeaderValue[0], KnownContentTypes.JsonContentType, StringComparison.OrdinalIgnoreCase))
+                !MediaTypeHeaderValue.TryParse(acceptHeaderValue[0], out var parsedAcceptHeader) ||
+                !string.Equals(parsedAcceptHeader.MediaType, KnownContentTypes.JsonContentType, StringComparison.OrdinalIgnoreCase))
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedHeaderValue, acceptHeaderValue.FirstOrDefault(), HeaderNames.Accept));
             }
