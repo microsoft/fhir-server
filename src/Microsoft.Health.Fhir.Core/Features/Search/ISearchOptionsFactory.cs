@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -17,6 +18,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             bool onlyIds = false,
             bool isIncludesOperation = false);
+
+        SearchOptions Create(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            DataActions scopeDataActions,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            return Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+        }
 
         SearchOptions Create(
             string compartmentType,

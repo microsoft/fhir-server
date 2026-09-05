@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -37,6 +38,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             bool onlyIds = false,
             bool isIncludesOperation = false);
+
+        /// <summary>
+        /// Searches resources using only SMART scope restrictions that permit one of the supplied actions.
+        /// </summary>
+        /// <param name="resourceType">The resource type that should be searched.</param>
+        /// <param name="queryParameters">The search queries.</param>
+        /// <param name="scopeDataActions">The data actions that may authorize the search.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
+        /// <param name="resourceVersionTypes">Which version types to include in search.</param>
+        /// <param name="onlyIds">Whether to return only resource IDs.</param>
+        /// <param name="isIncludesOperation">Whether the search is querying remaining include resources.</param>
+        /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
+        Task<SearchResult> SearchAsync(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            DataActions scopeDataActions,
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            return SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+        }
 
         /// <summary>
         /// Searches the resources using the <paramref name="searchOptions"/>.
