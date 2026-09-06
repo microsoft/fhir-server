@@ -20,8 +20,10 @@ using Hl7.Fhir.Serialization;
 using Medino;
 using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private readonly ITestOutputHelper _testOutputHelper;
+        private readonly bool _inMemoryTestSourceOverrideEnabled;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
         private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
 
@@ -61,6 +64,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
             _testOutputHelper = testOutputHelper;
+            var configuration = ((IOptions<IntegrationDataStoreConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<IntegrationDataStoreConfiguration>)))?.Value;
+            _inMemoryTestSourceOverrideEnabled = configuration?.EnableTestSourceOverride ?? bool.TryParse(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestEnableImportTestSourceOverride), out var enabled) && enabled;
         }
 
         [Fact]
@@ -790,10 +795,12 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenIncrementalLoad_WithInMemorySource_ResourcesAreImportedSuccessfully()
         {
-            // "inmemorytest" is a reserved scheme served by AzureBlobIntegrationDataStoreClient from an embedded,
+            Skip.IfNot(_inMemoryTestSourceOverrideEnabled, "Requires IntegrationDataStore:EnableTestSourceOverride.");
+
+            // "inmemorytest" is a reserved scheme served by AzureBlobIntegrationDataStoreClient
             // production-distribution-representative 1000-resource sample, instead of real Azure Storage. It is
             // only active when FhirServer:Operations:IntegrationDataStore:EnableTestSourceOverride is set to true,
             // which InProcTestFhirServer does for E2E test runs. See InMemoryTestIntegrationDataSource.cs.
@@ -817,10 +824,12 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=1 ", StringComparison.Ordinal));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
         {
-            // Multiple distinct inmemorytest:// URLs (with different suffixes) all serve the same embedded payload.
+            Skip.IfNot(_inMemoryTestSourceOverrideEnabled, "Requires IntegrationDataStore:EnableTestSourceOverride.");
+
+            // Multiple distinct inmemorytest:// URLs
             // This allows testing of multi-file imports without needing separate real storage blobs.
             var location1 = new Uri("inmemorytest://whatever-1");
             var location2 = new Uri("inmemorytest://whatever-2");
