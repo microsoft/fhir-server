@@ -1,0 +1,6 @@
+Django==5.2.8
+git+https://github.com/Kondexor2000/django-axes.git@d1b705cff19d8601ccbf77efc1ddd06bbf5f230c#egg=django-axes
+cryptography>=42.0.0
+psycopg[binary]>=3.2,<4.0
+python-dotenv>=1.0,<2.0
+gunicorn>=23.0,<24.0

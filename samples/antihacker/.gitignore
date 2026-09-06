@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Django/local runtime
+db.sqlite3
+*.sqlite3
+runhttps.status.log
+server*.log
+server*.out
+server*.err
+
+# Local certificates and backups
+certs/
+secure_backups/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor/OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Codex/local agent files
+.agents/
+.codex/
+frontend/node_modules/
+frontend/.vite/
+npm-debug.log*
