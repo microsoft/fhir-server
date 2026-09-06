@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [InlineData(
             "/* HASH first */ SELECT 1 /* HASH second */",
             "/* HASH first fhir=Patient?name */ SELECT 1 /* HASH second fhir=Patient?name */")]
-        [InlineData("SELECT 1", "SELECT 1")]
+        [InlineData("SELECT 1", "/* fhir=Patient?name */\nSELECT 1")]
         public void GivenGeneratedSql_WhenHashCalculatedAndShapeAdded_ThenHashUsesUnannotatedSql(
             string queryText,
             string expectedQueryText)

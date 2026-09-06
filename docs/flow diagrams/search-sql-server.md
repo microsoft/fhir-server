@@ -14,12 +14,23 @@ sequenceDiagram
     SearchInternalAsync->>SqlServerSearchService: SearchResult
 ```
 
-When SQL query-plan reuse is disabled and the generator emits its existing parameter hash comment, the same
-comment also contains a value-free FHIR query shape:
+Generated SQL contains a value-free FHIR query shape. When SQL query-plan reuse is disabled and the generator
+emits its existing parameter hash comment, the shape is added to the same comment:
 
 ```sql
 /* HASH <parameter-hash> params=@p0,@p1 fhir=Patient?birthdate&name */
 ```
+
+When no parameter hash comment is emitted, including when query-plan reuse is enabled, the shape is emitted as
+a standalone comment instead:
+
+```sql
+/* fhir=Patient?birthdate&name */
+```
+
+The standalone comment makes the normalized FHIR search shape visible in Query Store and keeps the executed SQL
+text stable across value changes and input parameter ordering while distinguishing different normalized shapes.
+The internal custom-query hash continues to be calculated from the unannotated SQL.
 
 The shape is created by `SearchOptionsFactory` from the search scope and the parsed query parameter names
 already supplied to the search pipeline. Ordinary searches use `Patient?...`, history searches use

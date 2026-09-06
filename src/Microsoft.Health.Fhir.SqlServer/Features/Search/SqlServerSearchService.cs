@@ -1277,12 +1277,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             queryHash = queryHashCalculator.CalculateHash(queryText);
 
-            return string.IsNullOrEmpty(normalizedQueryShape)
-                ? queryText
-                : queryText.Replace(
+            if (string.IsNullOrEmpty(normalizedQueryShape))
+            {
+                return queryText;
+            }
+
+            if (queryText.Contains(SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal))
+            {
+                return queryText.Replace(
                     SqlQueryGenerator.ParametersHashEnd,
                     $" fhir={normalizedQueryShape}{SqlQueryGenerator.ParametersHashEnd}",
                     StringComparison.Ordinal);
+            }
+
+            return $"/* fhir={normalizedQueryShape} */\n{queryText}";
         }
 
         /// <summary>

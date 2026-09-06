@@ -178,6 +178,36 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
+    public void GivenQueryPlanReuse_WhenNormalizedQueryShapesDiffer_ThenStandaloneCommentsDistinguishSqlText()
+    {
+        // Arrange
+        const string rawValue = "Alice-Recognizable-Value";
+        string sqlWithoutHashComment = GenerateSqlWithHashedParameter(rawValue, reuseQueryPlans: true);
+        var queryHashCalculator = new SqlQueryHashCalculator();
+
+        // Act
+        string patientSql = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutHashComment,
+            "Patient?name",
+            queryHashCalculator,
+            out string patientQueryHash);
+        string observationSql = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutHashComment,
+            "Observation?code",
+            queryHashCalculator,
+            out string observationQueryHash);
+
+        // Assert
+        Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, sqlWithoutHashComment, StringComparison.Ordinal);
+        Assert.StartsWith("/* fhir=Patient?name */\n", patientSql, StringComparison.Ordinal);
+        Assert.StartsWith("/* fhir=Observation?code */\n", observationSql, StringComparison.Ordinal);
+        Assert.NotEqual(patientSql, observationSql);
+        Assert.Equal(patientQueryHash, observationQueryHash);
+        Assert.DoesNotContain(rawValue, patientSql, StringComparison.Ordinal);
+        Assert.DoesNotContain(rawValue, observationSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GivenReferenceSearchParameterWithMultipleTargetTypes_WhenSqlGenerated_ThenSqlIncludesOrClauseForReferenceResourceTypeId()
     {
         // Setup mock to return resource type IDs
@@ -244,7 +274,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
 
-    private string GenerateSqlWithHashedParameter(string parameterValue)
+    private string GenerateSqlWithHashedParameter(string parameterValue, bool reuseQueryPlans = false)
     {
         var stringBuilder = new IndentedStringBuilder(new StringBuilder());
         using Data.SqlClient.SqlCommand command = new();
@@ -256,7 +286,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             _fhirModel,
             _schemaInformation,
             _queryGeneratorFactory,
-            reuseQueryPlans: false,
+            reuseQueryPlans,
             isAsyncOperation: false);
         var sqlExpression = new SqlRootExpression(
             [new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All)],
