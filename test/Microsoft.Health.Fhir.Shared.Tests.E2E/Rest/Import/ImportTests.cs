@@ -806,9 +806,19 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // which InProcTestFhirServer does for E2E test runs. See InMemoryTestIntegrationDataSource.cs.
             var location = new Uri("inmemorytest://whatever");
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false);
-            var result = await ImportCheckAsync(request, null, 0);
+
+            var response = await ImportWaitAsync(await ImportTestHelper.CreateImportTaskAsync(_client, request), returnDetails: true);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
+            if (result.Error.Count > 0)
+            {
+                _testOutputHelper.WriteLine("Import errors:");
+                _testOutputHelper.WriteLine(JsonConvert.SerializeObject(result.Error, Formatting.Indented));
+            }
+
             var totalImported = result.Output.Sum(o => o.Count);
             Assert.Equal(1000, totalImported);
+            Assert.Empty(result.Error);
 
             // Verify execution stats are populated (only in test mode when EnableTestSourceOverride=true)
             Assert.NotEmpty(result.ExecutionStats);
