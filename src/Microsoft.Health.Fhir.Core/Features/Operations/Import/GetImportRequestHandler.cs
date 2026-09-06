@@ -120,15 +120,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     // Include per-job execution stats when test-override mode is enabled (for CPU profiling)
                     if (_enableTestSourceOverride && jobs.Any())
                     {
-                        var jobLines = jobs.Where(_ => jobResultsById.ContainsKey(_.Id)).OrderBy(_ => _.StartDate.Value)
+                        var jobLines = jobs.Select(job => jobResultsById.TryGetValue(job.Id, out var result) ? new { Job = job, Result = result } : null).Where(_ => _ != null)
+                            .OrderBy(_ => _.Job.StartDate.Value)
                             .Select(_ =>
                             {
-                                var clockMilliseconds = (long)(_.EndDate.Value - _.StartDate.Value).TotalMilliseconds;
-                                var databaseMilliseconds = jobResultsById[_.Id].DatabaseMilliseconds;
+                                var clockMilliseconds = (long)(_.Job.EndDate.Value - _.Job.StartDate.Value).TotalMilliseconds;
+                                var databaseMilliseconds = _.Result.DatabaseMilliseconds;
                                 var cpuMilliseconds = clockMilliseconds - databaseMilliseconds; // x - null = null
                                 return new
                                 {
-                                    Line = $"job={_.Id} cpu_msec={cpuMilliseconds} clock_msec={clockMilliseconds} database_msec={databaseMilliseconds}",
+                                    Line = $"job={_.Job.Id} cpu_msec={cpuMilliseconds} clock_msec={clockMilliseconds} database_msec={databaseMilliseconds}",
                                     CpuMilliseconds = cpuMilliseconds,
                                     ClockMilliseconds = clockMilliseconds,
                                     DatabaseMilliseconds = databaseMilliseconds,
