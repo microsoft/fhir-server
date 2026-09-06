@@ -212,7 +212,13 @@ namespace Microsoft.Health.Extensions.Xunit
         // would throw out of discovery, which v3 swallows - the class would vanish and the run would still exit 0.
         private static async ValueTask<bool> ReportFault(IXunitTestClass testClass, IEnumerable<MethodInfo> methods, SingleFlag[][] variants, Exception ex, Func<ITestCase, ValueTask<bool>> callback)
         {
-            foreach (MethodInfo method in methods)
+            MethodInfo[] methodList = methods as MethodInfo[] ?? methods.ToArray();
+            if (methodList.Length == 0)
+            {
+                return await EmitFaultCase(testClass, null, null, TryGetRawFlags(testClass, null), ex, callback);
+            }
+
+            foreach (MethodInfo method in methodList)
             {
                 if (variants is { Length: > 0 })
                 {
@@ -245,9 +251,14 @@ namespace Microsoft.Health.Extensions.Xunit
             bool named = nameVariant is { Length: > 0 };
             string suffix = named ? $"({string.Join(", ", nameVariant.Select(v => v.EnumValue))})" : string.Empty;
             string discriminator = named ? "-" + string.Join("-", nameVariant.Select(v => Convert.ToInt64(v.EnumValue))) : string.Empty;
-            var faultMethod = new XunitTestMethod(testClass, method, Array.Empty<object>(), UniqueIDGenerator.ForTestMethod(testClass.UniqueID, method.Name + discriminator));
-            string name = $"{testClass.TestClassName}{suffix}.{method.Name}";
-            var errorCase = new ExecutionErrorTestCase(faultMethod, name, $"{faultMethod.UniqueID}-fault", sourceFilePath: null, sourceLineNumber: null, errorMessage: $"Discovering '{testClass.TestClassName}.{method.Name}' failed, so none of its tests ran: {ex.Message}");
+            string methodName = method?.Name ?? "DiscoveryFailure";
+
+            // When method enumeration fails, use known reflection metadata that xUnit can serialize without probing
+            // the broken type again. ExecutionErrorTestCase reports the error instead of invoking this method.
+            MethodInfo metadataMethod = method ?? typeof(object).GetMethod(nameof(object.ToString));
+            var faultMethod = new XunitTestMethod(testClass, metadataMethod, Array.Empty<object>(), UniqueIDGenerator.ForTestMethod(testClass.UniqueID, methodName + discriminator));
+            string name = $"{testClass.TestClassName}{suffix}.{methodName}";
+            var errorCase = new ExecutionErrorTestCase(faultMethod, name, $"{faultMethod.UniqueID}-fault", sourceFilePath: null, sourceLineNumber: null, errorMessage: $"Discovering '{testClass.TestClassName}.{methodName}' failed, so none of its tests ran: {ex.Message}");
             ApplyFlagTraits(errorCase, traitFlags);
             return await callback(errorCase);
         }

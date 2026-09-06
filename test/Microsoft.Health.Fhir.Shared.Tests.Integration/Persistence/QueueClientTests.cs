@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
             ValidateJobInfoState(job);
 
-            var cancel = new CancellationTokenSource();
+            using var cancel = new CancellationTokenSource();
             cancel.CancelAfter(TimeSpan.FromSeconds(30));
             Task<string> execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
                 _queueClient,
