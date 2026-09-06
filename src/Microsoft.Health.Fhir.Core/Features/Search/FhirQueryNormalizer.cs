@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -17,12 +16,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         internal static string Normalize(
             string resourceType,
-            IReadOnlyList<Tuple<string, string>> queryParameters,
+            IEnumerable<string> parameterNames,
             string compartmentType = null,
             bool isHistory = false)
         {
-            string[] parameterNames = queryParameters?
-                .Select(parameter => parameter.Item1)
+            string[] normalizedParameterNames = parameterNames?
                 .OrderBy(name => name, StringComparer.Ordinal)
                 .Select(Sanitize)
                 .ToArray() ?? [];
@@ -36,9 +34,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchScope += "/_history";
             }
 
-            string normalizedQuery = parameterNames.Length == 0
+            string normalizedQuery = normalizedParameterNames.Length == 0
                 ? searchScope
-                : $"{searchScope}?{string.Join("&", parameterNames)}";
+                : $"{searchScope}?{string.Join("&", normalizedParameterNames)}";
 
             return normalizedQuery.Length <= MaximumLength
                 ? normalizedQuery
@@ -47,22 +45,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private static string Sanitize(string input)
         {
-            var result = new StringBuilder(input?.Length ?? 0);
-
-            foreach (char character in input ?? string.Empty)
-            {
-                result.Append(IsSafeCharacter(character) ? character : '_');
-            }
-
-            return result.ToString().Replace("--", "__", StringComparison.Ordinal);
-        }
-
-        private static bool IsSafeCharacter(char character)
-        {
-            return (character >= 'A' && character <= 'Z')
-                || (character >= 'a' && character <= 'z')
-                || (character >= '0' && character <= '9')
-                || character is '-' or '.' or '_' or ':' or '$';
+            return string.Concat((input ?? string.Empty).Select(character =>
+                    char.IsAsciiLetterOrDigit(character) || character is '-' or '.' or '_' or ':' or '$' ? character : '_'))
+                .Replace("--", "__", StringComparison.Ordinal);
         }
     }
 }

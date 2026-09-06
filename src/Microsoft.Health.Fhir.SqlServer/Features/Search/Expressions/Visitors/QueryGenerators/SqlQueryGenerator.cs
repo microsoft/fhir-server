@@ -62,7 +62,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
         private bool _isAsyncOperation;
-        private string _normalizedQueryShape;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
@@ -112,7 +111,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             _rootExpression = expression;
-            _normalizedQueryShape = searchOptions.NormalizedQueryShape;
 
             // Fail-closed invariant: when a SMART compartment membership context was attached for this search
             // (see SqlServerSearchService.AttachSmartCompartmentMembership), it must still be present on the
@@ -481,11 +479,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     Parameters.AppendHash(StringBuilder);
                     Parameters.AppendHashedParameterNames(StringBuilder);
-                }
-
-                if (!string.IsNullOrEmpty(_normalizedQueryShape))
-                {
-                    StringBuilder.Append(" fhir=").Append(_normalizedQueryShape);
                 }
 
                 StringBuilder.Append(ParametersHashEnd);

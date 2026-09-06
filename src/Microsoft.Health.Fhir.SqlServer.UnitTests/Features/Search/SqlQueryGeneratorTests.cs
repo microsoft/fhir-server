@@ -153,15 +153,20 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
-    public void GivenNormalizedFhirQuery_WhenSqlGenerated_ThenHashCommentContainsSafeQueryShapeWithoutChangingHash()
+    public void GivenGeneratedSql_WhenNormalizedQueryShapeAdded_ThenHashCommentContainsSafeQueryShapeWithoutChangingHash()
     {
         // Arrange
         const string rawValue = "Alice-Recognizable-Value";
         const string normalizedQuery = "Patient?birthdate&name";
-        string sqlWithoutAnnotation = GenerateSqlWithHashedParameter(rawValue, normalizedQuery: null);
+        string sqlWithoutAnnotation = GenerateSqlWithHashedParameter(rawValue);
+        var queryHashCalculator = new SqlQueryHashCalculator();
 
         // Act
-        string sqlWithAnnotation = GenerateSqlWithHashedParameter(rawValue, normalizedQuery);
+        string sqlWithAnnotation = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutAnnotation,
+            normalizedQuery,
+            queryHashCalculator,
+            out string queryHash);
 
         // Assert
         Assert.Contains($" fhir={normalizedQuery} */", sqlWithAnnotation, StringComparison.Ordinal);
@@ -169,9 +174,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.Equal(
             SqlServerSearchService.ExtractParameterHash(sqlWithoutAnnotation),
             SqlServerSearchService.ExtractParameterHash(sqlWithAnnotation));
-        Assert.Equal(
-            new SqlQueryHashCalculator().CalculateHash(sqlWithoutAnnotation),
-            new SqlQueryHashCalculator().CalculateHash(sqlWithAnnotation));
+        Assert.Equal(queryHashCalculator.CalculateHash(sqlWithoutAnnotation), queryHash);
     }
 
     [Fact]
@@ -241,7 +244,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
 
-    private string GenerateSqlWithHashedParameter(string parameterValue, string normalizedQuery)
+    private string GenerateSqlWithHashedParameter(string parameterValue)
     {
         var stringBuilder = new IndentedStringBuilder(new StringBuilder());
         using Data.SqlClient.SqlCommand command = new();
@@ -262,7 +265,6 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         {
             Sort = [],
             ResourceVersionTypes = ResourceVersionType.Latest,
-            NormalizedQueryShape = normalizedQuery,
         };
 
         queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);

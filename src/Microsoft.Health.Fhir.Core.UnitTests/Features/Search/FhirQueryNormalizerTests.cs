@@ -19,16 +19,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenSameParameterNamesInDifferentOrder_WhenNormalized_ThenRepresentationsAreIdentical()
         {
             // Arrange
-            var first = new[]
-            {
-                Tuple.Create("name", "Alice"),
-                Tuple.Create("birthdate", "gt2000-01-01"),
-            };
-            var second = new[]
-            {
-                Tuple.Create("birthdate", "lt1990-01-01"),
-                Tuple.Create("name", "Bob"),
-            };
+            string[] first = ["name", "birthdate"];
+            string[] second = ["birthdate", "name"];
 
             // Act
             string firstResult = FhirQueryNormalizer.Normalize("Patient", first);
@@ -37,23 +29,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             // Assert
             Assert.Equal("Patient?birthdate&name", firstResult);
             Assert.Equal(firstResult, secondResult);
-            Assert.DoesNotContain("Alice", firstResult, StringComparison.Ordinal);
-            Assert.DoesNotContain("Bob", secondResult, StringComparison.Ordinal);
-            Assert.DoesNotContain("2000-01-01", firstResult, StringComparison.Ordinal);
-            Assert.DoesNotContain("1990-01-01", secondResult, StringComparison.Ordinal);
         }
 
         [Fact]
         public void GivenCommentDelimitersAndControlCharacters_WhenNormalized_ThenOutputIsSafe()
         {
             // Arrange
-            var queryParameters = new[]
-            {
-                Tuple.Create("subject.name:exact*/--\r\n\u0001", "recognizable-value"),
-            };
+            string[] parameterNames = ["subject.name:exact*/--\r\n\u0001"];
 
             // Act
-            string result = FhirQueryNormalizer.Normalize("Patient*/\r\n", queryParameters);
+            string result = FhirQueryNormalizer.Normalize("Patient*/\r\n", parameterNames);
 
             // Assert
             Assert.Equal("Patient____?subject.name:exact_______", result);
@@ -62,46 +47,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.DoesNotContain('\r', result);
             Assert.DoesNotContain('\n', result);
             Assert.DoesNotContain('\u0001', result);
-            Assert.DoesNotContain("recognizable-value", result, StringComparison.Ordinal);
         }
 
         [Fact]
         public void GivenNormalizedQueryExceedsMaximumLength_WhenNormalized_ThenOutputIsDeterministicallyTruncated()
         {
             // Arrange
-            var queryParameters = new[]
-            {
-                Tuple.Create(new string('a', FhirQueryNormalizer.MaximumLength), "secret"),
-            };
+            string[] parameterNames = [new string('a', FhirQueryNormalizer.MaximumLength)];
 
             // Act
-            string firstResult = FhirQueryNormalizer.Normalize("Patient", queryParameters);
-            string secondResult = FhirQueryNormalizer.Normalize("Patient", queryParameters);
+            string firstResult = FhirQueryNormalizer.Normalize("Patient", parameterNames);
+            string secondResult = FhirQueryNormalizer.Normalize("Patient", parameterNames);
 
             // Assert
             Assert.Equal(FhirQueryNormalizer.MaximumLength, firstResult.Length);
             Assert.EndsWith("~", firstResult, StringComparison.Ordinal);
             Assert.Equal(firstResult, secondResult);
-            Assert.DoesNotContain("secret", firstResult, StringComparison.Ordinal);
         }
 
         [Fact]
         public void GivenRepeatedModifiedChainedAndControlParameters_WhenNormalized_ThenSyntaxAndMultiplicityArePreserved()
         {
             // Arrange
-            var queryParameters = new[]
-            {
-                Tuple.Create("subject:Patient.name:exact", "Alice"),
-                Tuple.Create("_has:Observation:patient:code", "1234-5"),
-                Tuple.Create("_include", "Patient:general-practitioner"),
-                Tuple.Create("_sort", "-birthdate"),
-                Tuple.Create("name", "Alice"),
-                Tuple.Create("name", "Bob"),
-                Tuple.Create("_count", "25"),
-            };
+            string[] parameterNames =
+            [
+                "subject:Patient.name:exact",
+                "_has:Observation:patient:code",
+                "_include",
+                "_sort",
+                "name",
+                "name",
+                "_count",
+            ];
 
             // Act
-            string result = FhirQueryNormalizer.Normalize("Patient", queryParameters);
+            string result = FhirQueryNormalizer.Normalize("Patient", parameterNames);
 
             // Assert
             Assert.Equal(
@@ -137,13 +117,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string expected)
         {
             // Arrange
-            var queryParameters = new[]
-            {
-                Tuple.Create("name", "Alice"),
-            };
+            string[] parameterNames = ["name"];
 
             // Act
-            string result = FhirQueryNormalizer.Normalize(resourceType, queryParameters, compartmentType, isHistory);
+            string result = FhirQueryNormalizer.Normalize(resourceType, parameterNames, compartmentType, isHistory);
 
             // Assert
             Assert.Equal(expected, result);

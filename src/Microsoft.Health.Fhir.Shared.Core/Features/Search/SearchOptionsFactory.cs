@@ -634,15 +634,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _logger.LogWarning("Unable to log search parameters. Error: {Exception}", e.ToString());
             }
 
-            IReadOnlyList<Tuple<string, string>> diagnosticQueryParameters = queryParameters?
-                .Select(query => unsupportedSearchParameters.Contains(query)
-                    ? Tuple.Create("_unsupported", string.Empty)
-                    : query)
-                .ToList();
-
             searchOptions.NormalizedQueryShape = FhirQueryNormalizer.Normalize(
                 resourceType,
-                diagnosticQueryParameters,
+                queryParameters?.Select(query => unsupportedSearchParameters.Contains(query) ? "_unsupported" : query.Item1),
                 compartmentType,
                 resourceVersionTypes.HasFlag(ResourceVersionType.History));
 
