@@ -801,19 +801,11 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         {
             Skip.IfNot(_inMemoryTestSourceOverrideEnabled, "Requires IntegrationDataStore:EnableTestSourceOverride.");
 
-            // Multiple distinct inmemorytest:// URLs
-            // This allows testing of multi-file imports without needing separate real storage blobs.
-            var location1 = new Uri("inmemorytest://whatever-1");
-            var location2 = new Uri("inmemorytest://whatever-2");
-            var location3 = new Uri("inmemorytest://whatever-3");
-            var location4 = new Uri("inmemorytest://whatever-4");
-            var location5 = new Uri("inmemorytest://whatever-5");
-            var location6 = new Uri("inmemorytest://whatever-6");
-            var location7 = new Uri("inmemorytest://whatever-7");
-            var location8 = new Uri("inmemorytest://whatever-8");
-            var location9 = new Uri("inmemorytest://whatever-9");
-            var location10 = new Uri("inmemorytest://whatever-10");
-            var request = CreateImportRequest(new[] { location1, location2, location3, location4, location5, location6, location7, location8, location9, location10 }, ImportMode.IncrementalLoad, setResourceType: false);
+            // InMemoryTestProcessingJobs makes the orchestrator use the location below as a template and create
+            // 10 synthetic in-memory processing jobs from it, each serving the same 1000-resource representative
+            // sample, without requiring 10 distinct input files or real storage blobs.
+            var location = new Uri("inmemorytest://whatever");
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: 10);
             var result = await ImportCheckAsync(request, null, 0);
             var totalImported = result.Output.Sum(o => o.Count);
             Assert.Equal(10000, totalImported);
@@ -1238,7 +1230,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null)
+        private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null, int inMemoryTestProcessingJobs = 0)
         {
             var input = locations.Select(location =>
             {
@@ -1261,6 +1253,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 AllowNegativeVersions = allowNegativeVersions,
                 EventualConsistency = eventualConsistency,
                 ErrorContainerName = errorContainerName,
+                InMemoryTestProcessingJobs = inMemoryTestProcessingJobs,
             };
 
             if (processingUnitBytesToRead.HasValue)
@@ -1271,9 +1264,9 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return request;
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null, int inMemoryTestProcessingJobs = 0)
         {
-            return CreateImportRequest([location], importMode, setResourceType, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead);
+            return CreateImportRequest([location], importMode, setResourceType, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead, inMemoryTestProcessingJobs);
         }
 
         private static string PrepareResource(string id, string version, string lastUpdatedYear)
