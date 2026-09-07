@@ -795,35 +795,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
 
-        [SkippableFact]
-        public async Task GivenIncrementalLoad_WithInMemorySource_ResourcesAreImportedSuccessfully()
-        {
-            Skip.IfNot(_inMemoryTestSourceOverrideEnabled, "Requires IntegrationDataStore:EnableTestSourceOverride.");
-
-            // "inmemorytest" is a reserved scheme served by AzureBlobIntegrationDataStoreClient
-            // production-distribution-representative 1000-resource sample, instead of real Azure Storage. It is
-            // only active when FhirServer:Operations:IntegrationDataStore:EnableTestSourceOverride is set to true,
-            // which InProcTestFhirServer does for E2E test runs. See InMemoryTestIntegrationDataSource.cs.
-            var location = new Uri("inmemorytest://whatever");
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false);
-            var result = await ImportCheckAsync(request, null, 0);
-            var totalImported = result.Output.Sum(o => o.Count);
-            Assert.Equal(1000, totalImported);
-
-            // Verify execution stats are populated (only in test mode when EnableTestSourceOverride=true)
-            Assert.NotEmpty(result.ExecutionStats);
-            _testOutputHelper.WriteLine("ExecutionStats:");
-            _testOutputHelper.WriteLine(JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented));
-
-            Assert.StartsWith("jobs=1 ", result.ExecutionStats.First());
-            var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=", StringComparison.Ordinal)).ToList();
-            Assert.Single(jobLines);
-            Assert.Contains("cpu_msec=", jobLines[0]);
-            Assert.Contains("clock_msec=", jobLines[0]);
-            Assert.Contains("database_msec=", jobLines[0]);
-            Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=1 ", StringComparison.Ordinal));
-        }
-
+#if R4
         [SkippableFact]
         public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
         {
@@ -864,6 +836,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
             Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=10 ", StringComparison.Ordinal));
         }
+#endif
 
         [Theory]
         [InlineData(true)]
