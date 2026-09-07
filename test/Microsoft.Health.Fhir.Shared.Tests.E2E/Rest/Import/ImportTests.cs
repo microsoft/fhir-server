@@ -809,7 +809,9 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var statsJson = JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented);
             _testOutputHelper.WriteLine("ExecutionStats:");
             _testOutputHelper.WriteLine(statsJson);
-            Trace.WriteLine("ExecutionStats: " + statsJson);
+            Console.WriteLine("========== ExecutionStats ==========");
+            Console.WriteLine(statsJson);
+            Console.WriteLine("====================================");
 
             Assert.StartsWith("jobs=10 ", result.ExecutionStats.First());
             var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=", StringComparison.Ordinal)).ToList();
@@ -822,7 +824,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
 
             Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=10 ", StringComparison.Ordinal));
-            _testOutputHelper.WriteLine($"Execution summary: {result.ExecutionStats.First()}");
+            Console.WriteLine($"SUMMARY: {result.ExecutionStats.First()}");
         }
 #endif
 
