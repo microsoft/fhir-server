@@ -806,8 +806,10 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // Verify execution stats are populated and includes entries for all ten jobs plus total line
             Assert.NotEmpty(result.ExecutionStats);
             Assert.True(result.ExecutionStats.Count >= 11, $"Should have execution stats for at least 10 job lines plus 1 total line, got {result.ExecutionStats.Count}");
+            var statsJson = JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented);
             _testOutputHelper.WriteLine("ExecutionStats:");
-            _testOutputHelper.WriteLine(JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented));
+            _testOutputHelper.WriteLine(statsJson);
+            Trace.WriteLine("ExecutionStats: " + statsJson);
 
             Assert.StartsWith("jobs=10 ", result.ExecutionStats.First());
             var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=", StringComparison.Ordinal)).ToList();
@@ -820,6 +822,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
 
             Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=10 ", StringComparison.Ordinal));
+            _testOutputHelper.WriteLine($"Execution summary: {result.ExecutionStats.First()}");
         }
 #endif
 

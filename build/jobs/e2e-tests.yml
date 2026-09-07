@@ -38,7 +38,8 @@ steps:
         }
 
         $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
-        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
+        $trxLoggerPath = Join-Path $env:platformOptions__resultDirectory "test-results.trx"
+        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--logger', "trx;LogFileName=$trxLoggerPath")
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
