@@ -22,7 +22,6 @@ variables:
     # Shared FHIR runtime tuning values consumed by build/jobs/provision-deploy.yml.
     taskHostingPollingFrequencyInSeconds: 1
     taskHostingMaxRunningTaskCount: 4
-    enableImportTestSourceOverride: true
     searchParameterCacheRefreshIntervalSeconds: 2
     systemConformanceProviderRefreshIntervalSeconds: 5
     reindexCacheRefreshWaitMultiplier: 6

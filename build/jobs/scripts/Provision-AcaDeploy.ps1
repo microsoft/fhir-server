@@ -40,7 +40,6 @@ param(
     # FHIR runtime tuning (sourced from ci-variables.yml / pr-variables.yml)
     [Parameter(Mandatory = $true)] [int]    $TaskHostingPollingFrequencyInSeconds,
     [Parameter(Mandatory = $true)] [int]    $TaskHostingMaxRunningTaskCount,
-    [Parameter(Mandatory = $true)] [string] $EnableImportTestSourceOverride,
     [Parameter(Mandatory = $true)] [int]    $SearchParameterCacheRefreshIntervalSeconds,
     [Parameter(Mandatory = $true)] [int]    $SystemConformanceProviderRefreshIntervalSeconds,
     [Parameter(Mandatory = $true)] [int]    $ReindexCacheRefreshWaitMultiplier,
@@ -51,7 +50,6 @@ $ErrorActionPreference = 'Stop'
 
 # Bool-ish string args from the YAML wrapper get parsed here so that 'false' actually means false.
 $reindexEnabledBool = $ReindexEnabled -eq 'true'
-$enableImportTestSourceOverrideBool = $EnableImportTestSourceOverride -eq 'true'
 
 Add-Type -AssemblyName System.Web
 
@@ -66,7 +64,6 @@ $flattenedTestConfig = & "$WorkingDirectory/release/scripts/PowerShell/ConvertTo
 $additionalProperties = $flattenedTestConfig
 $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = $TaskHostingPollingFrequencyInSeconds
 $additionalProperties["TaskHosting__MaxRunningTaskCount"] = $TaskHostingMaxRunningTaskCount
-$additionalProperties["FhirServer__Operations__IntegrationDataStore__EnableTestSourceOverride"] = $enableImportTestSourceOverrideBool
 $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = $SearchParameterCacheRefreshIntervalSeconds
 $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = $SystemConformanceProviderRefreshIntervalSeconds
 $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = $ReindexCacheRefreshWaitMultiplier

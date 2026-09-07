@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public IReadOnlyCollection<ImportFailedOperationOutcome> Error { get; set; }
 
         /// <summary>
-        /// Performance metrics collected during import processing. Only populated when
-        /// IntegrationDataStore:EnableTestSourceOverride is enabled (test-only feature).
+        /// Performance metrics collected during import processing. Only populated for in-memory test imports
+        /// (see <see cref="ImportOrchestratorJobDefinition.InMemoryTestProcessingJobs"/>).
         /// Each entry is a preformatted line, one per completed job plus a final aggregate line.
         /// </summary>
         [JsonProperty("executionStats", NullValueHandling = NullValueHandling.Ignore)]

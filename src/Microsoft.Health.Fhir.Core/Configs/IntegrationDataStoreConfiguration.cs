@@ -30,13 +30,5 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int RetryInternalInSecondes { get; set; } = DefaultRetryInternalInSeconds;
 
         public int MaxWaitTimeInSeconds { get; set; } = DefaultMaxWaitTimeInSeconds;
-
-        /// <summary>
-        /// When enabled, resource URIs using the reserved "inmemorytest" scheme are served from an embedded,
-        /// synthetic sample instead of the configured storage account. This exists solely to measure the CPU
-        /// cost of the $import processing pipeline without incurring real storage or database I/O.
-        /// Defaults to false and must be explicitly enabled; never set this to true in a production deployment.
-        /// </summary>
-        public bool EnableTestSourceOverride { get; set; } = false;
     }
 }

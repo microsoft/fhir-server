@@ -65,7 +65,6 @@ steps:
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestExportStoreUri': $(TestExportStoreUri)
       'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
-      'TestEnableImportTestSourceOverride': $(enableImportTestSourceOverride)
       'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)

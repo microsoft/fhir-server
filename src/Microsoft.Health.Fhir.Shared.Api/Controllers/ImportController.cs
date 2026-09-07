@@ -62,7 +62,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<ImportController> _logger;
         private readonly ImportJobConfiguration _importConfig;
         private readonly Uri _configuredStorageAccountUri;
-        private readonly bool _enableTestSourceOverride;
 
         public ImportController(
             IMediator mediator,
@@ -87,7 +86,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _urlResolver = urlResolver;
             _features = features.Value;
             _configuredStorageAccountUri = GetConfiguredStorageAccountUri(integrationDataStoreConfiguration.Value);
-            _enableTestSourceOverride = integrationDataStoreConfiguration.Value.EnableTestSourceOverride;
             _mediator = mediator;
             _logger = logger;
         }
@@ -240,7 +238,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }
 
-                if (!IsConfiguredStorageAccountEndpoint(item.Url))
+                if (!IsConfiguredStorageAccountEndpoint(item.Url, importData.InMemoryTestProcessingJobs > 0))
                 {
                     throw new RequestNotValidException(Resources.ImportRequestInputUrlStorageEndpointMismatch);
                 }
@@ -252,11 +250,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private bool IsConfiguredStorageAccountEndpoint(Uri inputUri)
+        private bool IsConfiguredStorageAccountEndpoint(Uri inputUri, bool allowInMemoryTestSource)
         {
-            // Only recognized when explicitly enabled via IntegrationDataStore:EnableTestSourceOverride; this
-            // never applies in a production deployment, where the flag defaults to false.
-            if (_enableTestSourceOverride
+            // Only recognized when the request itself opts into in-memory test processing via
+            // InMemoryTestProcessingJobs; this never applies to ordinary import requests.
+            if (allowInMemoryTestSource
                 && string.Equals(inputUri.Scheme, IntegrationDataStoreClientConstants.InMemoryTestSourceScheme, StringComparison.OrdinalIgnoreCase))
             {
                 return true;

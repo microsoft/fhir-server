@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
     public class AzureBlobIntegrationDataStoreClient : IIntegrationDataStoreClient
     {
         private IIntegrationDataStoreClientInitializer _integrationDataStoreClientInitializer;
-        private IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private IntegrationStoreRetryExceptionPolicyFactory _integrationStoreRetryExceptionPolicyFactory;
         private ILogger<AzureBlobIntegrationDataStoreClient> _logger;
 
@@ -40,7 +39,6 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _integrationDataStoreClientInitializer = integrationDataStoreClientInitializer;
-            _integrationDataStoreConfiguration = integrationDataStoreConfiguration.Value;
             _integrationStoreRetryExceptionPolicyFactory = new IntegrationStoreRetryExceptionPolicyFactory(integrationDataStoreConfiguration);
             _logger = logger;
         }
@@ -49,7 +47,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
             {
                 return InMemoryTestIntegrationDataSource.GetStream(startOffset);
             }
@@ -168,7 +166,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
             {
                 return InMemoryTestIntegrationDataSource.GetProperties();
             }
@@ -212,7 +210,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
             {
                 return InMemoryTestIntegrationDataSource.AcquireLease();
             }
@@ -240,7 +238,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (_integrationDataStoreConfiguration.EnableTestSourceOverride && InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
             {
                 return;
             }

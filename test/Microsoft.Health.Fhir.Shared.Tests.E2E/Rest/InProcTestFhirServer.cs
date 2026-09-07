@@ -67,10 +67,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // Allows E2E tests to opt into an in-memory synthetic import source (via input url scheme "inmemorytest://")
-            // for CPU-only $import measurements, while ordinary tests continue to use the real Azurite emulator above.
-            configuration["FhirServer:Operations:IntegrationDataStore:EnableTestSourceOverride"] = "true";
-
             // Enable rebuild indexes for testing
             configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
             configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";

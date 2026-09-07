@@ -35,7 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Wall-clock time spent in database calls during import processing, in milliseconds.
         /// Null when any database call in this job needed a retry, since retries make the measured duration unreliable.
-        /// Always populated for internal telemetry. Exposed in API responses only when IntegrationDataStore:EnableTestSourceOverride is enabled.
+        /// Always populated for internal telemetry. Exposed in API responses only for in-memory test imports
+        /// (see <see cref="ImportOrchestratorJobDefinition.InMemoryTestProcessingJobs"/>).
         /// </summary>
         public long? DatabaseMilliseconds { get; set; }
     }

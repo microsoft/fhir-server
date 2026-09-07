@@ -10,9 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -39,8 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         public GetImportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            var integrationDataStoreConfiguration = Options.Create(new IntegrationDataStoreConfiguration());
-            collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance, integrationDataStoreConfiguration)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);

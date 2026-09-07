@@ -13,9 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -32,20 +30,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private readonly IQueueClient _queueClient;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly bool _enableTestSourceOverride;
 
         public GetImportRequestHandler(
             IQueueClient queueClient,
-            IAuthorizationService<DataActions> authorizationService,
-            IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration)
+            IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(integrationDataStoreConfiguration, nameof(integrationDataStoreConfiguration));
 
             _queueClient = queueClient;
             _authorizationService = authorizationService;
-            _enableTestSourceOverride = integrationDataStoreConfiguration.Value.EnableTestSourceOverride;
         }
 
         public async Task<GetImportResponse> HandleAsync(GetImportRequest request, CancellationToken cancellationToken)
@@ -54,7 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
 
-            var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
+            // The orchestrator definition identifies in-memory test imports and controls whether execution
+            // statistics are included in the completed status response.
+            var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, true, cancellationToken);
             if (coord == null || coord.Status == JobStatus.Archived)
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
@@ -117,8 +113,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     var coordResult = DeserializeOrDefault<ImportOrchestratorJobResult>(coord.Result);
                     var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = completedOutcomes, Error = failedOutcomes };
 
-                    // Include per-job execution stats when test-override mode is enabled (for CPU profiling)
-                    if (_enableTestSourceOverride && jobs.Any())
+                    // Include per-job execution stats only for in-memory test imports (for CPU profiling)
+                    var coordDefinition = DeserializeOrDefault<ImportOrchestratorJobDefinition>(coord.Definition);
+                    if (coordDefinition.InMemoryTestProcessingJobs > 0 && jobs.Any())
                     {
                         var jobLines = jobs.Select(job => jobResultsById.TryGetValue(job.Id, out var result) ? new { Job = job, Result = result } : null).Where(_ => _ != null)
                             .OrderBy(_ => _.Job.StartDate.Value)

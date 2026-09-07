@@ -20,9 +20,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
     /// </summary>
     /// <remarks>
     /// This source only activates for resource URIs using the reserved
-    /// <see cref="IntegrationDataStoreClientConstants.InMemoryTestSourceScheme"/> scheme, and only when
-    /// <see cref="Configs.IntegrationDataStoreConfiguration.EnableTestSourceOverride"/> is explicitly set to
-    /// <c>true</c>. It must never be enabled in a production deployment.
+    /// <see cref="IntegrationDataStoreClientConstants.InMemoryTestSourceScheme"/> scheme, which is never used
+    /// for real storage endpoints.
     /// </remarks>
     internal static class InMemoryTestIntegrationDataSource
     {

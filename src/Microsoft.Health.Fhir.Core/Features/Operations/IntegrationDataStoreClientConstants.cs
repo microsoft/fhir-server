@@ -12,8 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         /// <summary>
         /// The reserved URI scheme identifying the in-memory synthetic import source used for CPU-only
-        /// $import measurements. Only recognized when
-        /// <see cref="Configs.IntegrationDataStoreConfiguration.EnableTestSourceOverride"/> is <c>true</c>.
+        /// $import measurements. Always recognized; never used for real storage endpoints.
         /// See InMemoryTestIntegrationDataSource in Microsoft.Health.Fhir.Azure for the implementation.
         /// </summary>
         public const string InMemoryTestSourceScheme = "inmemorytest";

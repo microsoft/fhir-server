@@ -80,7 +80,6 @@ jobs:
         -CosmosAutoscaleMaxThroughput $(cosmosAutoscaleMaxThroughput)
         -TaskHostingPollingFrequencyInSeconds $(taskHostingPollingFrequencyInSeconds)
         -TaskHostingMaxRunningTaskCount $(taskHostingMaxRunningTaskCount)
-        -EnableImportTestSourceOverride $(enableImportTestSourceOverride)
         -SearchParameterCacheRefreshIntervalSeconds $(searchParameterCacheRefreshIntervalSeconds)
         -SystemConformanceProviderRefreshIntervalSeconds $(systemConformanceProviderRefreshIntervalSeconds)
         -ReindexCacheRefreshWaitMultiplier $(reindexCacheRefreshWaitMultiplier)
