@@ -771,6 +771,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     .OrderBy(orderByClause);
             }
 
+            SqlSearchParameterHashAppender.Append(
+                sqlBuilder,
+                parserOptions.ParameterManager ?? throw new InvalidOperationException("A SQL parameter manager is required to generate a search query."),
+                parserOptions.ReuseQueryPlans);
+
             return sqlBuilder.ToString();
         }
 

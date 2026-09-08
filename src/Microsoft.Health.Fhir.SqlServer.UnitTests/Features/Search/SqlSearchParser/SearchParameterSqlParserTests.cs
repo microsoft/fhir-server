@@ -48,23 +48,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 ["_has:Observation:subject:code"] = new List<string> { "http://loinc.org|4548-4" },
             };
 
-            var fhirModel = CreateFhirModel(
-                ("Patient", patientResourceTypeId),
-                ("Observation", observationResourceTypeId));
-            var resolvedPatientResourceTypeId = fhirModel.GetResourceTypeId("Patient");
-            var definitionManager = CreateDefinitionManager(
-                fhirModel,
+            var parser = CreateParser(
+                out var fhirModel,
+                new[]
+                {
+                    ("Patient", patientResourceTypeId),
+                    ("Observation", observationResourceTypeId),
+                },
                 ("Observation", "subject", SearchParamType.Reference, subjectSearchParamId),
                 ("Observation", "identifier", SearchParamType.Token, identifierSearchParamId),
                 ("Observation", "code", SearchParamType.Token, codeSearchParamId));
-            var parser = new SearchParameterSqlParser(
-                definitionManager,
-                fhirModel,
-                Substitute.For<ICompartmentDefinitionManager>(),
-                Substitute.For<ILogger<SearchParameterSqlParser>>());
+            var resolvedPatientResourceTypeId = fhirModel.GetResourceTypeId("Patient");
 
             using var command = new SqlCommand();
-            var parameterManager = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameterManager = CreateParameterManager(command);
             var options = CreateSqlSearchOptions(queryParameters);
 
             // Act
@@ -72,6 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.NotNull(actualSql);
+            Assert.Equal(1, CountOccurrences(actualSql, "cte0chain0_ref AS ("));
             AssertContainsAll(
                 actualSql,
                 "cte0chain1 AS",
@@ -98,6 +96,78 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 parameter => AssertParameter(parameter, "@p2", "http://loinc.org"),
                 parameter => AssertParameter(parameter, "@p3", "4548-4"),
                 parameter => AssertParameter(parameter, "@p4", 11));
+        }
+
+        [Fact]
+        public void GivenSameQueryShapeWithDifferentValues_WhenReuseEnabled_ThenGeneratedSqlMatchesWithoutHashComment()
+        {
+            // Arrange
+            var parser = CreatePatientIdentifierParser();
+            var firstParameters = CreatePatientIdentifierQueryParameters("MRN-123");
+            var secondParameters = CreatePatientIdentifierQueryParameters("MRN-456");
+
+            using var firstCommand = new SqlCommand();
+            var firstManager = CreateParameterManager(firstCommand);
+            var firstOptions = CreateSqlSearchOptions(firstParameters);
+
+            using var secondCommand = new SqlCommand();
+            var secondManager = CreateParameterManager(secondCommand);
+            var secondOptions = CreateSqlSearchOptions(secondParameters);
+
+            // Act
+            var firstSql = parser.ParseMultiple(firstParameters, firstOptions, firstManager, reuseQueryPlans: true);
+            var secondSql = parser.ParseMultiple(secondParameters, secondOptions, secondManager, reuseQueryPlans: true);
+
+            // Assert
+            Assert.Equal(firstSql, secondSql);
+            Assert.DoesNotContain(SqlSearchConstants.ParametersHashStart, firstSql, StringComparison.Ordinal);
+            Assert.DoesNotContain(SqlSearchConstants.ParametersHashStart, secondSql, StringComparison.Ordinal);
+            Assert.Equal("MRN-123", firstCommand.Parameters["@p1"].Value);
+            Assert.Equal("MRN-456", secondCommand.Parameters["@p1"].Value);
+        }
+
+        [Fact]
+        public void GivenSameQueryShapeWithDifferentValues_WhenReuseDisabled_ThenGeneratedSqlUsesDistinctHashCommentsAndStableCustomHash()
+        {
+            // Arrange
+            var parser = CreatePatientIdentifierParser();
+            var firstParameters = CreatePatientIdentifierQueryParameters("MRN-123");
+            var secondParameters = CreatePatientIdentifierQueryParameters("MRN-456");
+
+            using var firstCommand = new SqlCommand();
+            var firstManager = CreateParameterManager(firstCommand);
+            var firstOptions = CreateSqlSearchOptions(firstParameters);
+
+            using var secondCommand = new SqlCommand();
+            var secondManager = CreateParameterManager(secondCommand);
+            var secondOptions = CreateSqlSearchOptions(secondParameters);
+            using var enabledCommand = new SqlCommand();
+            var enabledManager = CreateParameterManager(enabledCommand);
+            var enabledOptions = CreateSqlSearchOptions(firstParameters);
+            var queryHashCalculator = new SqlQueryHashCalculator();
+
+            // Act
+            var firstSql = parser.ParseMultiple(firstParameters, firstOptions, firstManager, reuseQueryPlans: false);
+            var secondSql = parser.ParseMultiple(secondParameters, secondOptions, secondManager, reuseQueryPlans: false);
+            var enabledSql = parser.ParseMultiple(firstParameters, enabledOptions, enabledManager, reuseQueryPlans: true);
+
+            // Assert
+            Assert.NotEqual(firstSql, secondSql);
+            Assert.Equal(1, CountOccurrences(firstSql, SqlSearchConstants.ParametersHashStart));
+            Assert.Equal(1, CountOccurrences(secondSql, SqlSearchConstants.ParametersHashStart));
+            Assert.NotEqual(
+                SqlServerSearchService.ExtractParameterHash(firstSql),
+                SqlServerSearchService.ExtractParameterHash(secondSql));
+            Assert.Equal(
+                SqlQueryHashCalculator.RemoveParametersHash(firstSql),
+                SqlQueryHashCalculator.RemoveParametersHash(secondSql));
+            Assert.Equal(enabledSql, SqlQueryHashCalculator.RemoveParametersHash(firstSql));
+            Assert.Equal(
+                queryHashCalculator.CalculateHash(firstSql),
+                queryHashCalculator.CalculateHash(secondSql));
+            Assert.Equal(
+                queryHashCalculator.CalculateHash(enabledSql),
+                queryHashCalculator.CalculateHash(firstSql));
         }
 
         [Fact]
@@ -352,6 +422,40 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             return model;
         }
 
+        private static SearchParameterSqlParser CreateParser(
+            out ISqlServerFhirModel fhirModel,
+            (string resourceType, short id)[] resourceTypes,
+            params (string resourceTypeName, string searchParameterCode, SearchParamType searchParamType, short searchParameterId)[] searchParameters)
+        {
+            fhirModel = CreateFhirModel(resourceTypes);
+            var definitionManager = CreateDefinitionManager(fhirModel, searchParameters);
+
+            return new SearchParameterSqlParser(
+                definitionManager,
+                fhirModel,
+                Substitute.For<ICompartmentDefinitionManager>(),
+                Substitute.For<ILogger<SearchParameterSqlParser>>());
+        }
+
+        private static SearchParameterSqlParser CreateParser(
+            out ISqlServerFhirModel fhirModel,
+            (string resourceType, short id) resourceType,
+            params (string resourceTypeName, string searchParameterCode, SearchParamType searchParamType, short searchParameterId)[] searchParameters)
+        {
+            return CreateParser(out fhirModel, new[] { resourceType }, searchParameters);
+        }
+
+        private static SearchParameterSqlParser CreatePatientIdentifierParser()
+        {
+            const short patientResourceTypeId = 1;
+            const short patientIdentifierSearchParamId = 12;
+
+            return CreateParser(
+                out _,
+                ("Patient", patientResourceTypeId),
+                ("Patient", "identifier", SearchParamType.Token, patientIdentifierSearchParamId));
+        }
+
         private static SqlSearchParameterDefinitionManager CreateDefinitionManager(
             ISqlServerFhirModel fhirModel,
             params (string resourceTypeName, string searchParameterCode, SearchParamType searchParamType, short searchParameterId)[] searchParameters)
@@ -398,6 +502,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             return new SqlSearchOptions(searchOptions);
         }
 
+        private static Dictionary<string, IList<string>> CreatePatientIdentifierQueryParameters(string code)
+        {
+            return new Dictionary<string, IList<string>>
+            {
+                ["_type"] = new List<string> { "Patient" },
+                ["identifier"] = new List<string> { $"http://hospital.example|{code}" },
+            };
+        }
+
+        private static HashingSqlQueryParameterManager CreateParameterManager(SqlCommand command)
+        {
+            return new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        }
+
         private static void SetNonPublicProperty<T>(object instance, string propertyName, T value)
         {
             instance.GetType()
@@ -426,6 +544,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         {
             Assert.Equal(expectedName, parameter.ParameterName);
             Assert.Equal(expectedValue, parameter.Value);
+        }
+
+        private static int CountOccurrences(string input, string value)
+        {
+            var count = 0;
+            var currentIndex = 0;
+
+            while ((currentIndex = input.IndexOf(value, currentIndex, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                currentIndex += value.Length;
+            }
+
+            return count;
         }
     }
 }
