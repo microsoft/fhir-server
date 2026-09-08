@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -24,31 +26,46 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         [Fact]
         public void GivenDefaultModifier_WhenBuildWhereClause_ThenGeneratesStartsWithCondition()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", string.Empty, new ParserOptions());
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("Smith", string.Empty, options);
 
             // Assert
-            Assert.Equal("(t.Text like N'Smith%')", result);
+            Assert.Equal("(t.Text like @p0)", result);
+            Assert.Equal("Smith%", command.Parameters["@p0"].Value);
         }
 
         [Fact]
         public void GivenExactModifier_WhenBuildWhereClause_ThenGeneratesExactMatchWithCollation()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", "exact", new ParserOptions());
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("Smith", "exact", options);
 
             // Assert
-            Assert.Equal("t.Text = N'Smith' COLLATE Latin1_General_100_CS_AS", result);
+            Assert.Equal("t.Text = @p0 COLLATE Latin1_General_100_CS_AS", result);
+            Assert.Equal("Smith", command.Parameters["@p0"].Value);
         }
 
         [Fact]
         public void GivenContainsModifier_WhenBuildWhereClause_ThenGeneratesContainsCondition()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("mit", "contains", new ParserOptions());
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("mit", "contains", options);
 
             // Assert
-            Assert.Equal("(t.Text like N'%mit%')", result);
+            Assert.Equal("(t.Text like @p0)", result);
+            Assert.Equal("%mit%", command.Parameters["@p0"].Value);
         }
 
         [Fact]
@@ -56,12 +73,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         {
             // Arrange
             var longValue = new string('a', 257);
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
 
             // Act
-            var result = _parser.BuildWhereClause(longValue, string.Empty, new ParserOptions());
+            var result = _parser.BuildWhereClause(longValue, string.Empty, options);
 
             // Assert
             Assert.Contains("t.TextOverflow", result);
+            Assert.Equal($"{longValue}%", command.Parameters["@p0"].Value);
         }
 
         [Fact]
@@ -69,43 +89,61 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         {
             // Arrange
             var longValue = new string('a', 257);
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
 
             // Act
-            var result = _parser.BuildWhereClause(longValue, "exact", new ParserOptions());
+            var result = _parser.BuildWhereClause(longValue, "exact", options);
 
             // Assert
             Assert.Contains("t.TextOverflow", result);
             Assert.Contains("COLLATE Latin1_General_100_CS_AS", result);
+            Assert.Equal(longValue, command.Parameters["@p0"].Value);
         }
 
         [Fact]
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffixToColumnName()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", string.Empty, new ParserOptions(), columnSuffix: 3);
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("Smith", string.Empty, options, columnSuffix: 3);
 
             // Assert
             Assert.Contains("t.Text3", result);
+            Assert.Equal("Smith%", command.Parameters["@p0"].Value);
         }
 
         [Fact]
         public void GivenValueWithSingleQuote_WhenBuildWhereClause_ThenEscapesQuote()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("O'Brien", string.Empty, new ParserOptions());
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("O'Brien", string.Empty, options);
 
             // Assert
-            Assert.Contains("O''Brien", result);
+            Assert.DoesNotContain("O'Brien", result, StringComparison.Ordinal);
+            Assert.Equal("O'Brien%", command.Parameters["@p0"].Value);
         }
 
         [Fact]
         public void GivenCustomTableName_WhenBuildWhereClause_ThenUsesCustomTableName()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", string.Empty, new ParserOptions(), tableName: "sp");
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("Smith", string.Empty, options, tableName: "sp");
 
             // Assert
             Assert.Contains("sp.Text", result);
+            Assert.Equal("Smith%", command.Parameters["@p0"].Value);
         }
     }
 }

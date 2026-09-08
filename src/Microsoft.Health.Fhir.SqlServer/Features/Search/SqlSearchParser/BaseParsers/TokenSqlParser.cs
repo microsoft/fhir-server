@@ -6,7 +6,7 @@
 #nullable enable
 
 using System;
-using System.Text;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -29,9 +29,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return "1=1";
             }
 
-            if (modifier.Equals("text", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(modifier, "text", StringComparison.OrdinalIgnoreCase))
             {
-                return $"({tableName}.Text LIKE N'{value.Replace("'", "''", StringComparison.Ordinal)}%')";
+                var textParameter = options.AddParameter(VLatest.TokenText.Text, $"{value}%", includeInHash: true);
+                return $"({tableName}.Text LIKE {textParameter})";
             }
 
             // Parse token value - format can be:
@@ -42,42 +43,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             var parts = value.Split('|', 2);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
-            var conditions = new StringBuilder();
 
             if (parts.Length == 1)
             {
                 // Just code, no system specified
-                conditions.Append(BuildCodeCondition(parts[0], modifier, suffix, tableName));
+                return BuildCodeCondition(parts[0], options, suffix, tableName);
             }
-            else
+
+            var system = parts[0];
+            var code = parts[1];
+            var systemParameter = options.AddParameter(VLatest.System.Value, system, includeInHash: true);
+            var conditions = $"({tableName}.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = {systemParameter})";
+
+            var hasSystem = !string.IsNullOrEmpty(system);
+            var hasCode = !string.IsNullOrEmpty(code);
+
+            if (!hasSystem)
             {
-                var system = parts[0];
-                var code = parts[1];
-
-                // System is specified
-                if (string.IsNullOrEmpty(system))
-                {
-                    conditions.Append($"({tableName}.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = '') OR {tableName}.SystemId{suffix} IS NULL)");
-                }
-                else
-                {
-                    var escapedSystem = EscapeSqlValue(system);
-                    conditions.Append($"{tableName}.SystemId{suffix} = (SELECT SystemId FROM dbo.System WHERE Value = {escapedSystem})");
-                }
-
-                if (!string.IsNullOrEmpty(code))
-                {
-                    conditions.Append(" AND ");
-                    conditions.Append(BuildCodeCondition(code, modifier, suffix, tableName));
-                }
+                conditions += $" OR {tableName}.SystemId{suffix} IS NULL";
             }
 
-            return conditions.ToString();
+            conditions += ")";
+
+            if (hasCode)
+            {
+                conditions += " AND ";
+                conditions += BuildCodeCondition(code, options, suffix, tableName);
+            }
+
+            return conditions;
         }
 
         protected override string GetTableName(string modifier)
         {
-            if (modifier.Equals("text", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(modifier, "text", StringComparison.OrdinalIgnoreCase))
             {
                 return "TokenText";
             }
@@ -85,15 +84,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             return "TokenSearchParam";
         }
 
-        private static string BuildCodeCondition(string code, string modifier, string suffix, string tableName)
+        private static string BuildCodeCondition(string code, ParserOptions options, string suffix, string tableName)
         {
             const int MaxCodeLength = 256;
 
             if (code.Length <= MaxCodeLength)
             {
                 // Code fits in the Code column
-                var escapedCode = EscapeSqlValue(code);
-                return $"{tableName}.Code{suffix} = {escapedCode}";
+                var codeParameter = options.AddParameter(VLatest.TokenSearchParam.Code, code, includeInHash: true);
+                return $"{tableName}.Code{suffix} = {codeParameter}";
             }
             else
             {
@@ -102,10 +101,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 var codePrefix = code.Substring(0, MaxCodeLength);
                 var codeOverflow = code.Substring(MaxCodeLength);
 
-                var escapedPrefix = EscapeSqlValue(codePrefix);
-                var escapedOverflow = EscapeSqlValue(codeOverflow);
+                var codeParameter = options.AddParameter(VLatest.TokenSearchParam.Code, codePrefix, includeInHash: true);
+                var overflowParameter = options.AddParameter(VLatest.TokenSearchParam.CodeOverflow, codeOverflow, includeInHash: true);
 
-                return $"({tableName}.Code{suffix} = {escapedPrefix} AND {tableName}.CodeOverflow{suffix} = {escapedOverflow})";
+                return $"({tableName}.Code{suffix} = {codeParameter} AND {tableName}.CodeOverflow{suffix} = {overflowParameter})";
             }
         }
     }

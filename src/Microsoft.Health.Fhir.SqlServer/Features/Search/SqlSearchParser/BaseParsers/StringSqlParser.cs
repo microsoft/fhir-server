@@ -3,9 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Text;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -19,14 +17,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public override string BuildWhereClause(string value, string modifier, ParserOptions options, int? columnSuffix = null, string tableName = "t")
         {
-            var escapedValue = value.Replace("'", "''", StringComparison.Ordinal);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
+            var isOverflow = value.Length > 256;
+            var columnName = isOverflow ? "TextOverflow" : "Text";
 
             return modifier switch
             {
-                "exact" => $"{tableName}.Text{(escapedValue.Length > 256 ? "Overflow" : string.Empty)}{suffix} = N'{escapedValue}' COLLATE Latin1_General_100_CS_AS",
-                "contains" => $"({tableName}.Text{(escapedValue.Length > 256 ? "Overflow" : string.Empty)}{suffix} like N'%{escapedValue}%')",
-                _ => $"({tableName}.Text{(escapedValue.Length > 256 ? "Overflow" : string.Empty)}{suffix} like N'{escapedValue}%')",
+                "exact" => $"{tableName}.{columnName}{suffix} = {options.AddParameter(isOverflow ? VLatest.StringSearchParam.TextOverflow : VLatest.StringSearchParam.Text, value, includeInHash: true)} COLLATE Latin1_General_100_CS_AS",
+                "contains" => $"({tableName}.{columnName}{suffix} like {options.AddParameter(isOverflow ? VLatest.StringSearchParam.TextOverflow : VLatest.StringSearchParam.Text, $"%{value}%", includeInHash: true)})",
+                _ => $"({tableName}.{columnName}{suffix} like {options.AddParameter(isOverflow ? VLatest.StringSearchParam.TextOverflow : VLatest.StringSearchParam.Text, $"{value}%", includeInHash: true)})",
             };
         }
     }

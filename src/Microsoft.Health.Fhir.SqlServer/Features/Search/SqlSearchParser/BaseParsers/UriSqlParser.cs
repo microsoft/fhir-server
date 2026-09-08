@@ -6,7 +6,7 @@
 #nullable enable
 
 using System;
-using System.Text;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -29,33 +29,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return "1=1";
             }
 
-            var escapedUri = EscapeSqlValue(value);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
 
             if (string.IsNullOrEmpty(modifier))
             {
                 // Exact match (case-sensitive)
-                return $"{tableName}.Uri{suffix} = {escapedUri}";
+                var uriParameter = options.AddParameter(VLatest.UriSearchParam.Uri, value, includeInHash: true);
+                return $"{tableName}.Uri{suffix} = {uriParameter}";
             }
 
-            if (modifier.Equals("above", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(modifier, "above", StringComparison.OrdinalIgnoreCase))
             {
                 // :above modifier - matches URIs that are hierarchical ancestors
                 // e.g., searching for :above http://example.com/a/b matches http://example.com/a
                 // URN schemes are excluded from hierarchical matching
-                return $"({escapedUri} LIKE {tableName}.Uri{suffix} + '%' AND {tableName}.Uri{suffix} NOT LIKE 'urn:%')";
+                var uriParameter = options.AddParameter(VLatest.UriSearchParam.Uri, value, includeInHash: true);
+                return $"({uriParameter} LIKE {tableName}.Uri{suffix} + '%' AND {tableName}.Uri{suffix} NOT LIKE 'urn:%')";
             }
 
-            if (modifier.Equals("below", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(modifier, "below", StringComparison.OrdinalIgnoreCase))
             {
                 // :below modifier - matches URIs that are hierarchical descendants
                 // e.g., searching for :below http://example.com/a matches http://example.com/a/b
                 // URN schemes are excluded from hierarchical matching
-                return $"({tableName}.Uri{suffix} LIKE {escapedUri} + '%' AND {tableName}.Uri{suffix} NOT LIKE 'urn:%')";
+                return $"({tableName}.Uri{suffix} LIKE {options.AddParameter(VLatest.UriSearchParam.Uri, $"{value}%", includeInHash: true)} AND {tableName}.Uri{suffix} NOT LIKE 'urn:%')";
             }
 
             // Unknown modifier - treat as exact match
-            return $"{tableName}.Uri{suffix} = {escapedUri}";
+            var fallbackUriParameter = options.AddParameter(VLatest.UriSearchParam.Uri, value, includeInHash: true);
+            return $"{tableName}.Uri{suffix} = {fallbackUriParameter}";
         }
     }
 }
