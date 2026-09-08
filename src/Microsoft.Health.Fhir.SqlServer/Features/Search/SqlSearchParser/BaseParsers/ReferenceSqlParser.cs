@@ -7,6 +7,7 @@
 
 using System;
 using System.Text;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
@@ -81,11 +82,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 resourceId = value;
             }
 
-            // If a type modifier is provided (e.g., :Practitioner), use it as the reference type filter.
-            // This takes precedence over any type parsed from the value itself.
+            // If a type modifier is provided (e.g., :Practitioner), use it when the value did not specify a type.
             if (!string.IsNullOrEmpty(modifier) && resourceType == null)
             {
                 resourceType = modifier;
+            }
+
+            short resolvedResourceTypeId = 0;
+            if (!string.IsNullOrEmpty(resourceType) &&
+                !_fhirModel.TryGetResourceTypeId(resourceType, out resolvedResourceTypeId))
+            {
+                // If the resource type is not found, the search should return no results.
+                return "1=0";
             }
 
             var conditions = new StringBuilder();
@@ -93,39 +101,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             // Build WHERE conditions
             if (!string.IsNullOrEmpty(resourceId))
             {
-                var escapedId = EscapeSqlValue(resourceId);
-                conditions.Append($"{tableName}.ReferenceResourceId{suffix} = {escapedId}");
+                var resourceIdParameter = options.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceId, resourceId, includeInHash: true);
+                conditions.Append($"{tableName}.ReferenceResourceId{suffix} = {resourceIdParameter}");
             }
 
             if (!string.IsNullOrEmpty(resourceType))
             {
-                // Look up the resource type ID using the model
-                if (_fhirModel.TryGetResourceTypeId(resourceType, out short resourceTypeId))
-                {
-                    if (conditions.Length > 0)
-                    {
-                        conditions.Append(" AND ");
-                    }
-
-                    conditions.Append($"{tableName}.ReferenceResourceTypeId{suffix} = {resourceTypeId}");
-                }
-                else
-                {
-                    // If the resource type is not found, the search should return no results
-                    // This is handled by returning a condition that will never match
-                    return "1=0";
-                }
-            }
-
-            if (!string.IsNullOrEmpty(baseUri))
-            {
-                var escapedBaseUri = EscapeSqlValue(baseUri);
                 if (conditions.Length > 0)
                 {
                     conditions.Append(" AND ");
                 }
 
-                conditions.Append($"{tableName}.BaseUri{suffix} = {escapedBaseUri}");
+                var resourceTypeIdValue = options.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, resolvedResourceTypeId, includeInHash: true);
+                conditions.Append($"{tableName}.ReferenceResourceTypeId{suffix} = {resourceTypeIdValue}");
+            }
+
+            if (!string.IsNullOrEmpty(baseUri))
+            {
+                var baseUriParameter = options.AddParameter(VLatest.ReferenceSearchParam.BaseUri, baseUri, includeInHash: true);
+                if (conditions.Length > 0)
+                {
+                    conditions.Append(" AND ");
+                }
+
+                conditions.Append($"{tableName}.BaseUri{suffix} = {baseUriParameter}");
             }
 
             return conditions.Length > 0 ? conditions.ToString() : "1=1";

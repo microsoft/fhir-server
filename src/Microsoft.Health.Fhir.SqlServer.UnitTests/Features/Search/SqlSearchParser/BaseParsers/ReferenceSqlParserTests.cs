@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -38,17 +39,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         [Fact]
         public void GivenIdOnly_WhenBuildWhereClause_ThenGeneratesReferenceIdConditionOnly()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("123", string.Empty, new ParserOptions());
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("123", string.Empty, options);
 
             // Assert
-            Assert.Equal("t.ReferenceResourceId = '123'", result);
+            Assert.Equal("t.ReferenceResourceId = @p0", result);
+            Assert.Equal("123", command.Parameters["@p0"].Value);
+            Assert.Equal(System.Data.SqlDbType.VarChar, command.Parameters["@p0"].SqlDbType);
         }
 
         [Fact]
         public void GivenRelativeReference_WhenBuildWhereClause_ThenGeneratesIdAndTypeConditions()
         {
             // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
             short patientTypeId = 42;
             _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
                 .Returns(x =>
@@ -58,17 +67,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("Patient/123", string.Empty, new ParserOptions());
+            var result = _parser.BuildWhereClause("Patient/123", string.Empty, options);
 
             // Assert
-            Assert.Contains("t.ReferenceResourceId = '123'", result);
-            Assert.Contains("t.ReferenceResourceTypeId = 42", result);
+            Assert.Equal("t.ReferenceResourceId = @p0 AND t.ReferenceResourceTypeId = 42", result);
+            Assert.Equal("123", command.Parameters["@p0"].Value);
+            Assert.Single(command.Parameters);
         }
 
         [Fact]
         public void GivenAbsoluteUrl_WhenBuildWhereClause_ThenGeneratesIdTypeAndBaseUriConditions()
         {
             // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
             short patientTypeId = 5;
             _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
                 .Returns(x =>
@@ -78,18 +90,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("http://server/Patient/123", string.Empty, new ParserOptions());
+            var result = _parser.BuildWhereClause("http://server/Patient/123", string.Empty, options);
 
             // Assert
-            Assert.Contains("t.ReferenceResourceId = '123'", result);
-            Assert.Contains("t.ReferenceResourceTypeId = 5", result);
-            Assert.Contains("t.BaseUri = 'http://server'", result);
+            Assert.Equal("t.ReferenceResourceId = @p0 AND t.ReferenceResourceTypeId = 5 AND t.BaseUri = @p1", result);
+            Assert.Equal("123", command.Parameters["@p0"].Value);
+            Assert.Equal("http://server", command.Parameters["@p1"].Value);
+            Assert.Equal(System.Data.SqlDbType.VarChar, command.Parameters["@p1"].SqlDbType);
         }
 
         [Fact]
         public void GivenTypeModifier_WhenBuildWhereClause_ThenUsesModifierAsResourceType()
         {
             // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
             short practitionerTypeId = 99;
             _fhirModel.TryGetResourceTypeId("Practitioner", out Arg.Any<short>())
                 .Returns(x =>
@@ -99,30 +114,36 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("123", "Practitioner", new ParserOptions());
+            var result = _parser.BuildWhereClause("123", "Practitioner", options);
 
             // Assert
-            Assert.Contains("t.ReferenceResourceId = '123'", result);
-            Assert.Contains("t.ReferenceResourceTypeId = 99", result);
+            Assert.Equal("t.ReferenceResourceId = @p0 AND t.ReferenceResourceTypeId = 99", result);
+            Assert.Equal("123", command.Parameters["@p0"].Value);
+            Assert.Single(command.Parameters);
         }
 
         [Fact]
         public void GivenUnknownResourceType_WhenBuildWhereClause_ThenReturnsNeverTrue()
         {
             // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
             _fhirModel.TryGetResourceTypeId("UnknownType", out Arg.Any<short>()).Returns(false);
 
             // Act
-            var result = _parser.BuildWhereClause("UnknownType/123", string.Empty, new ParserOptions());
+            var result = _parser.BuildWhereClause("UnknownType/123", string.Empty, options);
 
             // Assert
             Assert.Equal("1=0", result);
+            Assert.Empty(command.Parameters);
         }
 
         [Fact]
-        public void GivenRelativeReferenceWithSingleQuote_WhenBuildWhereClause_ThenEscapesId()
+        public void GivenRelativeReferenceWithSingleQuote_WhenBuildWhereClause_ThenKeepsQuoteOutOfSqlText()
         {
             // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
             short patientTypeId = 10;
             _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
                 .Returns(x =>
@@ -132,20 +153,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("Patient/O'Brien", string.Empty, new ParserOptions());
+            var result = _parser.BuildWhereClause("Patient/O'Brien", string.Empty, options);
 
             // Assert
-            Assert.Contains("O''Brien", result);
+            Assert.Equal("t.ReferenceResourceId = @p0 AND t.ReferenceResourceTypeId = 10", result);
+            Assert.Equal("O'Brien", command.Parameters["@p0"].Value);
+            Assert.DoesNotContain("O'Brien", result);
+            Assert.DoesNotContain("O''Brien", result);
         }
 
         [Fact]
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffixToColumnNames()
         {
-            // Arrange / Act
-            var result = _parser.BuildWhereClause("123", string.Empty, new ParserOptions(), columnSuffix: 1);
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("123", string.Empty, options, columnSuffix: 1);
 
             // Assert
-            Assert.Contains("t.ReferenceResourceId1 = '123'", result);
+            Assert.Equal("t.ReferenceResourceId1 = @p0", result);
+            Assert.Equal("123", command.Parameters["@p0"].Value);
         }
     }
 }
