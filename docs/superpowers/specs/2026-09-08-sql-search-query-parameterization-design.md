@@ -40,7 +40,7 @@ The implementation will match the old generator's selective behavior:
 | `ReferenceResourceTypeId` | Literal | No |
 | `SearchParamId` | Literal | No |
 
-Repeated uses of a runtime value will receive separate parameters when generated as separate predicates, matching the old generator. Each use retains its original hash policy; for example, an include count used by `TOP` is excluded from the hash while the same count used by the partial-result predicate is included.
+Parameter reuse will mirror the old generator. Sort-continuation predicates receive separate parameters for separate comparisons, while SMART compartment predicates reuse the single owner-ID parameter created for that membership rule. Each use retains its original hash policy; for example, an include count used by `TOP` is excluded from the hash while the same count used by the partial-result predicate is included.
 
 String LIKE patterns will be placed in parameter values rather than concatenated into SQL. Existing wildcard semantics and escaping will be retained.
 
