@@ -78,8 +78,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             else if (coord.Status == JobStatus.Completed)
             {
                 var start = Stopwatch.StartNew();
+                var coordDefinition = DeserializeOrDefault<ImportOrchestratorJobDefinition>(coord.Definition);
+                var suppressSuccessfulOutput = coordDefinition.InMemoryTestProcessingJobs > 0;
                 var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Import, coord.GroupId, true, cancellationToken)).Where(x => x.Id != coord.Id).ToList();
-                var (completedOutcomes, failedOutcomes, jobResultsById) = GetProcessingResultAsync(jobs, request.ReturnDetails);
+                var (completedOutcomes, failedOutcomes, jobResultsById) = GetProcessingResultAsync(jobs, request.ReturnDetails, suppressSuccessfulOutput);
                 await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
                 var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || x.CancelRequested);
@@ -114,11 +116,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = completedOutcomes, Error = failedOutcomes };
 
                     // Include per-job execution stats only for in-memory test imports (for CPU profiling)
-                    var coordDefinition = DeserializeOrDefault<ImportOrchestratorJobDefinition>(coord.Definition);
                     if (coordDefinition.InMemoryTestProcessingJobs > 0 && jobs.Any())
                     {
                         var jobLines = jobs.Select(job => jobResultsById.TryGetValue(job.Id, out var result) ? new { Job = job, Result = result } : null).Where(_ => _ != null)
-                            .OrderBy(_ => _.Job.StartDate.Value)
+                            .OrderByDescending(_ => _.Job.StartDate.Value)
                             .Select(_ =>
                             {
                                 var clockMilliseconds = (long)(_.Job.EndDate.Value - _.Job.StartDate.Value).TotalMilliseconds;
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new OperationFailedException(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
             }
 
-            static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed, Dictionary<long, ImportProcessingJobResult> JobResultsById) GetProcessingResultAsync(IList<JobInfo> jobs, bool returnDetails)
+            static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed, Dictionary<long, ImportProcessingJobResult> JobResultsById) GetProcessingResultAsync(IList<JobInfo> jobs, bool returnDetails, bool suppressSuccessfulOutput)
             {
                 var completed = new List<ImportOperationOutcome>();
                 var failed = new List<ImportFailedOperationOutcome>();
@@ -174,7 +175,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     var result = DeserializeOrDefault<ImportProcessingJobResult>(job.Result);
                     jobResultsById[job.Id] = result;
 
-                    completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = inputUrl });
+                    if (!suppressSuccessfulOutput)
+                    {
+                        completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = inputUrl });
+                    }
+
                     if (result.FailedResources > 0)
                     {
                         failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = inputUrl, Url = result.ErrorLogLocation });

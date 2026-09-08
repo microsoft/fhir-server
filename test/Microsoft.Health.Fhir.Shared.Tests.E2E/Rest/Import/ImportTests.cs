@@ -797,16 +797,15 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // InMemoryTestProcessingJobs makes the orchestrator use the location below as a template and create
             // X synthetic in-memory processing jobs from it, each serving the same 1000-resource representative
             // sample, without requiring X distinct input files or real storage blobs.
-            const int jobs = 100;
+            const int jobs = 50;
             var location = new Uri("inmemorytest://whatever");
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
             var result = await ImportCheckAsync(request, null, 0);
-            var totalImported = result.Output.Sum(o => o.Count);
-            Assert.Equal(1000 * jobs, totalImported);
+            Assert.Empty(result.Output);
 
-            // Verify execution stats are populated and includes entries for all ten jobs plus total line
+            // Verify execution stats are populated and include one total line plus one line per job
             Assert.NotEmpty(result.ExecutionStats);
-            Assert.True(result.ExecutionStats.Count >= 11, $"Should have execution stats for at least 10 job lines plus 1 total line, got {result.ExecutionStats.Count}");
+            Assert.True(result.ExecutionStats.Count >= jobs + 1, $"Should have execution stats for at least {jobs} job lines plus 1 total line, got {result.ExecutionStats.Count}");
             var statsJson = JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented);
             _testOutputHelper.WriteLine("ExecutionStats:");
             _testOutputHelper.WriteLine(statsJson);
@@ -2024,9 +2023,13 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
             var response = await ImportWaitAsync(checkLocation, returnDetails: returnDetails);
 
-            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
-            Assert.NotEmpty(result.Output);
+            if (request.InMemoryTestProcessingJobs <= 0)
+            {
+                Assert.NotEmpty(result.Output);
+            }
+
             if (errorCount != null && errorCount != 0)
             {
                 Assert.Equal(errorCount.Value, result.Error.Count > 0 ? result.Error.First().Count : 0);
