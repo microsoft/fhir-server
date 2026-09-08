@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
@@ -211,7 +213,64 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             Assert.Contains("r.ResourceTypeId = 10", sql, StringComparison.Ordinal);
             Assert.Contains("r.ResourceTypeId > 10", sql, StringComparison.Ordinal);
             Assert.DoesNotContain("12345", sql, StringComparison.Ordinal);
+            Assert.Single(command.Parameters.Cast<SqlParameter>());
             Assert.Equal(12345L, command.Parameters["@p0"].Value);
+            Assert.Equal(SqlDbType.BigInt, command.Parameters["@p0"].SqlDbType);
+            Assert.Empty(options.ParameterManager!.ParametersToHash);
+        }
+
+        [Fact]
+        public void GivenLegacyContinuationTokenWithoutType_WhenAddFirstCteFilters_ThenUsesSurrogateOnlyPagingParameter()
+        {
+            using var command = new SqlCommand();
+            var builder = new SqlQueryBuilder();
+            builder.AppendLine("SELECT 1");
+            builder.Where("1=1");
+            var options = new ParserOptions
+            {
+                ContinuationToken = new ContinuationToken(new object[] { 12345L }),
+                ParameterManager = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+                ReuseQueryPlans = true,
+            };
+
+            ParserUtil.AddFirstCteFilters(builder, options, "r");
+            var sql = builder.ToString();
+
+            Assert.Contains("r.ResourceSurrogateId > @p0", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("ResourceTypeId = 0", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("ResourceTypeId > 0", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("12345", sql, StringComparison.Ordinal);
+            Assert.Single(command.Parameters.Cast<SqlParameter>());
+            Assert.Equal(12345L, command.Parameters["@p0"].Value);
+            Assert.Equal(SqlDbType.BigInt, command.Parameters["@p0"].SqlDbType);
+            Assert.Empty(options.ParameterManager!.ParametersToHash);
+        }
+
+        [Fact]
+        public void GivenLastUpdatedSortContinuation_WhenAddFirstCteFilters_ThenUsesSurrogateOnlyPagingParameter()
+        {
+            using var command = new SqlCommand();
+            var builder = new SqlQueryBuilder();
+            builder.AppendLine("SELECT 1");
+            builder.Where("1=1");
+            var options = new ParserOptions
+            {
+                ContinuationToken = new ContinuationToken(new object[] { (short)10, 12345L }),
+                SortParameterName = KnownQueryParameterNames.LastUpdated,
+                ParameterManager = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+                ReuseQueryPlans = true,
+            };
+
+            ParserUtil.AddFirstCteFilters(builder, options, "r");
+            var sql = builder.ToString();
+
+            Assert.Contains("r.ResourceSurrogateId > @p0", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("ResourceTypeId = 10", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("ResourceTypeId > 10", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("12345", sql, StringComparison.Ordinal);
+            Assert.Single(command.Parameters.Cast<SqlParameter>());
+            Assert.Equal(12345L, command.Parameters["@p0"].Value);
+            Assert.Equal(SqlDbType.BigInt, command.Parameters["@p0"].SqlDbType);
             Assert.Empty(options.ParameterManager!.ParametersToHash);
         }
 

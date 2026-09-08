@@ -112,8 +112,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             parser.Parse("_include", "Observation:subject:Patient", options);
             var sql = options.SqlQueryBuilder.ToString();
 
+            Assert.Contains("(refTarget.ResourceTypeId > 1 OR (refTarget.ResourceTypeId = 1 AND refTarget.ResourceSurrogateId > @p3))", sql, StringComparison.Ordinal);
+            Assert.Contains("refSource.ResourceTypeId = 7", sql, StringComparison.Ordinal);
+            Assert.Contains("refTarget.ResourceTypeId IN (1)", sql, StringComparison.Ordinal);
             Assert.Contains("refTarget.ResourceSurrogateId > @p3", sql, StringComparison.Ordinal);
             Assert.DoesNotContain("300", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("refTarget.ResourceTypeId > @p3", sql, StringComparison.Ordinal);
             Assert.Equal(300L, command.Parameters["@p3"].Value);
             Assert.Equal(SqlDbType.BigInt, command.Parameters["@p3"].SqlDbType);
             Assert.Equal(

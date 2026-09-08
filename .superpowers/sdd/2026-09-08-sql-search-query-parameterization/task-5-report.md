@@ -91,3 +91,42 @@ Exact summary:
 
 ## Concerns
 - None.
+
+## Fix Round 1 Evidence
+- Fixed legacy one-part continuation handling in `ParserUtil.cs` by preserving surrogate-only paging when `ContinuationToken.ResourceTypeId` is absent.
+- Removed duplicate reverse-chain continuation predicates from `ReversedChainSqlParser.cs` and grouped `_has` handling in `SearchParameterSqlParser.cs` so those paths now inherit the shared `ParserUtil` continuation semantics, including `_lastUpdated` surrogate-only paging.
+- Added focused assertions for legacy continuation, typed include/revinclude tie-breakers, grouped/non-grouped reverse-chain continuations, generic DateTime sort continuation parameters, and reverse-chain `_lastUpdated` continuation behavior.
+
+Focused command:
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --no-restore --filter "FullyQualifiedName~ParserUtilTests|FullyQualifiedName~IncludeSqlParserTests|FullyQualifiedName~SortSqlParserTests|FullyQualifiedName~SearchParameterSqlParserTests"
+```
+
+Exact summary:
+- `C:\Users\rojo\source\repos\copilot-worktrees\fhir-server\rojo-microsoft-miniature-disco\src\Microsoft.Health.Fhir.SqlServer.UnitTests\bin\Debug\net10.0\Microsoft.Health.Fhir.SqlServer.UnitTests.dll (net10.0|x64) passed (1s 109ms)`
+- `Test run summary: Passed!`
+- `total: 29`
+- `failed: 0`
+- `succeeded: 29`
+- `skipped: 0`
+- `duration: 1s 716ms`
+
+Full parser-suite command:
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --no-restore --filter "FullyQualifiedName~SqlSearchParser"
+```
+
+Exact summary:
+- `C:\Users\rojo\source\repos\copilot-worktrees\fhir-server\rojo-microsoft-miniature-disco\src\Microsoft.Health.Fhir.SqlServer.UnitTests\bin\Debug\net10.0\Microsoft.Health.Fhir.SqlServer.UnitTests.dll (net10.0|x64) passed (1s 077ms)`
+- `Test run summary: Passed!`
+- `total: 177`
+- `failed: 0`
+- `succeeded: 177`
+- `skipped: 0`
+- `duration: 1s 496ms`
+
+Review evidence:
+- `pr-review-toolkit:code-simplifier` made small readability-only updates in `ParserUtil.cs` and `ReversedChainSqlParser.cs`; focused tests remained green afterward.
+- Final `pr-review-toolkit:code-reviewer` pass returned `No findings.`

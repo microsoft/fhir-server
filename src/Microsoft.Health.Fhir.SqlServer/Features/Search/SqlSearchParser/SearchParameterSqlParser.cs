@@ -933,20 +933,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     var targetResourceTypeIds = string.Join(", ", parserOptions.ResourceTypes);
                     builder.And($"refTarget.ResourceTypeId IN ({targetResourceTypeIds})");
                 }
-
-                if (parserOptions.ContinuationToken != null)
-                {
-                    var surrogateOperator = parserOptions.SortDescending ? "<" : ">";
-                    var continuationSurrogateId = parserOptions.AddParameter(VLatest.Resource.ResourceSurrogateId, parserOptions.ContinuationToken.ResourceSurrogateId, includeInHash: false);
-                    builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {continuationSurrogateId}");
-
-                    if (parserOptions.ContinuationToken.ResourceTypeId != null)
-                    {
-                        var typeOperator = parserOptions.SortDescending ? "<" : ">";
-                        var continuationResourceTypeId = parserOptions.AddParameter(VLatest.Resource.ResourceTypeId, parserOptions.ContinuationToken.ResourceTypeId.Value, includeInHash: false);
-                        builder.And($"refTarget.ResourceTypeId {typeOperator}= {continuationResourceTypeId}");
-                    }
-                }
             }
 
             builder.EndCte();

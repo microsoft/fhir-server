@@ -138,20 +138,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                         var targetResourceTypeIds = string.Join(", ", options.ResourceTypes);
                         builder.And($"refTarget.ResourceTypeId IN ({targetResourceTypeIds})");
                     }
-
-                    if (options.ContinuationToken != null)
-                    {
-                        var surrogateOperator = options.SortDescending ? "<" : ">";
-                        var continuationSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.ContinuationToken.ResourceSurrogateId, includeInHash: false);
-                        builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {continuationSurrogateId}");
-
-                        if (options.ContinuationToken.ResourceTypeId != null)
-                        {
-                            var typeOperator = options.SortDescending ? "<" : ">";
-                            var continuationResourceTypeId = options.AddParameter(VLatest.Resource.ResourceTypeId, options.ContinuationToken.ResourceTypeId.Value, includeInHash: false);
-                            builder.And($"refTarget.ResourceTypeId {typeOperator}= {continuationResourceTypeId}");
-                        }
-                    }
                 }
 
                 builder.EndCte();

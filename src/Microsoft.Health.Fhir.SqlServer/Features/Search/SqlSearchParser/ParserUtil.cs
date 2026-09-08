@@ -48,22 +48,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                 if (options.ContinuationToken != null && options.IncludesContinuationToken == null)
                 {
-                    var sortOperator = options.SortDescending ? "<" : ">";
+                    var comparisonOperator = options.SortDescending ? "<" : ">";
+                    var continuationSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.ContinuationToken.ResourceSurrogateId, includeInHash: false);
+                    var useSurrogateOnlyContinuation =
+                        (options.SortParameterName != null && options.SortParameterName.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase)) ||
+                        !options.ContinuationToken.ResourceTypeId.HasValue;
 
-                    if (options.SortParameterName != null && options.SortParameterName.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                    if (useSurrogateOnlyContinuation)
                     {
-                        var continuationSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.ContinuationToken.ResourceSurrogateId, includeInHash: false);
-                        builder.And($"{tableAlias}.ResourceSurrogateId {sortOperator} {continuationSurrogateId}");
+                        builder.And($"{tableAlias}.ResourceSurrogateId {comparisonOperator} {continuationSurrogateId}");
                     }
                     else
                     {
-                        var continuationSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.ContinuationToken.ResourceSurrogateId, includeInHash: false);
-                        var continuationResourceTypeId = options.AddParameter(VLatest.Resource.ResourceTypeId, options.ContinuationToken.ResourceTypeId.GetValueOrDefault(), includeInHash: false);
+                        var continuationResourceTypeId = options.AddParameter(VLatest.Resource.ResourceTypeId, options.ContinuationToken.ResourceTypeId.Value, includeInHash: false);
                         builder.And("(");
                         builder.IncreaseIndent(3);
-                        builder.AppendLine($"({tableAlias}.ResourceSurrogateId {sortOperator} {continuationSurrogateId} AND {tableAlias}.ResourceTypeId = {continuationResourceTypeId})");
+                        builder.AppendLine($"({tableAlias}.ResourceSurrogateId {comparisonOperator} {continuationSurrogateId} AND {tableAlias}.ResourceTypeId = {continuationResourceTypeId})");
                         builder.DecreaseIndent();
-                        builder.Or($"{tableAlias}.ResourceTypeId {sortOperator} {continuationResourceTypeId}");
+                        builder.Or($"{tableAlias}.ResourceTypeId {comparisonOperator} {continuationResourceTypeId}");
                         builder.DecreaseIndent(2);
                         builder.AppendLine(")");
                     }

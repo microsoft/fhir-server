@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Data;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.Data.SqlClient;
@@ -105,6 +106,37 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             Assert.Equal(SqlDbType.NVarChar, command.Parameters["@p0"].SqlDbType);
             Assert.Equal("Smith", command.Parameters["@p1"].Value);
             Assert.Equal(SqlDbType.NVarChar, command.Parameters["@p1"].SqlDbType);
+            Assert.Equal(321L, command.Parameters["@p2"].Value);
+            Assert.Equal(SqlDbType.BigInt, command.Parameters["@p2"].SqlDbType);
+            Assert.False(options.ParameterManager!.HasParametersToHash);
+        }
+
+        [Fact]
+        public void GivenDateSortContinuation_WhenCreateSortCte_ThenUsesSeparateTypedParametersExcludedFromHash()
+        {
+            const short patientResourceTypeId = 1;
+            const short birthDateSearchParamId = 12;
+            const string continuationPoint = "2024-01-15T12:34:56+00:00";
+            var expectedValue = DateTime.Parse(continuationPoint, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+            var parser = new SortSqlParser(CreateDefinitionManager("Patient", patientResourceTypeId, "birthdate", SearchParamType.Date, birthDateSearchParamId));
+            using var command = new SqlCommand();
+            var options = new ParserOptions
+            {
+                ParameterManager = new HashingSqlQueryParameterManager(
+                    new SqlQueryParameterManager(command.Parameters)),
+                ReuseQueryPlans = true,
+            };
+
+            var result = InvokeCreateSortCte(parser, "birthdate", false, "cte0", "sortCte", patientResourceTypeId, options, continuationPoint, 321L);
+
+            Assert.Contains("sp.StartDateTime > @p0", result, StringComparison.Ordinal);
+            Assert.Contains("sp.StartDateTime = @p1", result, StringComparison.Ordinal);
+            Assert.Contains("r.ResourceSurrogateId > @p2", result, StringComparison.Ordinal);
+            Assert.DoesNotContain(continuationPoint, result, StringComparison.Ordinal);
+            Assert.Equal(expectedValue, command.Parameters["@p0"].Value);
+            Assert.Equal(SqlDbType.DateTime2, command.Parameters["@p0"].SqlDbType);
+            Assert.Equal(expectedValue, command.Parameters["@p1"].Value);
+            Assert.Equal(SqlDbType.DateTime2, command.Parameters["@p1"].SqlDbType);
             Assert.Equal(321L, command.Parameters["@p2"].Value);
             Assert.Equal(SqlDbType.BigInt, command.Parameters["@p2"].SqlDbType);
             Assert.False(options.ParameterManager!.HasParametersToHash);
