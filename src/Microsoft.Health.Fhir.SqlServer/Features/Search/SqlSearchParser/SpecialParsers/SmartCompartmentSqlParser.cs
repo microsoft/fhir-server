@@ -8,8 +8,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -76,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             }
 
             var sql = options.SqlQueryBuilder;
-            var escapedValue = value.Replace("'", "''", StringComparison.Ordinal);
+            object ownerIdReference = AddOwnerIdReference(options, value);
             short compartmentResourceTypeId = _model.GetResourceTypeId(name);
 
             // Determine which universal resource types are relevant
@@ -160,7 +162,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 sql.AppendLine("INNER JOIN dbo.ReferenceSearchParam AS ref1 ON r.ResourceTypeId = ref1.ResourceTypeId AND r.ResourceSurrogateId = ref1.ResourceSurrogateId");
                 sql.AppendLine($"WHERE r.IsHistory = 0 AND r.IsDeleted = 0");
                 sql.AppendLine($"AND ref1.ReferenceResourceTypeId = {compartmentResourceTypeId}");
-                sql.AppendLine($"AND ref1.ReferenceResourceId = '{escapedValue}'");
+                sql.AppendLine($"AND ref1.ReferenceResourceId = {ownerIdReference}");
 
                 // Build OR condition for search params
                 var orConditions = new List<string>();
@@ -201,7 +203,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                 sql.IncreaseIndent();
                 sql.AppendLine("FROM dbo.Resource AS r");
                 sql.AppendLine($"WHERE r.ResourceTypeId = {compartmentResourceTypeId}");
-                sql.AppendLine($"AND r.ResourceId = '{escapedValue}'");
+                sql.AppendLine($"AND r.ResourceId = {ownerIdReference}");
                 sql.AppendLine("AND r.IsHistory = 0 AND r.IsDeleted = 0");
                 sql.DecreaseIndent();
             }
@@ -221,6 +223,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             sql.DecreaseIndent();
             sql.AppendLine(") AS smart_union");
             sql.EndCte();
+        }
+
+        private static object AddOwnerIdReference(ParserOptions options, string value)
+        {
+            object ownerIdReference = options.AddParameter(VLatest.Resource.ResourceId, value, includeInHash: true);
+
+            if (ownerIdReference is SqlParameter ownerIdParameter)
+            {
+                options.ParameterManager?.MarkAsSmartScopeParameter(ownerIdParameter);
+            }
+
+            return ownerIdReference;
         }
     }
 }

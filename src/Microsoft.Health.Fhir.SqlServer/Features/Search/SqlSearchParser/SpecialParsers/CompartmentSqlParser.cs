@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
             // Generate the CTE using ReferenceSearchParam table
             var sql = options.SqlQueryBuilder;
-            var escapedValue = value.Replace("'", "''", StringComparison.Ordinal);
+            object ownerIdReference = options.AddParameter(VLatest.Resource.ResourceId, value, includeInHash: true);
             short compartmentResourceTypeId = _model.GetResourceTypeId(name);
 
             sql.BeginCte($"cte{options.CteNumber}");
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             sql.Where("r.IsHistory = 0")
                 .And("r.IsDeleted = 0")
                 .And($"ref1.ReferenceResourceTypeId = {compartmentResourceTypeId}")
-                .And($"ref1.ReferenceResourceId = '{escapedValue}'");
+                .And($"ref1.ReferenceResourceId = {ownerIdReference}");
 
             // Build the OR condition: (SearchParamId = X AND ResourceTypeId IN (...)) OR ...
             var orConditions = new List<string>();
