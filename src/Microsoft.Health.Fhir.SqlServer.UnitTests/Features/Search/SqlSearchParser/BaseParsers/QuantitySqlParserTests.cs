@@ -46,10 +46,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause("5.4", string.Empty, options);
 
             // Assert
-            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p1", result);
+            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p0", result);
             Assert.DoesNotContain("5.4", result, StringComparison.Ordinal);
-            Assert.Equal(5.4m, command.Parameters["@p0"].Value);
-            Assert.Equal(5.4m, command.Parameters["@p1"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 5.4m);
             Assert.DoesNotContain("SystemId", result);
             Assert.DoesNotContain("QuantityCodeId", result);
         }
@@ -66,15 +66,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause(value, string.Empty, options);
 
             // Assert
-            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p1 AND t.SystemId = (SELECT SystemId FROM dbo.System WHERE Value = @p2) AND t.QuantityCodeId = (SELECT QuantityCodeId FROM dbo.QuantityCode WHERE Value = @p3)", result);
+            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p0 AND t.SystemId = (SELECT SystemId FROM dbo.System WHERE Value = @p1) AND t.QuantityCodeId = (SELECT QuantityCodeId FROM dbo.QuantityCode WHERE Value = @p2)", result);
             Assert.DoesNotContain(value, result, StringComparison.Ordinal);
-            Assert.Equal(4, command.Parameters.Count);
-            Assert.Equal(SqlDbType.Decimal, command.Parameters["@p0"].SqlDbType);
-            Assert.Equal(SqlDbType.Decimal, command.Parameters["@p1"].SqlDbType);
-            Assert.Equal(5.4m, command.Parameters["@p0"].Value);
-            Assert.Equal(5.4m, command.Parameters["@p1"].Value);
-            Assert.Equal("http://unitsofmeasure.org", command.Parameters["@p2"].Value);
-            Assert.Equal("mg", command.Parameters["@p3"].Value);
+            Assert.Equal(3, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 5.4m);
+            Assert.Equal("http://unitsofmeasure.org", command.Parameters["@p1"].Value);
+            Assert.Equal("mg", command.Parameters["@p2"].Value);
         }
 
         [Fact]
@@ -88,11 +85,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause("5.4||mg", string.Empty, options);
 
             // Assert
-            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p1 AND t.QuantityCodeId = (SELECT QuantityCodeId FROM dbo.QuantityCode WHERE Value = @p2)", result);
-            Assert.Equal(5.4m, command.Parameters["@p0"].Value);
-            Assert.Equal(5.4m, command.Parameters["@p1"].Value);
-            Assert.Equal("mg", command.Parameters["@p2"].Value);
+            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p0 AND t.QuantityCodeId = (SELECT QuantityCodeId FROM dbo.QuantityCode WHERE Value = @p1)", result);
+            Assert.Equal(2, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 5.4m);
+            Assert.Equal("mg", command.Parameters["@p1"].Value);
             Assert.DoesNotContain("SystemId", result);
+        }
+
+        [Fact]
+        public void GivenValueWithSystemOnly_WhenBuildWhereClause_ThenGeneratesValueAndSystemConditions()
+        {
+            // Arrange
+            const string value = "5.4|http://unitsofmeasure.org|";
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause(value, string.Empty, options);
+
+            // Assert
+            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p0 AND t.SystemId = (SELECT SystemId FROM dbo.System WHERE Value = @p1)", result);
+            Assert.DoesNotContain("5.4", result, StringComparison.Ordinal);
+            Assert.DoesNotContain("http://unitsofmeasure.org", result, StringComparison.Ordinal);
+            Assert.Equal(2, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 5.4m);
+            Assert.Equal("http://unitsofmeasure.org", command.Parameters["@p1"].Value);
+            Assert.DoesNotContain("QuantityCodeId", result);
         }
 
         [Fact]
@@ -107,7 +125,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.Equal("t.HighValue > @p0 AND t.SystemId = (SELECT SystemId FROM dbo.System WHERE Value = @p1) AND t.QuantityCodeId = (SELECT QuantityCodeId FROM dbo.QuantityCode WHERE Value = @p2)", result);
-            Assert.Equal(50m, command.Parameters["@p0"].Value);
+            Assert.Equal(3, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 50m);
             Assert.Equal("http://unitsofmeasure.org", command.Parameters["@p1"].Value);
             Assert.Equal("kg", command.Parameters["@p2"].Value);
         }
@@ -124,7 +143,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.Equal("t.LowValue <= @p0", result);
-            Assert.Equal(100.0m, command.Parameters["@p0"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 100.0m);
         }
 
         [Fact]
@@ -138,7 +158,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause("5.4", string.Empty, options, columnSuffix: 2);
 
             // Assert
-            Assert.Equal("t.HighValue2 >= @p0 AND t.LowValue2 <= @p1", result);
+            Assert.Equal("t.HighValue2 >= @p0 AND t.LowValue2 <= @p0", result);
         }
 
         [Fact]
@@ -152,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause("5.4", string.Empty, options, tableName: "q");
 
             // Assert
-            Assert.Equal("q.HighValue >= @p0 AND q.LowValue <= @p1", result);
+            Assert.Equal("q.HighValue >= @p0 AND q.LowValue <= @p0", result);
         }
 
         [Fact]
@@ -166,12 +186,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause("ap100", string.Empty, options);
 
             // Assert
-            Assert.Equal("(t.HighValue >= @p0 * 0.9 AND t.LowValue <= @p1 * 1.1)", result);
+            Assert.Equal("(t.HighValue >= @p0 * 0.9 AND t.LowValue <= @p0 * 1.1)", result);
             Assert.Contains("0.9", result);
             Assert.Contains("1.1", result);
             Assert.DoesNotContain("100", result, StringComparison.Ordinal);
-            Assert.Equal(100m, command.Parameters["@p0"].Value);
-            Assert.Equal(100m, command.Parameters["@p1"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 100m);
+        }
+
+        private static void AssertTypedDecimalParameter(SqlParameter parameter, decimal expectedValue)
+        {
+            Assert.Equal(SqlDbType.Decimal, parameter.SqlDbType);
+            Assert.Equal((byte)36, parameter.Precision);
+            Assert.Equal((byte)18, parameter.Scale);
+            Assert.IsType<decimal>(parameter.Value);
+            Assert.Equal(expectedValue, parameter.Value);
         }
     }
 }

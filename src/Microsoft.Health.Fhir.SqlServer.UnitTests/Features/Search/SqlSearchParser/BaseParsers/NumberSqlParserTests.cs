@@ -37,15 +37,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause("42", string.Empty, options);
 
             // Assert
-            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p1", result);
+            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p0", result);
             Assert.DoesNotContain("42", result, StringComparison.Ordinal);
-            Assert.Equal(2, command.Parameters.Count);
-            Assert.Equal(SqlDbType.Decimal, command.Parameters["@p0"].SqlDbType);
-            Assert.Equal(SqlDbType.Decimal, command.Parameters["@p1"].SqlDbType);
-            Assert.IsType<decimal>(command.Parameters["@p0"].Value);
-            Assert.IsType<decimal>(command.Parameters["@p1"].Value);
-            Assert.Equal(expectedValue, command.Parameters["@p0"].Value);
-            Assert.Equal(expectedValue, command.Parameters["@p1"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], expectedValue);
+        }
+
+        [Fact]
+        public void GivenEmptyValue_WhenBuildWhereClause_ThenTreatsItAsZeroEqualityWithTypedParameters()
+        {
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause(string.Empty, string.Empty, options);
+
+            // Assert
+            Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p0", result);
+            Assert.DoesNotContain("''", result, StringComparison.Ordinal);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 0m);
         }
 
         [Fact]
@@ -60,7 +72,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.Equal("t.HighValue > @p0", result);
-            Assert.Equal(10m, command.Parameters["@p0"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 10m);
         }
 
         [Fact]
@@ -75,7 +88,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.Equal("t.LowValue < @p0", result);
-            Assert.Equal(10m, command.Parameters["@p0"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 10m);
         }
 
         [Fact]
@@ -90,7 +104,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.Equal("t.HighValue >= @p0", result);
-            Assert.Equal(10m, command.Parameters["@p0"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 10m);
         }
 
         [Fact]
@@ -105,7 +120,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.Equal("t.LowValue <= @p0", result);
-            Assert.Equal(10m, command.Parameters["@p0"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 10m);
         }
 
         [Fact]
@@ -119,10 +135,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var result = _parser.BuildWhereClause("ne10", string.Empty, options);
 
             // Assert
-            Assert.Equal("(t.HighValue > @p0 OR t.LowValue < @p1)", result);
-            Assert.Equal(2, command.Parameters.Count);
-            Assert.Equal(10m, command.Parameters["@p0"].Value);
-            Assert.Equal(10m, command.Parameters["@p1"].Value);
+            Assert.Equal("(t.HighValue > @p0 OR t.LowValue < @p0)", result);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 10m);
         }
 
         [Fact]
@@ -165,7 +180,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
 
             // Assert
             Assert.Equal("t.HighValue > @p0", result);
-            Assert.Equal(3.14m, command.Parameters["@p0"].Value);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 3.14m);
         }
 
         [Fact]
@@ -186,15 +202,41 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 var result = _parser.BuildWhereClause("3.14", string.Empty, options);
 
                 // Assert
-                Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p1", result);
-                Assert.Equal(3.14m, command.Parameters["@p0"].Value);
-                Assert.Equal(3.14m, command.Parameters["@p1"].Value);
+                Assert.Equal("t.HighValue >= @p0 AND t.LowValue <= @p0", result);
+                Assert.Equal(1, command.Parameters.Count);
+                AssertTypedDecimalParameter(command.Parameters["@p0"], 3.14m);
             }
             finally
             {
                 CultureInfo.CurrentCulture = previousCulture;
                 CultureInfo.CurrentUICulture = previousUiCulture;
             }
+        }
+
+        [Fact]
+        public void GivenApPrefix_WhenBuildWhereClause_ThenUsesTypedDecimalParametersForApproximateBounds()
+        {
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause("ap100", string.Empty, options);
+
+            // Assert
+            Assert.Equal("(t.HighValue >= @p0 * 0.9 AND t.LowValue <= @p0 * 1.1)", result);
+            Assert.DoesNotContain("100", result, StringComparison.Ordinal);
+            Assert.Equal(1, command.Parameters.Count);
+            AssertTypedDecimalParameter(command.Parameters["@p0"], 100m);
+        }
+
+        private static void AssertTypedDecimalParameter(SqlParameter parameter, decimal expectedValue)
+        {
+            Assert.Equal(SqlDbType.Decimal, parameter.SqlDbType);
+            Assert.Equal((byte)36, parameter.Precision);
+            Assert.Equal((byte)18, parameter.Scale);
+            Assert.IsType<decimal>(parameter.Value);
+            Assert.Equal(expectedValue, parameter.Value);
         }
     }
 }

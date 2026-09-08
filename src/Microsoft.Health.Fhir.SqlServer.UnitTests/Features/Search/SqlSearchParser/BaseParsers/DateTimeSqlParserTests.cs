@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             // Assert
             Assert.Equal("t.EndDateTime >= @p0 AND t.StartDateTime <= @p1", result);
             Assert.DoesNotContain(value, result, StringComparison.Ordinal);
+            Assert.Equal(2, command.Parameters.Count);
             Assert.Equal(parsedValue.Start, command.Parameters["@p0"].Value);
             Assert.Equal(parsedValue.End, command.Parameters["@p1"].Value);
         }
@@ -201,6 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             // Assert
             Assert.Equal("t.EndDateTime >= @p0 AND t.StartDateTime <= @p1", result);
             Assert.DoesNotContain("2024-01-15T10:30:00", result, StringComparison.Ordinal);
+            Assert.Equal(2, command.Parameters.Count);
             Assert.Equal(parsedValue.Start, command.Parameters["@p0"].Value);
             Assert.Equal(parsedValue.End, command.Parameters["@p1"].Value);
         }

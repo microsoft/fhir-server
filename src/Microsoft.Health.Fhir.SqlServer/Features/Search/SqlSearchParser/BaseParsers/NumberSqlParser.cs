@@ -36,8 +36,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public override string BuildWhereClause(string value, string modifier, ParserOptions options, int? columnSuffix = null, string tableName = "t")
         {
-            var parsedValue = ParseValue(value, out var valueModifier);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
+            var parsedValue = 0m;
+            var valueModifier = "eq";
+
+            if (!string.IsNullOrEmpty(value))
+            {
+                parsedValue = ParseValue(value, out valueModifier);
+            }
+
             return BuildNumericCondition(
                 parsedValue,
                 valueModifier,
@@ -105,8 +112,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 "le" => $"{lowValueReference} <= {options.AddParameter(lowValueColumn, parsedValue, includeInHash: true)}",
                 "sa" => $"{lowValueReference} > {options.AddParameter(lowValueColumn, parsedValue, includeInHash: true)}",
                 "eb" => $"{highValueReference} < {options.AddParameter(highValueColumn, parsedValue, includeInHash: true)}",
-                "ne" => $"({highValueReference} > {options.AddParameter(highValueColumn, parsedValue, includeInHash: true)} OR {lowValueReference} < {options.AddParameter(parsedValue, includeInHash: true)})",
-                "eq" => $"{highValueReference} >= {options.AddParameter(highValueColumn, parsedValue, includeInHash: true)} AND {lowValueReference} <= {options.AddParameter(parsedValue, includeInHash: true)}",
+                "ne" => $"({highValueReference} > {options.AddParameter(highValueColumn, parsedValue, includeInHash: true)} OR {lowValueReference} < {options.AddParameter(lowValueColumn, parsedValue, includeInHash: true)})",
+                "eq" => $"{highValueReference} >= {options.AddParameter(highValueColumn, parsedValue, includeInHash: true)} AND {lowValueReference} <= {options.AddParameter(lowValueColumn, parsedValue, includeInHash: true)}",
                 "ap" => BuildApproximateCondition(parsedValue, options, suffix, tableName, highValueColumn, highValueColumnName, lowValueColumn, lowValueColumnName),
                 _ => throw new InvalidOperationException($"Unsupported modifier: {valueModifier}"),
             };
@@ -125,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             string highValueReference = $"{tableName}.{highValueColumnName}{suffix}";
             string lowValueReference = $"{tableName}.{lowValueColumnName}{suffix}";
             var lowerBoundParameter = options.AddParameter(highValueColumn, parsedValue, includeInHash: true);
-            var upperBoundParameter = options.AddParameter(parsedValue, includeInHash: true);
+            var upperBoundParameter = options.AddParameter(lowValueColumn, parsedValue, includeInHash: true);
 
             return $"({highValueReference} >= {lowerBoundParameter} * 0.9 AND {lowValueReference} <= {upperBoundParameter} * 1.1)";
         }
