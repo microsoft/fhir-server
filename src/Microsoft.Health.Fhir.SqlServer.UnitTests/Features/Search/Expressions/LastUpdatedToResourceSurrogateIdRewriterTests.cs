@@ -26,6 +26,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [InlineData(BinaryOperator.LessThan, "2020-09-24T12:00:00.5001Z", BinaryOperator.LessThan, "2020-09-24T12:00:00.501Z")] // will yield 500, 499
         [InlineData(BinaryOperator.LessThanOrEqual, "2020-09-24T12:00:00.500Z", BinaryOperator.LessThan, "2020-09-24T12:00:00.501Z")]
         [InlineData(BinaryOperator.LessThanOrEqual, "2020-09-24T12:00:00.5001Z", BinaryOperator.LessThan, "2020-09-24T12:00:00.501Z")] // will yield 500, 499
+        [InlineData(BinaryOperator.GreaterThan, "9999-12-31T23:59:59.999Z", BinaryOperator.GreaterThanOrEqual, "3654-06-18T21:21:00.683Z")]
+        [InlineData(BinaryOperator.GreaterThanOrEqual, "9999-12-31T23:59:59.999Z", BinaryOperator.GreaterThanOrEqual, "3654-06-18T21:21:00.683Z")]
+        [InlineData(BinaryOperator.LessThan, "9999-12-31T23:59:59.999Z", BinaryOperator.LessThan, "3654-06-18T21:21:00.683Z")]
+        [InlineData(BinaryOperator.LessThanOrEqual, "9999-12-31T23:59:59.999Z", BinaryOperator.LessThan, "3654-06-18T21:21:00.683Z")]
+        [InlineData(BinaryOperator.GreaterThan, "3654-06-18T21:21:00.682Z", BinaryOperator.GreaterThanOrEqual, "3654-06-18T21:21:00.683Z")]
+        [InlineData(BinaryOperator.LessThanOrEqual, "3654-06-18T21:21:00.682Z", BinaryOperator.LessThan, "3654-06-18T21:21:00.683Z")]
         [Theory]
         public void GivenAnExpressionOverLastUpdated_WhenTranslatedToResourceSurrogateId_HasCorrectRanges(BinaryOperator inputOperator, string inputDateTimeOffset, BinaryOperator expectedOperator, string expectedDateTimeOffset)
         {
