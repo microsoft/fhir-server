@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
     public class SqlSearchParameterHashAppenderTests
     {
         [Fact]
-        public void GivenHashableValuesAndReuseDisabled_WhenAppend_ThenAddsLegacyHashComment()
+        public void GivenHashableValuesAndReuseDisabled_WhenAppend_ThenAddsLegacyHashCommentWithTrailingNewline()
         {
             // Arrange
             using var command = new SqlCommand();
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var sql = builder.ToString();
             Assert.Contains(SqlSearchConstants.ParametersHashStart, sql, StringComparison.Ordinal);
             Assert.Contains("params=@p0", sql, StringComparison.Ordinal);
-            Assert.Contains(SqlSearchConstants.ParametersHashEnd, sql, StringComparison.Ordinal);
+            Assert.EndsWith(SqlSearchConstants.ParametersHashEnd + Environment.NewLine, sql, StringComparison.Ordinal);
         }
 
         [Fact]

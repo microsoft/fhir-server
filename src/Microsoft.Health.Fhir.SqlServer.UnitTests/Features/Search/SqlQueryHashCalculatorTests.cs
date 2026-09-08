@@ -115,6 +115,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenQueryWithTrailingLegacyHashCommentAndNewline_WhenRemoveParametersHash_ThenReturnsQueryWithoutComment()
+        {
+            // Arrange
+            var queryPrefix = "SELECT * AAAA Resource" + Environment.NewLine;
+            var query = queryPrefix + "/* HASH abc123= params=@p0,@p1 */" + Environment.NewLine;
+
+            // Act
+            var result = SqlQueryHashCalculator.RemoveParametersHash(query);
+
+            // Assert
+            Assert.Equal(queryPrefix, result);
+        }
+
+        [Fact]
         public void GivenTwoQueriesDifferingOnlyInWhitespace_WhenCalculateHash_ThenReturnsDifferentHashes()
         {
             // Arrange - Whitespace differences should result in different hashes

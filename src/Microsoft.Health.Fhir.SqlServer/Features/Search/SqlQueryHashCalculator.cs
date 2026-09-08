@@ -31,8 +31,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var hashEndIndex = query[hashStartIndex..].IndexOf(SqlSearchConstants.ParametersHashEnd, StringComparison.OrdinalIgnoreCase);
-            var hashLine = query[hashStartIndex..(hashStartIndex + hashEndIndex + SqlSearchConstants.ParametersHashEnd.Length)];
-            return query.Replace(hashLine, string.Empty, StringComparison.OrdinalIgnoreCase);
+            var hashLineEnd = hashStartIndex + hashEndIndex + SqlSearchConstants.ParametersHashEnd.Length;
+            if (hashLineEnd < query.Length)
+            {
+                if (query[hashLineEnd] == '\r')
+                {
+                    hashLineEnd++;
+                    if (hashLineEnd < query.Length && query[hashLineEnd] == '\n')
+                    {
+                        hashLineEnd++;
+                    }
+                }
+                else if (query[hashLineEnd] == '\n')
+                {
+                    hashLineEnd++;
+                }
+            }
+
+            return string.Concat(query.AsSpan(0, hashStartIndex), query.AsSpan(hashLineEnd));
         }
     }
 }

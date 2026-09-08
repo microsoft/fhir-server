@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             builder.DecreaseIndent(builder.IndentLevel)
                 .Append(SqlSearchConstants.ParametersHashStart)
                 .Append(hashBuilder.ToString())
-                .Append(SqlSearchConstants.ParametersHashEnd);
+                .AppendLine(SqlSearchConstants.ParametersHashEnd);
         }
     }
 }
