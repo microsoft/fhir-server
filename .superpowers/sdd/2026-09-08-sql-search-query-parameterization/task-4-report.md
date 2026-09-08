@@ -72,3 +72,38 @@ Exact summary:
 
 ## Concerns
 - None.
+
+## Fix round 1 evidence
+
+- Added `SearchParameterSqlParserTests.GivenMultipleReverseChainEntriesInSameAndGroup_WhenParseMultiple_ThenUsesCombinedCteAndSharedCommandParameters` to exercise the real combined reverse-chain path through `ParseMultiple(...)` with multiple `_has:` entries in one AND group, asserting shared request-scoped parameterization, placeholder-only SQL, and deterministic leaf/component parameter order.
+- Added `ReferenceSqlParserTests.GivenRelativeReferenceAndConflictingTypeModifier_WhenBuildWhereClause_ThenValueTypeTakesPrecedence` to lock explicit value resource-type precedence over a conflicting modifier while confirming the resource ID stays parameterized.
+
+Focused command:
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --no-restore --filter "FullyQualifiedName~ReferenceSqlParserTests|FullyQualifiedName~CompositeParserTests|FullyQualifiedName~SearchParameterSqlParserTests"
+```
+
+Exact summary:
+- `C:\Users\rojo\source\repos\copilot-worktrees\fhir-server\rojo-microsoft-miniature-disco\src\Microsoft.Health.Fhir.SqlServer.UnitTests\bin\Debug\net10.0\Microsoft.Health.Fhir.SqlServer.UnitTests.dll (net10.0|x64) passed (591ms)`
+- `Test run summary: Passed!`
+- `total: 19`
+- `failed: 0`
+- `succeeded: 19`
+- `skipped: 0`
+- `duration: 977ms`
+
+Full parser-suite command:
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --no-restore --filter "FullyQualifiedName~SqlSearchParser"
+```
+
+Exact summary:
+- `C:\Users\rojo\source\repos\copilot-worktrees\fhir-server\rojo-microsoft-miniature-disco\src\Microsoft.Health.Fhir.SqlServer.UnitTests\bin\Debug\net10.0\Microsoft.Health.Fhir.SqlServer.UnitTests.dll (net10.0|x64) passed (931ms)`
+- `Test run summary: Passed!`
+- `total: 161`
+- `failed: 0`
+- `succeeded: 161`
+- `skipped: 0`
+- `duration: 1s 291ms`

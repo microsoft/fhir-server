@@ -123,6 +123,39 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         }
 
         [Fact]
+        public void GivenRelativeReferenceAndConflictingTypeModifier_WhenBuildWhereClause_ThenValueTypeTakesPrecedence()
+        {
+            // Arrange
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+            short patientTypeId = 42;
+            short practitionerTypeId = 99;
+            _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
+                .Returns(x =>
+                {
+                    x[1] = patientTypeId;
+                    return true;
+                });
+            _fhirModel.TryGetResourceTypeId("Practitioner", out Arg.Any<short>())
+                .Returns(x =>
+                {
+                    x[1] = practitionerTypeId;
+                    return true;
+                });
+
+            // Act
+            var result = _parser.BuildWhereClause("Patient/123", "Practitioner", options);
+
+            // Assert
+            Assert.Equal("t.ReferenceResourceId = @p0 AND t.ReferenceResourceTypeId = 42", result);
+            Assert.Equal("123", command.Parameters["@p0"].Value);
+            Assert.Single(command.Parameters);
+            Assert.DoesNotContain("123", result);
+            Assert.DoesNotContain("Practitioner", result);
+            Assert.DoesNotContain("Patient/123", result);
+        }
+
+        [Fact]
         public void GivenUnknownResourceType_WhenBuildWhereClause_ThenReturnsNeverTrue()
         {
             // Arrange
