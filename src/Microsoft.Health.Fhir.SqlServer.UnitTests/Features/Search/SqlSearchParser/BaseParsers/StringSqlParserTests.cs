@@ -69,6 +69,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         }
 
         [Fact]
+        public void GivenEscapedLongValueWithDefaultModifier_WhenBuildWhereClause_ThenUsesTextOverflowColumn()
+        {
+            // Arrange
+            var rawValue = $"{new string('a', 255)}'";
+            using var command = new SqlCommand();
+            var options = ParserTestHelper.CreateParserOptions(command);
+
+            // Act
+            var result = _parser.BuildWhereClause(rawValue, string.Empty, options);
+
+            // Assert
+            Assert.Equal("(t.TextOverflow like @p0)", result);
+            Assert.DoesNotContain(rawValue, result, StringComparison.Ordinal);
+            Assert.Equal($"{rawValue}%", command.Parameters["@p0"].Value);
+        }
+
+        [Fact]
         public void GivenLongValueWithDefaultModifier_WhenBuildWhereClause_ThenUsesTextOverflowColumn()
         {
             // Arrange

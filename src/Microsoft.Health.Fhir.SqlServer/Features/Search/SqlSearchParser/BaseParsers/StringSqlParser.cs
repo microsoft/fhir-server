@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
@@ -17,8 +18,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public override string BuildWhereClause(string value, string modifier, ParserOptions options, int? columnSuffix = null, string tableName = "t")
         {
+            var escapedValue = value.Replace("'", "''", StringComparison.Ordinal);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
-            var isOverflow = value.Length > 256;
+            var isOverflow = escapedValue.Length > 256;
             var columnName = isOverflow ? "TextOverflow" : "Text";
 
             return modifier switch
