@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var fhirModel = CreateFhirModel(
                 ("Patient", patientResourceTypeId),
                 ("Observation", observationResourceTypeId));
+            var resolvedPatientResourceTypeId = fhirModel.GetResourceTypeId("Patient");
             var definitionManager = CreateDefinitionManager(
                 fhirModel,
                 ("Observation", "subject", SearchParamType.Reference, subjectSearchParamId),
@@ -74,6 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 actualSql,
                 "cte0chain1 AS",
                 "FROM cte0chain0_ref AS r",
+                $"refTarget.ResourceTypeId IN ({resolvedPatientResourceTypeId})",
                 "INNER JOIN dbo.TokenSearchParam AS t0 ON t0.ResourceSurrogateId = r.RefResourceSurrogateId AND t0.ResourceTypeId = r.RefResourceTypeId",
                 "INNER JOIN dbo.TokenSearchParam AS t1 ON t1.ResourceSurrogateId = r.RefResourceSurrogateId AND t1.ResourceTypeId = r.RefResourceTypeId",
                 "t0.SearchParamId = 12",

@@ -107,3 +107,37 @@ Exact summary:
 - `succeeded: 161`
 - `skipped: 0`
 - `duration: 1s 291ms`
+
+## Fix round 2
+
+- Added a precise assertion to `SearchParameterSqlParserTests.GivenMultipleReverseChainEntriesInSameAndGroup_WhenParseMultiple_ThenUsesCombinedCteAndSharedCommandParameters` that verifies `ParseMultiple(...)` emits the top-level `refTarget.ResourceTypeId IN (...)` Patient scope filter using the resolved model id.
+
+Focused command:
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --no-restore --filter "FullyQualifiedName~SearchParameterSqlParserTests.GivenMultipleReverseChainEntriesInSameAndGroup_WhenParseMultiple_ThenUsesCombinedCteAndSharedCommandParameters"
+```
+
+Exact summary:
+- `C:\Users\rojo\source\repos\copilot-worktrees\fhir-server\rojo-microsoft-miniature-disco\src\Microsoft.Health.Fhir.SqlServer.UnitTests\bin\Debug\net10.0\Microsoft.Health.Fhir.SqlServer.UnitTests.dll (net10.0|x64) passed (928ms)`
+- `Test run summary: Passed!`
+- `total: 1`
+- `failed: 0`
+- `succeeded: 1`
+- `skipped: 0`
+- `duration: 1s 495ms`
+
+Full parser-suite command:
+
+```powershell
+dotnet test src\Microsoft.Health.Fhir.SqlServer.UnitTests\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj --no-restore --filter "FullyQualifiedName~SqlSearchParser"
+```
+
+Exact summary:
+- `C:\Users\rojo\source\repos\copilot-worktrees\fhir-server\rojo-microsoft-miniature-disco\src\Microsoft.Health.Fhir.SqlServer.UnitTests\bin\Debug\net10.0\Microsoft.Health.Fhir.SqlServer.UnitTests.dll (net10.0|x64) passed (917ms)`
+- `Test run summary: Passed!`
+- `total: 161`
+- `failed: 0`
+- `succeeded: 161`
+- `skipped: 0`
+- `duration: 1s 275ms`
