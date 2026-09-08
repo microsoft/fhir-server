@@ -7,7 +7,7 @@
 
 using System;
 using System.Linq;
-using System.Text;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers
 {
@@ -53,32 +53,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             // Build WHERE clause for ResourceId matching
             if (ids.Length == 1)
             {
-                var escapedId = EscapeSqlValue(ids[0]);
-                sqlBuilder.Where($"r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "<>" : "=")} {escapedId}");
+                var idParameter = options.AddParameter(VLatest.Resource.ResourceId, ids[0], includeInHash: false);
+                sqlBuilder.Where($"r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "<>" : "=")} {idParameter}");
             }
             else
             {
                 // Multiple IDs - use IN clause
-                var escapedIds = string.Join(", ", ids.Select(EscapeSqlValue));
-                sqlBuilder.Where($"r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "NOT IN" : "IN")} ({escapedIds})");
+                var idParameters = string.Join(", ", ids.Select(id => options.AddParameter(VLatest.Resource.ResourceId, id, includeInHash: false)));
+                sqlBuilder.Where($"r.ResourceId {(modifier.Equals("not", StringComparison.OrdinalIgnoreCase) ? "NOT IN" : "IN")} ({idParameters})");
             }
 
             // Add base filters only on the first CTE
             ParserUtil.AddFirstCteFilters(sqlBuilder, options, "r");
 
             sqlBuilder.EndCte();
-        }
-
-        private static string EscapeSqlValue(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return "''";
-            }
-
-            // Escape single quotes by doubling them
-            var escaped = value.Replace("'", "''", StringComparison.Ordinal);
-            return $"'{escaped}'";
         }
     }
 }

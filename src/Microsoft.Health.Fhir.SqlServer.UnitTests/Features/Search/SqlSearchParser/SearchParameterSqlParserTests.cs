@@ -95,7 +95,107 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 parameter => AssertParameter(parameter, "@p0", "http://hospital.example"),
                 parameter => AssertParameter(parameter, "@p1", "MRN-123"),
                 parameter => AssertParameter(parameter, "@p2", "http://loinc.org"),
-                parameter => AssertParameter(parameter, "@p3", "4548-4"));
+                parameter => AssertParameter(parameter, "@p3", "4548-4"),
+                parameter => AssertParameter(parameter, "@p4", 11));
+        }
+
+        [Fact]
+        public void GivenRevInclude_WhenParseMultiple_ThenUsesParameterizedTopAndIncludePolicies()
+        {
+            const short patientResourceTypeId = 1;
+            const short observationResourceTypeId = 7;
+            const short patientIdentifierSearchParamId = 12;
+            const short subjectSearchParamId = 11;
+            const int maxItemCount = 4;
+            const int includeCount = 6;
+
+            var queryParameters = new Dictionary<string, IList<string>>
+            {
+                ["_type"] = new List<string> { "Patient" },
+                ["identifier"] = new List<string> { "http://hospital.example|MRN-123" },
+                ["_revinclude"] = new List<string> { "Observation:subject:Patient" },
+            };
+
+            var fhirModel = CreateFhirModel(
+                ("Patient", patientResourceTypeId),
+                ("Observation", observationResourceTypeId));
+            var definitionManager = CreateDefinitionManager(
+                fhirModel,
+                ("Patient", "identifier", SearchParamType.Token, patientIdentifierSearchParamId),
+                ("Observation", "subject", SearchParamType.Reference, subjectSearchParamId));
+            var parser = new SearchParameterSqlParser(
+                definitionManager,
+                fhirModel,
+                Substitute.For<ICompartmentDefinitionManager>(),
+                Substitute.For<ILogger<SearchParameterSqlParser>>());
+
+            using var command = new SqlCommand();
+            var parameterManager = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var options = CreateSqlSearchOptions(queryParameters, maxItemCount, includeCount);
+
+            var actualSql = parser.ParseMultiple(queryParameters, options, parameterManager, reuseQueryPlans: true);
+
+            Assert.Contains("TOP (@p2)", actualSql, StringComparison.Ordinal);
+            Assert.Contains("DISTINCT TOP (@p3)", actualSql, StringComparison.Ordinal);
+            Assert.Contains("count_big(*) over() > @p4", actualSql, StringComparison.Ordinal);
+            Assert.Contains("lcte.Row <= @p5", actualSql, StringComparison.Ordinal);
+            Assert.DoesNotContain("http://hospital.example", actualSql, StringComparison.Ordinal);
+            Assert.DoesNotContain("MRN-123", actualSql, StringComparison.Ordinal);
+            Assert.DoesNotContain("'@p2'", actualSql, StringComparison.Ordinal);
+            Assert.Collection(
+                command.Parameters.Cast<SqlParameter>(),
+                parameter => AssertParameter(parameter, "@p0", "http://hospital.example"),
+                parameter => AssertParameter(parameter, "@p1", "MRN-123"),
+                parameter => AssertParameter(parameter, "@p2", maxItemCount + 1),
+                parameter => AssertParameter(parameter, "@p3", includeCount + 1),
+                parameter => AssertParameter(parameter, "@p4", includeCount),
+                parameter => AssertParameter(parameter, "@p5", maxItemCount));
+            Assert.Equal(
+                new[] { "@p0", "@p1", "@p4", "@p5" },
+                parameterManager.ParametersToHash.Select(parameter => parameter.ParameterName).OrderBy(name => name));
+        }
+
+        [Fact]
+        public void GivenReverseChainContinuation_WhenParseMultiple_ThenExcludesPagingParameterFromHash()
+        {
+            const short patientResourceTypeId = 1;
+            const short observationResourceTypeId = 7;
+            const short subjectSearchParamId = 11;
+            const short codeSearchParamId = 13;
+            const long continuationResourceSurrogateId = 12345L;
+
+            var queryParameters = new Dictionary<string, IList<string>>
+            {
+                ["_type"] = new List<string> { "Patient" },
+                ["_has:Observation:subject:code"] = new List<string> { "http://loinc.org|4548-4" },
+            };
+
+            var fhirModel = CreateFhirModel(
+                ("Patient", patientResourceTypeId),
+                ("Observation", observationResourceTypeId));
+            var definitionManager = CreateDefinitionManager(
+                fhirModel,
+                ("Observation", "subject", SearchParamType.Reference, subjectSearchParamId),
+                ("Observation", "code", SearchParamType.Token, codeSearchParamId));
+            var parser = new SearchParameterSqlParser(
+                definitionManager,
+                fhirModel,
+                Substitute.For<ICompartmentDefinitionManager>(),
+                Substitute.For<ILogger<SearchParameterSqlParser>>());
+
+            using var command = new SqlCommand();
+            var parameterManager = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var options = CreateSqlSearchOptions(queryParameters);
+            var continuationToken = new ContinuationToken(new object[] { patientResourceTypeId, continuationResourceSurrogateId });
+
+            var actualSql = parser.ParseMultiple(queryParameters, options, parameterManager, reuseQueryPlans: true, continuationToken: continuationToken);
+
+            Assert.Contains("refTarget.ResourceSurrogateId > @p0", actualSql, StringComparison.Ordinal);
+            Assert.DoesNotContain(continuationResourceSurrogateId.ToString(), actualSql, StringComparison.Ordinal);
+            Assert.Equal(
+                new[] { "@p1", "@p2" },
+                parameterManager.ParametersToHash.Select(parameter => parameter.ParameterName).OrderBy(name => name));
+            Assert.Equal(continuationResourceSurrogateId, command.Parameters["@p0"].Value);
         }
 
         private static ISqlServerFhirModel CreateFhirModel(params (string resourceType, short id)[] resourceTypes)
@@ -142,11 +242,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             return new SqlSearchParameterDefinitionManager(definitionManager, fhirModel);
         }
 
-        private static SqlSearchOptions CreateSqlSearchOptions(IDictionary<string, IList<string>> queryParams)
+        private static SqlSearchOptions CreateSqlSearchOptions(
+            IDictionary<string, IList<string>> queryParams,
+            int maxItemCount = 10,
+            int includeCount = 10)
         {
             var searchOptions = (SearchOptions)Activator.CreateInstance(typeof(SearchOptions), nonPublic: true)!;
-            SetNonPublicProperty(searchOptions, nameof(SearchOptions.MaxItemCount), 10);
-            SetNonPublicProperty(searchOptions, nameof(SearchOptions.IncludeCount), 10);
+            SetNonPublicProperty(searchOptions, nameof(SearchOptions.MaxItemCount), maxItemCount);
+            SetNonPublicProperty(searchOptions, nameof(SearchOptions.IncludeCount), includeCount);
             SetNonPublicProperty(searchOptions, nameof(SearchOptions.UnsupportedSearchParams), Array.Empty<Tuple<string, string>>());
             SetNonPublicProperty(searchOptions, nameof(SearchOptions.Sort), Array.Empty<(SearchParameterInfo, Microsoft.Health.Fhir.Core.Features.Search.SortOrder)>());
             searchOptions.QueryParams = new Dictionary<string, IList<string>>(queryParams);

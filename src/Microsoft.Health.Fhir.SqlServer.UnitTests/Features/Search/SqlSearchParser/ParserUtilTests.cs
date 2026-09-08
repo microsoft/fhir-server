@@ -3,10 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -183,6 +188,59 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var sql = builder.ToString();
             Assert.DoesNotContain("IsHistory", sql);
             Assert.DoesNotContain("IsDeleted", sql);
+        }
+
+        [Fact]
+        public void GivenContinuationToken_WhenAddFirstCteFilters_ThenUsesExcludedPagingParameters()
+        {
+            using var command = new SqlCommand();
+            var builder = new SqlQueryBuilder();
+            builder.AppendLine("SELECT 1");
+            builder.Where("1=1");
+            var options = new ParserOptions
+            {
+                ContinuationToken = new ContinuationToken(new object[] { (short)10, 12345L }),
+                ParameterManager = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+                ReuseQueryPlans = true,
+            };
+
+            ParserUtil.AddFirstCteFilters(builder, options, "r");
+            var sql = builder.ToString();
+
+            Assert.Contains("r.ResourceSurrogateId > @p0", sql, StringComparison.Ordinal);
+            Assert.Contains("r.ResourceTypeId = 10", sql, StringComparison.Ordinal);
+            Assert.Contains("r.ResourceTypeId > 10", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("12345", sql, StringComparison.Ordinal);
+            Assert.Equal(12345L, command.Parameters["@p0"].Value);
+            Assert.Empty(options.ParameterManager!.ParametersToHash);
+        }
+
+        [Fact]
+        public void GivenIncludesContinuationToken_WhenAddFirstCteFilters_ThenUsesExcludedTypedSurrogateParameters()
+        {
+            using var command = new SqlCommand();
+            var builder = new SqlQueryBuilder();
+            builder.AppendLine("SELECT 1");
+            builder.Where("1=1");
+            var options = new ParserOptions
+            {
+                IncludesContinuationToken = new IncludesContinuationToken(new object[] { (short)15, 200L, 300L }),
+                ParameterManager = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+                ReuseQueryPlans = true,
+            };
+
+            ParserUtil.AddFirstCteFilters(builder, options, "r");
+            var sql = builder.ToString();
+
+            Assert.Contains("r.ResourceSurrogateId >= @p0", sql, StringComparison.Ordinal);
+            Assert.Contains("r.ResourceSurrogateId <= @p1", sql, StringComparison.Ordinal);
+            Assert.Contains("r.ResourceTypeId = 15", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("200", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("300", sql, StringComparison.Ordinal);
+            Assert.Equal(
+                new[] { 200L, 300L },
+                command.Parameters.Cast<SqlParameter>().Select(parameter => (long)parameter.Value));
+            Assert.Empty(options.ParameterManager!.ParametersToHash);
         }
     }
 }

@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
@@ -75,8 +76,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
 
             var sqlBuilder = options.SqlQueryBuilder;
+            string includeTop = options.AddParameter(options.IncludeCount + 1, includeInHash: false).ToString();
+            string partialThreshold = options.AddParameter(options.IncludeCount, includeInHash: true).ToString();
             sqlBuilder.BeginCte("cte" + options.CteNumber);
-            sqlBuilder.SelectWithModifier($"DISTINCT TOP {options.IncludeCount + 1}", "refTarget.ResourceTypeId", "refTarget.ResourceSurrogateId", "0 AS IsMatch", $"CASE WHEN count_big(*) over() > {options.IncludeCount} THEN 1 ELSE 0 END AS IsPartial");
+            sqlBuilder.SelectWithModifier($"DISTINCT TOP ({includeTop})", "refTarget.ResourceTypeId", "refTarget.ResourceSurrogateId", "0 AS IsMatch", $"CASE WHEN count_big(*) over() > {partialThreshold} THEN 1 ELSE 0 END AS IsPartial");
             sqlBuilder.From("dbo.ReferenceSearchParam", "refSource");
             sqlBuilder.InnerJoin("dbo.Resource", "refTarget", "refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId");
 
@@ -86,7 +89,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             }
             else
             {
-                sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {options.Count})");
+                string rowLimit = options.AddParameter(options.Count, includeInHash: true).ToString();
+                sqlBuilder.Where($"EXISTS (SELECT * FROM {options.LastCteName} lcte WHERE refSource.ResourceTypeId = lcte.ResourceTypeId AND refSource.ResourceSurrogateId = lcte.ResourceSurrogateId AND lcte.Row <= {rowLimit})");
             }
 
             if (!wildcardResourceType)
@@ -108,7 +112,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
             if (options.IncludesContinuationToken != null && options.IncludesContinuationToken.IncludeResourceTypeId.HasValue && options.IncludesContinuationToken.IncludeResourceSurrogateId.HasValue)
             {
-                sqlBuilder.And($"(refTarget.ResourceTypeId > {options.IncludesContinuationToken.IncludeResourceTypeId} OR (refTarget.ResourceTypeId = {options.IncludesContinuationToken.IncludeResourceTypeId} AND refTarget.ResourceSurrogateId > {options.IncludesContinuationToken.IncludeResourceSurrogateId}))");
+                var includeResourceTypeId = options.AddParameter(VLatest.Resource.ResourceTypeId, options.IncludesContinuationToken.IncludeResourceTypeId.Value, includeInHash: false);
+                var includeResourceSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.IncludesContinuationToken.IncludeResourceSurrogateId.Value, includeInHash: false);
+                sqlBuilder.And($"(refTarget.ResourceTypeId > {includeResourceTypeId} OR (refTarget.ResourceTypeId = {includeResourceTypeId} AND refTarget.ResourceSurrogateId > {includeResourceSurrogateId}))");
             }
 
             sqlBuilder.EndCte();

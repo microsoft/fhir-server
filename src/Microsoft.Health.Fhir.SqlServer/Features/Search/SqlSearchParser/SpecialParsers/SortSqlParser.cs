@@ -6,10 +6,14 @@
 #nullable enable
 
 using System;
+using System.Globalization;
 using System.Text;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers
 {
@@ -36,6 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
         /// <param name="sourceCteName">The name of the CTE containing the resources to sort.</param>
         /// <param name="targetCteName">The name to give the resulting sorted CTE.</param>
         /// <param name="resourceTypeId">The resource type ID to filter on, or 0 for all types.</param>
+        /// <param name="options">The parser options that provide request-scoped parameter binding.</param>
         /// <param name="continuationPoint">The continuation point to use for paging, or null for no continuation.</param>
         /// <param name="continuationResourceSurrogateId">The ResourceSurrogateId tiebreaker for paging, or null.</param>
         /// <returns>SQL string for the sort CTE, or null if the parameter is not sortable.</returns>
@@ -45,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             string sourceCteName,
             string targetCteName,
             short resourceTypeId,
+            ParserOptions options,
             string? continuationPoint = null,
             long? continuationResourceSurrogateId = null)
         {
@@ -52,6 +58,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             {
                 return null;
             }
+
+            ArgumentNullException.ThrowIfNull(options);
 
             // Get the search parameter definition
             var parameter = _parameterCollection.GetByCode(sortParameterName, resourceTypeId);
@@ -76,11 +84,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             // Determine which table and column to use
             string tableName;
             string sortColumn;
+            Column sortValueColumn;
             string isMinMaxColumn = sortDescending ? "IsMax" : "IsMin";
 
             if (parameter.SearchParameterInfo.Type == SearchParamType.Date)
             {
                 tableName = "dbo.DateTimeSearchParam";
+                sortValueColumn = VLatest.DateTimeSearchParam.StartDateTime;
 
                 // For DateTime, we sort by StartDateTime (the beginning of the range)
                 sortColumn = "sp.StartDateTime";
@@ -88,6 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             else // String
             {
                 tableName = "dbo.StringSearchParam";
+                sortValueColumn = VLatest.StringSearchParam.Text;
 
                 // For String, we use the Text column
                 sortColumn = "sp.Text";
@@ -105,22 +116,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
 
             if (!string.IsNullOrEmpty(continuationPoint))
             {
+                object continuationValue = parameter.SearchParameterInfo.Type == SearchParamType.Date
+                    ? DateTime.Parse(continuationPoint, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)
+                    : continuationPoint;
                 string op = sortDescending ? "<" : ">";
                 if (continuationResourceSurrogateId.HasValue)
                 {
                     // Use composite continuation: skip past the exact row we left off at
-                    sqlBuilder.AppendLine($"  WHERE ({sortColumn} {op} '{continuationPoint}'");
-                    sqlBuilder.AppendLine($"    OR ({sortColumn} = '{continuationPoint}' AND r.ResourceSurrogateId > {continuationResourceSurrogateId.Value}))");
+                    var continuationRangeParameter = options.AddParameter(sortValueColumn, continuationValue, includeInHash: false);
+                    var continuationEqualityParameter = AddDistinctTypedParameter(options, sortValueColumn, continuationValue);
+                    var continuationSurrogateParameter = options.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationResourceSurrogateId.Value, includeInHash: false);
+                    sqlBuilder.AppendLine($"  WHERE ({sortColumn} {op} {continuationRangeParameter}");
+                    sqlBuilder.AppendLine($"    OR ({sortColumn} = {continuationEqualityParameter} AND r.ResourceSurrogateId > {continuationSurrogateParameter}))");
                 }
                 else
                 {
-                    sqlBuilder.AppendLine($"  WHERE {sortColumn} {op}= '{continuationPoint}'");
+                    var continuationRangeParameter = options.AddParameter(sortValueColumn, continuationValue, includeInHash: false);
+                    sqlBuilder.AppendLine($"  WHERE {sortColumn} {op}= {continuationRangeParameter}");
                 }
             }
 
             sqlBuilder.Append(')');
 
             return sqlBuilder.ToString();
+        }
+
+        private static SqlParameter AddDistinctTypedParameter(ParserOptions options, Column column, object value)
+        {
+            object uniqueValue = value switch
+            {
+                DateTime dateTimeValue => dateTimeValue.AddTicks(1),
+                string stringValue => stringValue + "\u0001",
+                _ => throw new InvalidOperationException($"Unsupported continuation sort value type '{value.GetType().FullName}'."),
+            };
+
+            var distinctParameter = (SqlParameter)options.AddParameter(column, uniqueValue, includeInHash: false);
+            distinctParameter.Value = value;
+
+            return distinctParameter;
         }
 
         /// <summary>

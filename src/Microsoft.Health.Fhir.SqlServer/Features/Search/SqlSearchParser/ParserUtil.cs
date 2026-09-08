@@ -6,10 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
@@ -52,24 +52,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
                     if (options.SortParameterName != null && options.SortParameterName.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
                     {
-                        builder.And($"{tableAlias}.ResourceSurrogateId {sortOperator} {options.ContinuationToken.ResourceSurrogateId}");
+                        var continuationSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.ContinuationToken.ResourceSurrogateId, includeInHash: false);
+                        builder.And($"{tableAlias}.ResourceSurrogateId {sortOperator} {continuationSurrogateId}");
                     }
                     else
                     {
+                        var continuationSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.ContinuationToken.ResourceSurrogateId, includeInHash: false);
+                        var continuationResourceTypeId = options.AddParameter(VLatest.Resource.ResourceTypeId, options.ContinuationToken.ResourceTypeId.GetValueOrDefault(), includeInHash: false);
                         builder.And("(");
                         builder.IncreaseIndent(3);
-                        builder.AppendLine($"({tableAlias}.ResourceSurrogateId {sortOperator} {options.ContinuationToken.ResourceSurrogateId} AND {tableAlias}.ResourceTypeId = {options.ContinuationToken.ResourceTypeId})");
+                        builder.AppendLine($"({tableAlias}.ResourceSurrogateId {sortOperator} {continuationSurrogateId} AND {tableAlias}.ResourceTypeId = {continuationResourceTypeId})");
                         builder.DecreaseIndent();
-                        builder.Or($"{tableAlias}.ResourceTypeId {sortOperator} {options.ContinuationToken.ResourceTypeId}");
+                        builder.Or($"{tableAlias}.ResourceTypeId {sortOperator} {continuationResourceTypeId}");
                         builder.DecreaseIndent(2);
                         builder.AppendLine(")");
                     }
                 }
                 else if (options.IncludesContinuationToken != null)
                 {
-                    builder.And($"{tableAlias}.ResourceSurrogateId >= {options.IncludesContinuationToken.MatchResourceSurrogateIdMin}")
-                        .And($"{tableAlias}.ResourceSurrogateId <= {options.IncludesContinuationToken.MatchResourceSurrogateIdMax}")
-                        .And($"{tableAlias}.ResourceTypeId = {options.IncludesContinuationToken.MatchResourceTypeId}");
+                    var matchResourceSurrogateIdMin = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.IncludesContinuationToken.MatchResourceSurrogateIdMin, includeInHash: false);
+                    var matchResourceSurrogateIdMax = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.IncludesContinuationToken.MatchResourceSurrogateIdMax, includeInHash: false);
+                    var matchResourceTypeId = options.AddParameter(VLatest.Resource.ResourceTypeId, options.IncludesContinuationToken.MatchResourceTypeId, includeInHash: false);
+                    builder.And($"{tableAlias}.ResourceSurrogateId >= {matchResourceSurrogateIdMin}")
+                        .And($"{tableAlias}.ResourceSurrogateId <= {matchResourceSurrogateIdMax}")
+                        .And($"{tableAlias}.ResourceTypeId = {matchResourceTypeId}");
                 }
             }
         }

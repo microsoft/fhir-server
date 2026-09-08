@@ -11,6 +11,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.SqlServer.Management.XEvent;
 
@@ -43,14 +44,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
             // Because surrogate id is a range for the same datetime, different operators need to be handled accordingly.
             var whereClause = modifier switch
             {
-                "gt" => $"r.ResourceSurrogateId >= {maxSurrogateId}", // greater than means the start of the next millisecond, so max surrogate id is included
-                "ge" => $"r.ResourceSurrogateId >= {minSurrogateId}",
-                "lt" => $"r.ResourceSurrogateId < {minSurrogateId}",
-                "le" => $"r.ResourceSurrogateId < {maxSurrogateId}",
-                "sa" => $"r.ResourceSurrogateId > {maxSurrogateId}",
-                "eb" => $"r.ResourceSurrogateId < {minSurrogateId}",
-                "ne" => $"(r.ResourceSurrogateId >= {maxSurrogateId} OR r.ResourceSurrogateId < {minSurrogateId})",
-                "eq" => $"r.ResourceSurrogateId >= {minSurrogateId} AND r.ResourceSurrogateId < {maxSurrogateId}",
+                "gt" => $"r.ResourceSurrogateId >= {options.AddParameter(VLatest.Resource.ResourceSurrogateId, maxSurrogateId, includeInHash: true)}", // greater than means the start of the next millisecond, so max surrogate id is included
+                "ge" => $"r.ResourceSurrogateId >= {options.AddParameter(VLatest.Resource.ResourceSurrogateId, minSurrogateId, includeInHash: true)}",
+                "lt" => $"r.ResourceSurrogateId < {options.AddParameter(VLatest.Resource.ResourceSurrogateId, minSurrogateId, includeInHash: true)}",
+                "le" => $"r.ResourceSurrogateId < {options.AddParameter(VLatest.Resource.ResourceSurrogateId, maxSurrogateId, includeInHash: true)}",
+                "sa" => $"r.ResourceSurrogateId > {options.AddParameter(VLatest.Resource.ResourceSurrogateId, maxSurrogateId, includeInHash: true)}",
+                "eb" => $"r.ResourceSurrogateId < {options.AddParameter(VLatest.Resource.ResourceSurrogateId, minSurrogateId, includeInHash: true)}",
+                "ne" => $"(r.ResourceSurrogateId >= {options.AddParameter(VLatest.Resource.ResourceSurrogateId, maxSurrogateId, includeInHash: true)} OR r.ResourceSurrogateId < {options.AddParameter(VLatest.Resource.ResourceSurrogateId, minSurrogateId, includeInHash: true)})",
+                "eq" => $"r.ResourceSurrogateId >= {options.AddParameter(VLatest.Resource.ResourceSurrogateId, minSurrogateId, includeInHash: true)} AND r.ResourceSurrogateId < {options.AddParameter(VLatest.Resource.ResourceSurrogateId, maxSurrogateId, includeInHash: true)}",
                 _ => throw new ArgumentException($"Invalid operator '{modifier}' for lastUpdated search parameter."),
             };
 

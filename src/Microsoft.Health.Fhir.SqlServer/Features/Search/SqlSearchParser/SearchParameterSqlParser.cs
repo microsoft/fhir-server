@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.CompositeParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
@@ -556,6 +557,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     lastCteName!,
                     sortCteName,
                     parserOptions.ResourceTypes.FirstOrDefault(),
+                    parserOptions,
                     parserOptions.SortContinuationToken,
                     parserOptions.SortContinuationResourceSurrogateId);
 
@@ -590,8 +592,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     outerOrderBy = $"r.ResourceTypeId {sortDir}, r.ResourceSurrogateId {sortDir}";
                 }
 
+                string top = parserOptions.AddParameter(parserOptions.Count + 1, includeInHash: false).ToString();
                 sqlBuilder.BeginCte(cteName)
-                    .SelectWithModifier($"TOP {parserOptions.Count + 1}", "*", "IsMatch = 1", "IsPartial = 0", $"Row = ROW_NUMBER() OVER (ORDER BY {rowOrderBy})")
+                    .SelectWithModifier($"TOP ({top})", "*", "IsMatch = 1", "IsPartial = 0", $"Row = ROW_NUMBER() OVER (ORDER BY {rowOrderBy})")
                     .From(lastCteName, "r")
                     .OrderBy(outerOrderBy)
                     .EndCte();
@@ -934,12 +937,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 if (parserOptions.ContinuationToken != null)
                 {
                     var surrogateOperator = parserOptions.SortDescending ? "<" : ">";
-                    builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {parserOptions.ContinuationToken.ResourceSurrogateId}");
+                    var continuationSurrogateId = parserOptions.AddParameter(VLatest.Resource.ResourceSurrogateId, parserOptions.ContinuationToken.ResourceSurrogateId, includeInHash: false);
+                    builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {continuationSurrogateId}");
 
                     if (parserOptions.ContinuationToken.ResourceTypeId != null)
                     {
                         var typeOperator = parserOptions.SortDescending ? "<" : ">";
-                        builder.And($"refTarget.ResourceTypeId {typeOperator}= {parserOptions.ContinuationToken.ResourceTypeId}");
+                        var continuationResourceTypeId = parserOptions.AddParameter(VLatest.Resource.ResourceTypeId, parserOptions.ContinuationToken.ResourceTypeId.Value, includeInHash: false);
+                        builder.And($"refTarget.ResourceTypeId {typeOperator}= {continuationResourceTypeId}");
                     }
                 }
             }

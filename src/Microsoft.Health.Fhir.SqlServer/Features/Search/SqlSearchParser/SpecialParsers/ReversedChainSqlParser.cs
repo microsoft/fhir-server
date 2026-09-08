@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers
@@ -141,12 +142,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                     if (options.ContinuationToken != null)
                     {
                         var surrogateOperator = options.SortDescending ? "<" : ">";
-                        builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {options.ContinuationToken.ResourceSurrogateId}");
+                        var continuationSurrogateId = options.AddParameter(VLatest.Resource.ResourceSurrogateId, options.ContinuationToken.ResourceSurrogateId, includeInHash: false);
+                        builder.And($"refTarget.ResourceSurrogateId {surrogateOperator} {continuationSurrogateId}");
 
                         if (options.ContinuationToken.ResourceTypeId != null)
                         {
                             var typeOperator = options.SortDescending ? "<" : ">";
-                            builder.And($"refTarget.ResourceTypeId {typeOperator}= {options.ContinuationToken.ResourceTypeId}");
+                            var continuationResourceTypeId = options.AddParameter(VLatest.Resource.ResourceTypeId, options.ContinuationToken.ResourceTypeId.Value, includeInHash: false);
+                            builder.And($"refTarget.ResourceTypeId {typeOperator}= {continuationResourceTypeId}");
                         }
                     }
                 }
