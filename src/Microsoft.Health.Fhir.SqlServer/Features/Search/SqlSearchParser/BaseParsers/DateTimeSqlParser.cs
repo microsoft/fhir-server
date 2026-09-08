@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Text;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -12,8 +11,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class DateTimeSqlParser : BaseSqlParser
     {
-        private readonly string _dateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffffff";
-
         public DateTimeSqlParser(SqlSearchParameterDefinitionManager parameterCollection)
             : base(parameterCollection)
         {
@@ -24,17 +21,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         {
             var parsedValue = ParseValue(value, out var valueModifier);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
+            string endDateTimeReference = $"{tableName}.EndDateTime{suffix}";
+            string startDateTimeReference = $"{tableName}.StartDateTime{suffix}";
 
             return valueModifier switch
             {
-                "gt" => $"{tableName}.EndDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}'",
-                "ge" => $"{tableName}.EndDateTime{suffix} >= '{parsedValue.Start.ToString(_dateTimeFormat)}'",
-                "lt" => $"{tableName}.StartDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}'",
-                "le" => $"{tableName}.StartDateTime{suffix} <= '{parsedValue.End.ToString(_dateTimeFormat)}'",
-                "sa" => $"{tableName}.StartDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}'",
-                "eb" => $"{tableName}.EndDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}'",
-                "ne" => $"({tableName}.EndDateTime{suffix} > '{parsedValue.End.ToString(_dateTimeFormat)}' OR {tableName}.StartDateTime{suffix} < '{parsedValue.Start.ToString(_dateTimeFormat)}')",
-                "eq" => $"{tableName}.EndDateTime{suffix} >= '{parsedValue.Start.ToString(_dateTimeFormat)}' AND {tableName}.StartDateTime{suffix} <= '{parsedValue.End.ToString(_dateTimeFormat)}'",
+                "gt" => $"{endDateTimeReference} > {options.AddParameter(VLatest.DateTimeSearchParam.EndDateTime, parsedValue.End, includeInHash: true)}",
+                "ge" => $"{endDateTimeReference} >= {options.AddParameter(VLatest.DateTimeSearchParam.EndDateTime, parsedValue.Start, includeInHash: true)}",
+                "lt" => $"{startDateTimeReference} < {options.AddParameter(VLatest.DateTimeSearchParam.StartDateTime, parsedValue.Start, includeInHash: true)}",
+                "le" => $"{startDateTimeReference} <= {options.AddParameter(VLatest.DateTimeSearchParam.StartDateTime, parsedValue.End, includeInHash: true)}",
+                "sa" => $"{startDateTimeReference} > {options.AddParameter(VLatest.DateTimeSearchParam.StartDateTime, parsedValue.End, includeInHash: true)}",
+                "eb" => $"{endDateTimeReference} < {options.AddParameter(VLatest.DateTimeSearchParam.EndDateTime, parsedValue.Start, includeInHash: true)}",
+                "ne" => $"({endDateTimeReference} > {options.AddParameter(VLatest.DateTimeSearchParam.EndDateTime, parsedValue.End, includeInHash: true)} OR {startDateTimeReference} < {options.AddParameter(VLatest.DateTimeSearchParam.StartDateTime, parsedValue.Start, includeInHash: true)})",
+                "eq" => $"{endDateTimeReference} >= {options.AddParameter(VLatest.DateTimeSearchParam.EndDateTime, parsedValue.Start, includeInHash: true)} AND {startDateTimeReference} <= {options.AddParameter(VLatest.DateTimeSearchParam.StartDateTime, parsedValue.End, includeInHash: true)}",
                 _ => throw new InvalidOperationException($"Unsupported modifier: {valueModifier}"),
             };
         }
@@ -48,27 +47,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 return null;
             }
 
-            // Check for comparison prefixes
-            string actualValue = value;
-
-            if (value.StartsWith("ge", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("le", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("gt", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("lt", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("eq", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("ne", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("sa", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("eb", StringComparison.OrdinalIgnoreCase) ||
-                value.StartsWith("ap", StringComparison.OrdinalIgnoreCase))
-            {
-                modifier = value.Substring(0, 2);
-                actualValue = value.Substring(2);
-            }
-
-            // Escape single quotes by doubling them
-            var parsed = DateTimeSearchValue.Parse(actualValue);
-
-            return parsed;
+            string actualValue = NumberSqlParser.ExtractModifierValue(value, out modifier);
+            return DateTimeSearchValue.Parse(actualValue);
         }
     }
 }
