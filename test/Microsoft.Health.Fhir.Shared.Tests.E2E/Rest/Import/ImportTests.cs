@@ -824,7 +824,6 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
 
             Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=10 ", StringComparison.Ordinal));
-            Console.WriteLine($"SUMMARY: {result.ExecutionStats.First()}");
         }
 #endif
 
