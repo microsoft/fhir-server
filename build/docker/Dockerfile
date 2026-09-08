@@ -54,12 +54,6 @@ COPY ./src/Microsoft.Health.Fhir.CosmosDb.Initialization/Microsoft.Health.Fhir.C
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj
 
-COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk.csproj \
-     ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk.csproj
-
-COPY ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj \
-     ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj
-
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Api/Microsoft.Health.Fhir.${FHIR_VERSION}.Api.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Api/Microsoft.Health.Fhir.${FHIR_VERSION}.Api.csproj
 
