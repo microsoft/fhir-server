@@ -141,7 +141,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         var jobmsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
                         var elapsedmsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
                         var parallelism = elapsedmsec > 0 ? Math.Round(jobmsec / elapsedmsec, 2) : 0;
-                        var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec={jobLines.Sum(_ => _.CpuMilliseconds)} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
+                        var totalCpuMilliseconds = jobLines.Sum(_ => _.CpuMilliseconds);
+                        var cpuMillisecondsPerResource = totalCpuMilliseconds.HasValue
+                            ? Math.Round(totalCpuMilliseconds.Value / jobLines.Count / 1000D, 2)
+                            : (double?)null;
+                        var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
                         executionStats.AddRange(jobLines.Select(x => x.Line));
 
                         result.ExecutionStats = executionStats;
