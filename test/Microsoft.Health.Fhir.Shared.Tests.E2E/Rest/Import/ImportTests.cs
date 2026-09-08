@@ -795,13 +795,14 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
         {
             // InMemoryTestProcessingJobs makes the orchestrator use the location below as a template and create
-            // 10 synthetic in-memory processing jobs from it, each serving the same 1000-resource representative
-            // sample, without requiring 10 distinct input files or real storage blobs.
+            // X synthetic in-memory processing jobs from it, each serving the same 1000-resource representative
+            // sample, without requiring X distinct input files or real storage blobs.
+            const int jobs = 100;
             var location = new Uri("inmemorytest://whatever");
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: 10);
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
             var result = await ImportCheckAsync(request, null, 0);
             var totalImported = result.Output.Sum(o => o.Count);
-            Assert.Equal(10000, totalImported);
+            Assert.Equal(1000 * jobs, totalImported);
 
             // Verify execution stats are populated and includes entries for all ten jobs plus total line
             Assert.NotEmpty(result.ExecutionStats);
@@ -813,17 +814,15 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Console.WriteLine(statsJson);
             Console.WriteLine("====================================");
 
-            Assert.StartsWith("jobs=10 ", result.ExecutionStats.First());
-            var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=", StringComparison.Ordinal)).ToList();
-            Assert.Equal(10, jobLines.Count);
+            Assert.StartsWith($"jobs={jobs} ", result.ExecutionStats.First());
+            var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=")).ToList();
+            Assert.Equal(jobs, jobLines.Count);
             foreach (var jobLine in jobLines)
             {
                 Assert.Contains("cpu_msec=", jobLine);
                 Assert.Contains("clock_msec=", jobLine);
                 Assert.Contains("database_msec=", jobLine);
             }
-
-            Assert.Contains(result.ExecutionStats, l => l.StartsWith("jobs=10 ", StringComparison.Ordinal));
         }
 #endif
 
