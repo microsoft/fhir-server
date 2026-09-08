@@ -33,6 +33,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public string ErrorDetails { get; set; }
 
         /// <summary>
+        /// Wall-clock time spent executing this import processing job, in milliseconds.
+        /// Always populated for internal telemetry. Exposed in API responses only for in-memory test imports
+        /// (see <see cref="ImportOrchestratorJobDefinition.InMemoryTestProcessingJobs"/>).
+        /// </summary>
+        public long? ClockMilliseconds { get; set; }
+
+        /// <summary>
         /// Wall-clock time spent in database calls during import processing, in milliseconds.
         /// Null when any database call in this job needed a retry, since retries make the measured duration unreliable.
         /// Always populated for internal telemetry. Exposed in API responses only for in-memory test imports

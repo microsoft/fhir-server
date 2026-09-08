@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             .OrderByDescending(_ => _.Job.StartDate.Value)
                             .Select(_ =>
                             {
-                                var clockMilliseconds = (long)(_.Job.EndDate.Value - _.Job.StartDate.Value).TotalMilliseconds;
+                                var clockMilliseconds = _.Result.ClockMilliseconds;
                                 var databaseMilliseconds = _.Result.DatabaseMilliseconds;
                                 var cpuMilliseconds = clockMilliseconds - databaseMilliseconds; // x - null = null
                                 return new
@@ -131,12 +131,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                     CpuMilliseconds = cpuMilliseconds,
                                     ClockMilliseconds = clockMilliseconds,
                                     DatabaseMilliseconds = databaseMilliseconds,
+                                    StartDate = _.Job.StartDate.Value,
+                                    EndDate = _.Job.EndDate.Value,
                                 };
                             })
                             .ToList();
 
                         var retriedJobs = jobLines.Count(x => x.DatabaseMilliseconds is null);
-                        var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec={jobLines.Sum(_ => _.CpuMilliseconds)} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs}" };
+                        var jobmsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
+                        var elapsedmsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
+                        var parallelism = elapsedmsec > 0 ? Math.Round(jobmsec / elapsedmsec, 2) : 0;
+                        var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec={jobLines.Sum(_ => _.CpuMilliseconds)} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
                         executionStats.AddRange(jobLines.Select(x => x.Line));
 
                         result.ExecutionStats = executionStats;

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Channels;
@@ -69,6 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             var definition = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
             var result = new ImportProcessingJobResult();
+            var stopwatch = Stopwatch.StartNew();
 
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
@@ -153,6 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     throw new JobExecutionException(ex.Message, error, ex, false);
                 }
 
+                result.ClockMilliseconds = stopwatch.ElapsedMilliseconds;
                 jobInfo.Data = result.SucceededResources + result.FailedResources;
 
                 // jobs are small, send on success only
