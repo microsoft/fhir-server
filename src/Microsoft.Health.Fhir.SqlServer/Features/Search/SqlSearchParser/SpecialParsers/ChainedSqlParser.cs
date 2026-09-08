@@ -137,6 +137,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     ChainLevel = searchChainLevel,
                     ResourceTypes = resourceTypeIds,
                     ParentIsForwardChain = true,
+                    ParameterManager = options.ParameterManager,
+                    ReuseQueryPlans = options.ReuseQueryPlans,
                     SqlQueryBuilder = builder,
                 };
                 remainingParameterParser.Parse(remainingChain, value, innerOptions);

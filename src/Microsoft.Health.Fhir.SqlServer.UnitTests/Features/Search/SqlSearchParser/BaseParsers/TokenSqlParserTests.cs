@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenEmptyValue_WhenBuildWhereClause_ThenReturnsAlwaysTrue()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause(string.Empty, string.Empty);
+            var result = _parser.BuildWhereClause(string.Empty, string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("1=1", result);
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenCodeOnly_WhenBuildWhereClause_ThenGeneratesCodeCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("active", string.Empty);
+            var result = _parser.BuildWhereClause("active", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("t.Code = 'active'", result);
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenSystemAndCode_WhenBuildWhereClause_ThenGeneratesSystemAndCodeConditions()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://sys|active", string.Empty);
+            var result = _parser.BuildWhereClause("http://sys|active", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.SystemId = (SELECT SystemId FROM dbo.System WHERE Value = 'http://sys')", result);
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenEmptySystem_WhenBuildWhereClause_ThenGeneratesNullOrEmptySystemCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("|active", string.Empty);
+            var result = _parser.BuildWhereClause("|active", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("SystemId", result);
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenSystemOnly_WhenBuildWhereClause_ThenGeneratesSystemConditionWithoutCode()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://sys|", string.Empty);
+            var result = _parser.BuildWhereClause("http://sys|", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.SystemId = (SELECT SystemId FROM dbo.System WHERE Value = 'http://sys')", result);
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenTextModifier_WhenBuildWhereClause_ThenGeneratesTextLikeCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("active", "text");
+            var result = _parser.BuildWhereClause("active", "text", new ParserOptions());
 
             // Assert
             Assert.Equal("(t.Text LIKE N'active%')", result);
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var expectedOverflow = longCode.Substring(256);
 
             // Act
-            var result = _parser.BuildWhereClause(longCode, string.Empty);
+            var result = _parser.BuildWhereClause(longCode, string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains($"t.Code = '{expectedPrefix}'", result);
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenValueWithSingleQuote_WhenBuildWhereClause_ThenEscapesQuote()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("o'brian", string.Empty);
+            var result = _parser.BuildWhereClause("o'brian", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("o''brian", result);
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenTextModifierWithSingleQuote_WhenBuildWhereClause_ThenEscapesQuote()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("o'test", "text");
+            var result = _parser.BuildWhereClause("o'test", "text", new ParserOptions());
 
             // Assert
             Assert.Contains("o''test", result);
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffixToColumnNames()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("active", string.Empty, columnSuffix: 2);
+            var result = _parser.BuildWhereClause("active", string.Empty, new ParserOptions(), columnSuffix: 2);
 
             // Assert
             Assert.Contains("t.Code2 = 'active'", result);
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenCustomTableName_WhenBuildWhereClause_ThenUsesCustomTableName()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("active", string.Empty, tableName: "sp");
+            var result = _parser.BuildWhereClause("active", string.Empty, new ParserOptions(), tableName: "sp");
 
             // Assert
             Assert.Contains("sp.Code = 'active'", result);

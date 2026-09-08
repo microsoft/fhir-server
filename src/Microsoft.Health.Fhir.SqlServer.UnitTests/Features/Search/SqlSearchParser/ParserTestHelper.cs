@@ -4,8 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Runtime.CompilerServices;
+using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Storage;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchParser
@@ -45,6 +48,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             }
 
             return model;
+        }
+
+        /// <summary>
+        /// Creates parser options backed by a request-scoped SQL parameter manager.
+        /// </summary>
+        /// <param name="command">The SQL command whose parameters should be populated.</param>
+        /// <param name="reuseQueryPlans">Whether the parser should behave as plan-reuse eligible.</param>
+        /// <returns>A parser options instance configured for unit tests.</returns>
+        public static ParserOptions CreateParserOptions(SqlCommand command, bool reuseQueryPlans = true)
+        {
+            var manager = new HashingSqlQueryParameterManager(
+                new SqlQueryParameterManager(command.Parameters));
+
+            return new ParserOptions
+            {
+                ParameterManager = manager,
+                ReuseQueryPlans = reuseQueryPlans,
+            };
         }
     }
 }

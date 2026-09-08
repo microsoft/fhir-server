@@ -167,6 +167,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Specia
                     ResourceTypes = new List<short> { sourceResourceTypeId },
                     ChainLevel = options.ChainLevel + 1,
                     LastCteName = refChainCteName,
+                    ParameterManager = options.ParameterManager,
+                    ReuseQueryPlans = options.ReuseQueryPlans,
                     SqlQueryBuilder = builder,
                 };
                 searchParser.Parse(searchParamCode, value, innerOptions);

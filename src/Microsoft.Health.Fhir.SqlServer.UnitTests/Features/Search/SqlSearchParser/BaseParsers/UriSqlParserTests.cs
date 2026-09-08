@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenEmptyValue_WhenBuildWhereClause_ThenReturnsAlwaysTrue()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause(string.Empty, string.Empty);
+            var result = _parser.BuildWhereClause(string.Empty, string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("1=1", result);
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenSimpleUri_WhenBuildWhereClause_ThenGeneratesExactMatchCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://example.org/profile", string.Empty);
+            var result = _parser.BuildWhereClause("http://example.org/profile", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("t.Uri = 'http://example.org/profile'", result);
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenAboveModifier_WhenBuildWhereClause_ThenGeneratesAncestorCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://example.org/a/b", "above");
+            var result = _parser.BuildWhereClause("http://example.org/a/b", "above", new ParserOptions());
 
             // Assert
             Assert.Contains("LIKE t.Uri", result);
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenBelowModifier_WhenBuildWhereClause_ThenGeneratesDescendantCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://example.org/a", "below");
+            var result = _parser.BuildWhereClause("http://example.org/a", "below", new ParserOptions());
 
             // Assert
             Assert.Contains("t.Uri", result);
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenUnknownModifier_WhenBuildWhereClause_ThenFallsBackToExactMatch()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://example.org/profile", "unknown");
+            var result = _parser.BuildWhereClause("http://example.org/profile", "unknown", new ParserOptions());
 
             // Assert
             Assert.Equal("t.Uri = 'http://example.org/profile'", result);
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenUriWithSingleQuote_WhenBuildWhereClause_ThenEscapesQuote()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://example.org/a'b", string.Empty);
+            var result = _parser.BuildWhereClause("http://example.org/a'b", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("a''b", result);
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffixToColumnName()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://example.org/profile", string.Empty, columnSuffix: 2);
+            var result = _parser.BuildWhereClause("http://example.org/profile", string.Empty, new ParserOptions(), columnSuffix: 2);
 
             // Assert
             Assert.Contains("t.Uri2 = 'http://example.org/profile'", result);
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenCustomTableName_WhenBuildWhereClause_ThenUsesCustomTableName()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("http://example.org/profile", string.Empty, tableName: "u");
+            var result = _parser.BuildWhereClause("http://example.org/profile", string.Empty, new ParserOptions(), tableName: "u");
 
             // Assert
             Assert.Contains("u.Uri = 'http://example.org/profile'", result);

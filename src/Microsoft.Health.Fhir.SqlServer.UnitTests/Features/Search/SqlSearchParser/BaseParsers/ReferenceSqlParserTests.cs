@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenEmptyValue_WhenBuildWhereClause_ThenReturnsAlwaysTrue()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause(string.Empty, string.Empty);
+            var result = _parser.BuildWhereClause(string.Empty, string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("1=1", result);
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenIdOnly_WhenBuildWhereClause_ThenGeneratesReferenceIdConditionOnly()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("123", string.Empty);
+            var result = _parser.BuildWhereClause("123", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("t.ReferenceResourceId = '123'", result);
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("Patient/123", string.Empty);
+            var result = _parser.BuildWhereClause("Patient/123", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.ReferenceResourceId = '123'", result);
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("http://server/Patient/123", string.Empty);
+            var result = _parser.BuildWhereClause("http://server/Patient/123", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.ReferenceResourceId = '123'", result);
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("123", "Practitioner");
+            var result = _parser.BuildWhereClause("123", "Practitioner", new ParserOptions());
 
             // Assert
             Assert.Contains("t.ReferenceResourceId = '123'", result);
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             _fhirModel.TryGetResourceTypeId("UnknownType", out Arg.Any<short>()).Returns(false);
 
             // Act
-            var result = _parser.BuildWhereClause("UnknownType/123", string.Empty);
+            var result = _parser.BuildWhereClause("UnknownType/123", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("1=0", result);
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
                 });
 
             // Act
-            var result = _parser.BuildWhereClause("Patient/O'Brien", string.Empty);
+            var result = _parser.BuildWhereClause("Patient/O'Brien", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("O''Brien", result);
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffixToColumnNames()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("123", string.Empty, columnSuffix: 1);
+            var result = _parser.BuildWhereClause("123", string.Empty, new ParserOptions(), columnSuffix: 1);
 
             // Assert
             Assert.Contains("t.ReferenceResourceId1 = '123'", result);

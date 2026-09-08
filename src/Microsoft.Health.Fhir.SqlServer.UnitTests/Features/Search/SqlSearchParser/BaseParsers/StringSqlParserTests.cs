@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenDefaultModifier_WhenBuildWhereClause_ThenGeneratesStartsWithCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", string.Empty);
+            var result = _parser.BuildWhereClause("Smith", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Equal("(t.Text like N'Smith%')", result);
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenExactModifier_WhenBuildWhereClause_ThenGeneratesExactMatchWithCollation()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", "exact");
+            var result = _parser.BuildWhereClause("Smith", "exact", new ParserOptions());
 
             // Assert
             Assert.Equal("t.Text = N'Smith' COLLATE Latin1_General_100_CS_AS", result);
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenContainsModifier_WhenBuildWhereClause_ThenGeneratesContainsCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("mit", "contains");
+            var result = _parser.BuildWhereClause("mit", "contains", new ParserOptions());
 
             // Assert
             Assert.Equal("(t.Text like N'%mit%')", result);
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var longValue = new string('a', 257);
 
             // Act
-            var result = _parser.BuildWhereClause(longValue, string.Empty);
+            var result = _parser.BuildWhereClause(longValue, string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.TextOverflow", result);
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
             var longValue = new string('a', 257);
 
             // Act
-            var result = _parser.BuildWhereClause(longValue, "exact");
+            var result = _parser.BuildWhereClause(longValue, "exact", new ParserOptions());
 
             // Assert
             Assert.Contains("t.TextOverflow", result);
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffixToColumnName()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", string.Empty, columnSuffix: 3);
+            var result = _parser.BuildWhereClause("Smith", string.Empty, new ParserOptions(), columnSuffix: 3);
 
             // Assert
             Assert.Contains("t.Text3", result);
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenValueWithSingleQuote_WhenBuildWhereClause_ThenEscapesQuote()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("O'Brien", string.Empty);
+            var result = _parser.BuildWhereClause("O'Brien", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("O''Brien", result);
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenCustomTableName_WhenBuildWhereClause_ThenUsesCustomTableName()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("Smith", string.Empty, tableName: "sp");
+            var result = _parser.BuildWhereClause("Smith", string.Empty, new ParserOptions(), tableName: "sp");
 
             // Assert
             Assert.Contains("sp.Text", result);

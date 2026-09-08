@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 bool firstClause = true;
                 foreach (var v in values)
                 {
-                    var whereClause = BuildWhereClause(v, modifier, columnSuffix: null, tableName: tableName);
+                    var whereClause = BuildWhereClause(v, modifier, options, columnSuffix: null, tableName: tableName);
 
                     if (!firstClause)
                     {
@@ -157,10 +157,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         /// </summary>
         /// <param name="value">The search value.</param>
         /// <param name="modifier">The search modifier (if any).</param>
+        /// <param name="options">The request-scoped parser options.</param>
         /// <param name="columnSuffix">Optional numeric suffix for column names in composite tables (e.g., 2 for "Text2"). Null for non-composite tables.</param>
         /// <param name="tableName">The table name or alias to use in the WHERE clause.</param>
         /// <returns>The SQL WHERE clause.</returns>
-        public abstract string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t");
+        public abstract string BuildWhereClause(string value, string modifier, ParserOptions options, int? columnSuffix = null, string tableName = "t");
 
         /// <summary>
         /// Returns the search table name, search param ID, and WHERE clause for use in a combined CTE.
@@ -170,7 +171,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public (string tableName, int searchParamId, string whereClause)? GetSearchJoinInfo(
             string name,
             string value,
-            short resourceTypeId)
+            short resourceTypeId,
+            ParserOptions options)
         {
             var modifier = string.Empty;
             if (name.Contains(':', StringComparison.Ordinal))
@@ -200,7 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             bool first = true;
             foreach (var v in values)
             {
-                var clause = BuildWhereClause(v, modifier, columnSuffix: null, tableName: "t_placeholder");
+                var clause = BuildWhereClause(v, modifier, options, columnSuffix: null, tableName: "t_placeholder");
                 if (!first)
                 {
                     whereParts.Append(" OR ");

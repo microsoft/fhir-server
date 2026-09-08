@@ -497,7 +497,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             if (sqlSearchOptions.IsIncludesOperation)
             {
-                return await SearchIncludeImpl(sqlSearchOptions, cancellationToken);
+                return await SearchIncludeImpl(sqlSearchOptions, reuseQueryPlans, cancellationToken);
             }
 
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -565,6 +565,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }*/
                         else
                         {
+                            bool canReuseQueryPlan = reuseQueryPlans &&
+                                _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions);
+                            var parameterManager = new HashingSqlQueryParameterManager(
+                                new SqlQueryParameterManager(sqlCommand.Parameters));
+
                             // var stringBuilder = new IndentedStringBuilder(new StringBuilder());
                             // EnableTimeAndIoMessageLogging(stringBuilder, connection);
 
@@ -585,7 +590,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
                             */
 
-                            var queryText = _searchParameterSqlParser.ParseMultiple(clonedSearchOptions.QueryParams, sqlSearchOptions, continuationToken);
+                            var queryText = _searchParameterSqlParser.ParseMultiple(
+                                clonedSearchOptions.QueryParams,
+                                sqlSearchOptions,
+                                parameterManager,
+                                canReuseQueryPlan,
+                                continuationToken);
                             var queryHash = _queryHashCalculator.CalculateHash(queryText);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
@@ -803,7 +813,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             sqlSearchOptions.SortQuerySecondPhase,
                                         }).ToJson();
 
-                                    var includesSearchResult = await SearchIncludeImpl(clonedSearchOptions, cancellationToken);
+                                    var includesSearchResult = await SearchIncludeImpl(clonedSearchOptions, reuseQueryPlans, cancellationToken);
                                     includedResources.Clear();
                                     includedResources.AddRange(includesSearchResult.Results);
                                     includesContinuationTokenString = includesSearchResult.IncludesContinuationToken;
@@ -2094,7 +2104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             cancel);
         }
 
-        private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, bool reuseQueryPlans, CancellationToken cancellationToken)
         {
             var includesContinuationToken = IncludesContinuationToken.FromString(sqlSearchOptions.IncludesContinuationToken);
             if (includesContinuationToken == null)
@@ -2117,10 +2127,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     using (SqlCommand sqlCommand = connection.CreateCommand())
                     {
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                        bool canReuseQueryPlan = reuseQueryPlans &&
+                            _queryPlanReuseChecker.CanReuseQueryPlan(sqlSearchOptions);
+                        var parameterManager = new HashingSqlQueryParameterManager(
+                            new SqlQueryParameterManager(sqlCommand.Parameters));
 
                         var queryText = _searchParameterSqlParser.ParseMultiple(
                             sqlSearchOptions.QueryParams,
                             sqlSearchOptions,
+                            parameterManager,
+                            canReuseQueryPlan,
                             continuationToken: continuationToken,
                             includesContinuationToken: includesContinuationToken);
 

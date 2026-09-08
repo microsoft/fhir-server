@@ -120,30 +120,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
             };
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
+        public override string BuildWhereClause(string value, string modifier, ParserOptions options, int? columnSuffix = null, string tableName = "t")
         {
             // Composite parameters use '$' as separator between component values
             // Two-component example: "http://loinc.org|1234-5$gt100" for a token$number composite
             // Three-component example: "http://loinc.org|1234-5$gt100$lt200" for a token$number$number composite
             var components = value.Split('$');
 
-            if (_thirdComponentParser != null)
-            {
-                // Three-component composite
-                if (components.Length != 3)
-                {
-                    throw new InvalidOperationException(
-                        $"Three-component composite search parameter value must contain exactly two '$' separators. Got: {value}");
-                }
-
-                var firstValue = components[0];
-                var secondValue = components[1];
-                var thirdValue = components[2];
-
-                // Build WHERE clause that combines all three component conditions
-                return BuildThreeComponentWhereClause(firstValue, secondValue, thirdValue, modifier, tableName);
-            }
-            else
+            if (_thirdComponentParser == null)
             {
                 // Two-component composite
                 if (components.Length != 2)
@@ -156,8 +140,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
                 var secondValue = components[1];
 
                 // Build WHERE clause that combines both component conditions
-                return BuildCompositeWhereClause(firstValue, secondValue, modifier, tableName);
+                return BuildCompositeWhereClause(firstValue, secondValue, modifier, options, tableName);
             }
+
+            // Three-component composite
+            if (components.Length != 3)
+            {
+                throw new InvalidOperationException(
+                    $"Three-component composite search parameter value must contain exactly two '$' separators. Got: {value}");
+            }
+
+            var firstComponentValue = components[0];
+            var secondComponentValue = components[1];
+            var thirdValue = components[2];
+
+            // Build WHERE clause that combines all three component conditions
+            return BuildThreeComponentWhereClause(firstComponentValue, secondComponentValue, thirdValue, modifier, options, tableName);
         }
 
         /// <summary>
@@ -166,9 +164,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
         /// <param name="firstValue">The value for the first component.</param>
         /// <param name="secondValue">The value for the second component.</param>
         /// <param name="modifier">The modifier applied to the search parameter (if any).</param>
+        /// <param name="options">The request-scoped parser options.</param>
         /// <param name="tableName">The table name to use in the SQL query.</param>
         /// <returns>The SQL WHERE clause combining both components.</returns>
-        protected string BuildCompositeWhereClause(string firstValue, string secondValue, string modifier, string tableName)
+        protected string BuildCompositeWhereClause(string firstValue, string secondValue, string modifier, ParserOptions options, string tableName)
         {
             if (_thirdComponentParser != null)
             {
@@ -176,8 +175,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
             }
 
             // Pass column suffix 1 for first component, 2 for second component
-            var firstWhereClause = _firstComponentParser.BuildWhereClause(firstValue, modifier, columnSuffix: 1, tableName: tableName);
-            var secondWhereClause = _secondComponentParser.BuildWhereClause(secondValue, modifier, columnSuffix: 2, tableName: tableName);
+            var firstWhereClause = _firstComponentParser.BuildWhereClause(firstValue, modifier, options, columnSuffix: 1, tableName: tableName);
+            var secondWhereClause = _secondComponentParser.BuildWhereClause(secondValue, modifier, options, columnSuffix: 2, tableName: tableName);
 
             return $"({firstWhereClause}) AND ({secondWhereClause})";
         }
@@ -190,9 +189,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
         /// <param name="secondValue">The value for the second component.</param>
         /// <param name="thirdValue">The value for the third component.</param>
         /// <param name="modifier">The modifier applied to the search parameter (if any).</param>
+        /// <param name="options">The request-scoped parser options.</param>
         /// <param name="tableName">The table name to use in the SQL query.</param>
         /// <returns>The SQL WHERE clause combining all three components.</returns>
-        protected string BuildThreeComponentWhereClause(string firstValue, string secondValue, string thirdValue, string modifier, string tableName)
+        protected string BuildThreeComponentWhereClause(string firstValue, string secondValue, string thirdValue, string modifier, ParserOptions options, string tableName)
         {
             if (_thirdComponentParser == null)
             {
@@ -200,9 +200,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.Compos
             }
 
             // Pass column suffix 1, 2, 3 for each component respectively
-            var firstWhereClause = _firstComponentParser.BuildWhereClause(firstValue, modifier, columnSuffix: 1, tableName: tableName);
-            var secondWhereClause = _secondComponentParser.BuildWhereClause(secondValue, modifier, columnSuffix: 2, tableName: tableName);
-            var thirdWhereClause = _thirdComponentParser.BuildWhereClause(thirdValue, modifier, columnSuffix: 3, tableName: tableName);
+            var firstWhereClause = _firstComponentParser.BuildWhereClause(firstValue, modifier, options, columnSuffix: 1, tableName: tableName);
+            var secondWhereClause = _secondComponentParser.BuildWhereClause(secondValue, modifier, options, columnSuffix: 2, tableName: tableName);
+            var thirdWhereClause = _thirdComponentParser.BuildWhereClause(thirdValue, modifier, options, columnSuffix: 3, tableName: tableName);
 
             return $"({firstWhereClause}) AND ({secondWhereClause}) AND ({thirdWhereClause})";
         }

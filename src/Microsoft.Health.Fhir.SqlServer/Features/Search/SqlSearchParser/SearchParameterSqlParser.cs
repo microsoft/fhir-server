@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.CompositeParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser.SpecialParsers;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -85,7 +86,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             _smartCompartmentSqlParser = new SmartCompartmentSqlParser(fhirModel, parameterCollection, compartmentDefinitionManager);
         }
 
-        public string? ParseMultiple(IDictionary<string, IList<string>> parameters, SqlSearchOptions sqlSearchOptions, ContinuationToken? continuationToken = null, IncludesContinuationToken? includesContinuationToken = null)
+        public string? ParseMultiple(
+            IDictionary<string, IList<string>> parameters,
+            SqlSearchOptions sqlSearchOptions,
+            HashingSqlQueryParameterManager parameterManager,
+            bool reuseQueryPlans,
+            ContinuationToken? continuationToken = null,
+            IncludesContinuationToken? includesContinuationToken = null)
         {
             var parametersCopy = DeepCopyParameters(parameters);
 
@@ -118,6 +125,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                 Count = sqlSearchOptions.MaxItemCount,
                 IncludeCount = sqlSearchOptions.IncludeCount,
                 GetTotalCount = sqlSearchOptions.CountOnly,
+                ParameterManager = parameterManager,
+                ReuseQueryPlans = reuseQueryPlans,
                 ResourceVersionType = sqlSearchOptions.ResourceVersionTypes,
             };
             var sqlBuilder = parserOptions.SqlQueryBuilder;
@@ -873,7 +882,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
                     return false;
                 }
 
-                var joinInfo = baseParser.GetSearchJoinInfo(searchParamCode, entry.Value, sourceResourceTypeId);
+                var joinInfo = baseParser.GetSearchJoinInfo(searchParamCode, entry.Value, sourceResourceTypeId, parserOptions);
                 if (joinInfo == null)
                 {
                     return false; // :missing or :not modifier — fallback

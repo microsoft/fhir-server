@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenTokenStringComposite_WhenBuildWhereClause_ThenCombinesTokenAndStringConditions()
         {
             var parser = new TokenStringCompositeSqlParser(MockDefManager);
-            var result = parser.BuildWhereClause("http://sys|code$stringval", string.Empty);
+            var result = parser.BuildWhereClause("http://sys|code$stringval", string.Empty, new ParserOptions());
 
             Assert.Contains("Code1", result);
             Assert.Contains("SystemId1", result);
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenTokenTokenComposite_WhenBuildWhereClause_ThenCombinesTwoTokenConditions()
         {
             var parser = new TokenTokenCompositeSqlParser(MockDefManager);
-            var result = parser.BuildWhereClause("code1$code2", string.Empty);
+            var result = parser.BuildWhereClause("code1$code2", string.Empty, new ParserOptions());
 
             Assert.Contains("Code1", result);
             Assert.Contains("Code2", result);
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenTokenDateTimeComposite_WhenBuildWhereClause_ThenCombinesTokenAndDateConditions()
         {
             var parser = new TokenDateTimeCompositeSqlParser(MockDefManager);
-            var result = parser.BuildWhereClause("code$2024-01-15", string.Empty);
+            var result = parser.BuildWhereClause("code$2024-01-15", string.Empty, new ParserOptions());
 
             Assert.Contains("Code1", result);
             Assert.Contains("DateTime2", result);
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenTokenQuantityComposite_WhenBuildWhereClause_ThenCombinesTokenAndQuantityConditions()
         {
             var parser = new TokenQuantityCompositeSqlParser(MockDefManager);
-            var result = parser.BuildWhereClause("code$100", string.Empty);
+            var result = parser.BuildWhereClause("code$100", string.Empty, new ParserOptions());
 
             Assert.Contains("Code1", result);
             Assert.Contains("Value2", result);
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenTokenNumberNumberComposite_WhenBuildWhereClause_ThenCombinesThreeComponents()
         {
             var parser = new TokenNumberNumberCompositeSqlParser(MockDefManager);
-            var result = parser.BuildWhereClause("code$100$200", string.Empty);
+            var result = parser.BuildWhereClause("code$100$200", string.Empty, new ParserOptions());
 
             Assert.Contains("Code1", result);
             Assert.Contains("Value2", result);
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         {
             var parser = new TokenStringCompositeSqlParser(MockDefManager);
             Assert.Throws<InvalidOperationException>(() =>
-                parser.BuildWhereClause("nodollarsign", string.Empty));
+                parser.BuildWhereClause("nodollarsign", string.Empty, new ParserOptions()));
         }
 
         [Fact]
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         {
             var parser = new TokenNumberNumberCompositeSqlParser(MockDefManager);
             Assert.Throws<InvalidOperationException>(() =>
-                parser.BuildWhereClause("code$100", string.Empty));
+                parser.BuildWhereClause("code$100", string.Empty, new ParserOptions()));
         }
 
         [Fact]
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         {
             var fhirModel = ParserTestHelper.CreateMockFhirModel(("Patient", 1));
             var parser = new ReferenceTokenCompositeSqlParser(MockDefManager, fhirModel);
-            var result = parser.BuildWhereClause("Patient/123$active", string.Empty);
+            var result = parser.BuildWhereClause("Patient/123$active", string.Empty, new ParserOptions());
 
             Assert.Contains("ReferenceResourceId1", result);
             Assert.Contains("Code2", result);

@@ -5,13 +5,19 @@
 
 #nullable enable
 
+using System;
 using System.Collections.Generic;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
     public class ParserOptions
     {
+        private const string MissingParameterManagerErrorMessage = "A SQL parameter manager is required to generate a search query.";
+
         public ContinuationToken? ContinuationToken { get; set; }
 
         public IncludesContinuationToken? IncludesContinuationToken { get; set; }
@@ -61,5 +67,50 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
         public ResourceVersionType ResourceVersionType { get; set; } = ResourceVersionType.Latest;
 
         public SqlQueryBuilder SqlQueryBuilder { get; set; } = new SqlQueryBuilder();
+
+        /// <summary>
+        /// Gets the request-scoped SQL parameter manager.
+        /// </summary>
+        public HashingSqlQueryParameterManager? ParameterManager { get; init; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current request can reuse query plans.
+        /// </summary>
+        public bool ReuseQueryPlans { get; init; }
+
+        /// <summary>
+        /// Adds a typed SQL parameter for the provided column.
+        /// </summary>
+        /// <param name="column">The target SQL column.</param>
+        /// <param name="value">The parameter value.</param>
+        /// <param name="includeInHash">Whether the parameter should participate in query hashing.</param>
+        /// <returns>The SQL parameter placeholder or literal value chosen by the parameter manager.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when no parameter manager is available.</exception>
+        public object AddParameter(Column column, object value, bool includeInHash)
+        {
+            return GetRequiredParameterManager().AddParameter(column, value, includeInHash);
+        }
+
+        /// <summary>
+        /// Adds a SQL parameter for the provided value.
+        /// </summary>
+        /// <param name="value">The parameter value.</param>
+        /// <param name="includeInHash">Whether the parameter should participate in query hashing.</param>
+        /// <returns>The SQL parameter.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when no parameter manager is available.</exception>
+        public SqlParameter AddParameter(object value, bool includeInHash)
+        {
+            return GetRequiredParameterManager().AddParameter(value, includeInHash);
+        }
+
+        private HashingSqlQueryParameterManager GetRequiredParameterManager()
+        {
+            if (ParameterManager == null)
+            {
+                throw new InvalidOperationException(MissingParameterManagerErrorMessage);
+            }
+
+            return ParameterManager;
+        }
     }
 }

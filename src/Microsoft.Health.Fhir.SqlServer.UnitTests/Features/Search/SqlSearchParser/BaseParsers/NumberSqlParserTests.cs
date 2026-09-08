@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenSimpleNumber_WhenBuildWhereClause_ThenGeneratesEqCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("42", string.Empty);
+            var result = _parser.BuildWhereClause("42", string.Empty, new ParserOptions());
 
             // Assert — eq: HighValue >= val AND LowValue <= val
             Assert.Contains("t.HighValue", result);
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenGtPrefix_WhenBuildWhereClause_ThenUsesHighValueGreaterThan()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("gt10", string.Empty);
+            var result = _parser.BuildWhereClause("gt10", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.HighValue > 10", result);
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenLtPrefix_WhenBuildWhereClause_ThenUsesLowValueLessThan()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("lt10", string.Empty);
+            var result = _parser.BuildWhereClause("lt10", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.LowValue < 10", result);
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenGePrefix_WhenBuildWhereClause_ThenUsesHighValueGreaterOrEqual()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("ge10", string.Empty);
+            var result = _parser.BuildWhereClause("ge10", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.HighValue >= 10", result);
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenLePrefix_WhenBuildWhereClause_ThenUsesLowValueLessOrEqual()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("le10", string.Empty);
+            var result = _parser.BuildWhereClause("le10", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.LowValue <= 10", result);
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenNePrefix_WhenBuildWhereClause_ThenUsesOrCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("ne10", string.Empty);
+            var result = _parser.BuildWhereClause("ne10", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("OR", result);
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffixToColumnNames()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("gt5", string.Empty, columnSuffix: 1);
+            var result = _parser.BuildWhereClause("gt5", string.Empty, new ParserOptions(), columnSuffix: 1);
 
             // Assert
             Assert.Contains("t.HighValue1 > 5", result);
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenCustomTableName_WhenBuildWhereClause_ThenUsesCustomTableName()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("gt5", string.Empty, tableName: "n");
+            var result = _parser.BuildWhereClause("gt5", string.Empty, new ParserOptions(), tableName: "n");
 
             // Assert
             Assert.Contains("n.HighValue > 5", result);
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenDecimalNumber_WhenBuildWhereClause_ThenHandlesDecimalCorrectly()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("gt3.14", string.Empty);
+            var result = _parser.BuildWhereClause("gt3.14", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("3.14", result);

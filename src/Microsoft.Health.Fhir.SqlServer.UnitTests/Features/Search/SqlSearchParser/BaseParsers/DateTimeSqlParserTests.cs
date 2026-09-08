@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenExactDate_WhenBuildWhereClause_ThenUsesEqModifier()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("2024-01-15", string.Empty, new ParserOptions());
 
             // Assert — default is eq, so produces range overlap check
             Assert.Contains("t.EndDateTime", result);
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenYearOnly_WhenBuildWhereClause_ThenProducesRangeForWholeYear()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("2024", string.Empty);
+            var result = _parser.BuildWhereClause("2024", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("2024", result);
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenGtPrefix_WhenBuildWhereClause_ThenUsesEndDateTimeGreaterThan()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("gt2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("gt2024-01-15", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.EndDateTime", result);
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenLtPrefix_WhenBuildWhereClause_ThenUsesStartDateTimeLessThan()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("lt2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("lt2024-01-15", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.StartDateTime", result);
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenGePrefix_WhenBuildWhereClause_ThenUsesEndDateTimeGreaterOrEqual()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("ge2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("ge2024-01-15", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.EndDateTime", result);
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenLePrefix_WhenBuildWhereClause_ThenUsesStartDateTimeLessOrEqual()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("le2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("le2024-01-15", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.StartDateTime", result);
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenNePrefix_WhenBuildWhereClause_ThenUsesOrCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("ne2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("ne2024-01-15", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("OR", result);
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenSaPrefix_WhenBuildWhereClause_ThenUsesStartDateTimeGreaterThan()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("sa2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("sa2024-01-15", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.StartDateTime", result);
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenEbPrefix_WhenBuildWhereClause_ThenUsesEndDateTimeLessThan()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("eb2024-01-15", string.Empty);
+            var result = _parser.BuildWhereClause("eb2024-01-15", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("t.EndDateTime", result);
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenDateWithTime_WhenBuildWhereClause_ThenIncludesTimeInCondition()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("2024-01-15T10:30:00Z", string.Empty);
+            var result = _parser.BuildWhereClause("2024-01-15T10:30:00Z", string.Empty, new ParserOptions());
 
             // Assert
             Assert.Contains("2024-01-15T10:30:00", result);
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenColumnSuffix_WhenBuildWhereClause_ThenAppendsSuffix()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("gt2024-01-15", string.Empty, columnSuffix: 2);
+            var result = _parser.BuildWhereClause("gt2024-01-15", string.Empty, new ParserOptions(), columnSuffix: 2);
 
             // Assert
             Assert.Contains("t.EndDateTime2", result);
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.SqlSearchPar
         public void GivenCustomTableName_WhenBuildWhereClause_ThenUsesCustomTableName()
         {
             // Arrange / Act
-            var result = _parser.BuildWhereClause("gt2024-01-15", string.Empty, tableName: "dt");
+            var result = _parser.BuildWhereClause("gt2024-01-15", string.Empty, new ParserOptions(), tableName: "dt");
 
             // Assert
             Assert.Contains("dt.EndDateTime", result);

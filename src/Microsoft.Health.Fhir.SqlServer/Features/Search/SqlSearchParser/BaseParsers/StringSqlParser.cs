@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
             SetTableName("StringSearchParam");
         }
 
-        public override string BuildWhereClause(string value, string modifier, int? columnSuffix = null, string tableName = "t")
+        public override string BuildWhereClause(string value, string modifier, ParserOptions options, int? columnSuffix = null, string tableName = "t")
         {
             var escapedValue = value.Replace("'", "''", StringComparison.Ordinal);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
