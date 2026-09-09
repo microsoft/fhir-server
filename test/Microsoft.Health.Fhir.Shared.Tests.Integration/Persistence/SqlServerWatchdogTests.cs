@@ -325,18 +325,6 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            // TODO: Temp code to test database stats
-            var factory = CreateResourceWrapperFactory();
-            var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
-            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
-            patient.Id = Guid.NewGuid().ToString();
-            var wrapper = factory.Create(patient.ToResourceElement(), false, true);
-            wrapper.ResourceSurrogateId = tran.TransactionId;
-            var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
-            await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, null, cts.Token);
-            var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
-            ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
-
             var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
@@ -358,15 +346,6 @@ END
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
             Assert.True(GetCount("EventLog") <= 2000, "Count is high");
-
-            // TODO: Temp code to test database stats
-            startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
-            }
-
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 120, "DatabaseStats.SearchParamCount message is not found");
 
             await cts.CancelAsync();
             await wdTask;
