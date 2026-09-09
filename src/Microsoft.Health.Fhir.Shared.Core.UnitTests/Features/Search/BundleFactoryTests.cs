@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -139,6 +140,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     Assert.Equal(Bundle.SearchEntryMode.Match, raw.Search.Mode);
                 }
             }
+        }
+
+        [Fact]
+        public void GivenASemanticSearchResult_WhenCreateSearchBundle_ThenScoreAndEvidenceAreReturned()
+        {
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(new Uri("http://resource/123"));
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+
+            ResourceElement observation = Samples.GetDefaultObservation().UpdateId("123");
+            var evidence = new SemanticSearchEvidence(
+                "Patient reports shortness of breath while climbing stairs.",
+                chunkOrdinal: 2,
+                score: 0.91m,
+                new Uri("https://example.org/fhir/SearchParameter/semantic-text"),
+                "Observation/123/_history/4",
+                "Observation.note.text",
+                rank: 2,
+                witnessReference: "DocumentReference/document/_history/3");
+            var searchResult = new SearchResult(
+                new[] { new SearchResultEntry(CreateResourceWrapper(observation, HttpMethod.Post), score: 0.91m, evidence: evidence) },
+                continuationToken: null,
+                sortOrder: null,
+                unsupportedSearchParameters: _unsupportedSearchParameters);
+
+            Bundle bundle = _bundleFactory.CreateSearchBundle(searchResult).ToPoco<Bundle>();
+            Bundle.SearchComponent search = Assert.Single(bundle.Entry).Search;
+
+            Assert.Equal(0.91m, search.Score);
+            Extension evidenceExtension = Assert.Single(search.Extension, extension => extension.Url == SemanticSearchEvidence.ExtensionUrl);
+            Assert.Equal(evidence.Text, ((FhirString)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.TextExtensionUrl).Value).Value);
+            Assert.Equal(evidence.ChunkOrdinal, ((Integer)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.ChunkOrdinalExtensionUrl).Value).Value);
+            Assert.Equal(evidence.Rank, ((PositiveInt)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.RankExtensionUrl).Value).Value);
+            Assert.DoesNotContain(evidenceExtension.Extension, extension => extension.Url == "globalRank");
+            Assert.Equal(evidence.Score, ((FhirDecimal)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.ScoreExtensionUrl).Value).Value);
+            Assert.Equal(evidence.SearchParameterCanonical.OriginalString, ((FhirUri)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SearchParameterExtensionUrl).Value).Value);
+            Assert.Equal(evidence.SourceReference, ((ResourceReference)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourceExtensionUrl).Value).Reference);
+            Assert.Equal(evidence.WitnessReference, ((ResourceReference)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.WitnessExtensionUrl).Value).Reference);
+            Assert.Equal(evidence.SourcePath, ((FhirString)evidenceExtension.Extension.Single(extension => extension.Url == SemanticSearchEvidence.SourcePathExtensionUrl).Value).Value);
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement, HttpMethod httpMethod)

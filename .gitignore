@@ -97,6 +97,9 @@ ipch/
 # Visual Studio Code C# Dev Kit cache files
 *.lscache
 
+# VS Code personal workspace settings (launch.json, mcp.json, and tasks.json are tracked intentionally)
+.vscode/settings.json
+
 # TFS 2012 Local Workspace
 $tf/
 

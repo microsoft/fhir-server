@@ -110,6 +110,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string DocRefResourceType = KnownResourceTypes.DocumentReference + "/" + DocRef;
         public const string DocRefOperationDefinition = OperationDefinition + "/" + OperationsConstants.DocRef;
 
+        public const string SemanticSearch = "$semantic-search";
+        public const string SemanticSearchPatientById = KnownResourceTypes.Patient + "/" + IdRouteSegment + "/" + SemanticSearch;
+
         public const string Expand = "$expand";
         public const string ExpandResourceType = KnownResourceTypes.ValueSet + "/" + Expand;
         public const string ExpandResourceId = KnownResourceTypes.ValueSet + "/" + IdRouteSegment + "/" + Expand;

@@ -37,6 +37,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
@@ -64,6 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly IMediator _mediator;
         private readonly IBundleMetricHandler _bundleMetricHandler;
         private readonly ITransactionHandler _transactionHandler;
+        private readonly IVectorSearchParameterResolver _vectorSearchParameterResolver;
         private DefaultFhirRequestContext _fhirRequestContext;
         private readonly IProvideProfilesForValidation _profilesResolver;
 
@@ -128,6 +130,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _mediator = Substitute.For<IMediator>();
 
             _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
+            _vectorSearchParameterResolver = Substitute.For<IVectorSearchParameterResolver>();
 
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
@@ -149,7 +152,62 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _mediator,
                 _router,
                 _bundleMetricHandler,
-                NullLogger<BundleHandler>.Instance);
+                NullLogger<BundleHandler>.Instance,
+                _vectorSearchParameterResolver);
+        }
+
+        [Fact]
+        public async Task GivenSequentialTransactionWithLocalReferenceVectorOwner_WhenHandled_ThenParallelProcessingIsUsed()
+        {
+            // Arrange
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Sequential;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+            var searchParameter = new SearchParameterInfo(
+                name: "DocumentReferenceSemanticText",
+                code: "semantic-text",
+                searchParamType: Microsoft.Health.Fhir.ValueSets.SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic-text"),
+                expression: "DocumentReference.content.attachment.url.toString()",
+                baseResourceTypes: new[] { "DocumentReference" },
+                vectorConfig: new VectorSearchParameterConfig
+                {
+                    SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference,
+                },
+                definitionStatus: "active");
+            _vectorSearchParameterResolver.GetIndexingSearchParameters("DocumentReference").Returns(new[] { searchParameter });
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry =
+                {
+                    new EntryComponent
+                    {
+                        Resource = new DocumentReference(),
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "DocumentReference" },
+                    },
+                    new EntryComponent
+                    {
+                        Resource = new Binary(),
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Binary" },
+                    },
+                },
+            };
+            _router.When(router => router.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    callInfo.Arg<RouteContext>().Handler = context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status200OK;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            // Act
+            BundleResponse response = await _bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+
+            // Assert
+            Assert.Equal(BundleProcessingLogic.Parallel, response.Info.ProcessingLogic);
+            _transactionHandler.DidNotReceive().BeginTransaction();
         }
 
         [Fact]

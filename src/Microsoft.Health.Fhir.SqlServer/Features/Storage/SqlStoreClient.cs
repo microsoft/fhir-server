@@ -43,9 +43,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _schemaInformation = schemaInformation;
         }
 
-        public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, bool enqueueVectorSearchSourceRefresh, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.HardDeleteResource", CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand() { CommandType = CommandType.StoredProcedure };
+            if (enqueueVectorSearchSourceRefresh)
+            {
+                cmd.CommandText = "dbo.HardDeleteResourceWithVectorSearchSourceRefresh";
+            }
+            else
+            {
+                cmd.CommandText = "dbo.HardDeleteResource";
+            }
+
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@ResourceId", resourceId);
             cmd.Parameters.AddWithValue("@KeepCurrentVersion", keepCurrentVersion);

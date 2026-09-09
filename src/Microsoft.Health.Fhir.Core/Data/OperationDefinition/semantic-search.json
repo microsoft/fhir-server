@@ -1,0 +1,56 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "semantic-search",
+    "url": "[base]/OperationDefinition/semantic-search",
+    "version": "1.0.0",
+    "name": "SemanticSearch",
+    "title": "Patient Semantic Search",
+    "status": "active",
+    "kind": "operation",
+    "experimental": true,
+    "date": "2026-07-28",
+    "publisher": "Microsoft",
+    "description": "Searches configured resource types in a patient compartment by semantic similarity while preserving authorization and ordinary FHIR scope constraints.",
+    "affectsState": false,
+    "code": "semantic-search",
+    "resource": [
+        "Patient"
+    ],
+    "system": false,
+    "type": false,
+    "instance": true,
+    "parameter": [
+        {
+            "name": "query",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Natural-language text used to rank semantically similar resources in the patient compartment.",
+            "type": "string"
+        },
+        {
+            "name": "type",
+            "use": "in",
+            "min": 0,
+            "max": "*",
+            "documentation": "Optional resource type to include. Repeating this parameter forms a union of supported resource types.",
+            "type": "code"
+        },
+        {
+            "name": "count",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Maximum number of globally ranked results to return.",
+            "type": "integer"
+        },
+        {
+            "name": "return",
+            "use": "out",
+            "min": 1,
+            "max": "1",
+            "documentation": "A searchset Bundle containing globally ranked resources with semantic evidence.",
+            "type": "Bundle"
+        }
+    ]
+}

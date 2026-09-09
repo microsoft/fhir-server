@@ -46,6 +46,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenAVectorSearchParameterUsingToString_WhenResolvingSupport_ThenTrueIsReturned()
+        {
+            var searchParameter = new SearchParameterInfo(
+                "DocumentReferenceSemanticText",
+                "semantic-text",
+                SearchParamType.Special,
+                new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic-text"),
+                expression: "DocumentReference.content.attachment.url.toString()",
+                baseResourceTypes: new[] { "DocumentReference" },
+                vectorConfig: new VectorSearchParameterConfig
+                {
+                    SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference,
+                });
+
+            var supported = _resolver.IsSearchParameterSupported(searchParameter);
+
+            Assert.True(supported.Supported);
+            Assert.False(supported.IsPartiallySupported);
+        }
+
+        [Fact]
         public void GivenAnUnsupportedSearchParameter_WhenResolvingSupport_ThenFalseIsReturned()
         {
             var sp = new SearchParameterInfo(

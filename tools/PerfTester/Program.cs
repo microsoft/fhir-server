@@ -120,7 +120,6 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 SwitchToResourceView();
                 ExecuteParallelCalls(resourceIds);
                 resourceIds = GetRandomIds();
-                ExecuteParallelCalls(resourceIds); // compare this
                 SwitchToResourceTable();
                 ExecuteParallelCalls(resourceIds);
             }
@@ -484,13 +483,13 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     {
                         var typeId = resourceIds.Item2.First().ResourceTypeId;
                         var id = resourceIds.Item2.First().ResourceId;
-                        _store.HardDeleteAsync(typeId, id, false, false, CancellationToken.None).Wait();
+                        _store.HardDeleteAsync(typeId, id, false, false, false, CancellationToken.None).Wait();
                     }
                     else if (_callType == "HardDeleteWithInvisible")
                     {
                         var typeId = resourceIds.Item2.First().ResourceTypeId;
                         var id = resourceIds.Item2.First().ResourceId;
-                        _store.HardDeleteAsync(typeId, id, false, true, CancellationToken.None).Wait();
+                        _store.HardDeleteAsync(typeId, id, false, true, false, CancellationToken.None).Wait();
                     }
                     else
                     {

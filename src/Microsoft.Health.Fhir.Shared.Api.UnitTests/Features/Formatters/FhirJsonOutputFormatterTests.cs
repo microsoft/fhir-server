@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -101,6 +102,49 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             string query)
         {
             await Run(false, raw, query);
+        }
+
+        [Fact]
+        public async Task GivenRawSearchBundleWithSemanticMetadata_WhenWritingResponse_ThenScoreAndEvidenceShouldBeWritten()
+        {
+            using var writer = new StringWriter(new StringBuilder());
+            using var body = new MemoryStream();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Response.Body = body;
+            var bundle = (Hl7.Fhir.Model.Bundle)CreateObject(bundle: true, raw: true);
+            var evidence = new Extension { Url = SemanticSearchEvidence.ExtensionUrl };
+            evidence.Extension.Add(new Extension(SemanticSearchEvidence.TextExtensionUrl, new FhirString("Matched passage")));
+            evidence.Extension.Add(new Extension(SemanticSearchEvidence.RankExtensionUrl, new PositiveInt(1)));
+            bundle.Entry.Single().Search = new SearchComponent
+            {
+                Mode = SearchEntryMode.Match,
+                Score = 0.91m,
+            };
+            bundle.Entry.Single().Search.Extension.Add(evidence);
+            var writeContext = new OutputFormatterWriteContext(
+                httpContext,
+                (_, _) => writer,
+                typeof(Hl7.Fhir.Model.Bundle),
+                bundle);
+            var formatter = new FhirJsonOutputFormatter(
+                new FhirJsonSerializer(),
+                Deserializers.ResourceDeserializer,
+                ArrayPool<char>.Shared,
+                new BundleSerializer(),
+                ModelInfoProvider.Instance);
+
+            await formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
+
+            Hl7.Fhir.Model.Bundle serializedBundle = Parser.Parse<Hl7.Fhir.Model.Bundle>(writer.ToString());
+            SearchComponent search = Assert.Single(serializedBundle.Entry).Search;
+            Assert.Equal(0.91m, search.Score);
+            Extension serializedEvidence = Assert.Single(search.Extension, extension => extension.Url == SemanticSearchEvidence.ExtensionUrl);
+            Assert.Equal(
+                "Matched passage",
+                ((FhirString)Assert.Single(serializedEvidence.Extension, extension => extension.Url == SemanticSearchEvidence.TextExtensionUrl).Value).Value);
+            Assert.Equal(
+                1,
+                ((PositiveInt)Assert.Single(serializedEvidence.Extension, extension => extension.Url == SemanticSearchEvidence.RankExtensionUrl).Value).Value);
         }
 
         private static async Task Run(
