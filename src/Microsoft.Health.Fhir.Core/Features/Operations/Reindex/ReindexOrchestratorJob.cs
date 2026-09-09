@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _searchParamLastUpdated = _searchParameterOperations.SearchParamLastUpdated;
 
-            _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
+            _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated={_searchParamLastUpdated}");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null);
 
             async Task<bool> WaitForAllInstancesCacheSyncAsync(DateTime updateEventsSince, CancellationToken cancellationToken)
@@ -256,15 +256,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var toMarkDeleted = new List<string>();
             foreach (var url in custom.Where(_ => !searchParamsWithResources.ContainsKey(_)))
             {
-                _logger.LogJobWarning(_jobInfo, $"Reindex.DeleteOrphans: {url} - Resource not found.");
+                _logger.LogJobWarning(_jobInfo, $"Reindex.DeleteOrphans: url=[{url}]. Resource not found. Will be marked as Deleted.");
                 toMarkDeleted.Add(url);
             }
 
             if (toMarkDeleted.Any())
             {
-                await _retries.ExecuteAsync(
-                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(toMarkDeleted, SearchParameterStatus.Deleted, _cancellationToken, reindexId: _jobInfo.Id));
-                _logger.LogJobInformation(_jobInfo, $"Reindex.DeleteOrphans: {toMarkDeleted.Count} search parameter(s) marked as Deleted.");
+                await _retries.ExecuteAsync(async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(toMarkDeleted, SearchParameterStatus.Deleted, _cancellationToken, reindexId: _jobInfo.Id));
             }
 
             _logger.LogJobInformation(_jobInfo, "Reindex.DeleteOrphans: Completed.");
@@ -423,7 +421,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobInformation(_jobInfo, $"Reindex: Created jobs for resource type {resourceType} with {urlsToProcess.Count} search parameters. urls=[{string.Join(", ", urlsToProcess)}]");
             }
 
-            _logger.LogJobInformation(_jobInfo, $"Reindex: Enqueued {allEnqueuedJobIds.Count} processing jobs.");
+            _logger.LogJobInformation(_jobInfo, $"Reindex: Completed enqueuing. Jobs={allEnqueuedJobIds.Count}. Analytics: {{ProcessingJobs}}", allEnqueuedJobIds.Count);
             return allEnqueuedJobIds;
         }
 
@@ -659,7 +657,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.Count == 0);
             if (allJobsComplete)
             {
-                _logger.LogJobInformation(_jobInfo, $"Reindex: Finished processing jobs. Completed={_result.CompletedJobs} created={_result.CreatedJobs}");
+                _logger.LogJobInformation(_jobInfo, $"Reindex: Finished processing jobs. Completed={_result.CompletedJobs} created={_result.CreatedJobs}. Analytics: {{CompletedJobs}} {{CreatedJobs}}", _result.CompletedJobs, _result.CreatedJobs);
             }
         }
 
