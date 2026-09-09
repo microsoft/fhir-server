@@ -47,9 +47,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
             {
-                return InMemoryTestIntegrationDataSource.GetStream(startOffset);
+                return InMemoryTestDataSource.GetStream(startOffset);
             }
 
             return new AzureBlobSourceStream(async () => await _integrationDataStoreClientInitializer.GetAuthorizedBlobClientAsync(resourceUri), startOffset, _logger);
@@ -166,9 +166,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
             {
-                return InMemoryTestIntegrationDataSource.GetProperties();
+                return InMemoryTestDataSource.GetProperties();
             }
 
             try
@@ -210,9 +210,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
             {
-                return InMemoryTestIntegrationDataSource.AcquireLease();
+                return InMemoryTestDataSource.AcquireLease();
             }
 
             try
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            if (InMemoryTestIntegrationDataSource.IsTestSourceUri(resourceUri))
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
             {
                 return;
             }

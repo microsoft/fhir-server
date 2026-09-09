@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
     /// <see cref="IntegrationDataStoreClientConstants.InMemoryTestSourceScheme"/> scheme, which is never used
     /// for real storage endpoints.
     /// </remarks>
-    internal static class InMemoryTestIntegrationDataSource
+    internal static class InMemoryTestDataSource
     {
         private const string EmbeddedResourceName = "Microsoft.Health.Fhir.Azure.IntegrationDataStore.TestData.representative-import-1000.ndjson.gz";
 
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private static byte[] LoadPayload()
         {
-            Assembly assembly = typeof(InMemoryTestIntegrationDataSource).Assembly;
+            Assembly assembly = typeof(InMemoryTestDataSource).Assembly;
 
             using Stream compressedStream = assembly.GetManifestResourceStream(EmbeddedResourceName)
                 ?? throw new InvalidOperationException($"Embedded resource '{EmbeddedResourceName}' was not found.");
