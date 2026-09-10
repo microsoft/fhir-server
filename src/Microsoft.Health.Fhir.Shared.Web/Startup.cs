@@ -144,7 +144,8 @@ namespace Microsoft.Health.Fhir.Web
             services.AddScoped<IVectorTextSourceResolver, VectorTextSourceResolver>();
             services.AddScoped<IEmbeddingClient>(provider => new AzureFoundryEmbeddingClient(
                 provider.GetRequiredService<IOptions<VectorSearchConfiguration>>().Value.Embedding,
-                provider.GetRequiredService<TokenCredential>()));
+                provider.GetRequiredService<TokenCredential>(),
+                provider.GetRequiredService<ITextChunker>()));
             services.AddSingleton<IEmbeddingModelRegistry>(provider => new SqlEmbeddingModelRegistry(
                 Configuration["SqlServer:ConnectionString"],
                 provider.GetRequiredService<IOptions<VectorSearchConfiguration>>()));

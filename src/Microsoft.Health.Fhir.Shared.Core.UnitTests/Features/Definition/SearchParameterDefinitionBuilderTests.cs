@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -138,6 +139,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         public void GivenChunkOverlapNotSmallerThanChunkSize_WhenWrapped_ThenDefinitionIsRejected()
         {
             const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"chunkSizeTokens\",\"valueInteger\":100},{\"url\":\"chunkOverlapTokens\",\"valueInteger\":100}]}]}";
+            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Fact]
+        public void GivenChunkSizeAboveProviderLimit_WhenWrapped_ThenDefinitionIsRejected()
+        {
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"chunkSizeTokens\",\"valueInteger\":{VectorSearchConfiguration.MaxEmbeddingInputTokens + 1}}}]}}]}}";
             SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
             Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
 
