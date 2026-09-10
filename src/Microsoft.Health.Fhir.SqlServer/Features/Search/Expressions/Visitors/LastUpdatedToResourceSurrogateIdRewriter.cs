@@ -47,9 +47,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             // Validate the operator up front so that an unsupported operator is not mistaken for an overflow by the catch block below.
-            if (expression.BinaryOperator == BinaryOperator.NotEqual || expression.BinaryOperator == BinaryOperator.Equal)
+            switch (expression.BinaryOperator)
             {
-                throw new ArgumentOutOfRangeException(expression.BinaryOperator.ToString());
+                case BinaryOperator.GreaterThan:
+                case BinaryOperator.GreaterThanOrEqual:
+                case BinaryOperator.LessThan:
+                case BinaryOperator.LessThanOrEqual:
+                    break;
+                case BinaryOperator.Equal:
+                case BinaryOperator.NotEqual:
+                default:
+                    throw new ArgumentOutOfRangeException(expression.BinaryOperator.ToString());
             }
 
             // ResourceSurrogateId has millisecond datetime precision, with lower bits added in to make the value unique.
@@ -105,28 +113,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private static BinaryExpression VisitBinaryConstrained(BinaryExpression expression)
         {
             // Constrain to MaxDateTime - Dates beyond MaxDateTime are outside the system's representable range.
+            // ResourceSurrogateId encodes the datetime in high bits and a uniquifier (0-7) in low 3 bits.
+            // Use the max surrogate ID for the constrained millisecond (uniquifier = 7) to correctly account for all rows in that bucket.
             DateTime constrained = IdHelper.MaxDateTime.UtcDateTime;
+            long maxSurrogateId = new DateTimeOffset(constrained).ToSurrogateId() + 7;
 
             switch (expression.BinaryOperator)
             {
                 case BinaryOperator.GreaterThan:
+                    // GT maxSurrogateId is always-false (no row can exceed the max possible ID)
                     return Expression.GreaterThan(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(constrained).ToSurrogateId());
+                        maxSurrogateId);
 
                 case BinaryOperator.GreaterThanOrEqual:
+                    // GE maxSurrogateId is always-false
                     return Expression.GreaterThanOrEqual(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(constrained).ToSurrogateId());
+                        maxSurrogateId);
 
                 case BinaryOperator.LessThan:
                 case BinaryOperator.LessThanOrEqual:
+                    // When clamping an overflowed value down, widen LT to LE to be semantically correct.
+                    // LT/LE maxSurrogateId is always-true (all rows are <= max possible ID)
                     return Expression.LessThanOrEqual(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(constrained).ToSurrogateId());
+                        maxSurrogateId);
 
                 case BinaryOperator.NotEqual:
                 case BinaryOperator.Equal: // expecting eq to have been rewritten as a range
