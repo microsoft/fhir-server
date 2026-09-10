@@ -5,7 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Medino;
@@ -78,6 +80,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await fhirStorageTestsFixture.DisposeAsync();
                 }
             }
+        }
+
+        [Fact]
+        public async Task GivenCurrentSchema_WhenPre117MergeResourcesCallerOmitsNewParameters_ResourceWriteSucceeds()
+        {
+            await VerifyPre117ResourceWriteAsync("dbo.MergeResources");
+        }
+
+        [Fact]
+        public async Task GivenCurrentSchema_WhenPre117MergeResourcesAndSearchParamsCallerOmitsNewParameters_ResourceWriteSucceeds()
+        {
+            await VerifyPre117ResourceWriteAsync("dbo.MergeResourcesAndSearchParams");
         }
 
         /// <summary>
@@ -166,6 +180,120 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 fhirStorageTestsFixture.Dispose();
+            }
+        }
+
+        private static async Task VerifyPre117ResourceWriteAsync(string procedureName)
+        {
+            string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("OldCallerCurrentSchema");
+            var fixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, databaseName));
+            string resourceId = Guid.NewGuid().ToString();
+
+            try
+            {
+                await fixture.InitializeAsync();
+                await using var connection = await fixture.SqlHelper.GetSqlConnectionAsync();
+                await connection.OpenAsync();
+                await using var command = connection.CreateCommand();
+
+                string searchParamsArgument = procedureName == "dbo.MergeResourcesAndSearchParams"
+                    ? "@SearchParams = @SearchParams,"
+                    : string.Empty;
+
+                command.CommandText = $"""
+                    IF NOT EXISTS
+                    (
+                        SELECT 1
+                        FROM sys.parameters
+                        WHERE object_id = OBJECT_ID('{procedureName}')
+                            AND name = '@VectorSearchParams'
+                    )
+                        THROW 50000, 'The current procedure does not contain the vector TVP under test.', 1;
+
+                    DECLARE @SearchParams dbo.SearchParamList;
+                    DECLARE @Resources dbo.ResourceList;
+                    DECLARE @ResourceWriteClaims dbo.ResourceWriteClaimList;
+                    DECLARE @ReferenceSearchParams dbo.ReferenceSearchParamList;
+                    DECLARE @TokenSearchParams dbo.TokenSearchParamList;
+                    DECLARE @TokenTexts dbo.TokenTextList;
+                    DECLARE @StringSearchParams dbo.StringSearchParamList;
+                    DECLARE @UriSearchParams dbo.UriSearchParamList;
+                    DECLARE @NumberSearchParams dbo.NumberSearchParamList;
+                    DECLARE @QuantitySearchParams dbo.QuantitySearchParamList;
+                    DECLARE @DateTimeSearchParms dbo.DateTimeSearchParamList;
+                    DECLARE @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList;
+                    DECLARE @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList;
+                    DECLARE @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList;
+                    DECLARE @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList;
+                    DECLARE @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList;
+                    DECLARE @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList;
+
+                    INSERT INTO @Resources
+                    (
+                        ResourceTypeId,
+                        ResourceSurrogateId,
+                        ResourceId,
+                        Version,
+                        HasVersionToCompare,
+                        IsDeleted,
+                        IsHistory,
+                        KeepHistory,
+                        RawResource,
+                        IsRawResourceMetaSet,
+                        RequestMethod,
+                        SearchParamHash
+                    )
+                    SELECT ResourceTypeId, @ResourceSurrogateId, @ResourceId, 1, 1, 0, 0, 1, @RawResource, 1, 'PUT', NULL
+                    FROM dbo.ResourceType
+                    WHERE Name = 'Observation';
+
+                    -- This is the complete pre-117 named-argument contract. The schema-117
+                    -- enqueue flag and vector TVP are intentionally omitted.
+                    EXECUTE {procedureName}
+                        {searchParamsArgument}
+                        @Resources = @Resources,
+                        @ResourceWriteClaims = @ResourceWriteClaims,
+                        @ReferenceSearchParams = @ReferenceSearchParams,
+                        @TokenSearchParams = @TokenSearchParams,
+                        @TokenTexts = @TokenTexts,
+                        @StringSearchParams = @StringSearchParams,
+                        @UriSearchParams = @UriSearchParams,
+                        @NumberSearchParams = @NumberSearchParams,
+                        @QuantitySearchParams = @QuantitySearchParams,
+                        @DateTimeSearchParms = @DateTimeSearchParms,
+                        @ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams,
+                        @TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams,
+                        @TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams,
+                        @TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams,
+                        @TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams,
+                        @TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
+
+                    SELECT COUNT(*)
+                    FROM dbo.Resource
+                    WHERE ResourceId = @ResourceId
+                        AND Version = 1
+                        AND IsHistory = 0
+                        AND IsDeleted = 0
+                        AND RawResource = @RawResource
+                        AND NOT EXISTS
+                        (
+                            SELECT 1
+                            FROM dbo.VectorSearchParam
+                            WHERE ResourceTypeId = dbo.Resource.ResourceTypeId
+                                AND ResourceSurrogateId = dbo.Resource.ResourceSurrogateId
+                        );
+                    """;
+
+                command.Parameters.Add("@ResourceSurrogateId", SqlDbType.BigInt).Value = DateTimeOffset.UtcNow.Ticks << 3;
+                command.Parameters.Add("@ResourceId", SqlDbType.VarChar, 64).Value = resourceId;
+                command.Parameters.Add("@RawResource", SqlDbType.VarBinary, -1).Value =
+                    Encoding.UTF8.GetBytes($"{{\"resourceType\":\"Observation\",\"id\":\"{resourceId}\",\"status\":\"final\"}}");
+
+                Assert.Equal(1, Convert.ToInt32(await command.ExecuteScalarAsync()));
+            }
+            finally
+            {
+                await fixture.DisposeAsync();
             }
         }
     }
