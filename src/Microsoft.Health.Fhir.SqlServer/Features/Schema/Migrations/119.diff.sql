@@ -1,16 +1,23 @@
-CREATE NONCLUSTERED INDEX IX_VectorSearchParam_SourceResource
-ON dbo.VectorSearchParam
-(
-    SourceResourceTypeId,
-    SourceResourceId
-)
-INCLUDE
-(
-    ResourceTypeId,
-    ResourceSurrogateId
-)
-WHERE SourceResourceTypeId IS NOT NULL AND SourceResourceId IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE)
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE object_id = OBJECT_ID('dbo.VectorSearchParam')
+      AND name = 'IX_VectorSearchParam_SourceResource')
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_VectorSearchParam_SourceResource
+    ON dbo.VectorSearchParam
+    (
+        SourceResourceTypeId,
+        SourceResourceId
+    )
+    INCLUDE
+    (
+        ResourceTypeId,
+        ResourceSurrogateId
+    )
+    WHERE SourceResourceTypeId IS NOT NULL AND SourceResourceId IS NOT NULL
+    WITH (DATA_COMPRESSION = PAGE)
+END
 GO
 
 ALTER PROCEDURE dbo.HardDeleteResource
@@ -87,7 +94,7 @@ BEGIN CATCH
 END CATCH
 GO
 
-CREATE PROCEDURE dbo.GetVectorSearchSourceDependencies
+CREATE OR ALTER PROCEDURE dbo.GetVectorSearchSourceDependencies
     @SourceResourceTypeId smallint,
     @SourceResourceId varchar(64)
 AS
@@ -105,7 +112,7 @@ WHERE V.SourceResourceTypeId = @SourceResourceTypeId
   AND (V.ResourceTypeId <> @SourceResourceTypeId OR R.ResourceId <> @SourceResourceId)
 GO
 
-CREATE PROCEDURE dbo.EnqueueVectorSearchSourceRefreshJobs
+CREATE OR ALTER PROCEDURE dbo.EnqueueVectorSearchSourceRefreshJobs
     @Resources dbo.ResourceList READONLY
 AS
 SET NOCOUNT ON
@@ -150,86 +157,98 @@ DECLARE @MergeResourcesDefinition nvarchar(max) = OBJECT_DEFINITION(OBJECT_ID('d
 DECLARE @SingleTransactionPosition int = CHARINDEX('@SingleTransaction', @MergeResourcesDefinition)
 DECLARE @SingleTransactionParameterEnd int = CHARINDEX(',', @MergeResourcesDefinition, @SingleTransactionPosition)
 
-IF @MergeResourcesDefinition IS NULL OR @SingleTransactionPosition = 0 OR @SingleTransactionParameterEnd = 0
+IF @MergeResourcesDefinition IS NULL
   THROW 50000, 'Unable to add vector source refresh support to dbo.MergeResources.', 1
 
-SET @MergeResourcesDefinition = STUFF(
-  @MergeResourcesDefinition,
-  @SingleTransactionParameterEnd + 1,
-  0,
-  ' @EnqueueVectorSearchSourceRefresh bit = 0,')
+IF CHARINDEX('@EnqueueVectorSearchSourceRefresh', @MergeResourcesDefinition) = 0
+BEGIN
+  IF @SingleTransactionPosition = 0 OR @SingleTransactionParameterEnd = 0
+    THROW 50000, 'Unable to add vector source refresh support to dbo.MergeResources.', 1
 
-DECLARE @CommitTransactionCallPosition int = CHARINDEX('EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId', @MergeResourcesDefinition)
-DECLARE @MergeResourcesCommitPosition int = CHARINDEX('IF @InitialTranCount', @MergeResourcesDefinition, @CommitTransactionCallPosition)
+  SET @MergeResourcesDefinition = STUFF(
+    @MergeResourcesDefinition,
+    @SingleTransactionParameterEnd + 1,
+    0,
+    ' @EnqueueVectorSearchSourceRefresh bit = 0,')
 
-IF @CommitTransactionCallPosition = 0 OR @MergeResourcesCommitPosition = 0
-  THROW 50000, 'Unable to locate the commit boundary in dbo.MergeResources.', 1
+  DECLARE @CommitTransactionCallPosition int = CHARINDEX('EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId', @MergeResourcesDefinition)
+  DECLARE @MergeResourcesCommitPosition int = CHARINDEX('IF @InitialTranCount', @MergeResourcesDefinition, @CommitTransactionCallPosition)
 
-SET @MergeResourcesDefinition = STUFF(
-  @MergeResourcesDefinition,
-  @MergeResourcesCommitPosition,
-  0,
-  'IF @EnqueueVectorSearchSourceRefresh = 1
+  IF @CommitTransactionCallPosition = 0 OR @MergeResourcesCommitPosition = 0
+    THROW 50000, 'Unable to locate the commit boundary in dbo.MergeResources.', 1
+
+  SET @MergeResourcesDefinition = STUFF(
+    @MergeResourcesDefinition,
+    @MergeResourcesCommitPosition,
+    0,
+    'IF @EnqueueVectorSearchSourceRefresh = 1
   EXECUTE dbo.EnqueueVectorSearchSourceRefreshJobs @Resources = @Resources
 
   ')
 
-DECLARE @MergeResourcesCreatePosition int = CHARINDEX('CREATE PROCEDURE', @MergeResourcesDefinition)
+  DECLARE @MergeResourcesCreatePosition int = CHARINDEX('CREATE PROCEDURE', @MergeResourcesDefinition)
 
-IF @MergeResourcesCreatePosition > 0
-  SET @MergeResourcesDefinition = STUFF(
-    @MergeResourcesDefinition,
-    @MergeResourcesCreatePosition,
-    LEN('CREATE PROCEDURE'),
-    'ALTER PROCEDURE')
-ELSE IF CHARINDEX('ALTER PROCEDURE', @MergeResourcesDefinition) = 0
-  THROW 50000, 'Unable to alter dbo.MergeResources because its definition has an unexpected form.', 1
+  IF @MergeResourcesCreatePosition > 0
+    SET @MergeResourcesDefinition = STUFF(
+      @MergeResourcesDefinition,
+      @MergeResourcesCreatePosition,
+      LEN('CREATE PROCEDURE'),
+      'ALTER PROCEDURE')
+  ELSE IF CHARINDEX('ALTER PROCEDURE', @MergeResourcesDefinition) = 0
+    THROW 50000, 'Unable to alter dbo.MergeResources because its definition has an unexpected form.', 1
 
-EXECUTE sp_executesql @MergeResourcesDefinition
+  EXECUTE sp_executesql @MergeResourcesDefinition
+END
 GO
 
 DECLARE @MergeResourcesAndSearchParamsDefinition nvarchar(max) = OBJECT_DEFINITION(OBJECT_ID('dbo.MergeResourcesAndSearchParams'))
 DECLARE @TransactionIdPosition int = CHARINDEX('@TransactionId', @MergeResourcesAndSearchParamsDefinition)
 DECLARE @TransactionIdParameterEnd int = CHARINDEX(',', @MergeResourcesAndSearchParamsDefinition, @TransactionIdPosition)
 
-IF @MergeResourcesAndSearchParamsDefinition IS NULL OR @TransactionIdPosition = 0 OR @TransactionIdParameterEnd = 0
+IF @MergeResourcesAndSearchParamsDefinition IS NULL
   THROW 50000, 'Unable to add vector source refresh support to dbo.MergeResourcesAndSearchParams.', 1
 
-SET @MergeResourcesAndSearchParamsDefinition = STUFF(
-  @MergeResourcesAndSearchParamsDefinition,
-  @TransactionIdParameterEnd + 1,
-  0,
-  ' @EnqueueVectorSearchSourceRefresh bit = 0,')
+IF CHARINDEX('@EnqueueVectorSearchSourceRefresh', @MergeResourcesAndSearchParamsDefinition) = 0
+BEGIN
+  IF @TransactionIdPosition = 0 OR @TransactionIdParameterEnd = 0
+    THROW 50000, 'Unable to add vector source refresh support to dbo.MergeResourcesAndSearchParams.', 1
 
-DECLARE @MergeResourcesAndSearchParamsCommitPosition int = CHARINDEX('COMMIT TRANSACTION', @MergeResourcesAndSearchParamsDefinition)
+  SET @MergeResourcesAndSearchParamsDefinition = STUFF(
+    @MergeResourcesAndSearchParamsDefinition,
+    @TransactionIdParameterEnd + 1,
+    0,
+    ' @EnqueueVectorSearchSourceRefresh bit = 0,')
 
-IF @MergeResourcesAndSearchParamsCommitPosition = 0
-  THROW 50000, 'Unable to locate the commit boundary in dbo.MergeResourcesAndSearchParams.', 1
+  DECLARE @MergeResourcesAndSearchParamsCommitPosition int = CHARINDEX('COMMIT TRANSACTION', @MergeResourcesAndSearchParamsDefinition)
 
-SET @MergeResourcesAndSearchParamsDefinition = STUFF(
-  @MergeResourcesAndSearchParamsDefinition,
-  @MergeResourcesAndSearchParamsCommitPosition,
-  0,
-  'IF @EnqueueVectorSearchSourceRefresh = 1
+  IF @MergeResourcesAndSearchParamsCommitPosition = 0
+    THROW 50000, 'Unable to locate the commit boundary in dbo.MergeResourcesAndSearchParams.', 1
+
+  SET @MergeResourcesAndSearchParamsDefinition = STUFF(
+    @MergeResourcesAndSearchParamsDefinition,
+    @MergeResourcesAndSearchParamsCommitPosition,
+    0,
+    'IF @EnqueueVectorSearchSourceRefresh = 1
   EXECUTE dbo.EnqueueVectorSearchSourceRefreshJobs @Resources = @Resources
 
   ')
 
-DECLARE @MergeResourcesAndSearchParamsCreatePosition int = CHARINDEX('CREATE PROCEDURE', @MergeResourcesAndSearchParamsDefinition)
+  DECLARE @MergeResourcesAndSearchParamsCreatePosition int = CHARINDEX('CREATE PROCEDURE', @MergeResourcesAndSearchParamsDefinition)
 
-IF @MergeResourcesAndSearchParamsCreatePosition > 0
-  SET @MergeResourcesAndSearchParamsDefinition = STUFF(
-    @MergeResourcesAndSearchParamsDefinition,
-    @MergeResourcesAndSearchParamsCreatePosition,
-    LEN('CREATE PROCEDURE'),
-    'ALTER PROCEDURE')
-ELSE IF CHARINDEX('ALTER PROCEDURE', @MergeResourcesAndSearchParamsDefinition) = 0
-  THROW 50000, 'Unable to alter dbo.MergeResourcesAndSearchParams because its definition has an unexpected form.', 1
+  IF @MergeResourcesAndSearchParamsCreatePosition > 0
+    SET @MergeResourcesAndSearchParamsDefinition = STUFF(
+      @MergeResourcesAndSearchParamsDefinition,
+      @MergeResourcesAndSearchParamsCreatePosition,
+      LEN('CREATE PROCEDURE'),
+      'ALTER PROCEDURE')
+  ELSE IF CHARINDEX('ALTER PROCEDURE', @MergeResourcesAndSearchParamsDefinition) = 0
+    THROW 50000, 'Unable to alter dbo.MergeResourcesAndSearchParams because its definition has an unexpected form.', 1
 
-EXECUTE sp_executesql @MergeResourcesAndSearchParamsDefinition
+  EXECUTE sp_executesql @MergeResourcesAndSearchParamsDefinition
+END
 GO
 
-CREATE PROCEDURE dbo.MergeResourcesWithVectorSearchSourceRefresh
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesWithVectorSearchSourceRefresh
     @AffectedRows int = 0 OUT,
     @RaiseExceptionOnConflict bit = 1,
     @IsResourceChangeCaptureEnabled bit = 0,
@@ -280,7 +299,7 @@ EXECUTE dbo.MergeResources
     @TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams
 GO
 
-CREATE PROCEDURE dbo.MergeResourcesAndSearchParamsWithVectorSearchSourceRefresh
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesAndSearchParamsWithVectorSearchSourceRefresh
     @SearchParams dbo.SearchParamList READONLY,
     @ReindexId bigint = NULL,
     @IsResourceChangeCaptureEnabled bit = 0,
@@ -329,7 +348,7 @@ EXECUTE dbo.MergeResourcesAndSearchParams
     @TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams
 GO
 
-CREATE PROCEDURE dbo.HardDeleteResourceWithVectorSearchSourceRefresh
+CREATE OR ALTER PROCEDURE dbo.HardDeleteResourceWithVectorSearchSourceRefresh
     @ResourceTypeId smallint,
     @ResourceId varchar(64),
     @KeepCurrentVersion bit,
