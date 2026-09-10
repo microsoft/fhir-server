@@ -46,63 +46,88 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            // ResourceSurrogateId has millisecond datetime precision, with lower bits added in to make the value unique.
+            // Validate the operator up front so that an unsupported operator is not mistaken for an overflow by the catch block below.
+            if (expression.BinaryOperator == BinaryOperator.NotEqual || expression.BinaryOperator == BinaryOperator.Equal)
+            {
+                throw new ArgumentOutOfRangeException(expression.BinaryOperator.ToString());
+            }
 
+            // ResourceSurrogateId has millisecond datetime precision, with lower bits added in to make the value unique.
             DateTime original = ((DateTimeOffset)expression.Value).UtcDateTime;
             DateTime truncated = original.TruncateToMillisecond();
 
-            // Constrain to MaxDateTime to prevent overflow during DateTime arithmetic.
-            // Dates beyond MaxDateTime are outside the system's representable range.
-            DateTime constrained = truncated > IdHelper.MaxDateTime.UtcDateTime
-                ? IdHelper.MaxDateTime.UtcDateTime
-                : truncated;
+            try
+            {
+                switch (expression.BinaryOperator)
+                {
+                    case BinaryOperator.GreaterThan:
+                        return Expression.GreaterThanOrEqual(
+                            SqlFieldName.ResourceSurrogateId,
+                            null,
+                            new DateTimeOffset(truncated.SafeAddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                    case BinaryOperator.GreaterThanOrEqual:
+                        if (original == truncated)
+                        {
+                            return Expression.GreaterThanOrEqual(
+                                SqlFieldName.ResourceSurrogateId,
+                                null,
+                                new DateTimeOffset(truncated).ToSurrogateId());
+                        }
+
+                        goto case BinaryOperator.GreaterThan;
+                    case BinaryOperator.LessThan:
+                        if (original == truncated)
+                        {
+                            return Expression.LessThan(
+                                SqlFieldName.ResourceSurrogateId,
+                                null,
+                                new DateTimeOffset(truncated).ToSurrogateId());
+                        }
+
+                        goto case BinaryOperator.LessThanOrEqual;
+                    case BinaryOperator.LessThanOrEqual:
+                        return Expression.LessThan(
+                            SqlFieldName.ResourceSurrogateId,
+                            null,
+                            new DateTimeOffset(truncated.SafeAddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                    default:
+                        // Unreachable - the operator is validated above.
+                        throw new ArgumentOutOfRangeException(expression.BinaryOperator.ToString());
+                }
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // If the original/truncated value is outside the representable range of IdHelper.MaxDateTime, constrain it to MaxDateTime.
+                return VisitBinaryConstrained(expression);
+            }
+        }
+
+        private static BinaryExpression VisitBinaryConstrained(BinaryExpression expression)
+        {
+            // Constrain to MaxDateTime - Dates beyond MaxDateTime are outside the system's representable range.
+            DateTime constrained = IdHelper.MaxDateTime.UtcDateTime;
 
             switch (expression.BinaryOperator)
             {
                 case BinaryOperator.GreaterThan:
-                    // For gt, round up to next millisecond, clamped to MaxDateTime
-                    DateTime gt = constrained.SafeAddTicks(TimeSpan.TicksPerMillisecond);
-                    if (gt > IdHelper.MaxDateTime.UtcDateTime)
-                    {
-                        gt = IdHelper.MaxDateTime.UtcDateTime;
-                    }
+                    return Expression.GreaterThan(
+                        SqlFieldName.ResourceSurrogateId,
+                        null,
+                        new DateTimeOffset(constrained).ToSurrogateId());
 
+                case BinaryOperator.GreaterThanOrEqual:
                     return Expression.GreaterThanOrEqual(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(gt).ToSurrogateId());
-                case BinaryOperator.GreaterThanOrEqual:
-                    if (original == truncated)
-                    {
-                        return Expression.GreaterThanOrEqual(
-                            SqlFieldName.ResourceSurrogateId,
-                            null,
-                            new DateTimeOffset(constrained).ToSurrogateId());
-                    }
+                        new DateTimeOffset(constrained).ToSurrogateId());
 
-                    goto case BinaryOperator.GreaterThan;
                 case BinaryOperator.LessThan:
-                    if (original == truncated)
-                    {
-                        return Expression.LessThan(
-                            SqlFieldName.ResourceSurrogateId,
-                            null,
-                            new DateTimeOffset(constrained).ToSurrogateId());
-                    }
-
-                    goto case BinaryOperator.LessThanOrEqual;
                 case BinaryOperator.LessThanOrEqual:
-                    // For le, round up to next millisecond, clamped to MaxDateTime
-                    DateTime lt = constrained.SafeAddTicks(TimeSpan.TicksPerMillisecond);
-                    if (lt > IdHelper.MaxDateTime.UtcDateTime)
-                    {
-                        lt = IdHelper.MaxDateTime.UtcDateTime;
-                    }
-
-                    return Expression.LessThan(
+                    return Expression.LessThanOrEqual(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(lt).ToSurrogateId());
+                        new DateTimeOffset(constrained).ToSurrogateId());
+
                 case BinaryOperator.NotEqual:
                 case BinaryOperator.Equal: // expecting eq to have been rewritten as a range
                 default:
