@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SearchParameterMaxLastUpdatedStoredProcedure = (int)SchemaVersion.V96;
         public const int SearchParameterLastUpdatedIndex = (int)SchemaVersion.V98;
         public const int FhirModelInitialization = (int)SchemaVersion.V107;
+        public const int VectorSearchVersion = (int)SchemaVersion.V117;
         public const int VectorSearchReindexVersion = (int)SchemaVersion.V118;
         public const int VectorSearchSourceRefreshVersion = (int)SchemaVersion.V119;
 

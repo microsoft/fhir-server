@@ -3,6 +3,13 @@
     Adds the EmbeddingModel registry and vector search tables.
 **************************************************************/
 
+DECLARE @ProductMajorVersion int = TRY_CONVERT(int, SERVERPROPERTY('ProductMajorVersion'))
+DECLARE @EngineEdition int = TRY_CONVERT(int, SERVERPROPERTY('EngineEdition'))
+
+IF ISNULL(@ProductMajorVersion, 0) < 17 AND ISNULL(@EngineEdition, 0) NOT IN (5, 8)
+    THROW 50419, 'Schema version 117 requires SQL Server 2025, Azure SQL Database, or Azure SQL Managed Instance with native vector support.', 1
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EmbeddingModel')
 BEGIN
     CREATE TABLE dbo.EmbeddingModel
