@@ -248,13 +248,13 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         };
 
         // If no Active jobs, we are safe to queue
-        _logger.LogInformation($"Queueing reindex job with definition: {def}");
         var results = await _queueClient.EnqueueAsync(QueueType.Reindex, cancellationToken, definitions: def);
 
         var jobInfo = results[0];
         jobRecord.Id = jobInfo.Id.ToString();
         jobRecord.Status = OperationStatus.Queued;
         PopulateReindexJobRecordTimestampsFromJobInfo(jobInfo, jobRecord);
+        _logger.LogInformation($"CreateReindexJob: id={jobInfo.GroupId} definition={jobInfo.Definition}");
         return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
@@ -275,6 +275,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             jobRecord.Status = OperationStatus.Canceled;
             PopulateReindexJobRecordTimestampsFromJobInfo(jobWithGroupId, jobRecord);
 
+            _logger.LogInformation($"CancelReindexJob: id={jobId}");
             return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobWithGroupId.Version.ToString()));
         }
         catch (JobNotExistException ex)
@@ -293,6 +294,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     public virtual async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+        _logger.LogInformation($"GetReindexJobById: id={jobId} starting.");
 
         if (!long.TryParse(jobId, out var id))
         {
@@ -390,6 +393,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 record.Status = OperationStatus.Unknown;
                 break;
         }
+
+        _logger.LogInformation($"GetReindexJobById: completed. jobRecord={JsonConvert.SerializeObject(record)}");
 
         return new ReindexJobWrapper(record, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
