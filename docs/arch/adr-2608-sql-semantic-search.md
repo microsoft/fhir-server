@@ -38,6 +38,8 @@ vector DDL on engines other than SQL Server 2025, Azure SQL Database, or Azure S
 
 - The foundation restores and builds without machine-specific feeds or unreleased packages.
 - Native vector storage and normal resource transaction semantics remain unchanged.
-- Existing callers remain valid because new enqueue flags default to false and the vector TVP is supplied empty.
+- Existing callers remain valid because new enqueue flags default to false and SQL Server treats an
+  omitted input TVP as an empty table. New callers still send an explicit empty vector TVP until the
+  indexing layer is present.
 - Deployments must use an engine with native vector support before upgrading to schema version 117 or later.
 - Extraction, embedding calls, vector queries, refresh processing, and FHIR response behavior remain owned by later layers.
