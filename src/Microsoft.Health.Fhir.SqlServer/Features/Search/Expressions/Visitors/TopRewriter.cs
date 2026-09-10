@@ -17,7 +17,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {
-            if (context.CountOnly || expression.SearchParamTableExpressions.Count == 0)
+            if (context.CountOnly ||
+                expression.SearchParamTableExpressions.Count == 0 ||
+                context is SqlSearchOptions { PreparedVectorQuery: not null })
             {
                 return expression;
             }

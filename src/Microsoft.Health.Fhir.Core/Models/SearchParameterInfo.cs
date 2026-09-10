@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         public static readonly SearchParameterInfo ResourceTypeSearchParameter = new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, SearchParameterNames.ResourceTypeUri, null, "Resource.type().name", null);
 
+        public static readonly SearchParameterInfo ScoreSearchParameter = new SearchParameterInfo(SearchParameterNames.Score, SearchParameterNames.Score, SearchParamType.Special);
+
         public SearchParameterInfo(
             string name,
             string code,
@@ -33,7 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Models
             string expression = null,
             IReadOnlyList<string> targetResourceTypes = null,
             IReadOnlyList<string> baseResourceTypes = null,
-            string description = null)
+            string description = null,
+            VectorSearchParameterConfig vectorConfig = null,
+            string definitionStatus = null)
             : this(name, code)
         {
             Url = url;
@@ -43,6 +47,8 @@ namespace Microsoft.Health.Fhir.Core.Models
             TargetResourceTypes = targetResourceTypes;
             BaseResourceTypes = baseResourceTypes;
             Description = description;
+            VectorConfig = vectorConfig;
+            DefinitionStatus = definitionStatus;
         }
 
         public SearchParameterInfo(string name, string code)
@@ -71,9 +77,11 @@ namespace Microsoft.Health.Fhir.Core.Models
             Url = new Uri(wrapper.Url);
             Expression = wrapper.Expression;
             Description = wrapper.Description;
+            DefinitionStatus = wrapper.Status;
             Component = components;
             TargetResourceTypes = wrapper.Target;
             BaseResourceTypes = wrapper.Base;
+            VectorConfig = wrapper.VectorConfig;
 
             string GetComponentDefinition(ITypedElement component)
             {
@@ -89,6 +97,11 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public string Description { get; set; }
 
+        /// <summary>
+        /// Gets the publication status declared by the FHIR SearchParameter definition.
+        /// </summary>
+        public string DefinitionStatus { get; }
+
         public string Expression { get; }
 
         public IReadOnlyList<string> TargetResourceTypes { get; } = Array.Empty<string>();
@@ -98,6 +111,11 @@ namespace Microsoft.Health.Fhir.Core.Models
         public Uri Url { get; }
 
         public SearchParamType Type { get; set; }
+
+        /// <summary>
+        /// Gets vector-specific configuration when this definition is a vector SearchParameter.
+        /// </summary>
+        public VectorSearchParameterConfig VectorConfig { get; }
 
         /// <summary>
         /// Returns true if this parameter is enabled for searches
