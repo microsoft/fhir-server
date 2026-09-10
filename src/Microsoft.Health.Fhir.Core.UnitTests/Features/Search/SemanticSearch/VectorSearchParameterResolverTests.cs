@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -164,9 +166,56 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             Assert.Throws<InvalidOperationException>(resolve);
         }
 
+        [Fact]
+        public void GivenOverlapOnlyOverrideSmallerThanGlobalChunkSize_WhenResolvingForIndexing_ThenDefinitionIsReturned()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(
+                VectorCanonical,
+                vectorConfig: new VectorSearchParameterConfig { ChunkOverlapTokens = 200 });
+            ISearchParameterDefinitionManager definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameters("Observation").Returns(new[] { searchParameter });
+            VectorSearchParameterResolver resolver = CreateResolver(definitionManager);
+
+            IReadOnlyList<SearchParameterInfo> results = resolver.GetIndexingSearchParameters("Observation");
+
+            Assert.Collection(results, result => Assert.Same(searchParameter, result));
+        }
+
+        [Fact]
+        public void GivenOverlapOnlyOverrideEqualToGlobalChunkSize_WhenResolvingForIndexing_ThenDefinitionIsSkipped()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(
+                VectorCanonical,
+                vectorConfig: new VectorSearchParameterConfig { ChunkOverlapTokens = 800 });
+            ISearchParameterDefinitionManager definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameters("Observation").Returns(new[] { searchParameter });
+            VectorSearchParameterResolver resolver = CreateResolver(definitionManager);
+
+            IReadOnlyList<SearchParameterInfo> results = resolver.GetIndexingSearchParameters("Observation");
+
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public void GivenChunkSizeOnlyOverrideNotLargerThanGlobalOverlap_WhenResolved_ThenResolutionFails()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(
+                VectorCanonical,
+                vectorConfig: new VectorSearchParameterConfig { ChunkSizeTokens = 100 });
+            ISearchParameterDefinitionManager definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            ConfigureRegisteredDefinition(definitionManager, searchParameter);
+            VectorSearchParameterResolver resolver = CreateResolver(definitionManager);
+
+            Action resolve = () => resolver.GetSearchParameter(VectorCanonical);
+
+            Assert.Throws<InvalidOperationException>(resolve);
+        }
+
         private static VectorSearchParameterResolver CreateResolver(ISearchParameterDefinitionManager definitionManager)
         {
-            return new VectorSearchParameterResolver(definitionManager);
+            return new VectorSearchParameterResolver(
+                definitionManager,
+                Options.Create(new VectorSearchConfiguration()));
         }
 
         private static SearchParameterInfo CreateVectorSearchParameter(

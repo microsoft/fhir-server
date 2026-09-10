@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -20,14 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
     public sealed class VectorSearchParameterResolver : IVectorSearchParameterResolver
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly VectorSearchConfiguration _configuration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VectorSearchParameterResolver"/> class.
         /// </summary>
         /// <param name="searchParameterDefinitionManager">The FHIR SearchParameter definition manager.</param>
-        public VectorSearchParameterResolver(ISearchParameterDefinitionManager searchParameterDefinitionManager)
+        /// <param name="configuration">The server vector search defaults used to resolve SearchParameter overrides.</param>
+        public VectorSearchParameterResolver(
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IOptions<VectorSearchConfiguration> configuration)
         {
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            _configuration = EnsureArg.IsNotNull(configuration, nameof(configuration)).Value;
         }
 
         /// <inheritdoc />
@@ -68,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             return searchParameter;
         }
 
-        private static void Validate(SearchParameterInfo searchParameter)
+        private void Validate(SearchParameterInfo searchParameter)
         {
             if (!TryValidate(searchParameter, requireSearchable: true, out string errorMessage))
             {
@@ -76,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             }
         }
 
-        private static bool TryValidate(SearchParameterInfo searchParameter, bool requireSearchable, out string errorMessage)
+        private bool TryValidate(SearchParameterInfo searchParameter, bool requireSearchable, out string errorMessage)
         {
             if (searchParameter.Type != SearchParamType.Special)
             {
@@ -111,6 +118,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             if (searchParameter.VectorConfig.SourceStrategy != VectorTextSourceStrategy.DirectText)
             {
                 errorMessage = $"Vector SearchParameter '{searchParameter.Url}' uses unsupported source strategy '{searchParameter.VectorConfig.SourceStrategy}'.";
+                return false;
+            }
+
+            if (!_configuration.TryResolveChunkSettings(searchParameter.VectorConfig, out _, out _, out string chunkSettingsError))
+            {
+                errorMessage = $"Vector SearchParameter '{searchParameter.Url}' has invalid effective chunk settings. {chunkSettingsError}";
                 return false;
             }
 
