@@ -190,16 +190,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
         {
-            try
-            {
-                await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
-                cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeResourcesPutTransactionHeartbeatAsync)}");
-            }
+            await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
         private ResourceDateKey ReadResourceDateKeyWrapper(SqlDataReader reader)

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -75,6 +76,78 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             await createTask;
+        }
+
+        [Fact]
+        public async Task GivenRequestIsCancelledDuringEmbedding_WhenWritingResource_ThenCancellationIsPropagated()
+        {
+            await EnsureSearchParameterIsEnabledAsync(
+                "observation-semantic",
+                SemanticSearchTestParameterResolver.ObservationCanonical,
+                "ObservationSemantic",
+                ResourceType.Observation,
+                "Observation.note.text");
+
+            BlockingDeterministicEmbeddingClient embeddingClient = _fixture.GetService<BlockingDeterministicEmbeddingClient>();
+            Task embeddingStarted = embeddingClient.WaitForBlockedEmbeddingAsync();
+            using var cancellationTokenSource = new CancellationTokenSource();
+            Task<Observation> createTask = CreateAsync(
+                CreateObservation(Query, ObservationStatus.Final),
+                cancellationTokenSource.Token);
+
+            try
+            {
+                await embeddingStarted.WaitAsync(TimeSpan.FromSeconds(30));
+                cancellationTokenSource.Cancel();
+
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                    () => createTask.WaitAsync(TimeSpan.FromSeconds(30)));
+            }
+            finally
+            {
+                embeddingClient.ReleaseBlockedEmbedding();
+            }
+        }
+
+        [Fact]
+        public async Task GivenHeartbeatSqlFailsDuringEmbedding_WhenWritingResource_ThenRequestFailsPromptly()
+        {
+            await EnsureSearchParameterIsEnabledAsync(
+                "observation-semantic",
+                SemanticSearchTestParameterResolver.ObservationCanonical,
+                "ObservationSemantic",
+                ResourceType.Observation,
+                "Observation.note.text");
+
+            BlockingDeterministicEmbeddingClient embeddingClient = _fixture.GetService<BlockingDeterministicEmbeddingClient>();
+            Task embeddingStarted = embeddingClient.WaitForBlockedEmbeddingAsync();
+            DateTime testStarted = DateTime.UtcNow;
+            Task<Observation> createTask = CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            SqlTransaction blockingTransaction = null;
+
+            try
+            {
+                await embeddingStarted.WaitAsync(TimeSpan.FromSeconds(30));
+                (long transactionId, _) = await GetActiveTransactionAsync(_fixture.ConnectionString, testStarted);
+                blockingTransaction = await LockTransactionHeartbeatAsync(_fixture.ConnectionString, transactionId);
+
+                FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
+                    () => createTask.WaitAsync(TimeSpan.FromSeconds(30)));
+
+                Assert.Equal(HttpStatusCode.RequestTimeout, exception.StatusCode);
+            }
+            finally
+            {
+                if (blockingTransaction != null)
+                {
+                    SqlConnection connection = blockingTransaction.Connection;
+                    await blockingTransaction.RollbackAsync();
+                    await blockingTransaction.DisposeAsync();
+                    await connection.DisposeAsync();
+                }
+
+                embeddingClient.ReleaseBlockedEmbedding();
+            }
         }
 
         [Fact]
@@ -246,10 +319,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
         }
 
-        private async Task<T> CreateAsync<T>(T resource)
+        private async Task<T> CreateAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            using FhirResponse<T> response = await _client.CreateAsync(resource);
+            using FhirResponse<T> response = await _client.CreateAsync(resource, cancellationToken: cancellationToken);
             return response.Resource;
         }
 
@@ -279,6 +352,22 @@ ORDER BY SurrogateIdRangeFirstValue DESC;",
                 connection);
             command.Parameters.AddWithValue("@TransactionId", transactionId);
             return (DateTime)await command.ExecuteScalarAsync(cancellationToken);
+        }
+
+        private static async Task<SqlTransaction> LockTransactionHeartbeatAsync(string connectionString, long transactionId)
+        {
+            var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            SqlTransaction transaction = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+            await using var command = new SqlCommand(
+                @"UPDATE dbo.Transactions WITH (ROWLOCK)
+SET HeartbeatDate = HeartbeatDate
+WHERE SurrogateIdRangeFirstValue = @TransactionId;",
+                connection,
+                transaction);
+            command.Parameters.AddWithValue("@TransactionId", transactionId);
+            Assert.Equal(1, await command.ExecuteNonQueryAsync());
+            return transaction;
         }
     }
 }
