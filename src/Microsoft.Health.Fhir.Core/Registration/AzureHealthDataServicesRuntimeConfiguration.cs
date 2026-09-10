@@ -11,6 +11,8 @@ namespace Microsoft.Health.Fhir.Core.Registration
     {
         public string DataStore => KnownDataStores.SqlServer;
 
+        public FhirRuntimeState RuntimeState => FhirRuntimeState.Active;
+
         public bool IsSelectiveSearchParameterSupported => true;
 
         public bool IsCustomerKeyValidationBackgroundWorkerSupported => true;

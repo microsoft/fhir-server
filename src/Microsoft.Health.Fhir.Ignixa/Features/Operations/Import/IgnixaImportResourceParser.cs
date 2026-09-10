@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         }
 
         /// <summary>
-        /// Reads the reference field from the released JSON facade. A missing "reference" property (e.g. an
+        /// Reads the reference field from the raw JSON object. A missing "reference" property (e.g. an
         /// identifier-only or display-only reference, both valid FHIR) is skipped, matching the Firely parser.
         /// A non-string "reference" scalar (e.g. <c>"reference": 123</c>) deliberately throws.
         /// A reference field that is present but isn't a JSON object at all (schema-invalid, e.g. a bare string

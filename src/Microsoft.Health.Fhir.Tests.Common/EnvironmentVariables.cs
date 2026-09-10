@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
             { KnownEnvironmentVariableNames.CosmosDbUseManagedIdentity, string.Empty },
             { KnownEnvironmentVariableNames.SqlServerConnectionString, LocalSqlConnectionString },
             { KnownEnvironmentVariableNames.SystemAccessToken, string.Empty },
-            { KnownEnvironmentVariableNames.TestContainerRegistryPassword, string.Empty },
             { KnownEnvironmentVariableNames.TestContainerRegistryServer, string.Empty },
             { KnownEnvironmentVariableNames.TestEnvironmentName, string.Empty },
             { KnownEnvironmentVariableNames.TestEnvironmentUrl, string.Empty },

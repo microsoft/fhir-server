@@ -10,6 +10,11 @@ namespace Microsoft.Health.Fhir.Core.Registration
         string DataStore { get; }
 
         /// <summary>
+        /// Gets the effective runtime state of the FHIR service.
+        /// </summary>
+        FhirRuntimeState RuntimeState { get; }
+
+        /// <summary>
         /// Selective Search Parameter.
         /// </summary>
         bool IsSelectiveSearchParameterSupported { get; }

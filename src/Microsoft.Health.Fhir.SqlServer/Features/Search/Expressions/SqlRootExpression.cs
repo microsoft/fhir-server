@@ -19,13 +19,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// </summary>
     internal class SqlRootExpression : Expression
     {
-        public SqlRootExpression(IReadOnlyList<SearchParamTableExpression> searchParamTableExpressions, IReadOnlyList<SearchParameterExpressionBase> resourceTableExpressions)
+        public SqlRootExpression(
+            IReadOnlyList<SearchParamTableExpression> searchParamTableExpressions,
+            IReadOnlyList<SearchParameterExpressionBase> resourceTableExpressions,
+            SmartCompartmentMembershipContext smartCompartmentMembership = null)
         {
             EnsureArg.IsNotNull(searchParamTableExpressions, nameof(searchParamTableExpressions));
             EnsureArg.IsNotNull(resourceTableExpressions, nameof(resourceTableExpressions));
 
             SearchParamTableExpressions = searchParamTableExpressions;
             ResourceTableExpressions = resourceTableExpressions;
+            SmartCompartmentMembership = smartCompartmentMembership;
         }
 
         /// <summary>
@@ -37,6 +41,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Expressions applied to directly to the Resource table.
         /// </summary>
         public IReadOnlyList<SearchParameterExpressionBase> ResourceTableExpressions { get; }
+
+        /// <summary>
+        /// Gets candidate-driven SMART compartment membership rules for include authorization.
+        /// </summary>
+        public SmartCompartmentMembershipContext SmartCompartmentMembership { get; }
+
+        public SqlRootExpression WithSmartCompartmentMembership(SmartCompartmentMembershipContext membership)
+        {
+            return new SqlRootExpression(SearchParamTableExpressions, ResourceTableExpressions, membership);
+        }
 
         public static SqlRootExpression WithSearchParamTableExpressions(params SearchParamTableExpression[] expressions)
         {

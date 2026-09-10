@@ -13,6 +13,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
@@ -38,6 +40,84 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         private const string TelemetryProviderOpenTelemetryConfigurationValue = "OpenTelemetry";
         private const string TelemetryProviderNoneConfigurationValue = "None";
         private const string AddTelemetryProviderMethodName = "AddTelemetryProvider";
+        private const string AddRuntimeConfigurationMethodName = "AddRuntimeConfiguration";
+        private const string RuntimeStateConfigurationKey = "FhirServer:CoreFeatures:RuntimeState";
+
+        [Theory]
+        [InlineData(null, FhirRuntimeState.Active)]
+        [InlineData("", FhirRuntimeState.Active)]
+        [InlineData("Active", FhirRuntimeState.Active)]
+        [InlineData("Deprecated", FhirRuntimeState.Deprecated)]
+        public void GivenGen1RuntimeState_WhenAddingRuntimeConfiguration_ThenEffectiveStateIsRegistered(
+            string configuredRuntimeState,
+            FhirRuntimeState expectedRuntimeState)
+        {
+            // This test ensures that the default values are properly handled for Gen1 runtime state.
+            // Empty/null values should be treated as "Active" for Gen1 runtime state.
+            // Active/Deprecates values should be treated as-is for Gen1 runtime state.
+
+            var settings = new Dictionary<string, string>
+            {
+                { "DataStore", KnownDataStores.CosmosDb },
+                { RuntimeStateConfigurationKey, configuredRuntimeState },
+            };
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            var services = new ServiceCollection();
+            var fhirServerBuilder = Substitute.For<IFhirServerBuilder>();
+            fhirServerBuilder.Services.Returns(services);
+
+            InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder);
+
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+            IFhirRuntimeConfiguration runtimeConfiguration = serviceProvider.GetRequiredService<IFhirRuntimeConfiguration>();
+            Assert.Equal(expectedRuntimeState, runtimeConfiguration.RuntimeState);
+        }
+
+        [Fact]
+        public void GivenDeprecatedGen2RuntimeState_WhenAddingRuntimeConfiguration_ThenEffectiveStateIsActive()
+        {
+            // This test ensures that the 'Active' is always handled for Gen2 runtime state, no matter what the configured value is.
+
+            var settings = new Dictionary<string, string>
+            {
+                { "DataStore", KnownDataStores.SqlServer },
+                { RuntimeStateConfigurationKey, FhirRuntimeState.Deprecated.ToString() },
+            };
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            var services = new ServiceCollection();
+            var fhirServerBuilder = Substitute.For<IFhirServerBuilder>();
+            fhirServerBuilder.Services.Returns(services);
+
+            InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder);
+
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+            IFhirRuntimeConfiguration runtimeConfiguration = serviceProvider.GetRequiredService<IFhirRuntimeConfiguration>();
+            Assert.Equal(FhirRuntimeState.Active, runtimeConfiguration.RuntimeState);
+        }
+
+        [Theory]
+        [InlineData("Invalid")]
+        [InlineData("1")]
+        public void GivenInvalidGen1RuntimeState_WhenAddingRuntimeConfiguration_ThenInitializationContinuesAsActive(string configuredRuntimeState)
+        {
+            // This test ensures that invalid values are properly handled for Gen1 runtime state as 'Active'.
+
+            var settings = new Dictionary<string, string>
+            {
+                { "DataStore", KnownDataStores.CosmosDb },
+                { RuntimeStateConfigurationKey, configuredRuntimeState },
+            };
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            var services = new ServiceCollection();
+            var fhirServerBuilder = Substitute.For<IFhirServerBuilder>();
+            fhirServerBuilder.Services.Returns(services);
+
+            InvokeAddRuntimeConfiguration(configuration, fhirServerBuilder);
+
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+            IFhirRuntimeConfiguration runtimeConfiguration = serviceProvider.GetRequiredService<IFhirRuntimeConfiguration>();
+            Assert.Equal(FhirRuntimeState.Active, runtimeConfiguration.RuntimeState);
+        }
 
         [Fact]
         public void GivenAppSettings_WhenTelemetrySectionIsAbsent_ThenTelemetryProviderShouldBeDisabled()
@@ -177,6 +257,17 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
                 .AddInMemoryCollection(telemetrySettings)
                 .Build();
             return configuration;
+        }
+
+        private static void InvokeAddRuntimeConfiguration(
+            IConfiguration configuration,
+            IFhirServerBuilder fhirServerBuilder)
+        {
+            MethodInfo addRuntimeConfigurationMethod = typeof(Startup).GetMethod(
+                AddRuntimeConfigurationMethodName,
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            addRuntimeConfigurationMethod.Invoke(null, new object[] { configuration, fhirServerBuilder });
         }
     }
 }

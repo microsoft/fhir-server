@@ -73,6 +73,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             _linkGenerator = linkGenerator;
         }
 
+        /// <inheritdoc />
+        public bool CanResolve => _actionContextAccessor?.ActionContext != null;
+
         private HttpRequest Request
         {
             get

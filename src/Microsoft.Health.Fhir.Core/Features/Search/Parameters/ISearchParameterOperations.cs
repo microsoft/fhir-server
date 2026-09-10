@@ -17,11 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         DateTimeOffset SearchParamLastUpdated { get; }
 
-        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, bool isHardDelete = false);
+        Task MarkSearchParameterForDeletionAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool isHardDelete = false);
 
         Task<DateTimeOffset> ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, DateTimeOffset? lastUpdated = null);
 
-        Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
+        Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken);
 
         /// <summary>
         /// This method should be called to get any updates to search param cache

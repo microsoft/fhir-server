@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                                     foreach (var artifact in artifacts)
                                     {
-                                        result[artifact.ResourceUri] = artifact;
+                                        result[GetCanonicalUrl(artifact)] = artifact;
                                     }
                                 }
                             }
@@ -290,7 +290,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 return null;
             }
 
-            if (_resourcesByUri.TryGet(summary.ResourceUri, out Resource resource))
+            var cacheKey = GetCanonicalUrl(summary);
+            if (_resourcesByUri.TryGet(cacheKey, out Resource resource))
             {
                 return resource;
             }
@@ -303,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     if (navStream.Current != null)
                     {
                         resource = navStream.Current.ToPoco<Resource>();
-                        _resourcesByUri.TryAdd(summary.ResourceUri, resource);
+                        _resourcesByUri.TryAdd(cacheKey, resource);
                         return resource;
                     }
                 }

@@ -3,10 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
+using System;
+using Microsoft.AspNetCore.Http;
+
+namespace Microsoft.Health.Fhir.Api.Features.Logging
 {
-    public class ReindexProcessingJobErrorResult
+    public interface IHttpInboundRequestLogger
     {
-        public string Message { get; set; }
+        void LogRequest(HttpContext context, Exception exception = null);
     }
 }

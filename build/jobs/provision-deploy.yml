@@ -91,3 +91,4 @@ jobs:
         -SearchParameterCacheRefreshIntervalSeconds $(searchParameterCacheRefreshIntervalSeconds)
         -SystemConformanceProviderRefreshIntervalSeconds $(systemConformanceProviderRefreshIntervalSeconds)
         -ReindexCacheRefreshWaitMultiplier $(reindexCacheRefreshWaitMultiplier)
+        -ReindexJobsPollingIntervalSec $(reindexJobsPollingIntervalSec)

@@ -22,6 +22,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -61,6 +62,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 
             _throttlingConfiguration.ExcludedEndpoints.Add(new ExcludedEndpoint { Method = "get", Path = "/health/check" });
 
+            IHttpInboundRequestLogger inboundRequestLogger = Substitute.For<IHttpInboundRequestLogger>();
+
             _middleware = new Lazy<ThrottlingMiddleware>(
                 () => new ThrottlingMiddleware(
                     async x =>
@@ -86,6 +89,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                     },
                     Options.Create(_throttlingConfiguration),
                     Options.Create(new SecurityConfiguration { Enabled = _securityEnabled }),
+                    inboundRequestLogger,
                     NullLogger<ThrottlingMiddleware>.Instance));
 
             IActionResultExecutor<ObjectResult> executor = Substitute.For<IActionResultExecutor<ObjectResult>>();
@@ -259,10 +263,12 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         public async Task GivenARequest_ThatResultsInRequestRateExceeded_Returns429(int numberOfConcurrentRequests)
         {
             _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests - 1;
+            IHttpInboundRequestLogger inboundRequestLogger = Substitute.For<IHttpInboundRequestLogger>();
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
+                inboundRequestLogger,
                 NullLogger<ThrottlingMiddleware>.Instance);
 
             await throttlingMiddleware.Invoke(_httpContext);
@@ -278,10 +284,12 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         public async Task GivenARequest_ThatResultsInRequestRateExceeded_ReturnsValidFhirResource(int numberOfConcurrentRequests)
         {
             _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests - 1;
+            IHttpInboundRequestLogger inboundRequestLogger = Substitute.For<IHttpInboundRequestLogger>();
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
+                inboundRequestLogger,
                 NullLogger<ThrottlingMiddleware>.Instance);
 
             _httpContext.Response.Body = new MemoryStream();
