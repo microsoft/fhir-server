@@ -8,7 +8,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
     public static class SchemaVersionConstants
     {
         public const int Min = (int)SchemaVersion.V113;
-        public const int Max = (int)SchemaVersion.V116;
+        public const int Max = (int)SchemaVersion.V119;
         public const int MinForUpgrade = (int)SchemaVersion.V111; // this is used for upgrade tests only
         public const int SearchParameterStatusSchemaVersion = (int)SchemaVersion.V6;
         public const int SupportForReferencesWithMissingTypeVersion = (int)SchemaVersion.V7;
@@ -38,6 +38,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SearchParameterMaxLastUpdatedStoredProcedure = (int)SchemaVersion.V96;
         public const int SearchParameterLastUpdatedIndex = (int)SchemaVersion.V98;
         public const int FhirModelInitialization = (int)SchemaVersion.V107;
+        public const int VectorSearchReindexVersion = (int)SchemaVersion.V118;
+        public const int VectorSearchSourceRefreshVersion = (int)SchemaVersion.V119;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;
