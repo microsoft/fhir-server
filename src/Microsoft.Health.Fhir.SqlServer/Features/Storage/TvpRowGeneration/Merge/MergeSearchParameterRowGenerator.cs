@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 var typeId = Model.GetResourceTypeId(merge.ResourceWrapper.ResourceTypeName);
                 var resourceMetadata = new ResourceMetadata(
                         merge.ResourceWrapper.CompartmentIndices,
-                        merge.ResourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
+                        merge.ResourceWrapper.SearchIndices?.Where(e => e.SearchParameter.VectorConfig == null).ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                         merge.ResourceWrapper.LastModifiedClaims);
 
                 var resultsForDedupping = new HashSet<TRow>();

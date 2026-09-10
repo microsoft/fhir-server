@@ -203,6 +203,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             throw new SearchOperationNotSupportedException(Microsoft.Health.Fhir.Core.Resources.SortNotSupported);
         }
 
+        public object VisitVectorSearch(VectorSearchExpression expression, Context context)
+        {
+            throw new SearchOperationNotSupportedException("Vector search is not supported for Cosmos DB.");
+        }
+
         public object VisitMissingField(MissingFieldExpression expression, Context context)
         {
             _queryBuilder

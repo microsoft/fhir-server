@@ -64,6 +64,26 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal("sortValue", continuationToken.SortValue);
         }
 
+        [Theory]
+        [InlineData("[\"0.125\",103,12345]", true)]
+        [InlineData("[\"NaN\",103,12345]", false)]
+        [InlineData("[\"0.125\",0,12345]", false)]
+        [InlineData("[\"0.125\",103]", false)]
+        public void GivenSemanticCursor_WhenDecoded_ThenValidatesShapeAndValues(string json, bool expected)
+        {
+            ContinuationToken continuationToken = ContinuationToken.FromString(json);
+
+            bool result = continuationToken.TryGetSemanticCursor(out double distance, out short resourceTypeId, out long resourceSurrogateId);
+
+            Assert.Equal(expected, result);
+            if (expected)
+            {
+                Assert.Equal(0.125, distance);
+                Assert.Equal((short)103, resourceTypeId);
+                Assert.Equal(12345L, resourceSurrogateId);
+            }
+        }
+
         [Fact]
         public void GivenResourceTypeIdAsLong_WhenAccessing_ThenConvertsToShort()
         {

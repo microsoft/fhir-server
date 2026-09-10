@@ -97,6 +97,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         }
 
         /// <summary>
+        /// Gets the vector search configuration.
+        /// </summary>
+        public VectorSearchConfiguration VectorSearch { get; } = new VectorSearchConfiguration();
+
+        /// <summary>
         /// Gets or sets a value indicating whether the server supports the $status operation for SearchParameters.
         /// </summary>
         public bool SupportsSelectableSearchParameters { get; set; }

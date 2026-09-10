@@ -522,6 +522,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenSemanticSearchWithScoreSort_WhenCreated_ThenScoreSortIsAccepted()
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            _sortingValidator.ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>()).ReturnsForAnyArgs(true);
+            var queryParameters = new[]
+            {
+                Tuple.Create(semanticParameterName, "fracture"),
+                Tuple.Create(KnownQueryParameterNames.Sort, SearchParameterNames.Score),
+            };
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters);
+
+            Assert.Equal((SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending), Assert.Single(options.Sort));
+            Assert.DoesNotContain(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(SearchParameterNames.Score, StringComparison.Ordinal));
+        }
+
+        [Theory]
+        [InlineData(false, "_score")]
+        [InlineData(true, "-_score")]
+        public void GivenUnsupportedScoreSort_WhenCreated_ThenScoreSortIsRejected(bool isSemanticSearch, string scoreSort)
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            if (isSemanticSearch)
+            {
+                _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            }
+
+            var queryParameters = new List<Tuple<string, string>>();
+            if (isSemanticSearch)
+            {
+                queryParameters.Add(Tuple.Create(semanticParameterName, "fracture"));
+            }
+
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, scoreSort));
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters);
+
+            Assert.Empty(options.Sort);
+            Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(SearchParameterNames.Score, StringComparison.Ordinal));
+        }
+
+        [Fact]
         public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenAnOperationOutcomeIssueIsCreated()
         {
             const string paramName = "unknownParameter";
