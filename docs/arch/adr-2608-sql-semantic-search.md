@@ -1,6 +1,6 @@
-# ADR-2608: SQL Semantic Search Foundations
+# ADR-2608: SQL Direct-Text Semantic Search
 
-**Status**: Proposed
+**Status**: Proposed (direct-text MVP implemented)
 **Date**: 2026-08-23
 **Revised**: 2026-09-21
 **Feature**: SQL semantic search
@@ -9,8 +9,9 @@
 
 FHIR semantic search needs durable embedding metadata, compressed source passages, and vectors without
 moving resource identity, authorization, or transaction ownership outside the SQL data layer. The
-storage contract is fixed at SQL native `vector(1536)` with cosine distance. Existing resource-write
-and reindex callers must continue to work when they omit the new table-valued parameters.
+storage contract is fixed at SQL native `vector(1536)` with cosine distance. The feature remains
+disabled by default, and existing resource-write and reindex callers continue to work when they omit
+the new table-valued parameters.
 
 The released schema generator parses native vector columns but emits a `VectorColumn` descriptor that
 is not present in the released SQL model package. Depending on an unreleased local package would make
@@ -74,6 +75,12 @@ General Purpose and Hyperscale baseline, preview limitations, and a General Purp
 the exact table layout with a version-3 DiskANN index. Other offerings and production ANN query
 semantics still require execution validation.
 
+The application layer supports resource-local text extracted by active `special` search parameters.
+It chunks and embeds the extracted text synchronously with Azure Foundry, then persists vectors and
+compressed passages through the existing merge and reindex procedures. Ordinary FHIR search retains
+ownership of structured filters and authorization; SQL adds cosine ranking, continuation paging, and
+standard `Bundle.entry.search.score`. Semantic chained parameters are rejected before embedding.
+
 ## Consequences
 
 - **Deployments on SQL Server 2019 and 2022 cannot reach schema V117 and remain pinned at V116.**
@@ -89,6 +96,9 @@ semantics still require execution validation.
 - Model-distinct keys do not provide a model-preserving reindex or backfill/cutover workflow.
 - Experimental schema versions 117 through 119 cannot upgrade in place to the consolidated schema.
 - Persisted passage bytes are not consumed by score-only MVP queries.
-- Extraction, embedding calls, vector queries, and FHIR response behavior remain owned by the application layer.
 - DiskANN remains a future, explicit approximate-query choice; the current schema does not certify
   the composite-key and PAGE-compressed layout on every Azure SQL tier or index version.
+- Enabled deployments make synchronous embedding calls during writes, reindex, transaction recovery,
+  and semantic queries, so Foundry availability participates directly in those failure modes.
+- Binary/PDF extraction, linked-resource resolution, provenance, evidence output, source refresh jobs,
+  and dedicated semantic operations are outside this decision.

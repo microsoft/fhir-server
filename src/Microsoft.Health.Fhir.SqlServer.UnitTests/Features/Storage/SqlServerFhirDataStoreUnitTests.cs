@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
+    [Collection(Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.ModelInfoProviderSerialCollection.Name)]
     public class SqlServerFhirDataStoreUnitTests
     {
         public static IEnumerable<object[]> RemoveTrailingZerosTestCases()
@@ -376,7 +377,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Fact]
         public void GivenNoVectorIndexer_WhenGeneratingVectorSearchParameters_ThenNoRowsAreReturned()
         {
-            var generator = new VectorSearchParamListRowGenerator();
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            SqlServerFhirModel model = GetModel(CreateSqlServerFhirDataStore(sqlRetryService));
+            var generator = new VectorSearchParamListRowGenerator(model);
 
             var rows = generator.GenerateRows(Array.Empty<MergeResourceWrapper>());
 
