@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
                 Options.Create(new CoreFeatureConfiguration()));
-            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
+            var searchParameterSqlParser = Substitute.For<ISearchParameterSqlParser>();
 
             _searchService = new SqlServerSearchService(
                 _searchOptionsFactory,
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
                 Options.Create(new CoreFeatureConfiguration()));
-            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
+            var searchParameterSqlParser = Substitute.For<ISearchParameterSqlParser>();
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
                 Options.Create(new CoreFeatureConfiguration()));
-            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
+            var searchParameterSqlParser = Substitute.For<ISearchParameterSqlParser>();
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 compartmentSearchRewriter,
                 new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
                 Options.Create(new CoreFeatureConfiguration()));
-            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
+            var searchParameterSqlParser = Substitute.For<ISearchParameterSqlParser>();
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>

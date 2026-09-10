@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
 
-            var searchParameterSqlParser = Substitute.For<SearchParameterSqlParser>();
+            var searchParameterSqlParser = Substitute.For<ISearchParameterSqlParser>();
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,

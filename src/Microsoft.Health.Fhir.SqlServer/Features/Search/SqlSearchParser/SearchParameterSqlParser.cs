@@ -25,7 +25,7 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 {
-    public class SearchParameterSqlParser
+    public class SearchParameterSqlParser : ISearchParameterSqlParser
     {
         private readonly SqlSearchParameterDefinitionManager _parameterCollection;
         private readonly Dictionary<SearchParamType, ISqlParser> _sqlParsers;

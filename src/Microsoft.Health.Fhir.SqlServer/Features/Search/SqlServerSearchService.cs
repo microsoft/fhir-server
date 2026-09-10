@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
-        private readonly SearchParameterSqlParser _searchParameterSqlParser;
+        private readonly ISearchParameterSqlParser _searchParameterSqlParser;
 
         private static object _locker = new object();
 
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
-            SearchParameterSqlParser searchParameterSqlParser,
+            ISearchParameterSqlParser searchParameterSqlParser,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
