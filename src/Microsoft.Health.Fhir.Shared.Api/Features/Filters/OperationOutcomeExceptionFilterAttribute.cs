@@ -16,6 +16,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -34,20 +35,54 @@ using Microsoft.Net.Http.Headers;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
-    internal sealed class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
+    internal sealed class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute, IResourceFilter
     {
         private const string ValidateController = "Validate";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly ILogger<OperationOutcomeExceptionFilterAttribute> _logger;
+        private readonly IAuditHeaderReader _auditHeaderReader;
+        private readonly IAuditEventTypeMapping _auditEventTypeMapping;
 
-        public OperationOutcomeExceptionFilterAttribute(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<OperationOutcomeExceptionFilterAttribute> logger)
+        public OperationOutcomeExceptionFilterAttribute(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<OperationOutcomeExceptionFilterAttribute> logger, IAuditHeaderReader auditHeaderReader, IAuditEventTypeMapping auditEventTypeMapping)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(auditHeaderReader, nameof(auditHeaderReader));
+            EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _logger = logger;
+            _auditHeaderReader = auditHeaderReader;
+            _auditEventTypeMapping = auditEventTypeMapping;
+        }
+
+        public void OnResourceExecuting(ResourceExecutingContext context)
+        {
+            EnsureArg.IsNotNull(context, nameof(context));
+
+            // Error re-execution must retain the original status, including authorization failures.
+            if (!context.HttpContext.Request.IsFhirRequest())
+            {
+                return;
+            }
+
+            try
+            {
+                // Validate before action/result auditing. A resource short-circuit also prevents
+                // result auditing from reading the same invalid headers after the response starts.
+                _auditHeaderReader.Read(context.HttpContext);
+            }
+            catch (Exception ex) when (ex is AuditHeaderTooLargeException or AuditHeaderCountExceededException)
+            {
+                // Preserve request notifications without running action filters or parsing a rejected body.
+                FhirRequestContextRouteDataPopulatingFilterAttribute.PopulateRouteData(context, _fhirRequestContextAccessor.RequestContext, _auditEventTypeMapping);
+                context.Result = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
+            }
+        }
+
+        public void OnResourceExecuted(ResourceExecutedContext context)
+        {
         }
 
         public override void OnActionExecuted(ActionExecutedContext context)

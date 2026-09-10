@@ -36,6 +36,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHeaderPipelineTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\BackgroundJobService\HostingBackgroundServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\BackgroundJobService\JobMetricFactoryTests.cs" />

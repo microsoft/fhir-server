@@ -84,6 +84,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenRouteData_WhenPopulatingBeforeAnAction_ThenRouteMetadataShouldBeSet()
+        {
+            _actionExecutingContext.RouteData.Values[KnownActionParameterNames.ResourceType] = "Patient";
+            _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(NormalAuditEventType);
+            var context = new ActionContext(_actionExecutingContext);
+
+            FhirRequestContextRouteDataPopulatingFilterAttribute.PopulateRouteData(context, _fhirRequestContext, _auditEventTypeMapping);
+
+            Assert.Equal(RouteName, _fhirRequestContext.RouteName);
+            Assert.Equal("Patient", _fhirRequestContext.ResourceType);
+            Assert.Equal(NormalAuditEventType, _fhirRequestContext.AuditEventType);
+            Assert.Empty(_httpContext.Items);
+        }
+
+        [Fact]
+        public void GivenErrorReExecution_WhenPopulatingRouteData_ThenOriginalOperationShouldBeRetained()
+        {
+            ((ControllerActionDescriptor)_actionExecutingContext.ActionDescriptor).ActionName = "CustomError";
+            _fhirRequestContext.AuditEventType = NormalAuditEventType;
+
+            _filterAttribute.OnActionExecuting(_actionExecutingContext);
+
+            Assert.Equal(NormalAuditEventType, _fhirRequestContext.AuditEventType);
+            _auditEventTypeMapping.DidNotReceiveWithAnyArgs().GetAuditEventType(default, default);
+        }
+
+        [Fact]
         public void GivenNormalBatchRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
             _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultBatch().ToPoco<Hl7.Fhir.Model.Bundle>());

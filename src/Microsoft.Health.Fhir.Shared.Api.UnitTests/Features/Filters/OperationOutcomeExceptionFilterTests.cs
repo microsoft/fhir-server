@@ -50,6 +50,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly ILogger<OperationOutcomeExceptionFilterAttribute> _logger = Substitute.For<ILogger<OperationOutcomeExceptionFilterAttribute>>();
+        private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
+        private readonly IAuditEventTypeMapping _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
         private readonly string _correlationId = Guid.NewGuid().ToString();
 
         public OperationOutcomeExceptionFilterTests()
@@ -64,9 +66,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenAnUnexpectedAuditReaderFailure_WhenExecutingAResource_ThenTheExceptionPropagates()
+        {
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger, _auditHeaderReader, _auditEventTypeMapping);
+            var context = new ResourceExecutingContext(_context, new List<IFilterMetadata>(), new List<Microsoft.AspNetCore.Mvc.ModelBinding.IValueProviderFactory>());
+            var exception = new InvalidOperationException("Unexpected audit reader failure.");
+            _auditHeaderReader.Read(context.HttpContext).Returns(_ => throw exception);
+
+            var actual = Assert.Throws<InvalidOperationException>(() => filter.OnResourceExecuting(context));
+
+            Assert.Same(exception, actual);
+            Assert.Null(context.Result);
+        }
+
+        [Fact]
         public void GivenAFhirBasedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger, _auditHeaderReader, _auditEventTypeMapping);
 
             _context.Exception = Substitute.For<FhirException>();
 
@@ -81,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenAResourceGoneExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger, _auditHeaderReader, _auditEventTypeMapping);
 
             _context.Exception = new ResourceGoneException(new ResourceKey<Observation>("id1", "version2"));
 
@@ -305,7 +321,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(
                 _fhirRequestContextAccessor,
-                _logger);
+                _logger,
+                _auditHeaderReader,
+                _auditEventTypeMapping);
             _context.Exception = null;
             _context.Result = null;
 
@@ -373,7 +391,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             var filter = new OperationOutcomeExceptionFilterAttribute(
                 _fhirRequestContextAccessor,
-                _logger);
+                _logger,
+                _auditHeaderReader,
+                _auditEventTypeMapping);
             filter.OnActionExecuted(_context);
 
             var result = Assert.IsType<OperationOutcomeResult>(_context.Result);
@@ -475,7 +495,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger, _auditHeaderReader, _auditEventTypeMapping);
 
             _context.Exception = exception;
 

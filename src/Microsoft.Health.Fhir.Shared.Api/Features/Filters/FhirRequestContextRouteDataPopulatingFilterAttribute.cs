@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
@@ -47,27 +48,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
-            fhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
+            PopulateRouteData(context, fhirRequestContext, _auditEventTypeMapping);
 
-            // Set the resource type based on the route data
-            RouteData routeData = context.RouteData;
-
-            if (routeData?.Values != null)
+            if (context.ActionDescriptor is ControllerActionDescriptor)
             {
-                if (routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType))
-                {
-                    fhirRequestContext.ResourceType = resourceType?.ToString();
-                }
-            }
-
-            if (context.ActionDescriptor is ControllerActionDescriptor controllerActionDescriptor)
-            {
-                // if controllerActionDescriptor.ActionName is CustomError then retain the AuditEventType from previous context
-                // e.g. In case of 500 error - we want to make sure we log the AuditEventType of the original request for which the error occurred in RequestMetric.
-                fhirRequestContext.AuditEventType = KnownRoutes.CustomError.Contains(controllerActionDescriptor.ActionName, StringComparison.OrdinalIgnoreCase) ? fhirRequestContext.AuditEventType : _auditEventTypeMapping.GetAuditEventType(
-                    controllerActionDescriptor.ControllerName,
-                    controllerActionDescriptor.ActionName);
-
                 // If this is a request from the batch and transaction route, we need to examine the payload to set the AuditEventType
                 if (fhirRequestContext.AuditEventType == AuditEventSubType.BundlePost)
                 {
@@ -126,6 +110,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
 
             base.OnActionExecuting(context);
+        }
+
+        internal static void PopulateRouteData(ActionContext context, IFhirRequestContext fhirRequestContext, IAuditEventTypeMapping auditEventTypeMapping)
+        {
+            fhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
+
+            // Set the resource type based on the route data.
+            RouteData routeData = context.RouteData;
+            if (routeData?.Values != null)
+            {
+                if (routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType))
+                {
+                    fhirRequestContext.ResourceType = resourceType?.ToString();
+                }
+            }
+
+            if (context.ActionDescriptor is ControllerActionDescriptor controllerActionDescriptor)
+            {
+                // Retain the original operation during error re-execution for request metrics.
+                fhirRequestContext.AuditEventType = KnownRoutes.CustomError.Contains(controllerActionDescriptor.ActionName, StringComparison.OrdinalIgnoreCase) ? fhirRequestContext.AuditEventType : auditEventTypeMapping.GetAuditEventType(
+                    controllerActionDescriptor.ControllerName,
+                    controllerActionDescriptor.ActionName);
+            }
         }
     }
 }
