@@ -64,16 +64,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             SearchParameterInfo searchParameter = CreateSearchParameter(VectorTextExtractionPolicy.PerValueRow);
             ResourceWrapper resource = CreateResource(
                 searchParameter,
-                new StringSearchValue(" one two three"),
+                new StringSearchValue(" one two three four five"),
                 new StringSearchValue(" four"));
             var embeddedTexts = new List<string>();
-            VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 2);
+            VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 4);
 
             // Act
             await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
-            Assert.Equal(new[] { " one two", " three", " four" }, embeddedTexts);
+            Assert.Equal(new[] { " one two three four", " five", " four" }, embeddedTexts);
             VectorSearchIndexEntry indexEntry = Assert.Single(resource.VectorSearchIndices);
             Assert.Equal(new[] { 0, 1, 2 }, indexEntry.Chunks.Select(chunk => chunk.ChunkOrdinal));
         }
@@ -84,9 +84,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             // Arrange
             SearchParameterInfo searchParameter = CreateSearchParameter(
                 VectorTextExtractionPolicy.Concatenate,
-                chunkSizeTokens: 3,
+                chunkSizeTokens: 4,
                 chunkOverlapTokens: 1);
-            ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue(" one two three four five"));
+            ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue(" one two three four five six seven"));
             var embeddedTexts = new List<string>();
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 10, chunkOverlap: 0);
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
-            Assert.Equal(new[] { " one two three", " three four five" }, embeddedTexts);
+            Assert.Equal(new[] { " one two three four", " four five six seven" }, embeddedTexts);
         }
 
         [Fact]
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             SearchParameterInfo searchParameter = CreateSearchParameter(
                 VectorTextExtractionPolicy.Concatenate,
                 maxInputTokens: 4,
-                chunkSizeTokens: 2,
+                chunkSizeTokens: 4,
                 chunkOverlapTokens: 0);
             ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue(" one two three four five"));
             var embeddedTexts = new List<string>();
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
-            Assert.Equal(new[] { " one two", " three four" }, embeddedTexts);
+            Assert.Equal(new[] { " one two three four" }, embeddedTexts);
         }
 
         [Fact]
@@ -122,15 +122,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         {
             // Arrange
             SearchParameterInfo searchParameter = CreateSearchParameter(VectorTextExtractionPolicy.Concatenate);
-            ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue(" one two three four five"));
+            ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue(" one two three four five six seven"));
             var embeddedTexts = new List<string>();
-            VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 3, chunkOverlap: 1);
+            VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 4, chunkOverlap: 1);
 
             // Act
             await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
-            Assert.Equal(new[] { " one two three", " three four five" }, embeddedTexts);
+            Assert.Equal(new[] { " one two three four", " four five six seven" }, embeddedTexts);
         }
 
         [Fact]
@@ -139,16 +139,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             // Arrange
             SearchParameterInfo firstSearchParameter = CreateSearchParameter(
                 VectorTextExtractionPolicy.Concatenate,
-                chunkSizeTokens: 2,
+                chunkSizeTokens: 4,
                 chunkOverlapTokens: 0);
             SearchParameterInfo secondSearchParameter = CreateSearchParameter(
                 VectorTextExtractionPolicy.Concatenate,
-                chunkSizeTokens: 3,
+                chunkSizeTokens: 5,
                 chunkOverlapTokens: 1,
                 canonical: AlternateVectorCanonical);
             ResourceWrapper resource = CreateResource(
-                new SearchIndexEntry(firstSearchParameter, new StringSearchValue(" one two three four")),
-                new SearchIndexEntry(secondSearchParameter, new StringSearchValue(" five six seven eight nine")));
+                new SearchIndexEntry(firstSearchParameter, new StringSearchValue(" one two three four five six seven eight")),
+                new SearchIndexEntry(secondSearchParameter, new StringSearchValue(" nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen")));
             var embeddedTexts = new List<string>();
             VectorSearchIndexer indexer = CreateIndexer(
                 new[] { firstSearchParameter, secondSearchParameter },
@@ -160,7 +160,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
-            Assert.Equal(new[] { " one two", " three four", " five six seven", " seven eight nine" }, embeddedTexts);
+            Assert.Equal(
+                new[]
+                {
+                    " one two three four",
+                    " five six seven eight",
+                    " nine ten eleven twelve thirteen",
+                    " thirteen fourteen fifteen sixteen seventeen",
+                },
+                embeddedTexts);
             Assert.Equal(2, resource.VectorSearchIndices.Count);
         }
 

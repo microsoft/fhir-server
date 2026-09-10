@@ -38,7 +38,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         [Theory]
         [InlineData(0, 0)]
         [InlineData(-1, 0)]
-        public void GivenNonPositiveChunkSize_WhenChunked_ThenArgumentExceptionIsThrown(int chunkSize, int chunkOverlap)
+        [InlineData(1, 0)]
+        [InlineData(3, 0)]
+        public void GivenStructurallyTooSmallChunkSize_WhenChunked_ThenArgumentExceptionIsThrown(int chunkSize, int chunkOverlap)
         {
             Assert.ThrowsAny<ArgumentException>(() => _chunker.Chunk("some text", maxInputTokens: 100, chunkSize, chunkOverlap));
         }
@@ -73,13 +75,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         [Fact]
         public void GivenOverlap_WhenChunked_ThenAdjacentChunksShareTheOverlap()
         {
-            Assert.Equal(new[] { " one two three", " three four five" }, _chunker.Chunk(" one two three four five", maxInputTokens: 100, chunkSizeTokens: 3, chunkOverlapTokens: 1));
+            Assert.Equal(new[] { " one two three four", " four five six" }, _chunker.Chunk(" one two three four five six", maxInputTokens: 100, chunkSizeTokens: 4, chunkOverlapTokens: 1));
         }
 
         [Fact]
         public void GivenNoOverlap_WhenChunked_ThenChunksArePartitionedWithoutSharing()
         {
-            Assert.Equal(new[] { " one two three", " four five six" }, _chunker.Chunk(" one two three four five six", maxInputTokens: 100, chunkSizeTokens: 3, chunkOverlapTokens: 0));
+            Assert.Equal(new[] { " one two three four", " five six" }, _chunker.Chunk(" one two three four five six", maxInputTokens: 100, chunkSizeTokens: 4, chunkOverlapTokens: 0));
         }
 
         [Fact]
@@ -87,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         {
             const string text = " one two three four five six seven";
 
-            var chunks = _chunker.Chunk(text, maxInputTokens: 100, chunkSizeTokens: 3, chunkOverlapTokens: 1);
+            var chunks = _chunker.Chunk(text, maxInputTokens: 100, chunkSizeTokens: 4, chunkOverlapTokens: 1);
 
             Assert.EndsWith(chunks[chunks.Count - 1], text);
         }
@@ -97,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         {
             const string text = " one two three four five";
 
-            IReadOnlyList<string> chunks = _chunker.Chunk(text, maxInputTokens: 4, chunkSizeTokens: 2, chunkOverlapTokens: 0);
+            IReadOnlyList<string> chunks = _chunker.Chunk(text, maxInputTokens: 4, chunkSizeTokens: 4, chunkOverlapTokens: 0);
 
             Assert.Equal(" one two three four", string.Concat(chunks));
             Assert.Equal(4, chunks.Sum(_chunker.CountTokens));
@@ -117,6 +119,53 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 Assert.False(char.IsLowSurrogate(chunk[0]));
                 Assert.False(char.IsHighSurrogate(chunk[chunk.Length - 1]));
             });
+        }
+
+        [Fact]
+        public void GivenSupplementaryAndBmpScalarsAtMinimumChunkSize_WhenChunked_ThenAllTextIsPreservedWithinTokenLimits()
+        {
+            const string text = "🙂東\U0010FFFF";
+
+            IReadOnlyList<string> chunks = _chunker.Chunk(text, maxInputTokens: 20, chunkSizeTokens: 4, chunkOverlapTokens: 0);
+
+            Assert.Equal(4, _chunker.CountTokens("\U0010FFFF"));
+            Assert.Equal(text, string.Concat(chunks));
+            Assert.All(chunks, chunk =>
+            {
+                Assert.InRange(_chunker.CountTokens(chunk), 1, 4);
+                Assert.False(char.IsLowSurrogate(chunk[0]));
+                Assert.False(char.IsHighSurrogate(chunk[chunk.Length - 1]));
+            });
+        }
+
+        [Fact]
+        public void GivenRemainingInputBudgetCannotFitACompleteScalar_WhenChunked_ThenInputIsTruncatedAtTheLastValidBoundary()
+        {
+            const string text = "a🙂";
+
+            IReadOnlyList<string> chunks = _chunker.Chunk(text, maxInputTokens: 2, chunkSizeTokens: 4, chunkOverlapTokens: 0);
+
+            Assert.Equal(new[] { "a" }, chunks);
+            Assert.Equal(1, chunks.Sum(_chunker.CountTokens));
+        }
+
+        [Fact]
+        public void GivenInputBudgetCannotFitTheFirstScalar_WhenChunked_ThenNoInvalidTextIsReturned()
+        {
+            IReadOnlyList<string> chunks = _chunker.Chunk("🙂", maxInputTokens: 1, chunkSizeTokens: 4, chunkOverlapTokens: 0);
+
+            Assert.Empty(chunks);
+        }
+
+        [Fact]
+        public void GivenRequestedOverlapCannotLeaveACompleteScalar_WhenChunked_ThenTheWindowAdvancesWithoutExceedingTheOverlap()
+        {
+            const string text = "\U0010FFFFa";
+
+            IReadOnlyList<string> chunks = _chunker.Chunk(text, maxInputTokens: 20, chunkSizeTokens: 4, chunkOverlapTokens: 3);
+
+            Assert.Equal(new[] { "\U0010FFFF", "a" }, chunks);
+            Assert.All(chunks, chunk => Assert.InRange(_chunker.CountTokens(chunk), 1, 4));
         }
     }
 }

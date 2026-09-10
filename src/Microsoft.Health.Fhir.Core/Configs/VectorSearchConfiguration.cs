@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -21,6 +22,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// The maximum number of tokens supported by one embedding input.
         /// </summary>
         public const int MaxEmbeddingInputTokens = 8192;
+
+        /// <summary>
+        /// The minimum chunk size that can contain any single Unicode scalar with the supported byte-level tokenizer.
+        /// </summary>
+        public const int MinimumChunkSizeTokens = 4;
 
         /// <summary>
         /// The distance metric supported by the current semantic score calculation.
@@ -98,19 +104,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 throw new InvalidOperationException($"Vector search indexing mode '{Indexing.Mode}' is not supported.");
             }
 
-            if (Indexing.ChunkSizeTokens <= 0)
+            if (!TryResolveChunkSettings(vectorConfig: null, out _, out _, out string chunkSettingsError))
             {
-                throw new InvalidOperationException("Vector search chunk size must be greater than zero.");
-            }
-
-            if (Indexing.ChunkSizeTokens > MaxEmbeddingInputTokens)
-            {
-                throw new InvalidOperationException($"Vector search chunk size must not exceed the embedding provider limit of {MaxEmbeddingInputTokens} tokens.");
-            }
-
-            if (Indexing.ChunkOverlapTokens < 0 || Indexing.ChunkOverlapTokens >= Indexing.ChunkSizeTokens)
-            {
-                throw new InvalidOperationException("Vector search chunk overlap must be non-negative and smaller than the chunk size.");
+                throw new InvalidOperationException(chunkSettingsError);
             }
 
             if (Query == null)
@@ -122,6 +118,47 @@ namespace Microsoft.Health.Fhir.Core.Configs
             {
                 throw new InvalidOperationException($"Vector search distance metric must be '{SupportedDistanceMetric}'.");
             }
+        }
+
+        /// <summary>
+        /// Resolves optional SearchParameter chunk overrides against the server defaults and validates the effective pair.
+        /// </summary>
+        /// <param name="vectorConfig">The SearchParameter vector configuration, or <see langword="null"/> for server defaults.</param>
+        /// <param name="chunkSizeTokens">The effective chunk size.</param>
+        /// <param name="chunkOverlapTokens">The effective chunk overlap.</param>
+        /// <param name="errorMessage">The validation error when the method returns <see langword="false"/>.</param>
+        /// <returns><see langword="true"/> when the effective chunk settings are valid; otherwise <see langword="false"/>.</returns>
+        public bool TryResolveChunkSettings(
+            VectorSearchParameterConfig vectorConfig,
+            out int chunkSizeTokens,
+            out int chunkOverlapTokens,
+            out string errorMessage)
+        {
+            if (Indexing == null)
+            {
+                chunkSizeTokens = 0;
+                chunkOverlapTokens = 0;
+                errorMessage = "Vector search indexing configuration is required.";
+                return false;
+            }
+
+            chunkSizeTokens = vectorConfig?.ChunkSizeTokens ?? Indexing.ChunkSizeTokens;
+            chunkOverlapTokens = vectorConfig?.ChunkOverlapTokens ?? Indexing.ChunkOverlapTokens;
+
+            if (chunkSizeTokens < MinimumChunkSizeTokens || chunkSizeTokens > MaxEmbeddingInputTokens)
+            {
+                errorMessage = $"Vector search chunk size must be between {MinimumChunkSizeTokens} and {MaxEmbeddingInputTokens} tokens.";
+                return false;
+            }
+
+            if (chunkOverlapTokens < 0 || chunkOverlapTokens >= chunkSizeTokens)
+            {
+                errorMessage = "Vector search chunk overlap must be non-negative and smaller than the chunk size.";
+                return false;
+            }
+
+            errorMessage = null;
+            return true;
         }
     }
 }

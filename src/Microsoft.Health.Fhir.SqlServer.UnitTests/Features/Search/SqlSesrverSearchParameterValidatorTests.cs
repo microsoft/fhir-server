@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -23,7 +25,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public SqlSesrverSearchParameterValidatorTests()
         {
             _parameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
-            _sqlServerSearchParameterValidator = new SqlServerSearchParameterValidator(_parameterToSearchValueTypeMap);
+            _sqlServerSearchParameterValidator = new SqlServerSearchParameterValidator(
+                _parameterToSearchValueTypeMap,
+                Options.Create(new VectorSearchConfiguration()));
         }
 
         [Theory]
@@ -38,6 +42,51 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAnUnSupportedType_WhenSearchParameterisValidated_ThenReturnFalse(SearchParameterInfo searchParameter)
         {
             Assert.False(_sqlServerSearchParameterValidator.ValidateSearchParameter(searchParameter, out var _));
+        }
+
+        [Fact]
+        public void GivenValidOverlapOnlyOverride_WhenSearchParameterIsValidated_ThenReturnTrue()
+        {
+            var searchParameter = new SearchParameterInfo(
+                "test",
+                "test",
+                ValueSets.SearchParamType.Special,
+                vectorConfig: new VectorSearchParameterConfig { ChunkOverlapTokens = 200 });
+
+            bool result = _sqlServerSearchParameterValidator.ValidateSearchParameter(searchParameter, out string errorMessage);
+
+            Assert.True(result);
+            Assert.Null(errorMessage);
+        }
+
+        [Fact]
+        public void GivenOverlapOnlyOverrideEqualToGlobalChunkSize_WhenSearchParameterIsValidated_ThenReturnFalse()
+        {
+            var searchParameter = new SearchParameterInfo(
+                "test",
+                "test",
+                ValueSets.SearchParamType.Special,
+                vectorConfig: new VectorSearchParameterConfig { ChunkOverlapTokens = 800 });
+
+            bool result = _sqlServerSearchParameterValidator.ValidateSearchParameter(searchParameter, out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains("chunk overlap", errorMessage);
+        }
+
+        [Fact]
+        public void GivenChunkSizeOnlyOverrideNotLargerThanGlobalOverlap_WhenSearchParameterIsValidated_ThenReturnFalse()
+        {
+            var searchParameter = new SearchParameterInfo(
+                "test",
+                "test",
+                ValueSets.SearchParamType.Special,
+                vectorConfig: new VectorSearchParameterConfig { ChunkSizeTokens = 100 });
+
+            bool result = _sqlServerSearchParameterValidator.ValidateSearchParameter(searchParameter, out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains("chunk overlap", errorMessage);
         }
 
         public static IEnumerable<object[]> GetValidSearchParameters()

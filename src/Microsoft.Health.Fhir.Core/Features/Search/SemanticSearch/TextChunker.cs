@@ -14,7 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 {
     /// <summary>
     /// Splits text into fixed-size, overlapping passages using the configured embedding model's tokenizer. The overlap
-    /// keeps a clinical statement that lands on a boundary from being split across two passages.
+    /// keeps a clinical statement that lands on a boundary from being split across two passages. Every returned chunk
+    /// contains no more than the configured token limit and starts and ends on a complete Unicode scalar boundary.
+    /// Source limits truncate at the last complete scalar that fits; overlap falls back to the next complete boundary
+    /// when the requested token overlap cannot preserve both Unicode validity and forward progress.
     /// </summary>
     public sealed class TextChunker : ITextChunker
     {
@@ -36,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         {
             EnsureArg.IsNotNull(text, nameof(text));
             EnsureArg.IsGt(maxInputTokens, 0, nameof(maxInputTokens));
-            EnsureArg.IsGt(chunkSizeTokens, 0, nameof(chunkSizeTokens));
+            EnsureArg.IsGte(chunkSizeTokens, VectorSearchConfiguration.MinimumChunkSizeTokens, nameof(chunkSizeTokens));
             EnsureArg.IsGte(chunkOverlapTokens, 0, nameof(chunkOverlapTokens));
             EnsureArg.IsLt(chunkOverlapTokens, chunkSizeTokens, nameof(chunkOverlapTokens));
 
@@ -74,6 +77,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                     overlapStart = _tokenizer.GetIndexByTokenCountFromEnd(chunk, chunkOverlapTokens, out string normalizedChunk, out _);
                     string processedChunk = normalizedChunk ?? chunk;
                     overlapStart = MoveBeforeSplitSurrogate(processedChunk, overlapStart);
+                    if (overlapStart == 0)
+                    {
+                        // No non-empty suffix fits within the overlap budget at a scalar boundary.
+                        overlapStart = chunk.Length;
+                    }
                 }
 
                 int nextStart = start + overlapStart;

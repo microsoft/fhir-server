@@ -195,6 +195,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
         [Theory]
         [InlineData(0)]
         [InlineData(-1)]
+        [InlineData(1)]
+        [InlineData(3)]
         public void GivenEnabledConfigurationWithInvalidChunkSize_WhenValidated_ThenValidationFails(int chunkSizeTokens)
         {
             // Arrange
