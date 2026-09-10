@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Always populated for internal telemetry. Exposed in API responses only for in-memory test imports
         /// (see <see cref="ImportOrchestratorJobDefinition.InMemoryTestProcessingJobs"/>).
         /// </summary>
-        public long? ClockMilliseconds { get; set; }
+        public long ClockMilliseconds { get; set; }
 
         /// <summary>
         /// Wall-clock time spent in database calls during import processing, in milliseconds.

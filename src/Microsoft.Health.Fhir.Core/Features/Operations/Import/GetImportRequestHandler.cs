@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else if (coord.Status == JobStatus.Failed)
             {
-                var errorResult = DeserializeOrDefault<ImportJobErrorResult>(coord.Result);
+                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coord.Result);
                 if (errorResult.HttpStatusCode == 0)
                 {
                     errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             else if (coord.Status == JobStatus.Completed)
             {
                 var start = Stopwatch.StartNew();
-                var coordDefinition = DeserializeOrDefault<ImportOrchestratorJobDefinition>(coord.Definition);
+                var coordDefinition = JsonConvert.DeserializeObject<ImportOrchestratorJobDefinition>(coord.Definition);
                 var suppressSuccessfulOutput = coordDefinition.InMemoryTestProcessingJobs > 0;
                 var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Import, coord.GroupId, true, cancellationToken)).Where(x => x.Id != coord.Id).ToList();
                 var (completedOutcomes, failedOutcomes, jobResultsById) = GetProcessingResultAsync(jobs, request.ReturnDetails, suppressSuccessfulOutput);
@@ -94,29 +94,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 else if (failedJobsExist)
                 {
                     var failed = jobs.First(x => x.Status == JobStatus.Failed && !x.CancelRequested);
-                    var errorResult = DeserializeOrDefault<ImportJobErrorResult>(failed.Result);
+                    var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
+                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(failed.Definition);
                     if (errorResult.HttpStatusCode == 0)
                     {
                         errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
                     }
 
+                    var resourceLocation = new Uri(definition.ResourceLocation);
+
                     // hide error message for InternalServerError
                     var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
 
-                    // The input file location is not available on every job record in the group, so the error file cannot always be reported.
-                    var message = TryGetProcessingJobInput(failed, out _, out var resourceLocation)
-                        ? string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, failureReason, resourceLocation.OriginalString)
-                        : string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason);
-
-                    throw new OperationFailedException(message, errorResult.HttpStatusCode);
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, failureReason, resourceLocation.OriginalString), errorResult.HttpStatusCode);
                 }
                 else // no failures here
                 {
-                    var coordResult = DeserializeOrDefault<ImportOrchestratorJobResult>(coord.Result);
+                    var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(coord.Result);
                     var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = completedOutcomes, Error = failedOutcomes };
 
                     // Include per-job execution stats only for in-memory test imports (for CPU profiling)
-                    if (coordDefinition.InMemoryTestProcessingJobs > 0 && jobs.Any())
+                    if (coordDefinition.InMemoryTestProcessingJobs > 0)
                     {
                         var jobLines = jobs.Select(job => jobResultsById.TryGetValue(job.Id, out var result) ? new { Job = job, Result = result } : null).Where(_ => _ != null)
                             .OrderByDescending(_ => _.Job.StartDate.Value)
@@ -137,18 +135,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             })
                             .ToList();
 
-                        var retriedJobs = jobLines.Count(x => x.DatabaseMilliseconds is null);
-                        var jobmsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
-                        var elapsedmsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
-                        var parallelism = elapsedmsec > 0 ? Math.Round(jobmsec / elapsedmsec, 2) : 0;
-                        var totalCpuMilliseconds = jobLines.Sum(_ => _.CpuMilliseconds);
-                        var cpuMillisecondsPerResource = totalCpuMilliseconds.HasValue
-                            ? Math.Round((double)totalCpuMilliseconds.Value / jobLines.Count / 1000, 2)
-                            : (double?)null;
-                        var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
-                        executionStats.AddRange(jobLines.Select(x => x.Line));
+                        if (jobLines.Count > 0)
+                        {
+                            var retriedJobs = jobLines.Count(x => x.DatabaseMilliseconds is null);
+                            var jobmsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
+                            var elapsedmsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
+                            var parallelism = elapsedmsec > 0 ? Math.Round(jobmsec / elapsedmsec, 2) : 0;
+                            var totalCpuMilliseconds = jobLines.Sum(_ => _.CpuMilliseconds);
+                            var cpuMillisecondsPerResource = totalCpuMilliseconds.HasValue ? Math.Round((double)totalCpuMilliseconds.Value / jobLines.Count / 1000, 2) : (double?)null;
+                            var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
+                            executionStats.AddRange(jobLines.Select(x => x.Line));
 
-                        result.ExecutionStats = executionStats;
+                            result.ExecutionStats = executionStats;
+                        }
                     }
 
                     return new GetImportResponse(!inFlightJobsExist ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
@@ -172,26 +171,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 foreach (var job in completedJobs)
                 {
-                    // The job group also contains the orchestrator job, which is returned here whenever status is requested
-                    // by a job id other than the orchestrator's. It records no input file url, and neither does a job whose
-                    // state was not persisted. Such records cannot be reported as a processed input file, so they are
-                    // skipped rather than allowed to fail the whole status request.
-                    if (!TryGetProcessingJobInput(job, out var definition, out var inputUrl) || string.IsNullOrWhiteSpace(job.Result))
-                    {
-                        continue;
-                    }
-
-                    var result = DeserializeOrDefault<ImportProcessingJobResult>(job.Result);
+                    var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(job.Definition);
+                    var result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
                     jobResultsById[job.Id] = result;
 
                     if (!suppressSuccessfulOutput)
                     {
-                        completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = inputUrl });
+                        completed.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = new Uri(definition.ResourceLocation) });
                     }
 
                     if (result.FailedResources > 0)
                     {
-                        failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = inputUrl, Url = result.ErrorLogLocation });
+                        failed.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
                     }
                 }
 
@@ -205,47 +196,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 return (groupped, failed, jobResultsById);
             }
-        }
-
-        /// <summary>
-        /// Resolves the import processing job definition and the url of the input file it processed.
-        /// </summary>
-        /// <param name="job">The job to inspect.</param>
-        /// <param name="definition">When this method returns true, the import processing job definition; otherwise null.</param>
-        /// <param name="inputUrl">When this method returns true, the url of the processed input file; otherwise null.</param>
-        /// <returns>True when the job records the url of an input file it processed; otherwise false.</returns>
-        private static bool TryGetProcessingJobInput(JobInfo job, out ImportProcessingJobDefinition definition, out Uri inputUrl)
-        {
-            // Recording an input file url is what separates a processing job from the orchestrator job, whose definition has
-            // no such property. Matching on the url rather than on the job type keeps every record the status response
-            // reported before, including any written before job types were persisted.
-            definition = DeserializeOrDefault<ImportProcessingJobDefinition>(job.Definition);
-
-            if (!Uri.TryCreate(definition.ResourceLocation, UriKind.Absolute, out inputUrl))
-            {
-                definition = null;
-                inputUrl = null;
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Deserializes persisted job state, returning a default instance when the state is absent or null valued.
-        /// </summary>
-        /// <typeparam name="T">The type of the persisted job state.</typeparam>
-        /// <param name="json">The persisted job state.</param>
-        /// <returns>The deserialized job state, or a default instance.</returns>
-        private static T DeserializeOrDefault<T>(string json)
-            where T : new()
-        {
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return new T();
-            }
-
-            return JsonConvert.DeserializeObject<T>(json) ?? new T();
         }
     }
 }

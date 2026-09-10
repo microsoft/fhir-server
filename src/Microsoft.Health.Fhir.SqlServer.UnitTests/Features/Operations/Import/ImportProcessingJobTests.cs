@@ -387,8 +387,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);
-            Assert.NotNull(result.ClockMilliseconds);
-            Assert.True(result.ClockMilliseconds.Value >= 0);
+            Assert.True(result.ClockMilliseconds >= 0);
             Assert.Equal(303, result.DatabaseMilliseconds);
         }
 
