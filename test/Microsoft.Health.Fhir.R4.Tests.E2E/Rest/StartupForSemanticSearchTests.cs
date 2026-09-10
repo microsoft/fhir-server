@@ -24,7 +24,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             base.ConfigureServices(services);
 
             services.Replace(ServiceDescriptor.Singleton<IVectorSearchParameterResolver>(new SemanticSearchTestParameterResolver()));
-            services.Replace(ServiceDescriptor.Scoped<IEmbeddingClient>(_ => new DeterministicEmbeddingClient()));
+            services.AddSingleton<BlockingDeterministicEmbeddingClient>();
+            services.Replace(ServiceDescriptor.Scoped<IEmbeddingClient>(provider => provider.GetRequiredService<BlockingDeterministicEmbeddingClient>()));
         }
 
         private static IConfiguration ConfigureVectorSearch(IConfiguration configuration)
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:CoreFeatures:VectorSearch:Enabled"] = "true";
             configuration["FhirServer:CoreFeatures:VectorSearch:Embedding:Endpoint"] = "https://semantic-search.test";
             configuration["FhirServer:CoreFeatures:VectorSearch:Embedding:DeploymentName"] = "deterministic";
-            configuration["FhirServer:CoreFeatures:VectorSearch:Embedding:ModelName"] = "deterministic";
+            configuration["FhirServer:CoreFeatures:VectorSearch:Embedding:ModelName"] = "text-embedding-3-small";
             configuration["FhirServer:CoreFeatures:VectorSearch:Embedding:ModelVersion"] = "1";
             configuration["FhirServer:CoreFeatures:VectorSearch:Embedding:Dimensions"] = "1536";
             return configuration;

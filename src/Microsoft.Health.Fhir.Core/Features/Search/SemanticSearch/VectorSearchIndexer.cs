@@ -87,13 +87,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                     var chunks = new List<VectorTextSource>();
                     int configuredChunkSize = searchParameter.VectorConfig.ChunkSizeTokens ?? _configuration.ChunkSizeTokens;
                     int configuredChunkOverlap = searchParameter.VectorConfig.ChunkOverlapTokens ?? _configuration.ChunkOverlapTokens;
-                    int chunkSize = Math.Min(configuredChunkSize, searchParameter.VectorConfig.MaxInputTokens);
-                    int chunkOverlap = Math.Min(configuredChunkOverlap, chunkSize - 1);
 
                     foreach (VectorTextSource sourceText in sourceTexts)
                     {
                         chunks.AddRange(_textChunker
-                            .Chunk(sourceText.Text, chunkSize, chunkOverlap)
+                            .Chunk(sourceText.Text, searchParameter.VectorConfig.MaxInputTokens, configuredChunkSize, configuredChunkOverlap)
                             .Select(text => new VectorTextSource(text, sourceText.ResourceType, sourceText.ResourceId, sourceText.ResourceVersion, sourceText.Path)));
                     }
 

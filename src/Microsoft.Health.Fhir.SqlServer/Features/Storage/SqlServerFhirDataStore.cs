@@ -255,6 +255,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // TODO: MergeResourcesBeginTransaction accepts new parameter allowing to throw exception on overload.
             // TODO: Set this parameter to true when 429 instead of intenal waits is desired. Make sure that exception is NOT thrown only for API calls.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+            await using var heartbeatTimer = new Timer(
+                async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken),
+                null,
+                TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds),
+                MergeResourcesTransactionHeartbeatPeriod);
 
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
@@ -468,35 +473,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         cancellationToken);
                 }
 
-                await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
+                var retries = 0;
+                var timeoutRetries = 0;
+                while (true)
                 {
-                    var retries = 0;
-                    var timeoutRetries = 0;
-                    while (true)
+                    try
                     {
-                        try
+                        await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, cancellationToken);
+                        break;
+                    }
+                    catch (Exception e)
+                    {
+                        retries++;
+                        if (!enlistInTransaction && (e.IsRetriable() || (e.IsExecutionTimeout() && timeoutRetries++ < 3)))
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, cancellationToken);
-                            break;
+                            _logger.LogWarning(e, $"Error on {nameof(MergeInternalAsync)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
+                            await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
+                            await Task.Delay(5000, cancellationToken);
+                            continue;
                         }
-                        catch (Exception e)
+
+                        if (singleTransaction) // if not single SQL transaction, then let TransactionWatchdog to try rolling forward
                         {
-                            retries++;
-                            if (!enlistInTransaction && (e.IsRetriable() || (e.IsExecutionTimeout() && timeoutRetries++ < 3)))
-                            {
-                                _logger.LogWarning(e, $"Error on {nameof(MergeInternalAsync)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
-                                await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
-                                await Task.Delay(5000, cancellationToken);
-                                continue;
-                            }
-
-                            if (singleTransaction) // if not single SQL transaction, then let TransactionWatchdog to try rolling forward
-                            {
-                                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
-                            }
-
-                            throw;
+                            await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
                         }
+
+                        throw;
                     }
                 }
             }
