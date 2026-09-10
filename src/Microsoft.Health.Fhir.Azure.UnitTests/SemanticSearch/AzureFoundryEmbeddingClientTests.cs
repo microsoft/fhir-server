@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Collections.Generic;
 using System.Linq;
@@ -97,6 +98,69 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
             Assert.Empty(handler.RequestInputCounts);
         }
 
+        [Fact]
+        public async Task GivenTheProviderFails_WhenEmbedding_ThenTheOriginalExceptionPropagatesAndNoLaterBatchIsSubmitted()
+        {
+            var providerException = new HttpRequestException("provider failure");
+            var handler = new RecordingEmbeddingHandler { ExceptionToThrow = providerException };
+            AzureFoundryEmbeddingClient client = CreateClient(handler, maxBatchInputCount: 2);
+
+            ClientResultException exception = await Assert.ThrowsAsync<ClientResultException>(
+                () => client.GenerateEmbeddingsAsync(new[] { "input 0", "input 1", "input 2" }, CancellationToken.None));
+
+            Assert.Same(providerException, exception.InnerException);
+            Assert.Equal(new[] { 2 }, handler.RequestInputCounts);
+        }
+
+        [Fact]
+        public async Task GivenCancellationDuringABatch_WhenEmbedding_ThenCancellationPropagatesAndNoLaterBatchIsSubmitted()
+        {
+            var handler = new RecordingEmbeddingHandler { BlockUntilCancellation = true };
+            AzureFoundryEmbeddingClient client = CreateClient(handler, maxBatchInputCount: 2);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            Task<IReadOnlyList<float[]>> embeddingTask = client.GenerateEmbeddingsAsync(
+                new[] { "input 0", "input 1", "input 2" },
+                cancellationTokenSource.Token);
+            await handler.RequestStarted.Task;
+            cancellationTokenSource.Cancel();
+
+            OperationCanceledException exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => embeddingTask);
+            Assert.Equal(cancellationTokenSource.Token, exception.CancellationToken);
+            Assert.Equal(new[] { 2 }, handler.RequestInputCounts);
+        }
+
+        [Fact]
+        public async Task GivenCancellationBetweenBatches_WhenEmbedding_ThenCancellationPropagatesAndNoLaterBatchIsSubmitted()
+        {
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var handler = new RecordingEmbeddingHandler();
+            AzureFoundryEmbeddingClient client = CreateClient(handler, maxBatchInputCount: 2);
+            var texts = new CancelBeforeItemList(
+                new[] { "input 0", "input 1", "input 2", "input 3" },
+                cancellationTokenSource,
+                cancelBeforeIndex: 3);
+
+            OperationCanceledException exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => client.GenerateEmbeddingsAsync(texts, cancellationTokenSource.Token));
+
+            Assert.Equal(cancellationTokenSource.Token, exception.CancellationToken);
+            Assert.Equal(new[] { 2 }, handler.RequestInputCounts);
+        }
+
+        [Fact]
+        public async Task GivenTheProviderReturnsTheWrongVectorCount_WhenEmbedding_ThenCardinalityFailureStopsLaterBatches()
+        {
+            var handler = new RecordingEmbeddingHandler { ResponseEmbeddingCount = 1 };
+            AzureFoundryEmbeddingClient client = CreateClient(handler, maxBatchInputCount: 2);
+
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => client.GenerateEmbeddingsAsync(new[] { "input 0", "input 1", "input 2" }, CancellationToken.None));
+
+            Assert.Equal("The embedding service returned 1 vectors for 2 inputs.", exception.Message);
+            Assert.Equal(new[] { 2 }, handler.RequestInputCounts);
+        }
+
         private static AzureFoundryEmbeddingClient CreateClient(
             RecordingEmbeddingHandler handler,
             int maxBatchInputCount = AzureFoundryEmbeddingClient.MaxBatchInputCount,
@@ -111,6 +175,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
             };
             var options = new AzureOpenAIClientOptions
             {
+                RetryPolicy = new ClientRetryPolicy(0),
                 Transport = new HttpClientPipelineTransport(new HttpClient(handler)),
             };
 
@@ -152,15 +217,35 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
 
             public List<int> RequestInputCounts { get; } = new List<int>();
 
+            public TaskCompletionSource RequestStarted { get; } = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Exception ExceptionToThrow { get; set; }
+
+            public bool BlockUntilCancellation { get; set; }
+
+            public int? ResponseEmbeddingCount { get; set; }
+
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
                 string requestJson = await request.Content.ReadAsStringAsync(cancellationToken);
                 using JsonDocument requestDocument = JsonDocument.Parse(requestJson);
                 JsonElement inputs = requestDocument.RootElement.GetProperty("input");
                 RequestInputCounts.Add(inputs.GetArrayLength());
+                RequestStarted.TrySetResult();
+
+                if (ExceptionToThrow != null)
+                {
+                    throw ExceptionToThrow;
+                }
+
+                if (BlockUntilCancellation)
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
 
                 var data = new List<object>();
-                foreach (JsonElement input in inputs.EnumerateArray())
+                int responseEmbeddingCount = ResponseEmbeddingCount ?? inputs.GetArrayLength();
+                for (int index = 0; index < responseEmbeddingCount; index++)
                 {
                     float[] embedding = new[] { (float)_nextEmbeddingIndex++, 1f };
                     data.Add(new
@@ -180,12 +265,49 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
                         usage = new { prompt_tokens = inputs.GetArrayLength(), total_tokens = inputs.GetArrayLength() },
                     });
 
-                return new HttpResponseMessage(HttpStatusCode.OK)
+                var response = new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(responseJson, Encoding.UTF8, "application/json"),
                     RequestMessage = request,
                 };
+                return response;
             }
+        }
+
+        private sealed class CancelBeforeItemList : IReadOnlyList<string>
+        {
+            private readonly IReadOnlyList<string> _items;
+            private readonly CancellationTokenSource _cancellationTokenSource;
+            private readonly int _cancelBeforeIndex;
+
+            public CancelBeforeItemList(
+                IReadOnlyList<string> items,
+                CancellationTokenSource cancellationTokenSource,
+                int cancelBeforeIndex)
+            {
+                _items = items;
+                _cancellationTokenSource = cancellationTokenSource;
+                _cancelBeforeIndex = cancelBeforeIndex;
+            }
+
+            public int Count => _items.Count;
+
+            public string this[int index] => _items[index];
+
+            public IEnumerator<string> GetEnumerator()
+            {
+                for (int index = 0; index < _items.Count; index++)
+                {
+                    if (index == _cancelBeforeIndex)
+                    {
+                        _cancellationTokenSource.Cancel();
+                    }
+
+                    yield return _items[index];
+                }
+            }
+
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
         }
     }
 }

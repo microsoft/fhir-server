@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         private readonly IEmbeddingClient _embeddingClient;
         private readonly IEmbeddingModelRegistry _embeddingModelRegistry;
         private readonly IVectorTextSourceResolver _textSourceResolver;
-        private readonly VectorSearchIndexingConfiguration _configuration;
+        private readonly VectorSearchConfiguration _configuration;
         private readonly ILogger<VectorSearchIndexer> _logger;
 
         /// <summary>
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             _embeddingClient = EnsureArg.IsNotNull(embeddingClient, nameof(embeddingClient));
             _embeddingModelRegistry = EnsureArg.IsNotNull(embeddingModelRegistry, nameof(embeddingModelRegistry));
             _textSourceResolver = EnsureArg.IsNotNull(textSourceResolver, nameof(textSourceResolver));
-            _configuration = EnsureArg.IsNotNull(configuration, nameof(configuration)).Value.Indexing;
+            _configuration = EnsureArg.IsNotNull(configuration, nameof(configuration)).Value;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -85,8 +85,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                         cancellationToken);
                     IReadOnlyList<VectorTextSource> sourceTexts = ApplyExtractionPolicy(searchParameter.VectorConfig.ExtractionPolicy, resolvedSources);
                     var chunks = new List<VectorTextSource>();
-                    int configuredChunkSize = searchParameter.VectorConfig.ChunkSizeTokens ?? _configuration.ChunkSizeTokens;
-                    int configuredChunkOverlap = searchParameter.VectorConfig.ChunkOverlapTokens ?? _configuration.ChunkOverlapTokens;
+                    if (!_configuration.TryResolveChunkSettings(
+                        searchParameter.VectorConfig,
+                        out int configuredChunkSize,
+                        out int configuredChunkOverlap,
+                        out string chunkSettingsError))
+                    {
+                        throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' has invalid effective chunk settings. {chunkSettingsError}");
+                    }
 
                     foreach (VectorTextSource sourceText in sourceTexts)
                     {

@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -15,12 +17,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal class SqlServerSearchParameterValidator : IDataStoreSearchParameterValidator
     {
         private readonly SearchParameterToSearchValueTypeMap _searchParameterToSearchValueTypeMap;
+        private readonly VectorSearchConfiguration _vectorSearchConfiguration;
 
-        public SqlServerSearchParameterValidator(SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
+        public SqlServerSearchParameterValidator(
+            SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap,
+            IOptions<VectorSearchConfiguration> vectorSearchConfiguration)
         {
             EnsureArg.IsNotNull(searchParameterToSearchValueTypeMap, nameof(searchParameterToSearchValueTypeMap));
 
             _searchParameterToSearchValueTypeMap = searchParameterToSearchValueTypeMap;
+            _vectorSearchConfiguration = EnsureArg.IsNotNull(vectorSearchConfiguration, nameof(vectorSearchConfiguration)).Value;
         }
 
         public bool ValidateSearchParameter(SearchParameterInfo searchParameter, out string errorMessage)
@@ -32,7 +38,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (searchParameter.Type == SearchParamType.Special)
                 {
-                    return true;
+                    if (_vectorSearchConfiguration.TryResolveChunkSettings(searchParameter.VectorConfig, out _, out _, out string chunkSettingsError))
+                    {
+                        return true;
+                    }
+
+                    errorMessage = $"Vector SearchParameter has invalid effective chunk settings. {chunkSettingsError}";
+                    return false;
                 }
 
                 errorMessage = string.Format(Resources.SearchParameterTypeNotSupportedBySQLServer, searchParameter.Type);

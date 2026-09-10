@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
         [Theory]
         [InlineData("chunkSizeTokens", "valueInteger", "0")]
+        [InlineData("chunkSizeTokens", "valueInteger", "3")]
         [InlineData("chunkOverlapTokens", "valueInteger", "-1")]
         [InlineData("distanceMetric", "valueCode", "euclidean")]
         public void GivenInvalidVectorIndexSetting_WhenWrapped_ThenDefinitionIsRejected(string setting, string valueType, string value)
