@@ -128,8 +128,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         maxSurrogateId);
 
                 case BinaryOperator.GreaterThanOrEqual:
-                    // GE maxSurrogateId is always-false
-                    return Expression.GreaterThanOrEqual(
+                    // GE of an overflowed value should behave like GT to exclude the max bucket, ensuring an empty result set.
+                    return Expression.GreaterThan(
                         SqlFieldName.ResourceSurrogateId,
                         null,
                         maxSurrogateId);
