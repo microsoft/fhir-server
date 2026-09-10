@@ -354,7 +354,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 deletionServiceDataStoreFactory,
                 SearchService.CreateMockScopeProvider(),
                 _resourceIdProvider,
-                new FhirRequestContextAccessor(),
+                FhirRequestContextAccessor,
                 auditLogger,
                 new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration),
                 _fhirRuntimeConfiguration,

@@ -6,6 +6,7 @@
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
@@ -15,8 +16,8 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// </summary>
     public class OperationOutcomeResult : ResourceActionResult<OperationOutcome>
     {
-        public OperationOutcomeResult(OperationOutcome outcome, HttpStatusCode statusCode)
-            : base(outcome, statusCode)
+        public OperationOutcomeResult(OperationOutcome outcome, HttpStatusCode statusCode, ILogger logger)
+            : base(outcome, statusCode, logger)
         {
             EnsureArg.IsNotNull(outcome, nameof(outcome));
         }

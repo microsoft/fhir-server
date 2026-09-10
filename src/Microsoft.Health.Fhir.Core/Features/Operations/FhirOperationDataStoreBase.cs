@@ -242,8 +242,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var def = new ReindexOrchestratorJobDefinition()
         {
             TypeId = (int)JobType.ReindexOrchestrator,
-            MaximumNumberOfResourcesPerQuery = jobRecord.MaximumNumberOfResourcesPerQuery,
-            MaximumNumberOfResourcesPerWrite = jobRecord.MaximumNumberOfResourcesPerWrite,
+            MaximumNumberOfResourcesPerQuery = (int)jobRecord.MaximumNumberOfResourcesPerQuery,
+            MaximumNumberOfResourcesPerWrite = (int)jobRecord.MaximumNumberOfResourcesPerWrite,
             Id = jobRecord.Id,
         };
 
@@ -253,50 +253,34 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         var jobInfo = results[0];
         jobRecord.Id = jobInfo.Id.ToString();
-        jobRecord.GroupId = jobInfo.GroupId;
         jobRecord.Status = OperationStatus.Queued;
+        PopulateReindexJobRecordTimestampsFromJobInfo(jobInfo, jobRecord);
         return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
-    public virtual async Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+    public virtual async Task<ReindexJobWrapper> CancelReindexJobAsync(string jobId, CancellationToken cancellationToken)
     {
-        EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
-
-        if (jobRecord.Status != OperationStatus.Canceled)
+        EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+        if (!long.TryParse(jobId, out var id))
         {
-            throw new NotSupportedException($"Calls to this method with status={jobRecord.Status} are deprecated.");
+            throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
         }
-
-        eTag ??= WeakETag.FromVersionId("0");
-
-        jobRecord.LastModified = Clock.UtcNow;
 
         try
         {
-            var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Reindex, long.Parse(jobRecord.Id), false, cancellationToken);
+            var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Reindex, id, true, cancellationToken);
             await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Reindex, jobWithGroupId.GroupId, cancellationToken);
+
+            var jobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(jobWithGroupId.Definition);
+            jobRecord.Status = OperationStatus.Canceled;
+            PopulateReindexJobRecordTimestampsFromJobInfo(jobWithGroupId, jobRecord);
+
+            return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobWithGroupId.Version.ToString()));
         }
         catch (JobNotExistException ex)
         {
             throw new JobNotFoundException(ex.Message);
         }
-
-        return new ReindexJobWrapper(jobRecord, eTag);
-    }
-
-    public virtual async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
-    {
-        IReadOnlyCollection<JobInfo> jobInfos = await _queueClient.DequeueJobsAsync((byte)QueueType.Reindex, maximumNumberOfConcurrentJobsAllowed, Environment.MachineName, (int)jobHeartbeatTimeoutThreshold.TotalSeconds, cancellationToken);
-
-        var acquiredJobs = new List<ReindexJobWrapper>();
-
-        foreach (var job in jobInfos)
-        {
-            var jobRecord = await GetReindexJobByIdAsync(job.Id.ToString(), cancellationToken);
-            acquiredJobs.Add(jobRecord);
-        }
-
-        return acquiredJobs;
     }
 
     /// <summary>
@@ -338,62 +322,18 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         }
 
         record.Id = jobInfo.Id.ToString();
-        record.GroupId = jobInfo.GroupId;
 
         var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, cancellationToken)).ToList();
         var inFlightJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
         var cancelledJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
-        var failedJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Failed);
 
-        if (cancelledJobsExist && !failedJobsExist && !inFlightJobsExist)
+        if (cancelledJobsExist && status != JobStatus.Failed && !inFlightJobsExist)
         {
             status = JobStatus.Cancelled;
         }
 
-        if (failedJobsExist)
-        {
-            foreach (var job in groupJobs.Where(x => x.Id != jobInfo.Id && x.Status == JobStatus.Failed))
-            {
-                if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
-                {
-                    var processResult = JsonConvert.DeserializeObject<ReindexProcessingJobErrorResult>(job.Result);
-                    if (!string.IsNullOrEmpty(processResult.Message))
-                    {
-                        if (record.FailureDetails == null)
-                        {
-                            record.FailureDetails = new JobFailureDetails(processResult.Message, HttpStatusCode.InternalServerError);
-                        }
-                        else if (!processResult.Message.Contains(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
-                        {
-                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + processResult.Message, record.FailureDetails.FailureStatusCode);
-                        }
-                    }
-                }
-                else
-                {
-                    if (record.FailureDetails == null)
-                    {
-                        record.FailureDetails = new JobFailureDetails(Core.Resources.ProcessingJobHadNoResults, HttpStatusCode.InternalServerError);
-                    }
-                    else
-                    {
-                        record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + Core.Resources.ProcessingJobHadNoResults, record.FailureDetails.FailureStatusCode);
-                    }
-                }
-            }
-
-            // Only mark as failed if no in-flight jobs exist
-            if (!inFlightJobsExist)
-            {
-                record.Status = OperationStatus.Failed;
-                status = JobStatus.Failed;
-            }
-        }
-
         PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
-
-        record.LastModified = jobInfo.HeartbeatDateTime;
-        record.QueuedTime = jobInfo.CreateDate;
+        PopulateReindexJobRecordTimestampsFromJobInfo(jobInfo, record);
 
         if (serializedJobResult?.Error != null)
         {
@@ -406,7 +346,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                     errorMessage += error.Diagnostics + " ";
                 }
 
-                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error && !inFlightJobsExist && !cancelledJobsExist)
+                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error && !cancelledJobsExist)
                 {
                     status = JobStatus.Failed;
                 }
@@ -424,7 +364,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         }
 
         // To prevent sending consumer status that is wrong if there are still running processing jobs that were enqueued during race condition.
-        if (inFlightJobsExist && status != JobStatus.Running)
+        if (inFlightJobsExist && status != JobStatus.Running && status != JobStatus.Failed)
         {
             status = JobStatus.Running;
         }
@@ -454,100 +394,58 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return new ReindexJobWrapper(record, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
-    private void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> groupJobs, ref ReindexJobRecord record)
+    private static void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> processingJobs, ref ReindexJobRecord record)
     {
-        // Check the first child job's result
-        var subJob = groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault();
-        IReadOnlyCollection<string> processingJob = null;
-        if (subJob?.Result != null)
+        if (jobInfo.Result != null)
         {
-            try
+            var urls = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(jobInfo.Result).SearchParameterUrls;
+            if (urls != null) // TODO: Remove this after 1 month from deployment.
             {
-                processingJob = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(subJob.Result)?.SearchParameterUrls;
-            }
-            catch (JsonException ex)
-            {
-                // Log but continue since this is optional data
-                _logger.LogWarning(ex, "Failed to deserialize processing job result for job {JobId}", subJob.Id);
+                foreach (var url in urls)
+                {
+                    record.SearchParams.Add(url);
+                }
             }
         }
 
-        if (processingJob != null)
+        foreach (var job in processingJobs.Where(x => x.Id != jobInfo.GroupId))
         {
-            foreach (var sp in processingJob)
+            // definition cannot be null
+            var definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+            if (record.ResourceCounts.TryGetValue(definition.ResourceType, out var existing))
             {
-                record.SearchParams.Add(sp);
-            }
-        }
-
-        foreach (var job in groupJobs.Where(x => x.Id != jobInfo.GroupId))
-        {
-            ReindexProcessingJobResult jobResult = null;
-            ReindexProcessingJobDefinition jobDefinition = null;
-
-            // Safely deserialize Result
-            if (!string.IsNullOrEmpty(job.Result))
-            {
-                try
-                {
-                    jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
-                }
-                catch (JsonException ex)
-                {
-                    // Log the error but continue processing
-                    _logger.LogError(ex, "Failed to deserialize job result for job {JobId}", job.Id);
-                    continue;
-                }
-            }
-
-            // Safely deserialize Definition
-            if (!string.IsNullOrEmpty(job.Definition))
-            {
-                try
-                {
-                    jobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                }
-                catch (JsonException ex)
-                {
-                    // Log the error but continue processing
-                    _logger.LogError(ex, "Failed to deserialize job definition for job {JobId}", job.Id);
-                    continue;
-                }
+                existing.Count += definition.ResourceCount.Count;
             }
             else
             {
-                _logger.LogError("Job definition is null for job {JobId}", job.Id);
+                record.ResourceCounts.TryAdd(definition.ResourceType, definition.ResourceCount);
             }
 
-            if (jobDefinition?.ResourceType != null)
+            if (!record.Resources.Contains(definition.ResourceType))
             {
-                // Aggregate counts instead of ignoring duplicates
-                if (record.ResourceCounts.TryGetValue(jobDefinition.ResourceType, out var existing))
-                {
-                    existing.Count += jobDefinition.ResourceCount.Count;
-                }
-                else
-                {
-                    record.ResourceCounts.TryAdd(jobDefinition.ResourceType, jobDefinition.ResourceCount);
-                }
-
-                // Add to resources list only once
-                if (!record.Resources.Contains(jobDefinition.ResourceType))
-                {
-                    record.Resources.Add(jobDefinition.ResourceType);
-                }
+                record.Resources.Add(definition.ResourceType);
             }
 
-            if (jobResult != null)
+            if (job.Status == JobStatus.Completed)
             {
-                if (job.Status == JobStatus.Completed)
-                {
-                    record.Progress += jobResult.SucceededResourceCount;
-                }
-
-                record.Count += jobResult.SucceededResourceCount + jobResult.FailedResourceCount;
+                var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                record.Count += result.SucceededResourceCount;
+            }
+            else if (job.Status == JobStatus.Failed)
+            {
+                var result = string.IsNullOrEmpty(job.Result) ? null : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                record.Count += definition.ResourceCount.Count;
+                record.FailureCount += definition.ResourceCount.Count - (result?.SucceededResourceCount ?? 0);
             }
         }
+    }
+
+    private static void PopulateReindexJobRecordTimestampsFromJobInfo(JobInfo jobInfo, ReindexJobRecord record)
+    {
+        record.QueuedTime = jobInfo.CreateDate;
+        record.StartTime = jobInfo.StartDate;
+        record.EndTime = jobInfo.EndDate;
+        record.LastModified = jobInfo.HeartbeatDateTime;
     }
 
     public virtual async Task<(bool found, string id)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)

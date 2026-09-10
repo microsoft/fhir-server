@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.AnonymousOperation;
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ILogger<FhirController> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -80,13 +82,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="uiConfiguration">The UI configuration.</param>
         /// <param name="authorizationService">The authorization service.</param>
         /// <param name="searchParameterOperations">The search parameter operations.</param>
+        /// <param name="logger">The logger.</param>
         public FhirController(
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
             IAuthorizationService authorizationService,
-            ISearchParameterOperations searchParameterOperations)
+            ISearchParameterOperations searchParameterOperations,
+            ILogger<FhirController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -95,11 +99,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(uiConfiguration.Value, nameof(uiConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
             _searchParameterOperations = searchParameterOperations;
+            _logger = logger;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -141,6 +147,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return FhirResult.Create(
+                _logger,
                 new OperationOutcome
                 {
                     Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
@@ -175,7 +182,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     HttpContext.RequestAborted),
                 "Create");
 
-            return FhirResult.Create(response, HttpStatusCode.Created)
+            return FhirResult.Create(_logger, response, HttpStatusCode.Created)
                 .SetETagHeader()
                 .SetLastModifiedHeader()
                 .SetLocationHeader(_urlResolver);
@@ -221,6 +228,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return FhirResult.Create(
+                _logger,
                 response.Outcome.RawResourceElement,
                 statusCode,
                 true,
@@ -286,17 +294,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             switch (saveOutcome.Outcome)
             {
                 case SaveOutcomeType.Created:
-                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.Created)
+                    return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.Created)
                         .SetETagHeader()
                         .SetLastModifiedHeader()
                         .SetLocationHeader(_urlResolver);
                 case SaveOutcomeType.Updated:
-                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.OK)
+                    return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.OK)
                         .SetETagHeader()
                         .SetLastModifiedHeader();
             }
 
-            return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
+            return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
         }
 
         /// <summary>
@@ -315,7 +323,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
-            return FhirResult.Create(response)
+            return FhirResult.Create(_logger, response)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }
@@ -340,7 +348,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Sort,
                 HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         /// <summary>
@@ -367,7 +375,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Sort,
                 HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         /// <summary>
@@ -397,7 +405,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Sort,
                 HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         /// <summary>
@@ -417,7 +425,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter, vidParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
-            return FhirResult.Create(response, HttpStatusCode.OK)
+            return FhirResult.Create(_logger, response, HttpStatusCode.OK)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }
@@ -448,7 +456,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     HttpContext.RequestAborted),
                 "Delete");
 
-            return FhirResult.NoContent().SetETagHeader(response.WeakETag);
+            return FhirResult.NoContent(_logger).SetETagHeader(response.WeakETag);
         }
 
         /// <summary>
@@ -471,7 +479,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     allowPartialSuccess),
                 HttpContext.RequestAborted);
 
-            return FhirResult.NoContent().SetETagHeader(response.WeakETag);
+            return FhirResult.NoContent(_logger).SetETagHeader(response.WeakETag);
         }
 
         /// <summary>
@@ -507,7 +515,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
             }
 
-            return FhirResult.NoContent().SetETagHeader(response?.WeakETag);
+            return FhirResult.NoContent(_logger).SetETagHeader(response?.WeakETag);
         }
 
         /// <summary>
@@ -664,14 +672,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceElement response = await _mediator.SearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
         {
             ResourceElement response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         /// <summary>
@@ -685,7 +693,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceElement response = await _mediator.GetCapabilitiesAsync(HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         /// <summary>
@@ -711,7 +719,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             VersionsResult response = await _mediator.GetOperationVersionsAsync(HttpContext.RequestAborted);
 
-            return new OperationVersionsResult(response, HttpStatusCode.OK);
+            return new OperationVersionsResult(response, HttpStatusCode.OK, _logger);
         }
 
         /// <summary>
@@ -726,7 +734,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement(), HttpContext.RequestAborted);
 
-            return FhirResult.Create(bundleResponse);
+            return FhirResult.Create(_logger, bundleResponse);
         }
 
         /// <summary>

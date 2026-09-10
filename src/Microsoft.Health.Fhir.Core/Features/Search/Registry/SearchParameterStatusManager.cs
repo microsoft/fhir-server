@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null, DateTimeOffset? lastUpdated = null)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, long? reindexId = null, DateTimeOffset? lastUpdated = null)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 

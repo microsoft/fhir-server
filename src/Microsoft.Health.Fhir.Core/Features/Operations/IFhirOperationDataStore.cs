@@ -60,22 +60,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Updates an existing reindex job record in the data store.
+        /// Cancels an existing reindex job record in the data store.
         /// </summary>
-        /// <param name="jobRecord">The updated job record</param>
-        /// <param name="eTag">current eTag value</param>
+        /// <param name="jobId">The id of the reindex job to cancel</param>
         /// <param name="cancellationToken">the cancellation token</param>
-        /// <returns>An instance of the updated job record</returns>
-        Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Acquires reindex jobs.
-        /// </summary>
-        /// <param name="maximumNumberOfConcurrentJobsAllowed">The maximum number of concurrent reindex jobs allowed.</param>
-        /// <param name="jobHeartbeatTimeoutThreshold">The job heartbeat timeout threshold.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A list of acquired reindex jobs.</returns>
-        Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
+        /// <returns>An instance of the canceled job record</returns>
+        Task<ReindexJobWrapper> CancelReindexJobAsync(string jobId, CancellationToken cancellationToken);
 
         /// <summary>
         /// Gets a reindex job by id.

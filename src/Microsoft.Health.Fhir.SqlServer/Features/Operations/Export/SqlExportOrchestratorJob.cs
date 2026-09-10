@@ -71,6 +71,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                                   : record.ResourceType.Split(',');
                 resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
 
+                // Validate the resource types to ensure they are valid and supported.
+                ValidateResourceTypes(_searchService, resourceTypes, record);
+
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
 
                 var globalStartId = since.ToId();

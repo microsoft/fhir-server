@@ -188,6 +188,7 @@ public class CosmosQueueClient : IQueueClient
 
         foreach (var item in definitions)
         {
+            var now = Clock.UtcNow;
             var definitionInfo = new JobDefinitionWrapper
             {
                 JobId = (jobId++).ToString(),
@@ -195,6 +196,13 @@ public class CosmosQueueClient : IQueueClient
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
             };
+
+            if (jobStatus == JobStatus.Running)
+            {
+                definitionInfo.StartDate = now;
+                definitionInfo.HeartbeatDateTime = now;
+                definitionInfo.Version = GenerateVersion();
+            }
 
             jobInfo.Definitions.Add(definitionInfo);
         }
