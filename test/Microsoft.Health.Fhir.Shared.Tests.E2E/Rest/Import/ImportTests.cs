@@ -264,13 +264,10 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var response = await ImportWaitAsync(checkLocation);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-            // The status url handed to the caller carries the orchestrator's id, and the queue assigns the orchestrator
-            // an id equal to its group id. The orchestrator enqueues its processing jobs into that same group, and the
-            // queue hands out ids in sequence, so the id following the orchestrator's belongs to a processing job.
-            // Processing job ids are never surfaced to callers and do not identify an import operation.
+            // Ids are issued in sequence, so the id after the orchestrator's belongs to one of its processing jobs.
             var processingJobId = orchestratorJobId + 1;
 
-            // Relative resolution replaces the last path segment, so this is the same status url with the processing job id.
+            // Relative resolution swaps the last path segment.
             var processingJobLocation = new Uri(checkLocation, $"{processingJobId}");
             var processingJobResponse = await _client.CheckImportAsync(processingJobLocation, checkSuccessStatus: false);
 
