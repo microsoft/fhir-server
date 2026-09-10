@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             // The orchestrator definition identifies in-memory test imports and controls whether execution
             // statistics are included in the completed status response.
             var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, true, cancellationToken);
-            if (coord == null || coord.Status == JobStatus.Archived)
+            if (coord == null || coord.Id != coord.GroupId || coord.Status == JobStatus.Archived) // if job is processing one -> reject
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
             }
