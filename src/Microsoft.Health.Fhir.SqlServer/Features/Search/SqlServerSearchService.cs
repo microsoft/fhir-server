@@ -3,40 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Data;
-using System.Diagnostics;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
@@ -44,7 +28,6 @@ using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.Health.SqlServer.Features.Storage;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -394,49 +377,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             return _model.TryGetResourceTypeId(resourceType, out _);
         }
-
-        /*
-        private class Token
-        {
-            internal Token(string code, int? systemId, string systemValue)
-            {
-                Code = code;
-                SystemId = systemId;
-                SystemValue = systemId.HasValue ? null : systemValue;
-            }
-
-            internal string Code { get; set; }
-
-            internal int? SystemId { get; set; }
-
-            internal string SystemValue { get; set; }
-        }
-
-        private class TokenListRowGenerator : ITableValuedParameterRowGenerator<IList<Token>, TokenListRow>
-        {
-            private readonly int _codeMaxLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength;
-
-            public IEnumerable<TokenListRow> GenerateRows(IList<Token> tokens)
-            {
-                foreach (var token in tokens)
-                {
-                    string code;
-                    string codeOverflow;
-                    if (token.Code.Length > _codeMaxLength)
-                    {
-                        code = token.Code[.._codeMaxLength];
-                        codeOverflow = token.Code[_codeMaxLength..];
-                    }
-                    else
-                    {
-                        code = token.Code;
-                        codeOverflow = null;
-                    }
-
-                    yield return new TokenListRow(code, codeOverflow, token.SystemId, token.SystemValue);
-                }
-            }
-        }
-        */
     }
 }
