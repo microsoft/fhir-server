@@ -258,6 +258,31 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenImportStatusRequestedByProcessingJobId_ThenNotFoundIsReturned()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            var (checkLocation, orchestratorJobId) = await RegisterImport();
+            var response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            // The id returned to the caller is the orchestrator's, and the queue assigns it an id equal to its group id.
+            // Processing jobs are enqueued into the same group, so their ids differ from the group id and are never
+            // surfaced to callers. Requesting status by one of them does not identify an import operation.
+            var processingJobId = (long)ExecuteSql($"SELECT isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = 2 AND GroupId = {orchestratorJobId} AND JobId <> GroupId ORDER BY JobId),0)");
+            Assert.True(processingJobId > 0, $"no processing job was found in group {orchestratorJobId}");
+
+            // Relative resolution replaces the last path segment, so this is the same status url with the processing job id.
+            var processingJobLocation = new Uri(checkLocation, $"{processingJobId}");
+            var processingJobResponse = await _client.CheckImportAsync(processingJobLocation, checkSuccessStatus: false);
+
+            Assert.Equal(HttpStatusCode.NotFound, processingJobResponse.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_1001ResourcesWithSameLastUpdatedAndSequenceRollOver()
         {
             if (!_fixture.IsUsingInProcTestServer)
