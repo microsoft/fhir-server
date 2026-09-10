@@ -11,13 +11,16 @@ using System.Text;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -111,6 +114,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             _rootExpression = expression;
+            SqlSearchOptions sqlSearchOptions = context as SqlSearchOptions;
+            bool isVectorSearch = sqlSearchOptions?.PreparedVectorQuery != null;
 
             // Fail-closed invariant: when a SMART compartment membership context was attached for this search
             // (see SqlServerSearchService.AttachSmartCompartmentMembership), it must still be present on the
@@ -252,7 +257,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (searchOptions.CountOnly)
             {
-                if (expression.SearchParamTableExpressions.Count > 0)
+                if (isVectorSearch)
+                {
+                    selectingFromResourceTable = true;
+                    StringBuilder.Append("SELECT count_big(DISTINCT ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(")");
+                }
+                else if (expression.SearchParamTableExpressions.Count > 0)
                 {
                     // The last CTE has all the surrogate IDs that match the results.
                     // We just need to count those and don't need to join with the Resource table
@@ -274,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // to ensure pagination works correctly. Previously TOP was in the inner subquery without ORDER BY,
                 // causing SQL Server to return arbitrary rows before the outer ORDER BY reordered them.
                 // Fix for pagination bug introduced in commit 6dd540c7d.
-                if (expression.SearchParamTableExpressions.Count == 0)
+                if (expression.SearchParamTableExpressions.Count == 0 || isVectorSearch)
                 {
                     StringBuilder.Append("SELECT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") * FROM (");
                 }
@@ -293,9 +303,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(", ")
                     .Append(VLatest.Resource.RequestMethod, resourceTableAlias).Append(", ");
 
-                // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match
-                StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
-                StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
+                // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match.
+                // Vector search suppresses the Top CTE that carries IsMatch/IsPartial, and every ranked row is a match.
+                bool selectMatchBitFromCte = expression.SearchParamTableExpressions.Count > 0 && !isVectorSearch;
+                StringBuilder.Append(selectMatchBitFromCte ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
+                StringBuilder.Append(selectMatchBitFromCte ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
                 StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
 
@@ -305,6 +317,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
+
+                if (isVectorSearch)
+                {
+                    StringBuilder.Append(", semantic.SemanticDistance");
+                }
 
                 if (IsSortValueNeeded(context) && !context.IsIncludesOperation)
                 {
@@ -341,6 +358,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
                 }
 
+                if (isVectorSearch)
+                {
+                    AppendVectorSearchApply(sqlSearchOptions.PreparedVectorQuery, resourceTableAlias);
+                }
+
                 using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
                 {
                     foreach (var denormalizedPredicate in expression.ResourceTableExpressions)
@@ -352,6 +374,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     AppendHistoryClause(delimitedClause, context.ResourceVersionTypes);
 
                     AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
+
+                    if (isVectorSearch && sqlSearchOptions.SemanticContinuationDistance.HasValue)
+                    {
+                        object distanceParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationDistance.Value, includeInHash: false);
+                        object resourceTypeParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationResourceTypeId.Value, includeInHash: false);
+                        object surrogateIdParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationResourceSurrogateId.Value, includeInHash: false);
+
+                        delimitedClause.BeginDelimitedElement();
+                        StringBuilder
+                            .Append("(semantic.SemanticDistance > ").Append(distanceParameter)
+                            .Append(" OR (semantic.SemanticDistance = ").Append(distanceParameter).Append(" AND (")
+                            .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" > ").Append(resourceTypeParameter)
+                            .Append(" OR (").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(resourceTypeParameter)
+                            .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" > ").Append(surrogateIdParameter)
+                            .Append("))))");
+                    }
                 }
 
                 if (!searchOptions.CountOnly)
@@ -367,7 +405,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append("IsMatch DESC, ");
                     }
 
-                    if (IsPrimaryKeySort(searchOptions))
+                    if (isVectorSearch && (searchOptions.Sort.Count == 0 || IsScoreSort(searchOptions)))
+                    {
+                        StringBuilder
+                            .Append("SemanticDistance ASC, ")
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
+                    }
+                    else if (IsPrimaryKeySort(searchOptions))
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
                         {
@@ -439,6 +484,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return null;
+        }
+
+        private void AppendVectorSearchApply(PreparedVectorSearchQuery preparedQuery, string resourceTableAlias)
+        {
+            const string vectorTableAlias = "v";
+
+            short searchParamId = Model.GetSearchParamId(preparedQuery.SearchParameter.Url);
+            _searchParamIds.Add(searchParamId);
+            object distanceMetricParameter = Parameters.AddParameter(VectorSearchConfiguration.SupportedDistanceMetric, includeInHash: false);
+            object queryEmbeddingParameter = Parameters.AddParameter(SqlVectorFormatter.Format(preparedQuery.Embedding), includeInHash: false);
+            object maximumDistanceParameter = Parameters.AddParameter(2 * (1 - preparedQuery.MinimumScore), includeInHash: false);
+
+            StringBuilder.AppendLine("     CROSS APPLY")
+                .AppendLine("     (")
+                .Append("         SELECT TOP (1) VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
+                .Append(VLatest.VectorSearchParam.Embedding, vectorTableAlias).Append(", CAST(")
+                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).AppendLine("))) AS SemanticDistance")
+                .Append("         FROM ").Append(VLatest.VectorSearchParam).Append(" AS ").AppendLine(vectorTableAlias)
+                .Append("         WHERE ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).AppendLine()
+                .Append("           AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine()
+                .Append("           AND ").Append(VLatest.VectorSearchParam.SearchParamId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.SearchParamId, searchParamId, includeInHash: true)).AppendLine()
+                .Append("           AND ").Append(VLatest.VectorSearchParam.EmbeddingModelId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.EmbeddingModelId, preparedQuery.EmbeddingModelId, includeInHash: false)).AppendLine()
+                .Append("           AND VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
+                .Append(VLatest.VectorSearchParam.Embedding, vectorTableAlias).Append(", CAST(")
+                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))) <= ").Append(maximumDistanceParameter).AppendLine()
+                .Append("         ORDER BY VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
+                .Append(VLatest.VectorSearchParam.Embedding, vectorTableAlias).Append(", CAST(")
+                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))), ")
+                .Append(VLatest.VectorSearchParam.ChunkOrdinal, vectorTableAlias).AppendLine(" ASC")
+                .AppendLine("     ) semantic");
         }
 
         // TODO: Remove when code starts using TokenSearchParamHighCard table
@@ -2030,9 +2105,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
         }
 
+        private static bool IsScoreSort(SearchOptions searchOptions)
+        {
+            return searchOptions.Sort.Count > 0 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.Score;
+        }
+
         internal bool IsSortValueNeeded(SearchOptions context)
         {
-            if (context.Sort.Count == 0)
+            if (context.Sort.Count == 0 || IsScoreSort(context))
             {
                 return false;
             }

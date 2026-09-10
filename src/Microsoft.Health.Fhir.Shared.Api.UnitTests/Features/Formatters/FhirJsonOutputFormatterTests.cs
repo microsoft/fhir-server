@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -101,6 +102,39 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             string query)
         {
             await Run(false, raw, query);
+        }
+
+        [Fact]
+        public async Task GivenRawSearchBundleWithSemanticScore_WhenWritingResponse_ThenScoreShouldBeWritten()
+        {
+            using var writer = new StringWriter(new StringBuilder());
+            using var body = new MemoryStream();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Response.Body = body;
+            var bundle = (Hl7.Fhir.Model.Bundle)CreateObject(bundle: true, raw: true);
+            bundle.Entry.Single().Search = new SearchComponent
+            {
+                Mode = SearchEntryMode.Match,
+                Score = 0.91m,
+            };
+            var writeContext = new OutputFormatterWriteContext(
+                httpContext,
+                (_, _) => writer,
+                typeof(Hl7.Fhir.Model.Bundle),
+                bundle);
+            var formatter = new FhirJsonOutputFormatter(
+                new FhirJsonSerializer(),
+                Deserializers.ResourceDeserializer,
+                ArrayPool<char>.Shared,
+                new BundleSerializer(),
+                ModelInfoProvider.Instance);
+
+            await formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
+
+            Hl7.Fhir.Model.Bundle serializedBundle = Parser.Parse<Hl7.Fhir.Model.Bundle>(writer.ToString());
+            SearchComponent search = Assert.Single(serializedBundle.Entry).Search;
+            Assert.Equal(0.91m, search.Score);
+            Assert.Empty(search.Extension);
         }
 
         private static async Task Run(

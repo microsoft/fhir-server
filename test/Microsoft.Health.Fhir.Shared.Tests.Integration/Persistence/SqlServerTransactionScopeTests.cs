@@ -117,6 +117,101 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        [Fact]
+        public async Task GivenResourceVersionsWithOwnedVectors_WhenHardDeletingInsideAnAmbientTransaction_ThenDeletedOwnedVectorsAreRemoved()
+        {
+            string resourceId = Guid.NewGuid().ToString();
+            string modelName = Guid.NewGuid().ToString();
+
+            using (SqlConnectionWrapper connectionWrapper = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false))
+            using (SqlCommandWrapper command = connectionWrapper.CreateRetrySqlCommand())
+            {
+                command.CommandText = @"
+DECLARE @ResourceTypeId smallint = (SELECT TOP (1) ResourceTypeId FROM dbo.ResourceType ORDER BY ResourceTypeId)
+DECLARE @SearchParamId smallint = (SELECT TOP (1) SearchParamId FROM dbo.SearchParam ORDER BY SearchParamId)
+DECLARE @EmbeddingModelId smallint
+DECLARE @BaseSurrogateId bigint = DATEDIFF_BIG(millisecond, CONVERT(datetime2, '0001-01-01'), SYSUTCDATETIME()) * CONVERT(bigint, 80000)
+DECLARE @HistorySurrogateId bigint = @BaseSurrogateId + NEXT VALUE FOR dbo.ResourceSurrogateIdUniquifierSequence
+DECLARE @CurrentSurrogateId bigint = @BaseSurrogateId + NEXT VALUE FOR dbo.ResourceSurrogateIdUniquifierSequence
+DECLARE @InitialTranCount int = @@TRANCOUNT
+DECLARE @HistoryDeleteTranCount int
+DECLARE @DeleteTranCount int
+DECLARE @ResourceCountAfterHistoryDelete int
+DECLARE @VectorCountAfterHistoryDelete int
+DECLARE @ResourceCount int
+DECLARE @VectorCount int
+
+BEGIN TRY
+  BEGIN TRANSACTION
+
+  INSERT INTO dbo.EmbeddingModel (ModelName, ModelVersion, Dimension)
+  VALUES (@ModelName, 'test', 1536)
+  SET @EmbeddingModelId = CONVERT(smallint, SCOPE_IDENTITY())
+
+  INSERT INTO dbo.Resource
+      (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash)
+  VALUES
+      (@ResourceTypeId, @ResourceId, 1, 1, @HistorySurrogateId, 0, 'PUT', 0x01, 0, NULL),
+      (@ResourceTypeId, @ResourceId, 2, 0, @CurrentSurrogateId, 0, 'PUT', 0x01, 0, NULL)
+
+  INSERT INTO dbo.VectorSearchParam
+      (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, ChunkText, SourceTextHash, SourceResourceTypeId, SourceResourceId, SourceResourceVersion, SourcePath, Embedding)
+  VALUES
+      (@ResourceTypeId, @HistorySurrogateId, @SearchParamId, 0, @EmbeddingModelId, N'history text', HASHBYTES('SHA2_256', N'history text'), @ResourceTypeId, @ResourceId, '1', N'content', CAST(CONCAT('[', REPLICATE('0,', 1535), '0]') AS vector(1536))),
+      (@ResourceTypeId, @CurrentSurrogateId, @SearchParamId, 0, @EmbeddingModelId, N'current text', HASHBYTES('SHA2_256', N'current text'), @ResourceTypeId, @ResourceId, '2', N'content', CAST(CONCAT('[', REPLICATE('0,', 1535), '0]') AS vector(1536)))
+
+  EXECUTE dbo.HardDeleteResource
+      @ResourceTypeId = @ResourceTypeId,
+      @ResourceId = @ResourceId,
+      @KeepCurrentVersion = 1,
+      @IsResourceChangeCaptureEnabled = 0
+
+  SET @HistoryDeleteTranCount = @@TRANCOUNT
+  SET @ResourceCountAfterHistoryDelete = (SELECT COUNT(*) FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceId = @ResourceId)
+  SET @VectorCountAfterHistoryDelete = (SELECT COUNT(*) FROM dbo.VectorSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (@HistorySurrogateId, @CurrentSurrogateId))
+
+  EXECUTE dbo.HardDeleteResource
+      @ResourceTypeId = @ResourceTypeId,
+      @ResourceId = @ResourceId,
+      @KeepCurrentVersion = 0,
+      @IsResourceChangeCaptureEnabled = 0
+
+  SET @DeleteTranCount = @@TRANCOUNT
+  SET @ResourceCount = (SELECT COUNT(*) FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceId = @ResourceId)
+    SET @VectorCount = (SELECT COUNT(*) FROM dbo.VectorSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (@HistorySurrogateId, @CurrentSurrogateId))
+
+  ROLLBACK TRANSACTION
+END TRY
+BEGIN CATCH
+  IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+  THROW
+END CATCH
+
+SELECT @InitialTranCount,
+    @HistoryDeleteTranCount,
+       @DeleteTranCount,
+    @ResourceCountAfterHistoryDelete,
+    @VectorCountAfterHistoryDelete,
+       @ResourceCount,
+       @VectorCount";
+
+                command.Parameters.Add(new SqlParameter { ParameterName = "ResourceId", Value = resourceId });
+                command.Parameters.Add(new SqlParameter { ParameterName = "ModelName", Value = modelName });
+
+                using (SqlDataReader reader = await command.ExecuteReaderAsync(CancellationToken.None))
+                {
+                    Assert.True(await reader.ReadAsync(CancellationToken.None));
+                    Assert.Equal(0, reader.GetInt32(0));
+                    Assert.Equal(1, reader.GetInt32(1));
+                    Assert.Equal(1, reader.GetInt32(2));
+                    Assert.Equal(1, reader.GetInt32(3));
+                    Assert.Equal(1, reader.GetInt32(4));
+                    Assert.Equal(0, reader.GetInt32(5));
+                    Assert.Equal(0, reader.GetInt32(6));
+                }
+            }
+        }
+
         private static async Task VerifyCommandResults(SqlConnectionWrapper connectionWrapper, string newId, bool shouldFind, string tableHints = "")
         {
             using (SqlCommandWrapper sqlCommandWrapper = connectionWrapper.CreateRetrySqlCommand())
