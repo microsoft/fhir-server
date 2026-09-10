@@ -6,25 +6,10 @@
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     /// <summary>
-    /// Configures vector search result limits.
+    /// Configures vector search query behavior.
     /// </summary>
     public sealed class VectorSearchQueryConfiguration
     {
-        /// <summary>
-        /// Gets or sets the default number of semantic search results.
-        /// </summary>
-        public int DefaultCount { get; set; } = 10;
-
-        /// <summary>
-        /// Gets or sets the maximum number of semantic search results.
-        /// </summary>
-        public int MaxCount { get; set; } = 50;
-
-        /// <summary>
-        /// Gets or sets the number of structured-search candidates considered for semantic ranking.
-        /// </summary>
-        public int CandidateCount { get; set; } = 100;
-
         /// <summary>
         /// Gets or sets the vector distance metric.
         /// </summary>

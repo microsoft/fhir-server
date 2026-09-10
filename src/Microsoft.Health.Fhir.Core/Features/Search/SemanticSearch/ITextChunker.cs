@@ -16,9 +16,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         /// Splits <paramref name="text"/> into ordered, overlapping passages.
         /// </summary>
         /// <param name="text">The text to split. Must not be null.</param>
-        /// <param name="chunkSize">The maximum length of each passage. Must be greater than zero.</param>
-        /// <param name="chunkOverlap">The number of trailing characters each passage shares with the next. Must be at least zero and less than <paramref name="chunkSize"/>.</param>
+        /// <param name="maxInputTokens">The maximum number of tokens retained from the source text.</param>
+        /// <param name="chunkSizeTokens">The maximum number of tokens in each passage.</param>
+        /// <param name="chunkOverlapTokens">The number of trailing tokens each passage shares with the next.</param>
         /// <returns>The ordered passages, or an empty list when <paramref name="text"/> is empty.</returns>
-        IReadOnlyList<string> Chunk(string text, int chunkSize, int chunkOverlap);
+        IReadOnlyList<string> Chunk(string text, int maxInputTokens, int chunkSizeTokens, int chunkOverlapTokens);
+
+        /// <summary>
+        /// Counts tokens using the configured embedding model's tokenizer.
+        /// </summary>
+        /// <param name="text">The text whose tokens should be counted.</param>
+        /// <returns>The number of model tokens in <paramref name="text"/>.</returns>
+        int CountTokens(string text);
     }
 }

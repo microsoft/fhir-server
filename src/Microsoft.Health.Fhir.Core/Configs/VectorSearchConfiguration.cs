@@ -18,6 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public const int SupportedDimensions = 1536;
 
         /// <summary>
+        /// The maximum number of tokens supported by one embedding input.
+        /// </summary>
+        public const int MaxEmbeddingInputTokens = 8192;
+
+        /// <summary>
         /// The distance metric supported by the current semantic score calculation.
         /// </summary>
         public const string SupportedDistanceMetric = "cosine";
@@ -98,6 +103,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 throw new InvalidOperationException("Vector search chunk size must be greater than zero.");
             }
 
+            if (Indexing.ChunkSizeTokens > MaxEmbeddingInputTokens)
+            {
+                throw new InvalidOperationException($"Vector search chunk size must not exceed the embedding provider limit of {MaxEmbeddingInputTokens} tokens.");
+            }
+
             if (Indexing.ChunkOverlapTokens < 0 || Indexing.ChunkOverlapTokens >= Indexing.ChunkSizeTokens)
             {
                 throw new InvalidOperationException("Vector search chunk overlap must be non-negative and smaller than the chunk size.");
@@ -106,21 +116,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
             if (Query == null)
             {
                 throw new InvalidOperationException("Vector search query configuration is required when vector search is enabled.");
-            }
-
-            if (Query.DefaultCount <= 0)
-            {
-                throw new InvalidOperationException("Vector search default result count must be greater than zero.");
-            }
-
-            if (Query.MaxCount < Query.DefaultCount)
-            {
-                throw new InvalidOperationException("Vector search maximum result count must be greater than or equal to the default result count.");
-            }
-
-            if (Query.CandidateCount < Query.MaxCount)
-            {
-                throw new InvalidOperationException("Vector search candidate count must be greater than or equal to the maximum result count.");
             }
 
             if (!string.Equals(Query.DistanceMetric, SupportedDistanceMetric, StringComparison.OrdinalIgnoreCase))

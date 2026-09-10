@@ -7,8 +7,10 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Models;
@@ -27,11 +29,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public sealed class SemanticSearchTests : IClassFixture<SemanticSearchTestFixture>
     {
         private const string Query = "difficulty breathing after exercise";
+        private readonly SemanticSearchTestFixture _fixture;
         private readonly TestFhirClient _client;
 
         public SemanticSearchTests(SemanticSearchTestFixture fixture)
         {
+            _fixture = fixture;
             _client = fixture.TestFhirClient;
+        }
+
+        [Fact]
+        public async Task GivenEmbeddingIsDelayed_WhenWritingResource_ThenTransactionHeartbeatAdvancesBeforeEmbeddingCompletes()
+        {
+            await EnsureSearchParameterIsEnabledAsync(
+                "observation-semantic",
+                SemanticSearchTestParameterResolver.ObservationCanonical,
+                "ObservationSemantic",
+                ResourceType.Observation,
+                "Observation.note.text");
+
+            BlockingDeterministicEmbeddingClient embeddingClient = _fixture.GetService<BlockingDeterministicEmbeddingClient>();
+            Task embeddingStarted = embeddingClient.WaitForBlockedEmbeddingAsync();
+            DateTime testStarted = DateTime.UtcNow;
+            Task<Observation> createTask = CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+
+            try
+            {
+                await embeddingStarted.WaitAsync(TimeSpan.FromSeconds(30));
+
+                (long transactionId, DateTime initialHeartbeat) = await GetActiveTransactionAsync(_fixture.ConnectionString, testStarted);
+
+                using var heartbeatTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                DateTime currentHeartbeat = initialHeartbeat;
+                while (currentHeartbeat <= initialHeartbeat)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(200), heartbeatTimeout.Token);
+                    currentHeartbeat = await GetTransactionHeartbeatAsync(_fixture.ConnectionString, transactionId, heartbeatTimeout.Token);
+                }
+
+                Assert.True(currentHeartbeat > initialHeartbeat);
+            }
+            finally
+            {
+                embeddingClient.ReleaseBlockedEmbedding();
+            }
+
+            await createTask;
         }
 
         [Fact]
@@ -208,6 +251,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             using FhirResponse<T> response = await _client.CreateAsync(resource);
             return response.Resource;
+        }
+
+        private static async Task<(long TransactionId, DateTime Heartbeat)> GetActiveTransactionAsync(string connectionString, DateTime createdAfter)
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var command = new SqlCommand(
+                @"SELECT TOP (1) SurrogateIdRangeFirstValue, HeartbeatDate
+FROM dbo.Transactions
+WHERE IsCompleted = 0 AND CreateDate >= @CreatedAfter
+ORDER BY SurrogateIdRangeFirstValue DESC;",
+                connection);
+            command.Parameters.AddWithValue("@CreatedAfter", createdAfter);
+
+            await using SqlDataReader reader = await command.ExecuteReaderAsync();
+            Assert.True(await reader.ReadAsync(), "Expected an active resource transaction while embedding was blocked.");
+            return (reader.GetInt64(0), reader.GetDateTime(1));
+        }
+
+        private static async Task<DateTime> GetTransactionHeartbeatAsync(string connectionString, long transactionId, CancellationToken cancellationToken)
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using var command = new SqlCommand(
+                "SELECT HeartbeatDate FROM dbo.Transactions WHERE SurrogateIdRangeFirstValue = @TransactionId;",
+                connection);
+            command.Parameters.AddWithValue("@TransactionId", transactionId);
+            return (DateTime)await command.ExecuteScalarAsync(cancellationToken);
         }
     }
 }

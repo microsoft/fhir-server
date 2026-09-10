@@ -34,9 +34,6 @@ Example configuration:
           "ChunkOverlapTokens": 100
         },
         "Query": {
-          "DefaultCount": 10,
-          "MaxCount": 50,
-          "CandidateCount": 100,
           "DistanceMetric": "cosine"
         }
       }
@@ -61,6 +58,11 @@ properties are:
 - `chunkSizeTokens` and `chunkOverlapTokens`: optional per-parameter chunk overrides.
 - `distanceMetric`: must be `cosine`.
 
+Token settings use the tokenizer selected by `Embedding.ModelName`; the server does not fall back to
+an approximate character count or a different encoding. Each configured source is truncated to
+`maxInputTokens` before token-based chunking. A chunk cannot exceed the provider's 8,192-token
+per-input limit.
+
 The SearchParameter must be active and enabled through the existing SearchParameter lifecycle.
 First activation uses the normal reindex workflow to backfill existing resources.
 
@@ -70,6 +72,8 @@ Create and update requests extract configured text, chunk it, create embeddings 
 send vector rows in the same SQL merge operation as the resource and ordinary search indices.
 Deletes and empty extraction replace prior vector rows with an empty set. Reindex uses
 `UpdateResourceSearchParamsWithVectors` so ordinary and vector indices are updated atomically.
+Foundry requests are split without reordering when they would exceed 2,048 inputs or 300,000 total
+tokens; provider failures and output-count mismatches fail the indexing operation.
 
 If a multi-call resource transaction times out, the transaction watchdog rebuilds search indices
 and embeddings before rolling the transaction forward. The vector TVP is sent only to schema 117

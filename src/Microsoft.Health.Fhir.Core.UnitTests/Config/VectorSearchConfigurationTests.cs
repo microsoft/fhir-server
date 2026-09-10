@@ -31,9 +31,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Equal(VectorSearchIndexingMode.Synchronous, configuration.Indexing.Mode);
             Assert.Equal(800, configuration.Indexing.ChunkSizeTokens);
             Assert.Equal(100, configuration.Indexing.ChunkOverlapTokens);
-            Assert.Equal(10, configuration.Query.DefaultCount);
-            Assert.Equal(50, configuration.Query.MaxCount);
-            Assert.Equal(100, configuration.Query.CandidateCount);
             Assert.Equal(VectorSearchConfiguration.SupportedDistanceMetric, configuration.Query.DistanceMetric);
         }
 
@@ -211,6 +208,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Throws<InvalidOperationException>(validate);
         }
 
+        [Fact]
+        public void GivenEnabledConfigurationWithChunkSizeAboveProviderLimit_WhenValidated_ThenValidationFails()
+        {
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Indexing.ChunkSizeTokens = VectorSearchConfiguration.MaxEmbeddingInputTokens + 1;
+
+            Action validate = configuration.Validate;
+
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
         [Theory]
         [InlineData(-1)]
         [InlineData(800)]
@@ -234,51 +242,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             // Arrange
             VectorSearchConfiguration configuration = CreateValidConfiguration();
             configuration.Query = null;
-
-            // Act
-            Action validate = configuration.Validate;
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(validate);
-        }
-
-        [Theory]
-        [InlineData(0)]
-        [InlineData(-1)]
-        public void GivenEnabledConfigurationWithInvalidDefaultCount_WhenValidated_ThenValidationFails(int defaultCount)
-        {
-            // Arrange
-            VectorSearchConfiguration configuration = CreateValidConfiguration();
-            configuration.Query.DefaultCount = defaultCount;
-
-            // Act
-            Action validate = configuration.Validate;
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(validate);
-        }
-
-        [Fact]
-        public void GivenEnabledConfigurationWithMaximumBelowDefault_WhenValidated_ThenValidationFails()
-        {
-            // Arrange
-            VectorSearchConfiguration configuration = CreateValidConfiguration();
-            configuration.Query.DefaultCount = 10;
-            configuration.Query.MaxCount = 9;
-
-            // Act
-            Action validate = configuration.Validate;
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(validate);
-        }
-
-        [Fact]
-        public void GivenEnabledConfigurationWithCandidateCountBelowMaximum_WhenValidated_ThenValidationFails()
-        {
-            // Arrange
-            VectorSearchConfiguration configuration = CreateValidConfiguration();
-            configuration.Query.CandidateCount = configuration.Query.MaxCount - 1;
 
             // Act
             Action validate = configuration.Validate;

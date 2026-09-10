@@ -38,9 +38,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumPageCount"] = "100",
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumExtractedCharacters"] = "250000",
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:ExtractionTimeout"] = "00:00:15",
-                ["FhirServer:CoreFeatures:VectorSearch:Query:DefaultCount"] = "5",
-                ["FhirServer:CoreFeatures:VectorSearch:Query:MaxCount"] = "25",
-                ["FhirServer:CoreFeatures:VectorSearch:Query:CandidateCount"] = "125",
                 ["FhirServer:CoreFeatures:VectorSearch:Query:DistanceMetric"] = "cosine",
             });
             var services = new ServiceCollection();
@@ -64,9 +61,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal(100, vectorSearch.Indexing.Pdf.MaximumPageCount);
             Assert.Equal(250_000, vectorSearch.Indexing.Pdf.MaximumExtractedCharacters);
             Assert.Equal(TimeSpan.FromSeconds(15), vectorSearch.Indexing.Pdf.ExtractionTimeout);
-            Assert.Equal(5, vectorSearch.Query.DefaultCount);
-            Assert.Equal(25, vectorSearch.Query.MaxCount);
-            Assert.Equal(125, vectorSearch.Query.CandidateCount);
             Assert.Equal("cosine", vectorSearch.Query.DistanceMetric);
         }
 
