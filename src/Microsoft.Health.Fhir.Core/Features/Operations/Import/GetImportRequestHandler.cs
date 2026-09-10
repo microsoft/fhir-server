@@ -45,9 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
 
-            // Only the orchestrator job identifies an import operation, and it is the only job id handed out to callers.
-            // The queue assigns it an id equal to its group id, so any job whose id differs from its group id is a
-            // processing job and is not a valid import job id.
+            // The queue assigns the orchestrator an id equal to its group id, so any job whose id differs from its
+            // group id is a processing job and is not a valid import job id.
             if (coord == null || coord.Id != coord.GroupId || coord.Status == JobStatus.Archived)
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
