@@ -64,7 +64,8 @@ jobs:
             {
                 throw "$($secret.Name) is empty"
             }
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+            $secretFlag = if ($secret.Name -in @('TestSmartTokenPrivateKey', 'TestSmartTokenIssuer')) { ';issecret=true' } else { '' }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)$secretFlag]$($plainValue)"
         }
 
 
@@ -83,7 +84,8 @@ jobs:
             {
                 throw "$($secret.Name) is empty"
             }
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+            $secretFlag = if ($secret.Name -in @('TestSmartTokenPrivateKey', 'TestSmartTokenIssuer')) { ';issecret=true' } else { '' }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)$secretFlag]$($plainValue)"
         }
         # ----------------------------------------
 
@@ -114,6 +116,8 @@ jobs:
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
+      'TestSmartTokenIssuer': $(TestSmartTokenIssuer)
+      'TestSmartTokenPrivateKey': $(TestSmartTokenPrivateKey)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
@@ -256,6 +260,8 @@ jobs:
     env:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
+      'TestSmartTokenIssuer': $(TestSmartTokenIssuer)
+      'TestSmartTokenPrivateKey': $(TestSmartTokenPrivateKey)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
