@@ -140,9 +140,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
                 }
                 else if (string.Equals(url, VectorSearchParameterConfig.ChunkSizeTokensExtensionUrl, StringComparison.Ordinal))
                 {
-                    if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkSizeTokens) || chunkSizeTokens <= 0)
+                    if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkSizeTokens) ||
+                        chunkSizeTokens <= 0 ||
+                        chunkSizeTokens > VectorSearchConfiguration.MaxEmbeddingInputTokens)
                     {
-                        throw new InvalidDefinitionException("Vector SearchParameter chunkSizeTokens must be greater than zero.");
+                        throw new InvalidDefinitionException($"Vector SearchParameter chunkSizeTokens must be between 1 and {VectorSearchConfiguration.MaxEmbeddingInputTokens}.");
                     }
 
                     configuration.ChunkSizeTokens = chunkSizeTokens;
