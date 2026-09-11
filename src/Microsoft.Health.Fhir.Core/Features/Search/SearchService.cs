@@ -96,6 +96,59 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false)
         {
+            return await SearchByVersionTypeAsync(
+                resourceType,
+                resourceId,
+                at,
+                since,
+                before,
+                count,
+                summary,
+                continuationToken,
+                sort,
+                ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted,
+                isAsyncOperation,
+                cancellationToken);
+        }
+
+        public async Task<SearchResult> SearchDeletedAsync(
+            string resourceType,
+            PartialDateTime since,
+            PartialDateTime before,
+            int? count,
+            string continuationToken,
+            string sort,
+            CancellationToken cancellationToken)
+        {
+            return await SearchByVersionTypeAsync(
+                resourceType,
+                resourceId: null,
+                at: null,
+                since,
+                before,
+                count,
+                summary: null,
+                continuationToken,
+                sort,
+                ResourceVersionType.SoftDeleted,
+                isAsyncOperation: false,
+                cancellationToken);
+        }
+
+        private async Task<SearchResult> SearchByVersionTypeAsync(
+            string resourceType,
+            string resourceId,
+            PartialDateTime at,
+            PartialDateTime since,
+            PartialDateTime before,
+            int? count,
+            string summary,
+            string continuationToken,
+            string sort,
+            ResourceVersionType resourceVersionTypes,
+            bool isAsyncOperation,
+            CancellationToken cancellationToken)
+        {
             var queryParameters = new List<Tuple<string, string>>();
 
             if (at != null)
@@ -198,9 +251,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            var historyResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted;
-
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, historyResourceVersionTypes);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes);
 
             SearchResult searchResult = await SearchAsync(searchOptions, cancellationToken);
 

@@ -1,0 +1,64 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "delete-search",
+    "url": "[base]/OperationDefinition/delete-search",
+    "version": "1.0.0",
+    "name": "Delete Search",
+    "status": "active",
+    "kind": "operation",
+    "description": "Searches current soft-deleted resources. The operation supports system-level and resource-type-level invocation and filters only by the resource last-updated time.",
+    "code": "delete-search",
+    "system": true,
+    "type": true,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "_since",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "An inclusive lower bound on the soft-deleted resource's last-updated time.",
+            "type": "instant"
+        },
+        {
+            "name": "_before",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "An exclusive upper bound on the soft-deleted resource's last-updated time.",
+            "type": "instant"
+        },
+        {
+            "name": "_count",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The maximum number of soft-deleted resources to return in one page.",
+            "type": "integer"
+        },
+        {
+            "name": "_continuationToken",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The continuation token used to retrieve the next page.",
+            "type": "string"
+        },
+        {
+            "name": "_sort",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The result order. Only _lastUpdated and -_lastUpdated are supported.",
+            "type": "string"
+        },
+        {
+            "name": "return",
+            "use": "out",
+            "min": 1,
+            "max": "1",
+            "documentation": "A history bundle containing current soft-deleted resources.",
+            "type": "Bundle"
+        }
+    ]
+}
