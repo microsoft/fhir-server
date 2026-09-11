@@ -263,6 +263,23 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenImportStatusRequestedByProcessingJobId_ThenNotFoundIsReturned()
+        {
+            var (checkLocation, orchestratorJobId) = await RegisterImport();
+            var response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            // Ids are issued in sequence, so the id after the orchestrator's belongs to one of its processing jobs.
+            var processingJobId = orchestratorJobId + 1;
+
+            // Relative resolution swaps the last path segment.
+            var processingJobLocation = new Uri(checkLocation, $"{processingJobId}");
+            var processingJobResponse = await _client.CheckImportAsync(processingJobLocation, checkSuccessStatus: false);
+
+            Assert.Equal(HttpStatusCode.NotFound, processingJobResponse.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_1001ResourcesWithSameLastUpdatedAndSequenceRollOver()
         {
             if (!_fixture.IsUsingInProcTestServer)

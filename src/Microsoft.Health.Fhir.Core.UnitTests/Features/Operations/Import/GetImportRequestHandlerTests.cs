@@ -163,10 +163,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         [Fact]
         public async Task WhenStatusIsRequestedByProcessingJobId_ThenResourceNotFoundExceptionIsThrown()
+        public async Task WhenStatusIsRequestedByProcessingJobId_ThenNotFoundShouldBeReturned()
         {
-            // A processing job's GroupId identifies its orchestrator and is never equal to its own Id.
-            // Status can only be requested using the orchestrator (group root) job id.
-            var polled = new JobInfo()
+            // A processing job is enqueued with the orchestrator's group id, so its own id differs from its group id.
+            // It does not identify an import operation, and its id is never handed out to callers.
+            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
+            var worker = new JobInfo()
             {
                 Id = 1,
                 GroupId = 0,
