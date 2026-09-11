@@ -138,12 +138,64 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Fact]
         public void ChangesAreOnlyInMetadata_WithComplexMetaContent_ShouldReturnTrue()
         {
-            var inputWrapper = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2023-01-02T00:00:00Z\",\"profile\":[\"http://example.com/profile\"],\"tag\":[{\"system\":\"http://example.com\",\"code\":\"test\"}]},\"id\":\"123\",\"active\":true}");
+            var inputWrapper = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2023-01-02T00:00:00Z\",\"profile\":[\"http://example.com/profile\"],\"tag\":[{\"system\":\"http://example.com\",\"code\":\"test\"}],\"security\":[{\"system\":\"http://example.com\",\"code\":\"sensitive\"}]},\"id\":\"123\",\"active\":true}");
             var existingWrapper = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"meta\":{\"versionId\":\"1\"},\"id\":\"123\",\"active\":true}");
 
             var result = InvokeChangesAreOnlyInMetadata(inputWrapper, existingWrapper);
 
             Assert.True(result);
+        }
+
+        [Fact]
+        public void GivenOnlyVersionAndLastUpdatedDiffer_WhenComparingRawResourcesWithoutKeepVersion_ThenSqlTreatsThemAsEqual()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            var input = new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2026-01-02T03:04:05Z\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"important\"}],\"security\":[{\"system\":\"http://example.com\",\"code\":\"sensitive\"}],\"profile\":[\"http://example.com/profile\"]},\"active\":true}", FhirResourceFormat.Json, isMetaSet: true);
+            var existing = new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2026-01-01T03:04:05Z\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"important\"}],\"security\":[{\"system\":\"http://example.com\",\"code\":\"sensitive\"}],\"profile\":[\"http://example.com/profile\"]},\"active\":true}", FhirResourceFormat.Json, isMetaSet: true);
+
+            var result = InvokeExistingRawResourceIsEqualToInput(dataStore, input, existing, keepVersion: false);
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void GivenDifferentMeaningfulMetaTag_WhenComparingRawResourcesWithoutKeepVersion_ThenSqlTreatsThemAsDifferent()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            var input = new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2026-01-02T03:04:05Z\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"changed\"}]},\"active\":true}", FhirResourceFormat.Json, isMetaSet: true);
+            var existing = new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2026-01-01T03:04:05Z\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"important\"}]},\"active\":true}", FhirResourceFormat.Json, isMetaSet: true);
+
+            var result = InvokeExistingRawResourceIsEqualToInput(dataStore, input, existing, keepVersion: false);
+
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void GivenEquivalentPropertiesInDifferentOrder_WhenComparingRawResourcesWithoutKeepVersion_ThenSqlTreatsThemAsDifferent()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            var input = new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\",\"active\":true,\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2026-01-02T03:04:05Z\"}}", FhirResourceFormat.Json, isMetaSet: true);
+            var existing = new RawResource("{\"resourceType\":\"Patient\",\"active\":true,\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2026-01-01T03:04:05Z\"}}", FhirResourceFormat.Json, isMetaSet: true);
+
+            var result = InvokeExistingRawResourceIsEqualToInput(dataStore, input, existing, keepVersion: false);
+
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void GivenDifferentVersionAndLastUpdated_WhenComparingRawResourcesWithKeepVersion_ThenSqlTreatsThemAsDifferent()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            var input = new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2026-01-02T03:04:05Z\"},\"active\":true}", FhirResourceFormat.Json, isMetaSet: true);
+            var existing = new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2026-01-01T03:04:05Z\"},\"active\":true}", FhirResourceFormat.Json, isMetaSet: true);
+
+            var result = InvokeExistingRawResourceIsEqualToInput(dataStore, input, existing, keepVersion: true);
+
+            Assert.False(result);
         }
 
         // Note: GetJsonValue tests require instance creation which has complex dependencies
@@ -191,6 +243,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             }
 
             return (bool)method.Invoke(null, new object[] { inputWrapper, existingWrapper });
+        }
+
+        private static bool InvokeExistingRawResourceIsEqualToInput(SqlServerFhirDataStore dataStore, RawResource input, RawResource existing, bool keepVersion)
+        {
+            var method = typeof(SqlServerFhirDataStore).GetMethod(
+                "ExistingRawResourceIsEqualToInput",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (method == null)
+            {
+                throw new InvalidOperationException("Method 'ExistingRawResourceIsEqualToInput' not found");
+            }
+
+            return (bool)method.Invoke(dataStore, new object[] { input, existing, keepVersion });
         }
 
         // Note: GetJsonValue tests require instance creation which has complex dependencies

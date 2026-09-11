@@ -89,6 +89,40 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
+        public void GivenOnlyVersionAndLastUpdatedDiffer_WhenPreparingCosmosNoOpComparison_ThenMeaningfulMetaAndPayloadAreRetained()
+        {
+            var input = CreateCosmosResourceWrapper(
+                "{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2026-01-02T03:04:05.123+00:00\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"important\"}],\"security\":[{\"system\":\"http://example.com\",\"code\":\"sensitive\"}],\"profile\":[\"http://example.com/profile\"]},\"active\":true}",
+                "2",
+                new DateTimeOffset(2026, 1, 2, 3, 4, 5, 123, TimeSpan.Zero));
+            var existing = CreateCosmosResourceWrapper(
+                "{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2026-01-01T03:04:05.123+00:00\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"important\"}],\"security\":[{\"system\":\"http://example.com\",\"code\":\"sensitive\"}],\"profile\":[\"http://example.com/profile\"]},\"active\":true}",
+                "1",
+                new DateTimeOffset(2026, 1, 1, 3, 4, 5, 123, TimeSpan.Zero));
+
+            Assert.Equal(
+                InvokeRemoveVersionIdAndLastUpdatedFromMeta(existing),
+                InvokeRemoveVersionIdAndLastUpdatedFromMeta(input));
+        }
+
+        [Fact]
+        public void GivenDifferentMeaningfulMetaTag_WhenPreparingCosmosNoOpComparison_ThenResourcesRemainDifferent()
+        {
+            var input = CreateCosmosResourceWrapper(
+                "{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2026-01-02T03:04:05.123+00:00\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"changed\"}]},\"active\":true}",
+                "2",
+                new DateTimeOffset(2026, 1, 2, 3, 4, 5, 123, TimeSpan.Zero));
+            var existing = CreateCosmosResourceWrapper(
+                "{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2026-01-01T03:04:05.123+00:00\",\"tag\":[{\"system\":\"http://example.com\",\"code\":\"important\"}]},\"active\":true}",
+                "1",
+                new DateTimeOffset(2026, 1, 1, 3, 4, 5, 123, TimeSpan.Zero));
+
+            Assert.NotEqual(
+                InvokeRemoveVersionIdAndLastUpdatedFromMeta(existing),
+                InvokeRemoveVersionIdAndLastUpdatedFromMeta(input));
+        }
+
+        [Fact]
         public async Task GivenAQuery_WhenASinglePageReturnsRequestedCount_ASingleQueryIsPerformced()
         {
             ICosmosQuery<int> cosmosQuery = Substitute.For<ICosmosQuery<int>>();
@@ -104,6 +138,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             Assert.Equal(Enumerable.Range(0, 10), results);
             Assert.Null(continuationToken);
+        }
+
+        private static FhirCosmosResourceWrapper CreateCosmosResourceWrapper(string rawResourceData, string version, DateTimeOffset lastModified)
+        {
+            return new FhirCosmosResourceWrapper(
+                "123",
+                version,
+                "Patient",
+                new RawResource(rawResourceData, FhirResourceFormat.Json, isMetaSet: true),
+                request: null,
+                lastModified,
+                deleted: false,
+                history: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null);
+        }
+
+        private static string InvokeRemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
+        {
+            var method = typeof(CosmosFhirDataStore).GetMethod(
+                "RemoveVersionIdAndLastUpdatedFromMeta",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (method == null)
+            {
+                throw new InvalidOperationException("Method 'RemoveVersionIdAndLastUpdatedFromMeta' not found");
+            }
+
+            return (string)method.Invoke(null, new object[] { resourceWrapper });
         }
 
         [Fact]

@@ -397,6 +397,62 @@ function Get-SafeErrorSummary {
     return 'Import request, status polling, or terminal response validation failed.'
 }
 
+function Get-ImportPollWaitMilliseconds {
+    param(
+        [Parameter(Mandatory = $true)] [DateTime] $DeadlineUtc,
+        [Parameter(Mandatory = $true)] [int] $PollSeconds
+    )
+
+    $remaining = $DeadlineUtc - [DateTime]::UtcNow
+    if ($remaining -le [TimeSpan]::Zero) {
+        return 0
+    }
+
+    return [Math]::Min(
+        [long]$PollSeconds * 1000,
+        [long][Math]::Ceiling($remaining.TotalMilliseconds))
+}
+
+function Wait-ImportPollInterval {
+    param(
+        [Parameter(Mandatory = $true)] [DateTime] $DeadlineUtc,
+        [Parameter(Mandatory = $true)] [int] $PollSeconds,
+        [Parameter(Mandatory = $true)] [Threading.CancellationToken] $CancellationToken
+    )
+
+    $CancellationToken.ThrowIfCancellationRequested()
+    $waitMilliseconds = Get-ImportPollWaitMilliseconds -DeadlineUtc $DeadlineUtc -PollSeconds $PollSeconds
+    if ($waitMilliseconds -le 0) {
+        throw [OperationCanceledException]::new('Import polling reached the configured timeout.')
+    }
+
+    if ($CancellationToken.WaitHandle.WaitOne([int]$waitMilliseconds)) {
+        $CancellationToken.ThrowIfCancellationRequested()
+    }
+
+    if ([DateTime]::UtcNow -ge $DeadlineUtc) {
+        throw [OperationCanceledException]::new('Import polling reached the configured timeout.')
+    }
+}
+
+function Read-ImportTerminalResponse {
+    param(
+        [Parameter(Mandatory = $true)] [Net.Http.HttpResponseMessage] $Response,
+        [Parameter(Mandatory = $true)] [Threading.CancellationToken] $CancellationToken
+    )
+
+    $CancellationToken.ThrowIfCancellationRequested()
+    $contentReadTask = $Response.Content.ReadAsStringAsync()
+    $cancellationTask = [Threading.Tasks.Task]::Delay([Threading.Timeout]::Infinite, $CancellationToken)
+    $completedTask = [Threading.Tasks.Task]::WhenAny([Threading.Tasks.Task[]]@($contentReadTask, $cancellationTask)).GetAwaiter().GetResult()
+    if (-not [object]::ReferenceEquals($completedTask, $contentReadTask)) {
+        $CancellationToken.ThrowIfCancellationRequested()
+    }
+
+    $CancellationToken.ThrowIfCancellationRequested()
+    return $contentReadTask.GetAwaiter().GetResult()
+}
+
 function Get-ManifestCorpus {
     param([Parameter(Mandatory = $true)] [string] $Path)
 
@@ -604,6 +660,7 @@ function Invoke-ImportBaseline {
     }
     $requestUri = [Uri]::new($endpointUri, '$import')
     $started = [DateTime]::UtcNow
+    $deadline = $started.AddMinutes($TimeoutMinutes)
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     $outcome = 'Failed'
     $errorSummary = $null
@@ -630,8 +687,7 @@ function Invoke-ImportBaseline {
 
             $statusUri = Resolve-ImportStatusUri -Endpoint $endpointUri.AbsoluteUri -StatusLocation $statusLocation
             while ($true) {
-                $cancellation.Token.ThrowIfCancellationRequested()
-                Start-Sleep -Seconds $PollSeconds
+                Wait-ImportPollInterval -DeadlineUtc $deadline -PollSeconds $PollSeconds -CancellationToken $cancellation.Token
 
                 $pollRequest = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get, $statusUri)
                 if (-not [string]::IsNullOrWhiteSpace($AccessToken)) {
@@ -656,7 +712,7 @@ function Invoke-ImportBaseline {
                     throw "Import status returned unexpected status $([int]$pollResponse.StatusCode)."
                 }
 
-                $result = $pollResponse.Content.ReadAsStringAsync($cancellation.Token).GetAwaiter().GetResult() | ConvertFrom-Json
+                $result = Read-ImportTerminalResponse -Response $pollResponse -CancellationToken $cancellation.Token | ConvertFrom-Json
                 $successful = @($result.output | ForEach-Object { [long]$_.count } | Measure-Object -Sum).Sum
                 $errors = @($result.error | ForEach-Object { [long]$_.count } | Measure-Object -Sum).Sum
                 $counts = [pscustomobject]@{

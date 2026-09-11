@@ -4,6 +4,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path "$PSScriptRoot/../../..").Path
 $baselineScriptPath = Join-Path $repositoryRoot 'tools/IncludePerf/Invoke-ImportBaseline.ps1'
+$noCancellation = [Threading.CancellationToken]::None
 
 . $baselineScriptPath
 
@@ -42,6 +43,54 @@ function Assert-Throws {
 
 Assert-Equal -Expected $true -Actual ($null -ne ('System.Net.Http.HttpClientHandler' -as [type])) `
     -Description 'Import baseline script did not resolve System.Net.Http types when it was loaded'
+
+$remainingPollMilliseconds = Get-ImportPollWaitMilliseconds -DeadlineUtc ([DateTime]::UtcNow.AddMilliseconds(50)) -PollSeconds 300
+if ($remainingPollMilliseconds -lt 0 -or $remainingPollMilliseconds -gt 50) {
+    throw "Polling wait was not capped by the remaining deadline. Actual '$remainingPollMilliseconds' milliseconds."
+}
+
+Assert-Throws -Action {
+    Wait-ImportPollInterval -DeadlineUtc ([DateTime]::UtcNow.AddMilliseconds(-1)) -PollSeconds 300 -CancellationToken $noCancellation
+} -ExpectedMessage 'configured timeout' -Description 'Polling continued after its configured deadline'
+
+$cancelledPolling = [Threading.CancellationTokenSource]::new()
+try {
+    $cancelledPolling.Cancel()
+    Assert-Throws -Action {
+        Wait-ImportPollInterval -DeadlineUtc ([DateTime]::UtcNow.AddSeconds(1)) -PollSeconds 1 -CancellationToken $cancelledPolling.Token
+    } -ExpectedMessage 'canceled' -Description 'Polling did not propagate cancellation'
+}
+finally {
+    $cancelledPolling.Dispose()
+}
+
+$terminalResponse = [Net.Http.HttpResponseMessage]::new([Net.HttpStatusCode]::OK)
+try {
+    $terminalResponse.Content = [Net.Http.StringContent]::new('{"output":[],"error":[]}')
+    Assert-Equal -Expected '{"output":[],"error":[]}' -Actual (Read-ImportTerminalResponse -Response $terminalResponse -CancellationToken $noCancellation) `
+        -Description 'Terminal response content was not read through the Windows PowerShell-compatible path'
+}
+finally {
+    $terminalResponse.Dispose()
+}
+
+$cancelledTerminalRead = [Threading.CancellationTokenSource]::new()
+try {
+    $cancelledTerminalRead.Cancel()
+    $cancelledTerminalResponse = [Net.Http.HttpResponseMessage]::new([Net.HttpStatusCode]::OK)
+    try {
+        $cancelledTerminalResponse.Content = [Net.Http.StringContent]::new('{"output":[],"error":[]}')
+        Assert-Throws -Action {
+            Read-ImportTerminalResponse -Response $cancelledTerminalResponse -CancellationToken $cancelledTerminalRead.Token
+        } -ExpectedMessage 'canceled' -Description 'Terminal response read did not propagate cancellation'
+    }
+    finally {
+        $cancelledTerminalResponse.Dispose()
+    }
+}
+finally {
+    $cancelledTerminalRead.Dispose()
+}
 
 $baselineScript = Get-Content -LiteralPath $baselineScriptPath -Raw
 Assert-Equal -Expected $true -Actual ($baselineScript -match '\$response\.Content\.Headers\.ContentLocation') `

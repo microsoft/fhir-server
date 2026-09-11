@@ -60,19 +60,39 @@ precision, temporal spelling, and metadata placement.
 Lexical fidelity is asserted only where a current observable raw token or
 string is required. The SQL raw-resource dedupe path currently uses exact
 string comparison after its metadata substitutions. Cosmos also regenerates
-raw JSON after metadata handling. This L2 work characterizes parser/raw output
-only; it does **not** claim that semantically equivalent but lexically different
-writes are no-ops, nor does it alter either store's comparison behavior.
+raw JSON after metadata handling. This L2 work does not alter either store's
+comparison behavior.
+
+## SQL and Cosmos equality/metadata contract characterization
+
+The following tests execute the current credential-free store-boundary helpers
+with literal raw JSON. They characterize comparison inputs, not a replacement
+for isolated-store integration testing:
+
+| Store boundary | Executable evidence | Observed current behavior |
+| --- | --- | --- |
+| SQL raw-resource dedupe | `SqlServerFhirDataStoreUnitTests.GivenOnlyVersionAndLastUpdatedDiffer_WhenComparingRawResourcesWithoutKeepVersion_ThenSqlTreatsThemAsEqual` | With raw-resource deduplication enabled and `KeepVersion` false, SQL treats raw JSON as equal when exact ordinal payloads differ only in the formatted `meta.versionId` and `meta.lastUpdated` values that its comparison substitutes. Meaningful `meta.tag`, `meta.security`, and `meta.profile` members remain part of the comparison. |
+| SQL lexical boundary and `KeepVersion` | `GivenEquivalentPropertiesInDifferentOrder_WhenComparingRawResourcesWithoutKeepVersion_ThenSqlTreatsThemAsDifferent` and `GivenDifferentVersionAndLastUpdated_WhenComparingRawResourcesWithKeepVersion_ThenSqlTreatsThemAsDifferent` | SQL does not use semantic JSON comparison for this path: otherwise equivalent root-property reorderings are different. `KeepVersion` selects direct ordinal raw-string comparison, so different version/lastUpdated values are different. |
+| SQL metadata-only update branch | existing `ChangesAreOnlyInMetadata_*` unit cases | When the raw dedupe branch did not match and `MetaHistory` is false, SQL compares raw strings after removing the `meta` sections. A metadata-only change—including tag/profile/security changes—therefore suppresses history for that update; a payload change outside `meta` does not. |
+| Cosmos no-op comparison | `CosmosFhirDataStoreTests.GivenOnlyVersionAndLastUpdatedDiffer_WhenPreparingCosmosNoOpComparison_ThenMeaningfulMetaAndPayloadAreRetained` | Cosmos derives its no-op comparison input by removing the current wrapper's exact formatted versionId and lastUpdated tokens, then uses ordinal string comparison. The tested equal case retains matching tag/security/profile and payload data. |
+| Cosmos meaningful metadata | `CosmosFhirDataStoreTests.GivenDifferentMeaningfulMetaTag_WhenPreparingCosmosNoOpComparison_ThenResourcesRemainDifferent` | A meaningful `meta.tag` difference remains after token removal and prevents a no-op match. The same ordinal boundary applies to unchanged meta members and payload formatting/order. |
+
+Current storage code performs optimistic-concurrency writes after a non-no-op:
+Cosmos supplies the stored document ETag as `IfMatchEtag` and re-reads after a
+412, while SQL validates a required weak ETag before its update branch. The
+unit characterization above proves the deterministic equality inputs that
+decide whether those write paths are reached; it does not invent an
+end-to-end ETag or history result.
 
 ## Capability matrix
 
 | Capability | Current owner/provider | L2 evidence | Status and follow-up |
 | --- | --- | --- | --- |
-| Create, update, delete, and history | Existing resource handlers plus SQL/Cosmos stores | Import metadata and raw-resource shape are unit characterized; no store behavior changed | SQL/Cosmos no-op, history, ETag, and import-conflict behavior need isolated-store integration evidence under story 206675. |
+| Create, update, delete, and history | Existing resource handlers plus SQL/Cosmos stores | Credential-free SQL/Cosmos equality and metadata-boundary tests characterize no-op eligibility, `KeepVersion`, meaningful meta, and SQL's `MetaHistory` branch; parser tests characterize import metadata | No live-store create/update/delete/history assertion was made. Isolated-store integration coverage for persisted history and conflicts remains under story 206675. |
 | Search and reindex | Existing Firely-backed indexing and reindex pipeline | No import-parser-only claim | Not migrated; retain current behavior. |
 | Bundles | Existing bundle orchestration | Parser suite records Bundle-entry conditional-reference divergence | Bundle persistence remains outside the import parser seam. |
 | Validation | Existing validation pipeline | Malformed JSON/scalar negative cases only | Full validation parity is not claimed. |
-| Metadata | Parser plus `RawResourceFactory` | id/version/lastUpdated, keep flags, soft-delete and meaningful raw metadata shape are covered | Store-assigned ETags and metadata-only history remain isolated-store work. |
+| Metadata | Parser plus `RawResourceFactory`; SQL/Cosmos store boundaries | Parser tests cover id/version/lastUpdated and import keep flags; store tests cover raw equality eligibility, `KeepVersion`, meaningful tag/security/profile preservation, and SQL metadata-only history suppression | Store-assigned ETags and persisted metadata-only-history observations require isolated stores. |
 | Import | Selectable Firely/Ignixa parser followed by Firely serialization | Real parser, DI-selected provider-path, positive, divergent, and error cases | Native Ignixa persistence and full rollback are pending. |
 | Export | Existing Firely export serializer | None | Not migrated or characterized by this task. |
 | Patch | Existing Firely patch implementation | None | Not migrated or characterized by this task. |
@@ -82,8 +102,11 @@ writes are no-ops, nor does it alter either store's comparison behavior.
 ## Evidence limits
 
 No shared store, cloud endpoint, deployment, benchmark, database reset, or
-PerfTester default entry point was executed for this task. Consequently, there
-is no L2 claim about throughput, allocations, server memory, SQL/Cosmos
-outcomes, ETags, import-job deduplication, or live import conflicts. Those
-items require the opt-in tooling and isolated-store execution planned for the
-later L2 baseline work and L3/L4 implementation stories.
+PerfTester default entry point was executed for this task. The deterministic
+unit tests document SQL/Cosmos comparison inputs, but a credential-free
+isolated SQL/Cosmos fixture is not available in this workspace. Consequently,
+there is no L2 claim about persisted SQL/Cosmos outcomes, ETags,
+metadata-only history records, import-job deduplication, live import conflicts,
+throughput, allocations, or server memory. Those items require explicit
+operator-supplied isolated-store execution through the opt-in tooling and the
+later L2/L3/L4 implementation stories.
