@@ -40,6 +40,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             EvaluatedEmpty,
             EvaluatedWithVector,
             StaleVersion,
+            StaleOrdinaryCurrentVector,
+            VectorResourceAbsentFromOrdinaryInput,
             DuplicateVector,
         }
 
@@ -132,6 +134,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenCurrentSchema_WhenVectorReindexTargetsStaleVersion_ResourceAndVectorsArePreserved()
         {
             await VerifyVectorReindexAsync(VectorReindexScenario.StaleVersion, expectedFailedResources: 1, expectedHash: OriginalSearchParamHash, expectedCompressedText: OriginalCompressedText);
+        }
+
+        [Fact]
+        public async Task GivenCurrentSchema_WhenOrdinaryReindexIsStaleButVectorInputIsCurrent_ResourceAndVectorsArePreserved()
+        {
+            await VerifyVectorReindexAsync(VectorReindexScenario.StaleOrdinaryCurrentVector, expectedFailedResources: 1, expectedHash: OriginalSearchParamHash, expectedCompressedText: OriginalCompressedText);
+        }
+
+        [Fact]
+        public async Task GivenCurrentSchema_WhenVectorResourceIsAbsentFromOrdinaryInput_ResourceAndVectorsArePreserved()
+        {
+            await VerifyVectorReindexAsync(VectorReindexScenario.VectorResourceAbsentFromOrdinaryInput, expectedFailedResources: 0, expectedHash: OriginalSearchParamHash, expectedCompressedText: OriginalCompressedText);
         }
 
         [Fact]
@@ -493,20 +507,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private static string CreateReindexCommandText(VectorReindexScenario scenario)
         {
             bool includeVectorParameters = scenario != VectorReindexScenario.Omitted;
-            int version = scenario == VectorReindexScenario.StaleVersion ? 0 : 1;
+            bool includeOrdinaryResource = scenario != VectorReindexScenario.VectorResourceAbsentFromOrdinaryInput;
+            int ordinaryVersion = scenario is VectorReindexScenario.StaleVersion or VectorReindexScenario.StaleOrdinaryCurrentVector ? 0 : 1;
+            int vectorVersion = scenario == VectorReindexScenario.StaleVersion ? 0 : 1;
             string vectorDeclarations = includeVectorParameters
-                ? """
+                ? $"""
                     DECLARE @VectorSearchResources dbo.ResourceList;
                     DECLARE @VectorSearchParams dbo.VectorSearchParamList;
 
                     INSERT INTO @VectorSearchResources
                         (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, HasVersionToCompare, IsDeleted, IsHistory, KeepHistory, RawResource, IsRawResourceMetaSet, RequestMethod, SearchParamHash)
-                    SELECT ResourceTypeId, @ResourceSurrogateId, @ResourceId, @Version, 1, 0, 0, 1, 0x01, 1, 'PUT', @SearchParamHash
+                    SELECT ResourceTypeId, @ResourceSurrogateId, @ResourceId, {vectorVersion}, 1, 0, 0, 1, 0x01, 1, 'PUT', @SearchParamHash
                     FROM dbo.ResourceType
                     WHERE Name = 'Observation';
                     """
                 : string.Empty;
-            string vectorRows = scenario is VectorReindexScenario.EvaluatedWithVector or VectorReindexScenario.StaleVersion or VectorReindexScenario.DuplicateVector
+            string vectorRows = scenario is VectorReindexScenario.EvaluatedWithVector
+                or VectorReindexScenario.StaleVersion
+                or VectorReindexScenario.StaleOrdinaryCurrentVector
+                or VectorReindexScenario.VectorResourceAbsentFromOrdinaryInput
+                or VectorReindexScenario.DuplicateVector
                 ? $"""
                     INSERT INTO @VectorSearchParams
                         (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding)
@@ -538,7 +558,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             return $$"""
                 DECLARE @FailedResources int;
-                DECLARE @Version int = {{version}};
                 DECLARE @Resources dbo.ResourceList;
                 DECLARE @ResourceWriteClaims dbo.ResourceWriteClaimList;
                 DECLARE @ReferenceSearchParams dbo.ReferenceSearchParamList;
@@ -558,9 +577,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 INSERT INTO @Resources
                     (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, HasVersionToCompare, IsDeleted, IsHistory, KeepHistory, RawResource, IsRawResourceMetaSet, RequestMethod, SearchParamHash)
-                SELECT ResourceTypeId, @ResourceSurrogateId, @ResourceId, @Version, 1, 0, 0, 1, 0x01, 1, 'PUT', @SearchParamHash
+                SELECT ResourceTypeId, @ResourceSurrogateId, @ResourceId, {{ordinaryVersion}}, 1, 0, 0, 1, 0x01, 1, 'PUT', @SearchParamHash
                 FROM dbo.ResourceType
-                WHERE Name = 'Observation';
+                WHERE Name = 'Observation'
+                  AND {{(includeOrdinaryResource ? "1" : "0")}} = 1;
 
                 {{vectorDeclarations}}
                 {{vectorRows}}

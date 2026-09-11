@@ -1674,6 +1674,9 @@ BEGIN TRY
          ( ResourceTypeId, ResourceSurrogateId )
     SELECT A.ResourceTypeId, A.ResourceSurrogateId
       FROM @VectorSearchResources A
+           JOIN @Ids I
+             ON I.ResourceTypeId = A.ResourceTypeId
+            AND I.ResourceSurrogateId = A.ResourceSurrogateId
            JOIN dbo.Resource B WITH (UPDLOCK, HOLDLOCK)
              ON B.ResourceTypeId = A.ResourceTypeId
             AND B.ResourceSurrogateId = A.ResourceSurrogateId
