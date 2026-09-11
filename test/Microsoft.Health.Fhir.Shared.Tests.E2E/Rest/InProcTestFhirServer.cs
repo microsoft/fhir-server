@@ -42,12 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             : base(new Uri("http://localhost/"))
         {
             var projectDir = GetProjectPath("src", startupType);
-            var testConfigPath = Path.GetFullPath("testconfiguration.json");
-
-            if (!testConfigPath.Contains("\\bin\\Debug\\net"))
-            {
-                testConfigPath = Path.Combine(testConfigPath.Substring(0, testConfigPath.IndexOf("testconfiguration.json")), "bin\\Debug\\net9.0\\testconfiguration.json");
-            }
+            var testConfigPath = Path.Combine(AppContext.BaseDirectory, "testconfiguration.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
