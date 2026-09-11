@@ -51,7 +51,6 @@ The extension URL is
 `http://microsoft.com/fhir/StructureDefinition/vector-search-config`. Its basic direct-text
 properties are:
 
-- `sourceStrategy`: must be `directText`.
 - `extractionPolicy`: `firstValue`, `concatenate`, or `perValueRow`.
 - `maxInputTokens`: maximum text input for one configured source.
 - `minimumScore`: normalized score threshold from 0 through 1.
@@ -70,8 +69,8 @@ First activation uses the normal reindex workflow to backfill existing resources
 
 Create and update requests extract configured text, chunk it, create embeddings synchronously, and
 send vector rows in the same SQL merge operation as the resource and ordinary search indices.
-Deletes and empty extraction replace prior vector rows with an empty set. Reindex uses
-`UpdateResourceSearchParamsWithVectors` so ordinary and vector indices are updated atomically.
+Deletes and empty extraction replace prior vector rows with an empty set. Reindex uses the existing `UpdateResourceSearchParams` procedure so ordinary and vector indices are
+updated atomically.
 Foundry requests are split without reordering when they would exceed 2,048 inputs or 300,000 total
 tokens; provider failures and output-count mismatches fail the indexing operation.
 
@@ -96,12 +95,11 @@ with stable resource keys.
 
 ## Unsupported behavior
 
-This MVP rejects the following before calling the embedding service:
+This MVP does not support:
 
-- `localBinaryReference`, Binary content, and PDF extraction.
+- Binary content, PDF extraction, or linked-resource text resolution.
 - Forward or reverse semantic-search chains.
 - The Patient `$semantic-search` operation.
 
 It does not emit semantic evidence, snippets, witnesses, provenance extensions, or linked-source
-refresh jobs. Those capabilities require their authorization and lifecycle components to be
-installed together in a later layer.
+refresh jobs.

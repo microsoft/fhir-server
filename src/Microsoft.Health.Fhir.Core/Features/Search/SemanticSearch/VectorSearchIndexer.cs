@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         private readonly ITextChunker _textChunker;
         private readonly IEmbeddingClient _embeddingClient;
         private readonly IEmbeddingModelRegistry _embeddingModelRegistry;
-        private readonly IVectorTextSourceResolver _textSourceResolver;
         private readonly VectorSearchConfiguration _configuration;
         private readonly ILogger<VectorSearchIndexer> _logger;
 
@@ -43,7 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             ITextChunker textChunker,
             IEmbeddingClient embeddingClient,
             IEmbeddingModelRegistry embeddingModelRegistry,
-            IVectorTextSourceResolver textSourceResolver,
             IOptions<VectorSearchConfiguration> configuration,
             ILogger<VectorSearchIndexer> logger)
         {
@@ -51,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             _textChunker = EnsureArg.IsNotNull(textChunker, nameof(textChunker));
             _embeddingClient = EnsureArg.IsNotNull(embeddingClient, nameof(embeddingClient));
             _embeddingModelRegistry = EnsureArg.IsNotNull(embeddingModelRegistry, nameof(embeddingModelRegistry));
-            _textSourceResolver = EnsureArg.IsNotNull(textSourceResolver, nameof(textSourceResolver));
             _configuration = EnsureArg.IsNotNull(configuration, nameof(configuration)).Value;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
@@ -63,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 
             var entriesByResource = resources.ToDictionary(resource => resource, _ => new List<VectorSearchIndexEntry>());
             var pendingIndices = new List<PendingVectorIndex>();
-            var passages = new List<VectorTextSource>();
+            var passages = new List<string>();
 
             foreach (ResourceWrapper resource in resources)
             {
@@ -77,14 +74,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 foreach (SearchParameterInfo searchParameter in _searchParameterResolver.GetIndexingSearchParameters(resource.ResourceTypeName))
                 {
                     IReadOnlyList<string> extractedValues = GetExtractedValues(resource, searchParameter);
-                    IReadOnlyList<VectorTextSource> resolvedSources = await _textSourceResolver.ResolveAsync(
-                        resource,
-                        searchParameter,
-                        extractedValues,
-                        resources,
-                        cancellationToken);
-                    IReadOnlyList<VectorTextSource> sourceTexts = ApplyExtractionPolicy(searchParameter.VectorConfig.ExtractionPolicy, resolvedSources);
-                    var chunks = new List<VectorTextSource>();
+                    IReadOnlyList<string> sourceTexts = ApplyExtractionPolicy(searchParameter.VectorConfig.ExtractionPolicy, extractedValues);
+                    var chunks = new List<string>();
                     if (!_configuration.TryResolveChunkSettings(
                         searchParameter.VectorConfig,
                         out int configuredChunkSize,
@@ -94,11 +85,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                         throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Url}' has invalid effective chunk settings. {chunkSettingsError}");
                     }
 
-                    foreach (VectorTextSource sourceText in sourceTexts)
+                    foreach (string sourceText in sourceTexts)
                     {
                         chunks.AddRange(_textChunker
-                            .Chunk(sourceText.Text, searchParameter.VectorConfig.MaxInputTokens, configuredChunkSize, configuredChunkOverlap)
-                            .Select(text => new VectorTextSource(text, sourceText.ResourceType, sourceText.ResourceId, sourceText.ResourceVersion, sourceText.Path)));
+                            .Chunk(sourceText, searchParameter.VectorConfig.MaxInputTokens, configuredChunkSize, configuredChunkOverlap));
                     }
 
                     if (chunks.Count == 0)
@@ -123,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             }
 
             _logger.LogInformation("Vector indexing invoking embedding endpoint for {PassageCount} passage(s) across {IndexCount} search-parameter target(s).", passages.Count, pendingIndices.Count);
-            IReadOnlyList<float[]> embeddings = await _embeddingClient.GenerateEmbeddingsAsync(passages.Select(passage => passage.Text).ToList(), cancellationToken);
+            IReadOnlyList<float[]> embeddings = await _embeddingClient.GenerateEmbeddingsAsync(passages, cancellationToken);
             if (embeddings.Count != passages.Count)
             {
                 throw new InvalidOperationException("The embedding service returned a different number of vectors than passages.");
@@ -142,17 +132,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                         throw new InvalidOperationException($"The embedding service returned a vector with {embedding.Length} dimensions; expected {_embeddingClient.Dimensions}.");
                     }
 
-                    VectorTextSource passage = passages[passageIndex];
-                    byte[] sourceTextHash = SHA256.HashData(Encoding.UTF8.GetBytes(passage.Text));
+                    string passage = passages[passageIndex];
+                    byte[] sourceTextHash = SHA256.HashData(Encoding.UTF8.GetBytes(passage));
                     chunks.Add(new VectorSearchChunk(
                         chunkOrdinal,
-                        passage.Text,
+                        passage,
                         sourceTextHash,
-                        embedding,
-                        passage.ResourceType,
-                        passage.ResourceId,
-                        passage.ResourceVersion,
-                        passage.Path));
+                        embedding));
                 }
 
                 entriesByResource[pendingIndex.Resource].Add(
@@ -186,27 +172,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             return values;
         }
 
-        private static IReadOnlyList<VectorTextSource> ApplyExtractionPolicy(
+        private static IReadOnlyList<string> ApplyExtractionPolicy(
             VectorTextExtractionPolicy extractionPolicy,
-            IReadOnlyList<VectorTextSource> extractedValues)
+            IReadOnlyList<string> extractedValues)
         {
             if (extractedValues.Count == 0)
             {
-                return Array.Empty<VectorTextSource>();
+                return Array.Empty<string>();
             }
 
             return extractionPolicy switch
             {
                 VectorTextExtractionPolicy.FirstValue => new[] { extractedValues[0] },
-                VectorTextExtractionPolicy.Concatenate => extractedValues
-                    .GroupBy(value => (value.ResourceType, value.ResourceId, value.ResourceVersion, value.Path))
-                    .Select(group => new VectorTextSource(
-                        string.Join(ConcatenatedValueSeparator, group.Select(value => value.Text)),
-                        group.Key.ResourceType,
-                        group.Key.ResourceId,
-                        group.Key.ResourceVersion,
-                        group.Key.Path))
-                    .ToList(),
+                VectorTextExtractionPolicy.Concatenate => new[] { string.Join(ConcatenatedValueSeparator, extractedValues) },
                 VectorTextExtractionPolicy.PerValueRow => extractedValues,
                 _ => throw new InvalidOperationException($"Unsupported vector text extraction policy '{extractionPolicy}'."),
             };

@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (searchParamInfo.VectorConfig != null)
                 {
-                    sb.Append(searchParamInfo.VectorConfig.SourceStrategy);
                     sb.Append(searchParamInfo.VectorConfig.ExtractionPolicy);
                     sb.Append(searchParamInfo.VectorConfig.MaxInputTokens);
                     sb.Append(searchParamInfo.VectorConfig.MinimumScore);
