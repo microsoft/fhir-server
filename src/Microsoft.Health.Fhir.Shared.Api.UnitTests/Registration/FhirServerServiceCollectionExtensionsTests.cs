@@ -34,10 +34,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:Mode"] = "Synchronous",
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:ChunkSizeTokens"] = "600",
                 ["FhirServer:CoreFeatures:VectorSearch:Indexing:ChunkOverlapTokens"] = "50",
-                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumFileSizeBytes"] = "5242880",
-                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumPageCount"] = "100",
-                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:MaximumExtractedCharacters"] = "250000",
-                ["FhirServer:CoreFeatures:VectorSearch:Indexing:Pdf:ExtractionTimeout"] = "00:00:15",
                 ["FhirServer:CoreFeatures:VectorSearch:Query:DistanceMetric"] = "cosine",
             });
             var services = new ServiceCollection();
@@ -57,10 +53,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal(VectorSearchIndexingMode.Synchronous, vectorSearch.Indexing.Mode);
             Assert.Equal(600, vectorSearch.Indexing.ChunkSizeTokens);
             Assert.Equal(50, vectorSearch.Indexing.ChunkOverlapTokens);
-            Assert.Equal(5 * 1024 * 1024, vectorSearch.Indexing.Pdf.MaximumFileSizeBytes);
-            Assert.Equal(100, vectorSearch.Indexing.Pdf.MaximumPageCount);
-            Assert.Equal(250_000, vectorSearch.Indexing.Pdf.MaximumExtractedCharacters);
-            Assert.Equal(TimeSpan.FromSeconds(15), vectorSearch.Indexing.Pdf.ExtractionTimeout);
             Assert.Equal("cosine", vectorSearch.Query.DistanceMetric);
         }
 
