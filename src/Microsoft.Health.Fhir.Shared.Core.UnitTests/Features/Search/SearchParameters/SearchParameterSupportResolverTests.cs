@@ -55,10 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic-text"),
                 expression: "DocumentReference.content.attachment.url.toString()",
                 baseResourceTypes: new[] { "DocumentReference" },
-                vectorConfig: new VectorSearchParameterConfig
-                {
-                    SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference,
-                });
+                vectorConfig: new VectorSearchParameterConfig());
 
             var supported = _resolver.IsSearchParameterSupported(searchParameter);
 

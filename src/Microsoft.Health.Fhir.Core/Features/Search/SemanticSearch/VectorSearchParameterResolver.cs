@@ -115,12 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 return false;
             }
 
-            if (searchParameter.VectorConfig.SourceStrategy != VectorTextSourceStrategy.DirectText)
-            {
-                errorMessage = $"Vector SearchParameter '{searchParameter.Url}' uses unsupported source strategy '{searchParameter.VectorConfig.SourceStrategy}'.";
-                return false;
-            }
-
             if (!_configuration.TryResolveChunkSettings(searchParameter.VectorConfig, out _, out _, out string chunkSettingsError))
             {
                 errorMessage = $"Vector SearchParameter '{searchParameter.Url}' has invalid effective chunk settings. {chunkSettingsError}";

@@ -149,24 +149,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         }
 
         [Fact]
-        public void GivenLocalBinaryReferenceSearchParameter_WhenResolved_ThenResolutionFails()
-        {
-            // Arrange
-            SearchParameterInfo searchParameter = CreateVectorSearchParameter(
-                VectorCanonical,
-                vectorConfig: new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
-            ISearchParameterDefinitionManager definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            ConfigureRegisteredDefinition(definitionManager, searchParameter);
-            VectorSearchParameterResolver resolver = CreateResolver(definitionManager);
-
-            // Act
-            Action resolve = () => resolver.GetSearchParameter(VectorCanonical);
-
-            // Assert
-            Assert.Throws<InvalidOperationException>(resolve);
-        }
-
-        [Fact]
         public void GivenOverlapOnlyOverrideSmallerThanGlobalChunkSize_WhenResolvingForIndexing_ThenDefinitionIsReturned()
         {
             SearchParameterInfo searchParameter = CreateVectorSearchParameter(

@@ -69,12 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 throw new InvalidSearchOperationException("Semantic search chains are not supported.");
             }
 
-            if (vectorExpression.Parameter.VectorConfig.SourceStrategy != VectorTextSourceStrategy.DirectText)
-            {
-                throw new InvalidSearchOperationException(
-                    $"Vector text source strategy '{vectorExpression.Parameter.VectorConfig.SourceStrategy}' is not supported.");
-            }
-
             IReadOnlyList<float[]> embeddings = await _embeddingClient.GenerateEmbeddingsAsync(
                 new[] { vectorExpression.QueryText },
                 cancellationToken);

@@ -21,11 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Models
         public const string ExtractionPolicyExtensionUrl = "extractionPolicy";
 
         /// <summary>
-        /// Gets the nested extension URL for the source strategy.
-        /// </summary>
-        public const string SourceStrategyExtensionUrl = "sourceStrategy";
-
-        /// <summary>
         /// Gets the nested extension URL for the maximum input token count.
         /// </summary>
         public const string MaxInputTokensExtensionUrl = "maxInputTokens";
@@ -54,11 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// Gets or sets the policy used to turn expression values into source passages.
         /// </summary>
         public VectorTextExtractionPolicy ExtractionPolicy { get; set; } = VectorTextExtractionPolicy.Concatenate;
-
-        /// <summary>
-        /// Gets or sets the strategy used to resolve expression values to source text.
-        /// </summary>
-        public VectorTextSourceStrategy SourceStrategy { get; set; } = VectorTextSourceStrategy.DirectText;
 
         /// <summary>
         /// Gets or sets the maximum number of source tokens accepted from this SearchParameter.

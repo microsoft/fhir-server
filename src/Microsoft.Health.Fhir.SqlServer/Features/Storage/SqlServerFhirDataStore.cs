@@ -910,7 +910,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
             if (_schemaInformation.Current >= SchemaVersionConstants.VectorSearchVersion)
             {
-                new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator(_model).GenerateRows(mergeWrappers));
+                new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             }
 
             new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1025,7 +1025,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var vectorMergeWrappers = mergeWrappers.Where(resource => resource.ResourceWrapper.VectorSearchIndicesUpdated).ToList();
                 bool updateVectorSearchIndices = ShouldUpdateVectorSearchIndices(resources, _schemaInformation.Current);
 
-                using SqlCommand cmd = CreateBulkUpdateSearchParameterIndicesCommand(updateVectorSearchIndices, mergeWrappers.Count);
+                using SqlCommand cmd = CreateBulkUpdateSearchParameterIndicesCommand(mergeWrappers.Count);
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1045,7 +1045,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (updateVectorSearchIndices)
                 {
                     new ResourceListTableValuedParameterDefinition("@VectorSearchResources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(vectorMergeWrappers));
-                    new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator(_model).GenerateRows(vectorMergeWrappers));
+                    new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(vectorMergeWrappers));
                 }
 
                 var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int) { Direction = ParameterDirection.Output };
@@ -1067,19 +1067,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static bool ShouldUpdateVectorSearchIndices(IReadOnlyCollection<ResourceWrapper> resources, int? currentSchemaVersion)
         {
-            return currentSchemaVersion >= SchemaVersionConstants.VectorSearchReindexVersion && resources.Any(resource => resource.VectorSearchIndicesUpdated);
+            return currentSchemaVersion >= SchemaVersionConstants.VectorSearchVersion && resources.Any(resource => resource.VectorSearchIndicesUpdated);
         }
 
-        internal static SqlCommand CreateBulkUpdateSearchParameterIndicesCommand(bool updateVectorSearchIndices, int resourceCount)
+        internal static SqlCommand CreateBulkUpdateSearchParameterIndicesCommand(int resourceCount)
         {
-#pragma warning disable CA2100 // Command text is selected from two compile-time stored procedure names.
             var command = new SqlCommand
             {
-                CommandText = updateVectorSearchIndices ? "dbo.UpdateResourceSearchParamsWithVectors" : "dbo.UpdateResourceSearchParams",
+                CommandText = "dbo.UpdateResourceSearchParams",
                 CommandType = CommandType.StoredProcedure,
                 CommandTimeout = 300 + (int)(3600.0 / 10000 * resourceCount),
             };
-#pragma warning restore CA2100
 
             return command;
         }

@@ -111,15 +111,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 
                     configuration.ExtractionPolicy = extractionPolicy;
                 }
-                else if (string.Equals(url, VectorSearchParameterConfig.SourceStrategyExtensionUrl, StringComparison.Ordinal))
-                {
-                    if (!Enum.TryParse(value?.ToString(), ignoreCase: true, out VectorTextSourceStrategy sourceStrategy))
-                    {
-                        throw new InvalidDefinitionException($"Vector SearchParameter source strategy '{value}' is not supported.");
-                    }
-
-                    configuration.SourceStrategy = sourceStrategy;
-                }
                 else if (string.Equals(url, VectorSearchParameterConfig.MaxInputTokensExtensionUrl, StringComparison.Ordinal))
                 {
                     if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int maxInputTokens) || maxInputTokens <= 0)
@@ -167,6 +158,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
                     }
 
                     configuration.DistanceMetric = distanceMetric.ToLowerInvariant();
+                }
+                else
+                {
+                    throw new InvalidDefinitionException($"Vector SearchParameter setting '{url}' is not supported.");
                 }
             }
 
