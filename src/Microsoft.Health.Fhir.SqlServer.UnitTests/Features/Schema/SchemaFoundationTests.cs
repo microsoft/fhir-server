@@ -24,11 +24,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
 
             Assert.Equal("Embedding", embedding.ToString());
             Assert.Equal(1536, embedding.Dimensions);
+            Assert.Equal("SourceTextCompressed", VLatest.VectorSearchParam.SourceTextCompressed.ToString());
         }
 
         [Theory]
         [InlineData((int)SchemaVersion.V117, false)]
-        [InlineData((int)SchemaVersion.V119, true)]
+        [InlineData((int)SchemaVersion.V117, true)]
         public void GivenVectorSchemaScript_WhenRead_ThenUnsupportedEnginesAreRejectedBeforeVectorDdl(
             int schemaVersion,
             bool applyFullSchemaSnapshot)
@@ -37,10 +38,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
 
             string script = scriptProvider.GetMigrationScript(schemaVersion, applyFullSchemaSnapshot);
 
-            int guardIndex = script.IndexOf("ProductMajorVersion", StringComparison.Ordinal);
+            int guardIndex = script.IndexOf("sys.types", StringComparison.Ordinal);
             int vectorTableIndex = script.IndexOf("VectorSearchParam", StringComparison.Ordinal);
             Assert.True(guardIndex >= 0, "The schema script must validate native vector support.");
             Assert.True(vectorTableIndex > guardIndex, "The native vector support guard must execute before vector DDL.");
+        }
+
+        [Fact]
+        public void GivenConsolidatedVectorSchema_WhenVersionConstantsAreRead_ThenOnlyVersion117IsRequired()
+        {
+            Assert.Equal((int)SchemaVersion.V117, SchemaVersionConstants.Max);
+            Assert.Equal((int)SchemaVersion.V117, SchemaVersionConstants.VectorSearchVersion);
         }
     }
 }

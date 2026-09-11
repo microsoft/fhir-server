@@ -14,10 +14,13 @@ END
 
 GO
 
-DECLARE @ProductMajorVersion int = TRY_CONVERT(int, SERVERPROPERTY('ProductMajorVersion'))
-DECLARE @EngineEdition int = TRY_CONVERT(int, SERVERPROPERTY('EngineEdition'))
-
-IF ISNULL(@ProductMajorVersion, 0) < 17 AND ISNULL(@EngineEdition, 0) NOT IN (5, 8)
-    THROW 50419, 'This schema requires SQL Server 2025, Azure SQL Database, or Azure SQL Managed Instance with native vector support.', 1
+IF NOT EXISTS
+    (
+        SELECT 1
+        FROM sys.types
+        WHERE name = 'vector'
+          AND is_user_defined = 0
+    )
+    THROW 50419, 'This schema requires native vector type support.', 1
 
 GO
