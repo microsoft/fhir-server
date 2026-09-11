@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -47,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(ModelInfoProviderSerialCollection.Name)]
     public class SqlServerSearchServiceTests
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
@@ -59,10 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly IVectorSearchQueryProcessor _vectorSearchQueryProcessor;
         private readonly SqlServerSearchService _searchService;
 
         public SqlServerSearchServiceTests()
         {
+            ModelInfoProvider.SetProvider(
+                MockModelInfoProviderBuilder.Create(FhirSpecification.R4)
+                    .AddKnownTypes(KnownResourceTypes.DocumentReference)
+                    .Build());
             _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _model = Substitute.For<ISqlServerFhirModel>();
@@ -72,6 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
+            _vectorSearchQueryProcessor = Substitute.For<IVectorSearchQueryProcessor>();
 
             var config = new SqlServerDataStoreConfiguration
             {
@@ -116,7 +124,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
-                NullLogger<SqlServerSearchService>.Instance);
+                NullLogger<SqlServerSearchService>.Instance,
+                _vectorSearchQueryProcessor);
         }
 
         [Fact]
@@ -305,11 +314,97 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Same(_model, model);
         }
 
+        [Fact]
+        public async Task GivenSemanticSearchWithExplicitSort_WhenSearching_ThenVectorQueryIsPrepared()
+        {
+            // Arrange
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var expectedException = new InvalidOperationException("Stop after vector query preparation.");
+            _vectorSearchQueryProcessor
+                .PrepareAsync(Arg.Any<Expression>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<PreparedVectorSearchQuery>(expectedException));
+            var searchOptions = new SearchOptions
+            {
+                MaxItemCount = 10,
+                Expression = new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"),
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = new[] { (new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Descending) },
+            };
+
+            // Act
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
+
+            // Assert
+            Assert.Same(expectedException, exception);
+            await _vectorSearchQueryProcessor.Received(1).PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenSemanticRelevanceSort_WhenSortUpdated_ThenDistanceAndStableKeysArePreserved(bool explicitScoreSort)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var searchOptions = new SqlSearchOptions(new SearchOptions
+            {
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = explicitScoreSort
+                    ? [(SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending)]
+                    : [],
+                ResourceVersionTypes = ResourceVersionType.Latest,
+            })
+            {
+                PreparedVectorQuery = new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 3,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                    minimumScore: 0.65m),
+            };
+
+            SqlSearchOptions updated = _searchService.UpdateSort(searchOptions, searchExpression: null);
+
+            Assert.Equal(
+                [SearchParameterNames.Score, SearchParameterNames.ResourceType, SearchParameterNames.LastUpdated],
+                updated.Sort.Select(sort => sort.searchParameterInfo.Name));
+            Assert.All(updated.Sort, sort => Assert.Equal(SortOrder.Ascending, sort.sortOrder));
+        }
+
         public static IEnumerable<object[]> SingleColumnTableData()
         {
             yield return new object[] { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.Code.Metadata.Name };
             yield return new object[] { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.Text.Metadata.Name };
             yield return new object[] { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name };
+        }
+
+        private static ResourceWrapper CreateResourceWrapper(
+            string resourceType,
+            string resourceId,
+            string version,
+            long resourceSurrogateId)
+        {
+            return new ResourceWrapper(
+                resourceId,
+                version,
+                resourceType,
+                new RawResource($"{{\"resourceType\":\"{resourceType}\",\"id\":\"{resourceId}\"}}", FhirResourceFormat.Json, isMetaSet: false),
+                request: null,
+                DateTimeOffset.MinValue,
+                deleted: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null,
+                resourceSurrogateId: resourceSurrogateId);
         }
 
         [Theory]

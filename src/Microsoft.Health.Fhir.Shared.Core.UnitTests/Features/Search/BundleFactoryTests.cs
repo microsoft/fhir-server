@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -139,6 +140,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     Assert.Equal(Bundle.SearchEntryMode.Match, raw.Search.Mode);
                 }
             }
+        }
+
+        [Fact]
+        public void GivenASemanticSearchResult_WhenCreateSearchBundle_ThenScoreIsReturned()
+        {
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(new Uri("http://resource/123"));
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+
+            ResourceElement observation = Samples.GetDefaultObservation().UpdateId("123");
+            var searchResult = new SearchResult(
+                new[] { new SearchResultEntry(CreateResourceWrapper(observation, HttpMethod.Post), score: 0.91m) },
+                continuationToken: null,
+                sortOrder: null,
+                unsupportedSearchParameters: _unsupportedSearchParameters);
+
+            Bundle bundle = _bundleFactory.CreateSearchBundle(searchResult).ToPoco<Bundle>();
+            Bundle.SearchComponent search = Assert.Single(bundle.Entry).Search;
+
+            Assert.Equal(0.91m, search.Score);
+            Assert.Empty(search.Extension);
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement, HttpMethod httpMethod)
