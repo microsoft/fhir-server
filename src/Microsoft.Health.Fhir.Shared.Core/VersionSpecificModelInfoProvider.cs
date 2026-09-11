@@ -9,15 +9,15 @@ using System.IO;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification;
-using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
+using EvaluationContext = Hl7.FhirPath.EvaluationContext;
+using FhirEvaluationContext = Hl7.Fhir.FhirPath.FhirEvaluationContext;
 
 namespace Microsoft.Health.Fhir.Core
 {

@@ -10,13 +10,15 @@ using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
+using EvaluationContext = Hl7.FhirPath.EvaluationContext;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -30,10 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ITypedElementToSearchValueConverterManager _fhirElementTypeConverterManager;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly IFhirPathProvider _fhirPathProvider;
+        private readonly IFailureMetricHandler _failureMetricHandler;
         private readonly ILogger<TypedElementSearchIndexer> _logger;
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new();
-        private static readonly FhirPathCompiler _compiler = new();
-        private readonly ConcurrentDictionary<string, CompiledExpression> _expressions = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TypedElementSearchIndexer"/> class.
@@ -42,24 +44,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="referenceToElementResolver">Used for parsing reference strings</param>
         /// <param name="modelInfoProvider">Model info provider</param>
+        /// <param name="fhirPathProvider">FHIRPath provider</param>
         /// <param name="logger">The logger.</param>
+        /// <param name="failureMetricHandler">The failure metric handler.</param>
         public TypedElementSearchIndexer(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
             ITypedElementToSearchValueConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,
-            ILogger<TypedElementSearchIndexer> logger)
+            IFhirPathProvider fhirPathProvider,
+            ILogger<TypedElementSearchIndexer> logger,
+            IFailureMetricHandler failureMetricHandler)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
             EnsureArg.IsNotNull(referenceToElementResolver, nameof(referenceToElementResolver));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(fhirPathProvider, nameof(fhirPathProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(failureMetricHandler, nameof(failureMetricHandler));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _referenceToElementResolver = referenceToElementResolver;
             _modelInfoProvider = modelInfoProvider;
+            _fhirPathProvider = fhirPathProvider;
+            _failureMetricHandler = failureMetricHandler;
             _logger = logger;
         }
 
@@ -105,11 +115,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
-            CompiledExpression expression = _expressions.GetOrAdd(searchParameter.Expression, s => _compiler.Compile(s));
-
-            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
-
-            foreach (var rootObject in rootObjects)
+            foreach (ITypedElement rootObject in EvaluateFhirPath(
+                searchParameter.Url.ToString(),
+                resource,
+                searchParameter.Expression,
+                context))
             {
                 int numberOfComponents = searchParameter.Component.Count;
                 bool skip = false;
@@ -202,29 +212,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var results = new List<ISearchValue>();
 
             // For simple value type, we can parse the expression directly.
-            IEnumerable<ITypedElement> extractedValues = Enumerable.Empty<ITypedElement>();
-
-            try
-            {
-                CompiledExpression expression = _expressions.GetOrAdd(fhirPathExpression, s => _compiler.Compile(s));
-
-                extractedValues = expression.Invoke(element, context);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to extract the values using '{FhirPathExpression}' against '{ElementType}'.",
-                    fhirPathExpression,
-                    element.GetType());
-            }
-
-            Debug.Assert(extractedValues != null, "The extracted values should not be null.");
-            if (extractedValues == null)
-            {
-                _logger.LogWarning("The extracted values should not be null.");
-                return results;
-            }
+            IEnumerable<ITypedElement> extractedValues = EvaluateFhirPath(
+                searchParameterDefinitionUrl,
+                element,
+                fhirPathExpression,
+                context);
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
@@ -244,23 +236,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // http://community.fhir.org/t/expression-seems-incorrect-for-reference-search-parameter-thats-only-applicable-to-certain-types/916/2).
                 // Therefore, for now, we will need to compare the reference value itself (which can be internal or external references), and restrict
                 // the values ourselves.
-                extractedValues = extractedValues.Where(ev =>
-                {
-                    if (ev == null)
+                extractedValues = extractedValues
+                    .Where(ev =>
                     {
-                        _logger.LogWarning(
-                            "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
-                            fhirPathExpression,
-                            element.GetType());
-                    }
+                        if (ev == null)
+                        {
+                            _logger.LogWarning(
+                                "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
+                                fhirPathExpression,
+                                element.GetType());
+                        }
 
-                    if (ev?.InstanceType != null && ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return ev.Scalar("reference") is string rr && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
-                    }
+                        if (ev?.InstanceType != null && ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return EvaluateFhirPath(
+                                searchParameterDefinitionUrl,
+                                ev,
+                                "reference",
+                                null).SingleOrDefault()?.Value is string rr &&
+                                targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
+                        }
 
-                    return true;
-                });
+                        return true;
+                    })
+                    .ToArray();
             }
 
             foreach (var extractedValue in extractedValues)
@@ -312,6 +311,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return results;
+        }
+
+        private ITypedElement[] EvaluateFhirPath(
+            string searchParameterDefinitionUrl,
+            ITypedElement element,
+            string fhirPathExpression,
+            EvaluationContext context)
+        {
+            // Contain provider compile and evaluation failures for every root and component expression
+            // to preserve write availability; warning telemetry makes any resulting index drift observable.
+            // OperationCanceledException is rethrown unchanged.
+            try
+            {
+                ICompiledFhirPath expression = _fhirPathProvider.Compile(fhirPathExpression);
+                return expression.Select(element, context).ToArray();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to extract search parameter '{SearchParameterDefinitionUrl}' using '{FhirPathExpression}' against '{ElementType}'.",
+                    searchParameterDefinitionUrl,
+                    fhirPathExpression,
+                    element.InstanceType);
+                _failureMetricHandler.EmitException(
+                    new ExceptionMetricNotification
+                    {
+                        OperationName = "FhirPathSearchIndexEvaluation",
+                        ExceptionType = ex.GetType().Name,
+                        Severity = LogLevel.Warning.ToString(),
+                    });
+
+                return Array.Empty<ITypedElement>();
+            }
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
