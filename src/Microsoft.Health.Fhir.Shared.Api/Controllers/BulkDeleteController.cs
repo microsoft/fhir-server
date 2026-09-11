@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly IUrlResolver _urlResolver;
+        private readonly ILogger<BulkDeleteController> _logger;
 
         private readonly HashSet<string> _excludedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
         {
@@ -50,10 +52,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public BulkDeleteController(
             IMediator mediator,
-            IUrlResolver urlResolver)
+            IUrlResolver urlResolver,
+            ILogger<BulkDeleteController> logger)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         [HttpDelete]
@@ -107,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> GetBulkDeleteStatusById(long idParameter)
         {
             var result = await _mediator.GetBulkDeleteStatusAsync(idParameter, HttpContext.RequestAborted);
-            var actionResult = JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode);
+            var actionResult = JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode, _logger);
             if (result.HttpStatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 actionResult.Headers[KnownHeaders.Progress] = Resources.InProgress;
@@ -122,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> CancelBulkDelete(long idParameter)
         {
             var result = await _mediator.CancelBulkDeleteAsync(idParameter, HttpContext.RequestAborted);
-            return new JobResult(result.StatusCode);
+            return new JobResult(result.StatusCode, _logger);
         }
 
         private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory, bool softDeleteCleanup, string excludedResourceTypes, bool removeReferences)
@@ -151,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, softDeleteCleanup, excludedResourceTypesList, removeReferences, HttpContext.RequestAborted);
 
-            var response = JobResult.Accepted();
+            var response = JobResult.Accepted(_logger);
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());
             return response;
         }

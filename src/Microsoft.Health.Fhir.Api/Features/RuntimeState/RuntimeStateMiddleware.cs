@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Registration;
 using Newtonsoft.Json.Linq;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
 
         private readonly RequestDelegate _next;
         private readonly IFhirRuntimeConfiguration _runtimeConfiguration;
+        private readonly IHttpInboundRequestLogger _inboundRequestLogger;
         private readonly ILogger<RuntimeStateMiddleware> _logger;
 
         /// <summary>
@@ -34,11 +36,17 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
         /// </summary>
         /// <param name="next">The next request delegate.</param>
         /// <param name="runtimeConfiguration">The effective FHIR runtime configuration.</param>
+        /// <param name="inboundRequestLogger">The inbound request logger.</param>
         /// <param name="logger">Logger.</param>
-        public RuntimeStateMiddleware(RequestDelegate next, IFhirRuntimeConfiguration runtimeConfiguration, ILogger<RuntimeStateMiddleware> logger)
+        public RuntimeStateMiddleware(
+            RequestDelegate next,
+            IFhirRuntimeConfiguration runtimeConfiguration,
+            IHttpInboundRequestLogger inboundRequestLogger,
+            ILogger<RuntimeStateMiddleware> logger)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _runtimeConfiguration = EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
+            _inboundRequestLogger = EnsureArg.IsNotNull(inboundRequestLogger, nameof(inboundRequestLogger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -72,16 +80,21 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
             const int MaximumRejectionDelayMilliseconds = 150;
 
             int delayMilliseconds = RandomNumberGenerator.GetInt32(MinimumRejectionDelayMilliseconds, MaximumRejectionDelayMilliseconds + 1);
-            await Task.Delay(delayMilliseconds, context.RequestAborted);
+
+            // No use of context.RequestAborted to avoid the risk of a client aborting the request and raising a different error.
+            await Task.Delay(delayMilliseconds);
         }
 
-        private static async Task WriteBlockingResponseAsync(HttpContext context)
+        private async Task WriteBlockingResponseAsync(HttpContext context)
         {
             context.Response.StatusCode = StatusCodes.Status410Gone;
             context.Response.ContentType = KnownContentTypes.JsonContentType;
             context.Response.ContentLength = _deprecatedServiceResponse.Length;
 
-            await context.Response.Body.WriteAsync(_deprecatedServiceResponse, context.RequestAborted);
+            _inboundRequestLogger.LogRequest(context);
+
+            // No use of context.RequestAborted to avoid the risk of a client aborting the request and raising a different error.
+            await context.Response.Body.WriteAsync(_deprecatedServiceResponse);
         }
 
         private static bool IsAllowedRequest(HttpRequest request)

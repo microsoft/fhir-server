@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(bulkImportOperationUrl);
 
-            var bulkImportResult = ImportResult.Accepted().SetContentLocationHeader(urlResolver, opName, id);
+            var bulkImportResult = ImportResult.Accepted(NullLogger.Instance).SetContentLocationHeader(urlResolver, opName, id);
 
             Assert.Equal(bulkImportOperationUrl.AbsoluteUri, bulkImportResult.Headers[HeaderNames.ContentLocation]);
         }
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         public void GivenAnImportResult_WhenSettingAContentTypeHeader_ThenImportResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";
-            var bulkImportResult = ImportResult.Accepted().SetContentTypeHeader(contentTypeValue);
+            var bulkImportResult = ImportResult.Accepted(NullLogger.Instance).SetContentTypeHeader(contentTypeValue);
 
             Assert.Equal(contentTypeValue, bulkImportResult.Headers[HeaderNames.ContentType]);
         }

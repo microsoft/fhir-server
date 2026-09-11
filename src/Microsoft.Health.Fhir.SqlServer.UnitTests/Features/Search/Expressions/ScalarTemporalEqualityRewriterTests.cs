@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly DateTimeOffset EndOfLastDayOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
         private static readonly DateTimeOffset StartOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+        private static readonly DateTimeOffset StartOfMaximumDate = new DateTimeOffset(9999, 12, 31, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
         private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
 
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             { StartOfDay, EndOfDay },
             { StartOfLastDayOfMonth, EndOfLastDayOfMonth },
             { StartOfLastDayOfYear, EndOfLastDayOfYear },
+            { StartOfMaximumDate, DateTimeOffset.MaxValue },
         };
 
         public static TheoryData<Expression> NonRewritableExpressions => new()
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay), // single-sided predicate
             Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay), // range operator
             EqualityPattern(StartOfDay.AddDays(-30), EndOfDay.AddDays(30)), // approximate / multi-day window
+            EqualityPattern(StartOfMaximumDate, DateTimeOffset.MaxValue.AddTicks(-1)), // not the full final day
         };
 
         public static TheoryData<SearchParameterInfo> NonAllowListedParameters => new()

@@ -873,6 +873,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 resource.PendingSearchParameterStatus = (ResourceSearchParameterStatus)value;
                 _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+                _logger.LogInformation($"SetAndClearPendingSearchParameterStatus: uri={resource.PendingSearchParameterStatus.Uri} status={resource.PendingSearchParameterStatus.Status} previousUri={resource.PendingSearchParameterStatus.PreviousUri}");
             }
         }
 
@@ -941,6 +942,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
+            if (resources.Count == 0)
+            {
+                return;
+            }
+
             int? failedResourceCount;
             try
             {
@@ -977,10 +983,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (failedResourceCount != 0)
             {
-                string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
-                string userAction = Core.Resources.ReindexingUserAction;
-                _logger.LogError("{Error}", message);
-                throw new PreconditionFailedException(message + " " + userAction);
+                _logger.LogWarning(string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount) + " " + Core.Resources.ReindexingUserAction);
             }
         }
 

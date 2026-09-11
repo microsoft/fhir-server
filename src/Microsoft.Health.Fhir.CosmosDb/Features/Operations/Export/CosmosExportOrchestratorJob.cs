@@ -55,6 +55,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                  ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                                  : record.ResourceType.Split(',');
 
+                // Validate the resource types to ensure they are valid and supported.
+                ValidateResourceTypes(searchService.Value, resourceTypes, record);
+
                 var physicalPartitionFeedRanges = await searchService.Value.GetFeedRanges(cancellationToken);
 
                 var enqueuedRangesByResourceType = groupJobs.Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))

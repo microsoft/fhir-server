@@ -160,6 +160,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(1, CancellationToken.None));
         }
 
+        [Fact]
+        public async Task WhenStatusIsRequestedByProcessingJobId_ThenNotFoundShouldBeReturned()
+        {
+            // A processing job is enqueued with the orchestrator's group id, so its own id differs from its group id.
+            // It does not identify an import operation, and its id is never handed out to callers.
+            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
+            var worker = new JobInfo()
+            {
+                Id = 1,
+                GroupId = 0,
+                Status = JobStatus.Completed,
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { TypeId = (int)JobType.ImportProcessing, ResourceLocation = "http://xyz" }),
+            };
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(worker, []));
+        }
+
         private async Task<GetImportResponse> SetupAndExecuteGetBulkImportJobByIdAsync(JobInfo coord, List<JobInfo> workers)
         {
             _queueClient.GetJobByIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(coord);

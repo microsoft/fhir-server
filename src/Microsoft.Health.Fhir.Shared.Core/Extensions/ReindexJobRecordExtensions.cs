@@ -48,10 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             totalResourceCount = job.Status == OperationStatus.Completed
                 ? job.Count
                 : job.ResourceCounts?.Sum(entry => entry.Value.Count) ?? 0;
+            long succeededResourceCount = Math.Max(0, job.Count - job.FailureCount);
 
-            if (totalResourceCount > 0 && job.Progress > 0)
+            if (totalResourceCount > 0 && succeededResourceCount > 0)
             {
-                progress = (decimal)job.Progress / totalResourceCount * 100;
+                progress = (decimal)succeededResourceCount / totalResourceCount * 100;
                 rounded = Math.Round(progress, 1);
             }
             else
@@ -59,14 +60,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 progress = 0;
             }
 
-            if (rounded == 100.0M && totalResourceCount > job.Progress)
+            if (rounded == 100.0M && totalResourceCount > succeededResourceCount)
             {
                 rounded = 99.9M;
             }
 
             parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
             parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(totalResourceCount));
-            parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
+            parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(succeededResourceCount));
             parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(rounded));
             parametersResource.Add(JobRecordProperties.Status, new FhirString(job.Status.ToString()));
 
@@ -100,11 +101,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             if (!string.IsNullOrEmpty(job.SearchParamList))
             {
                 parametersResource.Add(JobRecordProperties.SearchParams, new FhirString(job.SearchParamList));
-            }
-
-            if (!string.IsNullOrEmpty(job.TargetResourceTypeList))
-            {
-                parametersResource.Add(JobRecordProperties.TargetResourceTypes, new FhirString(job.TargetResourceTypeList));
             }
 
             if (!string.IsNullOrEmpty(job.FailureDetails?.FailureReason))

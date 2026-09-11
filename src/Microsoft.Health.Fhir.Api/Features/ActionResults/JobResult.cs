@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -16,18 +17,18 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     public class JobResult : ResourceActionResult<Parameters>
     {
-        public JobResult(HttpStatusCode statusCode)
-            : base(null, statusCode)
+        public JobResult(HttpStatusCode statusCode, ILogger logger)
+            : base(null, statusCode, logger)
         {
         }
 
-        public JobResult(Parameters jobResult, HttpStatusCode statusCode)
-            : base(jobResult, statusCode)
+        public JobResult(Parameters jobResult, HttpStatusCode statusCode, ILogger logger)
+            : base(jobResult, statusCode, logger)
         {
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
 
-        public static JobResult FromResults(ICollection<Parameters.ParameterComponent> results, ICollection<OperationOutcomeIssue> issues, HttpStatusCode statusCode)
+        public static JobResult FromResults(ICollection<Parameters.ParameterComponent> results, ICollection<OperationOutcomeIssue> issues, HttpStatusCode statusCode, ILogger logger)
         {
             var resource = new Parameters();
 
@@ -54,15 +55,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 }
             }
 
-            return new JobResult(resource, statusCode);
+            return new JobResult(resource, statusCode, logger);
         }
 
         /// <summary>
         /// Creates a JobResult with HttpStatusCode Accepted.
         /// </summary>
-        public static JobResult Accepted()
+        public static JobResult Accepted(ILogger logger)
         {
-            return new JobResult(HttpStatusCode.Accepted);
+            return new JobResult(HttpStatusCode.Accepted, logger);
         }
     }
 }

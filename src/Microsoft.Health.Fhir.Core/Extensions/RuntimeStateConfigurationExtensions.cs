@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -22,6 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <remarks>Active is assumed as the default runtime state for invalid inputs.</remarks>
         public static FhirRuntimeState GetRuntimeStateConfiguration(IConfiguration configuration)
         {
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+
             string configuredRuntimeState = configuration[RuntimeStateConfigurationKey];
 
             return ParseRuntimeStateConfiguration(configuredRuntimeState);
