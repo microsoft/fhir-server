@@ -175,6 +175,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     null,
                     "(Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code1=doo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Encounter')) code2=goo))])",
                 };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Patient", DataActions.Search, "system"),
+                        new ScopeRestriction("Observation", DataActions.ReadById, "system"),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_type", "Observation"),
+                    },
+                    "(Param ResourceType (StringEquals TokenCode 'none'))",
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"),
+                        new ScopeRestriction("Patient", DataActions.Search, "system"),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_type", "Patient,Observation"),
+                    },
+                    "(Param ResourceType (StringEquals TokenCode 'Patient'))",
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Observation", DataActions.Read, "system"),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_type", "Observation"),
+                    },
+                    "(Param ResourceType (StringEquals TokenCode 'Observation'))",
+                };
             }
         }
 
@@ -798,6 +839,88 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAnIncludesOperationRequest_WhenIncludesContinuationTokenIsMissing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
+        }
+
+        [Fact]
+        public void GivenReadByIdScopeActions_WhenCreatingConcreteResourceSearch_ThenReadByIdRestrictionIsApplied()
+        {
+            _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"));
+
+            SearchOptions options = _factory.Create(
+                KnownResourceTypes.Observation,
+                queryParameters: null,
+                scopeDataActions: DataActions.Read | DataActions.ReadById);
+
+            ValidateResourceTypeSearchParameterExpression(options.Expression, KnownResourceTypes.Observation);
+            Assert.Equal(DataActions.Read | DataActions.ReadById, options.ScopeDataActions);
+        }
+
+        [Fact]
+        public void GivenReadByIdAndSearchScopes_WhenCreatingIncludeSearch_ThenOnlySearchScopedTypesArePassedToIncludeParser()
+        {
+            _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"));
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search, "system"));
+
+            const string include = "Patient:general-practitioner";
+            _expressionParser.ParseInclude(
+                    Arg.Any<string[]>(),
+                    include,
+                    false,
+                    false,
+                    Arg.Any<IReadOnlyCollection<string>>())
+                .Throws(new InvalidSearchOperationException("Expected test exception."));
+
+            Assert.Throws<InvalidSearchOperationException>(() =>
+                _factory.Create(
+                    resourceType: null,
+                    queryParameters: new[]
+                    {
+                        Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Patient),
+                        Tuple.Create(SearchParameterNames.Include, include),
+                    }));
+
+            _expressionParser.Received(1).ParseInclude(
+                Arg.Any<string[]>(),
+                include,
+                false,
+                false,
+                Arg.Is<IReadOnlyCollection<string>>(resourceTypes =>
+                    resourceTypes.Count == 1 &&
+                    resourceTypes.Contains(KnownResourceTypes.Patient)));
+        }
+
+        [Fact]
+        public void GivenReadByIdScopeForRequestedIncludeType_WhenCreatingSystemSearch_ThenIncludeIsSkipped()
+        {
+            _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"));
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search, "system"));
+            _expressionParser.Parse(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new StubExpression("query"));
+
+            const string include = "Observation:subject";
+            SearchOptions options = _factory.Create(
+                resourceType: null,
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Observation),
+                    Tuple.Create(SearchParameterNames.Include, include),
+                });
+
+            _expressionParser.DidNotReceive().ParseInclude(
+                Arg.Any<string[]>(),
+                include,
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<IReadOnlyCollection<string>>());
+            Assert.Contains("'none'", options.Expression.ToString(), StringComparison.Ordinal);
         }
 
         [Theory]

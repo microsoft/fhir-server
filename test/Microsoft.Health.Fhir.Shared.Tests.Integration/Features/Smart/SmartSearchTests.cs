@@ -2771,6 +2771,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        public async Task GivenSmartV2WildcardReadByIdAndPatientSearchScopes_WhenSearchingAcrossResourceTypes_ThenOnlyPatientsAreReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var wildcardReadByIdScope = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.ReadById, "system");
+            var patientSearchScope = new ScopeRestriction(KnownResourceTypes.Patient, Core.Features.Security.DataActions.Search, "system");
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { wildcardReadByIdScope, patientSearchScope });
+
+            var query = new List<Tuple<string, string>>
+            {
+                new(KnownQueryParameterNames.Type, KnownResourceTypes.Observation),
+            };
+
+            var results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            query = new List<Tuple<string, string>>
+            {
+                new(KnownQueryParameterNames.Type, $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation}"),
+            };
+
+            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.All(results.Results, result => Assert.Equal(KnownResourceTypes.Patient, result.Resource.ResourceTypeName));
+
+            query = new List<Tuple<string, string>>
+            {
+                new(KnownQueryParameterNames.Id, "smart-observation-A1"),
+            };
+
+            results = await _searchService.Value.SearchAsync(
+                KnownResourceTypes.Observation,
+                query,
+                Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.ReadById,
+                CancellationToken.None);
+            Assert.Collection(results.Results, result => Assert.Equal("smart-observation-A1", result.Resource.ResourceId));
+        }
+
+        [SkippableFact]
         public async Task GivenSmartV2ObservationSearchScopeWithoutAndWithCodeAndStatusFilter_WhenSearching_ThenResultsAreReturnAsExpected()
         {
             Skip.If(

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -57,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
             ContainsIterativeInclude = other.ContainsIterativeInclude;
+            ScopeDataActions = other.ScopeDataActions;
         }
 
         /// <summary>
@@ -160,6 +162,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
 
         public bool OnlyIds { get; set; }
+
+        /// <summary>
+        /// Gets the data actions that may contribute SMART scope restrictions to this search.
+        /// </summary>
+        public DataActions ScopeDataActions { get; internal set; } = DataActions.Read | DataActions.Search;
 
         /// <summary>
         /// Flag for async operations.
