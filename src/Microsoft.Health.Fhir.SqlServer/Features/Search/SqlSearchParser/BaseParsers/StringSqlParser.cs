@@ -18,9 +18,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser
 
         public override string BuildWhereClause(string value, string modifier, ParserOptions options, int? columnSuffix = null, string tableName = "t")
         {
-            var escapedValue = value.Replace("'", "''", StringComparison.Ordinal);
             var suffix = columnSuffix.HasValue ? columnSuffix.Value.ToString() : string.Empty;
-            var isOverflow = escapedValue.Length > 256;
+            var isOverflow = value.Length > 256;
             var columnName = isOverflow ? "TextOverflow" : "Text";
 
             return modifier switch
