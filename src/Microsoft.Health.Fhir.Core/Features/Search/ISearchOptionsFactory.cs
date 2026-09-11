@@ -19,6 +19,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool onlyIds = false,
             bool isIncludesOperation = false);
 
+        /// <summary>
+        /// Creates <see cref="SearchOptions"/> using only SMART scope restrictions that permit one of the supplied actions.
+        /// </summary>
+        /// <remarks>
+        /// The default interface implementation delegates to the overload that does not take <paramref name="scopeDataActions"/>,
+        /// so implementations should override this method to enforce action-specific scope filtering.
+        /// </remarks>
         SearchOptions Create(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
