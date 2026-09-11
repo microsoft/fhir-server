@@ -35,11 +35,11 @@ before an operator sends an import request.
 source fields must identify how the **effective** Import and FhirPath provider settings were
 verified. A provider label without evidence is not a valid report.
 
-The plan includes the manifest file SHA-256, manifest identity, input-file and per-resource-type
-counts, FHIR version, binary identity, complete provider evidence, backend/environment/load
-identity, prepared-store identity, repetitions, expected resource count, and terminal outcome.
-Server CPU, allocation rate, and peak working set are explicitly reported as `unavailable`; they
-are never represented as zero or as a passing server-metrics gate.
+The plan includes the manifest file SHA-256 (calculated with `Get-FileHash`), manifest identity,
+input-file and per-resource-type counts, FHIR version, binary identity, complete provider evidence,
+backend/environment/load identity, prepared-store identity, repetitions, expected resource count,
+and terminal outcome. Server CPU, allocation rate, and peak working set are explicitly reported as
+`unavailable`; they are never represented as zero or as a passing server-metrics gate.
 
 ## Operator prerequisites for a live run
 
@@ -88,7 +88,9 @@ string, and an error-container name:
 Pass `-AccessToken` only when the isolated endpoint requires it. The script does not print tokens,
 SAS query strings, request bodies, response bodies, or error-container contents. It disables
 automatic redirects and permits authorization forwarding only to status/redirect URLs with the
-same scheme, host, and port as the supplied endpoint.
+same scheme, host, and port as the supplied endpoint. The initial `$import` polling URL is read
+from `Content-Location`; `Location` is retained only as a fallback and is subject to the same
+same-origin check.
 
 Wall-clock time starts immediately before `$import` request submission and ends only at a terminal
 status response. A `202` is not terminal. Polling is bounded by `TimeoutMinutes`; cancellation,
@@ -126,4 +128,5 @@ Run the local report/comparison and offline-plan tests without a FHIR endpoint:
 
 The test covers successful schema validation and explicit unavailable metrics, missing provider and
 binary evidence, error and resource-count failure handling, timeout comparison rejection,
-incomparable corpus/image/provider reports, same-origin status validation, and the offline default.
+incomparable corpus/image/provider reports, `Content-Location` status extraction, compatible
+manifest hashing, same-origin status validation, and the offline default.

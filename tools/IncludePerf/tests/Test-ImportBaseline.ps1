@@ -3,7 +3,12 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path "$PSScriptRoot/../../..").Path
-. (Join-Path $repositoryRoot 'tools/IncludePerf/Invoke-ImportBaseline.ps1')
+$baselineScriptPath = Join-Path $repositoryRoot 'tools/IncludePerf/Invoke-ImportBaseline.ps1'
+if ($null -eq ('System.Net.Http.HttpResponseMessage' -as [type])) {
+    Add-Type -AssemblyName System.Net.Http
+}
+
+. $baselineScriptPath
 
 function Assert-Equal {
     param(
@@ -36,6 +41,28 @@ function Assert-Throws {
     }
 
     throw "$Description. Expected an exception."
+}
+
+$baselineScript = Get-Content -LiteralPath $baselineScriptPath -Raw
+Assert-Equal -Expected $true -Actual ($baselineScript -match '\$response\.Content\.Headers\.ContentLocation') `
+    -Description 'Import submission did not read the Content-Location response content header'
+Assert-Equal -Expected $true -Actual ($baselineScript -match 'Get-FileHash\b' -and $baselineScript -match '-Algorithm\s+SHA256') `
+    -Description 'Manifest hashing did not use the Windows PowerShell-compatible Get-FileHash cmdlet'
+Assert-Equal -Expected $false -Actual ($baselineScript -match 'SHA256\]::HashData|Convert\]::ToHexString') `
+    -Description 'Manifest hashing retained .NET Core-only hash APIs'
+
+$submissionResponse = [Net.Http.HttpResponseMessage]::new([Net.HttpStatusCode]::Accepted)
+try {
+    $submissionResponse.Headers.Location = [Uri]'https://fhir.example.test/legacy-status'
+    $submissionResponse.Content = [Net.Http.StringContent]::new('')
+    $submissionResponse.Content.Headers.ContentLocation = [Uri]'https://fhir.example.test/$import/status/42'
+
+    Assert-Equal -Expected 'https://fhir.example.test/$import/status/42' `
+        -Actual (Get-ImportStatusLocation -Response $submissionResponse) `
+        -Description 'Import submission did not prefer Content-Location over Location'
+}
+finally {
+    $submissionResponse.Dispose()
 }
 
 function New-ValidReport {
@@ -210,6 +237,8 @@ try {
     $plan = Get-Content -LiteralPath $planPath -Raw | ConvertFrom-Json
     Assert-Equal -Expected 'Planned' -Actual $plan.Execution.TerminalOutcome -Description 'The default invocation made a live import request'
     Assert-Equal -Expected 'unavailable' -Actual $plan.ServerMetrics.Cpu.Status -Description 'The offline plan fabricated a server CPU metric'
+    Assert-Equal -Expected ((Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()) `
+        -Actual $plan.Corpus.Sha256 -Description 'The offline plan did not report the manifest SHA-256 hash'
 
     Assert-Throws -Action {
         & (Join-Path $repositoryRoot 'tools/IncludePerf/Invoke-ImportBaseline.ps1') `

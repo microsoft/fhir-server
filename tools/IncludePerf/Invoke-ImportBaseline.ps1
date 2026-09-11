@@ -400,9 +400,8 @@ function Get-ManifestCorpus {
         throw "Manifest '$Path' was not found."
     }
 
-    $manifestBytes = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Path))
-    $hash = [Security.Cryptography.SHA256]::HashData($manifestBytes)
-    $manifest = [Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $manifest = Get-Content -LiteralPath $resolvedPath -Raw | ConvertFrom-Json
     $resourceTypes = @($manifest.resourceTypes)
     $inputFileCount = @($resourceTypes | ForEach-Object { @($_.files).Count } | Measure-Object -Sum).Sum
     $counts = [ordered]@{}
@@ -411,13 +410,27 @@ function Get-ManifestCorpus {
     }
 
     return [pscustomobject]@{
-        Identity = [IO.Path]::GetFileName((Resolve-Path -LiteralPath $Path))
-        Sha256 = [Convert]::ToHexString($hash).ToLowerInvariant()
+        Identity = [IO.Path]::GetFileName($resolvedPath)
+        Sha256 = (Get-FileHash -LiteralPath $resolvedPath -Algorithm SHA256).Hash.ToLowerInvariant()
         TotalResources = [long]$manifest.totalResources
         InputFileCount = [long]$inputFileCount
         ResourceTypeCounts = $counts
         Manifest = $manifest
     }
+}
+
+function Get-ImportStatusLocation {
+    param([Parameter(Mandatory = $true)] [Net.Http.HttpResponseMessage] $Response)
+
+    if ($null -ne $Response.Content.Headers.ContentLocation) {
+        return $Response.Content.Headers.ContentLocation.OriginalString
+    }
+
+    if ($null -ne $Response.Headers.Location) {
+        return $Response.Headers.Location.OriginalString
+    }
+
+    return $null
 }
 
 function New-ImportBaselineReport {
@@ -606,12 +619,12 @@ function Invoke-ImportBaseline {
                 throw "Import submission returned status $([int]$response.StatusCode), not 202 Accepted."
             }
 
-            $location = $response.Headers.Location
-            if ($null -eq $location) {
+            $statusLocation = Get-ImportStatusLocation -Response $response
+            if ([string]::IsNullOrWhiteSpace($statusLocation)) {
                 throw 'Import submission did not return Content-Location.'
             }
 
-            $statusUri = Resolve-ImportStatusUri -Endpoint $endpointUri.AbsoluteUri -StatusLocation $location.OriginalString
+            $statusUri = Resolve-ImportStatusUri -Endpoint $endpointUri.AbsoluteUri -StatusLocation $statusLocation
             while ($true) {
                 $cancellation.Token.ThrowIfCancellationRequested()
                 Start-Sleep -Seconds $PollSeconds
