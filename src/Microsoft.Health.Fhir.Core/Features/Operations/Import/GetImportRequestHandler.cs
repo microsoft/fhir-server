@@ -112,10 +112,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(coord.Result);
                     var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = completedOutcomes, Error = failedOutcomes };
 
-                    // Include per-job execution stats only for in-memory test imports (for CPU profiling)
+                    // Include execution stats only for in-memory test imports
                     if (coordDefinition.InMemoryTestProcessingJobs > 0)
                     {
-                        var jobLines = jobs.Select(job => jobResultsById.TryGetValue(job.Id, out var result) ? new { Job = job, Result = result } : null).Where(_ => _ != null)
+                        var jobLines = jobs.Select(job => jobResultsById.TryGetValue(job.Id, out var result) ? new { Job = job, Result = result } : null)
+                            .Where(_ => _ != null)
                             .OrderByDescending(_ => _.Job.StartDate.Value)
                             .Select(_ =>
                             {
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                 ? Math.Round((double)jobsWithReliableDatabaseTiming.Sum(_ => _.CpuMilliseconds.Value) / resourceCount, 2)
                                 : (double?)null;
                             var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
-                            executionStats.AddRange(jobLines.Select(x => x.Line));
+                            executionStats.AddRange(jobLines.Take(MaxDetailedJobs).Select(x => x.Line));
 
                             result.ExecutionStats = executionStats;
                         }
@@ -166,13 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var completed = new List<ImportOperationOutcome>();
                 var failed = new List<ImportFailedOperationOutcome>();
                 var jobResultsById = new Dictionary<long, ImportProcessingJobResult>();
-                IEnumerable<JobInfo> completedJobs = jobs.Where(_ => _.Status == JobStatus.Completed).OrderBy(_ => _.StartDate).ThenBy(_ => _.Id);
-                if (returnDetails && suppressSuccessfulOutput)
-                {
-                    completedJobs = completedJobs.Take(MaxDetailedJobs);
-                }
-
-                foreach (var job in completedJobs)
+                foreach (var job in jobs.Where(_ => _.Status == JobStatus.Completed))
                 {
                     var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(job.Definition);
                     var result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
