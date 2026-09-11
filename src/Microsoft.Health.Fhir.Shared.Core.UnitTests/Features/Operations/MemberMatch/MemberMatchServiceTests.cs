@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
             Assert.Equal(2, capturedOptions.MaxItemCount);
             Assert.NotNull(capturedOptions.Sort);
             Assert.NotNull(capturedOptions.UnsupportedSearchParams);
-            Assert.NotNull(capturedOptions.Expression);
+            Assert.NotNull(capturedOptions.QueryParams);
         }
 
         [Fact]
