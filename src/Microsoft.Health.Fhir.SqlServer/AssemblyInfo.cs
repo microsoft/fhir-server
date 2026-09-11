@@ -18,4 +18,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Internal.Fhir.EventsReader")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Internal.Fhir.PerfTester")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Internal.Fhir.Exporter")]
+[assembly: InternalsVisibleTo("SqlSearchDebugger")]
 [assembly: NeutralResourcesLanguage("en-us")]
