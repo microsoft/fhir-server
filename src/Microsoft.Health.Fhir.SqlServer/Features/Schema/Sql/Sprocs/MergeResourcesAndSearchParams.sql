@@ -3,6 +3,7 @@
     ,@ReindexId bigint = NULL
     ,@IsResourceChangeCaptureEnabled bit = 0
     ,@TransactionId bigint = NULL
+    ,@EnqueueVectorSearchSourceRefresh bit = 0
     ,@Resources dbo.ResourceList READONLY
     ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
     ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
@@ -13,6 +14,7 @@
     ,@NumberSearchParams dbo.NumberSearchParamList READONLY
     ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
     ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
+    ,@VectorSearchParams dbo.VectorSearchParamList READONLY
     ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
     ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
     ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
@@ -50,6 +52,7 @@ BEGIN TRY
             ,@NumberSearchParams = @NumberSearchParams
             ,@QuantitySearchParams = @QuantitySearchParams
             ,@DateTimeSearchParms = @DateTimeSearchParms
+            ,@VectorSearchParams = @VectorSearchParams
             ,@ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams
             ,@TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams
             ,@TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams
@@ -59,6 +62,9 @@ BEGIN TRY
   ELSE
     IF @TransactionId IS NOT NULL
       EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
+
+  IF @EnqueueVectorSearchSourceRefresh = 1
+    EXECUTE dbo.EnqueueVectorSearchSourceRefreshJobs @Resources = @Resources
 
   COMMIT TRANSACTION
 
