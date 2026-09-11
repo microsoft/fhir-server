@@ -42,6 +42,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Searches resources using only SMART scope restrictions that permit one of the supplied actions.
         /// </summary>
+        /// <remarks>
+        /// The default interface implementation delegates to the overload that does not take <paramref name="scopeDataActions"/>,
+        /// so implementations should override this method to enforce action-specific scope filtering.
+        /// </remarks>
         /// <param name="resourceType">The resource type that should be searched.</param>
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="scopeDataActions">The data actions that may authorize the search.</param>
