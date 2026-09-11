@@ -28,8 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public long CurrentIndex { get; set; }
 
         /// <summary>
-        /// Elapsed time spent in database calls during import processing, in milliseconds.
-        /// Null when any database call in this job needed a retry, since retries make the measured duration unreliable.
+        /// Elapsed time spent in database calls in milliseconds. Null when any database call ended in retry.
         /// </summary>
         public long? DatabaseMilliseconds { get; set; }
     }
