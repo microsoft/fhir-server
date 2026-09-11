@@ -79,9 +79,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 var start = Stopwatch.StartNew();
                 var coordDefinition = JsonConvert.DeserializeObject<ImportOrchestratorJobDefinition>(coord.Definition);
-                var suppressSuccessfulOutput = coordDefinition.InMemoryTestProcessingJobs > 0;
                 var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Import, coord.GroupId, true, cancellationToken)).Where(x => x.Id != coord.Id).ToList();
-                var (completedOutcomes, failedOutcomes, jobResultsById) = GetProcessingResultAsync(jobs, request.ReturnDetails, suppressSuccessfulOutput);
+                var (completedOutcomes, failedOutcomes, jobResultsById) = GetProcessingResultAsync(jobs, request.ReturnDetails, coordDefinition.InMemoryTestProcessingJobs > 0);
                 await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
                 var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || x.CancelRequested);
@@ -125,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                 var cpuMilliseconds = clockMilliseconds - databaseMilliseconds; // x - null = null
                                 return new
                                 {
-                                    Line = $"job={_.Job.Id} cpu_msec={cpuMilliseconds} clock_msec={clockMilliseconds} database_msec={databaseMilliseconds}",
+                                    Line = $"job={_.Job.Id} succeeded={_.Result.SucceededResources} failed={_.Result.FailedResources} cpu_msec={cpuMilliseconds} clock_msec={clockMilliseconds} database_msec={databaseMilliseconds}",
                                     CpuMilliseconds = cpuMilliseconds,
                                     ClockMilliseconds = clockMilliseconds,
                                     DatabaseMilliseconds = databaseMilliseconds,
@@ -168,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var failed = new List<ImportFailedOperationOutcome>();
                 var jobResultsById = new Dictionary<long, ImportProcessingJobResult>();
                 IEnumerable<JobInfo> completedJobs = jobs.Where(_ => _.Status == JobStatus.Completed).OrderBy(_ => _.StartDate).ThenBy(_ => _.Id);
-                if (returnDetails)
+                if (returnDetails && suppressSuccessfulOutput)
                 {
                     completedJobs = completedJobs.Take(MaxDetailedJobs);
                 }

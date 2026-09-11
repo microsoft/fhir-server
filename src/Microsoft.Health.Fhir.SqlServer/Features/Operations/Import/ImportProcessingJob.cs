@@ -70,7 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             var definition = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
             var result = new ImportProcessingJobResult();
-            var stopwatch = Stopwatch.StartNew();
 
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
@@ -103,6 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                var stopwatch = Stopwatch.StartNew();
 
                 // Design of resource loader is too complex. There is no need to have any channel and separate load task.
                 // This design was driven from assumption that worker/processing job deals with entire large file.

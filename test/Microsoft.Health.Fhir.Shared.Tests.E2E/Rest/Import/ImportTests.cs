@@ -818,6 +818,8 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(jobs, jobLines.Count);
             foreach (var jobLine in jobLines)
             {
+                Assert.Contains("succeeded=1000", jobLine);
+                Assert.Contains("failed=0", jobLine);
                 Assert.Contains("cpu_msec=", jobLine);
                 Assert.Contains("clock_msec=", jobLine);
                 Assert.Contains("database_msec=", jobLine);
