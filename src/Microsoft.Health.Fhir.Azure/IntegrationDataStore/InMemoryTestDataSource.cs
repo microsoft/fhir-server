@@ -15,8 +15,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
     /// <summary>
     /// Provides an in-memory, synthetic NDJSON payload that <see cref="AzureBlobIntegrationDataStoreClient"/>
-    /// can serve in place of a real Azure Storage blob, for measuring the CPU cost of the $import processing
-    /// pipeline without incurring real storage or database I/O.
+    /// used instead of Azure Storage blob for measuring the CPU cost of the $import without incurring real storage I/O.
     /// </summary>
     /// <remarks>
     /// This source only activates for resource URIs using the reserved

@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else if (coord.Status == JobStatus.Failed)
             {
-                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coord.Result);
+                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coord.Result); // failed job cannot have null result.
                 if (errorResult.HttpStatusCode == 0)
                 {
                     errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
@@ -129,6 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                     CpuMilliseconds = cpuMilliseconds,
                                     ClockMilliseconds = clockMilliseconds,
                                     DatabaseMilliseconds = databaseMilliseconds,
+                                    ResourceCount = _.Result.SucceededResources + _.Result.FailedResources,
                                     StartDate = _.Job.StartDate.Value,
                                     EndDate = _.Job.EndDate.Value,
                                 };
@@ -141,8 +142,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             var jobmsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
                             var elapsedmsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
                             var parallelism = elapsedmsec > 0 ? Math.Round(jobmsec / elapsedmsec, 2) : 0;
-                            var totalCpuMilliseconds = jobLines.Sum(_ => _.CpuMilliseconds);
-                            var cpuMillisecondsPerResource = totalCpuMilliseconds.HasValue ? Math.Round((double)totalCpuMilliseconds.Value / jobLines.Count / 1000, 2) : (double?)null;
+                            var jobsWithReliableDatabaseTiming = jobLines.Where(_ => _.DatabaseMilliseconds.HasValue).ToList();
+                            var resourceCount = jobsWithReliableDatabaseTiming.Sum(_ => _.ResourceCount);
+                            var cpuMillisecondsPerResource = resourceCount > 0
+                                ? Math.Round((double)jobsWithReliableDatabaseTiming.Sum(_ => _.CpuMilliseconds.Value) / resourceCount, 2)
+                                : (double?)null;
                             var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
                             executionStats.AddRange(jobLines.Select(x => x.Line));
 

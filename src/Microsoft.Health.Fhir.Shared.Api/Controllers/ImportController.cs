@@ -212,6 +212,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(input)));
             }
 
+            if (importData.InMemoryTestProcessingJobs > 0
+                && (importData.InMemoryTestProcessingJobs > 1_000_000
+                    || input.Count != 1
+                    || input[0].Url == null
+                    || !string.Equals(input[0].Url.Scheme, IntegrationDataStoreClientConstants.InMemoryTestSourceScheme, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(importData.InMemoryTestProcessingJobs)));
+            }
+
             // Ensure that the server has a valid storage account configured for import operations.
             if (_configuredStorageAccountUri == null)
             {
