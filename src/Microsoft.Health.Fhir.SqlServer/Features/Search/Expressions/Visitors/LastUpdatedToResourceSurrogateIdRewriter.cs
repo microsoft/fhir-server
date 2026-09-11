@@ -112,11 +112,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private static BinaryExpression VisitBinaryConstrained(BinaryExpression expression)
         {
-            // Constrain to MaxDateTime - Dates beyond MaxDateTime are outside the system's representable range.
-            // ResourceSurrogateId encodes the datetime in high bits and a uniquifier (0-7) in low 3 bits.
-            // Use the max surrogate ID for the constrained millisecond (uniquifier = 7) to correctly account for all rows in that bucket.
-            DateTime constrained = IdHelper.MaxDateTime.UtcDateTime;
-            long maxSurrogateId = new DateTimeOffset(constrained).ToSurrogateId() + 7;
+            // Dates beyond IdHelper.MaxDateTime are outside the system's representable range.
+            // ResourceSurrogateId uses a database uniquifier in the range 0..79999, so use the maximum stored ID as the overflow bound.
+            // LT/LE overflow predicates must include every valid row; GT/GE predicates against this bound are always false.
+            long maxSurrogateId = long.MaxValue;
 
             switch (expression.BinaryOperator)
             {
