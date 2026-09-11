@@ -155,10 +155,10 @@ BEGIN TRY
       (@ResourceTypeId, @ResourceId, 2, 0, @CurrentSurrogateId, 0, 'PUT', 0x01, 0, NULL)
 
   INSERT INTO dbo.VectorSearchParam
-      (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, ChunkText, SourceTextHash, SourceResourceTypeId, SourceResourceId, SourceResourceVersion, SourcePath, Embedding)
+      (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding)
   VALUES
-      (@ResourceTypeId, @HistorySurrogateId, @SearchParamId, 0, @EmbeddingModelId, N'history text', HASHBYTES('SHA2_256', N'history text'), @ResourceTypeId, @ResourceId, '1', N'content', CAST(CONCAT('[', REPLICATE('0,', 1535), '0]') AS vector(1536))),
-      (@ResourceTypeId, @CurrentSurrogateId, @SearchParamId, 0, @EmbeddingModelId, N'current text', HASHBYTES('SHA2_256', N'current text'), @ResourceTypeId, @ResourceId, '2', N'content', CAST(CONCAT('[', REPLICATE('0,', 1535), '0]') AS vector(1536)))
+      (@ResourceTypeId, @HistorySurrogateId, @SearchParamId, 0, @EmbeddingModelId, HASHBYTES('SHA2_256', N'history text'), 0x01, CAST(CONCAT('[', REPLICATE('0,', 1535), '0]') AS vector(1536))),
+      (@ResourceTypeId, @CurrentSurrogateId, @SearchParamId, 0, @EmbeddingModelId, HASHBYTES('SHA2_256', N'current text'), 0x02, CAST(CONCAT('[', REPLICATE('0,', 1535), '0]') AS vector(1536)))
 
   EXECUTE dbo.HardDeleteResource
       @ResourceTypeId = @ResourceTypeId,

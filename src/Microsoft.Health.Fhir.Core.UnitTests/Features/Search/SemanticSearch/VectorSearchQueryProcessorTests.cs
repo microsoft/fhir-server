@@ -133,23 +133,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         }
 
         [Fact]
-        public async Task GivenLocalBinaryReferenceStrategy_WhenPreparing_ThenSearchIsRejectedBeforeEmbedding()
-        {
-            // Arrange
-            SearchParameterInfo searchParameter = CreateSearchParameter(
-                new VectorSearchParameterConfig { SourceStrategy = VectorTextSourceStrategy.LocalBinaryReference });
-            var expression = new VectorSearchExpression(searchParameter, "breathing difficulty");
-
-            // Act
-            Func<Task> prepare = () => CreateProcessor().PrepareAsync(expression, CancellationToken.None);
-
-            // Assert
-            await Assert.ThrowsAsync<InvalidSearchOperationException>(prepare);
-            await _embeddingClient.DidNotReceiveWithAnyArgs().GenerateEmbeddingsAsync(default, default);
-            await _embeddingModelRegistry.DidNotReceiveWithAnyArgs().GetEmbeddingModelIdAsync(default);
-        }
-
-        [Fact]
         public async Task GivenMultiHopVectorExpression_WhenPreparing_ThenSearchIsRejectedBeforeEmbedding()
         {
             var subjectSearchParameter = new SearchParameterInfo(

@@ -238,7 +238,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         Url = VectorSearchParameterConfig.ExtensionUrl,
                         Extension =
                         {
-                            new Extension(VectorSearchParameterConfig.SourceStrategyExtensionUrl, new Code("directText")),
                             new Extension(VectorSearchParameterConfig.ExtractionPolicyExtensionUrl, new Code("perValueRow")),
                         },
                     },

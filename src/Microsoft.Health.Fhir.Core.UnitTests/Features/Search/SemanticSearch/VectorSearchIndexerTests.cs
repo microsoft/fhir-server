@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -54,7 +56,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchChunk chunk = Assert.Single(indexEntry.Chunks);
             Assert.Equal(0, chunk.ChunkOrdinal);
             Assert.Equal("first value\nsecond value", chunk.ChunkText);
-            Assert.Equal(32, chunk.SourceTextHash.Count);
+            Assert.Equal(
+                SHA256.HashData(Encoding.UTF8.GetBytes("first value\nsecond value")),
+                chunk.SourceTextHash);
         }
 
         [Fact]
@@ -185,7 +189,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 CreateTextChunker(),
                 embeddingClient,
                 Substitute.For<IEmbeddingModelRegistry>(),
-                CreateTextSourceResolver(),
                 Options.Create(CreateConfiguration()),
                 NullLogger<VectorSearchIndexer>.Instance);
 
@@ -294,14 +297,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 CreateTextChunker(),
                 embeddingClient,
                 embeddingModelRegistry,
-                CreateTextSourceResolver(),
                 Options.Create(configuration),
                 NullLogger<VectorSearchIndexer>.Instance);
-        }
-
-        private static VectorTextSourceResolver CreateTextSourceResolver()
-        {
-            return new VectorTextSourceResolver();
         }
 
         private static TextChunker CreateTextChunker()
