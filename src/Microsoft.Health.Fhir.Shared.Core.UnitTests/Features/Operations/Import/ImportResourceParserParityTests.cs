@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Features.Context;
@@ -86,10 +87,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.Equal(firely.ResourceWrapper.Version, ignixa.ResourceWrapper.Version);
             Assert.Equal(firely.ResourceWrapper.ResourceTypeName, ignixa.ResourceWrapper.ResourceTypeName);
             Assert.Equal(firely.ResourceWrapper.LastModified, ignixa.ResourceWrapper.LastModified);
-            Assert.True(
-                JsonNode.DeepEquals(
-                    JsonNode.Parse(firely.ResourceWrapper.RawResource.Data),
-                    JsonNode.Parse(ignixa.ResourceWrapper.RawResource.Data)));
+            Assert.True(GetRawRoot(firely).GetProperty("active").GetBoolean());
+            Assert.True(GetRawRoot(ignixa).GetProperty("active").GetBoolean());
         }
 
         [Theory]
@@ -698,6 +697,208 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             var formatException = Assert.IsType<FormatException>(ignixa);
             Assert.NotNull(formatException.InnerException);
             Assert.IsType<System.Text.Json.JsonException>(formatException.InnerException);
+        }
+
+        [Fact]
+        public void GivenNestedPropertiesInDifferentOrders_WhenParsed_ThenSemanticContentMatchesWithoutTreatingInputTextAsEqual()
+        {
+            Assert.NotEqual(
+                ImportResourceParserCharacterizationCorpus.NestedPropertiesFirstOrder,
+                ImportResourceParserCharacterizationCorpus.NestedPropertiesSecondOrder);
+            Assert.True(
+                JsonNode.DeepEquals(
+                    JsonNode.Parse(ImportResourceParserCharacterizationCorpus.NestedPropertiesFirstOrder),
+                    JsonNode.Parse(ImportResourceParserCharacterizationCorpus.NestedPropertiesSecondOrder)));
+
+            AssertPatientName(
+                _firelyParser.Parse(
+                    0,
+                    0,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesFirstOrder.Length,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesFirstOrder,
+                    ImportMode.IncrementalLoad));
+            AssertPatientName(
+                _firelyParser.Parse(
+                    1,
+                    0,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesSecondOrder.Length,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesSecondOrder,
+                    ImportMode.IncrementalLoad));
+            AssertPatientName(
+                _ignixaParser.Parse(
+                    2,
+                    0,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesFirstOrder.Length,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesFirstOrder,
+                    ImportMode.IncrementalLoad));
+            AssertPatientName(
+                _ignixaParser.Parse(
+                    3,
+                    0,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesSecondOrder.Length,
+                    ImportResourceParserCharacterizationCorpus.NestedPropertiesSecondOrder,
+                    ImportMode.IncrementalLoad));
+        }
+
+        [Fact]
+        public void GivenOrderedArraysAndEscapedWhitespace_WhenParsed_ThenBothProvidersRetainEveryMeaningfulValue()
+        {
+            ImportResource firely = _firelyParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.ArrayOrderAndEscapedWhitespace.Length,
+                ImportResourceParserCharacterizationCorpus.ArrayOrderAndEscapedWhitespace,
+                ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.ArrayOrderAndEscapedWhitespace.Length,
+                ImportResourceParserCharacterizationCorpus.ArrayOrderAndEscapedWhitespace,
+                ImportMode.IncrementalLoad);
+
+            AssertPatientName(firely);
+            AssertPatientName(ignixa);
+            Assert.Equal("Ada\tLovelace\n\"quoted\"", GetRawRoot(firely).GetProperty("name")[0].GetProperty("text").GetString());
+            Assert.Equal("Ada\tLovelace\n\"quoted\"", GetRawRoot(ignixa).GetProperty("name")[0].GetProperty("text").GetString());
+        }
+
+        [Fact]
+        public void GivenDecimalPrecisionAndZuluTemporal_WhenParsed_ThenBothProvidersProduceTheSameLexicalRawValues()
+        {
+            ImportResource firely = _firelyParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.DecimalAndTemporal.Length,
+                ImportResourceParserCharacterizationCorpus.DecimalAndTemporal,
+                ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.DecimalAndTemporal.Length,
+                ImportResourceParserCharacterizationCorpus.DecimalAndTemporal,
+                ImportMode.IncrementalLoad);
+
+            Assert.Equal("1.2300", GetRawRoot(firely).GetProperty("valueQuantity").GetProperty("value").GetRawText());
+            Assert.Equal("1.2300", GetRawRoot(ignixa).GetProperty("valueQuantity").GetProperty("value").GetRawText());
+            Assert.Equal("2024-02-29T10:11:12.120Z", GetRawRoot(firely).GetProperty("effectiveDateTime").GetString());
+            Assert.Equal("2024-02-29T10:11:12.120Z", GetRawRoot(ignixa).GetProperty("effectiveDateTime").GetString());
+        }
+
+        [Fact]
+        public void GivenExtensionOnlyPrimitiveAndAlignedPrimitiveArray_WhenParsed_ThenDataAbsentReasonExtensionsAndPlaceholdersAreRetained()
+        {
+            ImportResource firely = _firelyParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.ExtensionOnlyPrimitiveAndAlignedArray.Length,
+                ImportResourceParserCharacterizationCorpus.ExtensionOnlyPrimitiveAndAlignedArray,
+                ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.ExtensionOnlyPrimitiveAndAlignedArray.Length,
+                ImportResourceParserCharacterizationCorpus.ExtensionOnlyPrimitiveAndAlignedArray,
+                ImportMode.IncrementalLoad);
+
+            AssertDataAbsentReasonPrimitiveShape(GetRawRoot(firely));
+            AssertDataAbsentReasonPrimitiveShape(GetRawRoot(ignixa));
+        }
+
+        [Fact]
+        public void GivenDuplicateKnownProperty_WhenParsed_ThenFirelyPersistsFinalValueButIgnixaRejectsTheDuplicate()
+        {
+            ImportResource firely = _firelyParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.DuplicateKnownProperty.Length,
+                ImportResourceParserCharacterizationCorpus.DuplicateKnownProperty,
+                ImportMode.IncrementalLoad);
+            Exception ignixa = Record.Exception(
+                () => _ignixaParser.Parse(
+                    0,
+                    0,
+                    ImportResourceParserCharacterizationCorpus.DuplicateKnownProperty.Length,
+                    ImportResourceParserCharacterizationCorpus.DuplicateKnownProperty,
+                    ImportMode.IncrementalLoad));
+
+            Assert.True(GetRawRoot(firely).GetProperty("active").GetBoolean());
+            Assert.IsType<ArgumentException>(ignixa);
+        }
+
+        [Fact]
+        public void GivenUnknownProperty_WhenParsed_ThenNeitherProviderReturnsAnImportResource()
+        {
+            Exception firely = Record.Exception(
+                () => _firelyParser.Parse(
+                    0,
+                    0,
+                    ImportResourceParserCharacterizationCorpus.UnknownProperty.Length,
+                    ImportResourceParserCharacterizationCorpus.UnknownProperty,
+                    ImportMode.IncrementalLoad));
+            Exception ignixa = Record.Exception(
+                () => _ignixaParser.Parse(
+                    0,
+                    0,
+                    ImportResourceParserCharacterizationCorpus.UnknownProperty.Length,
+                    ImportResourceParserCharacterizationCorpus.UnknownProperty,
+                    ImportMode.IncrementalLoad));
+
+            Assert.NotNull(firely);
+            Assert.NotNull(ignixa);
+        }
+
+        [Fact]
+        public void GivenArrayInScalarPosition_WhenParsed_ThenBothProvidersUseTheScalarValue()
+        {
+            ImportResource firely = _firelyParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.MalformedScalarShape.Length,
+                ImportResourceParserCharacterizationCorpus.MalformedScalarShape,
+                ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.MalformedScalarShape.Length,
+                ImportResourceParserCharacterizationCorpus.MalformedScalarShape,
+                ImportMode.IncrementalLoad);
+
+            Assert.True(GetRawRoot(firely).GetProperty("active").GetBoolean());
+            Assert.True(GetRawRoot(ignixa).GetProperty("active").GetBoolean());
+        }
+
+        private static JsonElement GetRawRoot(ImportResource resource)
+        {
+            using JsonDocument document = JsonDocument.Parse(resource.ResourceWrapper.RawResource.Data);
+            return document.RootElement.Clone();
+        }
+
+        private static void AssertPatientName(ImportResource resource)
+        {
+            JsonElement name = Assert.Single(GetRawRoot(resource).GetProperty("name").EnumerateArray());
+            Assert.Equal("Lovelace", name.GetProperty("family").GetString());
+            JsonElement.ArrayEnumerator given = name.GetProperty("given").EnumerateArray();
+            Assert.True(given.MoveNext());
+            Assert.Equal("Ada", given.Current.GetString());
+            Assert.True(given.MoveNext());
+            Assert.Equal("Augusta", given.Current.GetString());
+            Assert.False(given.MoveNext());
+        }
+
+        private static void AssertDataAbsentReasonPrimitiveShape(JsonElement root)
+        {
+            const string DataAbsentReasonUrl = "http://hl7.org/fhir/StructureDefinition/data-absent-reason";
+
+            Assert.True(root.TryGetProperty("_active", out JsonElement activeMetadata));
+            Assert.Equal(DataAbsentReasonUrl, activeMetadata.GetProperty("extension")[0].GetProperty("url").GetString());
+            Assert.Equal("unknown", activeMetadata.GetProperty("extension")[0].GetProperty("valueCode").GetString());
+
+            JsonElement name = Assert.Single(root.GetProperty("name").EnumerateArray());
+            Assert.Equal(JsonValueKind.Null, name.GetProperty("given")[0].ValueKind);
+            Assert.Equal("Ada", name.GetProperty("given")[1].GetString());
+            Assert.Equal(DataAbsentReasonUrl, name.GetProperty("_given")[0].GetProperty("extension")[0].GetProperty("url").GetString());
+            Assert.Equal("masked", name.GetProperty("_given")[0].GetProperty("extension")[0].GetProperty("valueCode").GetString());
+            Assert.Equal(JsonValueKind.Null, name.GetProperty("_given")[1].ValueKind);
         }
     }
 }

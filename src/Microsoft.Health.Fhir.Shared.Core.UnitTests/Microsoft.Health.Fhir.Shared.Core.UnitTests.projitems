@@ -29,6 +29,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\IgnixaSchemaContextTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportErrorSerializerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParserCharacterizationCorpus.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParserTests.cs" />
