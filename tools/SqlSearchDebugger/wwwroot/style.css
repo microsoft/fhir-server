@@ -1,0 +1,34 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1e1e2e; color: #cdd6f4; min-height: 100vh; }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+h1 { color: #89b4fa; margin-bottom: 20px; font-size: 1.8em; }
+h2 { color: #a6e3a1; margin: 15px 0 10px; font-size: 1.2em; }
+.input-section { background: #313244; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+.input-group { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.input-group label { min-width: 140px; color: #bac2de; }
+input[type="text"] { flex: 1; padding: 10px 14px; border: 1px solid #45475a; border-radius: 6px; background: #1e1e2e; color: #cdd6f4; font-size: 14px; font-family: 'Cascadia Code', 'Fira Code', monospace; }
+input[type="text"]:focus { outline: none; border-color: #89b4fa; }
+button { padding: 10px 24px; border: none; border-radius: 6px; background: #89b4fa; color: #1e1e2e; font-weight: 600; cursor: pointer; font-size: 14px; }
+button:hover { background: #b4d0fb; }
+button:active { transform: scale(0.98); }
+.output-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.panel { background: #313244; border-radius: 8px; padding: 20px; overflow: auto; }
+.panel.full-width { grid-column: 1 / -1; }
+pre { background: #1e1e2e; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 13px; line-height: 1.5; font-family: 'Cascadia Code', 'Fira Code', monospace; white-space: pre-wrap; word-break: break-word; }
+.sql-keyword { color: #cba6f7; font-weight: bold; }
+.sql-function { color: #f9e2af; }
+.sql-string { color: #a6e3a1; }
+.sql-number { color: #fab387; }
+.sql-table { color: #89dceb; }
+.sql-column { color: #f5c2e7; }
+.error { background: #45273a; border: 1px solid #f38ba8; color: #f38ba8; padding: 15px; border-radius: 6px; white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+.params-table { width: 100%; border-collapse: collapse; }
+.params-table th, .params-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #45475a; }
+.params-table th { color: #89b4fa; background: #1e1e2e; }
+.params-table td { font-family: 'Cascadia Code', monospace; font-size: 13px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: #45475a; color: #cdd6f4; margin: 2px; }
+.badge.type { background: #1e3a5f; color: #89b4fa; }
+.badge.id { background: #2d3a1e; color: #a6e3a1; }
+.examples { margin-top: 10px; }
+.examples a { color: #89b4fa; text-decoration: none; margin-right: 15px; font-size: 13px; cursor: pointer; }
+.examples a:hover { text-decoration: underline; }

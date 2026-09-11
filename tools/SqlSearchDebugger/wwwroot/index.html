@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Search Parser Debugger</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 SQL Search Parser Debugger</h1>
+
+        <div class="input-section">
+            <div class="input-group">
+                <label for="fhir-url">FHIR URL:</label>
+                <input type="text" id="fhir-url" placeholder="/Patient?name=Smith&_sort=-_lastUpdated&_count=10" />
+                <button onclick="parseUrl()">Parse</button>
+            </div>
+            <div class="input-group">
+                <label for="continuation-token">Continuation Token:</label>
+                <input type="text" id="continuation-token" placeholder="(optional) raw JSON array e.g. [103, 12345]" />
+            </div>
+            <div class="examples">
+                <strong style="color:#6c7086;font-size:13px;">Examples: </strong>
+                <a onclick="setExample('/Patient?name=Smith')">Simple search</a>
+                <a onclick="setExample('/Patient?_sort=-_lastUpdated&_count=5')">Sort</a>
+                <a onclick="setExample('/Patient?_include=Patient:organization')">Include</a>
+                <a onclick="setExample('/Patient?_revinclude=Observation:subject')">RevInclude</a>
+                <a onclick="setExample('/Patient?organization.name=Acme')">Chain</a>
+                <a onclick="setExample('/Patient?_has:Observation:subject:code=test')">Reverse chain</a>
+                <a onclick="setExample('/Patient?_include=Patient:organization&_revinclude:iterate=Observation:subject:Organization')">Iterate</a>
+                <a onclick="setExample('/Observation?code=http://loinc.org|1234-5&date=ge2024-01-01')">Token+Date</a>
+                <a onclick="setExample('/Patient?_not-referenced=Observation:subject')">Not referenced</a>
+                <a onclick="setExample('/Patient?name=Smith&_sort=birthdate&_count=5')">Sort+filter</a>
+            </div>
+        </div>
+
+        <div class="output-section">
+            <div class="panel" id="params-panel">
+                <h2>📋 Parsed Parameters</h2>
+                <div id="params-output"><pre>Enter a FHIR URL and click Parse</pre></div>
+            </div>
+            <div class="panel" id="info-panel">
+                <h2>ℹ️ Query Info</h2>
+                <div id="info-output"><pre>Resource type and ID mappings will appear here</pre></div>
+            </div>
+            <div class="panel full-width" id="sql-panel">
+                <h2>🗃️ Generated SQL</h2>
+                <div id="sql-output"><pre>SQL output will appear here</pre></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
