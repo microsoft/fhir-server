@@ -41,6 +41,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             }
             """;
 
+        internal const string FirstGivenArrayOrder = """
+            {
+              "resourceType":"Patient",
+              "id":"characterization-array-order",
+              "meta":{"versionId":"9","lastUpdated":"2024-02-29T10:11:12.120Z"},
+              "name":[{"family":"Lovelace","given":["Ada","Augusta"]}]
+            }
+            """;
+
+        internal const string SecondGivenArrayOrder = """
+            {
+              "resourceType":"Patient",
+              "id":"characterization-array-order",
+              "meta":{"versionId":"9","lastUpdated":"2024-02-29T10:11:12.120Z"},
+              "name":[{"family":"Lovelace","given":["Augusta","Ada"]}]
+            }
+            """;
+
         internal const string DecimalAndTemporal = """
             {
               "resourceType":"Observation",
@@ -50,6 +68,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
               "code":{"text":"body temperature"},
               "effectiveDateTime":"2024-02-29T10:11:12.120Z",
               "valueQuantity":{"value":1.2300,"unit":"C"}
+            }
+            """;
+
+        internal const string DateTypedValueWithZuluDateTime = """
+            {
+              "resourceType":"Patient",
+              "id":"characterization-date",
+              "meta":{"versionId":"9","lastUpdated":"2024-02-29T10:11:12.120Z"},
+              "birthDate":"2024-02-29T10:11:12.120Z"
             }
             """;
 

@@ -121,7 +121,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             services.AddSingleton<ISearchIndexer>(Substitute.For<ISearchIndexer>());
             services.AddSingleton<ISearchParameterDefinitionManager>(Substitute.For<ISearchParameterDefinitionManager>());
             services.AddSingleton<IModelInfoProvider, VersionSpecificModelInfoProvider>();
-            services.AddSingleton(new FhirJsonParser());
+#pragma warning disable CS0618 // Type or member is obsolete
+            services.AddSingleton(new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true }));
+#pragma warning restore CS0618 // Type or member is obsolete
             services.AddSingleton<IRawResourceFactory>(new RawResourceFactory(new FhirJsonSerializer()));
             services.AddSingleton<IResourceDeserializer>(Substitute.For<IResourceDeserializer>());
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();

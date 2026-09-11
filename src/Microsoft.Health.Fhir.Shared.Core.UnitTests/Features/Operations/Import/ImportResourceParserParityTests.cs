@@ -53,7 +53,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 Substitute.For<ISearchParameterDefinitionManager>(),
                 Deserializers.ResourceDeserializer);
 
-            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), wrapperFactory);
+#pragma warning disable CS0618 // Type or member is obsolete
+            _firelyParser = new FirelyImportResourceParser(
+                new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true }),
+                wrapperFactory);
+#pragma warning restore CS0618 // Type or member is obsolete
             _ignixaParser = new IgnixaImportResourceParser(
                 wrapperFactory,
                 new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()));
@@ -87,6 +91,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.Equal(firely.ResourceWrapper.Version, ignixa.ResourceWrapper.Version);
             Assert.Equal(firely.ResourceWrapper.ResourceTypeName, ignixa.ResourceWrapper.ResourceTypeName);
             Assert.Equal(firely.ResourceWrapper.LastModified, ignixa.ResourceWrapper.LastModified);
+            Assert.Equal(
+                firely.ResourceWrapper.RawResource.Data,
+                ignixa.ResourceWrapper.RawResource.Data,
+                StringComparer.Ordinal);
             Assert.True(GetRawRoot(firely).GetProperty("active").GetBoolean());
             Assert.True(GetRawRoot(ignixa).GetProperty("active").GetBoolean());
         }
@@ -763,6 +771,73 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public void GivenGivenArraysInDifferentOrders_WhenParsed_ThenBothProvidersPreserveTheInputOrderAndRawPayloadDifference()
+        {
+            Assert.False(
+                JsonNode.DeepEquals(
+                    JsonNode.Parse(ImportResourceParserCharacterizationCorpus.FirstGivenArrayOrder),
+                    JsonNode.Parse(ImportResourceParserCharacterizationCorpus.SecondGivenArrayOrder)));
+
+            ImportResource firelyFirst = _firelyParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.FirstGivenArrayOrder.Length,
+                ImportResourceParserCharacterizationCorpus.FirstGivenArrayOrder,
+                ImportMode.IncrementalLoad);
+            ImportResource firelySecond = _firelyParser.Parse(
+                1,
+                0,
+                ImportResourceParserCharacterizationCorpus.SecondGivenArrayOrder.Length,
+                ImportResourceParserCharacterizationCorpus.SecondGivenArrayOrder,
+                ImportMode.IncrementalLoad);
+            ImportResource ignixaFirst = _ignixaParser.Parse(
+                2,
+                0,
+                ImportResourceParserCharacterizationCorpus.FirstGivenArrayOrder.Length,
+                ImportResourceParserCharacterizationCorpus.FirstGivenArrayOrder,
+                ImportMode.IncrementalLoad);
+            ImportResource ignixaSecond = _ignixaParser.Parse(
+                3,
+                0,
+                ImportResourceParserCharacterizationCorpus.SecondGivenArrayOrder.Length,
+                ImportResourceParserCharacterizationCorpus.SecondGivenArrayOrder,
+                ImportMode.IncrementalLoad);
+
+            AssertPatientGivenNames(firelyFirst, "Ada", "Augusta");
+            AssertPatientGivenNames(firelySecond, "Augusta", "Ada");
+            AssertPatientGivenNames(ignixaFirst, "Ada", "Augusta");
+            AssertPatientGivenNames(ignixaSecond, "Augusta", "Ada");
+            Assert.False(string.Equals(
+                firelyFirst.ResourceWrapper.RawResource.Data,
+                firelySecond.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal));
+            Assert.False(string.Equals(
+                ignixaFirst.ResourceWrapper.RawResource.Data,
+                ignixaSecond.ResourceWrapper.RawResource.Data,
+                StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void GivenDateTypedZuluDateTime_WhenParsed_ThenFirelyTruncatesButIgnixaRetainsTheZuluDateTime()
+        {
+            ImportResource firely = _firelyParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.DateTypedValueWithZuluDateTime.Length,
+                ImportResourceParserCharacterizationCorpus.DateTypedValueWithZuluDateTime,
+                ImportMode.IncrementalLoad);
+            ImportResource ignixa = _ignixaParser.Parse(
+                0,
+                0,
+                ImportResourceParserCharacterizationCorpus.DateTypedValueWithZuluDateTime.Length,
+                ImportResourceParserCharacterizationCorpus.DateTypedValueWithZuluDateTime,
+                ImportMode.IncrementalLoad);
+
+            Assert.Equal("2024-02-29", GetRawRoot(firely).GetProperty("birthDate").GetString());
+            Assert.Equal("2024-02-29T10:11:12.120Z", GetRawRoot(ignixa).GetProperty("birthDate").GetString());
+        }
+
+        [Fact]
         public void GivenDecimalPrecisionAndZuluTemporal_WhenParsed_ThenBothProvidersProduceTheSameLexicalRawValues()
         {
             ImportResource firely = _firelyParser.Parse(
@@ -845,6 +920,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 
             Assert.NotNull(firely);
             Assert.NotNull(ignixa);
+            Assert.Contains("unrecognizedProperty", firely.Message, StringComparison.Ordinal);
+            Assert.Contains("unrecognizedProperty", ignixa.Message, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -877,11 +954,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         {
             JsonElement name = Assert.Single(GetRawRoot(resource).GetProperty("name").EnumerateArray());
             Assert.Equal("Lovelace", name.GetProperty("family").GetString());
+            AssertPatientGivenNames(resource, "Ada", "Augusta");
+        }
+
+        private static void AssertPatientGivenNames(ImportResource resource, params string[] expectedGivenNames)
+        {
+            JsonElement name = Assert.Single(GetRawRoot(resource).GetProperty("name").EnumerateArray());
             JsonElement.ArrayEnumerator given = name.GetProperty("given").EnumerateArray();
-            Assert.True(given.MoveNext());
-            Assert.Equal("Ada", given.Current.GetString());
-            Assert.True(given.MoveNext());
-            Assert.Equal("Augusta", given.Current.GetString());
+            foreach (string expectedGivenName in expectedGivenNames)
+            {
+                Assert.True(given.MoveNext());
+                Assert.Equal(expectedGivenName, given.Current.GetString());
+            }
+
             Assert.False(given.MoveNext());
         }
 
