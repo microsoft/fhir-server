@@ -38,11 +38,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 var left = (BinaryExpression)expression.Expressions[1];
                 var right = (BinaryExpression)expression.Expressions[2];
+                var leftValue = (DateTimeOffset)left.Value;
+                DateTimeOffset boundedStart = leftValue.SafeAddTicks(-TimeSpan.TicksPerDay);
+                BinaryOperator boundedStartOperator = left.BinaryOperator == BinaryOperator.GreaterThan &&
+                    leftValue < DateTimeOffset.MinValue.AddTicks(TimeSpan.TicksPerDay)
+                    ? BinaryOperator.GreaterThanOrEqual
+                    : left.BinaryOperator;
 
                 return Expression.And(
                     Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, left.ComponentIndex, false),
                     new BinaryExpression(left.BinaryOperator, FieldName.DateTimeEnd, left.ComponentIndex, left.Value),
-                    new BinaryExpression(left.BinaryOperator, FieldName.DateTimeStart, left.ComponentIndex, ((DateTimeOffset)left.Value).SafeAddTicks(-TimeSpan.TicksPerDay)),
+                    new BinaryExpression(boundedStartOperator, FieldName.DateTimeStart, left.ComponentIndex, boundedStart),
                     new BinaryExpression(right.BinaryOperator, FieldName.DateTimeStart, right.ComponentIndex, right.Value));
             }
 
