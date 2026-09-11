@@ -45,6 +45,8 @@ The trade-off is a shared buffer pool, handled by alternating rounds (see below)
 | `FhirIncludeBenchmark/` | Acquires tokens, runs the query catalog, reports latency percentiles; also has an NDJSON loader mode |
 | `FhirPerfSqlOps/` | Runs T-SQL against Azure SQL with an Entra ID token (Entra-only auth) |
 | `Invoke-BulkImport.ps1` | Builds the `$import` Parameters body from the manifest and polls to completion |
+| `Invoke-ImportBaseline.ps1` | Opt-in import-baseline planner/runner with reproducible report and comparison validation |
+| `ImportBaseline.md` | Safe operator workflow and credential-free verification for import baseline reports |
 | `Invoke-IncludePerfABTest.ps1` | Orchestrates alternating benchmark rounds and produces the report |
 | `Compare-IncludeBenchmark.ps1` | Joins baseline/branch results and classifies each case |
 | `Start-LocalFhirServer.ps1` | Runs a local server configured for SMART benchmarking |
