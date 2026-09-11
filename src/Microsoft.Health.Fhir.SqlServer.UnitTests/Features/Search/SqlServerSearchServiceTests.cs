@@ -305,6 +305,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Same(_model, model);
         }
 
+        [Theory]
+        [InlineData(
+            "/* HASH first */ SELECT 1 /* HASH second */",
+            "/* HASH first fhir=Patient?name */ SELECT 1 /* HASH second fhir=Patient?name */")]
+        [InlineData("SELECT 1", "/* fhir=Patient?name */\nSELECT 1")]
+        public void GivenGeneratedSql_WhenHashCalculatedAndShapeAdded_ThenHashUsesUnannotatedSql(
+            string queryText,
+            string expectedQueryText)
+        {
+            // Arrange
+            string hashedQueryText = null;
+            _queryHashCalculator.CalculateHash(Arg.Do<string>(value => hashedQueryText = value)).Returns("query-hash");
+
+            // Act
+            string result = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+                queryText,
+                "Patient?name",
+                _queryHashCalculator,
+                out string queryHash);
+
+            // Assert
+            Assert.Equal(queryText, hashedQueryText);
+            Assert.Equal("query-hash", queryHash);
+            Assert.Equal(expectedQueryText, result);
+        }
+
         public static IEnumerable<object[]> SingleColumnTableData()
         {
             yield return new object[] { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.Code.Metadata.Name };
