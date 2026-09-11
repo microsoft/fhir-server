@@ -4,9 +4,6 @@ param()
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path "$PSScriptRoot/../../..").Path
 $baselineScriptPath = Join-Path $repositoryRoot 'tools/IncludePerf/Invoke-ImportBaseline.ps1'
-if ($null -eq ('System.Net.Http.HttpResponseMessage' -as [type])) {
-    Add-Type -AssemblyName System.Net.Http
-}
 
 . $baselineScriptPath
 
@@ -42,6 +39,9 @@ function Assert-Throws {
 
     throw "$Description. Expected an exception."
 }
+
+Assert-Equal -Expected $true -Actual ($null -ne ('System.Net.Http.HttpClientHandler' -as [type])) `
+    -Description 'Import baseline script did not resolve System.Net.Http types when it was loaded'
 
 $baselineScript = Get-Content -LiteralPath $baselineScriptPath -Raw
 Assert-Equal -Expected $true -Actual ($baselineScript -match '\$response\.Content\.Headers\.ContentLocation') `

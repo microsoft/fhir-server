@@ -101,6 +101,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+if ($null -eq ('System.Net.Http.HttpClientHandler' -as [type])) {
+    Add-Type -AssemblyName System.Net.Http
+}
+
 function Get-RequiredReportValue {
     param(
         [Parameter(Mandatory = $true)] $Object,
