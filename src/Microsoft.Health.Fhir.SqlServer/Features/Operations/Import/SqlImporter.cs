@@ -70,13 +70,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                     succeededCount += resultInt.LoadedCount;
                     processedBytes += resultInt.ProcessedBytes;
-                    databaseMilliseconds = databaseMilliseconds is null || resultInt.DatabaseMilliseconds is null ? null : databaseMilliseconds + resultInt.DatabaseMilliseconds;
+                    databaseMilliseconds += resultInt.DatabaseMilliseconds;
                 }
 
                 var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                 succeededCount += result.LoadedCount;
                 processedBytes += result.ProcessedBytes;
-                databaseMilliseconds = databaseMilliseconds is null || result.DatabaseMilliseconds is null ? null : databaseMilliseconds + result.DatabaseMilliseconds;
+                databaseMilliseconds += result.DatabaseMilliseconds;
 
                 return await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, databaseMilliseconds, cancellationToken);
             }
