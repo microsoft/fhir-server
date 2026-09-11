@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -71,12 +73,13 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class FhirStorageTestsFixture : IAsyncLifetime, IDisposable
+    public class FhirStorageTestsFixture : IAsyncLifetime
     {
         private readonly IServiceProvider _fixture;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly DataResourceFilter _dataResourceFilter;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
+        private IAsyncDisposable _ownedServiceProvider;
         private SearchParameterOperations _searchParameterOperations;
 
         public FhirStorageTestsFixture(DataStore dataStore)
@@ -90,26 +93,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         internal FhirStorageTestsFixture(IServiceProvider fixture)
+            : this(fixture, CreateRuntimeConfiguration(fixture))
         {
+        }
+
+        internal FhirStorageTestsFixture(IServiceProvider fixture, IFhirRuntimeConfiguration fhirRuntimeConfiguration, IAsyncDisposable ownedServiceProvider = null)
+        {
+            EnsureArg.IsNotNull(fixture, nameof(fixture));
+            EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
+
             _fixture = fixture;
 
-            // This step has to be done in the constructor because it uses an AsyncLocal and the tests run with the same
-            // execution context as the fixture constructor, but not the same as InitializeAsync().
+            // Ordinary field initialization: this fixture keeps a ResourceIdProvider instance for later
+            // handler/service registrations during InitializeAsync.
             _resourceIdProvider = new ResourceIdProvider();
 
             _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
 
-            switch (fixture)
-            {
-                case CosmosDbFhirStorageTestsFixture _:
-                    _fhirRuntimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
-                    break;
-                case SqlServerFhirStorageTestsFixture _:
-                    _fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null);
-            }
+            _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
+
+            // The production path builds and assigns the owned ServiceProvider in InitializeAsync;
+            // the test seam supplies it directly so cleanup can be verified without a real backend.
+            _ownedServiceProvider = ownedServiceProvider;
         }
 
         public Mediator Mediator { get; private set; }
@@ -199,20 +204,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IServiceProvider Service => _fixture;
 
-        public void Dispose()
-        {
-            (_fixture as IDisposable)?.Dispose();
-        }
-
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {
                 await asyncLifetime.InitializeAsync();
             }
 
-            // Initialize FhirRequestContext to ensure pending status updates are captured
-            // This needs to be here (like ResourceIdProvider) because it uses AsyncLocal
+            // Initialize the fixture's request-context accessor so pending status updates are captured.
+            // The SQL and Cosmos test providers expose a substitute accessor, so this configured value
+            // is fixture-owned state and does not depend on ExecutionContext flow.
             FhirRequestContextAccessor.RequestContext = new DefaultFhirRequestContext
             {
                 BaseUri = new Uri("http://localhost/"),
@@ -400,15 +401,41 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider services = collection.BuildServiceProvider();
 
+            _ownedServiceProvider = services;
+
             Mediator = new Mediator(services);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
-            if (_fixture is IAsyncLifetime asyncLifetime)
+            try
             {
-                await asyncLifetime.DisposeAsync();
+                if (_fixture is IAsyncLifetime asyncLifetime)
+                {
+                    await asyncLifetime.DisposeAsync();
+                }
             }
+            finally
+            {
+                // Dispose the DI ServiceProvider this fixture built and owns. We always attempt this
+                // in finally, even when the nested fixture cleanup throws. If the nested cleanup fails
+                // and provider cleanup succeeds, the nested exception propagates; if provider cleanup
+                // also throws, the provider exception supersedes it.
+                if (_ownedServiceProvider is not null)
+                {
+                    await _ownedServiceProvider.DisposeAsync();
+                }
+            }
+        }
+
+        private static IFhirRuntimeConfiguration CreateRuntimeConfiguration(IServiceProvider fixture)
+        {
+            return fixture switch
+            {
+                CosmosDbFhirStorageTestsFixture _ => new AzureApiForFhirRuntimeConfiguration(),
+                SqlServerFhirStorageTestsFixture _ => new AzureHealthDataServicesRuntimeConfiguration(),
+                _ => throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null),
+            };
         }
 
         private static UrlResolver CreateUrlResolver(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)

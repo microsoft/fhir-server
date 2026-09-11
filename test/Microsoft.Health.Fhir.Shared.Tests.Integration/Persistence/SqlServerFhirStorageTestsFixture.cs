@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
+using System.Threading.Tasks;
 using Azure.Identity;
 using Medino;
 using Microsoft.AspNetCore.Components.Forms;
@@ -143,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _mediator = Substitute.For<IMediator>();
 
@@ -337,7 +338,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterStatusManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }

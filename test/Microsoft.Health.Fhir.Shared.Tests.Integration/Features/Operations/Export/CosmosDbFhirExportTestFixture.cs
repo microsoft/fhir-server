@@ -23,7 +23,7 @@ public class CosmosDbFhirExportTestFixture : CosmosDbFhirStorageTestsFixture, IA
     {
     }
 
-    public override async Task InitializeAsync()
+    public override async ValueTask InitializeAsync()
     {
         await base.InitializeAsync();
 
@@ -31,7 +31,7 @@ public class CosmosDbFhirExportTestFixture : CosmosDbFhirStorageTestsFixture, IA
         await PrepareData(3333);
     }
 
-    public override async Task DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
         await CleanupTestResourceDocuments();
         await base.DisposeAsync();

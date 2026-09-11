@@ -37,7 +37,6 @@ using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 #pragma warning disable SA1116 // Split parameters should start on line after declaration
 
