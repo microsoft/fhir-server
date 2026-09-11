@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 long succeededCount = 0;
                 long processedBytes = 0;
+                long? databaseMilliseconds = 0;
                 long currentIndex = -1;
                 var errors = new List<string>();
                 var resourceBatch = new List<ImportResource>();
@@ -69,13 +70,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                     succeededCount += resultInt.LoadedCount;
                     processedBytes += resultInt.ProcessedBytes;
+                    databaseMilliseconds += resultInt.DatabaseMilliseconds;
                 }
 
                 var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                 succeededCount += result.LoadedCount;
                 processedBytes += result.ProcessedBytes;
+                databaseMilliseconds += result.DatabaseMilliseconds;
 
-                return await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, cancellationToken);
+                return await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, databaseMilliseconds, cancellationToken);
             }
             finally
             {
@@ -83,19 +86,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<(long LoadedCount, long ProcessedBytes)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
+        private async Task<(long LoadedCount, long ProcessedBytes, long? DatabaseMilliseconds)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
             //// exclude resources with parsing error (ImportError != null)
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var newErrors = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
-            errors.AddRange(newErrors);
+            var importResult = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
+            errors.AddRange(importResult.Errors);
             var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();
-            return (validResources.Count - newErrors.Count, totalBytes);
+            return (validResources.Count - importResult.Errors.Count, totalBytes, importResult.DatabaseMilliseconds);
         }
 
-        private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeededCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, CancellationToken cancellationToken)
+        private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeededCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, long? databaseMilliseconds, CancellationToken cancellationToken)
         {
             try
             {
@@ -112,6 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             progress.FailedResources = failedCount;
             progress.ProcessedBytes = processedBytes;
             progress.CurrentIndex = lastIndex + 1;
+            progress.DatabaseMilliseconds = databaseMilliseconds;
 
             return progress;
         }

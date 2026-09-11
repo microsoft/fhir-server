@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Channels;
@@ -101,6 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                var stopwatch = Stopwatch.StartNew();
 
                 // Design of resource loader is too complex. There is no need to have any channel and separate load task.
                 // This design was driven from assumption that worker/processing job deals with entire large file.
@@ -115,6 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 result.FailedResources = importProgress.FailedResources;
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
                 result.ProcessedBytes = importProgress.ProcessedBytes;
+                result.DatabaseMilliseconds = importProgress.DatabaseMilliseconds;
 
                 _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, result.SucceededResources, result.FailedResources);
 
@@ -152,6 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     throw new JobExecutionException(ex.Message, error, ex, false);
                 }
 
+                result.ClockMilliseconds = stopwatch.ElapsedMilliseconds;
                 jobInfo.Data = result.SucceededResources + result.FailedResources;
 
                 // jobs are small, send on success only
