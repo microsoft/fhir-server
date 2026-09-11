@@ -392,6 +392,36 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public void GivenBulkReindex_WhenCreatingCommand_ThenExistingProcedureIsUsed()
+        {
+            // Arrange and Act
+            using SqlCommand command = SqlServerFhirDataStore.CreateBulkUpdateSearchParameterIndicesCommand(resourceCount: 1);
+
+            // Assert
+            Assert.Equal("dbo.UpdateResourceSearchParams", command.CommandText);
+        }
+
+        [Fact]
+        public void GivenEvaluatedVectorResourceAndSchema117_WhenCheckingVectorReindex_ThenVectorTvpsAreEnabled()
+        {
+            // Arrange
+            ResourceWrapper resource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
+            resource.UpdateVectorSearchIndices(Array.Empty<VectorSearchIndexEntry>());
+
+            // Act
+            bool schema116Result = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, currentSchemaVersion: 116);
+            bool schema117Result = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, currentSchemaVersion: 117);
+            bool unevaluatedResult = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(
+                new[] { CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"456\"}") },
+                currentSchemaVersion: 117);
+
+            // Assert
+            Assert.False(schema116Result);
+            Assert.True(schema117Result);
+            Assert.False(unevaluatedResult);
+        }
+
+        [Fact]
         public void GivenVectorPassages_WhenGeneratingRows_ThenTextIsCompressedAndOnlyDuplicatePrimaryKeysAreRemoved()
         {
             // Arrange
