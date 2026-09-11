@@ -4,6 +4,21 @@ param()
 $ErrorActionPreference = 'Stop'
 $assertionPath = Join-Path $PSScriptRoot '../Assert-AcaSqlTopology.ps1'
 . $assertionPath
+$providerAssertionPath = Join-Path $PSScriptRoot '../Assert-EffectiveFhirSdkProvider.ps1'
+. $providerAssertionPath
+$resolver = Join-Path $PSScriptRoot '../Resolve-AcaSqlDeploymentPlan.ps1'
+
+function Assert-Equal {
+    param(
+        [Parameter(Mandatory = $true)] $Expected,
+        [Parameter(Mandatory = $true)] $Actual,
+        [Parameter(Mandatory = $true)] [string] $Description
+    )
+
+    if ($Expected -ne $Actual) {
+        throw "$Description. Expected '$Expected', actual '$Actual'."
+    }
+}
 
 function Assert-Throws {
     param(
@@ -195,4 +210,49 @@ Assert-AcaSqlTopology `
     -SecretResolver $sovereignSecretResolver `
     -AzureEnvironmentResolver $sovereignAzureEnvironmentResolver
 
-Write-Host 'ACA SQL topology behavioral tests passed.'
+foreach ($version in @('Stu3', 'R4')) {
+    $legacyPlan = & $resolver -Version $version
+    Assert-Equal -Expected "FHIR$version" -Actual $legacyPlan.SqlDatabaseName -Description 'Legacy database default changed'
+    Assert-Equal -Expected 'Firely' -Actual $legacyPlan.FhirSdkProviderDefault -Description 'Legacy SDK provider default changed'
+    Assert-Equal -Expected $false -Actual $legacyPlan.EmitFhirSdkProviderEnvironmentVariable -Description 'Legacy deployment would emit a new provider setting'
+
+    $canaryPlan = & $resolver -Version $version -SqlDatabaseName "FHIR${version}VNext" -FhirSdkProviderDefault Ignixa
+    Assert-Equal -Expected "FHIR${version}VNext" -Actual $canaryPlan.SqlDatabaseName -Description 'Canary database is not isolated'
+    Assert-Equal -Expected 'Ignixa' -Actual $canaryPlan.FhirSdkProviderDefault -Description 'Canary SDK provider changed'
+    Assert-Equal -Expected $true -Actual $canaryPlan.EmitFhirSdkProviderEnvironmentVariable -Description 'Canary provider would not be emitted'
+}
+
+foreach ($provider in @('Firely', 'Ignixa')) {
+    $configuredPlan = & $resolver -Version R4 -ConfiguredFhirSdkProviderDefault $provider
+    Assert-Equal -Expected $provider -Actual $configuredPlan.FhirSdkProviderDefault -Description 'Configured provider was not preserved'
+    Assert-Equal -Expected $true -Actual $configuredPlan.EmitFhirSdkProviderEnvironmentVariable -Description 'Configured provider would not be emitted'
+
+    $matchingPlan = & $resolver -Version R4 -FhirSdkProviderDefault $provider -ConfiguredFhirSdkProviderDefault $provider
+    Assert-Equal -Expected $provider -Actual $matchingPlan.FhirSdkProviderDefault -Description 'Matching provider settings were not preserved'
+}
+
+Assert-Throws -Action {
+    & $resolver -Version R4 -FhirSdkProviderDefault Ignixa -ConfiguredFhirSdkProviderDefault Firely
+} -ExpectedMessage 'conflicts with configured provider' -Description 'Conflicting providers were accepted'
+
+Assert-Throws -Action {
+    & $resolver -Version R4 -ConfiguredFhirSdkProviderDefault Unsupported
+} -ExpectedMessage 'is unsupported' -Description 'Unsupported configured provider was accepted'
+
+$matchingProviderEnvironment = @([pscustomobject]@{ name = 'FhirServer__CoreFeatures__FhirSdkProvider__Default'; value = 'Ignixa' })
+Assert-EffectiveFhirSdkProvider -EnvironmentSettings $matchingProviderEnvironment -ExpectedProvider Ignixa -ContainerAppName matching-app
+Assert-EffectiveFhirSdkProvider -EnvironmentSettings @() -ExpectedProvider '' -ContainerAppName legacy-app
+
+Assert-Throws -Action {
+    Assert-EffectiveFhirSdkProvider -EnvironmentSettings @() -ExpectedProvider Ignixa -ContainerAppName missing-app
+} -ExpectedMessage 'does not define' -Description 'Missing expected provider was accepted'
+
+Assert-Throws -Action {
+    Assert-EffectiveFhirSdkProvider -EnvironmentSettings $matchingProviderEnvironment -ExpectedProvider Firely -ContainerAppName mismatch-app
+} -ExpectedMessage "expected 'Firely'" -Description 'Mismatched provider was accepted'
+
+Assert-Throws -Action {
+    Assert-EffectiveFhirSdkProvider -EnvironmentSettings ($matchingProviderEnvironment + $matchingProviderEnvironment) -ExpectedProvider Ignixa -ContainerAppName duplicate-app
+} -ExpectedMessage 'more than once' -Description 'Duplicate provider settings were accepted'
+
+Write-Host 'ACA SQL canary configuration tests passed.'
