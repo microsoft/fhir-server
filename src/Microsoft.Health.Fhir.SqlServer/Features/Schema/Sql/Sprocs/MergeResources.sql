@@ -10,7 +10,6 @@ CREATE PROCEDURE dbo.MergeResources
    ,@IsResourceChangeCaptureEnabled bit = 0
    ,@TransactionId bigint = NULL
    ,@SingleTransaction bit = 1
-  ,@EnqueueVectorSearchSourceRefresh bit = 0
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
@@ -224,8 +223,8 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.VectorSearchParam
-           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, ChunkText, SourceTextHash, SourceResourceTypeId, SourceResourceId, SourceResourceVersion, SourcePath, Embedding )
-      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, ChunkText, SourceTextHash, SourceResourceTypeId, SourceResourceId, SourceResourceVersion, SourcePath, CAST(Embedding AS vector(1536))
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, CAST(Embedding AS vector(1536))
         FROM @VectorSearchParams
     SET @AffectedRows += @@rowcount
 
@@ -349,8 +348,8 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.VectorSearchParam
-           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, ChunkText, SourceTextHash, SourceResourceTypeId, SourceResourceId, SourceResourceVersion, SourcePath, Embedding )
-      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, ChunkText, SourceTextHash, SourceResourceTypeId, SourceResourceId, SourceResourceVersion, SourcePath, CAST(Embedding AS vector(1536))
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, CAST(Embedding AS vector(1536))
         FROM (SELECT TOP (@DummyTop) * FROM @VectorSearchParams) A
         WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.VectorSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
@@ -417,9 +416,6 @@ BEGIN TRY
 
   IF @TransactionId IS NOT NULL
     EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
-
-  IF @EnqueueVectorSearchSourceRefresh = 1
-    EXECUTE dbo.EnqueueVectorSearchSourceRefreshJobs @Resources = @Resources
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 

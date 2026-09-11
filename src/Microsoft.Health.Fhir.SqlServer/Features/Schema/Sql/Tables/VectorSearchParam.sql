@@ -6,12 +6,8 @@ CREATE TABLE dbo.VectorSearchParam
     ChunkOrdinal            smallint        NOT NULL
         CONSTRAINT DF_VectorSearchParam_ChunkOrdinal DEFAULT 0,
     EmbeddingModelId        smallint        NOT NULL,
-    ChunkText               nvarchar(max)   NOT NULL,
     SourceTextHash          binary(32)      NOT NULL,
-    SourceResourceTypeId    smallint        NULL,
-    SourceResourceId        varchar(64)     COLLATE Latin1_General_100_CS_AS NULL,
-    SourceResourceVersion   varchar(64)     COLLATE Latin1_General_100_CS_AS NULL,
-    SourcePath              nvarchar(512)   NULL,
+    SourceTextCompressed    varbinary(max)  NOT NULL,
     Embedding               vector(1536)    NOT NULL
 )
 
@@ -25,18 +21,4 @@ PRIMARY KEY CLUSTERED
     SearchParamId,
     ChunkOrdinal
 )
-WITH (DATA_COMPRESSION = PAGE)
-
-CREATE NONCLUSTERED INDEX IX_VectorSearchParam_SourceResource
-ON dbo.VectorSearchParam
-(
-    SourceResourceTypeId,
-    SourceResourceId
-)
-INCLUDE
-(
-    ResourceTypeId,
-    ResourceSurrogateId
-)
-WHERE SourceResourceTypeId IS NOT NULL AND SourceResourceId IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
