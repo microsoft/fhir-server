@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
 
-            var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
+            var coord = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, true, cancellationToken);
 
             // The queue assigns the orchestrator an id equal to its group id.
             if (coord == null || coord.Id != coord.GroupId || coord.Status == JobStatus.Archived)

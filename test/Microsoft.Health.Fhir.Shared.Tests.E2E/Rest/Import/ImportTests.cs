@@ -811,18 +811,12 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         [Fact]
         public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
         {
-            // InMemoryTestProcessingJobs makes the orchestrator use the location below as a template and create
-            // X synthetic in-memory processing jobs from it, each serving the same 1000-resource representative
-            // sample, without requiring X distinct input files or real storage blobs.
-            const int jobs = 60;
+            const int jobs = 51;
             var location = new Uri("inmemorytest://whatever");
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
             var result = await ImportCheckAsync(request, null, 0);
             Assert.Empty(result.Output);
-
-            // Verify execution stats are populated and include one total line plus one line per job
             Assert.NotEmpty(result.ExecutionStats);
-            Assert.True(result.ExecutionStats.Count >= jobs + 1, $"Should have execution stats for at least {jobs} job lines plus 1 total line, got {result.ExecutionStats.Count}");
             var statsJson = JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented);
             _testOutputHelper.WriteLine("ExecutionStats:");
             _testOutputHelper.WriteLine(statsJson);
@@ -832,7 +826,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
             Assert.StartsWith($"jobs={jobs} ", result.ExecutionStats.First());
             var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=")).ToList();
-            Assert.Equal(jobs, jobLines.Count);
+            Assert.Equal(50, jobLines.Count); // max output is 50
             foreach (var jobLine in jobLines)
             {
                 Assert.Contains("succeeded=1000", jobLine);
