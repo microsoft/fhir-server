@@ -797,7 +797,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             // InMemoryTestProcessingJobs makes the orchestrator use the location below as a template and create
             // X synthetic in-memory processing jobs from it, each serving the same 1000-resource representative
             // sample, without requiring X distinct input files or real storage blobs.
-            const int jobs = 50;
+            const int jobs = 60;
             var location = new Uri("inmemorytest://whatever");
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
             var result = await ImportCheckAsync(request, null, 0);

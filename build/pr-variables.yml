@@ -15,8 +15,8 @@ variables:
     # Centralized here so all PR provision-deploy invocations stay consistent.
     minReplicas: 3
     maxReplicas: 8
-    containerCpu: '2.0'
-    containerMemory: '4Gi'
+    containerCpu: '1.0'
+    containerMemory: '2Gi'
     cosmosAutoscaleMaxThroughput: 5000
 
     # Shared FHIR runtime tuning values consumed by build/jobs/provision-deploy.yml.

@@ -26,8 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class GetImportRequestHandler : IRequestHandler<GetImportRequest, GetImportResponse>
     {
-        private const int MaxDetailedJobs = 100;
-
         private readonly IQueueClient _queueClient;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
@@ -148,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                 ? Math.Round((double)jobsWithReliableDatabaseTiming.Sum(_ => _.CpuMilliseconds.Value) / resourceCount, 2)
                                 : (double?)null;
                             var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
-                            executionStats.AddRange(jobLines.Take(MaxDetailedJobs).Select(x => x.Line));
+                            executionStats.AddRange(jobLines.Take(50).Select(x => x.Line));
 
                             result.ExecutionStats = executionStats;
                         }

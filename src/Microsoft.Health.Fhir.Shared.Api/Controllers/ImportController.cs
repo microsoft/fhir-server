@@ -213,7 +213,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             if (importData.InMemoryTestProcessingJobs > 0
-                && (importData.InMemoryTestProcessingJobs > 1_000_000
+                && (!_importConfig.InMemoryTestEnabled
+                    || importData.InMemoryTestProcessingJobs > 1_000_000
                     || input.Count != 1
                     || input[0].Url == null
                     || !string.Equals(input[0].Url.Scheme, IntegrationDataStoreClientConstants.InMemoryTestSourceScheme, StringComparison.OrdinalIgnoreCase)))
