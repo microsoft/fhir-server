@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             : base(new Uri("http://localhost/"))
         {
             var projectDir = GetProjectPath("src", startupType);
-            var testConfigPath = Path.GetFullPath("testconfiguration.json");
+            var testConfigPath = Path.Combine(AppContext.BaseDirectory, "testconfiguration.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds"] = "1";
             configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "5";
             configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
-            configuration["FhirServer:CoreFeatures:MaxIncludeCountPerSearch"] = "10";
+            configuration["FhirServer:CoreFeatures:MaxIncludeCountPerSearch"] = "20";
             configuration["FhirServer:CoreFeatures:DefaultIncludeCountPerSearch"] = "10";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))

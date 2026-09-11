@@ -418,13 +418,14 @@ Write-Host "└─────────────────────�
 # Build E2E tests if no DLL path provided
 if (-not $TestDllPath) {
     $testProject = Join-Path $repoRoot "test/Microsoft.Health.Fhir.$FhirVersion.Tests.E2E/Microsoft.Health.Fhir.$FhirVersion.Tests.E2E.csproj"
-    $testOutputDir = Join-Path $outputDir "testbin"
 
     Write-Host "`n► Building E2E test project..."
-    dotnet build $testProject -c Release -o $testOutputDir --nologo -v q
+    dotnet build $testProject -c Release --nologo -v q
     if ($LASTEXITCODE -ne 0) { throw "Failed to build E2E test project" }
 
-    $TestDllPath = Join-Path $testOutputDir "Microsoft.Health.Fhir.$FhirVersion.Tests.E2E.dll"
+    # Find the DLL in the standard bin output (avoids -o flat directory lock conflicts)
+    $testProjectDir = Split-Path $testProject
+    $TestDllPath = Join-Path $testProjectDir "bin/Release" | Get-ChildItem -Recurse -Filter "Microsoft.Health.Fhir.$FhirVersion.Tests.E2E.dll" | Select-Object -First 1 -ExpandProperty FullName
 }
 
 if (-not (Test-Path $TestDllPath)) {
@@ -519,8 +520,16 @@ $testJob = {
 $baselineTrxDir = Join-Path $outputDir "baseline-results"
 $branchTrxDir = Join-Path $outputDir "branch-results"
 
-$baselineJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $baselineUrl, "baseline", $baselineTrxDir, $baselineTrx, $testFilter, $FhirVersion, $Iterations
-$branchJob = Start-Job -ScriptBlock $testJob -ArgumentList $TestDllPath, $branchUrl, "branch", $branchTrxDir, $branchTrx, $testFilter, $FhirVersion, $Iterations
+# Each parallel job needs its own copy of the test binaries to avoid file locks
+$baselineTestBin = Join-Path $outputDir "testbin-baseline"
+$branchTestBin = Join-Path $outputDir "testbin-branch"
+Copy-Item -Path (Split-Path $TestDllPath) -Destination $baselineTestBin -Recurse -Force
+Copy-Item -Path (Split-Path $TestDllPath) -Destination $branchTestBin -Recurse -Force
+$baselineDll = Join-Path $baselineTestBin (Split-Path $TestDllPath -Leaf)
+$branchDll = Join-Path $branchTestBin (Split-Path $TestDllPath -Leaf)
+
+$baselineJob = Start-Job -ScriptBlock $testJob -ArgumentList $baselineDll, $baselineUrl, "baseline", $baselineTrxDir, $baselineTrx, $testFilter, $FhirVersion, $Iterations
+$branchJob = Start-Job -ScriptBlock $testJob -ArgumentList $branchDll, $branchUrl, "branch", $branchTrxDir, $branchTrx, $testFilter, $FhirVersion, $Iterations
 
 # Monitor both jobs with progress updates
 $startTime = Get-Date

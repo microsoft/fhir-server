@@ -97,6 +97,38 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenQueriesDifferingOnlyInParameterHashComment_WhenCalculateHash_ThenReturnsSameHash()
+        {
+            // Arrange
+            var queryPrefix = "SELECT * AAAA Resource" + Environment.NewLine;
+            var query1 = queryPrefix + "/* HASH abc123= params=@p0,@p1 */";
+            var query2 = queryPrefix + "/* HASH xyz789= params=@p0,@p1 */";
+
+            // Act
+            var hash1 = _calculator.CalculateHash(query1);
+            var hash2 = _calculator.CalculateHash(query2);
+
+            // Assert
+            Assert.Equal(hash1, hash2);
+            Assert.Equal(queryPrefix, SqlQueryHashCalculator.RemoveParametersHash(query1));
+            Assert.Equal(queryPrefix, SqlQueryHashCalculator.RemoveParametersHash(query2));
+        }
+
+        [Fact]
+        public void GivenQueryWithTrailingLegacyHashCommentAndNewline_WhenRemoveParametersHash_ThenReturnsQueryWithoutComment()
+        {
+            // Arrange
+            var queryPrefix = "SELECT * AAAA Resource" + Environment.NewLine;
+            var query = queryPrefix + "/* HASH abc123= params=@p0,@p1 */" + Environment.NewLine;
+
+            // Act
+            var result = SqlQueryHashCalculator.RemoveParametersHash(query);
+
+            // Assert
+            Assert.Equal(queryPrefix, result);
+        }
+
+        [Fact]
         public void GivenTwoQueriesDifferingOnlyInWhitespace_WhenCalculateHash_ThenReturnsDifferentHashes()
         {
             // Arrange - Whitespace differences should result in different hashes

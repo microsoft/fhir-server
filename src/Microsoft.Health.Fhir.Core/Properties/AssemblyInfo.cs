@@ -52,3 +52,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.ResourceParser")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer.UnitTests")]
+[assembly: InternalsVisibleTo("SqlSearchDebugger")]
