@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -17,6 +19,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     internal class LastUpdatedToResourceSurrogateIdRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         internal static readonly LastUpdatedToResourceSurrogateIdRewriter Instance = new LastUpdatedToResourceSurrogateIdRewriter();
+
+        /// <summary>
+        /// The conversions below can round a boundary up by one millisecond, so a millisecond of headroom is reserved
+        /// below <see cref="ResourceSurrogateIdHelper.MaxDateTime"/> to keep that arithmetic representable.
+        /// </summary>
+        internal static readonly DateTime MaxSupportedLastUpdated = ResourceSurrogateIdHelper.MaxDateTime.UtcDateTime.AddTicks(-TimeSpan.TicksPerMillisecond);
 
         public override Expression VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
         {
@@ -48,6 +56,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // ResourceSurrogateId has millisecond datetime precision, with lower bits added in to make the value unique.
 
             DateTime original = ((DateTimeOffset)expression.Value).UtcDateTime;
+
+            if (original > MaxSupportedLastUpdated)
+            {
+                throw new BadRequestException(string.Format(
+                    CultureInfo.InvariantCulture,
+                    Core.Resources.LastUpdatedValueOutOfRange,
+                    MaxSupportedLastUpdated.ToString("o", CultureInfo.InvariantCulture)));
+            }
+
             DateTime truncated = original.TruncateToMillisecond();
 
             switch (expression.BinaryOperator)

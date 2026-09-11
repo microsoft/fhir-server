@@ -680,6 +680,10 @@
     <value>Search count returned {0} and exceeds the maximum defined limit of {1}.</value>
     <comment>{0} is the rows returned by the query, {1} is the defined limit of the bundle.Total field.</comment>
   </data>
+  <data name="LastUpdatedValueOutOfRange" xml:space="preserve">
+    <value>The value specified for '_lastUpdated' is outside of the supported range. It must be no later than '{0}'.</value>
+    <comment>{0} is the maximum date and time that the server is able to represent, in round-trip (ISO 8601) format.</comment>
+  </data>
   <data name="InvalidInnerUnionExpression" xml:space="preserve">
     <value>Inner '{0}' are not supported</value>
     <comment>Union expression can't have other union expressions as children.</comment>
