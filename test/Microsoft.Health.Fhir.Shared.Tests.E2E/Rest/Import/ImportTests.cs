@@ -812,8 +812,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
         {
             const int jobs = 51;
-            var location = new Uri("inmemorytest://whatever");
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
+            var request = CreateImportRequest(new Uri("inmemorytest://whatever"), ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
             var result = await ImportCheckAsync(request, null, 0);
             Assert.Empty(result.Output);
             Assert.NotEmpty(result.ExecutionStats);
