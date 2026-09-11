@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         public string ChunkText { get; }
 
         /// <summary>
-        /// Gets the hash of the exact passage text, used to skip re-embedding unchanged text.
+        /// Gets the hash of the exact passage text.
         /// </summary>
         public IReadOnlyList<byte> SourceTextHash { get; }
 
