@@ -10,8 +10,9 @@ storage, import-processing, or provider-default behavior is changed by this
 baseline.
 
 The shared corpus and its tests are compiled by the STU3, R4, R4B, and R5 core
-unit-test projects. The service-composition test is in the shared API test
-project and is currently executed through the R4 API unit-test project.
+unit-test projects. Composition tests are executed through the corresponding
+STU3, R4, R4B, and R5 API unit-test projects; `OperationsModuleTests` passed
+5/5 in each of those four projects.
 
 ## Import parser evidence
 
@@ -52,10 +53,14 @@ automatic missing-value injection is deliberately not part of this scope.
 ## Semantic comparison versus lexical fidelity
 
 Semantic equivalence answers whether parsed FHIR content represents the same
-resource. It can legitimately ignore JSON object-member order. It must not be
-used to decide raw-resource deduplication, because it hides array order,
-significant string whitespace, escaped representation, numeric trailing
-precision, temporal spelling, and metadata placement.
+resource. Ordinary structural JSON equality preserves array order and string
+values, including significant whitespace. Depending on its implementation, it
+can ignore JSON object-member order and normalize lexical number or escape
+representations. Structural equality is not itself an approved FHIR
+fidelity/deduplication policy: explicit rules must address array ordering,
+numeric precision, temporal forms, metadata, primitive extensions, and other
+relevant representations. It may participate in an explicitly approved no-op
+policy only when those rules are satisfied.
 
 Lexical fidelity is asserted only where a current observable raw token or
 string is required. The SQL raw-resource dedupe path currently uses exact
@@ -89,7 +94,7 @@ end-to-end ETag or history result.
 | Capability | Current owner/provider | L2 evidence | Status and follow-up |
 | --- | --- | --- | --- |
 | Create, update, delete, and history | Existing resource handlers plus SQL/Cosmos stores | Credential-free SQL/Cosmos equality and metadata-boundary tests characterize no-op eligibility, `KeepVersion`, meaningful meta, and SQL's `MetaHistory` branch; parser tests characterize import metadata | No live-store create/update/delete/history assertion was made. Isolated-store integration coverage for persisted history and conflicts remains under story 206675. |
-| Search and reindex | Existing Firely-backed indexing and reindex pipeline | No import-parser-only claim | Not migrated; retain current behavior. |
+| Search and reindex | Existing search/reindex pipeline with L1-selectable Firely/Ignixa FHIRPath execution (default Firely); element/converter boundaries remain Firely-shaped | L2 import parser cases add no search/reindex evidence | L1 selection remains available; this L2 work makes no search/reindex migration claim. |
 | Bundles | Existing bundle orchestration | Parser suite records Bundle-entry conditional-reference divergence | Bundle persistence remains outside the import parser seam. |
 | Validation | Existing validation pipeline | Malformed JSON/scalar negative cases only | Full validation parity is not claimed. |
 | Metadata | Parser plus `RawResourceFactory`; SQL/Cosmos store boundaries | Parser tests cover id/version/lastUpdated and import keep flags; store tests cover raw equality eligibility, `KeepVersion`, meaningful tag/security/profile preservation, and SQL metadata-only history suppression | Store-assigned ETags and persisted metadata-only-history observations require isolated stores. |

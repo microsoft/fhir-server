@@ -2,8 +2,10 @@
 
 `Invoke-ImportBaseline.ps1` is a narrowly scoped, **opt-in** tool for collecting comparable
 wall-clock `$import` evidence while evaluating an Import or FhirPath provider configuration. It
-does not change the FHIR server, create resources, reset a database, provision cloud resources, or
-run `PerfTester`.
+does not change the FHIR server implementation or configuration, provision infrastructure, reset
+databases, or run `PerfTester`. With `-Execute`, it submits `$import` and creates or updates FHIR
+resources in the explicitly supplied isolated FHIR data store; without `-Execute`, it remains
+offline.
 
 This tooling records reproducible evidence; it does **not** establish an import performance gain.
 Do not use its output to claim an improvement without an operator-reviewed, comparable live run.
