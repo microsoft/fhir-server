@@ -466,7 +466,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
 
             Assert.Throws<ArgumentOutOfRangeException>(() => dt.SafeAddTicks(TimeSpan.TicksPerMillisecond, OverflowBehavior.Throw, logger));
 
-            logger.ReceivedWithAnyArgs().Log(default, default, default, default, default!);
+            logger.ReceivedWithAnyArgs().Log<object>(LogLevel.Warning, default, default!, default, default!);
         }
 
         [Fact]
@@ -478,7 +478,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             DateTime result = dt.SafeAddTicks(TimeSpan.TicksPerMillisecond, OverflowBehavior.Constrain, logger);
 
             Assert.Equal(DateTime.MaxValue, result);
-            logger.ReceivedWithAnyArgs().Log(default, default, default, default, default!);
+            logger.ReceivedWithAnyArgs().Log<object>(LogLevel.Warning, default, default!, default, default!);
         }
 
         [Fact]
@@ -490,7 +490,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             DateTime result = dt.SafeAddTicks(TimeSpan.TicksPerMillisecond, OverflowBehavior.Constrain, logger);
 
             Assert.Equal(dt.AddTicks(TimeSpan.TicksPerMillisecond), result);
-            logger.DidNotReceiveWithAnyArgs().Log(default, default, default, default, default!);
+            logger.DidNotReceiveWithAnyArgs().Log<object>(default, default, default!, default, default!);
         }
 
         [Fact]
@@ -502,7 +502,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             DateTime result = dt.SafeAddDays(1, OverflowBehavior.Constrain, logger);
 
             Assert.Equal(DateTime.MaxValue, result);
-            logger.ReceivedWithAnyArgs().Log(default, default, default, default, default!);
+            logger.ReceivedWithAnyArgs().Log<object>(LogLevel.Warning, default, default!, default, default!);
         }
 
         [Fact]
@@ -514,7 +514,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             DateTimeOffset result = dto.SafeAddTicks(TimeSpan.TicksPerMillisecond, OverflowBehavior.Constrain, logger);
 
             Assert.Equal(DateTimeOffset.MaxValue, result);
-            logger.ReceivedWithAnyArgs().Log(default, default, default, default, default!);
+            logger.ReceivedWithAnyArgs().Log<object>(LogLevel.Warning, default, default!, default, default!);
         }
 
         [Fact]
@@ -526,7 +526,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             DateTimeOffset result = dto.SafeAddDays(1, OverflowBehavior.Constrain, logger);
 
             Assert.Equal(DateTimeOffset.MaxValue, result);
-            logger.ReceivedWithAnyArgs().Log(default, default, default, default, default!);
+            logger.ReceivedWithAnyArgs().Log<object>(LogLevel.Warning, default, default!, default, default!);
         }
     }
 }
