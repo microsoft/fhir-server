@@ -132,8 +132,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public async Task HandleAsync(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterStatusManager: Search parameter definition manager initialized");
+            _logger.LogInformation("SearchParameterStatusManager: initialization starting...");
             await EnsureInitializedAsync(cancellationToken);
+            _logger.LogInformation("SearchParameterStatusManager: initialization completed.");
         }
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, long? reindexId = null, DateTimeOffset? lastUpdated = null)
@@ -143,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var statuses = new List<ResourceSearchParameterStatus>();
             foreach (string uri in searchParameterUris)
             {
-                _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
+                _logger.LogInformation($"UpdateSearchParameterStatus: url=[{uri}] status={status} starting...");
 
                 // Validate that the search parameter exists in the definition manager.
                 // This makes sense only for status other than Deleted.
@@ -162,12 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             await _searchParameterStatusDataStore.UpsertStatuses(statuses, cancellationToken, reindexId);
-        }
-
-        public async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
-        {
-            var searchParamUris = new List<string>() { url };
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
+            _logger.LogInformation($"UpdateSearchParameterStatus: urls=[{string.Join(", ", searchParameterUris)}] completed.");
         }
 
         public async Task<(IReadOnlyCollection<ResourceSearchParameterStatus> Statuses, DateTimeOffset? LastUpdated)> GetSearchParameterStatusUpdates(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
@@ -178,21 +174,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         }
 
         // This is just a conveniance wrapper method that should not be going to store directly
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatuses(CancellationToken cancellationToken)
         {
             return (await GetSearchParameterStatusUpdates(cancellationToken)).Statuses;
         }
 
         /// <summary>
-        /// Used to apply search parameter status updates to the SearchParameterDefinitionManager.Used in reindex operation when checking every 10 minutes or so.
+        /// Used to apply search parameter status updates in the SearchParameterDefinitionManager.
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        public async Task ApplySearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
             if (!updatedSearchParameterStatus.Any())
             {
-                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply.");
+                _logger.LogDebug("ApplySearchParameterStatuses: No search parameter status updates to apply.");
                 return;
             }
 
@@ -223,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
-            _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
+            _logger.LogDebug($"ApplySearchParameterStatuses: Synced params. urls=[{string.Join(", ", updatedSearchParameterStatus.Select(_ => _.Uri))}]");
             await _mediator.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 

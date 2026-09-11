@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -45,43 +46,102 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            // ResourceSurrogateId has millisecond datetime precision, with lower bits added in to make the value unique.
+            // Validate the operator up front so that an unsupported operator is not mistaken for an overflow by the catch block below.
+            switch (expression.BinaryOperator)
+            {
+                case BinaryOperator.GreaterThan:
+                case BinaryOperator.GreaterThanOrEqual:
+                case BinaryOperator.LessThan:
+                case BinaryOperator.LessThanOrEqual:
+                    break;
+                case BinaryOperator.Equal:
+                case BinaryOperator.NotEqual:
+                default:
+                    throw new ArgumentOutOfRangeException(expression.BinaryOperator.ToString());
+            }
 
+            // ResourceSurrogateId has millisecond datetime precision, with lower bits added in to make the value unique.
             DateTime original = ((DateTimeOffset)expression.Value).UtcDateTime;
             DateTime truncated = original.TruncateToMillisecond();
+
+            try
+            {
+                switch (expression.BinaryOperator)
+                {
+                    case BinaryOperator.GreaterThan:
+                        return Expression.GreaterThanOrEqual(
+                            SqlFieldName.ResourceSurrogateId,
+                            null,
+                            new DateTimeOffset(truncated.SafeAddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                    case BinaryOperator.GreaterThanOrEqual:
+                        if (original == truncated)
+                        {
+                            return Expression.GreaterThanOrEqual(
+                                SqlFieldName.ResourceSurrogateId,
+                                null,
+                                new DateTimeOffset(truncated).ToSurrogateId());
+                        }
+
+                        goto case BinaryOperator.GreaterThan;
+                    case BinaryOperator.LessThan:
+                        if (original == truncated)
+                        {
+                            return Expression.LessThan(
+                                SqlFieldName.ResourceSurrogateId,
+                                null,
+                                new DateTimeOffset(truncated).ToSurrogateId());
+                        }
+
+                        goto case BinaryOperator.LessThanOrEqual;
+                    case BinaryOperator.LessThanOrEqual:
+                        return Expression.LessThan(
+                            SqlFieldName.ResourceSurrogateId,
+                            null,
+                            new DateTimeOffset(truncated.SafeAddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                    default:
+                        // Unreachable - the operator is validated above.
+                        throw new ArgumentOutOfRangeException(expression.BinaryOperator.ToString());
+                }
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // If the original/truncated value is outside the representable range of IdHelper.MaxDateTime, constrain it to MaxDateTime.
+                return VisitBinaryConstrained(expression);
+            }
+        }
+
+        private static BinaryExpression VisitBinaryConstrained(BinaryExpression expression)
+        {
+            // Dates beyond IdHelper.MaxDateTime are outside the system's representable range.
+            // ResourceSurrogateId uses a database uniquifier in the range 0..79999, so use the maximum stored ID as the overflow bound.
+            // LT/LE overflow predicates must include every valid row; GT/GE predicates against this bound are always false.
+            long maxSurrogateId = long.MaxValue;
 
             switch (expression.BinaryOperator)
             {
                 case BinaryOperator.GreaterThan:
-                    return Expression.GreaterThanOrEqual(
+                    // GT maxSurrogateId is always-false (no row can exceed the max possible ID)
+                    return Expression.GreaterThan(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(truncated.AddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                        maxSurrogateId);
+
                 case BinaryOperator.GreaterThanOrEqual:
-                    if (original == truncated)
-                    {
-                        return Expression.GreaterThanOrEqual(
-                            SqlFieldName.ResourceSurrogateId,
-                            null,
-                            new DateTimeOffset(truncated).ToSurrogateId());
-                    }
-
-                    goto case BinaryOperator.GreaterThan;
-                case BinaryOperator.LessThan:
-                    if (original == truncated)
-                    {
-                        return Expression.LessThan(
-                            SqlFieldName.ResourceSurrogateId,
-                            null,
-                            new DateTimeOffset(truncated).ToSurrogateId());
-                    }
-
-                    goto case BinaryOperator.LessThanOrEqual;
-                case BinaryOperator.LessThanOrEqual:
-                    return Expression.LessThan(
+                    // GE of an overflowed value should behave like GT to exclude the max bucket, ensuring an empty result set.
+                    return Expression.GreaterThan(
                         SqlFieldName.ResourceSurrogateId,
                         null,
-                        new DateTimeOffset(truncated.AddTicks(TimeSpan.TicksPerMillisecond)).ToSurrogateId());
+                        maxSurrogateId);
+
+                case BinaryOperator.LessThan:
+                case BinaryOperator.LessThanOrEqual:
+                    // When clamping an overflowed value down, widen LT to LE to be semantically correct.
+                    // LT/LE maxSurrogateId is always-true (all rows are <= max possible ID)
+                    return Expression.LessThanOrEqual(
+                        SqlFieldName.ResourceSurrogateId,
+                        null,
+                        maxSurrogateId);
+
                 case BinaryOperator.NotEqual:
                 case BinaryOperator.Equal: // expecting eq to have been rewritten as a range
                 default:
