@@ -745,10 +745,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         return null;
                     }
 
-                    includeResourceTypeList = includeResourceTypeList.Intersect(allowedResourceTypesByScope).ToArray();
-                    if (includeResourceTypeList.Length == 0)
+                    if (!(includeResourceTypeList.Length == 1 &&
+                          string.Equals(includeResourceTypeList[0], KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase)))
                     {
-                        return null;
+                        includeResourceTypeList = includeResourceTypeList.Intersect(allowedResourceTypesByScope).ToArray();
+                        if (includeResourceTypeList.Length == 0)
+                        {
+                            return null;
+                        }
                     }
                 }
 
