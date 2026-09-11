@@ -3,136 +3,116 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Concurrent;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace SqlSearchDebugger.Mocks;
 
 class FakeSqlServerFhirModel : ISqlServerFhirModel
 {
-    private readonly Dictionary<string, short> _resourceTypeNameToId = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<short, string> _resourceTypeIdToName = new();
-    private readonly Dictionary<string, short> _searchParamUriToId = new();
-    private readonly Dictionary<string, int> _systemToId = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, int> _quantityCodeToId = new(StringComparer.OrdinalIgnoreCase);
-    private short _nextResourceTypeId = 1;
-    private short _nextSearchParamId = 1;
-    private int _nextSystemId = 1;
-    private int _nextQuantityCodeId = 1;
+    private readonly IReadOnlyDictionary<string, short> _resourceTypeNameToId;
+    private readonly IReadOnlyDictionary<short, string> _resourceTypeIdToName;
+    private readonly ConcurrentDictionary<string, short> _searchParamUriToId;
+    private readonly IReadOnlyList<object> _resourceTypes;
+
+    public FakeSqlServerFhirModel(
+        IEnumerable<string> resourceTypeNames,
+        IEnumerable<Uri> searchParameterUris)
+    {
+        KeyValuePair<string, short>[] resourceTypes = resourceTypeNames
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Select((name, index) => KeyValuePair.Create(name, checked((short)(index + 1))))
+            .ToArray();
+
+        _resourceTypeNameToId = resourceTypes.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value,
+            StringComparer.OrdinalIgnoreCase);
+        _resourceTypeIdToName = resourceTypes.ToDictionary(pair => pair.Value, pair => pair.Key);
+        _resourceTypes = resourceTypes
+            .Select(pair => (object)new { name = pair.Key, id = pair.Value })
+            .ToArray();
+        _searchParamUriToId = new ConcurrentDictionary<string, short>(
+            searchParameterUris
+                .Where(uri => uri != null)
+                .Select(uri => uri.OriginalString)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(uri => uri, StringComparer.Ordinal)
+                .Select((uri, index) => KeyValuePair.Create(uri, checked((short)(index + 1)))),
+            StringComparer.Ordinal);
+    }
 
     public int ResourceTypeCount => _resourceTypeNameToId.Count;
+
     public int SearchParamCount => _searchParamUriToId.Count;
 
     public (short lowestId, short highestId) ResourceTypeIdRange =>
         _resourceTypeNameToId.Count > 0
-            ? ((short)1, (short)(_nextResourceTypeId - 1))
+            ? ((short)1, checked((short)_resourceTypeNameToId.Count))
             : ((short)0, (short)0);
 
-    public short GetResourceTypeId(string resourceTypeName)
-    {
-        if (_resourceTypeNameToId.TryGetValue(resourceTypeName, out var id))
-        {
-            return id;
-        }
+    public short GetResourceTypeId(string resourceTypeName) =>
+        _resourceTypeNameToId.TryGetValue(resourceTypeName, out short id)
+            ? id
+            : throw new KeyNotFoundException($"Unknown FHIR resource type '{resourceTypeName}'.");
 
-        id = _nextResourceTypeId++;
-        _resourceTypeNameToId[resourceTypeName] = id;
-        _resourceTypeIdToName[id] = resourceTypeName;
-        return id;
-    }
+    public bool TryGetResourceTypeId(string resourceTypeName, out short id) =>
+        _resourceTypeNameToId.TryGetValue(resourceTypeName, out id);
 
-    public bool TryGetResourceTypeId(string resourceTypeName, out short id)
-    {
-        if (_resourceTypeNameToId.TryGetValue(resourceTypeName, out id))
-        {
-            return true;
-        }
-
-        id = GetResourceTypeId(resourceTypeName);
-        return true;
-    }
-
-    public string GetResourceTypeName(short resourceTypeId)
-    {
-        if (_resourceTypeIdToName.TryGetValue(resourceTypeId, out var name))
-        {
-            return name;
-        }
-
-        return $"UnknownType_{resourceTypeId}";
-    }
+    public string GetResourceTypeName(short resourceTypeId) =>
+        _resourceTypeIdToName.TryGetValue(resourceTypeId, out string? name)
+            ? name
+            : throw new KeyNotFoundException($"Unknown FHIR resource type ID '{resourceTypeId}'.");
 
     public byte GetClaimTypeId(string claimTypeName) => 1;
 
     public short GetSearchParamId(Uri searchParamUri)
     {
-        if (searchParamUri == null)
-        {
-            return 0;
-        }
+        ArgumentNullException.ThrowIfNull(searchParamUri);
 
-        var key = searchParamUri.OriginalString;
-        if (_searchParamUriToId.TryGetValue(key, out var id))
-        {
-            return id;
-        }
-
-        id = _nextSearchParamId++;
-        _searchParamUriToId[key] = id;
-        return id;
+        return _searchParamUriToId.TryGetValue(searchParamUri.OriginalString, out short id)
+            ? id
+            : throw new KeyNotFoundException($"Unknown search parameter '{searchParamUri}'.");
     }
 
-    public void TryAddSearchParamIdToUriMapping(string searchParamUri, short searchParamId)
-    {
-        _searchParamUriToId[searchParamUri] = searchParamId;
-    }
+    public void TryAddSearchParamIdToUriMapping(string searchParamUri, short searchParamId) =>
+        _searchParamUriToId.TryAdd(searchParamUri, searchParamId);
 
-    public void RemoveSearchParamIdToUriMapping(string searchParamUri)
-    {
-        _searchParamUriToId.Remove(searchParamUri);
-    }
+    public void RemoveSearchParamIdToUriMapping(string searchParamUri) =>
+        _searchParamUriToId.TryRemove(searchParamUri, out _);
 
     public byte GetCompartmentTypeId(string compartmentType) => 1;
 
     public bool TryGetSystemId(string system, out int systemId)
     {
-        if (_systemToId.TryGetValue(system, out systemId))
-        {
-            return true;
-        }
-
-        systemId = _nextSystemId++;
-        _systemToId[system] = systemId;
+        systemId = GetStableId(system);
         return true;
     }
 
-    public int GetSystemId(string system)
-    {
-        TryGetSystemId(system, out var id);
-        return id;
-    }
+    public int GetSystemId(string system) => GetStableId(system);
 
-    public int GetQuantityCodeId(string code)
-    {
-        TryGetQuantityCodeId(code, out var id);
-        return id;
-    }
+    public int GetQuantityCodeId(string code) => GetStableId(code);
 
     public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
     {
-        if (_quantityCodeToId.TryGetValue(code, out quantityCodeId))
-        {
-            return true;
-        }
-
-        quantityCodeId = _nextQuantityCodeId++;
-        _quantityCodeToId[code] = quantityCodeId;
+        quantityCodeId = GetStableId(code);
         return true;
     }
 
-    public List<object> GetAllResourceTypes()
+    public List<object> GetAllResourceTypes() => [.. _resourceTypes];
+
+    private static int GetStableId(string value)
     {
-        return _resourceTypeNameToId.Select(kvp => (object)new { name = kvp.Key, id = kvp.Value })
-            .OrderBy(x => ((dynamic)x).id)
-            .ToList();
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (char character in value)
+            {
+                hash = (hash ^ char.ToUpperInvariant(character)) * 16777619;
+            }
+
+            return (int)((hash & 0x7FFFFFFF) | 1);
+        }
     }
 }

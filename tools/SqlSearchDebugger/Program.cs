@@ -16,8 +16,13 @@ var app = builder.Build();
 var modelInfoProvider = new VersionSpecificModelInfoProvider();
 ModelInfoProvider.SetProvider(modelInfoProvider);
 
-var fhirModel = new FakeSqlServerFhirModel();
 var searchParamDefManager = ParserHelpers.InitializeSearchParameterDefinitionManager(modelInfoProvider);
+IReadOnlyCollection<string> resourceTypeNames = modelInfoProvider.GetResourceTypeNames();
+IEnumerable<Uri> searchParameterUris = resourceTypeNames
+    .SelectMany(searchParamDefManager.GetSearchParameters)
+    .Select(searchParameter => searchParameter.Url)
+    .OfType<Uri>();
+var fhirModel = new FakeSqlServerFhirModel(resourceTypeNames, searchParameterUris);
 var sqlSearchParamDefManager = new SqlSearchParameterDefinitionManager(searchParamDefManager, fhirModel);
 var compartmentDefManager = new FakeCompartmentDefinitionManager();
 var logger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger<SearchParameterSqlParser>();

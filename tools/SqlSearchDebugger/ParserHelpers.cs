@@ -11,6 +11,8 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SqlSearchParser;
 using Microsoft.Health.SqlServer.Features.Storage;
+using System.Globalization;
+using System.Text.Json;
 using SqlCommand = Microsoft.Data.SqlClient.SqlCommand;
 using SqlParameter = Microsoft.Data.SqlClient.SqlParameter;
 using SqlSearchDebugger.Mocks;
@@ -137,12 +139,7 @@ static class ParserHelpers
 
         var sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
-        // Parse continuation token if provided
-        ContinuationToken? ct = null;
-        if (!string.IsNullOrWhiteSpace(continuationToken))
-        {
-            ct = ContinuationToken.FromString(continuationToken);
-        }
+        ContinuationToken? ct = ParseContinuationToken(continuationToken);
 
         // Generate SQL
         using var command = new SqlCommand();
@@ -170,6 +167,71 @@ static class ParserHelpers
 
         return sql;
     }
+
+    internal static ContinuationToken? ParseContinuationToken(string? continuationToken)
+    {
+        if (string.IsNullOrWhiteSpace(continuationToken))
+        {
+            return null;
+        }
+
+        ContinuationToken? parsedToken = ParseRawContinuationToken(continuationToken);
+        if (parsedToken != null)
+        {
+            return parsedToken;
+        }
+
+        string decodedToken = ContinuationTokenEncoder.Decode(continuationToken);
+        return ParseRawContinuationToken(decodedToken)
+            ?? throw new BadRequestException("Invalid continuation token.");
+    }
+
+    private static ContinuationToken? ParseRawContinuationToken(string continuationToken)
+    {
+        if (long.TryParse(continuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            return ContinuationToken.FromString(continuationToken);
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(continuationToken);
+            JsonElement root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            JsonElement[] values = root.EnumerateArray().ToArray();
+            if (values.Length is < 1 or > 3 || !IsInt64(values[^1]))
+            {
+                return null;
+            }
+
+            bool validPrefix = values.Length switch
+            {
+                1 => true,
+                2 => IsSortValue(values[0]) || IsInt16(values[0]),
+                3 => IsSortValue(values[0]) && IsInt16(values[1]),
+                _ => false,
+            };
+
+            return validPrefix ? ContinuationToken.FromString(continuationToken) : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsSortValue(JsonElement value) =>
+        value.ValueKind is JsonValueKind.String or JsonValueKind.Null;
+
+    private static bool IsInt16(JsonElement value) =>
+        value.ValueKind == JsonValueKind.Number && value.TryGetInt16(out _);
+
+    private static bool IsInt64(JsonElement value) =>
+        value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _);
 }
 
 record ParseRequest(string Url, string? ContinuationToken);
