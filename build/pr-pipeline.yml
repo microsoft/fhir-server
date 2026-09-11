@@ -89,19 +89,12 @@ stages:
       demands:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
-    - template: ./jobs/analyze.yml
-  - job: ValidateAcaSqlDeploymentPlan
-    displayName: 'Validate ACA SQL deployment plan'
-    pool:
-      name: '$(InternalPool)'
-      demands:
-        - ImageOverride -equals $(InternalLinuxImage)
-    steps:
     - task: PowerShell@2
-      displayName: 'Validate SQL vNext deployment plan'
+      displayName: 'Validate SQL canary configuration'
       inputs:
-        filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/tests/Test-AcaSqlVNextDeploymentPlan.ps1'
+        filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/tests/Test-AcaSqlCanaryConfiguration.ps1'
         pwsh: true
+    - template: ./jobs/analyze.yml
 
 - stage: DockerBuild  
   displayName: 'Build images'
