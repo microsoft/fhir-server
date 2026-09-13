@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             if (_coreFeatures.EnableSmartBulkUpdateRestriction &&
                 _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
-                throw new UnauthorizedFhirActionException(string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartFineGrainedAccessControlOperationForbidden, OperationsConstants.BulkUpdate));
+                throw new UnauthorizedFhirActionException();
             }
 
             // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition

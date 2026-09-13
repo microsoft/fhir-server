@@ -174,9 +174,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var request = new CreateBulkDeleteRequest(deleteOperation, KnownResourceTypes.Patient, new List<Tuple<string, string>>(), false, null, false);
 
-            var ex = await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
-
-            Assert.Contains(ex.Issues, issue => issue.Diagnostics.Contains(OperationsConstants.BulkDelete, StringComparison.Ordinal));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
             await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
         }
 

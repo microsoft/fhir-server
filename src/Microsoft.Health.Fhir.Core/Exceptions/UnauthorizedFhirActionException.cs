@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
@@ -11,16 +10,11 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class UnauthorizedFhirActionException : FhirException
     {
         public UnauthorizedFhirActionException()
-            : this(Resources.Forbidden)
-        {
-        }
-
-        public UnauthorizedFhirActionException(string diagnostics)
         {
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
                 OperationOutcomeConstants.IssueType.Forbidden,
-                EnsureArg.IsNotNullOrWhiteSpace(diagnostics, nameof(diagnostics))));
+                Resources.Forbidden));
         }
     }
 }

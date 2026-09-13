@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -71,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             if (_coreFeatures.EnableSmartBulkDeleteRestriction &&
                 _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
-                throw new UnauthorizedFhirActionException(string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartFineGrainedAccessControlOperationForbidden, OperationsConstants.BulkDelete));
+                throw new UnauthorizedFhirActionException();
             }
 
             var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
