@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
             if (restrictionEnabled &&
                 requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
-                throw new UnauthorizedFhirActionException(string.Format(Core.Resources.SmartFineGrainedAccessControlOperationForbidden, operationName));
+                throw new UnauthorizedFhirActionException(string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartFineGrainedAccessControlOperationForbidden, operationName));
             }
         }
     }
