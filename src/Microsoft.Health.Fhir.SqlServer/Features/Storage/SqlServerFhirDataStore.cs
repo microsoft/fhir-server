@@ -954,7 +954,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
-            return await GetAsync(keys, false, true, cancellationToken); // do not return invisible records in public interface
+            var results = new List<ResourceWrapper>();
+            foreach (var key in keys)
+            {
+                results.Add(await GetAsync(key, cancellationToken));
+            }
+
+            return results;
         }
 
         private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, bool isReadOnly, CancellationToken cancellationToken)
