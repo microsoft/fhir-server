@@ -176,8 +176,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
 
-            await _searchService.DidNotReceiveWithAnyArgs().ConditionalSearchAsync(default, default, default);
-            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
         }
 
         [Fact]
