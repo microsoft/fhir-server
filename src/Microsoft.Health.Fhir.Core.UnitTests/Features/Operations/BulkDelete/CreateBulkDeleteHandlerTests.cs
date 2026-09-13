@@ -8,9 +8,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -62,7 +64,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 _queueClient,
                 _contextAccessor,
                 _searchService,
-                Substitute.For<ILogger<CreateBulkDeleteHandler>>());
+                Substitute.For<ILogger<CreateBulkDeleteHandler>>(),
+                Options.Create(new CoreFeatureConfiguration()));
         }
 
         [Fact]
@@ -158,6 +161,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var request = new CreateBulkDeleteRequest(deleteOperation, null, null, false, null, false);
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.SoftDelete)]
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
+        public async Task GivenSmartFineGrainedContext_WhenJobCreationRequested_ThenUnauthorizedIsReturned(DeleteOperation deleteOperation)
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
+            _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+
+            var request = new CreateBulkDeleteRequest(deleteOperation, KnownResourceTypes.Patient, new List<Tuple<string, string>>(), false, null, false);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+
+            await _searchService.DidNotReceiveWithAnyArgs().ConditionalSearchAsync(default, default, default);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default);
+        }
+
+        [Fact]
+        public async Task GivenSmartFineGrainedContextAndRestrictionDisabled_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
+            _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(
+                new List<JobInfo>
+                {
+                    new() { Id = 1 },
+                });
+            var handler = new CreateBulkDeleteHandler(
+                _authorizationService,
+                _queueClient,
+                _contextAccessor,
+                _searchService,
+                Substitute.For<ILogger<CreateBulkDeleteHandler>>(),
+                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkDeleteRestriction = false }));
+
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, new List<Tuple<string, string>>(), false, null, false);
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
         }
 
         [Fact]
