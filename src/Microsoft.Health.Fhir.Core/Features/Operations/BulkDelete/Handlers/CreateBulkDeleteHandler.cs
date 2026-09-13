@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             await _authorizationService.CheckAccess(requiredDataAction, true, cancellationToken);
 
-            SmartFineGrainedAccessControlRejection.Check(_coreFeatures.EnableSmartBulkDeleteAndUpdateRestriction, _contextAccessor, "$bulk-delete job creation");
+            SmartFineGrainedAccessControlRejection.EnsureAllowed(_coreFeatures.EnableSmartBulkDeleteAndUpdateRestriction, _contextAccessor, "$bulk-delete job creation");
 
             var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
 

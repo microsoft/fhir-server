@@ -11,12 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 {
     internal static class SmartFineGrainedAccessControlRejection
     {
-        internal static void Check(bool enabled, RequestContextAccessor<IFhirRequestContext> requestContextAccessor, string operationName)
+        internal static void EnsureAllowed(bool enabled, RequestContextAccessor<IFhirRequestContext> requestContextAccessor, string operationName)
         {
             if (enabled &&
                 requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
-                throw new UnauthorizedFhirActionException($"SMART fine-grained access control does not permit {operationName}.");
+                throw new UnauthorizedFhirActionException(string.Format(Core.Resources.SmartFineGrainedAccessControlOperationForbidden, operationName));
             }
         }
     }

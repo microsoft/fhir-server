@@ -602,6 +602,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to SMART fine-grained access control does not permit {0}..
+        /// </summary>
+        internal static string SmartFineGrainedAccessControlOperationForbidden {
+            get {
+                return ResourceManager.GetString("SmartFineGrainedAccessControlOperationForbidden", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Member match encountered an unknown exception while performing the search..
         /// </summary>
         internal static string GenericMemberMatch {
