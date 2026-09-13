@@ -66,8 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _resourceSerializer = EnsureArg.IsNotNull(resourceSerializer, nameof(resourceSerializer));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
-            _coreFeatures = EnsureArg.IsNotNull(coreFeatures.Value, nameof(coreFeatures.Value));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
         public async Task<CreateBulkUpdateResponse> HandleAsync(CreateBulkUpdateRequest request, CancellationToken cancellationToken)

@@ -53,8 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
-            _coreFeatures = EnsureArg.IsNotNull(coreFeatures.Value, nameof(coreFeatures.Value));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
         public async Task<CreateBulkDeleteResponse> HandleAsync(CreateBulkDeleteRequest request, CancellationToken cancellationToken)

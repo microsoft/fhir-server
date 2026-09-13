@@ -201,7 +201,7 @@
     <value>Authorization failed.</value>
   </data>
   <data name="SmartFineGrainedAccessControlOperationForbidden" xml:space="preserve">
-    <value>SMART fine-grained access control does not permit {0}.</value>
+    <value>The {0} operation is not permitted when SMART fine-grained access control applies to the request.</value>
   </data>
   <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
     <value>Parameter {0} cannot a be a value in the future.</value>

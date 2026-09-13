@@ -602,7 +602,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to SMART fine-grained access control does not permit {0}..
+        ///   Looks up a localized string similar to The {0} operation is not permitted when SMART fine-grained access control applies to the request..
         /// </summary>
         internal static string SmartFineGrainedAccessControlOperationForbidden {
             get {
