@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             // Check access - Only super writer can perform bulk update
             await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
 
-            SmartFineGrainedAccessControlRejection.Check(_coreFeatures.EnableSmartBulkUpdateRestriction, _contextAccessor);
+            SmartFineGrainedAccessControlRejection.Check(_coreFeatures.EnableSmartBulkWriteOperationRestriction, _contextAccessor, "$bulk-update job creation");
 
             // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition
             if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))

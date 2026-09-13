@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 _searchService,
                 Substitute.For<IResourceSerializer>(),
                 Substitute.For<ILogger<CreateBulkUpdateHandler>>(),
-                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkUpdateRestriction = false }));
+                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkWriteOperationRestriction = false }));
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, new List<Tuple<string, string>>(), GenerateParameters("replace"), false);
 
