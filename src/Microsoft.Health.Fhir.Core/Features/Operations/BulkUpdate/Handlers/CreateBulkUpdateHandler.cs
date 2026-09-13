@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
-using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -76,7 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             // Check access - Only super writer can perform bulk update
             await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
 
-            SmartFineGrainedAccessControlGuard.EnsureAllowed(_coreFeatures.EnableSmartBulkUpdateRestriction, _contextAccessor, OperationsConstants.BulkUpdate);
+            if (_coreFeatures.EnableSmartBulkUpdateRestriction &&
+                _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                throw new UnauthorizedFhirActionException(string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartFineGrainedAccessControlOperationForbidden, OperationsConstants.BulkUpdate));
+            }
 
             // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition
             if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
-using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -68,7 +68,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             await _authorizationService.CheckAccess(requiredDataAction, true, cancellationToken);
 
-            SmartFineGrainedAccessControlGuard.EnsureAllowed(_coreFeatures.EnableSmartBulkDeleteRestriction, _contextAccessor, OperationsConstants.BulkDelete);
+            if (_coreFeatures.EnableSmartBulkDeleteRestriction &&
+                _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                throw new UnauthorizedFhirActionException(string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartFineGrainedAccessControlOperationForbidden, OperationsConstants.BulkDelete));
+            }
 
             var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
 
