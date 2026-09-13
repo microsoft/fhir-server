@@ -193,8 +193,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, new List<Tuple<string, string>>(), GenerateParameters("replace"), false);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+            var ex = await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
 
+            Assert.Contains(ex.Issues, issue => issue.Diagnostics.Contains(OperationsConstants.BulkUpdate, StringComparison.Ordinal));
             await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
         }
 
@@ -223,7 +224,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(1, response.Id);
-            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            await _queueClient.Received(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>());
         }
 
         [Fact]

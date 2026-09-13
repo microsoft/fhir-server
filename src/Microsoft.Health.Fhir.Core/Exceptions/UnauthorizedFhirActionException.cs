@@ -9,12 +9,17 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
 {
     public class UnauthorizedFhirActionException : FhirException
     {
-        public UnauthorizedFhirActionException(string diagnostics = null)
+        public UnauthorizedFhirActionException()
+            : this(Resources.Forbidden)
+        {
+        }
+
+        public UnauthorizedFhirActionException(string diagnostics)
         {
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
                 OperationOutcomeConstants.IssueType.Forbidden,
-                diagnostics ?? Resources.Forbidden));
+                diagnostics));
         }
     }
 }
