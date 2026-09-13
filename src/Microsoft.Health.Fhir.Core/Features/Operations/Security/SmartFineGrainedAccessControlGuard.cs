@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
     /// <summary>
     /// Validates that operations disallowed for SMART fine-grained access-control requests are not invoked.
     /// </summary>
-    internal static class SmartFineGrainedAccessControlRejection
+    internal static class SmartFineGrainedAccessControlGuard
     {
         /// <summary>
         /// Ensures the current request is allowed when a SMART operation restriction is enabled.
