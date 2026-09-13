@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// the usual RBAC authorization check. When false, the pre-existing behavior is restored and
         /// bulk write operations are allowed for SMART requests, matching non-SMART behavior.
         /// </summary>
-        public bool EnableSmartBulkWriteOperationRestriction { get; set; } = true;
+        public bool EnableSmartBulkDeleteAndUpdateRestriction { get; set; } = true;
 
         /// <summary>
         /// Gets or sets a value indicating whether SMART system scope authorization is enforced for Bulk Export.

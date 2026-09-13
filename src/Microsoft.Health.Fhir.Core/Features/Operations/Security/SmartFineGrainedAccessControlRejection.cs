@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
 {
     internal static class SmartFineGrainedAccessControlRejection
     {
-        public static void Check(bool enabled, RequestContextAccessor<IFhirRequestContext> requestContextAccessor, string operationName)
+        internal static void Check(bool enabled, RequestContextAccessor<IFhirRequestContext> requestContextAccessor, string operationName)
         {
             if (enabled &&
                 requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
