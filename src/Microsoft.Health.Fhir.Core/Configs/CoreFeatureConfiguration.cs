@@ -177,13 +177,22 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool EnableSmartMemberMatchRestriction { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets a value indicating whether the $bulk-delete and $bulk-update operations are rejected for SMART
+        /// Gets or sets a value indicating whether the $bulk-delete operation is rejected for SMART
         /// requests whenever fine-grained access control applies to the request. When true (the default),
-        /// requests with an active SMART scope context are forbidden from creating $bulk-delete or $bulk-update jobs, after
+        /// requests with an active SMART scope context are forbidden from creating $bulk-delete jobs, after
         /// the usual RBAC authorization check. When false, the pre-existing behavior is restored and
-        /// bulk write operations are allowed for SMART requests, matching non-SMART behavior.
+        /// $bulk-delete is allowed for SMART requests, matching non-SMART behavior.
         /// </summary>
-        public bool EnableSmartBulkDeleteAndUpdateRestriction { get; set; } = true;
+        public bool EnableSmartBulkDeleteRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the $bulk-update operation is rejected for SMART
+        /// requests whenever fine-grained access control applies to the request. When true (the default),
+        /// requests with an active SMART scope context are forbidden from creating $bulk-update jobs, after
+        /// the usual RBAC authorization check. When false, the pre-existing behavior is restored and
+        /// $bulk-update is allowed for SMART requests, matching non-SMART behavior.
+        /// </summary>
+        public bool EnableSmartBulkUpdateRestriction { get; set; } = true;
 
         /// <summary>
         /// Gets or sets a value indicating whether SMART system scope authorization is enforced for Bulk Export.

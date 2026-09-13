@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 _contextAccessor,
                 _searchService,
                 Substitute.For<ILogger<CreateBulkDeleteHandler>>(),
-                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkDeleteAndUpdateRestriction = false }));
+                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkDeleteRestriction = false }));
 
             var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, new List<Tuple<string, string>>(), false, null, false);
 

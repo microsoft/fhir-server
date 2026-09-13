@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             await _authorizationService.CheckAccess(requiredDataAction, true, cancellationToken);
 
-            SmartFineGrainedAccessControlGuard.EnsureAllowed(_coreFeatures.EnableSmartBulkDeleteAndUpdateRestriction, _contextAccessor, OperationsConstants.BulkDelete);
+            SmartFineGrainedAccessControlGuard.EnsureAllowed(_coreFeatures.EnableSmartBulkDeleteRestriction, _contextAccessor, OperationsConstants.BulkDelete);
 
             var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
 
