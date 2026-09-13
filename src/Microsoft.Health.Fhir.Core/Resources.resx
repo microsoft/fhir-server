@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -199,9 +199,6 @@
   </data>
   <data name="Forbidden" xml:space="preserve">
     <value>Authorization failed.</value>
-  </data>
-  <data name="SmartFineGrainedAccessControlOperationForbidden" xml:space="preserve">
-    <value>The {0} operation is not permitted when SMART fine-grained access control applies to the request.</value>
   </data>
   <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
     <value>Parameter {0} cannot a be a value in the future.</value>
@@ -884,6 +881,9 @@
   </data>
   <data name="SearchParameterConcurrencyConflict" xml:space="preserve">
     <value>Optimistic concurrency conflict detected while writing custom search parameter(s). Make sure that custom search parameters are not written in parallel. Consider sequential writes or a bundle.</value>
+  </data>
+  <data name="SmartFineGrainedAccessControlOperationForbidden" xml:space="preserve">
+    <value>The {0} operation is not permitted when SMART fine-grained access control applies to the request.</value>
   </data>
   <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
