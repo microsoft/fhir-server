@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
-        public async Task GivenSmartFineGrainedContext_WhenJobCreationRequested_ThenUnauthorizedFhirActionExceptionIsThrown()
+        public async Task GivenSmartFineGrainedContextAndRestrictionEnabled_WhenJobCreationRequested_ThenUnauthorizedFhirActionExceptionIsThrown()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;

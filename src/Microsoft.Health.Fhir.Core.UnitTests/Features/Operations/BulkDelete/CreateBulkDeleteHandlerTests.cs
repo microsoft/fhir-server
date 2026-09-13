@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         [InlineData(DeleteOperation.SoftDelete)]
         [InlineData(DeleteOperation.HardDelete)]
         [InlineData(DeleteOperation.PurgeHistory)]
-        public async Task GivenSmartFineGrainedContext_WhenJobCreationRequested_ThenUnauthorizedFhirActionExceptionIsThrown(DeleteOperation deleteOperation)
+        public async Task GivenSmartFineGrainedContextAndRestrictionEnabled_WhenJobCreationRequested_ThenUnauthorizedFhirActionExceptionIsThrown(DeleteOperation deleteOperation)
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
             _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
