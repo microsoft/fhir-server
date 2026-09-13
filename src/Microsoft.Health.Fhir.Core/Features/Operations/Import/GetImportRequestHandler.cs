@@ -140,12 +140,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             var jobmsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
                             var elapsedmsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
                             var parallelism = elapsedmsec > 0 ? Math.Round(jobmsec / elapsedmsec, 2) : 0;
-                            var jobsWithReliableDatabaseTiming = jobLines.Where(_ => _.DatabaseMilliseconds.HasValue).ToList();
+                            var jobsWithReliableDatabaseTiming = jobLines.Where(_ => _.DatabaseMilliseconds.HasValue && _.ResourceCount > 0).ToList();
                             var resourceCount = jobsWithReliableDatabaseTiming.Sum(_ => _.ResourceCount);
                             var cpuMillisecondsPerResource = resourceCount > 0
                                 ? Math.Round((double)jobsWithReliableDatabaseTiming.Sum(_ => _.CpuMilliseconds.Value) / resourceCount, 2)
                                 : (double?)null;
-                            var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
+                            var cpuMillisecondsPerResourceStd = resourceCount > 0
+                                ? Math.Round(Math.Sqrt(jobsWithReliableDatabaseTiming.Sum(_ => _.ResourceCount * Math.Pow(((double)_.CpuMilliseconds.Value / _.ResourceCount) - cpuMillisecondsPerResource.Value, 2)) / resourceCount), 2)
+                                : (double?)null;
+                            var executionStats = new List<string> { $"jobs={jobLines.Count} cpu_msec_per_resource={cpuMillisecondsPerResource:F2} std_cpu_msec_per_resource={cpuMillisecondsPerResourceStd:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
                             executionStats.AddRange(jobLines.Take(50).Select(x => x.Line));
 
                             result.ExecutionStats = executionStats;
