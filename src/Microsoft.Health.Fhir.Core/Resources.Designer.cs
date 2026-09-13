@@ -609,7 +609,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("SmartFineGrainedAccessControlOperationForbidden", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Member match encountered an unknown exception while performing the search..
         /// </summary>
