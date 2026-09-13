@@ -38,6 +38,12 @@ This is the **Microsoft FHIR Server** — an open-source, standards-compliant im
 
 ---
 
+## Response Style
+
+- Prefer concise, direct, review-ready answers by default. Establish the relevant scope and assumptions, then provide only the detail needed to support the conclusion.
+
+---
+
 ## Project Structure
 
 | Path | Purpose |
