@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, embeddingModelId: 7);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Equal(new[] { "first value\nsecond value" }, embeddedTexts);
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 4);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Equal(new[] { " one two three four", " five", " four" }, embeddedTexts);
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 10, chunkOverlap: 0);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Equal(new[] { " one two three four", " four five six seven" }, embeddedTexts);
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Equal(new[] { " one two three four" }, embeddedTexts);
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts, chunkSize: 4, chunkOverlap: 1);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Equal(new[] { " one two three four", " four five six seven" }, embeddedTexts);
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 chunkOverlap: 0);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Equal(
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
                 NullLogger<VectorSearchIndexer>.Instance);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.Empty(resource.VectorSearchIndices);
@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.True(resource.VectorSearchIndicesUpdated);
@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts);
 
             // Act
-            await indexer.IndexAsync(new[] { resource }, CancellationToken.None);
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
 
             // Assert
             Assert.True(resource.VectorSearchIndicesUpdated);
