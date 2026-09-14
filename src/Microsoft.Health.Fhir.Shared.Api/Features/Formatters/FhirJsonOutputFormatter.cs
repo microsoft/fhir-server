@@ -86,16 +86,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 var bundle = context.Object as Hl7.Fhir.Model.Bundle;
                 resource = bundle;
-                bool hasExtendedSearchMetadata = bundle.Entry
-                    .OfType<RawBundleEntryComponent>()
-                    .Any(entry => entry.Search?.Score.HasValue == true || entry.Search?.Extension?.Any() == true);
-
                 if (hasElements ||
                     summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False ||
-                    !bundle.Entry.All(x => x is RawBundleEntryComponent) ||
-                    hasExtendedSearchMetadata)
+                    !bundle.Entry.All(x => x is RawBundleEntryComponent))
                 {
-                    // The raw serializer does not support filtered resources or extended search metadata.
+                    // The raw serializer does not support filtered resources or mixed raw/POCO entries.
                     foreach (var rawBundleEntryComponent in bundle.Entry)
                     {
                         if (rawBundleEntryComponent is RawBundleEntryComponent)
