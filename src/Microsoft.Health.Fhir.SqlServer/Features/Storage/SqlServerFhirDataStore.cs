@@ -957,7 +957,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var results = new List<ResourceWrapper>();
             foreach (var key in keys)
             {
-                results.Add(await GetAsync(key, cancellationToken));
+                var intResults = await GetAsync([key], false, true, cancellationToken); // do not return invisible records in public interface
+                results.AddRange(intResults);
             }
 
             return results;
@@ -970,7 +971,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            var results = await GetAsync(new[] { key }, cancellationToken);
+            var results = await GetAsync([key], cancellationToken);
             return results.Count == 0 ? null : results[0];
         }
 
