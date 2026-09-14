@@ -18,7 +18,7 @@ BEGIN TRY
     THROW 50410, @msg, 1 
   END
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@StartTime=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW
