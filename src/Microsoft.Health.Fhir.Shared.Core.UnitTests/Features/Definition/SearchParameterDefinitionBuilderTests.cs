@@ -105,10 +105,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             // Arrange
             const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"extractionPolicy\",\"valueCode\":\"perValueRow\"},{\"url\":\"maxInputTokens\",\"valueInteger\":1200},{\"url\":\"minimumScore\",\"valueDecimal\":0.65},{\"url\":\"chunkSizeTokens\",\"valueInteger\":400},{\"url\":\"chunkOverlapTokens\",\"valueInteger\":40},{\"url\":\"distanceMetric\",\"valueCode\":\"cosine\"}]}]}";
-            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+
+            // Exercise the definition reader's typed-element boundary, not POCO enum validation:
+            // "special" is not a STU3 POCO enum value; these fixtures do not establish HTTP acceptance.
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
             // Act
-            var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+            var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
 
             // Assert
             Assert.Equal("active", searchParameterInfo.DefinitionStatus);
@@ -130,30 +134,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData("unsupportedSetting", "valueCode", "value")]
         public void GivenInvalidVectorIndexSetting_WhenWrapped_ThenDefinitionIsRejected(string setting, string valueType, string value)
         {
+            // Arrange
             string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"{setting}\",\"{valueType}\":{(valueType == "valueCode" ? $"\"{value}\"" : value)}}}]}}]}}";
-            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
-            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
             Assert.Throws<InvalidDefinitionException>(wrap);
         }
 
         [Fact]
         public void GivenChunkOverlapNotSmallerThanChunkSize_WhenWrapped_ThenDefinitionIsRejected()
         {
+            // Arrange
             const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"chunkSizeTokens\",\"valueInteger\":100},{\"url\":\"chunkOverlapTokens\",\"valueInteger\":100}]}]}";
-            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
-            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
             Assert.Throws<InvalidDefinitionException>(wrap);
         }
 
         [Fact]
         public void GivenChunkSizeAboveProviderLimit_WhenWrapped_ThenDefinitionIsRejected()
         {
+            // Arrange
             string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"chunkSizeTokens\",\"valueInteger\":{VectorSearchConfiguration.MaxEmbeddingInputTokens + 1}}}]}}]}}";
-            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
-            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
             Assert.Throws<InvalidDefinitionException>(wrap);
         }
 
@@ -164,10 +183,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             // Arrange
             string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"minimumScore\",\"valueDecimal\":{minimumScore}}}]}}]}}";
-            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
             // Act
-            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
 
             // Assert
             Assert.Throws<InvalidDefinitionException>(wrap);
@@ -178,10 +198,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             // Arrange
             const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"extractionPolicy\",\"valueCode\":\"unsupported\"}]}]}";
-            SearchParameter searchParameter = _jsonParser.Parse<SearchParameter>(searchParameterJson);
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
 
             // Act
-            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter.ToTypedElement()));
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
 
             // Assert
             Assert.Throws<InvalidDefinitionException>(wrap);
