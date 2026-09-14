@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 _searchService,
                 Substitute.For<IResourceSerializer>(),
                 Substitute.For<ILogger<CreateBulkUpdateHandler>>(),
-                Options.Create(new CoreFeatureConfiguration()));
+                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkUpdateRestriction = true }));
         }
 
         [Theory]

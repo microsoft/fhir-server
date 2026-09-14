@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 _contextAccessor,
                 _searchService,
                 Substitute.For<ILogger<CreateBulkDeleteHandler>>(),
-                Options.Create(new CoreFeatureConfiguration()));
+                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkDeleteRestriction = true }));
         }
 
         [Fact]
