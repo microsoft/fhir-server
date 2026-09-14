@@ -2,7 +2,7 @@
 
 **Status**: Proposed
 **Date**: 2026-08-23
-**Revised**: 2026-09-11
+**Revised**: 2026-09-14
 **Feature**: SQL semantic search
 
 ## Context
@@ -35,6 +35,13 @@ schema descriptor for generated column-name metadata, while vector values cross 
 boundaries as JSON text and are explicitly cast to native `vector(1536)` in SQL. Schema installation
 probes `sys.types` and fails before DDL when the native vector type is unavailable.
 
+Retain the nonpartitioned native-vector table and clustered primary key as the foundation for a
+possible later DiskANN index. Do not create an approximate index in the schema migration or treat
+native-vector availability as proof of DiskANN availability. The
+[Azure SQL compatibility assessment](../SqlVectorIndexCompatibility.md) records the documented
+General Purpose and Hyperscale baseline, preview limitations, and the exact table combinations that
+still require execution validation.
+
 ## Consequences
 
 - The foundation restores and builds without machine-specific feeds or unreleased packages.
@@ -43,3 +50,5 @@ probes `sys.types` and fails before DDL when the native vector type is unavailab
 - Experimental schema versions 117 through 119 cannot upgrade in place to the consolidated schema.
 - Persisted passage bytes are not consumed by score-only MVP queries.
 - Extraction, embedding calls, vector queries, and FHIR response behavior remain owned by the application layer.
+- DiskANN remains a future, explicit approximate-query choice; the current schema does not certify
+  the composite-key and PAGE-compressed layout on every Azure SQL tier or index version.
