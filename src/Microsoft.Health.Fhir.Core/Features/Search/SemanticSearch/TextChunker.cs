@@ -13,9 +13,9 @@ using Microsoft.ML.Tokenizers;
 namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
 {
     /// <summary>
-    /// Splits text into fixed-size, overlapping passages using the configured embedding model's tokenizer. The overlap
-    /// keeps a clinical statement that lands on a boundary from being split across two passages. Every returned chunk
-    /// contains no more than the configured token limit and starts and ends on a complete Unicode scalar boundary.
+    /// Splits text into fixed-size token windows using the configured embedding model's tokenizer. Overlap provides
+    /// context at window boundaries but does not guarantee preservation of sentences or clinical statements.
+    /// Every returned chunk contains no more than the configured token limit and starts and ends on a complete Unicode scalar boundary.
     /// Source limits truncate at the last complete scalar that fits; overlap falls back to the next complete boundary
     /// when the requested token overlap cannot preserve both Unicode validity and forward progress.
     /// </summary>
