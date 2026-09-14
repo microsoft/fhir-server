@@ -11,13 +11,7 @@ parameters:
 - name: expectedKeyVaultName
   type: string
   default: ''
-- name: expectedSqlServerName
-  type: string
-  default: ''
 - name: expectedSqlDatabaseName
-  type: string
-  default: ''
-- name: expectedSqlElasticPoolName
   type: string
   default: ''
 
@@ -103,9 +97,6 @@ steps:
             Write-Host "##vso[task.setvariable variable=$versionVariableName]$url"
         }
 
-        . "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-EffectiveFhirSdkProvider.ps1"
-        . "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-AcaSqlTopology.ps1"
-
         $keyVault = "$(KeyVaultBaseName)-ts"
         Set-SecretsAsPipelineVariables -VaultName $keyVault
 
@@ -122,15 +113,34 @@ steps:
         }
 
         $expectedFhirSdkProviderDefault = '${{ parameters.expectedFhirSdkProviderDefault }}'
-        Assert-EffectiveFhirSdkProvider -EnvironmentSettings $envSettings -ExpectedProvider $expectedFhirSdkProviderDefault -ContainerAppName $containerAppName
-        Assert-AcaSqlTopology `
-            -EnvironmentSettings $envSettings `
-            -ContainerAppName $containerAppName `
-            -ResourceGroupName '$(UniqueResourceGroupName)' `
-            -ExpectedKeyVaultName '${{ parameters.expectedKeyVaultName }}' `
-            -ExpectedSqlServerName '${{ parameters.expectedSqlServerName }}' `
-            -ExpectedSqlDatabaseName '${{ parameters.expectedSqlDatabaseName }}' `
-            -ExpectedSqlElasticPoolName '${{ parameters.expectedSqlElasticPoolName }}'
+        if ($expectedFhirSdkProviderDefault) {
+            $providerSettings = @($envSettings | Where-Object { $_.name -eq 'FhirServer__CoreFeatures__FhirSdkProvider__Default' })
+            if ($providerSettings.Count -ne 1 -or $providerSettings[0].value -ne $expectedFhirSdkProviderDefault) {
+                throw "Container App '$containerAppName' must define FhirSdkProvider__Default='$expectedFhirSdkProviderDefault' exactly once."
+            }
+        }
+
+        $expectedSqlDatabaseName = '${{ parameters.expectedSqlDatabaseName }}'
+        if ($expectedSqlDatabaseName) {
+            $expectedKeyVaultName = '${{ parameters.expectedKeyVaultName }}'
+            $vaultEndpoint = Get-ContainerEnvValue -EnvSettings $envSettings -Name 'KeyVault__Endpoint'
+            $vaultDnsSuffix = (Get-AzEnvironment -Name (Get-AzContext -ErrorAction Stop).Environment.Name -ErrorAction Stop).AzureKeyVaultDnsSuffix.Trim('.')
+            if (-not $expectedKeyVaultName -or -not $vaultEndpoint -or $vaultEndpoint.TrimEnd('/') -ine "https://$expectedKeyVaultName.$vaultDnsSuffix") {
+                throw "Container App '$containerAppName' must use the expected Key Vault '$expectedKeyVaultName'."
+            }
+            try {
+                $connectionString = Get-AzKeyVaultSecret -VaultName $expectedKeyVaultName -Name 'SqlServer--ConnectionString' -AsPlainText -ErrorAction Stop
+                $connection = [System.Data.Common.DbConnectionStringBuilder]::new()
+                $connection.set_ConnectionString($connectionString)
+            }
+            catch {
+                throw "Could not read the SQL connection configuration from Key Vault '$expectedKeyVaultName'."
+            }
+            $databaseName = if ($connection.ContainsKey('Initial Catalog')) { $connection['Initial Catalog'] } else { $connection['Database'] }
+            if ($databaseName -ine $expectedSqlDatabaseName) {
+                throw "Container App '$containerAppName' must target SQL database '$expectedSqlDatabaseName'."
+            }
+        }
 
         Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
 

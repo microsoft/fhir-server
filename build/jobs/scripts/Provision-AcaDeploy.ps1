@@ -73,19 +73,17 @@ $additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"]
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
 $fhirSdkProviderSettingName = "FhirServer__CoreFeatures__FhirSdkProvider__Default"
-$sqlDeploymentPlan = $null
 if ($DataStore -eq 'sql') {
-    $configuredFhirSdkProviderDefault = if ($additionalProperties.ContainsKey($fhirSdkProviderSettingName)) {
-        [string]$additionalProperties[$fhirSdkProviderSettingName]
-    } else {
-        ''
+    $configuredProvider = [string]$additionalProperties[$fhirSdkProviderSettingName]
+    if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -notin @('Firely', 'Ignixa')) {
+        throw "Configured FHIR SDK provider '$configuredProvider' is unsupported."
     }
-
-    $sqlDeploymentPlan = & "$PSScriptRoot/Resolve-AcaSqlDeploymentPlan.ps1" `
-        -Version $Version `
-        -SqlDatabaseName $SqlDatabaseName `
-        -FhirSdkProviderDefault $FhirSdkProviderDefault `
-        -ConfiguredFhirSdkProviderDefault $configuredFhirSdkProviderDefault
+    if (-not [string]::IsNullOrWhiteSpace($FhirSdkProviderDefault)) {
+        if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -ne $FhirSdkProviderDefault) {
+            throw "Deployment FHIR SDK provider '$FhirSdkProviderDefault' conflicts with configured provider '$configuredProvider'."
+        }
+        $additionalProperties[$fhirSdkProviderSettingName] = $FhirSdkProviderDefault
+    }
 }
 
 $staticEnvNames = @(
@@ -113,8 +111,7 @@ if ($DataStore -eq 'sql') {
         "SqlServer__Initialize",
         "SqlServer__SchemaOptions__AutomaticUpdatesEnabled",
         "SqlServer__DeleteAllDataOnStartup",
-        "SqlServer__AllowDatabaseCreation",
-        $fhirSdkProviderSettingName
+        "SqlServer__AllowDatabaseCreation"
     )
 } else {
     $staticEnvNames += @(
@@ -161,7 +158,9 @@ $resourceGroupName = $ResourceGroup
 # --- Data-store-specific pre-deploy setup ---
 if ($DataStore -eq 'sql') {
     $sqlServerName = $SqlServerName.ToLowerInvariant()
-    $sqlDatabaseName = $sqlDeploymentPlan.SqlDatabaseName
+    if ([string]::IsNullOrWhiteSpace($SqlDatabaseName)) {
+        $SqlDatabaseName = "FHIR$Version"
+    }
     $sqlElasticPoolName = $SqlElasticPoolName
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
     if ($null -eq $existingDb) {
@@ -294,9 +293,6 @@ $templateParameters = @{
 if ($DataStore -eq 'sql') {
     $templateParameters["sqlServerName"] = $sqlServerName
     $templateParameters["sqlDatabaseName"] = $sqlDatabaseName
-    if ($sqlDeploymentPlan.EmitFhirSdkProviderEnvironmentVariable) {
-        $templateParameters["fhirSdkProviderDefault"] = $sqlDeploymentPlan.FhirSdkProviderDefault
-    }
     $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = $SchemaAutomaticUpdatesEnabled
 } else {
     $templateParameters["cosmosDbAccountName"] = $cosmosDbAccountName
