@@ -54,8 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             var orchestratorJobInfo = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService.CreateMockScopeFactory(), _logger);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
 
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
@@ -197,8 +196,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
 
             // Queue the job initially to get partial job list.
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService.CreateMockScopeFactory(), _logger);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
             var jobsInGroup = await _mockQueueClient.GetJobByGroupIdAsync(0, _orchestratorJobId, true, CancellationToken.None);
 
             // Pull first 5 jobs from the queue and inject them into a new mock queue to simluate a stopped job.
@@ -208,8 +206,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(_orchestratorJobId, initialJobList);
 
             // Run the job again - it should skip adding existing jobs but add non-existing jobs.
-            result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-            jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
+            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
             CheckJobsQueued(numExpectedEnqueueCalls - numJobsBeforeStop, numExpectedJobs);

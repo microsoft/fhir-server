@@ -53,8 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, exportJobType: exportJobType)[0];
             var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
 
             CheckJobsQueued(expectedEnqueueCalls, expectedJobCount);
         }
