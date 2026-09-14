@@ -403,7 +403,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
             requiredResourceTypes.AddRange(parsedResourceTypes);
 
-            CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
+            HashSet<Tuple<string, string>> smartScopeInjectedParameters = CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
             var validSearchParameters = new List<SearchParameterInfo>();
 
@@ -435,6 +435,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             })
             .Where(item => item != null));
+
+            // A SMART clinical scope constraint that was merged into the user's query above is a mandatory
+            // authorization predicate, not an ordinary search filter. If its search parameter is unavailable the
+            // predicate has just been dropped from the query, which would silently broaden the caller's scope, so
+            // the request must be denied. This is deliberately independent of "Prefer: handling"; leniency may not
+            // relax an authorization check. Unsupported parameters supplied by the caller keep their existing
+            // lenient/strict behavior.
+            EnsureSmartScopeConstraintsAreEnforceable(smartScopeInjectedParameters, unsupportedSearchParameters);
 
             searchOptions.SearchParameters = validSearchParameters;
 
@@ -791,8 +799,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger.LogInformation(logOutput);
         }
 
-        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions, SearchParams searchParams, List<string> requiredResourceTypes)
+        /// <summary>
+        /// Applies the resource-type and search-parameter restrictions carried by the caller's SMART clinical
+        /// scopes. Constraints from a wildcard (all-resource) scope cannot be parsed here because they must be
+        /// parsed against the request's resource types alongside the caller's own query parameters, so they are
+        /// merged into <paramref name="searchParams"/> and returned to the caller for a post-parse enforceability
+        /// check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>).
+        /// </summary>
+        /// <returns>The scope constraints that were merged into <paramref name="searchParams"/>.</returns>
+        private HashSet<Tuple<string, string>> CheckFineGrainedAccessControl(List<Expression> searchExpressions, SearchParams searchParams, List<string> requiredResourceTypes)
         {
+            var injectedScopeParameters = new HashSet<Tuple<string, string>>();
+
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
@@ -825,6 +843,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             foreach (var param in restriction.SearchParameters.Parameters)
                             {
                                searchParams.Add(param.Item1, param.Item2);
+
+                               // Remember the constraint so that, once the query has been parsed, we can verify the
+                               // predicate actually survived parsing instead of being dropped as "unsupported".
+                               injectedScopeParameters.Add(param);
                             }
                         }
 
@@ -879,10 +901,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                     }
                                     catch (SearchParameterNotSupportedException)
                                     {
-                                        return null;
+                                        // This predicate is the authorization constraint attached to the caller's
+                                        // scope (for example patient=<id> on "patient/Observation.rs?patient=<id>").
+                                        // Dropping it would leave only the resource-type leg, silently widening the
+                                        // scope to every resource of that type, so the request must be denied
+                                        // instead. Unlike ordinary unsupported search parameters this is never
+                                        // relaxed by "Prefer: handling=lenient".
+                                        throw new InvalidSearchOperationException(
+                                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, q.Item1));
                                     }
-                                })
-                                .Where(item => item != null));
+                                }));
                             var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
                             individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
                             andedSmartSmartSearchExpressions.Add(individualAndExp);
@@ -951,6 +979,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         }
                     }
                 }
+            }
+
+            return injectedScopeParameters;
+        }
+
+        /// <summary>
+        /// Denies the request when a SMART clinical scope constraint that was merged into the caller's query was
+        /// dropped during parsing because its search parameter is unavailable (disabled, pending delete, or
+        /// otherwise unsupported). Such a constraint is a mandatory authorization predicate: losing it widens the
+        /// caller's effective scope, so the request fails closed rather than returning a superset of the data the
+        /// scope allows.
+        /// </summary>
+        /// <param name="injectedScopeParameters">Constraints that SMART scopes merged into the query.</param>
+        /// <param name="unsupportedSearchParameters">Query parameters that could not be parsed.</param>
+        private static void EnsureSmartScopeConstraintsAreEnforceable(
+            HashSet<Tuple<string, string>> injectedScopeParameters,
+            List<Tuple<string, string>> unsupportedSearchParameters)
+        {
+            if (injectedScopeParameters.Count == 0 || unsupportedSearchParameters.Count == 0)
+            {
+                return;
+            }
+
+            // Matching on the exact (name, value) pair rather than on the name alone keeps an unrelated but
+            // similarly named parameter supplied by the caller (for example "patient:missing") from being
+            // mistaken for the scope constraint.
+            Tuple<string, string> droppedConstraint = unsupportedSearchParameters.FirstOrDefault(injectedScopeParameters.Contains);
+
+            if (droppedConstraint != null)
+            {
+                throw new InvalidSearchOperationException(
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, droppedConstraint.Item1));
             }
         }
     }

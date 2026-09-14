@@ -621,6 +621,55 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).GetSearchParamId(membershipParameterUrl);
     }
 
+    [Fact]
+    public void GivenTheDeviceRestrictionCannotBeEnforced_WhenMembershipCreated_ThenDeviceAuthorizesNothing()
+    {
+        // Fail-closed canary for the SQL include/revinclude path. When Device.patient is unavailable the
+        // "unassigned device" leg cannot be trusted, so GetConditionalCompartmentRules emits a Never rule.
+        // Never must be dropped from ConditionalRules (SqlQueryGenerator would otherwise treat any
+        // non-HasNoReference visibility as EXISTS and authorize every Device with a patient index row)
+        // while still being counted when subtracting conditionally visible types from the shared types.
+        // Dropping the rule outright instead would put Device back in SharedResourceTypes — universally
+        // visible, the opposite of fail closed.
+        SqlCompartmentSearchRewriter compartmentRewriter = CreateCompartmentRewriter(
+            "DiagnosticReport",
+            ["subject"],
+            new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal));
+
+        Expression coreExpression = Expression.SmartCompartmentSearch("Patient", "patient-a", "DomainResource");
+
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
+            coreExpression,
+            compartmentRewriter,
+            CreateDeviceRestrictedSmartRewriter(devicePatientParameterIsSearchable: false));
+
+        Assert.NotNull(membership);
+        Assert.Empty(membership.ConditionalRules);
+        Assert.DoesNotContain("Device", membership.SharedResourceTypes, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void GivenTheDeviceRestrictionIsEnforceable_WhenMembershipCreated_ThenDeviceIsAuthorizedOnlyConditionally()
+    {
+        SqlCompartmentSearchRewriter compartmentRewriter = CreateCompartmentRewriter(
+            "DiagnosticReport",
+            ["subject"],
+            new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal));
+
+        Expression coreExpression = Expression.SmartCompartmentSearch("Patient", "patient-a", "DomainResource");
+
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
+            coreExpression,
+            compartmentRewriter,
+            CreateDeviceRestrictedSmartRewriter(devicePatientParameterIsSearchable: true));
+
+        Assert.NotNull(membership);
+        Assert.DoesNotContain("Device", membership.SharedResourceTypes, StringComparer.Ordinal);
+        Assert.All(membership.ConditionalRules, rule => Assert.Equal("Device", rule.ResourceType));
+        Assert.Contains(membership.ConditionalRules, rule => rule.Visibility == SmartCompartmentConditionalVisibility.HasNoReference);
+        Assert.Contains(membership.ConditionalRules, rule => rule.Visibility == SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot);
+    }
+
     private void ConfigureResourceTypeIds()
     {
         var resourceTypeIds = new Dictionary<string, short>(StringComparer.Ordinal)
@@ -691,5 +740,39 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             compartmentRewriter,
             new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
             Options.Create(new CoreFeatureConfiguration { EnableSmartCompartmentDeviceRestriction = false }));
+    }
+
+    private static SmartCompartmentSearchRewriter CreateDeviceRestrictedSmartRewriter(bool devicePatientParameterIsSearchable)
+    {
+        var devicePatientParameter = new SearchParameterInfo(
+            "patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Device-patient"),
+            null,
+            "Device.patient",
+            ["Patient"])
+        {
+            IsSearchable = devicePatientParameterIsSearchable,
+        };
+
+        ISearchParameterDefinitionManager searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        searchParameterDefinitionManager.TryGetSearchParameter("Device", "patient", out Arg.Any<SearchParameterInfo>())
+            .Returns(call =>
+            {
+                call[2] = devicePatientParameter;
+                return true;
+            });
+
+        ICompartmentDefinitionManager compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
+
+        var compartmentRewriter = new SqlCompartmentSearchRewriter(
+            new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager),
+            new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+
+        return new SmartCompartmentSearchRewriter(
+            compartmentRewriter,
+            new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+            Options.Create(new CoreFeatureConfiguration { EnableSmartCompartmentDeviceRestriction = true }));
     }
 }
