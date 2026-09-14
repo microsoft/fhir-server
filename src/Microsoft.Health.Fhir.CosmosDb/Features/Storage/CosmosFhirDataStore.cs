@@ -12,22 +12,20 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Utility;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -432,10 +430,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // If not a delete then check if its an update with no data change
                 if (!cosmosWrapper.IsDeleted)
                 {
-                    // check if the new resource data is same as existing resource data
-                    if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper), StringComparison.Ordinal))
+                    string existingData = RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource);
+                    string newData = RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper);
+
+                    // Check if the new resource data is same as existing resource data
+                    if (string.Equals(existingData, newData, StringComparison.Ordinal))
                     {
-                        // Do not store the duplicate data, for a update with no impact - returning existingItemResource as no updates
+                        // Do not store the duplicate data, for a update with no impact - returning existingItemResource as no updates.
                         return new UpsertOutcome(existingItemResource, SaveOutcomeType.Updated);
                     }
                 }
@@ -876,11 +877,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
         }
 
-        private static string RemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
+        internal static string RemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
         {
             var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
-            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal);
-            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
+            var rawResource = resourceWrapper.RawResource.Data
+                .Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal)
+                .Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
+
+            // StringComparison.Ordinal performs a byte-by-byte comparison without any Unicode normalization. This is problematic for Japanese characters because: Japanese characters
+            // can be represented in multiple equivalent Unicode forms: NFD (Canonical Decomposition) or NFC (Canonical Composition).
+            // If a client sends Japanese text in one normalization form(e.g., NFD) but a previous version stored it in another form(e.g., NFC), the Ordinal comparison will fail even though
+            // the characters look identical.
+            // English/ASCII characters don't have normalization variants, so this only affects languages like Japanese, Korean, Vietnamese, etc.
+            return rawResource.Normalize(NormalizationForm.FormC);
         }
 
         public async Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
