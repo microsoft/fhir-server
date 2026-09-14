@@ -33,6 +33,8 @@ using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Xunit.Sdk;
+using SqlParameter = Microsoft.Data.SqlClient.SqlParameter;
+using SqlParameterCollection = Microsoft.Data.SqlClient.SqlParameterCollection;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search;
 
@@ -46,6 +48,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     private readonly SchemaInformation _schemaInformation = new(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
     private readonly IndentedStringBuilder _strBuilder = new(new StringBuilder());
     private readonly SqlQueryGenerator _queryGenerator;
+    private readonly SqlParameterCollection _sqlParameters;
 
     public SqlQueryGeneratorTests(ModelInfoProviderFixture modelInfoProviderFixture)
     {
@@ -59,6 +62,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _schemaInformation.Current = SchemaVersionConstants.Max;
 
         using Data.SqlClient.SqlCommand command = new();
+        _sqlParameters = command.Parameters;
         HashingSqlQueryParameterManager parameters = new(new SqlQueryParameterManager(command.Parameters));
 
         _queryGenerator = new(
@@ -254,8 +258,10 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.DoesNotContain("SortValue", generatedSql, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void GivenPreparedVectorQueryAndSemanticCursor_WhenSqlGenerated_ThenContinuesAfterDistanceAndStableKeys()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenPreparedVectorQuery_WhenSqlGenerated_ThenSemanticContinuationIsAppliedOnlyWhenPresent(bool hasContinuation)
     {
         // Arrange
         var vectorSearchParameter = new SearchParameterInfo(
@@ -274,20 +280,38 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         var searchOptions = CreateVectorSearchOptions(
             vectorSearchParameter,
             [(SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending)]);
-        searchOptions.SemanticContinuationDistance = 0.125;
-        searchOptions.SemanticContinuationResourceTypeId = 103;
-        searchOptions.SemanticContinuationResourceSurrogateId = 12345;
+        if (hasContinuation)
+        {
+            Assert.True(SemanticSearchContinuationToken.TryCreate(0.125, 103, 12345, out SemanticSearchContinuationToken continuationToken));
+            searchOptions.SemanticContinuationToken = continuationToken;
+        }
 
         // Act
         _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
         string generatedSql = _strBuilder.ToString();
 
         // Assert
-        Assert.Contains("semantic.SemanticDistance >", generatedSql, StringComparison.Ordinal);
-        Assert.Contains("semantic.SemanticDistance =", generatedSql, StringComparison.Ordinal);
-        Assert.Contains("ResourceTypeId >", generatedSql, StringComparison.Ordinal);
-        Assert.Contains("ResourceSurrogateId >", generatedSql, StringComparison.Ordinal);
         Assert.Contains("ORDER BY SemanticDistance ASC", generatedSql, StringComparison.Ordinal);
+        if (hasContinuation)
+        {
+            SqlParameter distanceParameter = Assert.Single(
+                _sqlParameters.Cast<SqlParameter>(), parameter => parameter.Value is double value && value == 0.125);
+            SqlParameter resourceTypeParameter = Assert.Single(
+                _sqlParameters.Cast<SqlParameter>(), parameter => parameter.Value is short value && value == 103);
+            SqlParameter surrogateIdParameter = Assert.Single(
+                _sqlParameters.Cast<SqlParameter>(), parameter => parameter.Value is long value && value == 12345L);
+
+            Assert.Contains($"semantic.SemanticDistance > {distanceParameter.ParameterName}", generatedSql, StringComparison.Ordinal);
+            Assert.Contains($"semantic.SemanticDistance = {distanceParameter.ParameterName}", generatedSql, StringComparison.Ordinal);
+            Assert.Contains($"ResourceTypeId > {resourceTypeParameter.ParameterName}", generatedSql, StringComparison.Ordinal);
+            Assert.Contains($"ResourceTypeId = {resourceTypeParameter.ParameterName}", generatedSql, StringComparison.Ordinal);
+            Assert.Contains($"ResourceSurrogateId > {surrogateIdParameter.ParameterName}", generatedSql, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.DoesNotContain("semantic.SemanticDistance >", generatedSql, StringComparison.Ordinal);
+            Assert.DoesNotContain("semantic.SemanticDistance =", generatedSql, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

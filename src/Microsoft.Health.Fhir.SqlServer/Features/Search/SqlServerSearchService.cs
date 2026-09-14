@@ -523,15 +523,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     if (IsRelevanceSort(sqlSearchOptions))
                     {
-                        if (!continuationToken.TryGetSemanticCursor(out double distance, out short resourceTypeId, out long resourceSurrogateId))
+                        if (!continuationToken.TryGetSemanticSearchContinuationToken(out SemanticSearchContinuationToken semanticContinuationToken))
                         {
                             _logger.LogWarning("Bad Request (InvalidContinuationToken)");
                             throw new BadRequestException(Resources.InvalidContinuationToken);
                         }
 
-                        sqlSearchOptions.SemanticContinuationDistance = distance;
-                        sqlSearchOptions.SemanticContinuationResourceTypeId = resourceTypeId;
-                        sqlSearchOptions.SemanticContinuationResourceSurrogateId = resourceSurrogateId;
+                        sqlSearchOptions.SemanticContinuationToken = semanticContinuationToken;
                     }
                     else if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
