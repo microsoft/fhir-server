@@ -17,13 +17,7 @@ parameters:
 - name: expectedKeyVaultName
   type: string
   default: ''
-- name: expectedSqlServerName
-  type: string
-  default: ''
 - name: expectedSqlDatabaseName
-  type: string
-  default: ''
-- name: expectedSqlElasticPoolName
   type: string
   default: ''
 
@@ -39,9 +33,7 @@ steps:
       appServiceType: ${{ parameters.appServiceType }}
       expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
       expectedKeyVaultName: '${{ parameters.expectedKeyVaultName }}'
-      expectedSqlServerName: '${{ parameters.expectedSqlServerName }}'
       expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
-      expectedSqlElasticPoolName: '${{ parameters.expectedSqlElasticPoolName }}'
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
