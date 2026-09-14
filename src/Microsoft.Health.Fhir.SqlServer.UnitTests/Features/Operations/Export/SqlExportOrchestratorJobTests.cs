@@ -93,27 +93,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             CheckJobsQueued(3, numExpectedJobsPerResourceType * 3);
         }
 
-        [Fact]
-        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobsShouldBeCreatedPerResourceType()
-        {
-            int numExpectedJobs = 100;
-            long orchestratorJobId = 10000;
-
-            SetupMockQueue(numExpectedJobs, orchestratorJobId);
-
-            JobInfo orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation").First();
-            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
-            string result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
-            ExportJobRecord jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-            Assert.Equal(OperationStatus.Completed, jobResult.Status);
-
-            CheckJobsQueued(2, numExpectedJobs * 2);
-        }
-
         [Theory]
-        [InlineData("Patient, ServiceRequest")]
-        [InlineData(" Patient , ServiceRequest ")]
-        public async Task GivenAParallelSystemExportWithWhitespacePaddedTypeRestrictions_WhenRun_ThenSearchesAndQueuesNormalizedResourceTypes(string typeFilter)
+        [InlineData("Patient,Observation", "Observation", "Patient")]
+        [InlineData("Patient, ServiceRequest", "Patient", "ServiceRequest")]
+        [InlineData(" Patient , ServiceRequest ", "Patient", "ServiceRequest")]
+        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobsShouldBeCreatedPerResourceType(
+            string typeFilter,
+            string firstExpectedResourceType,
+            string secondExpectedResourceType)
         {
             int numExpectedJobs = 100;
             long orchestratorJobId = 10000;
@@ -122,8 +109,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 
             JobInfo orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: typeFilter).First();
             var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+            string result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
+            ExportJobRecord jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
-            await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
+            CheckJobsQueued(2, numExpectedJobs * 2);
 
             var searchedResourceTypes = _mockSearchService.ReceivedCalls()
                 .Where(call => call.GetMethodInfo().Name.Equals("GetSurrogateIdRanges"))
@@ -137,8 +127,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
                 .Distinct()
                 .OrderBy(resourceType => resourceType);
 
-            Assert.Equal(new[] { "Patient", "ServiceRequest" }, searchedResourceTypes);
-            Assert.Equal(new[] { "Patient", "ServiceRequest" }, queuedResourceTypes);
+            Assert.Equal(new[] { firstExpectedResourceType, secondExpectedResourceType }, searchedResourceTypes);
+            Assert.Equal(new[] { firstExpectedResourceType, secondExpectedResourceType }, queuedResourceTypes);
         }
 
         [Theory]
@@ -173,8 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
                 .SelectMany(call => (string[])call.GetOriginalArguments()[1])
                 .Select(definition => JsonConvert.DeserializeObject<ExportJobRecord>(definition).ResourceType);
 
-            Assert.NotEmpty(queuedResourceTypes);
-            Assert.All(queuedResourceTypes, resourceType => Assert.Equal("Patient,ServiceRequest", resourceType));
+            Assert.Equal(new[] { "Patient,ServiceRequest" }, queuedResourceTypes.Distinct());
         }
 
         [Theory]
@@ -213,12 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             bool failure = false)
         {
             var jobInfoArray = new List<JobInfo>();
-            var filters = hasFilter
-                ? new List<ExportJobFilter>
-                {
-                    new ExportJobFilter(KnownResourceTypes.Patient, new List<Tuple<string, string>>()),
-                }
-                : null;
+            List<ExportJobFilter> filters = hasFilter ? [new(KnownResourceTypes.Patient, [])] : null;
 
             if (orchestratorJobId != -1)
             {
