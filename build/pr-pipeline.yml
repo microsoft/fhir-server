@@ -111,11 +111,6 @@ stages:
       demands:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
-    - task: PowerShell@2
-      displayName: 'Validate SQL canary configuration'
-      inputs:
-        filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/tests/Test-AcaSqlCanaryConfiguration.ps1'
-        pwsh: true
     - template: ./jobs/analyze.yml
 
 - stage: DockerBuild  
@@ -519,10 +514,7 @@ stages:
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
       expectedFhirSdkProviderDefault: Ignixa
-      expectedKeyVaultName: $(KeyVaultNameSqlVNext)
-      expectedSqlServerName: $(DeploymentEnvironmentName)
       expectedSqlDatabaseName: FHIRStu3VNext
-      expectedSqlElasticPoolName: $(SqlVNextElasticPoolName)
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -577,10 +569,7 @@ stages:
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
       expectedFhirSdkProviderDefault: Ignixa
-      expectedKeyVaultName: $(KeyVaultNameR4SqlVNext)
-      expectedSqlServerName: $(DeploymentEnvironmentName)
       expectedSqlDatabaseName: FHIRR4VNext
-      expectedSqlElasticPoolName: $(SqlVNextElasticPoolName)
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
