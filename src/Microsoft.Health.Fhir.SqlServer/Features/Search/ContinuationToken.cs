@@ -67,35 +67,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        internal bool TryGetSemanticCursor(out double distance, out short resourceTypeId, out long resourceSurrogateId)
+        internal bool TryGetSemanticSearchContinuationToken(out SemanticSearchContinuationToken continuationToken)
         {
-            distance = default;
-            resourceTypeId = default;
-            resourceSurrogateId = default;
+            continuationToken = null;
 
             if (_tokens.Length != 3 ||
                 _tokens[0] is not string distanceText ||
-                !double.TryParse(distanceText, NumberStyles.Float, CultureInfo.InvariantCulture, out distance) ||
-                !double.IsFinite(distance) ||
-                _tokens[2] is not long parsedResourceSurrogateId)
+                !double.TryParse(distanceText, NumberStyles.Float, CultureInfo.InvariantCulture, out double distance) ||
+                _tokens[2] is not long resourceSurrogateId)
             {
                 return false;
             }
 
-            resourceTypeId = _tokens[1] switch
+            short resourceTypeId = _tokens[1] switch
             {
                 short value => value,
                 long value when value >= short.MinValue && value <= short.MaxValue => (short)value,
                 _ => default,
             };
 
-            if (resourceTypeId == default)
-            {
-                return false;
-            }
-
-            resourceSurrogateId = parsedResourceSurrogateId;
-            return true;
+            return SemanticSearchContinuationToken.TryCreate(distance, resourceTypeId, resourceSurrogateId, out continuationToken);
         }
 
         public string ToJson()

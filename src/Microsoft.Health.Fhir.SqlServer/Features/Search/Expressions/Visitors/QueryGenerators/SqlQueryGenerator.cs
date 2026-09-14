@@ -375,11 +375,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
 
-                    if (isVectorSearch && sqlSearchOptions.SemanticContinuationDistance.HasValue)
+                    if (isVectorSearch && sqlSearchOptions.SemanticContinuationToken is { } continuationToken)
                     {
-                        object distanceParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationDistance.Value, includeInHash: false);
-                        object resourceTypeParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationResourceTypeId.Value, includeInHash: false);
-                        object surrogateIdParameter = Parameters.AddParameter(sqlSearchOptions.SemanticContinuationResourceSurrogateId.Value, includeInHash: false);
+                        object distanceParameter = Parameters.AddParameter(continuationToken.Distance, includeInHash: false);
+                        object resourceTypeParameter = Parameters.AddParameter(continuationToken.ResourceTypeId, includeInHash: false);
+                        object surrogateIdParameter = Parameters.AddParameter(continuationToken.ResourceSurrogateId, includeInHash: false);
 
                         delimitedClause.BeginDelimitedElement();
                         StringBuilder

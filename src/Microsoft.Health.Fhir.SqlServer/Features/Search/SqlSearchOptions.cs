@@ -41,11 +41,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         public PreparedVectorSearchQuery PreparedVectorQuery { get; set; }
 
-        internal double? SemanticContinuationDistance { get; set; }
-
-        internal short? SemanticContinuationResourceTypeId { get; set; }
-
-        internal long? SemanticContinuationResourceSurrogateId { get; set; }
+        /// <summary>
+        /// Gets or sets the validated semantic continuation token, or null for the first page.
+        /// </summary>
+        internal SemanticSearchContinuationToken SemanticContinuationToken { get; set; }
 
         /// <summary>
         /// Set when a SMART compartment membership context was attached to the root expression for this
