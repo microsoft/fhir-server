@@ -11,9 +11,13 @@ using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Web;
@@ -42,6 +46,59 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         private const string AddTelemetryProviderMethodName = "AddTelemetryProvider";
         private const string AddRuntimeConfigurationMethodName = "AddRuntimeConfiguration";
         private const string RuntimeStateConfigurationKey = "FhirServer:CoreFeatures:RuntimeState";
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenProductionSqlRegistrations_WhenResolvingIndexingConsumers_ThenScopesAreValid(bool vectorSearchEnabled)
+        {
+            var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["DataStore"] = KnownDataStores.SqlServer,
+                ["SqlServer:ConnectionString"] = "Server=localhost;Initial Catalog=scope-validation;Integrated Security=true;TrustServerCertificate=true",
+                ["FhirServer:Security:Enabled"] = "false",
+                ["FhirServer:CoreFeatures:VectorSearch:Enabled"] = vectorSearchEnabled.ToString(),
+                ["FhirServer:CoreFeatures:VectorSearch:Embedding:Endpoint"] = "https://scope-validation.test",
+                ["FhirServer:CoreFeatures:VectorSearch:Embedding:DeploymentName"] = "scope-validation",
+                ["FhirServer:CoreFeatures:VectorSearch:Embedding:ModelName"] = "text-embedding-3-small",
+                ["FhirServer:CoreFeatures:VectorSearch:Embedding:ModelVersion"] = "1",
+                ["FhirServer:CoreFeatures:VectorSearch:Embedding:Dimensions"] = "1536",
+                ["TaskHosting:Enabled"] = "true",
+            }).Build();
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton<IConfiguration>(configuration);
+            services.AddSingleton(Substitute.For<IHostApplicationLifetime>());
+            new Startup(configuration).ConfigureServices(services);
+
+            using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+            using var firstScope = provider.CreateScope();
+            using var secondScope = provider.CreateScope();
+            var firstFactory = firstScope.ServiceProvider.GetRequiredService<IResourceWrapperFactory>();
+            var secondFactory = secondScope.ServiceProvider.GetRequiredService<IResourceWrapperFactory>();
+
+            Assert.IsType<ResourceWrapperFactory>(firstFactory);
+            Assert.Same(firstFactory, firstScope.ServiceProvider.GetRequiredService<IResourceWrapperFactory>());
+            Assert.NotSame(firstFactory, secondFactory);
+            Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IResourceWrapperFactory>());
+            Assert.NotNull(firstScope.ServiceProvider.GetRequiredService<IFhirDataStore>());
+            Assert.NotNull(firstScope.ServiceProvider.GetRequiredService<IImportResourceParser>());
+            var watchdogType = Assert.Single(services, descriptor => descriptor.ServiceType.Name == "TransactionWatchdog").ServiceType;
+            Assert.NotNull(firstScope.ServiceProvider.GetRequiredService(watchdogType));
+            Assert.NotNull(firstScope.ServiceProvider.GetRequiredService<Microsoft.Health.JobManagement.IJobFactory>());
+
+            if (vectorSearchEnabled)
+            {
+                var indexer = firstScope.ServiceProvider.GetRequiredService<IVectorSearchIndexer>();
+                Assert.IsType<VectorSearchIndexer>(indexer);
+                Assert.Same(indexer, firstScope.ServiceProvider.GetRequiredService<IVectorSearchIndexer>());
+                Assert.NotSame(indexer, secondScope.ServiceProvider.GetRequiredService<IVectorSearchIndexer>());
+            }
+            else
+            {
+                Assert.Null(firstScope.ServiceProvider.GetService<IVectorSearchIndexer>());
+            }
+        }
 
         [Theory]
         [InlineData(null, FhirRuntimeState.Active)]

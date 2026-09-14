@@ -16,11 +16,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
     public interface IVectorSearchIndexer
     {
         /// <summary>
-        /// Adds vector search indices to the supplied resource wrappers.
+        /// Rebuilds and replaces vector search indices on the supplied resource wrappers for later persistence.
         /// </summary>
-        /// <param name="resources">The resources to index.</param>
+        /// <remarks>
+        /// Marks each wrapper's vector indices as evaluated, including empty results that remove stale persisted indices.
+        /// This method does not persist the resource or its indices.
+        /// </remarks>
+        /// <param name="resources">The resource wrappers whose vector search indices are updated.</param>
         /// <param name="cancellationToken">A token used to cancel the operation.</param>
-        /// <returns>A task representing the indexing operation.</returns>
-        Task IndexAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
+        /// <returns>A task representing the in-memory vector index update.</returns>
+        Task UpdateVectorSearchIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
     }
 }

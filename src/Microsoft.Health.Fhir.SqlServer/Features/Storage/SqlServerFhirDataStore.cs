@@ -32,7 +32,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -71,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private readonly IVectorSearchIndexer _vectorSearchIndexer;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private static CachedParameter<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static CachedParameter<SqlServerFhirDataStore> _ignoreInputVersion;
         private static CachedParameter<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -92,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
             SqlStoreClient storeClient,
-            IVectorSearchIndexer vectorSearchIndexer = null)
+            IResourceWrapperFactory resourceWrapperFactory)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -108,7 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            _vectorSearchIndexer = vectorSearchIndexer;
+            _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -489,9 +488,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var pendingStatuses = resources.Where(_ => _.PendingSearchParameterStatus != null).Select(_ => _.PendingSearchParameterStatus).ToList();
                 if (mergeWrappersWithVersions.Count > 0 || pendingStatuses.Count > 0) // Do not call DB with empty input
                 {
-                    if (_vectorSearchIndexer != null && mergeWrappersWithVersions.Count > 0)
+                    if (mergeWrappersWithVersions.Count > 0)
                     {
-                        await _vectorSearchIndexer.IndexAsync(
+                        await _resourceWrapperFactory.UpdateVectorSearchIndicesAsync(
                             mergeWrappersWithVersions.Select(item => item.Wrapper.ResourceWrapper).ToList(),
                             mergeCancellationToken);
                     }
