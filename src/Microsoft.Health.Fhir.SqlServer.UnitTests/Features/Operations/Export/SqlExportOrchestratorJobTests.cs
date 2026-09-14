@@ -110,19 +110,95 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             CheckJobsQueued(2, numExpectedJobs * 2);
         }
 
-        [Fact]
-        public async Task GivenAnExportJobWithInvalidResourceType_WhenRun_ThenJobExecutionExceptionIsThrown()
+        [Theory]
+        [InlineData("Patient, ServiceRequest")]
+        [InlineData(" Patient , ServiceRequest ")]
+        public async Task GivenAParallelSystemExportWithWhitespacePaddedTypeRestrictions_WhenRun_ThenSearchesAndQueuesNormalizedResourceTypes(string typeFilter)
+        {
+            int numExpectedJobs = 100;
+            long orchestratorJobId = 10000;
+
+            SetupMockQueue(numExpectedJobs, orchestratorJobId);
+
+            JobInfo orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: typeFilter).First();
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
+
+            var searchedResourceTypes = _mockSearchService.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name.Equals("GetSurrogateIdRanges"))
+                .Select(call => (string)call.GetOriginalArguments()[0])
+                .Distinct()
+                .OrderBy(resourceType => resourceType);
+            var queuedResourceTypes = _mockQueueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name.Equals("EnqueueAsync"))
+                .SelectMany(call => (string[])call.GetOriginalArguments()[1])
+                .Select(definition => JsonConvert.DeserializeObject<ExportJobRecord>(definition).ResourceType)
+                .Distinct()
+                .OrderBy(resourceType => resourceType);
+
+            Assert.Equal(new[] { "Patient", "ServiceRequest" }, searchedResourceTypes);
+            Assert.Equal(new[] { "Patient", "ServiceRequest" }, queuedResourceTypes);
+        }
+
+        [Theory]
+        [InlineData(ExportJobType.All, false, false)]
+        [InlineData(ExportJobType.Patient, true, false)]
+        [InlineData(ExportJobType.Group, true, false)]
+        [InlineData(ExportJobType.All, true, true)]
+        public async Task GivenAnExportJobThatInheritsWhitespacePaddedTypeRestrictions_WhenRun_ThenQueuedJobsUseNormalizedResourceTypes(
+            ExportJobType exportJobType,
+            bool isParallel,
+            bool hasFilter)
+        {
+            const long orchestratorJobId = 10000;
+
+            SetupMockQueue(1, orchestratorJobId);
+
+            JobInfo orchestratorJob = GetJobInfoArray(
+                0,
+                orchestratorJobId,
+                false,
+                orchestratorJobId,
+                isParallel: isParallel,
+                typeFilter: " Patient , ServiceRequest ",
+                exportJobType: exportJobType,
+                hasFilter: hasFilter).First();
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
+
+            var queuedResourceTypes = _mockQueueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name.Equals("EnqueueAsync"))
+                .SelectMany(call => (string[])call.GetOriginalArguments()[1])
+                .Select(definition => JsonConvert.DeserializeObject<ExportJobRecord>(definition).ResourceType);
+
+            Assert.NotEmpty(queuedResourceTypes);
+            Assert.All(queuedResourceTypes, resourceType => Assert.Equal("Patient,ServiceRequest", resourceType));
+        }
+
+        [Theory]
+        [InlineData("Patient,InvalidType", "InvalidType")]
+        [InlineData("Patient,,Observation", "<empty>")]
+        [InlineData("Patient, ,Observation", "<empty>")]
+        [InlineData(" ", "<empty>")]
+        public async Task GivenAnExportJobWithInvalidResourceType_WhenRun_ThenJobExecutionExceptionIsThrown(
+            string typeFilter,
+            string invalidResourceType)
         {
             long orchestratorJobId = 10000;
 
             _mockSearchService.IsValidResourceType("InvalidType").Returns(false);
             SetupMockQueue(1, orchestratorJobId);
 
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,InvalidType").First();
+            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: typeFilter).First();
             var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
             var ex = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None));
+            var failedRecord = Assert.IsType<ExportJobRecord>(ex.Error);
 
-            Assert.Contains("InvalidType", ex.Message);
+            Assert.Contains(invalidResourceType, ex.Message);
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, failedRecord.FailureDetails.FailureStatusCode);
+            CheckJobsQueued(0, 0);
         }
 
         private IReadOnlyList<JobInfo> GetJobInfoArray(
@@ -133,9 +209,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             bool isParallel = false,
             string typeFilter = null,
             ExportJobType exportJobType = ExportJobType.All,
+            bool hasFilter = false,
             bool failure = false)
         {
             var jobInfoArray = new List<JobInfo>();
+            var filters = hasFilter
+                ? new List<ExportJobFilter>
+                {
+                    new ExportJobFilter(KnownResourceTypes.Patient, new List<Tuple<string, string>>()),
+                }
+                : null;
 
             if (orchestratorJobId != -1)
             {
@@ -144,7 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
                                 exportJobType,
                                 ExportFormatTags.ResourceName,
                                 typeFilter,
-                                null,
+                                filters,
                                 "hash",
                                 0,
                                 groupId: $"{groupId}",
