@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 
@@ -21,7 +20,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     {
         private readonly SqlServerFhirDataStore _store;
         private readonly IResourceWrapperFactory _factory;
-        private readonly IVectorSearchIndexer _vectorSearchIndexer;
         private readonly ILogger<TransactionWatchdog> _logger;
         private const string AdvancedVisibilityTemplate = "TransactionWatchdog advanced visibility on {Transactions} transactions.";
         private const string FoundTemplate = "TransactionWatchdog found {Transactions} timed out transactions.";
@@ -30,14 +28,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             SqlServerFhirDataStore store,
             IResourceWrapperFactory factory,
             ISqlRetryService sqlRetryService,
-            ILogger<TransactionWatchdog> logger,
-            IVectorSearchIndexer vectorSearchIndexer = null)
+            ILogger<TransactionWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _store = EnsureArg.IsNotNull(store, nameof(store));
             _factory = EnsureArg.IsNotNull(factory, nameof(factory));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _vectorSearchIndexer = vectorSearchIndexer;
         }
 
         internal TransactionWatchdog()
@@ -86,15 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     return;
                 }
 
-                foreach (var resource in resources)
-                {
-                    _factory.Update(resource);
-                }
-
-                if (_vectorSearchIndexer != null)
-                {
-                    await _vectorSearchIndexer.IndexAsync(resources, cancellationToken);
-                }
+                await _factory.UpdateAsync(resources, cancellationToken);
 
                 await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(x => new MergeResourceWrapper(x, true, true)).ToList(), false, 0, null, cancellationToken);
                 await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, null, cancellationToken);

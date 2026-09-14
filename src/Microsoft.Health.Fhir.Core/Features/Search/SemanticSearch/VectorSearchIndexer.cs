@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
         }
 
         /// <inheritdoc />
-        public async Task IndexAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        public async Task UpdateVectorSearchIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resources, nameof(resources));
 
