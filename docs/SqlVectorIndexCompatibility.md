@@ -4,6 +4,23 @@ Documentation assessed on **2026-09-14**. This assessment accompanies schema V11
 native vector storage from future approximate nearest-neighbor indexing. The current MVP uses exact
 cosine ranking and does not install or enable a DiskANN index.
 
+## Minimum engine requirement
+
+Schema V117 requires an engine that provides the native `vector` type: **Azure SQL Database, or
+SQL Server 2025 or later**. The migration probes `sys.types` and raises error 50419 before any
+vector DDL when the type is absent.
+
+This applies to development environments as well as deployments:
+
+| Environment | Requirement |
+|---|---|
+| Docker samples (`samples/docker`, `release/`) | Pinned to `mcr.microsoft.com/mssql/server:2025-latest`. An untagged `mssql/server` resolves to SQL Server 2022 and has no `vector` type. |
+| Integration tests | `SqlServerFhirStorageTestsFixture` defaults to `server=(local)`; that instance must be SQL Server 2025 or later. |
+| CI | Already satisfied — the SQL test jobs target Azure SQL Database. |
+
+SQL Server 2019 and 2022 deployments cannot upgrade to V117 and remain at V116. See
+[ADR-2608](arch/adr-2608-sql-semantic-search.md) for the alternatives considered and rejected.
+
 ## General Purpose and Hyperscale
 
 This document concerns **Azure SQL Database**, not the General Purpose tier of Azure SQL Managed
