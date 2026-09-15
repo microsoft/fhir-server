@@ -24,7 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             bool allowNegativeVersions,
             string errorContainerName,
             bool eventualConsistency,
-            int processingUnitBytesToRead)
+            int processingUnitBytesToRead,
+            int inMemoryTestProcessingJobs = 0)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             ErrorContainerName = errorContainerName;
             EventualConsistency = eventualConsistency;
             ProcessingUnitBytesToRead = processingUnitBytesToRead;
+            InMemoryTestProcessingJobs = inMemoryTestProcessingJobs;
         }
 
         /// <summary>
@@ -93,5 +95,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// Number of bytes to be read by processing job.
         /// </summary>
         public int ProcessingUnitBytesToRead { get; set; }
+
+        /// <summary>
+        /// Test-only. When greater than zero, the orchestrator creates this many processing jobs for each
+        /// input entry, instead of splitting by size. Only meaningful with the in-memory test source.
+        /// </summary>
+        public int InMemoryTestProcessingJobs { get; set; }
     }
 }

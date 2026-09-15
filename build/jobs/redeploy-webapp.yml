@@ -62,6 +62,7 @@ jobs:
             "Telemetry__Provider=ApplicationInsights" `
             "Telemetry__ConnectionString=$appInsightsConnectionString" `
             "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString" `
+            "FhirServer__Operations__Import__InMemoryTestEnabled=true" `
           --output none `
           --only-show-errors
 

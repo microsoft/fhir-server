@@ -85,6 +85,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
+        public async Task GivenAnImportRequest_WhenInMemoryImportTestIsDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var request = GetValidBulkImportRequestConfiguration();
+            request.Input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("inmemorytest://input"),
+                },
+            };
+            request.InMemoryTestProcessingJobs = 1;
+
+            var controller = GetController(new ImportJobConfiguration { Enabled = true });
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(request.ToParameters()));
+        }
+
+        [Fact]
         public async Task GivenAnBulkImportRequest_WhenRequestWithNullParameters_ThenRequestNotValidExceptionShouldBeThrown()
         {
             Parameters parameters = null;
