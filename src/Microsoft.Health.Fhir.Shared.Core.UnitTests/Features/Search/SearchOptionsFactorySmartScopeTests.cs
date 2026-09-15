@@ -173,8 +173,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");
                 });
-            expressionParser.ParseInclude(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyCollection<string>>())
-                .Returns((IncludeExpression)null);
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>())
