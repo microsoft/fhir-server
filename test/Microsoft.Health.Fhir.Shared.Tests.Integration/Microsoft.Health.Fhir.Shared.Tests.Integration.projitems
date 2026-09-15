@@ -50,6 +50,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTestsFixtureArgumentSetsAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTestsFixtureTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\IFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\ISqlServerFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\NullFhirCosmosQueryLogger.cs" />

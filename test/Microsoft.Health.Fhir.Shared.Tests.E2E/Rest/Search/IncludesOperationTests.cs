@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// <param name="count">The _count parameter value.</param>
         /// <param name="includesCount">The _includesCount parameter value.</param>
         /// <returns>A task executing the test</returns>
-        [SkippableTheory]
+        [Theory]
         [InlineData("_include=Patient:general-practitioner&_includesCount=1", new string[] { KnownResourceTypes.Practitioner }, null, 1)]
         [InlineData("_revinclude=Observation:subject&_count=2&_includesCount=2", new string[] { KnownResourceTypes.Observation }, 2, 2)]
         [InlineData("_include=Patient:organization&_revinclude=MedicationDispense:subject&_revinclude=DiagnosticReport:subject&_count=4&_includesCount=2", new string[] { KnownResourceTypes.Organization, KnownResourceTypes.MedicationDispense, KnownResourceTypes.DiagnosticReport }, 2, 2)]
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int? count,
             int? includesCount)
         {
-            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
 
             query = TagQuery(query);
             resourceTypes = resourceTypes ?? _fixture.KnownRelatedResourceTypes;
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenIterativeIncludes_WhenThereAreMultiplePagesOfIncludedResources_ThenWarningIsReturned()
         {
-            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
             var query = TagQuery("_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:subject&_includesCount=2");
             var searchUrl = $"{Server.BaseAddress}{KnownResourceTypes.MedicationDispense}?{query}";
             var matchedResources = new List<Resource>();

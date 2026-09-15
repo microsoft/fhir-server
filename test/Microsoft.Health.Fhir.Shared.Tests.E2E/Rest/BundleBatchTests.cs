@@ -45,13 +45,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [SkippableTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests(FhirBundleProcessingLogic processingLogic)
         {
-            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+            Assert.SkipWhen(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
             int attempt = 0;
             do

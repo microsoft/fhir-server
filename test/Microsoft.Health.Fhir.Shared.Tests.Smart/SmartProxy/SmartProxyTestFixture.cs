@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
 
         public TestFhirClient TestFhirClient { get; private set; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             string environmentUrl = Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
 
@@ -69,10 +69,10 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
             }
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
             Dispose();
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         public void Dispose()
