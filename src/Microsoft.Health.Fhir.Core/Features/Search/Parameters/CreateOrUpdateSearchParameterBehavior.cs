@@ -98,6 +98,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // url can never be null for a valid search param
                 var newUrl = request.Resource.Instance.GetStringScalar("url");
 
+                // A search parameter's url is its canonical identity and may never be moved onto a url the
+                // FHIR specification already owns. This is enforced on the shared upsert path so that every
+                // write verb is covered, including those whose incoming resource was not screened upstream.
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(newUrl, out var systemCandidate) && systemCandidate.IsSystemDefined)
+                {
+                    throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, newUrl));
+                }
+
                 // Reject if an active resource other than this one already owns the new URL.
                 var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([newUrl], cancellationToken);
                 if (existingByUrl.TryGetValue(newUrl, out var existingElement) && existingElement.GetStringScalar("id") != request.Resource.Id)
