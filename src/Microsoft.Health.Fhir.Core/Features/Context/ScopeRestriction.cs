@@ -35,6 +35,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         // Finer-grained resource constraints using search parameters for SMART V2 compliance
         public SearchParams SearchParameters { get; }
 
+        /// <summary>
+        /// Determines whether this restriction permits any of the requested data actions.
+        /// </summary>
+        /// <param name="dataActions">The data actions to check.</param>
+        /// <returns><see langword="true"/> when at least one requested action is permitted.</returns>
+        public bool AllowsAny(DataActions dataActions)
+        {
+            return (AllowedDataAction & dataActions) != DataActions.None;
+        }
+
         public bool Equals(ScopeRestriction other)
         {
             if (other == null)
