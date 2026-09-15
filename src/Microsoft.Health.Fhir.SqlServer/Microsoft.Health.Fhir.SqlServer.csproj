@@ -89,7 +89,7 @@
   </ItemGroup>
 
   <!-- Target contains sql build tasks -->
-  <Import Project="$([MSBuild]::NormalizePath($(NuGetPackageRoot), 'microsoft.health.tools.sql.tasks', $(HealthcareSharedPackageVersion), 'build', 'Sql.targets'))" />
+  <Import Project="$([MSBuild]::NormalizePath($(NuGetPackageRoot), 'microsoft.health.tools.sql.tasks', $(HealthcareSharedPackageVersion), 'build', 'Sql.targets'))" Condition="'$(NuGetPackageRoot)' != ''" />
 
   <!--
   <Target Name="PrintEmbeddedResources" BeforeTargets="ComputeGeneratorInputs">
