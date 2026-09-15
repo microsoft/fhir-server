@@ -26,5 +26,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Current index for last checkpoint
         /// </summary>
         public long CurrentIndex { get; set; }
+
+        /// <summary>
+        /// Elapsed time spent in database calls in milliseconds. Null when any database call ended in retry.
+        /// </summary>
+        public long? DatabaseMilliseconds { get; set; }
     }
 }

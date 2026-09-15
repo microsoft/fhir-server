@@ -68,6 +68,7 @@ $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshInte
 $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = $SystemConformanceProviderRefreshIntervalSeconds
 $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = $ReindexCacheRefreshWaitMultiplier
 $additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"] = $ReindexJobsPollingIntervalSec
+$additionalProperties["FhirServer__Operations__Import__InMemoryTestEnabled"] = "true"
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
 $staticEnvNames = @(

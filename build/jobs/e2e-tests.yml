@@ -42,9 +42,18 @@ steps:
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
+        $testExitCode = $LASTEXITCODE
 
-        if ($LASTEXITCODE -ne 0) {
-          throw "E2E tests failed with exit code $LASTEXITCODE"
+        Get-ChildItem -Path $env:platformOptions__resultDirectory -Recurse -Filter '*.trx' -ErrorAction SilentlyContinue | ForEach-Object {
+          [xml] $trx = Get-Content -Raw $_.FullName
+          $trx.SelectNodes("//*[local-name()='UnitTestResult'][contains(@testName, 'GivenIncrementalLoad_WithInMemorySource')]/*[local-name()='Output']/*[local-name()='StdOut']") | ForEach-Object {
+            Write-Host "In-memory import execution stats:"
+            Write-Host $_.InnerText
+          }
+        }
+
+        if ($testExitCode -ne 0) {
+          throw "E2E tests failed with exit code $testExitCode"
         }
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)

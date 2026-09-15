@@ -125,6 +125,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.ErrorContainerName,
                  importRequest.EventualConsistency,
                  importRequest.ProcessingUnitBytesToRead,
+                 importRequest.InMemoryTestProcessingJobs,
                  HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted(_logger);
@@ -211,6 +212,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(input)));
             }
 
+            if (importData.InMemoryTestProcessingJobs > 0
+                && (!_importConfig.InMemoryTestEnabled
+                    || importData.InMemoryTestProcessingJobs > 1_000_000
+                    || input.Count != 1
+                    || input[0].Url == null
+                    || !string.Equals(input[0].Url.Scheme, IntegrationDataStoreClientConstants.InMemoryTestSourceScheme, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(importData.InMemoryTestProcessingJobs)));
+            }
+
             // Ensure that the server has a valid storage account configured for import operations.
             if (_configuredStorageAccountUri == null)
             {
@@ -237,7 +248,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }
 
-                if (!IsConfiguredStorageAccountEndpoint(item.Url))
+                if (!IsConfiguredStorageAccountEndpoint(item.Url, importData.InMemoryTestProcessingJobs > 0))
                 {
                     throw new RequestNotValidException(Resources.ImportRequestInputUrlStorageEndpointMismatch);
                 }
@@ -249,8 +260,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private bool IsConfiguredStorageAccountEndpoint(Uri inputUri)
+        private bool IsConfiguredStorageAccountEndpoint(Uri inputUri, bool allowInMemoryTestSource)
         {
+            // Only recognized when the request itself opts into in-memory test processing via
+            // InMemoryTestProcessingJobs; this never applies to ordinary import requests.
+            if (allowInMemoryTestSource
+                && string.Equals(inputUri.Scheme, IntegrationDataStoreClientConstants.InMemoryTestSourceScheme, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
             if (_configuredStorageAccountUri == null)
             {
                 return false;
