@@ -480,7 +480,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 || ex.Message.StartsWith("Invalid input for", StringComparison.OrdinalIgnoreCase)
                 || ex.Message.StartsWith("While building a POCO:", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Core.Resources.PatchImmutablePropertiesIsNotValid => PatchPayload.ImmutableProperties "Resource.id", "Resource.meta.lastUpdated", "Resource.meta.versionId", "Resource.text.div", "Resource.text.status"
+                    // Core.Resources.PatchImmutablePropertiesIsNotValid => PatchPayload.ImmutableProperties "Resource.id", "Resource.meta.lastUpdated", "Resource.meta.versionId", "Resource.text.`div`", "Resource.text.status"
                     // Invalid input for path => patient.birthdate, value=not-a-date
                     // While building a POCO: => path=patient.gender, value=not-a-gender
                     // Remember the error for this resource type and skip processing the entire group.

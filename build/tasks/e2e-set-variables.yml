@@ -5,6 +5,15 @@ parameters:
   type: string
 - name: appServiceType
   type: string
+- name: expectedFhirSdkProviderDefault
+  type: string
+  default: ''
+- name: expectedKeyVaultName
+  type: string
+  default: ''
+- name: expectedSqlDatabaseName
+  type: string
+  default: ''
 
 steps:
 - task: AzurePowerShell@5
@@ -32,7 +41,8 @@ steps:
                     throw "$($secret.Name) is empty"
                 }
 
-                Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+                # Secret variables are masked by Azure Pipelines when later tasks reference them.
+                Write-Host "##vso[task.setvariable variable=$($environmentVariableName);issecret=true]$($plainValue)"
             }
         }
 
@@ -100,6 +110,36 @@ steps:
         $envSettings = $containerAppData.Properties.template.containers[0].env
         if ($null -eq $envSettings) {
             throw "Container App '$containerAppName' has no environment variables configured."
+        }
+
+        $expectedFhirSdkProviderDefault = '${{ parameters.expectedFhirSdkProviderDefault }}'
+        if ($expectedFhirSdkProviderDefault) {
+            $providerSettings = @($envSettings | Where-Object { $_.name -eq 'FhirServer__CoreFeatures__FhirSdkProvider__Default' })
+            if ($providerSettings.Count -ne 1 -or $providerSettings[0].value -ne $expectedFhirSdkProviderDefault) {
+                throw "Container App '$containerAppName' must define FhirSdkProvider__Default='$expectedFhirSdkProviderDefault' exactly once."
+            }
+        }
+
+        $expectedSqlDatabaseName = '${{ parameters.expectedSqlDatabaseName }}'
+        if ($expectedSqlDatabaseName) {
+            $expectedKeyVaultName = '${{ parameters.expectedKeyVaultName }}'
+            $vaultEndpoint = Get-ContainerEnvValue -EnvSettings $envSettings -Name 'KeyVault__Endpoint'
+            $vaultDnsSuffix = (Get-AzEnvironment -Name (Get-AzContext -ErrorAction Stop).Environment.Name -ErrorAction Stop).AzureKeyVaultDnsSuffix.Trim('.')
+            if (-not $expectedKeyVaultName -or -not $vaultEndpoint -or $vaultEndpoint.TrimEnd('/') -ine "https://$expectedKeyVaultName.$vaultDnsSuffix") {
+                throw "Container App '$containerAppName' must use the expected Key Vault '$expectedKeyVaultName'."
+            }
+            try {
+                $connectionString = Get-AzKeyVaultSecret -VaultName $expectedKeyVaultName -Name 'SqlServer--ConnectionString' -AsPlainText -ErrorAction Stop
+                $connection = [System.Data.Common.DbConnectionStringBuilder]::new()
+                $connection.set_ConnectionString($connectionString)
+            }
+            catch {
+                throw "Could not read the SQL connection configuration from Key Vault '$expectedKeyVaultName'."
+            }
+            $databaseName = if ($connection.ContainsKey('Initial Catalog')) { $connection['Initial Catalog'] } else { $connection['Database'] }
+            if ($databaseName -ine $expectedSqlDatabaseName) {
+                throw "Container App '$containerAppName' must target SQL database '$expectedSqlDatabaseName'."
+            }
         }
 
         Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'

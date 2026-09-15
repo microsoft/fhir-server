@@ -27,6 +27,9 @@ param imageTag string = 'latest'
 @description('Existing SQL server name.')
 param sqlServerName string
 
+@description('SQL database name. Defaults to the version-specific legacy name.')
+param sqlDatabaseName string = 'FHIR${fhirVersion}'
+
 @description('Schema automatic updates mode.')
 @allowed(['auto', 'tool'])
 param sqlSchemaAutomaticUpdatesEnabled string = 'auto'
@@ -73,8 +76,6 @@ param additionalEnvVars array = []
 
 var normalizedSqlServerName = toLower(sqlServerName)
 var sqlManagedIdentityName = '${normalizedSqlServerName}-uami'
-var sqlDatabaseName = 'FHIR${fhirVersion}'
-
 var sqlManagedIdentityResourceId = resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', sqlManagedIdentityName)
 
 var userAssignedIdentities = {

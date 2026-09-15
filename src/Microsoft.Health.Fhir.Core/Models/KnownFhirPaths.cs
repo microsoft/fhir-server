@@ -20,7 +20,15 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string BundleType = "Resource.type";
 
-        public const string ResourceNarrative = "text.div";
+        /// <summary>
+        /// The FHIRPath expression for a resource narrative. The <c>div</c> identifier is escaped because it is a FHIRPath keyword.
+        /// </summary>
+        public const string ResourceNarrative = "text.`div`";
+
+        /// <summary>
+        /// The unescaped display path for a resource narrative. This is for display only and is not the equivalent FHIRPath expression.
+        /// </summary>
+        public const string ResourceNarrativeDisplayPath = "text.div";
 
         public const string IsSoftDeletedExtension = $"Resource.meta.extension.where(url = '{AzureSoftDeletedExtensionUrl}').where(value='soft-deleted').exists()";
     }
