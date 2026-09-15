@@ -7,6 +7,10 @@ using System.Resources;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer.UnitTests")]
+
+// Castle DynamicProxy backs NSubstitute; without this it cannot produce a substitute value for a generic type
+// closed over an internal type, which is what mocking ISqlRetryService reads in the watchdogs requires.
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.Integration")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.Integration")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Tests.Integration")]
