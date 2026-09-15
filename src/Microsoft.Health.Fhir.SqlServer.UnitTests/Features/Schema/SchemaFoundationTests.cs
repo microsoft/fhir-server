@@ -27,21 +27,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
             Assert.Equal("SourceTextCompressed", VLatest.VectorSearchParam.SourceTextCompressed.ToString());
         }
 
-        [Theory]
-        [InlineData((int)SchemaVersion.V117, false)]
-        [InlineData((int)SchemaVersion.V117, true)]
-        public void GivenVectorSchemaScript_WhenRead_ThenUnsupportedEnginesAreRejectedBeforeVectorDdl(
-            int schemaVersion,
-            bool applyFullSchemaSnapshot)
+        [Fact]
+        public void GivenVectorMigrationScript_WhenRead_ThenUnsupportedEnginesAreRejectedBeforeVectorDdl()
         {
             var scriptProvider = new ScriptProvider<SchemaVersion>();
 
-            string script = scriptProvider.GetMigrationScript(schemaVersion, applyFullSchemaSnapshot);
+            string script = scriptProvider.GetMigrationScript((int)SchemaVersion.V117, applyFullSchemaSnapshot: false);
 
             int guardIndex = script.IndexOf("sys.types", StringComparison.Ordinal);
             int vectorTableIndex = script.IndexOf("VectorSearchParam", StringComparison.Ordinal);
-            Assert.True(guardIndex >= 0, "The schema script must validate native vector support.");
+            Assert.True(guardIndex >= 0, "The migration script must validate native vector support.");
             Assert.True(vectorTableIndex > guardIndex, "The native vector support guard must execute before vector DDL.");
+        }
+
+        [Fact]
+        public void GivenFullSchemaSnapshot_WhenRead_ThenVectorObjectsAreCreatedWithoutAnEngineGuard()
+        {
+            var scriptProvider = new ScriptProvider<SchemaVersion>();
+
+            string script = scriptProvider.GetMigrationScript((int)SchemaVersion.V117, applyFullSchemaSnapshot: true);
+
+            // A fresh install is guarded by the native vector DDL itself: CREATE TABLE fails inside the
+            // initialization transaction when the engine has no vector type. The shared initialization
+            // script deliberately carries no feature-specific engine check.
+            Assert.Contains("VectorSearchParam", script, StringComparison.Ordinal);
+            Assert.DoesNotContain("50419", script, StringComparison.Ordinal);
         }
 
         [Fact]
