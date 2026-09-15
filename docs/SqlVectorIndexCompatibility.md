@@ -7,8 +7,9 @@ cosine ranking and does not install or enable a DiskANN index.
 ## Minimum engine requirement
 
 Schema V117 requires an engine that provides the native `vector` type: **Azure SQL Database, or
-SQL Server 2025 or later**. The migration probes `sys.types` and raises error 50419 before any
-vector DDL when the type is absent.
+SQL Server 2025 or later**. The V117 migration probes `sys.types` and raises error 50419 before any
+vector DDL when the type is absent. A fresh install is guarded by the vector DDL itself, which fails
+inside the initialization transaction on an engine without the type.
 
 This applies to development environments as well as deployments:
 

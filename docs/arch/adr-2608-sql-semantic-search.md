@@ -51,12 +51,14 @@ while an evaluated resource with no vector rows removes stale vectors.
 
 Build with officially released `Microsoft.Health.*` packages. Supply a narrow local `VectorColumn`
 schema descriptor for generated column-name metadata, while vector values cross stored-procedure
-boundaries as JSON text and are explicitly cast to native `vector(1536)` in SQL. Schema installation
-probes `sys.types` and fails before DDL when the native vector type is unavailable.
+boundaries as JSON text and are explicitly cast to native `vector(1536)` in SQL. The V117 migration
+probes `sys.types` and fails before DDL when the native vector type is unavailable. The shared
+initialization script carries no such probe: a fresh install is already guarded by the vector DDL
+itself, which fails inside the initialization transaction on an engine without the type.
 
 Accept the resulting engine requirement rather than working around it: schema V117 requires
-Azure SQL Database, or SQL Server 2025 or later. The probe fails with error 50419 and names the
-supported baseline. Local development and integration testing move to SQL Server 2025 accordingly.
+Azure SQL Database, or SQL Server 2025 or later. Local development and integration testing move to
+SQL Server 2025 accordingly.
 
 Retain the nonpartitioned native-vector table and clustered primary key as the foundation for a
 possible later DiskANN index. Do not create an approximate index in the schema migration or treat
