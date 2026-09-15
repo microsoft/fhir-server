@@ -39,8 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Omitted,
             EvaluatedEmpty,
             EvaluatedWithVector,
-            StaleVersion,
-            StaleOrdinaryCurrentVector,
+            VectorInputVersionMismatch,
             VectorResourceAbsentFromOrdinaryInput,
             DuplicateVector,
         }
@@ -131,15 +130,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenCurrentSchema_WhenVectorReindexTargetsStaleVersion_ResourceAndVectorsArePreserved()
+        public async Task GivenCurrentSchema_WhenVectorInputTargetsANonCurrentVersion_StoredVectorsArePreserved()
         {
-            await VerifyVectorReindexAsync(VectorReindexScenario.StaleVersion, expectedFailedResources: 1, expectedHash: OriginalSearchParamHash, expectedCompressedText: OriginalCompressedText);
-        }
-
-        [Fact]
-        public async Task GivenCurrentSchema_WhenOrdinaryReindexIsStaleButVectorInputIsCurrent_ResourceAndVectorsArePreserved()
-        {
-            await VerifyVectorReindexAsync(VectorReindexScenario.StaleOrdinaryCurrentVector, expectedFailedResources: 1, expectedHash: OriginalSearchParamHash, expectedCompressedText: OriginalCompressedText);
+            await VerifyVectorReindexAsync(VectorReindexScenario.VectorInputVersionMismatch, expectedFailedResources: 0, expectedHash: NewSearchParamHash, expectedCompressedText: OriginalCompressedText);
         }
 
         [Fact]
@@ -508,8 +501,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             bool includeVectorParameters = scenario != VectorReindexScenario.Omitted;
             bool includeOrdinaryResource = scenario != VectorReindexScenario.VectorResourceAbsentFromOrdinaryInput;
-            int ordinaryVersion = scenario is VectorReindexScenario.StaleVersion or VectorReindexScenario.StaleOrdinaryCurrentVector ? 0 : 1;
-            int vectorVersion = scenario == VectorReindexScenario.StaleVersion ? 0 : 1;
+
+            // The ordinary reindex input always describes the current version. A surrogate id identifies
+            // exactly one version, so the only staleness a caller can actually reach is a surrogate id
+            // that has since become history, which dbo.Resource.IsHistory already rejects.
+            const int ordinaryVersion = 1;
+
+            // The vector block additionally re-checks ResourceId/Version, so a vector input naming a
+            // non-current version must leave stored vectors untouched.
+            int vectorVersion = scenario == VectorReindexScenario.VectorInputVersionMismatch ? 0 : 1;
             string vectorDeclarations = includeVectorParameters
                 ? $"""
                     DECLARE @VectorSearchResources dbo.ResourceList;
@@ -523,8 +523,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     """
                 : string.Empty;
             string vectorRows = scenario is VectorReindexScenario.EvaluatedWithVector
-                or VectorReindexScenario.StaleVersion
-                or VectorReindexScenario.StaleOrdinaryCurrentVector
+                or VectorReindexScenario.VectorInputVersionMismatch
                 or VectorReindexScenario.VectorResourceAbsentFromOrdinaryInput
                 or VectorReindexScenario.DuplicateVector
                 ? $"""
