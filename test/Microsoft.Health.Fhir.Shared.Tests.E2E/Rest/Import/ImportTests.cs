@@ -811,8 +811,9 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         [Fact]
         public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
         {
-            const int jobs = 51;
-            var request = CreateImportRequest(new Uri("inmemorytest://whatever"), ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
+            const int jobs = 100;
+            var id = Guid.NewGuid().ToString("N")[..8]; // we want to override registration idempotence
+            var request = CreateImportRequest(new Uri($"inmemorytest://whatever/{id}"), ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
             var result = await ImportCheckAsync(request, null, 0);
             Assert.Empty(result.Output);
             Assert.NotEmpty(result.ExecutionStats);
@@ -823,7 +824,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Console.WriteLine(statsJson);
             Console.WriteLine("====================================");
 
-            Assert.StartsWith($"jobs={jobs} ", result.ExecutionStats.First());
+            Assert.StartsWith($"jobs_total={jobs} ", result.ExecutionStats.First());
             var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=")).ToList();
             Assert.Equal(50, jobLines.Count); // max output is 50
             foreach (var jobLine in jobLines)
