@@ -1411,6 +1411,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 for (int conditionalIndex = 0; conditionalIndex < membership.ConditionalRules.Length; conditionalIndex++)
                 {
                     SmartCompartmentConditionalMembershipRule rule = membership.ConditionalRules[conditionalIndex];
+
+                    // Defense in depth. Only the two visibilities below authorize anything; anything else (today,
+                    // a Never rule used to fail closed when the restriction cannot be enforced) must not widen the
+                    // predicate. SmartCompartmentMembershipContextFactory already drops those rules, and this guard
+                    // keeps a future visibility value from silently falling into the "EXISTS" branch below.
+                    if (rule.Visibility != SmartCompartmentConditionalVisibility.HasNoReference &&
+                        rule.Visibility != SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot)
+                    {
+                        continue;
+                    }
+
                     string conditionalAlias = "smartCompartmentConditional" + conditionalIndex.ToString(CultureInfo.InvariantCulture);
 
                     object ruleResourceTypeId = Parameters.AddParameter(

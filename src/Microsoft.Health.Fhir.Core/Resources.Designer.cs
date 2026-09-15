@@ -1872,6 +1872,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The granted SMART scope restricts access using the search parameter &apos;{0}&apos;, which is not currently available on this server. The request cannot be authorized..
+        /// </summary>
+        internal static string SmartScopeSearchParameterNotEnforceable {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterNotEnforceable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _sort parameter is not supported..
         /// </summary>
         internal static string SortNotSupported {
