@@ -2,6 +2,16 @@
 
 *IMPORTANT:* This sample has been created to enable Dev/Test scenarios and is not suitable for production scenarios. Passwords are contained in deployment files, the SQL server connection is not encrypted, authentication on the FHIR Server has been disabled, and data is not persisted between container restarts.
 
+## SQL Server prerequisites
+
+Schema version 117 and later store embeddings in SQL Server's native `vector` type. The FHIR
+server's SQL schema therefore requires **Azure SQL Database, or SQL Server 2025 or later**;
+schema creation fails with error 50419 on an engine that does not provide the type.
+
+The samples in this directory pin `mcr.microsoft.com/mssql/server:2025-latest` for that reason.
+Do not replace it with an untagged image — `latest` still resolves to SQL Server 2022, which has
+no `vector` type.
+
 The following instructions detail how to build and run the FHIR Server in Docker on Linux.
 
 ## Use CI image
@@ -32,7 +42,7 @@ docker network create fhir_network
 3. Run the command: 
 
 ```bash
-docker run --net fhir_network --name fhir_sql -e SA_PASSWORD=<SA_PASSWORD> -e ACCEPT_EULA="Y" -d mcr.microsoft.com/mssql/server
+docker run --net fhir_network --name fhir_sql -e SA_PASSWORD=<SA_PASSWORD> -e ACCEPT_EULA="Y" -d mcr.microsoft.com/mssql/server:2025-latest
 ```
 
 4. Give the SQL server a minute to start up.

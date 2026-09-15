@@ -10,7 +10,7 @@ IF NOT EXISTS
         WHERE name = 'vector'
           AND is_user_defined = 0
     )
-    THROW 50419, 'Schema version 117 requires native vector type support.', 1
+    THROW 50419, 'Schema version 117 requires native vector type support. Use Azure SQL Database or SQL Server 2025 or later.', 1
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EmbeddingModel')
@@ -25,8 +25,8 @@ BEGIN
             CONSTRAINT DF_EmbeddingModel_DistanceMetric DEFAULT 'cosine',
         CreatedAt               datetime2(7)    NOT NULL
             CONSTRAINT DF_EmbeddingModel_CreatedAt DEFAULT SYSUTCDATETIME(),
-        CONSTRAINT PKC_EmbeddingModel PRIMARY KEY CLUSTERED (EmbeddingModelId),
-        CONSTRAINT U_EmbeddingModel_Name_Version UNIQUE (ModelName, ModelVersion)
+        CONSTRAINT PKC_EmbeddingModel_EmbeddingModelId PRIMARY KEY CLUSTERED (EmbeddingModelId),
+        CONSTRAINT U_EmbeddingModel_ModelName_ModelVersion UNIQUE (ModelName, ModelVersion)
     )
 END
 GO
@@ -48,7 +48,7 @@ BEGIN
 
     ALTER TABLE dbo.VectorSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-    ALTER TABLE dbo.VectorSearchParam ADD CONSTRAINT PKC_VectorSearchParam
+    ALTER TABLE dbo.VectorSearchParam ADD CONSTRAINT PKC_VectorSearchParam_ResourceTypeId_ResourceSurrogateId_SearchParamId_ChunkOrdinal
     PRIMARY KEY CLUSTERED
     (
         ResourceTypeId,
@@ -72,6 +72,8 @@ BEGIN
         SourceTextHash           binary(32)    NOT NULL,
         SourceTextCompressed     varbinary(max) NOT NULL,
         Embedding                nvarchar(max) NOT NULL
+
+        UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal)
     )
 END
 GO
@@ -1677,7 +1679,7 @@ BEGIN TRY
            JOIN @Ids I
              ON I.ResourceTypeId = A.ResourceTypeId
             AND I.ResourceSurrogateId = A.ResourceSurrogateId
-           JOIN dbo.Resource B WITH (UPDLOCK, HOLDLOCK)
+           JOIN dbo.Resource B
              ON B.ResourceTypeId = A.ResourceTypeId
             AND B.ResourceSurrogateId = A.ResourceSurrogateId
             AND B.ResourceId = A.ResourceId

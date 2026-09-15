@@ -1020,7 +1020,7 @@ BEGIN TRY
            JOIN @Ids I
              ON I.ResourceTypeId = A.ResourceTypeId
             AND I.ResourceSurrogateId = A.ResourceSurrogateId
-           JOIN dbo.Resource B WITH (UPDLOCK, HOLDLOCK)
+           JOIN dbo.Resource B
              ON B.ResourceTypeId = A.ResourceTypeId
             AND B.ResourceSurrogateId = A.ResourceSurrogateId
             AND B.ResourceId = A.ResourceId

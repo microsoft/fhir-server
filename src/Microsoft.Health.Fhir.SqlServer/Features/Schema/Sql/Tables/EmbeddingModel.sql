@@ -9,6 +9,6 @@ CREATE TABLE dbo.EmbeddingModel
         CONSTRAINT DF_EmbeddingModel_DistanceMetric DEFAULT 'cosine',
     CreatedAt               datetime2(7)    NOT NULL
         CONSTRAINT DF_EmbeddingModel_CreatedAt DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PKC_EmbeddingModel PRIMARY KEY CLUSTERED (EmbeddingModelId),
-    CONSTRAINT U_EmbeddingModel_Name_Version UNIQUE (ModelName, ModelVersion)
+    CONSTRAINT PKC_EmbeddingModel_EmbeddingModelId PRIMARY KEY CLUSTERED (EmbeddingModelId),
+    CONSTRAINT U_EmbeddingModel_ModelName_ModelVersion UNIQUE (ModelName, ModelVersion)
 )
