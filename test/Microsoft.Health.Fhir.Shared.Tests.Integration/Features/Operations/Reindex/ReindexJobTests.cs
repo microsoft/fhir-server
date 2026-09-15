@@ -501,7 +501,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             using var cancellationTokenSource = new CancellationTokenSource();
             await WaitForReindexCompletionAsync(response, cancellationTokenSource);
 
-            var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None);
+            var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatuses(CancellationToken.None);
             var paramStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParam.Url);
             Assert.NotNull(paramStatus);
             Assert.Equal(SearchParameterStatus.Deleted, paramStatus.Status);
@@ -520,7 +520,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             customResource = await _fixture.DataStore.GetAsync(customKey, CancellationToken.None);
             Assert.Null(customResource);
 
-            var statusAfterDelete = (await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == customSearchParam.Url);
+            var statusAfterDelete = (await _searchParameterStatusManager.GetAllSearchParameterStatuses(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == customSearchParam.Url);
             Assert.NotNull(statusAfterDelete);
             Assert.Equal(SearchParameterStatus.Supported, statusAfterDelete.Status);
 
@@ -528,7 +528,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             using var cancellationTokenSource = new CancellationTokenSource();
             await WaitForReindexCompletionAsync(response, cancellationTokenSource);
 
-            var customStatus = (await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == customSearchParam.Url);
+            var customStatus = (await _searchParameterStatusManager.GetAllSearchParameterStatuses(CancellationToken.None)).FirstOrDefault(s => s.Uri.OriginalString == customSearchParam.Url);
             Assert.NotNull(customStatus);
             Assert.Equal(SearchParameterStatus.Deleted, customStatus.Status);
         }
@@ -563,7 +563,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await WaitForReindexCompletionAsync(response, cancellationTokenSource);
 
-            var updateSearchParamList = await _searchParameterStatusManager.GetAllSearchParameterStatus(default);
+            var updateSearchParamList = await _searchParameterStatusManager.GetAllSearchParameterStatuses(default);
             Assert.Equal(SearchParameterStatus.Enabled, updateSearchParamList.Where(sp => sp.Uri.OriginalString == searchParam.Url.OriginalString).First().Status);
         }
 
@@ -769,7 +769,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             bool hasPrimaryDefinition = false;
             for (int attempt = 0; attempt < 50; attempt++)
             {
-                var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(CancellationToken.None);
+                var statuses = await _searchParameterStatusManager.GetAllSearchParameterStatuses(CancellationToken.None);
                 syncedStatus = statuses.FirstOrDefault(s => string.Equals(s.Uri?.OriginalString, searchParam.Url, StringComparison.Ordinal));
                 hasPrimaryDefinition = _searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _);
 
@@ -847,7 +847,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // If the SearchParameter resource is missing at sync time, service2 should handle refresh without throwing.
             _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
 
-            var statuses = await _searchParameterStatusManager2.GetAllSearchParameterStatus(CancellationToken.None);
+            var statuses = await _searchParameterStatusManager2.GetAllSearchParameterStatuses(CancellationToken.None);
             var status = statuses.Single(sp => sp.Uri.OriginalString.Equals(searchParam.Url, StringComparison.Ordinal)).Status;
             Assert.Contains(status, new[] { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete });
         }
@@ -860,7 +860,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             Assert.False(_searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out _));
 
-            var maxLastUpdated = (await _searchParameterStatusManager2.GetAllSearchParameterStatus(CancellationToken.None)).Max(s => s.LastUpdated);
+            var maxLastUpdated = (await _searchParameterStatusManager2.GetAllSearchParameterStatuses(CancellationToken.None)).Max(s => s.LastUpdated);
 
             await _searchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.PendingDelete, CancellationToken.None, lastUpdated: maxLastUpdated);
 

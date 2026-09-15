@@ -31,6 +31,13 @@ This is the **Microsoft FHIR Server** — an open-source, standards-compliant im
 
 ---
 
+## Debugging
+
+- When fixing an unhandled exception, identify the violated invariant and the earliest point it can be enforced. Prefer rejecting invalid input at the entry point over making downstream code tolerate it. State the intended contract before writing the fix.
+- Tests must assert the intended contract, not the behavior the patched code happens to produce.
+
+---
+
 ## Project Structure
 
 | Path | Purpose |

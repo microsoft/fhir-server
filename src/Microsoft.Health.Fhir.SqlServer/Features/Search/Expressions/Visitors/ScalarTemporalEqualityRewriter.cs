@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -133,7 +134,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return Precision.NotRewritable;
             }
 
-            if (end == start.AddDays(1).AddTicks(-1))
+            DateTimeOffset nextDay = start.SafeAddDays(1);
+            DateTimeOffset inclusiveEnd = nextDay == DateTimeOffset.MaxValue
+                ? nextDay
+                : nextDay.SafeAddTicks(-1);
+
+            if (end == inclusiveEnd)
             {
                 return Precision.ExactDay;
             }
