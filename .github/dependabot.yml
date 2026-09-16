@@ -16,6 +16,31 @@ updates:
       azure-sdk:
         patterns:
           - "Azure.*"
+      dotnet-sdk-release-train:
+        patterns:
+          - "Microsoft.Extensions.*"
+          - "System.Collections.Immutable"
+          - "System.Configuration.ConfigurationManager"
+          - "System.Diagnostics.PerformanceCounter"
+          - "System.Security.Cryptography.*"
+          - "System.Text.Encodings.Web"
+        exclude-patterns:
+          - "Microsoft.Extensions.Logging.ApplicationInsights"
+          - "Microsoft.Extensions.TimeProvider.Testing"
+      aspnetcore-release-train:
+        patterns:
+          - "Microsoft.AspNetCore.*"
+        exclude-patterns:
+          - "Microsoft.AspNetCore.Http"
+      openiddict:
+        patterns:
+          - "OpenIddict.*"
+      ignixa:
+        patterns:
+          - "Ignixa.*"
+      sql-client:
+        patterns:
+          - "Microsoft.Data.SqlClient*"
       minor-and-patch:
         patterns:
           - "*"
