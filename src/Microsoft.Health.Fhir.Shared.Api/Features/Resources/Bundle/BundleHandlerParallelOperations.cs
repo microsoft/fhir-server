@@ -186,12 +186,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     ResourceExecutionContext resourceContext = resources[i];
                     requestsPerResource.Add(handleRequestFunctionAsync(resourceContext, requestCancellationToken.Token));
 
-                    // Bundle Conditional Operations throttling.
-                    if (resourceContext.IsConditionalOperation)
+                    // 25 - 05 - Best.
+                    // 25 - 10 - Good.
+                    // 40 - 05 - Good+.
+                    const int groupSize = 25;
+#pragma warning disable CA5394 // Do not use insecure randomness - Not used for security purposes.
+                    int delayInMilliseconds = _random.Next(5, 10);
+#pragma warning restore CA5394 // Do not use insecure randomness
+                    if (_optimizeBigBundleOperations) // Bundle Big Operations throttling.
                     {
-                        if (++conditionalOperationsCounter % 30 == 0)
+                        if (i % groupSize == 0)
                         {
-                            await Task.Delay(5, CancellationToken.None);
+                            await Task.Delay(delayInMilliseconds, CancellationToken.None);
+                        }
+                    }
+                    else if (_optimizeConditionalOperations) // Bundle Conditional Operations throttling.
+                    {
+                        if (resourceContext.IsConditionalOperation)
+                        {
+                            conditionalOperationsCounter++;
+                            if (conditionalOperationsCounter % groupSize == 0)
+                            {
+                                await Task.Delay(delayInMilliseconds, CancellationToken.None);
+                            }
                         }
                     }
                 }
