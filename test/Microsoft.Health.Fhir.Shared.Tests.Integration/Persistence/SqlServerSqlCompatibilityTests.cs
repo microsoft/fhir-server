@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             VectorInputVersionMismatch,
             VectorResourceAbsentFromOrdinaryInput,
             DuplicateVector,
+            InvalidVectorDimensions,
         }
 
         /// <summary>
@@ -142,9 +143,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenCurrentSchema_WhenVectorReplacementFails_OrdinaryAndVectorChangesAreRolledBack()
+        public async Task GivenCurrentSchema_WhenVectorInputContainsDuplicateKeys_ResourceAndVectorsArePreserved()
         {
             await VerifyVectorReindexAsync(VectorReindexScenario.DuplicateVector, expectedFailedResources: null, expectedHash: OriginalSearchParamHash, expectedCompressedText: OriginalCompressedText);
+        }
+
+        [Fact]
+        public async Task GivenCurrentSchema_WhenVectorReplacementFails_OrdinaryAndVectorChangesAreRolledBack()
+        {
+            await VerifyVectorReindexAsync(VectorReindexScenario.InvalidVectorDimensions, expectedFailedResources: null, expectedHash: OriginalSearchParamHash, expectedCompressedText: OriginalCompressedText);
         }
 
         [Fact]
@@ -414,11 +421,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 command.Parameters.Add("@SearchParamHash", SqlDbType.VarChar, 64).Value = NewSearchParamHash;
                 command.Parameters.Add("@SourceTextHash", SqlDbType.Binary, 32).Value = Enumerable.Repeat((byte)2, 32).ToArray();
                 command.Parameters.Add("@SourceTextCompressed", SqlDbType.VarBinary, -1).Value = ReplacementCompressedText;
-                command.Parameters.Add("@Embedding", SqlDbType.NVarChar, -1).Value = Embedding;
+                command.Parameters.Add("@Embedding", SqlDbType.NVarChar, -1).Value = scenario == VectorReindexScenario.InvalidVectorDimensions ? "[0]" : Embedding;
 
                 if (scenario == VectorReindexScenario.DuplicateVector)
                 {
-                    await Assert.ThrowsAsync<SqlException>(() => command.ExecuteNonQueryAsync());
+                    SqlException exception = await Assert.ThrowsAsync<SqlException>(() => command.ExecuteNonQueryAsync());
+                    Assert.Equal(2627, exception.Number);
+                    Assert.Equal(string.Empty, exception.Procedure);
+                }
+                else if (scenario == VectorReindexScenario.InvalidVectorDimensions)
+                {
+                    SqlException exception = await Assert.ThrowsAsync<SqlException>(() => command.ExecuteNonQueryAsync());
+                    Assert.Equal(42204, exception.Number);
+                    Assert.Equal("dbo.UpdateResourceSearchParams", exception.Procedure);
                 }
                 else
                 {
@@ -429,7 +444,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 verifyCommand.CommandText = """
                     DECLARE @ResourceTypeId smallint = (SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name = 'Observation');
 
-                    SELECT R.SearchParamHash, V.SourceTextCompressed
+                    SELECT R.SearchParamHash, V.SourceTextCompressed, @@TRANCOUNT
                     FROM dbo.Resource R
                     LEFT JOIN dbo.VectorSearchParam V
                       ON V.ResourceTypeId = R.ResourceTypeId
@@ -450,6 +465,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     Assert.Equal(expectedCompressedText, (byte[])reader.GetValue(1));
                 }
+
+                Assert.Equal(0, reader.GetInt32(2));
+                Assert.False(await reader.ReadAsync());
             }
             finally
             {
@@ -526,6 +544,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 or VectorReindexScenario.VectorInputVersionMismatch
                 or VectorReindexScenario.VectorResourceAbsentFromOrdinaryInput
                 or VectorReindexScenario.DuplicateVector
+                or VectorReindexScenario.InvalidVectorDimensions
                 ? $"""
                     INSERT INTO @VectorSearchParams
                         (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding)
@@ -548,6 +567,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     """ : string.Empty)}
                     """
                 : string.Empty;
+
+            if (scenario == VectorReindexScenario.DuplicateVector)
+            {
+                return $"""
+                    DECLARE @VectorSearchParams dbo.VectorSearchParamList;
+                    {vectorRows}
+                    """;
+            }
+
             string vectorArguments = includeVectorParameters
                 ? """
                     ,@VectorSearchResources = @VectorSearchResources
