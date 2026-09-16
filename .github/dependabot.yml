@@ -9,6 +9,19 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    groups:
+      hl7-fhir:
+        patterns:
+          - "Hl7.Fhir.*"
+      azure-sdk:
+        patterns:
+          - "Azure.*"
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -17,6 +30,10 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    groups:
+      codeql:
+        patterns:
+          - "github/codeql-action/*"
     cooldown:
       default-days: 7
 
@@ -27,3 +44,7 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    groups:
+      dotnet-images:
+        patterns:
+          - "dotnet/*"
