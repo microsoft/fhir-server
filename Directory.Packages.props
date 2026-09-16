@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.5.0" />
+    <PackageVersion Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageVersion Include="Azure.Containers.ContainerRegistry" Version="1.3.0" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.3.2" />
@@ -102,6 +103,8 @@
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="1.0.3" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="1.0.3" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />

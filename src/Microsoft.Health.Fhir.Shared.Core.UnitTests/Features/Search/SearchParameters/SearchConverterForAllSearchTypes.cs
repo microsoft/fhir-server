@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 foreach (SearchParameterInfo parameterInfo in searchParameterRow.parameters)
                 {
-                    if (parameterInfo.Code != "_type")
+                    if (parameterInfo.Code != "_type" && parameterInfo.VectorConfig == null)
                     {
                         var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
                         if (converters.All(x => x.hasConverter == false))
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var systemUnsupported = new UnsupportedSearchParameters();
             foreach (var searchParameter in resourceAndSearchParameters.SelectMany(x => x.parameters))
             {
-                if (searchParameter.Code == "_type")
+                if (searchParameter.Code == "_type" || searchParameter.VectorConfig != null)
                 {
                     continue;
                 }
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             foreach ((string resourceType, IEnumerable<SearchParameterInfo> parameters) row in values)
             {
-                yield return new object[] { row.resourceType, row.parameters.Where(x => x.Code != "_type" && x.IsSupported) };
+                yield return new object[] { row.resourceType, row.parameters.Where(x => x.Code != "_type" && x.IsSupported && x.VectorConfig == null) };
             }
         }
     }

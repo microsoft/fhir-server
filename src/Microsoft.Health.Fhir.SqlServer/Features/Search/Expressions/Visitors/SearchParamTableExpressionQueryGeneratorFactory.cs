@@ -36,6 +36,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return VisitSearchParameterExpressionBase(expression.Parameter, expression.Expression, context);
         }
 
+        public SearchParamTableExpressionQueryGenerator VisitVectorSearch(VectorSearchExpression expression, object context)
+        {
+            throw new InvalidOperationException("Vector search expressions require the vector query execution path.");
+        }
+
         public SearchParamTableExpressionQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, null, context);
