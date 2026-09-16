@@ -72,4 +72,4 @@ updates:
     groups:
       dotnet-images:
         patterns:
-          - "dotnet/*"
+          - "mcr.microsoft.com/dotnet/*"
