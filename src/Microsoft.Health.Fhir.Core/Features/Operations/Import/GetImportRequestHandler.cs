@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             var jobMsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
                             var elapsedMsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
                             var parallelism = elapsedMsec > 0 ? jobMsec / elapsedMsec : -1;
-                            var jobsToCount = jobLines.Where(_ => _.DatabaseMilliseconds.HasValue).OrderBy(_ => _.ClockMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList(); // take first 30% to make std lower
+                            var jobsToCount = jobLines.Where(_ => _.DatabaseMilliseconds.HasValue).OrderBy(_ => _.ClockMilliseconds).Take((int)Math.Ceiling(jobLines.Count * 0.3)).ToList(); // take first 30% to make std lower
                             var resCnt = jobsToCount.Sum(_ => _.ResourceCount);
                             var cpu = (double?)jobsToCount.Sum(_ => _.CpuMilliseconds.Value) / resCnt;
                             var std = Math.Sqrt(jobsToCount.Sum(_ => _.ResourceCount * Math.Pow(((double)_.CpuMilliseconds.Value / _.ResourceCount) - cpu.Value, 2)) / resCnt);
