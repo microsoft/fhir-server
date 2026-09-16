@@ -10,7 +10,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -55,6 +54,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
+        private readonly IFhirRuntimeConfiguration _runtimeConfiguration;
         private readonly HttpContext _outerHttpContext;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
@@ -136,6 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private IFhirRequestContext _originalFhirRequestContext;
 
         public BundleHandler(
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             IHttpContextAccessor httpContextAccessor,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
@@ -159,6 +161,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
+            _runtimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _fhirRequestContextAccessor = EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             _fhirJsonSerializer = EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             _fhirJsonParser = EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));

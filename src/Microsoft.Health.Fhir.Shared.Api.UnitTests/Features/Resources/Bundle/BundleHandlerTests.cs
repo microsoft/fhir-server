@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -78,6 +79,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 ResponseHeaders = new HeaderDictionary(),
                 RequestHeaders = new HeaderDictionary(),
             };
+
+            var fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
@@ -130,6 +133,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
 
             _bundleHandler = new BundleHandler(
+                fhirRuntimeConfiguration,
                 httpContextAccessor,
                 fhirRequestContextAccessor,
                 fhirJsonSerializer,

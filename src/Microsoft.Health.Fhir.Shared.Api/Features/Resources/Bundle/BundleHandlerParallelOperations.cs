@@ -183,31 +183,42 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 List<Task> requestsPerResource = new List<Task>();
                 for (int i = 0; i < resources.Count; i++)
                 {
-                    ResourceExecutionContext resourceContext = resources[i];
-                    requestsPerResource.Add(handleRequestFunctionAsync(resourceContext, requestCancellationToken.Token));
-
                     // 25 - 05 - Best.
                     // 25 - 10 - Good.
                     // 40 - 05 - Good+.
                     const int groupSize = 25;
+                    const int previousMaxBundleSize = 500;
 #pragma warning disable CA5394 // Do not use insecure randomness - Not used for security purposes.
                     int delayInMilliseconds = _random.Next(5, 10);
+                    delayInMilliseconds = 5; // Possibly converting this into a constant.
 #pragma warning restore CA5394 // Do not use insecure randomness
-                    if (_optimizeBigBundleOperations) // Bundle Big Operations throttling.
+
+                    ResourceExecutionContext resourceContext = resources[i];
+                    requestsPerResource.Add(handleRequestFunctionAsync(resourceContext, requestCancellationToken.Token));
+
+                    if (_runtimeConfiguration.IsBundleSizeExpansionSupported)
                     {
-                        if (i % groupSize == 0)
+                        // Logic 1 - If the bundle has more than 500 resources, we will throttle the requests to avoid overwhelming the server.
+                        // Logic 2 - If the bundle, no matter the size, has conditional operations, we will throttle the requests to avoid overwhelming the server.
+
+                        if (_optimizeBigBundleOperations && resources.Count > previousMaxBundleSize) // Bundle Big Operations throttling.
                         {
-                            await Task.Delay(delayInMilliseconds, CancellationToken.None);
-                        }
-                    }
-                    else if (_optimizeConditionalOperations) // Bundle Conditional Operations throttling.
-                    {
-                        if (resourceContext.IsConditionalOperation)
-                        {
-                            conditionalOperationsCounter++;
-                            if (conditionalOperationsCounter % groupSize == 0)
+                            // Throttling is not good for bundles with regular operations.
+                            if (i % groupSize == 0)
                             {
                                 await Task.Delay(delayInMilliseconds, CancellationToken.None);
+                            }
+                        }
+                        else if (_optimizeConditionalOperations) // Bundle Conditional Operations throttling.
+                        {
+                            // Throttling works well for bundles with conditional operations.
+                            if (resourceContext.IsConditionalOperation)
+                            {
+                                conditionalOperationsCounter++;
+                                if (conditionalOperationsCounter % groupSize == 0)
+                                {
+                                    await Task.Delay(delayInMilliseconds, CancellationToken.None);
+                                }
                             }
                         }
                     }
