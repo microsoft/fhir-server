@@ -217,6 +217,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     || importData.InMemoryTestProcessingJobs > 1_000_000
                     || input.Count != 1
                     || input[0].Url == null
+                    || !input[0].Url.IsAbsoluteUri
                     || !string.Equals(input[0].Url.Scheme, IntegrationDataStoreClientConstants.InMemoryTestSourceScheme, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(importData.InMemoryTestProcessingJobs)));
