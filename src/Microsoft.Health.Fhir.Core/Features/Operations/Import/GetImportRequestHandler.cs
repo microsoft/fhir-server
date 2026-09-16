@@ -141,11 +141,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             var jobMsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
                             var elapsedMsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
                             var parallelism = elapsedMsec > 0 ? jobMsec / elapsedMsec : -1;
-                            var jobsToCount = jobLines.Where(_ => _.DatabaseMilliseconds.HasValue).OrderBy(_ => _.ClockMilliseconds).Take((int)Math.Ceiling(jobLines.Count * 0.3)).ToList(); // take first 30% to make std lower
-                            var resCnt = jobsToCount.Sum(_ => _.ResourceCount);
-                            var cpu = (double?)jobsToCount.Sum(_ => _.CpuMilliseconds.Value) / resCnt;
-                            var std = Math.Sqrt(jobsToCount.Sum(_ => _.ResourceCount * Math.Pow(((double)_.CpuMilliseconds.Value / _.ResourceCount) - cpu.Value, 2)) / resCnt);
-                            var executionStats = new List<string> { $"jobs_total={jobLines.Count} jobs={jobsToCount.Count} cpu_msec_per_resource={cpu:F2} std_cpu_msec_per_resource={std:F2} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
+                            var validJobs = jobLines.Where(_ => _.DatabaseMilliseconds.HasValue).OrderBy(_ => _.ClockMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList(); // take first 30% to make std lower
+                            var resCnt = validJobs.Sum(_ => _.ResourceCount);
+                            string cpuStr = null;
+                            if (validJobs.Count >= 3) // it does not make sense to compute statistical values for low counts.
+                            {
+                                var cpu = (double?)validJobs.Sum(_ => _.CpuMilliseconds.Value) / resCnt;
+                                var std = Math.Sqrt(validJobs.Sum(_ => _.ResourceCount * Math.Pow(((double)_.CpuMilliseconds.Value / _.ResourceCount) - cpu.Value, 2)) / resCnt);
+                                cpuStr = $" cpu_msec_per_resource={cpu:F2} std_cpu_msec_per_resource={std:F2}";
+                            }
+
+                            var executionStats = new List<string> { $"jobs_total={jobLines.Count} jobs={validJobs.Count}{cpuStr} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
                             executionStats.AddRange(jobLines.Take(50).Select(x => x.Line));
 
                             result.ExecutionStats = executionStats;
