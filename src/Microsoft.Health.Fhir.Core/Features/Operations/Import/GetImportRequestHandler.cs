@@ -141,8 +141,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             var jobMsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
                             var elapsedMsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
                             var parallelism = elapsedMsec > 0 ? jobMsec / elapsedMsec : (double?)null;
+
+                            // slower jobs carry scheduling and GC noise, so cheapest ones more correctly represent CPU cost. 30% does not need to be accurate.
                             var validJobs = jobLines.Where(_ => _.CpuMilliseconds.HasValue && _.FailedResources == 0 && _.SucceededResources > 0)
-                                                    .OrderBy(_ => _.CpuMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList(); // take first 30% to make std lower
+                                                    .OrderBy(_ => _.CpuMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList();
                             var resCnt = validJobs.Sum(_ => _.SucceededResources);
                             string cpuStr = null;
                             if (validJobs.Count >= 3) // it does not make sense to compute statistical values for low counts.
