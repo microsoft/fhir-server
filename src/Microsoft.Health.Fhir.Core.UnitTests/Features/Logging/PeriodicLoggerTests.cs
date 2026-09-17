@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Logging;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using PeriodicLogger = Microsoft.Health.Fhir.Core.Features.Logging.PeriodicLogger<Microsoft.Health.Fhir.Core.UnitTests.Features.Logging.PeriodicLoggerTests>;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
 {
@@ -25,6 +26,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
     {
         private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(30);
         private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
+
+        [Fact]
+        public async Task GivenTypedLogger_WhenUsingStandardLevelExtensions_ThenPreservesTheCategoryAndLevels()
+        {
+            var innerLogger = new RecordingLogger();
+            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
+
+            logger.LogTrace("trace");
+            logger.LogDebug("debug");
+            logger.LogWarning("warning");
+            logger.LogError("error");
+            logger.LogCritical("critical");
+            logger.LogInformation("information");
+
+            await logger.DisposeAsync();
+
+            Assert.IsAssignableFrom<ILogger<PeriodicLoggerTests>>(logger);
+            Assert.Equal(
+                new[]
+                {
+                    LogLevel.Trace,
+                    LogLevel.Debug,
+                    LogLevel.Warning,
+                    LogLevel.Error,
+                    LogLevel.Critical,
+                    LogLevel.Information,
+                },
+                innerLogger.Records.Select(record => record.Level));
+        }
 
         [Theory]
         [InlineData(0)]
@@ -679,7 +709,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
             await logger.WaitForRecordCountAsync(expectedCount).WaitAsync(TestTimeout);
         }
 
-        private sealed class RecordingLogger : ILogger
+        private sealed class RecordingLogger : ILogger<PeriodicLoggerTests>
         {
             private readonly object _syncLock = new();
             private readonly List<RecordedLog> _records = new();

@@ -39,12 +39,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
     /// <see cref="ObjectDisposedException"/> once the wrapper has been disposed.
     /// </para>
     /// </remarks>
-    public sealed class PeriodicLogger : ILogger, IDisposable, IAsyncDisposable
+    /// <typeparam name="T">The category type used by the wrapped logger.</typeparam>
+    public sealed class PeriodicLogger<T> : ILogger<T>, IDisposable, IAsyncDisposable
     {
         private const string OccurrenceCountPropertyName = "OccurrenceCount";
-        private static readonly AsyncLocal<PeriodicLogger> _activeFlushLogger = new();
+        private static readonly AsyncLocal<PeriodicLogger<T>> _activeFlushLogger = new();
 
-        private readonly ILogger _logger;
+        private readonly ILogger<T> _logger;
         private readonly TimeSpan _interval;
         private readonly TimeProvider _timeProvider;
         private readonly CancellationTokenSource _cancellationTokenSource = new();
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         private ExceptionDispatchInfo _flushLoopFailure;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PeriodicLogger"/> class and starts its background flush loop.
+        /// Initializes a new instance of the <see cref="PeriodicLogger{T}"/> class and starts its background flush loop.
         /// </summary>
         /// <param name="logger">The wrapped logger that receives immediate and aggregated messages.</param>
         /// <param name="interval">The aggregation interval. Must be greater than <see cref="TimeSpan.Zero"/>.</param>
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         /// </param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="logger"/> is <c>null</c>.</exception>
         /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is not positive.</exception>
-        public PeriodicLogger(ILogger logger, TimeSpan interval, TimeProvider timeProvider = null)
+        public PeriodicLogger(ILogger<T> logger, TimeSpan interval, TimeProvider timeProvider = null)
         {
             ArgumentNullException.ThrowIfNull(logger);
 
@@ -374,7 +375,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
 
         private void FlushWithReentrancyGuard()
         {
-            PeriodicLogger activeFlushLogger = _activeFlushLogger.Value;
+            PeriodicLogger<T> activeFlushLogger = _activeFlushLogger.Value;
             _activeFlushLogger.Value = this;
 
             try

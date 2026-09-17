@@ -4,11 +4,11 @@
 
 Some information-level diagnostics are valuable when troubleshooting but occur too frequently to emit on every execution. Emitting every occurrence clutters logs and increases ingestion volume, while suppressing them entirely removes useful operational evidence.
 
-The repository needs a reusable wrapper around `Microsoft.Extensions.Logging.ILogger` that delays information-level messages until a configured interval, collapses identical messages, and reports how many times each message occurred. Other log levels must retain their existing immediate behavior.
+The repository needs a reusable wrapper around `Microsoft.Extensions.Logging.ILogger<T>` that delays information-level messages until a configured interval, collapses identical messages, and reports how many times each message occurred. Other log levels must retain their existing immediate behavior.
 
 ## Goals
 
-- Provide a drop-in `ILogger` wrapper.
+- Provide a drop-in `ILogger<T>` wrapper that preserves the logging category type.
 - Aggregate only `LogLevel.Information` messages.
 - Emit each distinct information message once per interval.
 - Append and structure the number of occurrences, including when the count is one.
@@ -27,21 +27,23 @@ The repository needs a reusable wrapper around `Microsoft.Extensions.Logging.ILo
 
 ## Public API and Placement
 
-Add a public sealed `PeriodicLogger` class at `Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLogger.cs` in the `Microsoft.Health.Fhir.Core.Features.Logging` namespace.
+Add a public sealed `PeriodicLogger<T>` class at `Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLogger.cs` in the `Microsoft.Health.Fhir.Core.Features.Logging` namespace.
 
 The class implements:
 
-- `ILogger`
+- `ILogger<T>`
 - `IDisposable`
 - `IAsyncDisposable`
 
 Its constructor accepts:
 
-- The wrapped `ILogger`.
+- The wrapped `ILogger<T>`.
 - A positive `TimeSpan` aggregation interval.
 - An optional `TimeProvider`, defaulting to `TimeProvider.System`.
 
 The class begins one background periodic flush loop during construction. `BeginScope` and `IsEnabled` delegate directly to the wrapped logger and never throw on behalf of the wrapper, including after disposal or after a recorded failure.
+
+Because the class implements `ILogger<T>`, callers use the standard `Microsoft.Extensions.Logging` extension overloads for `LogTrace`, `LogDebug`, `LogInformation`, `LogWarning`, `LogError`, and `LogCritical`; the wrapper does not duplicate those overload families as instance methods.
 
 A public sealed `PeriodicLoggerFlushException` is added at `Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLoggerFlushException.cs` in the same namespace. It identifies a failure that originated in the wrapped logging provider while an aggregate batch was being emitted, and it exposes `DiscardedEntryCount` and `DiscardedOccurrenceCount`.
 
@@ -162,6 +164,6 @@ Unit tests in `Microsoft.Health.Fhir.Core.UnitTests` will use `FakeTimeProvider`
 
 ## Consequences
 
-The design reduces repetitive information-log volume while preserving per-interval frequency. It remains compatible with existing `ILogger` call sites and providers, and it is testable without wall-clock delays.
+The design reduces repetitive information-log volume while preserving per-interval frequency. It remains compatible with standard `ILogger<T>` call sites and providers, preserves the category used by logging providers, and is testable without wall-clock delays.
 
 The wrapper retains one state and exception object for every distinct message until the next flush, with no configured cap. High-cardinality messages can therefore consume memory proportional to the number and size of distinct entries in an interval. Callers should avoid including unbounded identifiers in messages intended for aggregation.

@@ -8,7 +8,7 @@ using System;
 namespace Microsoft.Health.Fhir.Core.Features.Logging
 {
     /// <summary>
-    /// The exception that is thrown when the wrapped logger fails while a <see cref="PeriodicLogger"/> emits a
+    /// The exception that is thrown when the wrapped logger fails while a <see cref="PeriodicLogger{T}"/> emits a
     /// detached batch of aggregated information entries.
     /// </summary>
     /// <remarks>
