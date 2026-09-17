@@ -825,6 +825,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Console.WriteLine("====================================");
 
             Assert.StartsWith($"jobs_total={jobs} ", result.ExecutionStats.First());
+            Assert.Contains("cpu_msec_per_resource=", result.ExecutionStats.First()); // only emitted when timings were actually collected
             var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=")).ToList();
             Assert.Equal(50, jobLines.Count); // max output is 50
             foreach (var jobLine in jobLines)
