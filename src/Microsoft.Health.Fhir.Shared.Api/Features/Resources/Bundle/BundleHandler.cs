@@ -586,11 +586,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
+        private int GetEntryLimit()
+        {
+            if (_outerHttpContext.IsHighLatencyEnabled())
+            {
+                return _bundleConfiguration.EntryLimitHighLatency;
+            }
+
+            return _bundleConfiguration.EntryLimit;
+        }
+
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
         {
-            int entryLimit = _outerHttpContext.IsHighLatencyEnabled()
-                ? _bundleConfiguration.EntryLimitHighLatency
-                : _bundleConfiguration.EntryLimit;
+            int entryLimit = GetEntryLimit();
 
             if (entryLimit != default && bundleEntries.Count > entryLimit)
             {

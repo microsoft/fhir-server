@@ -107,8 +107,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleOrchestratorLogger = Substitute.For<ILogger<BundleOrchestrator>>();
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, bundleOrchestratorLogger);
 
-            IFeatureCollection featureCollection = CreateFeatureCollection();
-            _httpContext = new DefaultHttpContext(featureCollection)
+            _httpContext = new DefaultHttpContext()
             {
                 Request =
                 {
@@ -117,8 +116,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     PathBase = new PathString("/"),
                 },
             };
-            var contextualHeaderDictionary = new HeaderDictionary();
-            _httpContext.Request.Headers.Returns(contextualHeaderDictionary);
+            ConfigureFeatures(_httpContext.Features);
             httpContextAccessor.HttpContext.Returns(_httpContext);
 
             _transactionHandler = Substitute.For<ITransactionHandler>();
@@ -1339,10 +1337,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
         }
 
-        private IFeatureCollection CreateFeatureCollection()
+        private void ConfigureFeatures(IFeatureCollection featureCollection)
         {
-            var featureCollection = Substitute.For<IFeatureCollection>();
-
             var httpAuthenticationFeature = Substitute.For<IHttpAuthenticationFeature>();
 
             var routingFeature = Substitute.For<IRoutingFeature>();
@@ -1350,20 +1346,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             routeData.Routers.Add(_router);
             routingFeature.RouteData.Returns(routeData);
 
-            featureCollection.Get<IHttpAuthenticationFeature>().Returns(httpAuthenticationFeature);
-            featureCollection.Get<IRoutingFeature>().Returns(routingFeature);
-
-            var features = new List<KeyValuePair<Type, object>>
-            {
-                new KeyValuePair<Type, object>(typeof(IHttpAuthenticationFeature), httpAuthenticationFeature),
-                new KeyValuePair<Type, object>(typeof(IRoutingFeature), routingFeature),
-            };
-
-            featureCollection[typeof(IHttpAuthenticationFeature)].Returns(httpAuthenticationFeature);
-            featureCollection[typeof(IRoutingFeature)].Returns(routingFeature);
-
-            featureCollection.GetEnumerator().Returns(features.GetEnumerator());
-            return featureCollection;
+            featureCollection.Set(httpAuthenticationFeature);
+            featureCollection.Set(routingFeature);
         }
     }
 }
