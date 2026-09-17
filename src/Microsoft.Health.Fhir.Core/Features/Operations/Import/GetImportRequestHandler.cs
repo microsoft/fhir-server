@@ -154,6 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                 cpuStr = $" cpu_msec_per_resource={cpu:F2} std_cpu_msec_per_resource={std:F2}";
                             }
 
+                            // database_msec skips retried jobs by design; jobs_retried reports how many.
                             var executionStats = new List<string> { $"jobs_total={jobLines.Count} jobs={validJobs.Count}{cpuStr} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} jobs_retried={retriedJobs} parallelism={parallelism:F2}" };
                             executionStats.AddRange(jobLines.Take(50).Select(x => x.Line));
 
