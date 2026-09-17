@@ -3,7 +3,11 @@
 version: 2
 updates:
   - package-ecosystem: "nuget"
-    directory: "/"
+    # Points at a project that exists only for discovery. Dependabot re-runs a full discovery pass
+    # before every group below; against "/" that walked all 78 projects each time, cost ~4 minutes
+    # per group and pushed the job past GitHub's fixed 55 minute limit, so later groups never ran.
+    # See src/DependabotDiscovery/README.md.
+    directory: "/src/DependabotDiscovery"
     schedule:
       interval: "daily"
       time: "08:00"
@@ -71,5 +75,7 @@ updates:
     open-pull-requests-limit: 20
     groups:
       dotnet-images:
+        # Dependabot's dependency names for the Dockerfile images are "dotnet/sdk" and
+        # "dotnet/aspnet"; matching on the full mcr.microsoft.com/... path silently groups nothing.
         patterns:
-          - "mcr.microsoft.com/dotnet/*"
+          - "dotnet/*"
