@@ -97,8 +97,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         public int ProcessingUnitBytesToRead { get; set; }
 
         /// <summary>
-        /// Test-only. When greater than zero, the orchestrator creates this many processing jobs for each
-        /// input entry, instead of splitting by size. Only meaningful with the in-memory test source.
+        /// Test-only. When greater than zero, the orchestrator uses the single required input entry as a template
+        /// and creates this many processing jobs from it, instead of splitting by size. Only meaningful with the
+        /// in-memory test source, and the request must contain exactly one input entry.
         /// </summary>
         public int InMemoryTestProcessingJobs { get; set; }
     }

@@ -78,7 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public int ProcessingUnitBytesToRead { get; set; }
 
         /// <summary>
-        /// When greater than zero, the orchestrator creates this many processing jobs to use in-memory test source.
+        /// Test-only. When greater than zero, the orchestrator uses the single <see cref="Input"/> entry as a
+        /// template and creates this many processing jobs from it, each reading from the in-memory test source,
+        /// instead of splitting the input by size.
         /// </summary>
         public int InMemoryTestProcessingJobs { get; set; }
     }

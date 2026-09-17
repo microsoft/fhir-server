@@ -66,9 +66,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         public int ProcessingUnitBytesToRead { get; set; }
 
         /// <summary>
-        /// Test-only. When greater than zero, the orchestrator creates this many processing jobs for each
-        /// <see cref="Input"/> entry, instead of splitting by size, so tests can exercise orchestrator scaling
-        /// without needing that many distinct input files. Only meaningful with the in-memory test source.
+        /// Test-only. When greater than zero, the orchestrator uses the single required <see cref="Input"/> entry
+        /// as a template and creates this many processing jobs from it, instead of splitting by size, so tests can
+        /// exercise orchestrator scaling without needing that many distinct input files. Only meaningful with the
+        /// in-memory test source, and the request must contain exactly one input entry.
         /// </summary>
         public int InMemoryTestProcessingJobs { get; set; }
     }
