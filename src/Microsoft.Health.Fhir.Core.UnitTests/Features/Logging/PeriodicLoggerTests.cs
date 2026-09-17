@@ -17,9 +17,15 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
 {
+    // Categories had no logging or diagnostics value, so Categories.Logging was added rather than reusing
+    // Categories.ServiceRuntimeState, which is reserved for FHIR runtime/storage configuration tests.
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Logging)]
     public class PeriodicLoggerTests
     {
+        private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
+
         [Theory]
         [InlineData(0)]
         [InlineData(-1)]
@@ -35,14 +41,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         public void GivenNullLogger_WhenConstructing_ThenThrows()
         {
             Assert.Throws<ArgumentNullException>(
-                () => new PeriodicLogger(null, TimeSpan.FromMinutes(1)));
+                () => new PeriodicLogger(null, Interval));
         }
 
         [Fact]
         public async Task GivenWrappedLogger_WhenCheckingContract_ThenDelegates()
         {
             var innerLogger = new RecordingLogger { Enabled = false };
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1));
+            await using var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
             object scopeState = new();
 
             IDisposable scope = logger.BeginScope(scopeState);
@@ -55,34 +61,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         }
 
         [Fact]
-        public async Task GivenDisposedLogger_WhenBeginningScope_ThenThrows()
+        public async Task GivenDisposedLogger_WhenBeginningScope_ThenStillDelegates()
         {
             var innerLogger = new RecordingLogger();
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1));
-
+            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
             await logger.DisposeAsync();
+            object scopeState = new();
 
-            Assert.Throws<ObjectDisposedException>(() => logger.BeginScope(new object()));
+            IDisposable scope = logger.BeginScope(scopeState);
+
+            Assert.Same(innerLogger.Scope, scope);
+            Assert.Same(scopeState, innerLogger.ScopeState);
         }
 
         [Fact]
-        public async Task GivenDisposedLogger_WhenCheckingEnabledState_ThenThrows()
+        public async Task GivenDisposedLogger_WhenCheckingEnabledState_ThenStillDelegates()
         {
-            var innerLogger = new RecordingLogger();
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1));
-
+            var innerLogger = new RecordingLogger { Enabled = false };
+            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
             await logger.DisposeAsync();
 
-            Assert.Throws<ObjectDisposedException>(() => logger.IsEnabled(LogLevel.Information));
+            bool enabled = logger.IsEnabled(LogLevel.Information);
+
+            Assert.False(enabled);
+            Assert.Equal(LogLevel.Information, innerLogger.LastEnabledLevel);
         }
 
         [Fact]
         public async Task GivenDisposedLogger_WhenLogging_ThenThrows()
         {
-            var logger = new PeriodicLogger(new RecordingLogger(), TimeSpan.FromMinutes(1), new FakeTimeProvider());
+            var logger = new PeriodicLogger(new RecordingLogger(), Interval, new FakeTimeProvider());
             await logger.DisposeAsync();
 
             Assert.Throws<ObjectDisposedException>(() => logger.LogInformation("late"));
+            Assert.Throws<ObjectDisposedException>(() => logger.LogError("late"));
         }
 
         [Theory]
@@ -95,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         public async Task GivenNonInformationMessage_WhenLogging_ThenWritesImmediately(LogLevel level)
         {
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1));
+            await using var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
             var eventId = new EventId(17, "Immediate");
             var exception = new InvalidOperationException("failure");
 
@@ -113,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
             var eventId = new EventId(23, "Periodic");
 
             logger.LogInformation(eventId, "Queue depth is {QueueDepth}.", 5);
@@ -121,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
             logger.LogInformation(eventId, "Queue depth is {QueueDepth}.", 5);
 
             Assert.Empty(innerLogger.Records);
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 1);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
 
             RecordedLog record = Assert.Single(innerLogger.Records);
             Assert.Equal(LogLevel.Information, record.Level);
@@ -136,10 +148,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
 
             logger.LogInformation("single");
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 1);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
 
             RecordedLog record = Assert.Single(innerLogger.Records);
             Assert.Equal("single Occurrence count: 1.", record.Message);
@@ -151,15 +163,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
 
             logger.LogInformation("Queue depth is {QueueDepth}.", 5);
             logger.LogInformation("Queue depth is {QueueDepth}.", 6);
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 2);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 2);
 
             Assert.Equal(
                 new[] { "Queue depth is 5. Occurrence count: 1.", "Queue depth is 6. Occurrence count: 1." },
-                innerLogger.Records.Select(record => record.Message).OrderBy(message => message));
+                innerLogger.Records.Select(record => record.Message).OrderBy(message => message, StringComparer.Ordinal));
         }
 
         [Fact]
@@ -167,11 +179,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
 
             logger.LogInformation(new EventId(1, "First"), "same");
             logger.LogInformation(new EventId(2, "Second"), "same");
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 2);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 2);
 
             Assert.Equal(
                 new[] { new EventId(1, "First"), new EventId(2, "Second") },
@@ -183,15 +195,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
 
             logger.LogInformation(new EventId(7, "First"), "same");
             logger.LogInformation(new EventId(7, "Second"), "same");
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 2);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 2);
 
             Assert.Equal(
                 new[] { new EventId(7, "First"), new EventId(7, "Second") },
-                innerLogger.Records.Select(record => record.EventId).OrderBy(eventId => eventId.Name));
+                innerLogger.Records.Select(record => record.EventId).OrderBy(eventId => eventId.Name, StringComparer.Ordinal));
         }
 
         [Fact]
@@ -199,11 +211,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
 
             logger.LogInformation(new InvalidOperationException("first"), "same");
             logger.LogInformation(new InvalidOperationException("second"), "same");
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 2);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 2);
 
             Assert.Equal(2, innerLogger.Records.Count);
         }
@@ -213,13 +225,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
             var firstException = new InvalidOperationException("same");
             var secondException = new InvalidOperationException("same");
 
             logger.LogInformation(firstException, "message");
             logger.LogInformation(secondException, "message");
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 1);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
 
             RecordedLog record = Assert.Single(innerLogger.Records);
             Assert.Same(firstException, record.Exception);
@@ -231,52 +243,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
 
             logger.LogInformation("message");
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 1);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
             logger.LogInformation("message");
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 2);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 2);
 
             Assert.All(innerLogger.Records, record => Assert.Equal("message Occurrence count: 1.", record.Message));
         }
 
         [Fact]
-        public async Task GivenDisabledInformationLevel_WhenLogging_ThenDoesNotAggregate()
+        public async Task GivenDisabledInformationLevel_WhenIntervalElapsesAndDisposing_ThenNeverReachesWrappedLogger()
         {
             var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger { Enabled = false };
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
 
             logger.LogInformation("disabled");
-            timeProvider.Advance(TimeSpan.FromMinutes(1));
-            await Task.Yield();
+            timeProvider.Advance(Interval);
+
+            // Disposal cancels the loop, waits for it, and performs the final flush, so an aggregated entry would
+            // have to surface here. A single Task.Yield could pass even if the entry had been buffered.
+            await logger.DisposeAsync().AsTask().WaitAsync(TestTimeout);
 
             Assert.Empty(innerLogger.Records);
+            Assert.Equal(0, innerLogger.LogAttemptCount);
         }
 
         [Fact]
         public async Task GivenBufferedInformationMessage_WhenDisposing_ThenFlushesPendingEntry()
         {
-            var timeProvider = new FakeTimeProvider();
             var innerLogger = new RecordingLogger();
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
 
             logger.LogInformation("pending");
-            await logger.DisposeAsync();
-
-            RecordedLog record = Assert.Single(innerLogger.Records);
-            Assert.Equal("pending Occurrence count: 1.", record.Message);
-        }
-
-        [Fact]
-        public async Task GivenPendingMessage_WhenDisposedAsync_ThenFlushesFinalInterval()
-        {
-            var innerLogger = new RecordingLogger();
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), new FakeTimeProvider());
-            logger.LogInformation("pending");
-
-            await logger.DisposeAsync();
+            await logger.DisposeAsync().AsTask().WaitAsync(TestTimeout);
 
             RecordedLog record = Assert.Single(innerLogger.Records);
             Assert.Equal("pending Occurrence count: 1.", record.Message);
@@ -286,27 +288,62 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         public void GivenPendingMessage_WhenDisposed_ThenFlushesFinalInterval()
         {
             var innerLogger = new RecordingLogger();
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), new FakeTimeProvider());
+            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
             logger.LogInformation("pending");
 
             logger.Dispose();
 
-            Assert.Single(innerLogger.Records);
+            Assert.Equal("pending Occurrence count: 1.", Assert.Single(innerLogger.Records).Message);
         }
 
         [Fact]
         public async Task GivenConcurrentDisposal_WhenCalledMultipleTimes_ThenFlushesOnlyOnce()
         {
             var innerLogger = new RecordingLogger();
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), new FakeTimeProvider());
+            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
             logger.LogInformation("pending");
 
             await Task.WhenAll(
                 logger.DisposeAsync().AsTask(),
                 logger.DisposeAsync().AsTask(),
-                Task.Run(logger.Dispose));
+                Task.Run(logger.Dispose)).WaitAsync(TestTimeout);
 
             Assert.Single(innerLogger.Records);
+        }
+
+        [Fact]
+        public async Task GivenConcurrentIdenticalInformationMessages_WhenFlushed_ThenCountsEveryOccurrence()
+        {
+            const int callerCount = 4;
+            const int callsPerCaller = 500;
+            const long expectedCount = callerCount * callsPerCaller;
+
+            var innerLogger = new RecordingLogger();
+            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
+            using var startBarrier = new Barrier(callerCount);
+
+            Task[] callers = Enumerable.Range(0, callerCount)
+                .Select(_ => Task.Factory.StartNew(
+                    () =>
+                    {
+                        startBarrier.SignalAndWait();
+
+                        for (int call = 0; call < callsPerCaller; call++)
+                        {
+                            logger.LogInformation("concurrent");
+                        }
+                    },
+                    CancellationToken.None,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default))
+                .ToArray();
+
+            await Task.WhenAll(callers).WaitAsync(TestTimeout);
+            await logger.DisposeAsync().AsTask().WaitAsync(TestTimeout);
+
+            RecordedLog record = Assert.Single(innerLogger.Records);
+            Assert.Equal($"concurrent Occurrence count: {expectedCount}.", record.Message);
+            Assert.Contains(record.State, pair => pair.Key == "OccurrenceCount" && Equals(pair.Value, expectedCount));
         }
 
         [Fact]
@@ -319,44 +356,164 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
             innerLogger.OnLog = () =>
             {
                 emissionStarted.TrySetResult();
-                releaseEmission.Task.GetAwaiter().GetResult();
+                releaseEmission.Task.WaitAsync(TestTimeout).GetAwaiter().GetResult();
             };
-            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
             logger.LogInformation("message");
 
-            timeProvider.Advance(TimeSpan.FromMinutes(1));
-            await emissionStarted.Task;
+            timeProvider.Advance(Interval);
+            await emissionStarted.Task.WaitAsync(TestTimeout);
             logger.LogInformation("message");
             releaseEmission.SetResult();
-            await innerLogger.WaitForRecordCountAsync(1);
+            await innerLogger.WaitForRecordCountAsync(1).WaitAsync(TestTimeout);
 
             Assert.Equal("message Occurrence count: 1.", Assert.Single(innerLogger.Records).Message);
 
             innerLogger.OnLog = null;
-            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 2);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 2);
 
             Assert.All(innerLogger.Records, record => Assert.Equal("message Occurrence count: 1.", record.Message));
         }
 
         [Fact]
-        public async Task GivenProviderFailure_WhenPeriodicFlushRuns_ThenLaterLoggingAndDisposalSurfaceFailure()
+        public async Task GivenProviderFailure_WhenPeriodicFlushRuns_ThenLaterCallsDegradeToImmediatePassthrough()
         {
             var timeProvider = new FakeTimeProvider();
             var providerException = new InvalidOperationException("provider failed");
             var innerLogger = new RecordingLogger { ExceptionToThrow = providerException };
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
             logger.LogInformation("message");
 
-            timeProvider.Advance(TimeSpan.FromMinutes(1));
-            await innerLogger.WaitForLogAttemptAsync();
+            timeProvider.Advance(Interval);
+            await logger.FlushLoopTask.WaitAsync(TestTimeout);
+            innerLogger.ExceptionToThrow = null;
+            object scopeState = new();
 
-            InvalidOperationException logException = await WaitForExceptionAsync<InvalidOperationException>(
-                () => logger.LogInformation("later"));
-            Assert.Same(providerException, logException.InnerException);
+            bool enabled = logger.IsEnabled(LogLevel.Information);
+            IDisposable scope = logger.BeginScope(scopeState);
+            logger.LogError("error");
+            logger.LogInformation("later");
 
-            Exception disposeException = await Assert.ThrowsAnyAsync<Exception>(
-                () => logger.DisposeAsync().AsTask());
-            Assert.Contains(providerException, Flatten(disposeException));
+            Assert.True(enabled);
+            Assert.Same(innerLogger.Scope, scope);
+            Assert.Same(scopeState, innerLogger.ScopeState);
+
+            // Information is written straight through, so it carries no aggregated occurrence suffix.
+            Assert.Equal(new[] { "error", "later" }, innerLogger.Records.Select(record => record.Message));
+            Assert.Equal(
+                new[] { LogLevel.Error, LogLevel.Information },
+                innerLogger.Records.Select(record => record.Level));
+
+            PeriodicLoggerFlushException flushException = await ThrowsDisposalFailureAsync<PeriodicLoggerFlushException>(logger);
+            Assert.Same(providerException, flushException.InnerException);
+            Assert.Equal(1, flushException.DiscardedEntryCount);
+            Assert.Equal(1L, flushException.DiscardedOccurrenceCount);
+        }
+
+        [Fact]
+        public async Task GivenProviderFailurePartwayThroughBatch_WhenFlushRuns_ThenReportsDiscardedEntryAndOccurrenceCounts()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var providerException = new InvalidOperationException("provider failed");
+            var innerLogger = new RecordingLogger { ExceptionForAttempt = attempt => attempt >= 2 ? providerException : null };
+            var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+
+            foreach (string message in new[] { "first", "second", "third" })
+            {
+                logger.LogInformation(message);
+                logger.LogInformation(message);
+            }
+
+            timeProvider.Advance(Interval);
+            await logger.FlushLoopTask.WaitAsync(TestTimeout);
+
+            Assert.Single(innerLogger.Records);
+
+            PeriodicLoggerFlushException flushException = await ThrowsDisposalFailureAsync<PeriodicLoggerFlushException>(logger);
+            Assert.Same(providerException, flushException.InnerException);
+            Assert.Equal(2, flushException.DiscardedEntryCount);
+            Assert.Equal(4L, flushException.DiscardedOccurrenceCount);
+            Assert.Contains("2 aggregated entries representing 4 occurrences", flushException.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenFailedDetachedBatch_WhenTimeAdvancesAndDisposing_ThenBatchIsNotRetried()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var providerException = new InvalidOperationException("provider failed");
+            var innerLogger = new RecordingLogger { ExceptionToThrow = providerException };
+            var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+            logger.LogInformation("message");
+            logger.LogInformation("message");
+
+            timeProvider.Advance(Interval);
+            await logger.FlushLoopTask.WaitAsync(TestTimeout);
+
+            Assert.Equal(1, innerLogger.LogAttemptCount);
+
+            innerLogger.ExceptionToThrow = null;
+            timeProvider.Advance(TimeSpan.FromMinutes(5));
+
+            PeriodicLoggerFlushException flushException = await ThrowsDisposalFailureAsync<PeriodicLoggerFlushException>(logger);
+
+            Assert.Equal(1, flushException.DiscardedEntryCount);
+            Assert.Equal(2L, flushException.DiscardedOccurrenceCount);
+            Assert.Equal(1, innerLogger.LogAttemptCount);
+            Assert.Empty(innerLogger.Records);
+        }
+
+        [Fact]
+        public async Task GivenPeriodicAndFinalFlushFailures_WhenDisposing_ThenBothAreSurfaced()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var providerException = new InvalidOperationException("provider failed");
+            var emissionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseEmission = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var innerLogger = new RecordingLogger { ExceptionToThrow = providerException };
+            innerLogger.OnLog = () =>
+            {
+                emissionStarted.TrySetResult();
+                releaseEmission.Task.WaitAsync(TestTimeout).GetAwaiter().GetResult();
+            };
+            var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+            logger.LogInformation("first");
+
+            timeProvider.Advance(Interval);
+            await emissionStarted.Task.WaitAsync(TestTimeout);
+
+            // The dictionary has already been swapped, so this entry belongs to the next interval and survives the
+            // failed batch. It can only be emitted by the final flush during disposal.
+            logger.LogInformation("second");
+            releaseEmission.SetResult();
+            await logger.FlushLoopTask.WaitAsync(TestTimeout);
+
+            AggregateException disposeException = await ThrowsDisposalFailureAsync<AggregateException>(logger);
+
+            Assert.Equal(2, disposeException.InnerExceptions.Count);
+            Assert.All(
+                disposeException.InnerExceptions,
+                exception => Assert.Same(providerException, Assert.IsType<PeriodicLoggerFlushException>(exception).InnerException));
+            Assert.Equal(new[] { "first Occurrence count: 1.", "second Occurrence count: 1." }, innerLogger.AttemptedMessages);
+        }
+
+        [Fact]
+        public async Task GivenFailedDisposal_WhenDisposedAgain_ThenSurfacesTheSameFailureWithoutReflushing()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var providerException = new InvalidOperationException("provider failed");
+            var innerLogger = new RecordingLogger { ExceptionToThrow = providerException };
+            var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+            logger.LogInformation("message");
+
+            timeProvider.Advance(Interval);
+            await logger.FlushLoopTask.WaitAsync(TestTimeout);
+
+            PeriodicLoggerFlushException first = await ThrowsDisposalFailureAsync<PeriodicLoggerFlushException>(logger);
+            PeriodicLoggerFlushException second = await ThrowsDisposalFailureAsync<PeriodicLoggerFlushException>(logger);
+
+            Assert.Same(first, second);
+            Assert.Same(providerException, second.InnerException);
+            Assert.Equal(1, innerLogger.LogAttemptCount);
         }
 
         [Fact]
@@ -370,18 +527,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
             innerLogger.OnLog = () =>
             {
                 emissionStarted.TrySetResult();
-                releaseEmission.Task.GetAwaiter().GetResult();
+                releaseEmission.Task.WaitAsync(TestTimeout).GetAwaiter().GetResult();
             };
-            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
             logger.LogInformation("message");
 
-            timeProvider.Advance(TimeSpan.FromMinutes(1));
-            await emissionStarted.Task;
+            timeProvider.Advance(Interval);
+            await emissionStarted.Task.WaitAsync(TestTimeout);
             Task disposeTask = logger.DisposeAsync().AsTask();
             releaseEmission.SetResult();
 
-            Exception disposeException = await Assert.ThrowsAnyAsync<Exception>(() => disposeTask);
-            Assert.Contains(providerException, Flatten(disposeException));
+            Exception disposeException = await Assert.ThrowsAnyAsync<Exception>(() => disposeTask.WaitAsync(TestTimeout));
+
+            // A cancellation thrown by the wrapped provider must not be mistaken for loop cancellation.
+            PeriodicLoggerFlushException flushException = Assert.IsType<PeriodicLoggerFlushException>(disposeException);
+            Assert.Same(providerException, flushException.InnerException);
         }
 
         [Fact]
@@ -402,69 +562,160 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
                     disposeExceptionSource.TrySetResult(exception);
                 }
             };
-            logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+            logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
             logger.LogInformation("message");
 
-            timeProvider.Advance(TimeSpan.FromMinutes(1));
+            timeProvider.Advance(Interval);
 
-            Exception disposeException = await disposeExceptionSource.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Exception disposeException = await disposeExceptionSource.Task.WaitAsync(TestTimeout);
             Assert.IsType<InvalidOperationException>(disposeException);
 
             innerLogger.OnLog = null;
-            await logger.DisposeAsync();
+            await logger.DisposeAsync().AsTask().WaitAsync(TestTimeout);
         }
 
-        private static IReadOnlyCollection<Exception> Flatten(Exception exception)
+        [Fact]
+        public async Task GivenCallerSuppliedOccurrenceCount_WhenFlushed_ThenReplacedByOneAuthoritativeCount()
         {
-            return exception is AggregateException aggregateException
-                ? aggregateException.Flatten().InnerExceptions
-                : new[] { exception };
+            var timeProvider = new FakeTimeProvider();
+            var innerLogger = new RecordingLogger();
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+
+            logger.LogInformation("Reported {OccurrenceCount} times.", 99);
+            logger.LogInformation("Reported {OccurrenceCount} times.", 99);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
+
+            RecordedLog record = Assert.Single(innerLogger.Records);
+            KeyValuePair<string, object>[] occurrenceCounts = record.State
+                .Where(pair => pair.Key == "OccurrenceCount")
+                .ToArray();
+
+            Assert.Single(occurrenceCounts);
+            Assert.Equal(2L, occurrenceCounts[0].Value);
+            Assert.DoesNotContain(record.State, pair => Equals(pair.Value, 99));
         }
 
-        private static async Task<TException> WaitForExceptionAsync<TException>(Action action)
+        [Fact]
+        public async Task GivenStructuredState_WhenFlushed_ThenExposesOriginalPairsInOrderFollowedByOccurrenceCount()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var innerLogger = new RecordingLogger();
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+
+            logger.LogInformation("Queue {QueueName} depth is {QueueDepth}.", "import", 5);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
+
+            IReadOnlyList<KeyValuePair<string, object>> state = GetAggregatedState(Assert.Single(innerLogger.Records));
+
+            Assert.Equal(4, state.Count);
+            Assert.Equal(
+                new[] { "QueueName", "QueueDepth", "{OriginalFormat}", "OccurrenceCount" },
+                state.Select(pair => pair.Key));
+            Assert.Equal("import", state[0].Value);
+            Assert.Equal(5, state[1].Value);
+            Assert.Equal("Queue {QueueName} depth is {QueueDepth}.", state[2].Value);
+            Assert.Equal(1L, state[3].Value);
+
+            // The enumerator and the indexer must agree.
+            Assert.Equal(
+                Enumerable.Range(0, state.Count).Select(index => state[index]),
+                state);
+        }
+
+        [Fact]
+        public async Task GivenAggregatedState_WhenIndexIsOutOfRange_ThenThrowsArgumentOutOfRangeException()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var innerLogger = new RecordingLogger();
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+
+            logger.LogInformation("Queue depth is {QueueDepth}.", 5);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
+
+            IReadOnlyList<KeyValuePair<string, object>> state = GetAggregatedState(Assert.Single(innerLogger.Records));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => { _ = state[-1]; });
+            Assert.Throws<ArgumentOutOfRangeException>(() => { _ = state[int.MinValue]; });
+            Assert.Throws<ArgumentOutOfRangeException>(() => { _ = state[state.Count]; });
+        }
+
+        [Fact]
+        public async Task GivenNonStructuredState_WhenFlushed_ThenExposesOnlyOccurrenceCount()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var innerLogger = new RecordingLogger();
+            await using var logger = new PeriodicLogger(innerLogger, Interval, timeProvider);
+
+            logger.Log(LogLevel.Information, new EventId(3, "Plain"), "plain state", null, static (state, _) => state);
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, 1);
+
+            RecordedLog record = Assert.Single(innerLogger.Records);
+            IReadOnlyList<KeyValuePair<string, object>> state = GetAggregatedState(record);
+
+            Assert.Single(state);
+            Assert.Equal("OccurrenceCount", state[0].Key);
+            Assert.Equal(1L, state[0].Value);
+            Assert.Equal("plain state Occurrence count: 1.", record.Message);
+        }
+
+        private static IReadOnlyList<KeyValuePair<string, object>> GetAggregatedState(RecordedLog record)
+            => Assert.IsAssignableFrom<IReadOnlyList<KeyValuePair<string, object>>>(record.RawState);
+
+        private static async Task<TException> ThrowsDisposalFailureAsync<TException>(PeriodicLogger logger)
             where TException : Exception
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            Exception exception = await Assert.ThrowsAnyAsync<Exception>(
+                () => logger.DisposeAsync().AsTask().WaitAsync(TestTimeout));
 
-            while (true)
-            {
-                try
-                {
-                    action();
-                }
-                catch (TException exception)
-                {
-                    return exception;
-                }
-
-                await Task.Delay(TimeSpan.FromMilliseconds(10), timeout.Token);
-            }
+            return Assert.IsType<TException>(exception);
         }
 
         private static async Task AdvanceAndWaitAsync(
             FakeTimeProvider timeProvider,
             RecordingLogger logger,
-            TimeSpan interval,
             int expectedCount)
         {
-            timeProvider.Advance(interval);
-            await logger.WaitForRecordCountAsync(expectedCount);
+            timeProvider.Advance(Interval);
+            await logger.WaitForRecordCountAsync(expectedCount).WaitAsync(TestTimeout);
         }
 
         private sealed class RecordingLogger : ILogger
         {
             private readonly object _syncLock = new();
             private readonly List<RecordedLog> _records = new();
+            private readonly List<string> _attemptedMessages = new();
             private readonly List<RecordCountWaiter> _waiters = new();
-            private readonly TaskCompletionSource _logAttemptCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            private int _logAttemptCount;
 
-            public IReadOnlyCollection<RecordedLog> Records
+            public IReadOnlyList<RecordedLog> Records
             {
                 get
                 {
                     lock (_syncLock)
                     {
                         return _records.ToArray();
+                    }
+                }
+            }
+
+            public IReadOnlyList<string> AttemptedMessages
+            {
+                get
+                {
+                    lock (_syncLock)
+                    {
+                        return _attemptedMessages.ToArray();
+                    }
+                }
+            }
+
+            public int LogAttemptCount
+            {
+                get
+                {
+                    lock (_syncLock)
+                    {
+                        return _logAttemptCount;
                     }
                 }
             }
@@ -481,6 +732,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
 
             public Exception ExceptionToThrow { get; set; }
 
+            public Func<int, Exception> ExceptionForAttempt { get; set; }
+
             public IDisposable BeginScope<TState>(TState state)
                 where TState : notnull
             {
@@ -493,8 +746,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
                 LastEnabledLevel = logLevel;
                 return Enabled;
             }
-
-            public Task WaitForLogAttemptAsync() => _logAttemptCompletionSource.Task;
 
             public Task WaitForRecordCountAsync(int expectedCount)
             {
@@ -520,23 +771,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
             {
                 ArgumentNullException.ThrowIfNull(formatter);
 
-                _logAttemptCompletionSource.TrySetResult();
+                string message = formatter(state, exception);
+                int attempt;
+
+                lock (_syncLock)
+                {
+                    attempt = ++_logAttemptCount;
+                    _attemptedMessages.Add(message);
+                }
+
                 OnLog?.Invoke();
 
-                if (ExceptionToThrow != null)
+                Exception exceptionToThrow = ExceptionToThrow ?? ExceptionForAttempt?.Invoke(attempt);
+
+                if (exceptionToThrow != null)
                 {
-                    throw ExceptionToThrow;
+                    throw exceptionToThrow;
                 }
 
                 IReadOnlyList<KeyValuePair<string, object>> structuredState = state is IEnumerable<KeyValuePair<string, object>> structuredStateValues
                     ? structuredStateValues.Select(item => new KeyValuePair<string, object>(item.Key, item.Value)).ToArray()
                     : null;
 
-                List<RecordCountWaiter> completedWaiters = null;
+                List<RecordCountWaiter> completedWaiters;
 
                 lock (_syncLock)
                 {
-                    _records.Add(new RecordedLog(logLevel, eventId, exception, formatter(state, exception), structuredState));
+                    _records.Add(new RecordedLog(logLevel, eventId, exception, message, structuredState, state));
                     completedWaiters = GetSatisfiedWaiters();
                 }
 
@@ -581,7 +842,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
             EventId EventId,
             Exception Exception,
             string Message,
-            IReadOnlyList<KeyValuePair<string, object>> State);
+            IReadOnlyList<KeyValuePair<string, object>> State,
+            object RawState);
 
         private sealed class RecordCountWaiter
         {

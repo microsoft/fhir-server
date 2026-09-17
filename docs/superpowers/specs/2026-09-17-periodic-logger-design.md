@@ -41,7 +41,9 @@ Its constructor accepts:
 - A positive `TimeSpan` aggregation interval.
 - An optional `TimeProvider`, defaulting to `TimeProvider.System`.
 
-The class begins one background periodic flush loop during construction. `BeginScope` and `IsEnabled` delegate to the wrapped logger.
+The class begins one background periodic flush loop during construction. `BeginScope` and `IsEnabled` delegate directly to the wrapped logger and never throw on behalf of the wrapper, including after disposal or after a recorded failure.
+
+A public sealed `PeriodicLoggerFlushException` is added at `Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLoggerFlushException.cs` in the same namespace. It identifies a failure that originated in the wrapped logging provider while an aggregate batch was being emitted, and it exposes `DiscardedEntryCount` and `DiscardedOccurrenceCount`.
 
 ## Logging Behavior
 
@@ -58,7 +60,7 @@ Enabled information messages are not immediately passed to the wrapped logger. T
    - The complete `EventId`, including its numeric identifier and name.
    - The rendered message.
    - `Exception.ToString()`, or no exception text when the exception is null.
-3. Adds a new aggregate entry or increments the existing entry under a short lock.
+3. Adds a new aggregate entry or increments the existing entry under a short lock. The caller-supplied structured state is snapshotted before the lock is entered, so arbitrary caller code is never run while the aggregation lock is held.
 
 The first occurrence supplies the event identifier, original state, exception, formatter, and insertion position used when the aggregate is emitted.
 
@@ -90,6 +92,7 @@ The wrapper supports concurrent calls to `Log`, timer ticks, and disposal.
 - A private lock protects the active dictionary and disposed state.
 - Flush work is detached under the lock and emitted after releasing it.
 - No wrapped logger call occurs while holding the lock.
+- No caller-supplied state is enumerated while holding the lock.
 - Disposal prevents new messages from being accepted before detaching the final dictionary.
 - Multiple disposal calls are safe and do not emit entries more than once.
 - Calls to `Log` after disposal throw `ObjectDisposedException`.
@@ -112,11 +115,26 @@ The interval must be greater than `TimeSpan.Zero`; construction rejects zero or 
 
 ## Failure Handling
 
-The wrapper does not silently suppress exceptions thrown by the wrapped logger.
+The wrapper does not silently suppress exceptions thrown by the wrapped logger, and it does not turn a logging-provider failure into an application request failure.
 
-If an interval emission throws, the periodic loop records the failure and stops scheduling additional flushes. Later calls to `Log` surface an `InvalidOperationException` with the recorded provider failure as its inner exception rather than accumulating entries that can no longer be emitted.
+Two failure classes are distinguished:
 
-Disposal still attempts the final partial-interval flush and then surfaces any recorded provider failure. Entries detached by a failed flush are not retried because some providers may have accepted an entry before throwing, and retrying the complete batch could create duplicates. The implementation does not log through an alternate path or pretend a failed entry was emitted. This follows the existing `ILogger` expectation that providers normally handle their own operational failures while ensuring unexpected provider exceptions are not hidden.
+- **Wrapped-provider emission failures.** The wrapped logger threw while the wrapper was emitting a detached aggregate batch. These are surfaced as `PeriodicLoggerFlushException`, whose `InnerException` is the provider exception and whose `DiscardedEntryCount` and `DiscardedOccurrenceCount` report the aggregated entries and the original occurrences that were discarded because of the failure, starting with the entry whose emission threw.
+- **Flush-loop infrastructure failures.** The periodic timer or the loop itself faulted. These are recorded and surfaced with their original exception type, so they are never reported as "the wrapped logger failed."
+
+Either failure class permanently stops aggregation. Once aggregation has stopped:
+
+- `Log` degrades to immediate pass-through for every level, including `Information`. Application request paths keep logging and are not made to fail because a logging provider failed. Because the call is a plain pass-through, an exception observed by the caller now comes from the wrapped logger itself, exactly as it would without the wrapper.
+- `BeginScope` and `IsEnabled` continue to delegate directly and never throw on behalf of the wrapper.
+- The failure stays recorded so that disposal surfaces it.
+
+Entries detached by a failed flush are not retried, because some providers may have accepted an entry before throwing and retrying the complete batch could create duplicates. They are not retried by a later interval or by the final flush. The implementation does not log through an alternate path or pretend a failed entry was emitted.
+
+Disposal always cancels the loop, waits for it, attempts the final partial-interval flush, and releases its timer and cancellation resources, even when stopping the loop fails. It then surfaces every recorded failure: a single failure is rethrown with its original stack, and multiple failures - for example a periodic provider failure plus a distinct final-flush failure - are combined into one `AggregateException` so that none is lost.
+
+`Log` after disposal throws `ObjectDisposedException`. That is the only wrapper-originated exception raised into an application call path.
+
+This follows the existing `ILogger` expectation that providers normally handle their own operational failures, while ensuring unexpected provider exceptions are neither hidden nor injected into unrelated request processing.
 
 ## Testing
 
@@ -135,8 +153,12 @@ Unit tests in `Microsoft.Health.Fhir.Core.UnitTests` will use `FakeTimeProvider`
 - Final partial-interval flush during synchronous and asynchronous disposal.
 - Idempotent disposal.
 - Rejection of logging after disposal.
-- Rejection of new aggregation after a wrapped logger failure.
-- Final-flush attempts and propagation of wrapped logger failures during disposal.
+- Degradation to immediate pass-through after a wrapped logger failure, including that `BeginScope`, `IsEnabled`, `LogError`, and `LogInformation` do not throw because of the recorded failure.
+- Absence of retries for a failed detached batch, and the discarded entry and occurrence counts it reports.
+- Replacement of a caller-supplied `OccurrenceCount` by exactly one authoritative aggregate count.
+- State adapter `Count`, index ordering, `{OriginalFormat}` preservation, out-of-range index handling, and non-structured state.
+- Exact aggregate counts under concurrent identical information calls.
+- Final-flush attempts and propagation of wrapped logger failures during disposal, including preservation of both a periodic failure and a distinct final-flush failure.
 
 ## Consequences
 

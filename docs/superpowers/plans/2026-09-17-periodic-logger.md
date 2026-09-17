@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - Add the implementation at `src/Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLogger.cs` in namespace `Microsoft.Health.Fhir.Core.Features.Logging`.
+- Add the wrapped-provider failure type at `src/Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLoggerFlushException.cs` in the same namespace.
 - Add tests at `src/Microsoft.Health.Fhir.Core.UnitTests/Features/Logging/PeriodicLoggerTests.cs`.
 - Aggregate exactly `LogLevel.Information`; pass every other enabled level through immediately.
 - Identify duplicates by complete `EventId`, rendered message, and `Exception.ToString()`.
@@ -19,8 +20,8 @@
 - Do not attempt to preserve ambient logger scopes for deferred information messages.
 - Do not cap the number of distinct messages retained in an interval.
 - Flush pending messages during both synchronous and asynchronous disposal.
-- Calls after disposal throw `ObjectDisposedException`.
-- Do not swallow inner logger failures; stop periodic scheduling, reject later logging, attempt the final flush, and surface failures during disposal.
+- Calls to `Log` after disposal throw `ObjectDisposedException`; `BeginScope` and `IsEnabled` always delegate directly and never throw on behalf of the wrapper.
+- Do not swallow inner logger failures; stop periodic scheduling, degrade later `Log` calls to immediate pass-through, attempt the final flush, and surface every recorded failure during disposal.
 - Add XML documentation to all public members and follow the repository copyright header and C# conventions.
 - Do not add new package dependencies.
 
@@ -499,11 +500,12 @@ git commit -m "Aggregate periodic information logs" -m "Co-authored-by: Copilot 
 
 **Files:**
 - Modify: `src/Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLogger.cs`
+- Create: `src/Microsoft.Health.Fhir.Core/Features/Logging/PeriodicLoggerFlushException.cs`
 - Modify: `src/Microsoft.Health.Fhir.Core.UnitTests/Features/Logging/PeriodicLoggerTests.cs`
 
 **Interfaces:**
 - Consumes: periodic aggregation from Task 2.
-- Produces: concurrency-safe idempotent `Dispose`/`DisposeAsync`, final partial-interval flushing, and explicit provider-failure propagation.
+- Produces: concurrency-safe idempotent `Dispose`/`DisposeAsync`, final partial-interval flushing, classified failure recording, and degradation to immediate pass-through after a failure.
 
 - [ ] **Step 1: Write failing disposal, concurrency, and failure tests**
 
@@ -589,7 +591,7 @@ public async Task GivenLoggingDuringFlush_WhenDictionaryIsSwapped_ThenMessageMov
 }
 
 [Fact]
-public async Task GivenProviderFailure_WhenPeriodicFlushRuns_ThenLaterLoggingAndDisposalSurfaceFailure()
+public async Task GivenProviderFailure_WhenPeriodicFlushRuns_ThenLaterCallsDegradeToImmediatePassthrough()
 {
     var timeProvider = new FakeTimeProvider();
     var providerException = new InvalidOperationException("provider failed");
@@ -598,48 +600,27 @@ public async Task GivenProviderFailure_WhenPeriodicFlushRuns_ThenLaterLoggingAnd
     logger.LogInformation("message");
 
     timeProvider.Advance(TimeSpan.FromMinutes(1));
-    await innerLogger.WaitForLogAttemptAsync();
+    await logger.FlushLoopTask.WaitAsync(TestTimeout);
+    innerLogger.ExceptionToThrow = null;
 
-    InvalidOperationException logException = await WaitForExceptionAsync<InvalidOperationException>(
-        () => logger.LogInformation("later"));
-    Assert.Same(providerException, logException.InnerException);
+    // None of these throw because of the latched failure.
+    bool enabled = logger.IsEnabled(LogLevel.Information);
+    IDisposable scope = logger.BeginScope(new object());
+    logger.LogError("error");
+    logger.LogInformation("later");
 
-    Exception disposeException = await Assert.ThrowsAnyAsync<Exception>(
-        () => logger.DisposeAsync().AsTask());
-    Assert.Contains(providerException, Flatten(disposeException));
+    Assert.True(enabled);
+    Assert.Same(innerLogger.Scope, scope);
+    Assert.Equal(new[] { "error", "later" }, innerLogger.Records.Select(record => record.Message));
+
+    PeriodicLoggerFlushException flushException = await ThrowsDisposalFailureAsync<PeriodicLoggerFlushException>(logger);
+    Assert.Same(providerException, flushException.InnerException);
+    Assert.Equal(1, flushException.DiscardedEntryCount);
+    Assert.Equal(1L, flushException.DiscardedOccurrenceCount);
 }
 ```
 
-Extend `RecordingLogger` with `Action OnLog`, `Exception ExceptionToThrow`, a log-attempt `TaskCompletionSource`, and thread-safe record snapshots. Invoke `OnLog` and signal the attempt before throwing `ExceptionToThrow`. Add this helper:
-
-```csharp
-private static IReadOnlyCollection<Exception> Flatten(Exception exception)
-{
-    return exception is AggregateException aggregateException
-        ? aggregateException.Flatten().InnerExceptions
-        : new[] { exception };
-}
-
-private static async Task<TException> WaitForExceptionAsync<TException>(Action action)
-    where TException : Exception
-{
-    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-
-    while (true)
-    {
-        try
-        {
-            action();
-        }
-        catch (TException exception)
-        {
-            return exception;
-        }
-
-        await Task.Delay(TimeSpan.FromMilliseconds(10), timeout.Token);
-    }
-}
-```
+Extend `RecordingLogger` with `Action OnLog`, `Exception ExceptionToThrow`, `Func<int, Exception> ExceptionForAttempt`, an attempt counter, attempted-message capture, raw-state capture, and thread-safe record snapshots. Invoke `OnLog` and record the attempt before throwing. Expose the flush loop task from `PeriodicLogger` as an `internal` member so tests can await loop termination deterministically instead of polling, and bound every asynchronous wait with `WaitAsync(TestTimeout)` so regressions fail instead of hanging.
 
 - [ ] **Step 2: Run the focused tests and verify they fail**
 
@@ -657,21 +638,19 @@ Replace the `_disposed`-only scaffold with:
 
 ```csharp
 private TaskCompletionSource _disposeCompletion;
+private volatile bool _aggregationSuspended;
 private ExceptionDispatchInfo _providerFailure;
+private ExceptionDispatchInfo _flushLoopFailure;
 ```
 
-At the start of `Log<TState>`, enter `_syncLock` briefly and call:
+`BeginScope` and `IsEnabled` delegate directly to the wrapped logger and must not consult disposal or failure state. Only `Log<TState>` checks disposal:
 
 ```csharp
-private void ThrowIfUnavailable()
+private void ThrowIfDisposed()
 {
-    ObjectDisposedException.ThrowIf(_disposeCompletion != null, this);
-
-    if (_providerFailure != null)
+    lock (_syncLock)
     {
-        throw new InvalidOperationException(
-            "The periodic logger stopped because the wrapped logger failed.",
-            _providerFailure.SourceException);
+        ObjectDisposedException.ThrowIf(_disposeCompletion != null, this);
     }
 }
 ```
@@ -717,31 +696,22 @@ public async ValueTask DisposeAsync()
 
 `CompleteDisposalAsync` must:
 
-1. Cancel `_cancellationTokenSource`.
-2. Await `_flushLoopTask`.
-3. Attempt `Flush()` even if the periodic loop recorded a failure.
-4. Dispose `_cancellationTokenSource`.
-5. Throw the recorded periodic provider failure, the final-flush failure, or an `AggregateException` containing both when both exist.
+1. Cancel `_cancellationTokenSource` and await `_flushLoopTask` inside a `try`/`catch` so a cancellation or loop fault cannot skip the remaining steps.
+2. Attempt `Flush()` in its own `try`/`catch`, even if the periodic loop recorded a failure.
+3. Dispose `_cancellationTokenSource` in a `finally`, so it is always released.
+4. Rethrow a single recorded failure with its original stack, or throw one `AggregateException` when more than one failure exists, so a periodic failure and a distinct final-flush failure are both preserved.
 
 Keep `Dispose()` as a blocking call to `DisposeAsync`.
 
-- [ ] **Step 4: Record periodic provider failures without hiding them**
+- [ ] **Step 4: Record failures by class and degrade to immediate pass-through**
 
-In `RunFlushLoopAsync`, retain the cancellation catch and add a provider failure catch:
+`Flush()` emits the detached batch entry by entry. When the wrapped logger throws, wrap the provider exception in a `PeriodicLoggerFlushException` that reports the number of aggregated entries and the total occurrences discarded from the failing entry onward, and abandon the batch. Never retry a failed detached batch, because the provider may have accepted some entries before throwing.
 
-```csharp
-catch (Exception exception)
-{
-    lock (_syncLock)
-    {
-        _providerFailure ??= ExceptionDispatchInfo.Capture(exception);
-    }
-}
-```
+In `RunFlushLoopAsync`, keep the cancellation catch, catch `PeriodicLoggerFlushException` around the flush call to record a wrapped-provider failure, and keep an outer catch for everything else to record a flush-loop infrastructure failure with its original exception type. Loop faults must not be reported as "the wrapped logger failed."
 
-Do not continue ticking after this catch. Ensure `Log<TState>` checks `_providerFailure` while holding `_syncLock` before adding a new entry.
+Both failure classes set `_aggregationSuspended`. Once it is set, `Log<TState>` stops buffering and writes every level - including `Information` - straight through to the wrapped logger, so a logging provider failure never throws into an application request path. The recorded failure stays latched for disposal to surface.
 
-If final `Flush()` fails during disposal, preserve that exception separately. Do not retry entries from a failed detached batch because the provider may have accepted some entries before throwing.
+In `Log<TState>`, snapshot the caller-supplied state into `PeriodicLogState` *before* entering `_syncLock`: take the lock once to try to increment an existing entry, build the state outside the lock when none exists, then take the lock again to add or increment. Caller-supplied enumerators must never run while the aggregation lock is held.
 
 - [ ] **Step 5: Run focused tests and the Core project build**
 
@@ -779,14 +749,17 @@ git commit -m "Harden periodic logger lifecycle" -m "Co-authored-by: Copilot App
 Confirm explicitly in the diff that:
 
 - No wrapped logger call occurs while `_syncLock` is held.
+- No caller-supplied state is enumerated while `_syncLock` is held.
 - Information messages are rendered once at capture time.
 - The first occurrence's structured state is copied rather than retained as mutable provider state.
 - Complete `EventId`, rendered text, and exception text form the identity.
-- `OccurrenceCount` is a `long` and is always emitted.
+- `OccurrenceCount` is a `long`, is always emitted exactly once, and replaces any caller-supplied value with the same name.
 - A timer tick swaps the active dictionary before provider calls.
 - Disposal blocks new logging before cancellation and final flushing.
-- Both sync and async disposal share the same one-owner path.
-- A failed periodic provider write stops the loop and cannot cause unbounded new accumulation.
+- Both sync and async disposal share the same one-owner path, always attempt the final flush, and always release the cancellation source.
+- A failed periodic provider write stops the loop, is never retried, and degrades later `Log` calls to immediate pass-through rather than throwing into request paths.
+- Wrapped-provider emission failures are reported as `PeriodicLoggerFlushException` with discarded entry/occurrence counts, and flush-loop infrastructure failures keep their original exception type.
+- `BeginScope` and `IsEnabled` never throw on behalf of the wrapper.
 
 - [ ] **Step 2: Run the complete Core unit-test project**
 

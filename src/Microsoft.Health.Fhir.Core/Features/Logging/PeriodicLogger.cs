@@ -15,8 +15,30 @@ using Microsoft.Extensions.Logging;
 namespace Microsoft.Health.Fhir.Core.Features.Logging
 {
     /// <summary>
-    /// Wraps an <see cref="ILogger"/> and introduces a periodic flush loop for later batching behavior.
+    /// Wraps an <see cref="ILogger"/> and collapses repeated <see cref="LogLevel.Information"/> messages into one
+    /// emission per aggregation interval.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Enabled messages whose level is not exactly <see cref="LogLevel.Information"/> are passed to the wrapped logger
+    /// immediately and are never aggregated. Enabled information messages are buffered and grouped by the complete
+    /// <see cref="EventId"/>, the rendered message, and the exception text. A background loop emits each distinct
+    /// group once per interval with an added <c>OccurrenceCount</c> structured property.
+    /// </para>
+    /// <para>
+    /// If the wrapped logger throws while a batch is being emitted, aggregation stops permanently: the failure is
+    /// recorded so that disposal can surface it, and every later information call degrades to immediate pass-through
+    /// instead of throwing into application request paths. Failures raised by the periodic timer or the flush loop
+    /// itself stop aggregation the same way and are surfaced with their original exception type. A batch that failed
+    /// to emit is discarded and is never retried, because the wrapped provider may already have accepted some of its
+    /// entries.
+    /// </para>
+    /// <para>
+    /// <see cref="BeginScope{TState}(TState)"/> and <see cref="IsEnabled(LogLevel)"/> always delegate directly to the
+    /// wrapped logger, including after disposal or a recorded failure. Only <see cref="Log{TState}"/> throws
+    /// <see cref="ObjectDisposedException"/> once the wrapper has been disposed.
+    /// </para>
+    /// </remarks>
     public sealed class PeriodicLogger : ILogger, IDisposable, IAsyncDisposable
     {
         private const string OccurrenceCountPropertyName = "OccurrenceCount";
@@ -30,14 +52,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         private readonly Task _flushLoopTask;
         private Dictionary<LogIdentity, AggregatedLogEntry> _entries = new();
         private TaskCompletionSource _disposeCompletion;
+        private volatile bool _aggregationSuspended;
         private ExceptionDispatchInfo _providerFailure;
+        private ExceptionDispatchInfo _flushLoopFailure;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PeriodicLogger"/> class.
+        /// Initializes a new instance of the <see cref="PeriodicLogger"/> class and starts its background flush loop.
         /// </summary>
-        /// <param name="logger">The wrapped logger.</param>
-        /// <param name="interval">The flush interval.</param>
-        /// <param name="timeProvider">The time provider used to drive the periodic timer.</param>
+        /// <param name="logger">The wrapped logger that receives immediate and aggregated messages.</param>
+        /// <param name="interval">The aggregation interval. Must be greater than <see cref="TimeSpan.Zero"/>.</param>
+        /// <param name="timeProvider">
+        /// The time provider used to drive the periodic timer. When <c>null</c>, <see cref="TimeProvider.System"/> is
+        /// used, so the flush loop follows wall-clock time.
+        /// </param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="logger"/> is <c>null</c>.</exception>
         /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is not positive.</exception>
         public PeriodicLogger(ILogger logger, TimeSpan interval, TimeProvider timeProvider = null)
@@ -55,30 +82,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             _flushLoopTask = RunFlushLoopAsync(_cancellationTokenSource.Token);
         }
 
-        /// <inheritdoc />
+        private enum AggregationOutcome
+        {
+            /// <summary>The message was counted against a buffered entry.</summary>
+            Aggregated,
+
+            /// <summary>No buffered entry exists yet, so the caller must snapshot the state outside the lock.</summary>
+            StateRequired,
+
+            /// <summary>Aggregation has stopped, so the caller must write to the wrapped logger immediately.</summary>
+            PassThrough,
+        }
+
+        /// <summary>
+        /// Gets the background flush loop task. Exposed internally so tests can observe loop termination
+        /// deterministically instead of polling.
+        /// </summary>
+        internal Task FlushLoopTask => _flushLoopTask;
+
+        /// <summary>
+        /// Begins a logical operation scope by delegating directly to the wrapped logger.
+        /// </summary>
+        /// <typeparam name="TState">The type of the scope state.</typeparam>
+        /// <param name="state">The scope state.</param>
+        /// <returns>The scope returned by the wrapped logger.</returns>
+        /// <remarks>
+        /// Scope handling is never intercepted, so this call does not throw because the wrapper was disposed or
+        /// because a recorded failure stopped aggregation.
+        /// </remarks>
         public IDisposable BeginScope<TState>(TState state)
             where TState : notnull
-        {
-            lock (_syncLock)
-            {
-                ThrowIfUnavailable();
-            }
+            => _logger.BeginScope(state);
 
-            return _logger.BeginScope(state);
-        }
+        /// <summary>
+        /// Determines whether the wrapped logger is enabled for the specified level.
+        /// </summary>
+        /// <param name="logLevel">The level to check.</param>
+        /// <returns>The value returned by the wrapped logger.</returns>
+        /// <remarks>
+        /// Enablement checks are never intercepted, so this call does not throw because the wrapper was disposed or
+        /// because a recorded failure stopped aggregation.
+        /// </remarks>
+        public bool IsEnabled(LogLevel logLevel) => _logger.IsEnabled(logLevel);
 
-        /// <inheritdoc />
-        public bool IsEnabled(LogLevel logLevel)
-        {
-            lock (_syncLock)
-            {
-                ThrowIfUnavailable();
-            }
-
-            return _logger.IsEnabled(logLevel);
-        }
-
-        /// <inheritdoc />
+        /// <summary>
+        /// Writes a log entry, aggregating enabled <see cref="LogLevel.Information"/> messages and passing every other
+        /// enabled level through to the wrapped logger immediately.
+        /// </summary>
+        /// <typeparam name="TState">The type of the log state.</typeparam>
+        /// <param name="logLevel">The level of the entry.</param>
+        /// <param name="eventId">The event identifier of the entry.</param>
+        /// <param name="state">The structured state of the entry.</param>
+        /// <param name="exception">The exception associated with the entry, if any.</param>
+        /// <param name="formatter">The formatter that renders <paramref name="state"/> and <paramref name="exception"/>.</param>
+        /// <exception cref="ObjectDisposedException">Thrown when the wrapper has already been disposed.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="formatter"/> is <c>null</c>.</exception>
+        /// <remarks>
+        /// After a recorded failure stops aggregation, information messages are passed to the wrapped logger
+        /// immediately rather than buffered, so any exception observed here originates from the wrapped logger itself.
+        /// </remarks>
         public void Log<TState>(
             LogLevel logLevel,
             EventId eventId,
@@ -86,10 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             Exception exception,
             Func<TState, Exception, string> formatter)
         {
-            lock (_syncLock)
-            {
-                ThrowIfUnavailable();
-            }
+            ThrowIfDisposed();
 
             ArgumentNullException.ThrowIfNull(formatter);
 
@@ -98,8 +157,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
                 return;
             }
 
-            if (logLevel != LogLevel.Information)
+            if (logLevel != LogLevel.Information || _aggregationSuspended)
             {
+                // _aggregationSuspended only ever transitions false -> true. A momentarily stale read costs one extra
+                // formatter call because TryAggregate re-checks the flag under the lock and remains authoritative.
                 _logger.Log(logLevel, eventId, state, exception, formatter);
                 return;
             }
@@ -107,31 +168,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             string message = formatter(state, exception);
             var identity = new LogIdentity(eventId.Id, eventId.Name, message, exception?.ToString());
 
-            lock (_syncLock)
-            {
-                ThrowIfUnavailable();
+            AggregationOutcome outcome = TryAggregate(identity, entry: null);
 
-                if (_entries.TryGetValue(identity, out AggregatedLogEntry existingEntry))
-                {
-                    existingEntry.Count++;
-                }
-                else
-                {
-                    PeriodicLogState periodicState = PeriodicLogState.Create(state, message);
-                    _entries.Add(identity, new AggregatedLogEntry(eventId, exception, periodicState));
-                }
+            if (outcome == AggregationOutcome.StateRequired)
+            {
+                // The caller-supplied state is snapshotted outside the aggregation lock so that arbitrary caller code
+                // (enumerators, property getters, ToString overrides) never runs while the lock is held.
+                var newEntry = new AggregatedLogEntry(eventId, exception, PeriodicLogState.Create(state, message));
+                outcome = TryAggregate(identity, newEntry);
+            }
+
+            if (outcome == AggregationOutcome.PassThrough)
+            {
+                _logger.Log(logLevel, eventId, state, exception, formatter);
             }
         }
 
         /// <summary>
-        /// Disposes the logger synchronously.
+        /// Disposes the logger synchronously, flushing the final partial interval.
         /// </summary>
+        /// <exception cref="PeriodicLoggerFlushException">
+        /// Thrown when the wrapped logger failed while emitting an aggregated batch.
+        /// </exception>
+        /// <exception cref="AggregateException">
+        /// Thrown when more than one failure was recorded during the lifetime of the wrapper.
+        /// </exception>
+        /// <remarks>
+        /// Disposal always attempts the final flush and always releases its timer and cancellation resources, then
+        /// surfaces every recorded failure.
+        /// </remarks>
         public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         /// <summary>
-        /// Disposes the logger asynchronously.
+        /// Disposes the logger asynchronously, flushing the final partial interval.
         /// </summary>
         /// <returns>A task that completes when disposal is finished.</returns>
+        /// <exception cref="PeriodicLoggerFlushException">
+        /// Thrown when the wrapped logger failed while emitting an aggregated batch.
+        /// </exception>
+        /// <exception cref="AggregateException">
+        /// Thrown when more than one failure was recorded during the lifetime of the wrapper.
+        /// </exception>
+        /// <remarks>
+        /// Disposal is idempotent and safe to call concurrently. Every caller observes the same outcome, and the final
+        /// interval is emitted at most once. Disposal always attempts the final flush and always releases its timer
+        /// and cancellation resources, even when stopping the background loop fails.
+        /// </remarks>
         public async ValueTask DisposeAsync()
         {
             ThrowIfDisposingFromFlush();
@@ -165,12 +247,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             catch (Exception exception)
             {
                 completion.SetException(exception);
+
+                // The owner rethrows below, and no other caller may ever await the completion task. Observe the
+                // fault here so a logging-provider failure cannot raise TaskScheduler.UnobservedTaskException.
+                _ = completion.Task.Exception;
+
                 throw;
             }
         }
 
         /// <summary>
-        /// Runs the periodic flush loop until cancellation is requested.
+        /// Runs the periodic flush loop until cancellation is requested or a failure stops aggregation.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token used to stop the loop.</param>
         /// <returns>A task representing the background loop.</returns>
@@ -199,21 +286,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
                     }
 
                     await Task.Yield();
-                    FlushWithReentrancyGuard();
+
+                    try
+                    {
+                        FlushWithReentrancyGuard();
+                    }
+                    catch (PeriodicLoggerFlushException flushException)
+                    {
+                        RecordProviderFailure(flushException);
+                        return;
+                    }
                 }
             }
             catch (Exception exception)
             {
-                RecordProviderFailure(exception);
+                // Reached only by failures that did not originate in the wrapped logger, such as timer faults.
+                RecordFlushLoopFailure(exception);
             }
         }
 
         private async Task CompleteDisposalAsync()
         {
+            Exception lifecycleFailure = null;
             Exception finalFlushFailure = null;
 
-            await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
-            await _flushLoopTask.ConfigureAwait(false);
+            try
+            {
+                await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
+                await _flushLoopTask.ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                lifecycleFailure = exception;
+            }
 
             try
             {
@@ -229,13 +334,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             }
 
             ExceptionDispatchInfo providerFailure;
+            ExceptionDispatchInfo flushLoopFailure;
 
             lock (_syncLock)
             {
                 providerFailure = _providerFailure;
+                flushLoopFailure = _flushLoopFailure;
             }
 
-            ThrowDisposalFailure(providerFailure, finalFlushFailure);
+            ThrowDisposalFailures(providerFailure, flushLoopFailure, lifecycleFailure, finalFlushFailure);
+        }
+
+        private AggregationOutcome TryAggregate(in LogIdentity identity, AggregatedLogEntry entry)
+        {
+            lock (_syncLock)
+            {
+                ObjectDisposedException.ThrowIf(_disposeCompletion != null, this);
+
+                if (_aggregationSuspended)
+                {
+                    return AggregationOutcome.PassThrough;
+                }
+
+                if (_entries.TryGetValue(identity, out AggregatedLogEntry existingEntry))
+                {
+                    existingEntry.Count++;
+                    return AggregationOutcome.Aggregated;
+                }
+
+                if (entry == null)
+                {
+                    return AggregationOutcome.StateRequired;
+                }
+
+                _entries.Add(identity, entry);
+                return AggregationOutcome.Aggregated;
+            }
         }
 
         private void FlushWithReentrancyGuard()
@@ -253,17 +387,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             }
         }
 
-        private void RecordProviderFailure(Exception exception)
+        private void RecordProviderFailure(PeriodicLoggerFlushException exception)
         {
             lock (_syncLock)
             {
+                _aggregationSuspended = true;
                 _providerFailure ??= ExceptionDispatchInfo.Capture(exception);
+            }
+        }
+
+        private void RecordFlushLoopFailure(Exception exception)
+        {
+            lock (_syncLock)
+            {
+                _aggregationSuspended = true;
+                _flushLoopFailure ??= ExceptionDispatchInfo.Capture(exception);
             }
         }
 
         private void Flush()
         {
-            Dictionary<LogIdentity, AggregatedLogEntry> entries;
+            AggregatedLogEntry[] batch;
 
             lock (_syncLock)
             {
@@ -272,19 +416,85 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
                     return;
                 }
 
-                entries = _entries;
+                batch = _entries.Values.ToArray();
                 _entries = new Dictionary<LogIdentity, AggregatedLogEntry>();
             }
 
-            foreach (AggregatedLogEntry entry in entries.Values)
+            for (int index = 0; index < batch.Length; index++)
             {
+                AggregatedLogEntry entry = batch[index];
                 PeriodicLogState state = entry.State.WithCount(entry.Count);
-                _logger.Log(
-                    LogLevel.Information,
-                    entry.EventId,
-                    state,
-                    entry.Exception,
-                    static (logState, _) => logState.ToString());
+
+                try
+                {
+                    _logger.Log(
+                        LogLevel.Information,
+                        entry.EventId,
+                        state,
+                        entry.Exception,
+                        static (logState, _) => logState.ToString());
+                }
+                catch (Exception exception)
+                {
+                    throw new PeriodicLoggerFlushException(
+                        batch.Length - index,
+                        CountOccurrences(batch, index),
+                        exception);
+                }
+            }
+        }
+
+        private static long CountOccurrences(AggregatedLogEntry[] batch, int startIndex)
+        {
+            long occurrences = 0;
+
+            for (int index = startIndex; index < batch.Length; index++)
+            {
+                occurrences += batch[index].Count;
+            }
+
+            return occurrences;
+        }
+
+        private static void ThrowDisposalFailures(
+            ExceptionDispatchInfo providerFailure,
+            ExceptionDispatchInfo flushLoopFailure,
+            Exception lifecycleFailure,
+            Exception finalFlushFailure)
+        {
+            var failures = new List<Exception>(4);
+
+            if (providerFailure != null)
+            {
+                failures.Add(providerFailure.SourceException);
+            }
+
+            if (flushLoopFailure != null)
+            {
+                failures.Add(flushLoopFailure.SourceException);
+            }
+
+            if (lifecycleFailure != null)
+            {
+                failures.Add(lifecycleFailure);
+            }
+
+            if (finalFlushFailure != null)
+            {
+                failures.Add(finalFlushFailure);
+            }
+
+            switch (failures.Count)
+            {
+                case 0:
+                    return;
+
+                case 1:
+                    ExceptionDispatchInfo.Capture(failures[0]).Throw();
+                    return;
+
+                default:
+                    throw new AggregateException(failures);
             }
         }
 
@@ -296,30 +506,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             }
         }
 
-        private void ThrowIfUnavailable()
+        private void ThrowIfDisposed()
         {
-            ObjectDisposedException.ThrowIf(_disposeCompletion != null, this);
-
-            if (_providerFailure != null)
+            lock (_syncLock)
             {
-                throw new InvalidOperationException(
-                    "The periodic logger stopped because the wrapped logger failed.",
-                    _providerFailure.SourceException);
-            }
-        }
-
-        private static void ThrowDisposalFailure(ExceptionDispatchInfo providerFailure, Exception finalFlushFailure)
-        {
-            if (providerFailure != null && finalFlushFailure != null)
-            {
-                throw new AggregateException(providerFailure.SourceException, finalFlushFailure);
-            }
-
-            providerFailure?.Throw();
-
-            if (finalFlushFailure != null)
-            {
-                ExceptionDispatchInfo.Capture(finalFlushFailure).Throw();
+                ObjectDisposedException.ThrowIf(_disposeCompletion != null, this);
             }
         }
 
@@ -362,17 +553,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             {
                 get
                 {
-                    if (index < _values.Length)
+                    if (index < 0 || index > _values.Length)
                     {
-                        return _values[index];
+                        throw new ArgumentOutOfRangeException(nameof(index));
                     }
 
-                    if (index == _values.Length)
-                    {
-                        return new KeyValuePair<string, object>(OccurrenceCountPropertyName, _count);
-                    }
-
-                    throw new ArgumentOutOfRangeException(nameof(index));
+                    return index == _values.Length
+                        ? new KeyValuePair<string, object>(OccurrenceCountPropertyName, _count)
+                        : _values[index];
                 }
             }
 
