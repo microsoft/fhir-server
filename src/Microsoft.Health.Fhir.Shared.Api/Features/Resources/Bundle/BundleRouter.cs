@@ -5,13 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Net.Http;
-using System.Security.Policy;
 using System.Threading.Tasks;
 using System.Web;
-using AngleSharp.Io;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -22,8 +18,7 @@ using Microsoft.AspNetCore.Routing.Matching;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
-using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
@@ -34,10 +29,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     internal class BundleRouter : IRouter
     {
         private readonly TemplateBinderFactory _templateBinderFactory;
-        private readonly IEnumerable<MatcherPolicy> _matcherPolicies;
+        private readonly IEndpointSelectorPolicy[] _matcherPolicies;
         private readonly EndpointDataSource _endpointDataSource;
         private readonly EndpointSelector _endpointSelector;
         private readonly ILogger<BundleRouter> _logger;
+        private readonly object _routeEndpointCacheLock = new object();
+
+        private volatile RouteEndpointCache _routeEndpointCache;
 
         public BundleRouter(
             TemplateBinderFactory templateBinderFactory,
@@ -53,7 +51,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _templateBinderFactory = templateBinderFactory;
-            _matcherPolicies = matcherPolicies;
+            _matcherPolicies = matcherPolicies
+                .OrderBy(x => x.Order)
+                .OfType<IEndpointSelectorPolicy>()
+                .ToArray();
             _endpointDataSource = endpointDataSource;
             _endpointSelector = endpointSelector;
             _logger = logger;
@@ -68,45 +69,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            var routeCandidates = new Dictionary<RouteEndpoint, RouteValueDictionary>();
-            IEnumerable<RouteEndpoint> endpoints = _endpointDataSource.Endpoints.OfType<RouteEndpoint>();
-            PathString path = context.HttpContext.Request.Path;
-
-            foreach (RouteEndpoint endpoint in endpoints)
-            {
-                var routeValues = new RouteValueDictionary();
-                var routeDefaults = new RouteValueDictionary(endpoint.RoutePattern.Defaults);
-
-                RoutePattern pattern = endpoint.RoutePattern;
-                TemplateBinder templateBinder = _templateBinderFactory.Create(pattern);
-
-                var templateMatcher = new TemplateMatcher(new RouteTemplate(pattern), routeDefaults);
-
-                // Pattern match
-                if (!templateMatcher.TryMatch(path, routeValues))
-                {
-                    continue;
-                }
-
-                // Eliminate routes that don't match constraints
-                if (!templateBinder.TryProcessConstraints(context.HttpContext, routeValues, out var parameterName, out IRouteConstraint constraint))
-                {
-                    _logger.LogDebug("Constraint '{ConstraintType}' not met for parameter '{ParameterName}'", constraint, parameterName);
-                    continue;
-                }
-
-                routeCandidates.Add(endpoint, routeValues);
-            }
-
-            var candidateSet = new CandidateSet(
-                routeCandidates.Select(x => x.Key).Cast<Endpoint>().ToArray(),
-                routeCandidates.Select(x => x.Value).ToArray(),
-                Enumerable.Repeat(1, routeCandidates.Count).ToArray());
+            RouteEndpointCache routeEndpointCache = GetRouteEndpointCache();
+            CandidateSet candidateSet = CreateCandidateSet(context, routeEndpointCache.RouteEndpoints);
 
             // Policies apply filters / matches on attributes such as Consumes, HttpVerbs etc...
-            foreach (IEndpointSelectorPolicy policy in _matcherPolicies
-                         .OrderBy(x => x.Order)
-                         .OfType<IEndpointSelectorPolicy>())
+            foreach (IEndpointSelectorPolicy policy in _matcherPolicies)
             {
                 await policy.ApplyAsync(context.HttpContext, candidateSet);
             }
@@ -126,8 +93,119 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else
             {
-                _logger.LogDebug("No RouteEndpoint found for '{Path}'", HttpUtility.UrlEncode(path));
+                _logger.LogDebug("No RouteEndpoint found for '{Path}'", HttpUtility.UrlEncode(context.HttpContext.Request.Path));
             }
+        }
+
+        private CandidateSet CreateCandidateSet(RouteContext context, RouteEndpointMatcher[] routeEndpoints)
+        {
+            Endpoint[] endpoints = new Endpoint[routeEndpoints.Length];
+            RouteValueDictionary[] routeValues = new RouteValueDictionary[routeEndpoints.Length];
+            int[] scores = new int[routeEndpoints.Length];
+            int candidateCount = 0;
+            PathString path = context.HttpContext.Request.Path;
+
+            foreach (RouteEndpointMatcher routeEndpoint in routeEndpoints)
+            {
+                var candidateRouteValues = new RouteValueDictionary();
+
+                if (!routeEndpoint.TemplateMatcher.TryMatch(path, candidateRouteValues))
+                {
+                    continue;
+                }
+
+                // Eliminate routes that don't match constraints.
+                if (!routeEndpoint.TemplateBinder.TryProcessConstraints(context.HttpContext, candidateRouteValues, out var parameterName, out IRouteConstraint constraint))
+                {
+                    _logger.LogDebug("Constraint '{ConstraintType}' not met for parameter '{ParameterName}'", constraint, parameterName);
+                    continue;
+                }
+
+                endpoints[candidateCount] = routeEndpoint.Endpoint;
+                routeValues[candidateCount] = candidateRouteValues;
+                scores[candidateCount] = 1;
+                candidateCount++;
+            }
+
+            if (candidateCount != routeEndpoints.Length)
+            {
+                Array.Resize(ref endpoints, candidateCount);
+                Array.Resize(ref routeValues, candidateCount);
+                Array.Resize(ref scores, candidateCount);
+            }
+
+            return new CandidateSet(endpoints, routeValues, scores);
+        }
+
+        private RouteEndpointCache GetRouteEndpointCache()
+        {
+            RouteEndpointCache routeEndpointCache = _routeEndpointCache;
+            if (routeEndpointCache?.ChangeToken.HasChanged == false)
+            {
+                return routeEndpointCache;
+            }
+
+            lock (_routeEndpointCacheLock)
+            {
+                routeEndpointCache = _routeEndpointCache;
+                if (routeEndpointCache?.ChangeToken.HasChanged == false)
+                {
+                    return routeEndpointCache;
+                }
+
+                routeEndpointCache = CreateRouteEndpointCache();
+                _routeEndpointCache = routeEndpointCache;
+                return routeEndpointCache;
+            }
+        }
+
+        private RouteEndpointCache CreateRouteEndpointCache()
+        {
+            IChangeToken changeToken = _endpointDataSource.GetChangeToken();
+            RouteEndpointMatcher[] routeEndpoints = _endpointDataSource.Endpoints
+                .OfType<RouteEndpoint>()
+                .Select(endpoint =>
+                {
+                    RoutePattern pattern = endpoint.RoutePattern;
+                    var routeDefaults = new RouteValueDictionary(pattern.Defaults);
+
+                    return new RouteEndpointMatcher(
+                        endpoint,
+                        _templateBinderFactory.Create(pattern),
+                        new TemplateMatcher(new RouteTemplate(pattern), routeDefaults));
+                })
+                .ToArray();
+
+            return new RouteEndpointCache(changeToken, routeEndpoints);
+        }
+
+        private sealed class RouteEndpointCache
+        {
+            public RouteEndpointCache(IChangeToken changeToken, RouteEndpointMatcher[] routeEndpoints)
+            {
+                ChangeToken = changeToken;
+                RouteEndpoints = routeEndpoints;
+            }
+
+            public IChangeToken ChangeToken { get; }
+
+            public RouteEndpointMatcher[] RouteEndpoints { get; }
+        }
+
+        private sealed class RouteEndpointMatcher
+        {
+            public RouteEndpointMatcher(RouteEndpoint endpoint, TemplateBinder templateBinder, TemplateMatcher templateMatcher)
+            {
+                Endpoint = endpoint;
+                TemplateBinder = templateBinder;
+                TemplateMatcher = templateMatcher;
+            }
+
+            public RouteEndpoint Endpoint { get; }
+
+            public TemplateBinder TemplateBinder { get; }
+
+            public TemplateMatcher TemplateMatcher { get; }
         }
     }
 }

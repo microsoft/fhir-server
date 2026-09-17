@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 };
 
                 int conditionalOperationsCounter = 0;
-                List<Task> requestsPerResource = new List<Task>();
+                List<Task> requestsPerResource = new List<Task>(resources.Count);
                 for (int i = 0; i < resources.Count; i++)
                 {
                     // 25 - 05 - Best.

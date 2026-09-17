@@ -164,5 +164,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             return outerHttpContext.IsBundleProcessingLogicValid();
         }
+
+        internal static List<EntryComponent> CreateEmptyEntryList(int entryCount)
+        {
+            // This is an optimized way of initializing a List<T> without having to pre-allocate another array.
+            var emptyEntryComponentList = new List<EntryComponent>(entryCount);
+            for (int i = 0; i < entryCount; i++)
+            {
+                emptyEntryComponentList.Add(null);
+            }
+
+            return emptyEntryComponentList;
+        }
     }
 }

@@ -391,8 +391,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task ProcessAllResourcesInABundleAsRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
         {
-            // List is not created initially since it doesn't create a list with _requestCount elements
-            responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
+            // Initialize response "Entry" with an empty list.
+            responseBundle.Entry = BundleHandlerRuntime.CreateEmptyEntryList(_requestCount);
+
             foreach (int emptyRequestOrder in _emptyRequestsOrder)
             {
                 var entryComponent = new EntryComponent
