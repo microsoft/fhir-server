@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             StartCacheUpdateTask(_backgroundCts.Token);
 
             var cleanupCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            await DeleteTestResources(cleanupCts.Token);
+            await DeleteTestResources(cleanupCts.Token); // comment
             cleanupCts.Dispose();
         }
 
