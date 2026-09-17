@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
@@ -56,6 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 services.AddControllers(mvcOptions =>
                 {
                     var policy = new AuthorizationPolicyBuilder()
+                        .AddAuthenticationSchemes(_securityConfiguration.GetAuthenticationSchemes().ToArray())
                         .RequireAuthenticatedUser()
                         .Build();
                     mvcOptions.Filters.Add(new AuthorizeFilter(policy));
