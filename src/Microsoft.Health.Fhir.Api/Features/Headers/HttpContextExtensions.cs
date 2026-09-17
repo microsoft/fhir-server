@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             {
                 string highLatencyAsString = headerValues.FirstOrDefault();
                 if (!string.IsNullOrWhiteSpace(highLatencyAsString) &&
-                    bool.TryParse(headerValues.ToString().Trim(), out bool result))
+                    bool.TryParse(highLatencyAsString.Trim(), out bool result))
                 {
                     return result;
                 }

@@ -88,12 +88,43 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [InlineData("   tRuE   ", true)]
         public void WhenHttpContextHasHighLatencyHeader_ReturnIfHighLatencyIsEnabled(string value, bool isEnabled)
         {
+            // Arrange
             var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.HighLatency, value } };
             HttpContext httpContext = GetFakeHttpContext(httpHeaders);
 
+            // Act
             bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
 
+            // Assert
             Assert.Equal(isEnabled, isHighLatencyEnabled);
+        }
+
+        [Fact]
+        public void WhenHttpContextHasMultipleHighLatencyHeaderValues_AndFirstValueIsTrue_ReturnsTrue()
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.HighLatency, new StringValues(new[] { "true", "false" }));
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+
+            // Assert
+            Assert.True(isHighLatencyEnabled);
+        }
+
+        [Fact]
+        public void WhenHttpContextHasMultipleHighLatencyHeaderValues_AndFirstValueIsFalse_ReturnsFalse()
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.HighLatency, new StringValues(new[] { "false", "true" }));
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+
+            // Assert
+            Assert.False(isHighLatencyEnabled);
         }
 
         [Theory]
