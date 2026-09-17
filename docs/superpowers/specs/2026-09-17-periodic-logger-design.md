@@ -73,7 +73,7 @@ Each emitted message:
 - Adds a structured `OccurrenceCount` property.
 - Appends ` Occurrence count: N.` to the rendered message, where `N` includes the first occurrence.
 
-The emitted state adapter exposes the original key/value pairs when the original state implements `IEnumerable<KeyValuePair<string, object>>`, followed by `OccurrenceCount`. For an arbitrary non-structured state, the original state remains available to the stored formatter and the adapter exposes only `OccurrenceCount`.
+The emitted state adapter exposes the original key/value pairs when the original state implements `IEnumerable<KeyValuePair<string, object>>`, followed by `OccurrenceCount`. `OccurrenceCount` is reserved by the wrapper; an original property with that name is omitted so providers receive one authoritative count. For an arbitrary non-structured state, the adapter exposes only `OccurrenceCount`.
 
 Identical messages are collapsed only within one interval. The same message in a later interval produces a new emission and count.
 
