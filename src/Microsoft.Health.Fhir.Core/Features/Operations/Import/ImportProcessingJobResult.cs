@@ -38,7 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public long ClockMilliseconds { get; set; }
 
         /// <summary>
-        /// Elapsed time spent in database calls in milliseconds. Null when any database call ended in retry.
+        /// Elapsed time spent in database calls in milliseconds. Null when a call threw and was retried by the
+        /// data store; retries internal to the SQL retry service stay included in this value.
         /// </summary>
         public long? DatabaseMilliseconds { get; set; }
     }
