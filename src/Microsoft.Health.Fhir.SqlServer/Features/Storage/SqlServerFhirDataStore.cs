@@ -836,11 +836,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
             {
                 var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion, null)).ToList();
-                if (input.Count == 0) // merge short-circuits on empty input without reaching the database
-                {
-                    return;
-                }
-
                 await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, false, cancellationToken, elapsed => databaseMilliseconds += elapsed);
             }
         }
