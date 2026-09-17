@@ -127,12 +127,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                                     CpuMilliseconds = cpuMilliseconds,
                                     ClockMilliseconds = clockMilliseconds,
                                     DatabaseMilliseconds = databaseMilliseconds,
-                                    ResourceCount = _.Result.SucceededResources + _.Result.FailedResources,
+                                    _.Result.SucceededResources,
+                                    _.Result.FailedResources,
                                     StartDate = _.Job.StartDate.Value,
                                     EndDate = _.Job.EndDate.Value,
                                 };
                             })
-                            .Where(_ => _.ResourceCount > 0)
                             .ToList();
 
                         if (jobLines.Count > 0)
@@ -140,18 +140,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             var retriedJobs = jobLines.Count(x => x.DatabaseMilliseconds is null);
                             var jobMsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
                             var elapsedMsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
-                            var parallelism = elapsedMsec > 0 ? jobMsec / elapsedMsec : -1;
-                            var validJobs = jobLines.Where(_ => _.CpuMilliseconds.HasValue).OrderBy(_ => _.CpuMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList(); // take first 30% to make std lower
-                            var resCnt = validJobs.Sum(_ => _.ResourceCount);
+                            var parallelism = elapsedMsec > 0 ? jobMsec / elapsedMsec : (double?)null;
+                            var validJobs = jobLines.Where(_ => _.CpuMilliseconds.HasValue && _.FailedResources == 0 && _.SucceededResources > 0)
+                                                    .OrderBy(_ => _.CpuMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList(); // take first 30% to make std lower
+                            var resCnt = validJobs.Sum(_ => _.SucceededResources);
                             string cpuStr = null;
                             if (validJobs.Count >= 3) // it does not make sense to compute statistical values for low counts.
                             {
                                 var cpu = (double)validJobs.Sum(_ => _.CpuMilliseconds.Value) / resCnt;
-                                var std = Math.Sqrt(validJobs.Sum(_ => _.ResourceCount * Math.Pow(((double)_.CpuMilliseconds.Value / _.ResourceCount) - cpu, 2)) / resCnt);
+                                var std = Math.Sqrt(validJobs.Sum(_ => _.SucceededResources * Math.Pow(((double)_.CpuMilliseconds.Value / _.SucceededResources) - cpu, 2)) / resCnt);
                                 cpuStr = $" cpu_msec_per_resource={cpu:F2} std_cpu_msec_per_resource={std:F2}";
                             }
 
-                            var executionStats = new List<string> { $"jobs_total={jobLines.Count} jobs={validJobs.Count}{cpuStr} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} retried_jobs={retriedJobs} parallelism={parallelism:F2}" };
+                            var executionStats = new List<string> { $"jobs_total={jobLines.Count} jobs={validJobs.Count}{cpuStr} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} jobs_retried={retriedJobs} parallelism={parallelism:F2}" };
                             executionStats.AddRange(jobLines.Take(50).Select(x => x.Line));
 
                             result.ExecutionStats = executionStats;
