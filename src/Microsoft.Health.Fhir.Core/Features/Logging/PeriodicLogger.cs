@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
     public sealed class PeriodicLogger : ILogger, IDisposable, IAsyncDisposable
     {
         private const string OccurrenceCountPropertyName = "OccurrenceCount";
+        private static readonly AsyncLocal<PeriodicLogger> _activeFlushLogger = new();
+
         private readonly ILogger _logger;
         private readonly TimeSpan _interval;
         private readonly TimeProvider _timeProvider;
@@ -26,7 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         private readonly object _syncLock = new();
         private readonly Task _flushLoopTask;
         private Dictionary<LogIdentity, AggregatedLogEntry> _entries = new();
-        private bool _disposed;
+        private TaskCompletionSource _disposeCompletion;
+        private ExceptionDispatchInfo _providerFailure;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PeriodicLogger"/> class.
@@ -55,14 +59,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         public IDisposable BeginScope<TState>(TState state)
             where TState : notnull
         {
-            ThrowIfDisposed();
+            lock (_syncLock)
+            {
+                ThrowIfUnavailable();
+            }
+
             return _logger.BeginScope(state);
         }
 
         /// <inheritdoc />
         public bool IsEnabled(LogLevel logLevel)
         {
-            ThrowIfDisposed();
+            lock (_syncLock)
+            {
+                ThrowIfUnavailable();
+            }
+
             return _logger.IsEnabled(logLevel);
         }
 
@@ -74,7 +86,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             Exception exception,
             Func<TState, Exception, string> formatter)
         {
-            ThrowIfDisposed();
+            lock (_syncLock)
+            {
+                ThrowIfUnavailable();
+            }
+
             ArgumentNullException.ThrowIfNull(formatter);
 
             if (!_logger.IsEnabled(logLevel))
@@ -93,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
 
             lock (_syncLock)
             {
-                ThrowIfDisposed();
+                ThrowIfUnavailable();
 
                 if (_entries.TryGetValue(identity, out AggregatedLogEntry existingEntry))
                 {
@@ -118,16 +134,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         /// <returns>A task that completes when disposal is finished.</returns>
         public async ValueTask DisposeAsync()
         {
-            if (_disposed)
+            ThrowIfDisposingFromFlush();
+
+            TaskCompletionSource completion;
+            bool ownsDisposal = false;
+
+            lock (_syncLock)
             {
+                completion = _disposeCompletion;
+
+                if (completion == null)
+                {
+                    completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    _disposeCompletion = completion;
+                    ownsDisposal = true;
+                }
+            }
+
+            if (!ownsDisposal)
+            {
+                await completion.Task.ConfigureAwait(false);
                 return;
             }
 
-            _disposed = true;
-            await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
-            await _flushLoopTask.ConfigureAwait(false);
-            Flush();
-            _cancellationTokenSource.Dispose();
+            try
+            {
+                await CompleteDisposalAsync().ConfigureAwait(false);
+                completion.SetResult();
+            }
+            catch (Exception exception)
+            {
+                completion.SetException(exception);
+                throw;
+            }
         }
 
         /// <summary>
@@ -137,17 +176,88 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         /// <returns>A task representing the background loop.</returns>
         private async Task RunFlushLoopAsync(CancellationToken cancellationToken)
         {
-            using var timer = new PeriodicTimer(_interval, _timeProvider);
+            try
+            {
+                using var timer = new PeriodicTimer(_interval, _timeProvider);
+
+                while (true)
+                {
+                    bool shouldFlush;
+
+                    try
+                    {
+                        shouldFlush = await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    if (!shouldFlush)
+                    {
+                        return;
+                    }
+
+                    await Task.Yield();
+                    FlushWithReentrancyGuard();
+                }
+            }
+            catch (Exception exception)
+            {
+                RecordProviderFailure(exception);
+            }
+        }
+
+        private async Task CompleteDisposalAsync()
+        {
+            Exception finalFlushFailure = null;
+
+            await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
+            await _flushLoopTask.ConfigureAwait(false);
 
             try
             {
-                while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    Flush();
-                }
+                FlushWithReentrancyGuard();
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (Exception exception)
             {
+                finalFlushFailure = exception;
+            }
+            finally
+            {
+                _cancellationTokenSource.Dispose();
+            }
+
+            ExceptionDispatchInfo providerFailure;
+
+            lock (_syncLock)
+            {
+                providerFailure = _providerFailure;
+            }
+
+            ThrowDisposalFailure(providerFailure, finalFlushFailure);
+        }
+
+        private void FlushWithReentrancyGuard()
+        {
+            PeriodicLogger activeFlushLogger = _activeFlushLogger.Value;
+            _activeFlushLogger.Value = this;
+
+            try
+            {
+                Flush();
+            }
+            finally
+            {
+                _activeFlushLogger.Value = activeFlushLogger;
+            }
+        }
+
+        private void RecordProviderFailure(Exception exception)
+        {
+            lock (_syncLock)
+            {
+                _providerFailure ??= ExceptionDispatchInfo.Capture(exception);
             }
         }
 
@@ -178,7 +288,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             }
         }
 
-        private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+        private void ThrowIfDisposingFromFlush()
+        {
+            if (ReferenceEquals(_activeFlushLogger.Value, this))
+            {
+                throw new InvalidOperationException("The periodic logger cannot be disposed while it is flushing through the wrapped logger.");
+            }
+        }
+
+        private void ThrowIfUnavailable()
+        {
+            ObjectDisposedException.ThrowIf(_disposeCompletion != null, this);
+
+            if (_providerFailure != null)
+            {
+                throw new InvalidOperationException(
+                    "The periodic logger stopped because the wrapped logger failed.",
+                    _providerFailure.SourceException);
+            }
+        }
+
+        private static void ThrowDisposalFailure(ExceptionDispatchInfo providerFailure, Exception finalFlushFailure)
+        {
+            if (providerFailure != null && finalFlushFailure != null)
+            {
+                throw new AggregateException(providerFailure.SourceException, finalFlushFailure);
+            }
+
+            providerFailure?.Throw();
+
+            if (finalFlushFailure != null)
+            {
+                ExceptionDispatchInfo.Capture(finalFlushFailure).Throw();
+            }
+        }
 
         private readonly record struct LogIdentity(int EventIdId, string EventIdName, string Message, string ExceptionText);
 
