@@ -15,7 +15,7 @@ Goals: cap CPU oversubscription at ~2x, and make throttling visible as a fast 42
 ## Options Considered
 
 1. **Per-instance in-flight counter** — count requests in the data layer *(rejected: process-local, scales with instance count)*
-2. **`sys.dm_exec_sessions` where `status <> 'sleeping'`** — count non-idle sessions *(rejected: counts `suspended` requests blocked on locks/IO, inflating the count while CPU is idle; pool-scoped)*
+2. **`sys.dm_exec_sessions` where `status <> 'sleeping'` and `database_id = db_id()`** — count non-idle sessions *(rejected: counts `suspended` requests blocked on locks/IO, inflating the count while CPU is idle)*
 3. **`sys.dm_os_schedulers` runnable queue depth** — cleanest CPU signal, MAXDOP-immune *(rejected: SQLOS-scoped, so reports pool-wide load and misattributes a neighbour's overload)*
 4. **`sys.dm_db_resource_stats`** — true per-database CPU% *(rejected for enforcement: 15-second granularity is too laggy)*
 5. **`sys.dm_exec_requests` where `status IN ('running','runnable')`** *(viable — chosen)*
@@ -23,16 +23,16 @@ Goals: cap CPU oversubscription at ~2x, and make throttling visible as a fast 42
 
 ## Decision
 
-Throttle on `COUNT(*) FROM sys.dm_exec_requests WHERE status IN ('running','runnable')` — requests on CPU or queued for it, excluding work blocked on locks and I/O. On Azure SQL this DMV is database-scoped, giving per-database attribution even inside an elastic pool, which is the decisive advantage over the SQLOS views. The check is emitted as a preamble in the same batch as the query it guards, so it adds no round trip, connection, or session, and cannot be starved by the contention it measures.
+Throttle on `count(*) FROM sys.dm_exec_requests WHERE status IN ('running','runnable')` — requests on CPU or queued for it, excluding work blocked on locks and I/O. On Azure SQL this DMV is database-scoped, giving per-database attribution even inside an elastic pool, which is the decisive advantage over the SQLOS views. The check is emitted as a preamble in the same batch as the query it guards, so it adds no round trip, connection, or session, and cannot be starved by the contention it measures.
 
 The throttling condition is:
 
 ```
-throttle when X > MAX(F * C, M)
+throttle when X > max(F * C, M)
 
-  X = COUNT(*) FROM sys.dm_exec_requests WHERE status IN ('running','runnable')
+  X = count(*) FROM sys.dm_exec_requests WHERE status IN ('running','runnable')
       - requests currently on CPU or queued for it, in this database
-  C = cpu_limit FROM sys.dm_user_db_resource_governance WHERE database_id = DB_ID()
+  C = cpu_limit FROM sys.dm_user_db_resource_governance WHERE database_id = db_id()
       - cores allocated to this database
   F = oversubscription factor, default 2.0 - the tolerated latency multiplier
   M = minimum concurrency floor, default 16 - noise guard for small SKUs
