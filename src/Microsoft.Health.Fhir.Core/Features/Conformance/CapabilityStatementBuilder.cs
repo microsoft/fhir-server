@@ -358,6 +358,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
+                // Parameters is a non-persisted resource used to pass information into and back from an operation.
+                // It must be skipped here to avoid creating a resource entry without interactions,
+                // which would violate the FHIR CapabilityStatement minimum cardinality constraint.
+                if (string.Equals(resource, KnownResourceTypes.Parameters, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 ApplyToResource(resource, c => c.SearchRevInclude.Clear());
             }
 
