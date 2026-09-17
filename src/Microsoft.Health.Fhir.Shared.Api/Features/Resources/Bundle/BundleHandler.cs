@@ -588,9 +588,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
         {
-            if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
+            int entryLimit = _outerHttpContext.IsHighLatencyEnabled()
+                ? _bundleConfiguration.EntryLimitHighLatency
+                : _bundleConfiguration.EntryLimit;
+
+            if (entryLimit != default && bundleEntries.Count > entryLimit)
             {
-                throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, _bundleConfiguration.EntryLimit));
+                throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, entryLimit));
             }
 
             int order = 0;
