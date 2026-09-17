@@ -8,7 +8,7 @@ Labels: [SQL](https://github.com/microsoft/fhir-server/labels/Area-SQL)
 
 When the SQL database is oversubscribed on CPU, requests do not fail — they queue for a scheduler and take proportionally longer. Customers experience this as "the service is slow," with no signal that their own request volume is the cause.
 
-The existing `ThrottlingMiddleware` limit is process-local, so the effective limit scales with instance count and cannot observe total database load. ADR 2504 added a database-side concurrency check for `MergeResources` and deferred HTTP 429 responses to a follow-up; this ADR covers that follow-up for the search path.
+The existing `ThrottlingMiddleware` limit is process-local, so the effective limit scales with instance count and cannot observe total database load. The `MergeResources` throttling from ADR 2504 is a separate, write-path mechanism and is not replaced by this one; the two remain in effect independently. This ADR applies a CPU-based limit to the search path.
 
 Goals: cap CPU oversubscription at ~2x, and make throttling visible as a fast 429 rather than as latency.
 
