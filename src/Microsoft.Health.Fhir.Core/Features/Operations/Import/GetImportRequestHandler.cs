@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     // Include execution stats only for in-memory test imports
                     if (coordDefinition.InMemoryTestProcessingJobs > 0)
                     {
-                        var jobLines = jobs.Select(job => jobResultsById.TryGetValue(job.Id, out var result) ? new { Job = job, Result = result } : null)
+                        var jobLines = jobs.Select(_ => jobResultsById.TryGetValue(_.Id, out var intResult) ? new { Job = _, Result = intResult } : null)
                             .Where(_ => _ != null)
                             .OrderByDescending(_ => _.Job.StartDate.Value)
                             .Select(_ =>
