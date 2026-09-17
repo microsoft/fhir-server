@@ -4,6 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -15,11 +18,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
     /// </summary>
     public sealed class PeriodicLogger : ILogger, IDisposable, IAsyncDisposable
     {
+        private const string OccurrenceCountPropertyName = "OccurrenceCount";
         private readonly ILogger _logger;
         private readonly TimeSpan _interval;
         private readonly TimeProvider _timeProvider;
         private readonly CancellationTokenSource _cancellationTokenSource = new();
+        private readonly object _syncLock = new();
         private readonly Task _flushLoopTask;
+        private Dictionary<LogIdentity, AggregatedLogEntry> _entries = new();
         private bool _disposed;
 
         /// <summary>
@@ -49,14 +55,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
         public IDisposable BeginScope<TState>(TState state)
             where TState : notnull
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
             return _logger.BeginScope(state);
         }
 
         /// <inheritdoc />
         public bool IsEnabled(LogLevel logLevel)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
             return _logger.IsEnabled(logLevel);
         }
 
@@ -68,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             Exception exception,
             Func<TState, Exception, string> formatter)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
             ArgumentNullException.ThrowIfNull(formatter);
 
             if (!_logger.IsEnabled(logLevel))
@@ -79,6 +85,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             if (logLevel != LogLevel.Information)
             {
                 _logger.Log(logLevel, eventId, state, exception, formatter);
+                return;
+            }
+
+            string message = formatter(state, exception);
+            var identity = new LogIdentity(eventId, message, exception?.ToString());
+
+            lock (_syncLock)
+            {
+                ThrowIfDisposed();
+
+                if (_entries.TryGetValue(identity, out AggregatedLogEntry existingEntry))
+                {
+                    existingEntry.Count++;
+                }
+                else
+                {
+                    PeriodicLogState periodicState = PeriodicLogState.Create(state, message);
+                    _entries.Add(identity, new AggregatedLogEntry(eventId, exception, periodicState));
+                }
             }
         }
 
@@ -101,6 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             _disposed = true;
             await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
             await _flushLoopTask.ConfigureAwait(false);
+            Flush();
             _cancellationTokenSource.Dispose();
         }
 
@@ -117,11 +143,123 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             {
                 while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    Flush();
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
             }
+        }
+
+        private void Flush()
+        {
+            Dictionary<LogIdentity, AggregatedLogEntry> entries;
+
+            lock (_syncLock)
+            {
+                if (_entries.Count == 0)
+                {
+                    return;
+                }
+
+                entries = _entries;
+                _entries = new Dictionary<LogIdentity, AggregatedLogEntry>();
+            }
+
+            foreach (AggregatedLogEntry entry in entries.Values)
+            {
+                PeriodicLogState state = entry.State.WithCount(entry.Count);
+                _logger.Log(
+                    LogLevel.Information,
+                    entry.EventId,
+                    state,
+                    entry.Exception,
+                    static (logState, _) => logState.ToString());
+            }
+        }
+
+        private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+
+        private readonly record struct LogIdentity(EventId EventId, string Message, string ExceptionText);
+
+        private sealed class AggregatedLogEntry
+        {
+            public AggregatedLogEntry(EventId eventId, Exception exception, PeriodicLogState state)
+            {
+                EventId = eventId;
+                Exception = exception;
+                State = state;
+            }
+
+            public EventId EventId { get; }
+
+            public Exception Exception { get; }
+
+            public long Count { get; set; } = 1;
+
+            public PeriodicLogState State { get; }
+        }
+
+        private sealed class PeriodicLogState : IReadOnlyList<KeyValuePair<string, object>>
+        {
+            private readonly KeyValuePair<string, object>[] _values;
+            private readonly string _renderedMessage;
+            private readonly long _count;
+
+            private PeriodicLogState(KeyValuePair<string, object>[] values, string renderedMessage, long count)
+            {
+                _values = values;
+                _renderedMessage = renderedMessage;
+                _count = count;
+            }
+
+            public int Count => _values.Length + 1;
+
+            public KeyValuePair<string, object> this[int index]
+            {
+                get
+                {
+                    if (index < _values.Length)
+                    {
+                        return _values[index];
+                    }
+
+                    if (index == _values.Length)
+                    {
+                        return new KeyValuePair<string, object>(OccurrenceCountPropertyName, _count);
+                    }
+
+                    throw new ArgumentOutOfRangeException(nameof(index));
+                }
+            }
+
+            public static PeriodicLogState Create<TState>(TState state, string renderedMessage)
+            {
+                KeyValuePair<string, object>[] values = state is IEnumerable<KeyValuePair<string, object>> structuredState
+                    ? structuredState
+                        .Where(pair => !StringComparer.Ordinal.Equals(pair.Key, OccurrenceCountPropertyName))
+                        .Select(pair => new KeyValuePair<string, object>(pair.Key, pair.Value))
+                        .ToArray()
+                    : Array.Empty<KeyValuePair<string, object>>();
+
+                return new PeriodicLogState(values, renderedMessage, 1);
+            }
+
+            public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
+            {
+                foreach (KeyValuePair<string, object> pair in _values)
+                {
+                    yield return pair;
+                }
+
+                yield return new KeyValuePair<string, object>(OccurrenceCountPropertyName, _count);
+            }
+
+            public PeriodicLogState WithCount(long count) => new(_values, _renderedMessage, count);
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            public override string ToString() => $"{_renderedMessage} Occurrence count: {_count}.";
         }
     }
 }
