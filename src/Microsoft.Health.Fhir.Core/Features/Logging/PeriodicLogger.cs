@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
             }
 
             string message = formatter(state, exception);
-            var identity = new LogIdentity(eventId, message, exception?.ToString());
+            var identity = new LogIdentity(eventId.Id, eventId.Name, message, exception?.ToString());
 
             lock (_syncLock)
             {
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
 
         private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
-        private readonly record struct LogIdentity(EventId EventId, string Message, string ExceptionText);
+        private readonly record struct LogIdentity(int EventIdId, string EventIdName, string Message, string ExceptionText);
 
         private sealed class AggregatedLogEntry
         {

@@ -170,6 +170,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         }
 
         [Fact]
+        public async Task GivenSameEventIdValueWithDifferentNames_WhenRenderedMessageMatches_ThenWritesDistinctMessages()
+        {
+            var timeProvider = new FakeTimeProvider();
+            var innerLogger = new RecordingLogger();
+            await using var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1), timeProvider);
+
+            logger.LogInformation(new EventId(7, "First"), "same");
+            logger.LogInformation(new EventId(7, "Second"), "same");
+            await AdvanceAndWaitAsync(timeProvider, innerLogger, TimeSpan.FromMinutes(1), 2);
+
+            Assert.Equal(
+                new[] { new EventId(7, "First"), new EventId(7, "Second") },
+                innerLogger.Records.Select(record => record.EventId).OrderBy(eventId => eventId.Name));
+        }
+
+        [Fact]
         public async Task GivenDifferentExceptionText_WhenRenderedMessageMatches_ThenWritesDistinctMessages()
         {
             var timeProvider = new FakeTimeProvider();
