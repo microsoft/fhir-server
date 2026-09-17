@@ -53,6 +53,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
             Assert.Equal(LogLevel.Warning, innerLogger.LastEnabledLevel);
         }
 
+        [Fact]
+        public async Task GivenDisposedLogger_WhenBeginningScope_ThenThrows()
+        {
+            var innerLogger = new RecordingLogger();
+            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1));
+
+            await logger.DisposeAsync();
+
+            Assert.Throws<ObjectDisposedException>(() => logger.BeginScope(new object()));
+        }
+
+        [Fact]
+        public async Task GivenDisposedLogger_WhenCheckingEnabledState_ThenThrows()
+        {
+            var innerLogger = new RecordingLogger();
+            var logger = new PeriodicLogger(innerLogger, TimeSpan.FromMinutes(1));
+
+            await logger.DisposeAsync();
+
+            Assert.Throws<ObjectDisposedException>(() => logger.IsEnabled(LogLevel.Information));
+        }
+
         [Theory]
         [InlineData(LogLevel.Trace)]
         [InlineData(LogLevel.Debug)]

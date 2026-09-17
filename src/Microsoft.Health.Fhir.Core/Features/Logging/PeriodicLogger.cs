@@ -47,10 +47,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Logging
 
         /// <inheritdoc />
         public IDisposable BeginScope<TState>(TState state)
-            where TState : notnull => _logger.BeginScope(state);
+            where TState : notnull
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _logger.BeginScope(state);
+        }
 
         /// <inheritdoc />
-        public bool IsEnabled(LogLevel logLevel) => _logger.IsEnabled(logLevel);
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _logger.IsEnabled(logLevel);
+        }
 
         /// <inheritdoc />
         public void Log<TState>(
