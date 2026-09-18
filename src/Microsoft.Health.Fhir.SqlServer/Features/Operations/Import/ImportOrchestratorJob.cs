@@ -237,30 +237,55 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task EnqueueProcessingJobsAsync(JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult result, CancellationToken cancellationToken)
         {
-            // split blobs by size
             var inputs = new List<InputResource>();
-            await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
+            var bytesToRead = coordDefinition.ProcessingUnitBytesToRead == 0
+                            ? BytesToReadDefault
+                            : coordDefinition.ProcessingUnitBytesToRead;
+
+            if (coordDefinition.InMemoryTestProcessingJobs > 0)
             {
-                var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
-                result.TotalBytes += blobLength;
-                var bytesToRead = coordDefinition.ProcessingUnitBytesToRead == 0
-                                ? BytesToReadDefault
-                                : coordDefinition.ProcessingUnitBytesToRead;
-                foreach (var offset in GetOffsets(blobLength, bytesToRead))
+                // Test-only: use the first provided input as a template and generate the requested number of
+                // in-memory processing jobs from it (each with its own unique inmemorytest:// URL), so tests can
+                // exercise orchestrator scaling without needing to construct that many distinct input files.
+                var template = coordDefinition.Input[0];
+                var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(template.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
+                for (var i = 0; i < coordDefinition.InMemoryTestProcessingJobs; i++)
                 {
-                    var newInput = input.Clone();
-                    newInput.Offset = offset;
-                    newInput.BytesToRead = bytesToRead;
-                    lock (inputs)
-                    {
-                        inputs.Add(newInput);
-                    }
+                    result.TotalBytes += blobLength;
+                    var syntheticInput = template.Clone();
+                    syntheticInput.Url = new Uri($"{IntegrationDataStoreClientConstants.InMemoryTestSourceScheme}://{template.Url.Host}-{i}");
+                    AddNewInput(inputs, syntheticInput, 0, bytesToRead);
                 }
-            });
+            }
+            else
+            {
+                // split blobs by size
+                await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
+                {
+                    var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
+                    result.TotalBytes += blobLength;
+
+                    foreach (var offset in GetOffsets(blobLength, bytesToRead))
+                    {
+                        AddNewInput(inputs, input, offset, bytesToRead);
+                    }
+                });
+            }
 
             var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, cancellationToken);
 
             result.CreatedJobs = jobIds.Count;
+        }
+
+        private static void AddNewInput(List<InputResource> inputs, InputResource input, long offset, int bytesToRead)
+        {
+            var newInput = input.Clone();
+            newInput.Offset = offset;
+            newInput.BytesToRead = bytesToRead;
+            lock (inputs)
+            {
+                inputs.Add(newInput);
+            }
         }
 
         internal static IEnumerable<long> GetOffsets(long blobLength, int bytesToRead)

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [InlineData((HttpStatusCode)0)]
         public async Task WhenGettingFailedJob_ThenExecptionIsTrownWithCorrectResponseCode(HttpStatusCode statusCode)
         {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
             var workerResult = new ImportJobErrorResult() { ErrorMessage = "Error", HttpStatusCode = statusCode };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task WhenGettingFailedJob_WithGenericException_ThenExecptionIsTrownWithCorrectResponseCode()
         {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
             object workerResult = new { message = "Error", stackTrace = "Trace" };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
@@ -102,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task WhenGettingImportWithCancelledWorkerJob_ThenExceptionIsThrownWithBadResponseCode()
         {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Cancelled };
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
             Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
@@ -161,17 +162,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Fact]
-        public async Task WhenStatusIsRequestedByProcessingJobId_ThenNotFoundShouldBeReturned()
+        public async Task WhenStatusIsRequestedByProcessingJobId_ThenResourceNotFoundExceptionIsThrown()
         {
-            // A processing job is enqueued with the orchestrator's group id, so its own id differs from its group id.
-            // It does not identify an import operation, and its id is never handed out to callers.
-            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
+            // A processing job is enqueued with id different from group id. It cannot represent import operation.
             var worker = new JobInfo()
             {
                 Id = 1,
                 GroupId = 0,
                 Status = JobStatus.Completed,
-                Result = JsonConvert.SerializeObject(workerResult),
+                Result = JsonConvert.SerializeObject(new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" }),
                 Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { TypeId = (int)JobType.ImportProcessing, ResourceLocation = "http://xyz" }),
             };
 
