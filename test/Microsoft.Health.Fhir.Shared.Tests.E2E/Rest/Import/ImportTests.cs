@@ -828,14 +828,14 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Contains("cpu_msec_per_resource=", result.ExecutionStats.First()); // only emitted when timings were actually collected
             var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=")).ToList();
             Assert.Equal(50, jobLines.Count); // max output is 50
-            foreach (var jobLine in jobLines)
+            Assert.All(jobLines, jobLine =>
             {
                 Assert.Contains("succeeded=1000", jobLine);
                 Assert.Contains("failed=0", jobLine);
                 Assert.Contains("cpu_msec=", jobLine);
                 Assert.Contains("clock_msec=", jobLine);
                 Assert.Contains("database_msec=", jobLine);
-            }
+            });
         }
 #endif
 
