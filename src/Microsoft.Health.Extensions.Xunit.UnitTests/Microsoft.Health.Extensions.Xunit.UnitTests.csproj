@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>$(NoWarn);CA1812;CA1515</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>$(NoWarn);CA1812;CA1515</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
+
+    <!--
+      The test asset assembly is launched as a child process, never referenced. ReferenceOutputAssembly="false"
+      keeps its sample test classes out of this assembly (so they are never discovered as real tests) while still
+      guaranteeing it is built first.
+    -->
+    <ProjectReference Include="..\Microsoft.Health.Extensions.Xunit.TestAssets\Microsoft.Health.Extensions.Xunit.TestAssets.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>TestAssetsDirectory</_Parameter1>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\Microsoft.Health.Extensions.Xunit.TestAssets\bin\$(Configuration)\$(TargetFramework)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

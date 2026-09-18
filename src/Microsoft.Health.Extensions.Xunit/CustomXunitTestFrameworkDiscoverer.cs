@@ -17,9 +17,63 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer, ITestFrameworkDiscoverer
     {
+        private readonly TestShardConfiguration _shardConfiguration;
+
         public CustomXunitTestFrameworkDiscoverer(IAssemblyInfo assemblyInfo, ISourceInformationProvider sourceProvider, IMessageSink diagnosticMessageSink, IXunitTestCollectionFactory collectionFactory = null)
+            : this(assemblyInfo, sourceProvider, diagnosticMessageSink, collectionFactory, Environment.GetEnvironmentVariable)
+        {
+        }
+
+        public CustomXunitTestFrameworkDiscoverer(IAssemblyInfo assemblyInfo, ISourceInformationProvider sourceProvider, IMessageSink diagnosticMessageSink, IXunitTestCollectionFactory collectionFactory, Func<string, string> environmentVariableReader)
             : base(assemblyInfo, sourceProvider, diagnosticMessageSink, collectionFactory)
         {
+            EnsureArg.IsNotNull(assemblyInfo, nameof(assemblyInfo));
+            EnsureArg.IsNotNull(environmentVariableReader, nameof(environmentVariableReader));
+
+            // Sharding is opt-in per assembly. A CI job normally sets environment variables for the whole job and
+            // runs several test assemblies in it, so only assemblies that have been reviewed for shard safety are
+            // partitioned. An invalid configuration throws here, while the framework is creating its discoverer,
+            // so that the run fails loudly instead of silently discovering zero tests.
+            _shardConfiguration = assemblyInfo.GetCustomAttributes(typeof(EnableTestShardingAttribute)).Any()
+                ? TestShardConfiguration.FromEnvironment(environmentVariableReader)
+                : TestShardConfiguration.Disabled;
+        }
+
+        /// <summary>
+        /// Filters out the test methods that belong to a different shard.
+        /// </summary>
+        /// <remarks>
+        /// This is the single point both discovery paths funnel through: classes with a
+        /// <see cref="FixtureArgumentSetsAttribute"/> reach it from <see cref="FindTestsForType"/> below, once per
+        /// fixture variant, and classes without one reach it from the base implementation. Filtering here, rather
+        /// than on discovered test cases, means the decision is made before theory rows are enumerated and keeps
+        /// every fixture variant and theory row of a method in the same shard.
+        /// </remarks>
+        protected override bool FindTestsForMethod(ITestMethod testMethod, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkDiscoveryOptions discoveryOptions)
+        {
+            EnsureArg.IsNotNull(testMethod, nameof(testMethod));
+
+            if (_shardConfiguration.IsSharding
+                && !_shardConfiguration.Includes(GetDeclaringTypeFullName(testMethod.TestClass.Class), testMethod.Method.Name))
+            {
+                // Not this shard's method. Returning true continues discovery without emitting any test case.
+                return true;
+            }
+
+            return base.FindTestsForMethod(testMethod, includeSourceInformation, messageBus, discoveryOptions);
+        }
+
+        /// <summary>
+        /// Gets the full name of the real declaring type, ignoring any fixture argument decoration.
+        /// </summary>
+        /// <remarks>
+        /// For a class with fixture argument sets, <see cref="ITypeInfo.Name"/> is the synthetic
+        /// Namespace.Class(Arg1, Arg2) form, which differs per variant. The underlying runtime type is used instead
+        /// so that all variants of a method hash to the same shard.
+        /// </remarks>
+        private static string GetDeclaringTypeFullName(ITypeInfo testClass)
+        {
+            return (testClass as IReflectionTypeInfo)?.Type.FullName ?? testClass.Name;
         }
 
         protected override bool FindTestsForType(ITestClass testClass, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkDiscoveryOptions discoveryOptions)

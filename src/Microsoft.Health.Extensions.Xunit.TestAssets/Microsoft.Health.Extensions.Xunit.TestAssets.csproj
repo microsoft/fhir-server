@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sample test assembly used by Microsoft.Health.Extensions.Xunit.UnitTests to exercise the real xUnit
+    discoverer. It is deliberately NOT part of Microsoft.Health.Fhir.sln: its "tests" are discovery fixtures,
+    not real tests, and must never be collected by a normal solution-wide test run. The unit test project
+    builds it via a ProjectReference with ReferenceOutputAssembly="false" and launches it as a child process.
+  -->
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>$(NoWarn);CA1812;CA1515;SA1402;SA1649;CA1034</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>$(NoWarn);CA1812;CA1515;SA1402;SA1649;CA1034</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
+  </ItemGroup>
+
+</Project>
