@@ -74,7 +74,7 @@
     <PackageVersion Include="Ignixa.Serialization" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Specification" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Medino" Version="3.0.9" />
-    <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
+    <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="3.1.2" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="$(AspNetPackageVersion)" />
