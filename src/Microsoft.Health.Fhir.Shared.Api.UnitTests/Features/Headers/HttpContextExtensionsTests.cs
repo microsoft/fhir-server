@@ -35,6 +35,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             bool isLatencyOverEfficiencyEnabled = httpContext.IsLatencyOverEfficiencyEnabled();
             Assert.False(isLatencyOverEfficiencyEnabled);
 
+            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+            Assert.False(isHighLatencyEnabled);
+
             // Given different default values for the bundle processing logic, we expect the same value to be returned.
             BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
                 defaultBundleProcessingLogic: defaultAndExpectBundleProcessingLogic);
@@ -69,6 +72,59 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             bool isLatencyOverEfficiencyEnabled = httpContext.IsLatencyOverEfficiencyEnabled();
 
             Assert.Equal(isEnabled, isLatencyOverEfficiencyEnabled);
+        }
+
+        [Theory]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        [InlineData("false", false)]
+        [InlineData("falsE", false)]
+        [InlineData("FALSE", false)]
+        [InlineData("2112", false)]
+        [InlineData("true", true)]
+        [InlineData("true ", true)]
+        [InlineData("TRUE", true)]
+        [InlineData(" TRUE ", true)]
+        [InlineData("   tRuE   ", true)]
+        public void WhenHttpContextHasHighLatencyHeader_ReturnIfHighLatencyIsEnabled(string value, bool isEnabled)
+        {
+            // Arrange
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.HighLatency, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+
+            // Assert
+            Assert.Equal(isEnabled, isHighLatencyEnabled);
+        }
+
+        [Fact]
+        public void WhenHttpContextHasMultipleHighLatencyHeaderValues_AndFirstValueIsTrue_ReturnsTrue()
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.HighLatency, new StringValues(new[] { "true", "false" }));
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+
+            // Assert
+            Assert.True(isHighLatencyEnabled);
+        }
+
+        [Fact]
+        public void WhenHttpContextHasMultipleHighLatencyHeaderValues_AndFirstValueIsFalse_ReturnsFalse()
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.HighLatency, new StringValues(new[] { "false", "true" }));
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+
+            // Assert
+            Assert.False(isHighLatencyEnabled);
         }
 
         [Theory]

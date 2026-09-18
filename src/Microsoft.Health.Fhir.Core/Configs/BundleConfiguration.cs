@@ -11,6 +11,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         public int EntryLimit { get; set; } = 500;
 
+        /// <summary>
+        /// Gets or sets the maximum number of entries allowed when high-latency bundle processing is enabled.
+        /// </summary>
+        public int EntryLimitHighLatency { get; set; } = 1000;
+
         public int MaxExecutionTimeInSeconds { get; set; } = 100;
 
         /// <summary>
