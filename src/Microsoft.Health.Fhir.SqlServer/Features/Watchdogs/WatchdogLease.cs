@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _allowRebalance = allowRebalance;
             _leaseEndTime = DateTimeOffset.MinValue;
             _leaseTimeoutSec = (int)Math.Ceiling(periodSec * TimeoutFactor); // if it is rounded to 0 it causes problems in AcquireResourceLease logic.
-            _workerId = _worker + '.' + guid.ToString();
+            _workerId = _worker + '.' + guid;
 
             await _fhirTimer.ExecuteAsync(name, periodSec, OnNextTickAsync, cancellationToken);
 

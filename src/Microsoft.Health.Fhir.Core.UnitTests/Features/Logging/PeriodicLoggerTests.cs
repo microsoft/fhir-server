@@ -318,10 +318,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Logging
         public void GivenPendingMessage_WhenDisposed_ThenFlushesFinalInterval()
         {
             var innerLogger = new RecordingLogger();
-            var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider());
-            logger.LogInformation("pending");
 
-            logger.Dispose();
+            using (var logger = new PeriodicLogger(innerLogger, Interval, new FakeTimeProvider()))
+            {
+                logger.LogInformation("pending");
+            }
 
             Assert.Equal("pending Occurrence count: 1.", Assert.Single(innerLogger.Records).Message);
         }
