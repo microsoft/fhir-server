@@ -452,14 +452,22 @@ if ($OnlyShortTests) {
 }
 
 if ($DataStore -eq 'SqlServer') {
-    $filterParts += 'FullyQualifiedName~SqlServer'
+    $filterParts += 'DataStore=SqlServer'
 } elseif ($DataStore -eq 'CosmosDb') {
-    $filterParts += 'FullyQualifiedName~CosmosDb'
+    $filterParts += 'DataStore=CosmosDb'
 }
 if ($CategoryFilter) {
     $filterParts += $CategoryFilter
 }
-$testFilter = if ($filterParts.Count -gt 0) { $filterParts -join '&' } else { $null }
+
+# MTP hosts (xunit.v3) reject VSTest's `--filter`; they take `--filter-query` with the graph-query
+# syntax `/[(pred1)&(pred2)&...]`. Each predicate keeps its original polarity — negative predicates
+# (`!=`, meaning "not-equal OR trait absent") must stay negative so non-fixtured tests are not dropped.
+$testFilter = if ($filterParts.Count -gt 0) {
+    '/[' + (($filterParts | ForEach-Object { "($_)" }) -join '&') + ']'
+} else {
+    $null
+}
 
 if ($Iterations -gt 1) {
     Write-Host "`n► Running E2E tests ($Iterations iterations each, in parallel)..."
@@ -489,7 +497,7 @@ $testJob = {
 
         $testArgs = @($DllPath, '--report-trx', '--results-directory', $iterDir)
         if ($Filter) {
-            $testArgs += @('--filter', $Filter)
+            $testArgs += @('--filter-query', $Filter)
         }
 
         & dotnet @testArgs 2>&1 | Out-Null
