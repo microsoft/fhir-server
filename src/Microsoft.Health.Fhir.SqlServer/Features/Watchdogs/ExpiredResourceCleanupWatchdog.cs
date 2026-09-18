@@ -140,6 +140,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             // Checks the database for the last bulk delete job definition that was created by this watchdog. If the last job was created before the retention period, returns true to indicate a new job should be created.
             IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobsByQueueTypeAsync((byte)QueueType.BulkDelete, true, cancellationToken, Clock.UtcNow.AddMinutes(-_configuration.ExecutionIntervalInMinutes));
 
+            if (jobs == null || jobs.Count == 0)
+            {
+                _logger.LogInformation("ExpiredResourceCleanupWatchdog: No previous bulk delete jobs found. A new job will be created.");
+                return true;
+            }
+
             foreach (var job in jobs)
             {
                 var bulkDeleteDefinition = job.DeserializeDefinition<BulkDeleteDefinition>();
