@@ -53,11 +53,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             // of truth the compartment union uses (SmartCompartmentSearchRewriter.GetConditionalCompartmentRules),
             // so the union path and this candidate predicate cannot drift. A type governed by a conditional rule is
             // NOT universally shared: it is authorized only by its conditional leg in the SQL generator (own device
-            // referencing the compartment root, or unassigned device with no patient reference).
+            // referencing the compartment root, or unassigned device with no patient reference). A Never rule
+            // authorizes nothing, so it is dropped here while still being counted below when subtracting
+            // conditionally visible types from the shared types — that combination is what makes the type
+            // invisible rather than universally visible.
             IReadOnlyList<SmartCompartmentConditionalRule> conditionalRules =
                 smartCompartmentSearchRewriter.GetConditionalCompartmentRules(smartCompartment.CompartmentType);
 
             ImmutableArray<SmartCompartmentConditionalMembershipRule> conditionalMembershipRules = conditionalRules
+                .Where(rule => rule.Visibility != SmartCompartmentConditionalVisibility.Never)
                 .Select(rule => new SmartCompartmentConditionalMembershipRule(
                     rule.ResourceType,
                     rule.ReferenceSearchParameter.Url.AbsoluteUri,
