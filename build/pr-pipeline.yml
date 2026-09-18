@@ -44,12 +44,12 @@ stages:
         useGlobalJson: true
     # Restoring runs the project's ValidateDependabotCoverage target, which fails when its package
     # list drifts from Directory.Packages.props. A package missing there is a package Dependabot
-    # silently stops updating. See src/DependabotDiscovery/README.md.
+    # silently stops updating. See build/DependabotDiscovery/README.md.
     - task: DotNetCoreCLI@2
-      displayName: 'dotnet restore src/DependabotDiscovery'
+      displayName: 'dotnet restore build/DependabotDiscovery'
       inputs:
         command: restore
-        projects: 'src/DependabotDiscovery/DependabotDiscovery.csproj'
+        projects: 'build/DependabotDiscovery/DependabotDiscovery.csproj'
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
