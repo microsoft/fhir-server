@@ -15,9 +15,16 @@
     * Never add this project to Microsoft.Health.Fhir.sln. Dependabot walks upward from the
       configured directory to any solution that claims the project; being claimed would silently
       restore the slow whole-repository behaviour.
-    * Keep TargetFramework pinned. Directory.Packages.props selects AspNetPackageVersion from it.
-    * Keep the PackageReference list below in step with Directory.Packages.props. The
-      ValidateDependabotCoverage target enforces this, so a plain restore fails on drift.
+    * Keep the discovery TargetFramework aligned with a framework the Choose in
+      Directory.Packages.props handles, since that is what selects AspNetPackageVersion. It lives
+      in Directory.Build.props because Directory.Packages.props is imported before this file.
+    * Keep the PackageReference list below in step with Directory.Packages.props.
+    * Keep the nuget directory in .github/dependabot.yml pointing at this folder.
+
+  The ValidateDependabotCoverage target at the bottom of this file checks every rule above. It
+  only evaluates - no restore, no network - so this verifies the lot in about a second:
+
+    dotnet msbuild build/DependabotDiscovery -t:ValidateDependabotCoverage
 -->
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -27,12 +34,13 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>false</IsTestProject>
     <!--
-      Collapsing all 124 packages into one project creates version conflicts that do not exist in
-      the real projects, where these packages never meet. NU1605 downgrade detection is elevated to
-      an error by default, which would fail restore for a project whose only job is to be listed.
+      Collapsing every package into one project creates version conflicts that do not exist in the
+      real projects, where these packages never meet. NU1605 (downgrade) is an error by default and
+      would fail a project whose only job is to be listed; NU1510 fires for packages the framework
+      already provides. Nothing else is suppressed - in particular NU1604 is left on, because an
+      unbounded version range here means TargetFramework has stopped matching Directory.Packages.props.
     -->
-    <NoWarn>$(NoWarn);NU1510;NU1701;NU1702;NU1602;NU1603;NU1604;NU1605;NU1608</NoWarn>
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1605</WarningsNotAsErrors>
+    <NoWarn>$(NoWarn);NU1510;NU1605</NoWarn>
   </PropertyGroup>
 
   <!-- One bare entry per PackageVersion in Directory.Packages.props, which supplies the version. -->
@@ -164,18 +172,49 @@
   </ItemGroup>
 
   <!--
-    A package missing from the list above is a package Dependabot stops updating, silently. This
-    target turns that into a build failure rather than a slow drift into unpatched dependencies.
+    Each of these is a way this project can stop doing its job without anyone noticing: a package
+    silently dropping out of Dependabot's view, a version silently resolving to nothing, the
+    solution silently reclaiming the whole-repository scan, or dependabot.yml silently pointing at
+    a folder that no longer exists. They are checks rather than comments because every one of them
+    was, at some point, only a comment.
+
+    Nothing here needs a restore or a network, so it runs anywhere in about a second.
   -->
   <Target Name="ValidateDependabotCoverage" BeforeTargets="CollectPackageReferences">
+
+    <PropertyGroup>
+      <_RepoRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)../..'))</_RepoRoot>
+      <_RelativeDir>$(MSBuildThisFileDirectory.Substring($(_RepoRoot.Length)).Replace('\','/').TrimEnd('/'))</_RelativeDir>
+      <_SolutionFile>$(_RepoRoot)Microsoft.Health.Fhir.sln</_SolutionFile>
+      <_DependabotConfig>$(_RepoRoot).github/dependabot.yml</_DependabotConfig>
+    </PropertyGroup>
+
     <ItemGroup>
       <_UncoveredPackage Include="@(PackageVersion)" Exclude="@(PackageReference)" />
       <_UnexpectedPackage Include="@(PackageReference)" Exclude="@(PackageVersion)" />
+      <_VersionlessPackage Include="@(PackageVersion)" Condition="'%(PackageVersion.Version)' == ''" />
     </ItemGroup>
+
+    <!-- This list and Directory.Packages.props must describe the same set of packages. -->
     <Error Condition="'@(_UncoveredPackage)' != ''"
-           Text="$(MSBuildProjectFile) is missing a PackageReference for: @(_UncoveredPackage, ', '). Dependabot will not update these until they are added." />
+           Text="$(MSBuildProjectFile) is missing a PackageReference for: @(_UncoveredPackage, ', '). Dependabot will not update these packages until they are listed here." />
     <Error Condition="'@(_UnexpectedPackage)' != ''"
            Text="$(MSBuildProjectFile) references packages absent from Directory.Packages.props: @(_UnexpectedPackage, ', '). Remove them." />
+
+    <!-- An empty version means TargetFramework no longer matches the Choose in Directory.Packages.props. -->
+    <Error Condition="'$(TargetFramework)' == ''"
+           Text="TargetFramework is empty, so Directory.Packages.props cannot select AspNetPackageVersion. It must be set in Directory.Build.props, not in $(MSBuildProjectFile) - see the comment there." />
+    <Error Condition="'@(_VersionlessPackage)' != ''"
+           Text="No version resolved for: @(_VersionlessPackage, ', '). TargetFramework '$(TargetFramework)' is not handled by the Choose in Directory.Packages.props, so Dependabot would see an unbounded range instead of a version." />
+
+    <!-- Being claimed by the solution silently restores the slow whole-repository scan. -->
+    <Error Condition="Exists('$(_SolutionFile)') AND $([System.IO.File]::ReadAllText('$(_SolutionFile)').Contains('DependabotDiscovery'))"
+           Text="Microsoft.Health.Fhir.sln references this project. Dependabot walks up to the owning solution and would scan the whole repository again, reintroducing the job timeout this project exists to prevent. Remove it from the solution." />
+
+    <!-- dependabot.yml has to point at wherever this project now lives. -->
+    <Error Condition="Exists('$(_DependabotConfig)') AND !$([System.IO.File]::ReadAllText('$(_DependabotConfig)').Contains('directory: &quot;/$(_RelativeDir)&quot;'))"
+           Text="No nuget entry in .github/dependabot.yml points at &quot;/$(_RelativeDir)&quot;. If this project moved, update the nuget directory to match - otherwise Dependabot finds no manifests here and stops updating NuGet packages altogether." />
+
   </Target>
 
 </Project>
