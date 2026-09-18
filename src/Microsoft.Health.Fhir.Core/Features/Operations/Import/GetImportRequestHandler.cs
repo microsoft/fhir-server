@@ -112,53 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     // Include execution stats only for in-memory test imports
                     if (coordDefinition.InMemoryTestProcessingJobs > 0)
                     {
-                        var jobLines = jobs.Select(_ => jobResultsById.TryGetValue(_.Id, out var intResult) ? new { Job = _, Result = intResult } : null)
-                            .Where(_ => _ != null)
-                            .OrderByDescending(_ => _.Job.StartDate.Value)
-                            .Select(_ =>
-                            {
-                                var clockMilliseconds = _.Result.ClockMilliseconds;
-                                var databaseMilliseconds = _.Result.DatabaseMilliseconds;
-                                var cpuMilliseconds = clockMilliseconds - databaseMilliseconds; // x - null = null
-                                return new
-                                {
-                                    Line = $"job={_.Job.Id} succeeded={_.Result.SucceededResources} failed={_.Result.FailedResources} cpu_msec={cpuMilliseconds} clock_msec={clockMilliseconds} database_msec={databaseMilliseconds}",
-                                    CpuMilliseconds = cpuMilliseconds,
-                                    ClockMilliseconds = clockMilliseconds,
-                                    DatabaseMilliseconds = databaseMilliseconds,
-                                    _.Result.SucceededResources,
-                                    _.Result.FailedResources,
-                                    StartDate = _.Job.StartDate.Value,
-                                    EndDate = _.Job.EndDate.Value,
-                                };
-                            })
-                            .ToList();
-
-                        if (jobLines.Count > 0)
-                        {
-                            var retriedJobs = jobLines.Count(x => x.DatabaseMilliseconds is null);
-                            var jobMsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
-                            var elapsedMsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
-                            var parallelism = elapsedMsec > 0 ? jobMsec / elapsedMsec : (double?)null;
-
-                            // slower jobs carry scheduling and GC noise, so cheapest ones more correctly represent CPU cost. 30% does not need to be accurate.
-                            var validJobs = jobLines.Where(_ => _.CpuMilliseconds.HasValue && _.FailedResources == 0 && _.SucceededResources > 0)
-                                                    .OrderBy(_ => _.CpuMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList();
-                            var resCnt = validJobs.Sum(_ => _.SucceededResources);
-                            string cpuStr = null;
-                            if (validJobs.Count >= 3) // it does not make sense to compute statistical values for low counts.
-                            {
-                                var cpu = (double)validJobs.Sum(_ => _.CpuMilliseconds.Value) / resCnt;
-                                var std = Math.Sqrt(validJobs.Sum(_ => _.SucceededResources * Math.Pow(((double)_.CpuMilliseconds.Value / _.SucceededResources) - cpu, 2)) / resCnt);
-                                cpuStr = $" cpu_msec_per_resource={cpu:F2} std_cpu_msec_per_resource={std:F2}";
-                            }
-
-                            // database_msec skips retried jobs by design; jobs_retried reports how many.
-                            var executionStats = new List<string> { $"jobs_total={jobLines.Count} jobs={validJobs.Count}{cpuStr} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} jobs_retried={retriedJobs} parallelism={parallelism:F2}" };
-                            executionStats.AddRange(jobLines.Take(50).Select(x => x.Line));
-
-                            result.ExecutionStats = executionStats;
-                        }
+                        result.ExecutionStats = GetExecutionStats(jobs, jobResultsById);
                     }
 
                     return new GetImportResponse(!inFlightJobsExist ? HttpStatusCode.OK : HttpStatusCode.Accepted, result);
@@ -167,6 +121,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             else
             {
                 throw new OperationFailedException(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
+            }
+
+            // Builds execution statistics for in-memory test imports: an aggregate line followed by one line per completed job.
+            // Returns null when no completed job results are available.
+            static List<string> GetExecutionStats(IList<JobInfo> jobs, Dictionary<long, ImportProcessingJobResult> jobResultsById)
+            {
+                var jobLines = jobs.Select(_ => jobResultsById.TryGetValue(_.Id, out var intResult) ? new { Job = _, Result = intResult } : null)
+                    .Where(_ => _ != null)
+                    .OrderByDescending(_ => _.Job.StartDate.Value)
+                    .Select(_ =>
+                    {
+                        var clockMilliseconds = _.Result.ClockMilliseconds;
+                        var databaseMilliseconds = _.Result.DatabaseMilliseconds;
+                        var cpuMilliseconds = clockMilliseconds - databaseMilliseconds; // x - null = null
+                        return new
+                        {
+                            Line = $"job={_.Job.Id} succeeded={_.Result.SucceededResources} failed={_.Result.FailedResources} cpu_msec={cpuMilliseconds} clock_msec={clockMilliseconds} database_msec={databaseMilliseconds}",
+                            CpuMilliseconds = cpuMilliseconds,
+                            ClockMilliseconds = clockMilliseconds,
+                            DatabaseMilliseconds = databaseMilliseconds,
+                            _.Result.SucceededResources,
+                            _.Result.FailedResources,
+                            StartDate = _.Job.StartDate.Value,
+                            EndDate = _.Job.EndDate.Value,
+                        };
+                    })
+                    .ToList();
+
+                if (jobLines.Count > 0)
+                {
+                    var retriedJobs = jobLines.Count(x => x.DatabaseMilliseconds is null);
+                    var jobMsec = jobLines.Sum(_ => (_.EndDate - _.StartDate).TotalMilliseconds);
+                    var elapsedMsec = (jobLines.Max(_ => _.EndDate) - jobLines.Min(_ => _.StartDate)).TotalMilliseconds;
+                    var parallelism = elapsedMsec > 0 ? jobMsec / elapsedMsec : (double?)null;
+
+                    // slower jobs carry scheduling and GC noise, so cheapest ones more correctly represent CPU cost. 30% does not need to be accurate.
+                    var validJobs = jobLines.Where(_ => _.CpuMilliseconds.HasValue && _.FailedResources == 0 && _.SucceededResources > 0)
+                                            .OrderBy(_ => _.CpuMilliseconds).Take((int)(jobLines.Count * 0.3)).ToList();
+                    var resCnt = validJobs.Sum(_ => _.SucceededResources);
+                    string cpuStr = null;
+                    if (validJobs.Count >= 3) // it does not make sense to compute statistical values for low counts.
+                    {
+                        var cpu = (double)validJobs.Sum(_ => _.CpuMilliseconds.Value) / resCnt;
+                        var std = Math.Sqrt(validJobs.Sum(_ => _.SucceededResources * Math.Pow(((double)_.CpuMilliseconds.Value / _.SucceededResources) - cpu, 2)) / resCnt);
+                        cpuStr = $" cpu_msec_per_resource={cpu:F2} std_cpu_msec_per_resource={std:F2}";
+                    }
+
+                    // database_msec skips retried jobs by design; jobs_retried reports how many.
+                    var executionStats = new List<string> { $"jobs_total={jobLines.Count} jobs={validJobs.Count}{cpuStr} clock_msec={jobLines.Sum(_ => _.ClockMilliseconds)} database_msec={jobLines.Sum(_ => _.DatabaseMilliseconds)} jobs_retried={retriedJobs} parallelism={parallelism:F2}" };
+                    executionStats.AddRange(jobLines.Take(50).Select(x => x.Line));
+                    return executionStats;
+                }
+
+                return null;
             }
 
             static (List<ImportOperationOutcome> Completed, List<ImportFailedOperationOutcome> Failed, Dictionary<long, ImportProcessingJobResult> JobResultsById) GetProcessingResultAsync(IList<JobInfo> jobs, bool returnDetails, bool suppressSuccessfulOutput)
