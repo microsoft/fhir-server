@@ -13,6 +13,13 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    # Naming labels here replaces Dependabot's defaults, which are the lowercase "dependencies" plus
+    # a per-ecosystem label such as ".NET". That is deliberate: this repo labels dependency PRs
+    # "Dependencies" and "Open source" and does not use the per-ecosystem labels. Label matching is
+    # case insensitive, so the casing that lands on a PR is the casing defined in the repo.
+    labels:
+      - "Dependencies"
+      - "Open source"
     groups:
       hl7-fhir:
         patterns:
@@ -59,6 +66,9 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    labels:
+      - "Dependencies"
+      - "Open source"
     groups:
       codeql:
         patterns:
@@ -73,6 +83,9 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    labels:
+      - "Dependencies"
+      - "Open source"
     groups:
       dotnet-images:
         # Dependabot's dependency names for the Dockerfile images are "dotnet/sdk" and
