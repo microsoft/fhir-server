@@ -308,6 +308,18 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult<IReadOnlyList<JobInfo>>(activeJobs);
         }
 
+        public Task<IReadOnlyList<JobInfo>> GetJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken, DateTimeOffset? cutoffDate = null)
+        {
+            var jobs = jobInfos.Where(j => j.QueueType == queueType && (!cutoffDate.HasValue || j.CreateDate >= cutoffDate.Value)).ToList();
+            if (returnParentOnly)
+            {
+                // Filter to only return parent jobs (jobs where Id == GroupId)
+                jobs = jobs.Where(j => j.Id == j.GroupId).ToList();
+            }
+
+            return Task.FromResult<IReadOnlyList<JobInfo>>(jobs);
+        }
+
         public void ClearJobs()
         {
             jobInfos.Clear();
