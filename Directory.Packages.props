@@ -116,7 +116,7 @@
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Identity.Web" Version="2.13.3" />
+    <PackageVersion Include="Microsoft.Identity.Web" Version="4.14.2" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
@@ -139,7 +139,7 @@
     <PackageVersion Include="System.Collections.Immutable" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
     <PackageVersion Include="System.Configuration.ConfigurationManager" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
