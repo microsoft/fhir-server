@@ -55,7 +55,6 @@ using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -1015,7 +1014,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpVerb,
                 persistedId: persistedId,
                 bundleOperationId: bundleOperationId);
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, JObject.FromObject(bundleResourceExecutionContext).ToString());
+            newFhirRequestContext.Properties.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, bundleResourceExecutionContext);
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
             bundleHttpContextAccessor.HttpContext = httpContext;
