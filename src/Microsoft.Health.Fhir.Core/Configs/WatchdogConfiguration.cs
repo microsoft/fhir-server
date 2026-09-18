@@ -14,5 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets the expired resource cleanup configuration.
         /// </summary>
         public ExpiredResourceConfiguration ExpiredResource { get; } = new ExpiredResourceConfiguration();
+
+        /// <summary>
+        /// Gets the Query Store diagnostics watchdog configuration.
+        /// </summary>
+        public QueryStoreDiagnosticsConfiguration QueryStoreDiagnostics { get; } = new QueryStoreDiagnosticsConfiguration();
     }
 }
