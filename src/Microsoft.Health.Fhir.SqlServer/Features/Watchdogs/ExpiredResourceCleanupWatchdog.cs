@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value?.ExpiredResource, nameof(watchdogConfiguration));
+
+            AllowDbPeriodOverride = false;
         }
 
         internal ExpiredResourceCleanupWatchdog()
