@@ -158,6 +158,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
+        [Route(KnownRoutes.DeleteSearchOperationDefinition, Name = RouteNames.DeleteSearchOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> DeleteSearchOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.DeleteSearch);
+        }
+
+        [HttpGet]
         [Route(KnownRoutes.BulkUpdateOperationDefinition, Name = RouteNames.BulkUpdateDefinition)]
         [AllowAnonymous]
         public async Task<IActionResult> BulkUpdateOperationDefinition()
@@ -233,6 +241,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     break;
                 case OperationsConstants.MemberMatch:
                 case OperationsConstants.PurgeHistory:
+                case OperationsConstants.DeleteSearch:
                     operationEnabled = true;
                     break;
                 case OperationsConstants.SearchParameterStatus:
