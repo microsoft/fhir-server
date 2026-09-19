@@ -4,6 +4,7 @@
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Hl7.Fhir.Base" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" VersionOverride="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="System.Net.Http" />
   </ItemGroup>
