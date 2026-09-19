@@ -121,7 +121,7 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.5.57" />
-    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.64.0" />
+    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="181.36.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NSubstitute" Version="6.0.0" />
