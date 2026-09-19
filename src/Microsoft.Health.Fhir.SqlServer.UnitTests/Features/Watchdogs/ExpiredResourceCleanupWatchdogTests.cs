@@ -5,14 +5,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -29,6 +32,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
     [Trait(Traits.Category, Categories.Operations)]
     public class ExpiredResourceCleanupWatchdogTests
     {
+        private const string CleanupUrl = "./ExpiredResourceCleanupWatchdog";
+
         private readonly ExpiredResourceCleanupWatchdog _watchdog;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
@@ -45,6 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 
             var watchdogOptions = Options.Create(configuration);
 
+            ReturnRecentBulkDeleteJobs();
+
             _watchdog = new ExpiredResourceCleanupWatchdog(
                 _sqlRetryService,
                 _queueClient,
@@ -59,8 +66,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             var watchdog = new ExpiredResourceCleanupWatchdog();
 
             // Assert
-            Assert.Equal(4 * 3600, watchdog.PeriodSec);
-            Assert.Equal(3600, watchdog.LeasePeriodSec);
+            Assert.Equal(15 * 60, watchdog.PeriodSec);
+            Assert.Equal(15 * 60, watchdog.LeasePeriodSec);
             Assert.False(watchdog.AllowRebalance);
         }
 
@@ -89,6 +96,71 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
                 Arg.Any<long?>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenNoRecentCleanupJobs_WhenRunWorkAsyncIsCalled_ThenRecentParentBulkDeleteJobsAreQueried()
+        {
+            // Arrange
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var earliestCutoff = DateTimeOffset.UtcNow.AddHours(-4);
+
+            // Act
+            await _watchdog.RunWorkForTestingAsync(cancellationTokenSource.Token);
+
+            // Assert
+            var latestCutoff = DateTimeOffset.UtcNow.AddHours(-4);
+            await _queueClient.Received(1).GetJobsByQueueTypeAsync(
+                (byte)QueueType.BulkDelete,
+                true,
+                cancellationTokenSource.Token,
+                Arg.Is<DateTimeOffset?>(cutoff => cutoff >= earliestCutoff && cutoff <= latestCutoff));
+        }
+
+        [Fact]
+        public async Task GivenRecentCleanupJob_WhenRunWorkAsyncIsCalled_ThenBulkDeleteJobIsNotEnqueued()
+        {
+            // Arrange
+            ReturnRecentBulkDeleteJobs(CreateBulkDeleteJob(123, CleanupUrl));
+
+            // Act
+            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+
+            // Assert
+            await AssertBulkDeleteJobWasNotEnqueuedAsync();
+        }
+
+        [Fact]
+        public async Task GivenRecentUnrelatedBulkDeleteJob_WhenRunWorkAsyncIsCalled_ThenCleanupJobIsEnqueued()
+        {
+            // Arrange
+            ReturnRecentBulkDeleteJobs(CreateBulkDeleteJob(123, "./$bulk-delete"));
+
+            // Act
+            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+
+            // Assert
+            await _queueClient.Received(1).EnqueueAsync(
+                (byte)QueueType.BulkDelete,
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenCleanupJobAfterUnrelatedJob_WhenRunWorkAsyncIsCalled_ThenBulkDeleteJobIsNotEnqueued()
+        {
+            // Arrange
+            ReturnRecentBulkDeleteJobs(
+                CreateBulkDeleteJob(123, "./$bulk-delete"),
+                CreateBulkDeleteJob(124, CleanupUrl));
+
+            // Act
+            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+
+            // Assert
+            await AssertBulkDeleteJobWasNotEnqueuedAsync();
         }
 
         [Fact]
@@ -148,12 +220,59 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
         }
 
+        private static JobInfo CreateBulkDeleteJob(long jobId, string url)
+        {
+            var definition = new BulkDeleteDefinition(
+                JobType.BulkDeleteOrchestrator,
+                DeleteOperation.HardDelete,
+                type: null,
+                searchParameters: new List<Tuple<string, string>>(),
+                excludedResourceTypes: null,
+                url,
+                baseUrl: url,
+                parentRequestId: Guid.NewGuid().ToString(),
+                versionType: ResourceVersionType.Latest,
+                removeReferences: false);
+
+            return new JobInfo
+            {
+                Id = jobId,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+        }
+
         private static bool VerifyBulkDeleteDefinition(string definitionJson)
         {
             var definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitionJson);
             return definition != null &&
                    definition.TypeId == (int)JobType.BulkDeleteOrchestrator &&
-                   definition.DeleteOperation == DeleteOperation.HardDelete;
+                   definition.DeleteOperation == DeleteOperation.HardDelete &&
+                   definition.Url == CleanupUrl &&
+                   definition.BaseUrl == CleanupUrl &&
+                   definition.VersionType == ResourceVersionType.Latest &&
+                   !definition.RemoveReferences &&
+                   definition.SearchParameters.Any(parameter => parameter.Item1 == "_expiryDate" && parameter.Item2.StartsWith("lt", StringComparison.Ordinal)) &&
+                   definition.SearchParameters.Any(parameter => parameter.Item1 == KnownQueryParameterNames.RemoveReferences && parameter.Item2 == "true");
+        }
+
+        private void ReturnRecentBulkDeleteJobs(params JobInfo[] jobs)
+        {
+            _queueClient.GetJobsByQueueTypeAsync(
+                (byte)QueueType.BulkDelete,
+                true,
+                Arg.Any<CancellationToken>(),
+                Arg.Any<DateTimeOffset?>())
+                .Returns(jobs);
+        }
+
+        private async Task AssertBulkDeleteJobWasNotEnqueuedAsync()
+        {
+            await _queueClient.DidNotReceive().EnqueueAsync(
+                (byte)QueueType.BulkDelete,
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
         }
     }
 }

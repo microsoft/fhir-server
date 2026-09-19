@@ -40,8 +40,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled,
         GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange,
         GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled,
+        GivenJobsAcrossQueueTypes_WhenGetJobsByQueueType_ThenOnlyRequestedQueueIsReturned,
+        GivenJobsAcrossQueueTypes_OtherQueue,
+        GivenJobsOutsideCutoff_WhenGetJobsByQueueType_ThenOnlyRecentJobsAreReturned,
+        GivenParentAndChildJobs_WhenGetJobsByQueueType_ThenParentFilterIsApplied,
+        GivenCompletedJob_WhenGetJobsByQueueType_ThenJobIsReturned,
         ExecuteWithHeartbeat,
         ExecuteWithHeartbeatsHeavy,
+        GivenJobsAcrossQueueTypes_EmptyQueue,
     }
 
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
@@ -116,6 +122,91 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(groupId, jobInfos.First().GroupId);
             Assert.Equal(groupId, jobInfos.Last().GroupId);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenJobsAcrossQueueTypes_WhenGetJobsByQueueType_ThenOnlyRequestedQueueIsReturned()
+        {
+            // Arrange
+            byte queueType = (byte)TestQueueType.GivenJobsAcrossQueueTypes_WhenGetJobsByQueueType_ThenOnlyRequestedQueueIsReturned;
+            byte otherQueueType = (byte)TestQueueType.GivenJobsAcrossQueueTypes_OtherQueue;
+            byte emptyQueueType = (byte)TestQueueType.GivenJobsAcrossQueueTypes_EmptyQueue;
+            await _queueClient.EnqueueAsync(queueType, ["requested-queue-job"], null, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(otherQueueType, ["other-queue-job"], null, false, CancellationToken.None);
+
+            // Act
+            IReadOnlyList<JobInfo> requestedQueueJobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, false, CancellationToken.None);
+            IReadOnlyList<JobInfo> emptyQueueJobs = await _queueClient.GetJobsByQueueTypeAsync(emptyQueueType, false, CancellationToken.None);
+
+            // Assert
+            JobInfo job = Assert.Single(requestedQueueJobs);
+            Assert.Equal("requested-queue-job", job.Definition);
+            Assert.Empty(emptyQueueJobs);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenJobsOutsideCutoff_WhenGetJobsByQueueType_ThenOnlyRecentJobsAreReturned()
+        {
+            // Arrange
+            byte queueType = (byte)TestQueueType.GivenJobsOutsideCutoff_WhenGetJobsByQueueType_ThenOnlyRecentJobsAreReturned;
+            await _queueClient.EnqueueAsync(queueType, ["job"], null, false, CancellationToken.None);
+
+            // Act
+            IReadOnlyList<JobInfo> includedJobs = await _queueClient.GetJobsByQueueTypeAsync(
+                queueType,
+                false,
+                CancellationToken.None,
+                DateTimeOffset.UtcNow.AddMinutes(-1));
+            IReadOnlyList<JobInfo> excludedJobs = await _queueClient.GetJobsByQueueTypeAsync(
+                queueType,
+                false,
+                CancellationToken.None,
+                DateTimeOffset.UtcNow.AddMinutes(1));
+
+            // Assert
+            Assert.Single(includedJobs);
+            Assert.Empty(excludedJobs);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenParentAndChildJobs_WhenGetJobsByQueueType_ThenParentFilterIsApplied()
+        {
+            // Arrange
+            byte queueType = (byte)TestQueueType.GivenParentAndChildJobs_WhenGetJobsByQueueType_ThenParentFilterIsApplied;
+            await _queueClient.EnqueueAsync(queueType, ["parent", "child"], null, false, CancellationToken.None);
+
+            // Act
+            IReadOnlyList<JobInfo> allJobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, false, CancellationToken.None);
+            IReadOnlyList<JobInfo> parentJobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, true, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(2, allJobs.Count);
+            JobInfo parentJob = Assert.Single(parentJobs);
+            Assert.Equal(parentJob.GroupId, parentJob.Id);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenCompletedJob_WhenGetJobsByQueueType_ThenJobIsReturned()
+        {
+            // Arrange
+            byte queueType = (byte)TestQueueType.GivenCompletedJob_WhenGetJobsByQueueType_ThenJobIsReturned;
+            await _queueClient.EnqueueAsync(queueType, ["completed-job"], null, false, CancellationToken.None);
+            JobInfo jobToComplete = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
+            jobToComplete.Status = JobStatus.Completed;
+            jobToComplete.Result = "completed";
+            await _queueClient.CompleteJobAsync(jobToComplete, false, CancellationToken.None);
+
+            // Act
+            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, false, CancellationToken.None);
+
+            // Assert
+            JobInfo job = Assert.Single(jobs);
+            Assert.Equal(JobStatus.Completed, job.Status);
+            Assert.Equal("completed", job.Result);
         }
 
         [Fact]

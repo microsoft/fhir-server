@@ -127,5 +127,15 @@ namespace Microsoft.Health.JobManagement
         /// <param name="returnParentOnly">Flag to indicate if we should only return the parent job vs all jobs.</param>
         /// <param name="cancellationToken">Cancellation token</param>
         public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets all jobs for a given queue type, optionally filtering by cutoff date and returning only parent jobs.
+        /// </summary>
+        /// <param name="queueType">The queue type for the jobs to retrieve.</param>
+        /// <param name="returnParentOnly">Flag to indicate if we should only return the parent job vs all jobs.</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <param name="cutoffDate">Optional cutoff date to filter jobs.</param>
+        /// <returns>A task representing the asynchronous operation, containing a list of job information.</returns>
+        public Task<IReadOnlyList<JobInfo>> GetJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken, DateTimeOffset? cutoffDate = null);
     }
 }
