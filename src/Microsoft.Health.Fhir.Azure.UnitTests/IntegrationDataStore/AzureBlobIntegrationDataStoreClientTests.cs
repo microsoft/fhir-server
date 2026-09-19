@@ -87,9 +87,10 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 using StreamReader sourceReader = new StreamReader(sourceStream);
                 using StreamReader targetReader = new StreamReader(targetStream);
 
-                while (!sourceReader.EndOfStream)
+                string sourceLine;
+                while ((sourceLine = await sourceReader.ReadLineAsync()) != null)
                 {
-                    Assert.Equal(sourceReader.ReadLine(), targetReader.ReadLine());
+                    Assert.Equal(sourceLine, await targetReader.ReadLineAsync());
                 }
             }
             finally
@@ -133,9 +134,10 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 using StreamReader sourceReader = new StreamReader(sourceStream);
                 using StreamReader targetReader = new StreamReader(targetStream);
 
-                while (!sourceReader.EndOfStream)
+                string sourceLine;
+                while ((sourceLine = await sourceReader.ReadLineAsync()) != null)
                 {
-                    Assert.Equal(sourceReader.ReadLine(), targetReader.ReadLine());
+                    Assert.Equal(sourceLine, await targetReader.ReadLineAsync());
                 }
             }
             finally
