@@ -34,7 +34,7 @@
     <!-- CVE-2021-26701 -->
     <PackageVersion Include="System.Text.Encodings.Web" Version="$(DotNetSdkPackageVersion)" />
     <!-- CVE-2020-1045 -->
-    <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.3.13" />
     <!-- CVE-2022-26907 -->
     <PackageVersion Include="Microsoft.Rest.ClientRuntime" Version="2.3.24" />
   </ItemGroup>
