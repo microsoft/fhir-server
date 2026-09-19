@@ -55,6 +55,21 @@ updates:
       minor-and-patch:
         patterns:
           - "*"
+        # "*" matches what the groups above claim too, and Dependabot closes their PRs as superseded
+        # by this one. Keep every pattern above listed here.
+        exclude-patterns:
+          - "Hl7.Fhir.*"
+          - "Azure.*"
+          - "Microsoft.Extensions.*"
+          - "System.Collections.Immutable"
+          - "System.Configuration.ConfigurationManager"
+          - "System.Diagnostics.PerformanceCounter"
+          - "System.Security.Cryptography.*"
+          - "System.Text.Encodings.Web"
+          - "Microsoft.AspNetCore.*"
+          - "OpenIddict.*"
+          - "Ignixa.*"
+          - "Microsoft.Data.SqlClient*"
         update-types:
           - "minor"
           - "patch"
