@@ -1,4 +1,9 @@
 <Project>
+  <!-- Versions come from this file only. VersionOverride in a .csproj is a restore error (NU1013);
+       Dependabot adds those when it rebases a bump that already landed (dependabot-core#13408). -->
+  <PropertyGroup>
+    <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
+  </PropertyGroup>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>11.0.135</HealthcareSharedPackageVersion>
