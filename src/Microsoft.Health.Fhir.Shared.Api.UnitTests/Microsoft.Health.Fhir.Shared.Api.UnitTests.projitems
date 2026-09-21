@@ -32,6 +32,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\AadSmartOnFhirProxyFeatureFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
