@@ -1,7 +1,15 @@
 <Project>
+  <!-- Versions come from this file only. VersionOverride in a .csproj is a restore error (NU1013);
+       Dependabot adds those when it rebases a bump that already landed (dependabot-core#13408). -->
+  <PropertyGroup>
+    <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
+  </PropertyGroup>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>11.0.135</HealthcareSharedPackageVersion>
+    <!-- Pinned. Dependabot will not propose Hl7.Fhir.* updates while the matching ignore rule in
+         .github/dependabot.yml is in place, so these two versions only move by hand. To unpin,
+         delete that ignore rule; the hl7-fhir group is still configured and resumes on its own. -->
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>10.0.12</DotNetSdkPackageVersion>

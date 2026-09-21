@@ -20,6 +20,14 @@ updates:
     labels:
       - "Dependencies"
       - "Open source"
+    # Pinned on purpose - see the comment in Directory.Packages.props for why and how to lift it.
+    # This also suppresses security update PRs for these packages; alerts still fire.
+    ignore:
+      - dependency-name: "Hl7.Fhir.*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
     groups:
       hl7-fhir:
         patterns:
