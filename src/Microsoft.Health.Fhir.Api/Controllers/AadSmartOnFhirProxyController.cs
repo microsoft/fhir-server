@@ -65,11 +65,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             SecurityConfiguration securityConfiguration = securityConfigurationOptions.Value;
-            _isAadV2 = new Uri(securityConfiguration.Authentication.Authority).Segments.Contains("v2.0");
             _httpClientFactory = httpClientFactory;
             _urlResolver = urlResolver;
             _logger = logger;
 
+            // MVC constructs the controller before the action filters audit and reject disabled requests.
+            if (!securityConfiguration.EnableAadSmartOnFhirProxy)
+            {
+                return;
+            }
+
+            _isAadV2 = new Uri(securityConfiguration.Authentication.Authority).Segments.Contains("v2.0");
             var openIdConfigurationUrl = $"{securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;

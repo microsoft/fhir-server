@@ -13,6 +13,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirClaimsExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyMvcTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkDeleteControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkUpdateControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\DocRefControllerTests.cs" />

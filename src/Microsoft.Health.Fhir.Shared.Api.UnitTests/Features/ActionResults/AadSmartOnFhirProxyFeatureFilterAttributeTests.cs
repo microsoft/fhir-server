@@ -59,22 +59,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             Assert.Contains(typeof(AadSmartOnFhirProxyFeatureFilterAttribute), filters);
         }
 
-        /// <summary>
-        /// Requests made while the feature is disabled should still be audited before they are rejected,
-        /// which requires the audit filter to be ordered ahead of the feature filter.
-        /// </summary>
-        [Fact]
-        public void GivenTheProxyController_WhenInspectingItsFilters_ThenAuditLoggingRunsBeforeTheFeatureFilter()
-        {
-            IReadOnlyList<Type> filters = GetControllerFilterTypes();
-
-            int auditIndex = filters.ToList().IndexOf(typeof(AadSmartOnFhirProxyAuditLoggingFilterAttribute));
-            int featureIndex = filters.ToList().IndexOf(typeof(AadSmartOnFhirProxyFeatureFilterAttribute));
-
-            Assert.InRange(auditIndex, 0, int.MaxValue);
-            Assert.InRange(featureIndex, auditIndex + 1, int.MaxValue);
-        }
-
         private static AadSmartOnFhirProxyFeatureFilterAttribute CreateFilter(bool enableAadSmartOnFhirProxy)
         {
             var securityConfiguration = new SecurityConfiguration
