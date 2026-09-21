@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// </summary>
     [ServiceFilter(typeof(AadSmartOnFhirProxyAuditLoggingFilterAttribute))]
     [TypeFilter(typeof(AadSmartOnFhirProxyExceptionFilterAttribute))]
+    [TypeFilter(typeof(AadSmartOnFhirProxyFeatureFilterAttribute))]
     [Route("AadSmartOnFhirProxy")]
     [AllowAnonymous]
     public class AadSmartOnFhirProxyController : Controller
