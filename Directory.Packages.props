@@ -1,8 +1,8 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>11.0.155</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>5.12.0</Hl7FhirVersion>
+    <HealthcareSharedPackageVersion>11.0.135</HealthcareSharedPackageVersion>
+    <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>10.0.12</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>7.7.1</OpenIddictPackageVersion>
@@ -137,8 +137,8 @@
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="3.1.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
     <PackageVersion Include="System.Collections.Immutable" Version="$(DotNetSdkPackageVersion)" />
-    <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta5.25306.1" />
-    <PackageVersion Include="System.CommandLine" Version="2.0.12" />
+    <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
     <PackageVersion Include="System.Configuration.ConfigurationManager" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="$(DotNetSdkPackageVersion)" />
