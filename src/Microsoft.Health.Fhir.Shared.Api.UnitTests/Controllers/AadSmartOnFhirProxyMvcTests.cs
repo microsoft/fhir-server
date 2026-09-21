@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -75,17 +76,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("authorize", HttpStatusCode.Redirect)]
-        [InlineData("callback", HttpStatusCode.Redirect)]
-        [InlineData("token", HttpStatusCode.OK)]
-        public async Task GivenProxyEnabled_WhenRequestUsesMvc_ThenDiscoveryAndActionExecuteAndAreAudited(string action, HttpStatusCode expectedStatus)
+        [InlineData("authorize", HttpStatusCode.Redirect, null)]
+        [InlineData("callback", HttpStatusCode.Redirect, null)]
+        [InlineData("token", HttpStatusCode.OK, "client_credentials")]
+        [InlineData("token", HttpStatusCode.OK, "authorization_code")]
+        public async Task GivenProxyEnabled_WhenRequestUsesMvc_ThenDiscoveryAndActionExecuteAndAreAudited(string action, HttpStatusCode expectedStatus, string grantType)
         {
             using var handler = new DiscoveryHttpMessageHandler(failDiscovery: false);
             using var discoveryClient = new HttpClient(handler);
             _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(discoveryClient);
             using var server = CreateHost(enableProxy: true, Authority);
             using var client = server.GetTestClient();
-            using var request = CreateRequest(action);
+            using var request = CreateRequest(action, grantType);
 
             using var response = await client.SendAsync(request);
 
@@ -95,7 +97,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
                 Assert.Equal(2, handler.RequestedUris.Count);
                 Assert.Equal(new Uri(TokenEndpoint), handler.RequestedUris[1]);
-                Assert.Equal("{\"access_token\":\"test-token\"}", await response.Content.ReadAsStringAsync());
+                var content = await response.Content.ReadAsStringAsync();
+                if (grantType == "authorization_code")
+                {
+                    var tokenResponse = JObject.Parse(content);
+                    Assert.Equal("test-token", tokenResponse["access_token"]?.Value<string>());
+                    Assert.Equal("test-client", tokenResponse["client_id"]?.Value<string>());
+                    Assert.Equal("test-patient", tokenResponse["patient"]?.Value<string>());
+                }
+                else
+                {
+                    Assert.Equal("{\"access_token\":\"test-token\"}", content);
+                }
             }
             else
             {
@@ -125,22 +138,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("callback/not-base64")]
-        [InlineData("token")]
-        public async Task GivenProxyEnabledAndInvalidRequest_WhenRequestUsesMvc_ThenBadRequestIsAudited(string path)
+        [InlineData("callback/not-base64", true, HttpStatusCode.BadRequest)]
+        [InlineData("token", true, HttpStatusCode.BadRequest)]
+        [InlineData("callback/not-base64", false, HttpStatusCode.Unauthorized)]
+        [InlineData("token", false, HttpStatusCode.Unauthorized)]
+        public async Task GivenInvalidRequest_WhenRequestUsesMvc_ThenFeatureGatePrecedesActionValidationAndResultIsAudited(string path, bool enableProxy, HttpStatusCode expectedStatus)
         {
-            using var handler = new DiscoveryHttpMessageHandler(failDiscovery: false);
+            using var handler = new DiscoveryHttpMessageHandler(failDiscovery: !enableProxy);
             using var discoveryClient = new HttpClient(handler);
             _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(discoveryClient);
-            using var server = CreateHost(enableProxy: true, Authority);
+            using var server = CreateHost(enableProxy, Authority);
             using var client = server.GetTestClient();
             using var request = new HttpRequestMessage(path == "token" ? HttpMethod.Post : HttpMethod.Get, $"/AadSmartOnFhirProxy/{path}");
 
             using var response = await client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Single(handler.RequestedUris);
-            AssertAudited(HttpStatusCode.BadRequest);
+            Assert.Equal(expectedStatus, response.StatusCode);
+            if (enableProxy)
+            {
+                Assert.Single(handler.RequestedUris);
+            }
+            else
+            {
+                Assert.Empty(handler.RequestedUris);
+                _httpClientFactory.DidNotReceive().CreateClient(Arg.Any<string>());
+            }
+
+            AssertAudited(expectedStatus);
         }
 
         private IHost CreateHost(bool enableProxy, string authority)
@@ -196,17 +220,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal((int)statusCode, _auditedStatusCode);
         }
 
-        private static HttpRequestMessage CreateRequest(string action)
+        private static HttpRequestMessage CreateRequest(string action, string grantType = "client_credentials")
         {
             if (action == "token")
             {
+                var fields = new Dictionary<string, string>
+                {
+                    { "grant_type", grantType },
+                    { "client_id", "test-client" },
+                };
+                if (grantType == "authorization_code")
+                {
+                    fields.Add("code", Base64UrlEncoder.Encode("{\"code\":\"test-code\",\"patient\":\"test-patient\"}"));
+                    fields.Add("redirect_uri", RedirectUri);
+                }
+
                 return new HttpRequestMessage(HttpMethod.Post, "/AadSmartOnFhirProxy/token")
                 {
-                    Content = new FormUrlEncodedContent(new Dictionary<string, string>
-                    {
-                        { "grant_type", "client_credentials" },
-                        { "client_id", "test-client" },
-                    }),
+                    Content = new FormUrlEncodedContent(fields),
                 };
             }
 
