@@ -50,8 +50,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 
             var watchdogOptions = Options.Create(configuration);
 
-            ReturnRecentBulkDeleteJobs();
-
             _watchdog = new ExpiredResourceCleanupWatchdog(
                 _sqlRetryService,
                 _queueClient,
@@ -110,11 +108,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 
             // Assert
             var latestCutoff = DateTimeOffset.UtcNow.AddHours(-4);
-            await _queueClient.Received(1).GetJobsByQueueTypeAsync(
+            await _queueClient.Received(1).GetMostRecentJobByQueueTypeAsync(
                 (byte)QueueType.BulkDelete,
-                true,
-                cancellationTokenSource.Token,
-                Arg.Is<DateTimeOffset?>(cutoff => cutoff >= earliestCutoff && cutoff <= latestCutoff));
+                cancellationTokenSource.Token);
         }
 
         [Fact]
@@ -146,21 +142,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
                 Arg.Any<long?>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenCleanupJobAfterUnrelatedJob_WhenRunWorkAsyncIsCalled_ThenBulkDeleteJobIsNotEnqueued()
-        {
-            // Arrange
-            ReturnRecentBulkDeleteJobs(
-                CreateBulkDeleteJob(123, "./$bulk-delete"),
-                CreateBulkDeleteJob(124, CleanupUrl));
-
-            // Act
-            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
-
-            // Assert
-            await AssertBulkDeleteJobWasNotEnqueuedAsync();
         }
 
         [Fact]
@@ -255,14 +236,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
                    definition.SearchParameters.Any(parameter => parameter.Item1 == KnownQueryParameterNames.RemoveReferences && parameter.Item2 == "true");
         }
 
-        private void ReturnRecentBulkDeleteJobs(params JobInfo[] jobs)
+        private void ReturnRecentBulkDeleteJobs(JobInfo job)
         {
-            _queueClient.GetJobsByQueueTypeAsync(
+            _queueClient.GetMostRecentJobByQueueTypeAsync(
                 (byte)QueueType.BulkDelete,
-                true,
-                Arg.Any<CancellationToken>(),
-                Arg.Any<DateTimeOffset?>())
-                .Returns(jobs);
+                Arg.Any<CancellationToken>())
+                .Returns(job);
         }
 
         private async Task AssertBulkDeleteJobWasNotEnqueuedAsync()

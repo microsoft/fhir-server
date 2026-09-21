@@ -138,25 +138,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private async Task<bool> ShouldCreateNewCleanupJob(CancellationToken cancellationToken)
         {
             // Checks the database for the last bulk delete job definition that was created by this watchdog. If the last job was created before the retention period, returns true to indicate a new job should be created.
-            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobsByQueueTypeAsync((byte)QueueType.BulkDelete, true, cancellationToken, Clock.UtcNow.AddMinutes(-_configuration.ExecutionIntervalInMinutes));
+            JobInfo job = await _queueClient.GetMostRecentJobByQueueTypeAsync((byte)QueueType.BulkDelete, cancellationToken);
 
-            if (jobs == null || jobs.Count == 0)
+            if (job == null)
             {
                 _logger.LogInformation("ExpiredResourceCleanupWatchdog: No previous bulk delete jobs found. A new job will be created.");
                 return true;
             }
 
-            foreach (var job in jobs)
+            var bulkDeleteDefinition = job.DeserializeDefinition<BulkDeleteDefinition>();
+            if (bulkDeleteDefinition != null && bulkDeleteDefinition.Url == "./ExpiredResourceCleanupWatchdog")
             {
-                var bulkDeleteDefinition = job.DeserializeDefinition<BulkDeleteDefinition>();
-                if (bulkDeleteDefinition != null && bulkDeleteDefinition.Url == "./ExpiredResourceCleanupWatchdog")
-                {
-                    _logger.LogInformation(
-                        "ExpiredResourceCleanupWatchdog: Last cleanup job {JobId} was created on {CreatedOn}, which is within the retention period. Skipping new job creation.",
-                        job.Id,
-                        job.CreateDate);
-                    return false;
-                }
+                _logger.LogInformation(
+                    "ExpiredResourceCleanupWatchdog: Last cleanup job {JobId} was created on {CreatedOn}, which is within the retention period. Skipping new job creation.",
+                    job.Id,
+                    job.CreateDate);
+                return false;
             }
 
             return true;

@@ -1,12 +1,10 @@
---DROP PROCEDURE dbo.GetAllJobs
+--DROP PROCEDURE dbo.GetMostRecentJob
 GO
-CREATE OR ALTER PROCEDURE dbo.GetAllJobs @QueueType tinyint, @ReturnParentOnly bit = 0, @Since datetime = NULL
+CREATE OR ALTER PROCEDURE dbo.GetMostRecentJob @QueueType tinyint
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'GetAllJobs'
+DECLARE @SP varchar(100) = 'GetMostRecentJob'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
-                           + ' R='+convert(varchar, @ReturnParentOnly)
-                           + ' S='+isnull(convert(varchar,@Since),'NULL')
        ,@st datetime = getUTCdate()
        ,@JobIds BigintList
        ,@PartitionId tinyint
@@ -14,7 +12,7 @@ DECLARE @SP varchar(100) = 'GetAllJobs'
        ,@LookedAtPartitions tinyint = 0
        ,@Rows int = 0
 
-DECLARE @JobRecords TABLE (Id bigint PRIMARY KEY, GroupId bigint)
+DECLARE @JobRecords TABLE (Id bigint PRIMARY KEY)
 
 BEGIN TRY
   SET @PartitionId = @MaxPartitions * rand()
@@ -22,11 +20,7 @@ BEGIN TRY
   -- for exists check exit immediately when any row found
   WHILE @LookedAtPartitions < @MaxPartitions
   BEGIN
-    
-    IF @Since IS NULL
-        INSERT INTO @JobRecords SELECT JobId, GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType
-    ELSE
-        INSERT INTO @JobRecords SELECT JobId, GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND CreatedDate >= @Since
+    INSERT INTO @JobRecords SELECT TOP 1 GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType ORDER BY GroupId DESC
 
     SET @Rows += @@rowcount
 
@@ -36,10 +30,7 @@ BEGIN TRY
 
   IF @Rows > 0
   BEGIN
-    IF @ReturnParentOnly = 1
-      DELETE FROM @JobRecords WHERE Id <> @GroupId
-
-    INSERT INTO @JobIds SELECT Id FROM @JobRecords
+    INSERT INTO @JobIds SELECT TOP 1 Id FROM @JobRecords ORDER BY Id DESC
 
     EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
   END

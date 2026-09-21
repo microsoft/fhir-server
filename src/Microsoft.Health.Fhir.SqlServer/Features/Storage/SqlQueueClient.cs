@@ -271,31 +271,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return cancel;
         }
 
-        public async Task<IReadOnlyList<JobInfo>> GetJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken, DateTimeOffset? cutoffDate = null)
+        public async Task<JobInfo> GetMostRecentJobByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
         {
-            if (_schemaInformation.Current < SchemaVersionConstants.GetAllJobs)
+            if (_schemaInformation.Current < SchemaVersionConstants.GetMostRecentJob)
             {
                 return null;
             }
 
             try
             {
-                using var cmd = new SqlCommand("dbo.GetAllJobs") { CommandType = CommandType.StoredProcedure };
+                using var cmd = new SqlCommand("dbo.GetMostRecentJob") { CommandType = CommandType.StoredProcedure };
                 cmd.Parameters.AddWithValue("@QueueType", queueType);
-                cmd.Parameters.AddWithValue("@ReturnParentOnly", returnParentOnly);
-                if (cutoffDate.HasValue)
-                {
-                    cmd.Parameters.AddWithValue("@Since", cutoffDate.Value);
-                }
 
-                return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByQueueTypeAsync failed.");
+                var result = await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetMostRecentJobByQueueTypeAsync failed.");
+                return result.Count > 0 ? result[0] : null;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to get jobs by queue type.");
+                _logger.LogWarning(ex, "Failed to get most recent job by queue type.");
+                return null;
             }
-
-            return null;
         }
 
         private static void PopulateGetJobsCommand(SqlCommand cmd, byte queueType, long? jobId = null, IEnumerable<long> jobIds = null, long? groupId = null, bool? returnDefinition = null)

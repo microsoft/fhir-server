@@ -526,7 +526,7 @@ public class CosmosQueueClient : IQueueClient
         return await GetActiveJobsByQueueTypeInternalAsync(queueType, returnParentOnly, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<JobInfo>> GetJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken, DateTimeOffset? cutoffDate = null)
+    public async Task<JobInfo> GetMostRecentJobByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }

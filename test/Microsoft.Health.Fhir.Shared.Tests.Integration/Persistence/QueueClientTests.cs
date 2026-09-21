@@ -136,38 +136,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _queueClient.EnqueueAsync(otherQueueType, ["other-queue-job"], null, false, CancellationToken.None);
 
             // Act
-            IReadOnlyList<JobInfo> requestedQueueJobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, false, CancellationToken.None);
-            IReadOnlyList<JobInfo> emptyQueueJobs = await _queueClient.GetJobsByQueueTypeAsync(emptyQueueType, false, CancellationToken.None);
+            JobInfo requestedQueueJob = await _queueClient.GetMostRecentJobByQueueTypeAsync(queueType, CancellationToken.None);
+            JobInfo emptyQueueJob = await _queueClient.GetMostRecentJobByQueueTypeAsync(emptyQueueType, CancellationToken.None);
 
             // Assert
-            JobInfo job = Assert.Single(requestedQueueJobs);
-            Assert.Equal("requested-queue-job", job.Definition);
-            Assert.Empty(emptyQueueJobs);
-        }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenJobsOutsideCutoff_WhenGetJobsByQueueType_ThenOnlyRecentJobsAreReturned()
-        {
-            // Arrange
-            byte queueType = (byte)TestQueueType.GivenJobsOutsideCutoff_WhenGetJobsByQueueType_ThenOnlyRecentJobsAreReturned;
-            await _queueClient.EnqueueAsync(queueType, ["job"], null, false, CancellationToken.None);
-
-            // Act
-            IReadOnlyList<JobInfo> includedJobs = await _queueClient.GetJobsByQueueTypeAsync(
-                queueType,
-                false,
-                CancellationToken.None,
-                DateTimeOffset.UtcNow.AddMinutes(-1));
-            IReadOnlyList<JobInfo> excludedJobs = await _queueClient.GetJobsByQueueTypeAsync(
-                queueType,
-                false,
-                CancellationToken.None,
-                DateTimeOffset.UtcNow.AddMinutes(1));
-
-            // Assert
-            Assert.Single(includedJobs);
-            Assert.Empty(excludedJobs);
+            Assert.Equal("requested-queue-job", requestedQueueJob.Definition);
+            Assert.Null(emptyQueueJob);
         }
 
         [Fact]
@@ -179,12 +153,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _queueClient.EnqueueAsync(queueType, ["parent", "child"], null, false, CancellationToken.None);
 
             // Act
-            IReadOnlyList<JobInfo> allJobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, false, CancellationToken.None);
-            IReadOnlyList<JobInfo> parentJobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, true, CancellationToken.None);
+            JobInfo parentJob = await _queueClient.GetMostRecentJobByQueueTypeAsync(queueType, CancellationToken.None);
 
             // Assert
-            Assert.Equal(2, allJobs.Count);
-            JobInfo parentJob = Assert.Single(parentJobs);
+            Assert.NotNull(parentJob);
+            Assert.Equal("parent", parentJob.Definition);
             Assert.Equal(parentJob.GroupId, parentJob.Id);
         }
 
@@ -201,10 +174,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _queueClient.CompleteJobAsync(jobToComplete, false, CancellationToken.None);
 
             // Act
-            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobsByQueueTypeAsync(queueType, false, CancellationToken.None);
+            JobInfo job = await _queueClient.GetMostRecentJobByQueueTypeAsync(queueType, CancellationToken.None);
 
             // Assert
-            JobInfo job = Assert.Single(jobs);
+            Assert.NotNull(job);
             Assert.Equal(JobStatus.Completed, job.Status);
             Assert.Equal("completed", job.Result);
         }
