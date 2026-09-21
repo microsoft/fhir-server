@@ -12,7 +12,7 @@ DECLARE @SP varchar(100) = 'GetMostRecentJob'
        ,@LookedAtPartitions tinyint = 0
        ,@Rows int = 0
 
-DECLARE @JobRecords TABLE (Id bigint PRIMARY KEY)
+DECLARE @JobRecords TABLE (Id bigint PRIMARY KEY, GroupId bigint)
 
 BEGIN TRY
   SET @PartitionId = @MaxPartitions * rand()
@@ -20,7 +20,7 @@ BEGIN TRY
   -- for exists check exit immediately when any row found
   WHILE @LookedAtPartitions < @MaxPartitions
   BEGIN
-    INSERT INTO @JobRecords SELECT TOP 1 GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType ORDER BY GroupId DESC
+    INSERT INTO @JobRecords SELECT TOP 1 JobId, GroupId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType ORDER BY GroupId DESC
 
     SET @Rows += @@rowcount
 
@@ -30,7 +30,7 @@ BEGIN TRY
 
   IF @Rows > 0
   BEGIN
-    INSERT INTO @JobIds SELECT TOP 1 Id FROM @JobRecords ORDER BY Id DESC
+    INSERT INTO @JobIds SELECT TOP 1 GroupId FROM @JobRecords ORDER BY GroupId DESC
 
     EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
   END

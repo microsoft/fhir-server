@@ -30,8 +30,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     /// </summary>
     internal sealed class ExpiredResourceCleanupWatchdog : Watchdog<ExpiredResourceCleanupWatchdog>
     {
-        private const int DefaultPeriodSec = 15 * 60; // 15 minutes
-        private const int DefaultLeasePeriodSec = 15 * 60; // 15 minutes
+        private const int DefaultPeriodSec = 5 * 60; // 15 minutes
+        private const int DefaultLeasePeriodSec = 5 * 60; // 15 minutes
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
 
             var bulkDeleteDefinition = job.DeserializeDefinition<BulkDeleteDefinition>();
-            if (bulkDeleteDefinition != null && bulkDeleteDefinition.Url == "./ExpiredResourceCleanupWatchdog")
+            if (bulkDeleteDefinition != null && bulkDeleteDefinition.Url == "./ExpiredResourceCleanupWatchdog" && job.CreateDate > Clock.UtcNow.AddMinutes(-_configuration.ExecutionIntervalInMinutes))
             {
                 _logger.LogInformation(
                     "ExpiredResourceCleanupWatchdog: Last cleanup job {JobId} was created on {CreatedOn}, which is within the retention period. Skipping new job creation.",
