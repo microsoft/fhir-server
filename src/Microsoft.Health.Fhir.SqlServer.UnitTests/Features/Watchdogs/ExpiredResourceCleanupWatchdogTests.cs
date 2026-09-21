@@ -101,13 +101,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         {
             // Arrange
             using var cancellationTokenSource = new CancellationTokenSource();
-            var earliestCutoff = DateTimeOffset.UtcNow.AddHours(-4);
 
             // Act
             await _watchdog.RunWorkForTestingAsync(cancellationTokenSource.Token);
 
             // Assert
-            var latestCutoff = DateTimeOffset.UtcNow.AddHours(-4);
             await _queueClient.Received(1).GetMostRecentJobByQueueTypeAsync(
                 (byte)QueueType.BulkDelete,
                 cancellationTokenSource.Token);
