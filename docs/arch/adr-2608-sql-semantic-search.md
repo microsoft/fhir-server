@@ -2,7 +2,7 @@
 
 **Status**: Proposed
 **Date**: 2026-08-23
-**Revised**: 2026-09-14
+**Revised**: 2026-09-21
 **Feature**: SQL semantic search
 
 ## Context
@@ -49,6 +49,12 @@ passage as compressed bytes with its SHA-256 hash; do not retain plaintext or so
 Reindex callers identify the evaluated resource subset explicitly so an omitted subset preserves vectors
 while an evaluated resource with no vector rows removes stale vectors.
 
+Include model identity in the clustered primary key and the vector TVP's uniqueness constraint:
+`(ResourceTypeId, ResourceSurrogateId, SearchParamId, EmbeddingModelId, ChunkOrdinal)`.
+This permits model-distinct rows without changing the single-model MVP. Application deduplication
+uses the same key. Side-by-side indexing and model migration remain follow-up work because
+reindex replacement and merge recovery still operate at resource scope.
+
 Build with officially released `Microsoft.Health.*` packages. Supply a narrow local `VectorColumn`
 schema descriptor for generated column-name metadata, while vector values cross stored-procedure
 boundaries as JSON text and are explicitly cast to native `vector(1536)` in SQL. The V117 migration
@@ -64,8 +70,9 @@ Retain the nonpartitioned native-vector table and clustered primary key as the f
 possible later DiskANN index. Do not create an approximate index in the schema migration or treat
 native-vector availability as proof of DiskANN availability. The
 [Azure SQL compatibility assessment](../SqlVectorIndexCompatibility.md) records the documented
-General Purpose and Hyperscale baseline, preview limitations, and the exact table combinations that
-still require execution validation.
+General Purpose and Hyperscale baseline, preview limitations, and a General Purpose execution of
+the exact table layout with a version-3 DiskANN index. Other offerings and production ANN query
+semantics still require execution validation.
 
 ## Consequences
 
@@ -79,6 +86,7 @@ still require execution validation.
 - The foundation restores and builds without machine-specific feeds or unreleased packages.
 - Vector replacement shares the existing reindex transaction, version checks, failure count, and rollback behavior.
 - Existing callers remain valid because omitted input TVPs behave as empty tables.
+- Model-distinct keys do not provide a model-preserving reindex or backfill/cutover workflow.
 - Experimental schema versions 117 through 119 cannot upgrade in place to the consolidated schema.
 - Persisted passage bytes are not consumed by score-only MVP queries.
 - Extraction, embedding calls, vector queries, and FHIR response behavior remain owned by the application layer.

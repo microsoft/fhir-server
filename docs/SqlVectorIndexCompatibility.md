@@ -1,6 +1,6 @@
 # Azure SQL vector index compatibility
 
-Documentation assessed on **2026-09-14**. This assessment accompanies schema V117 and distinguishes
+Documentation and execution assessed on **2026-09-21**. This assessment accompanies schema V117 and distinguishes
 native vector storage from future approximate nearest-neighbor indexing. The current MVP uses exact
 cosine ranking and does not install or enable a DiskANN index.
 
@@ -46,7 +46,7 @@ Sources:
 ## V117 table assessment
 
 The schema stores `Embedding vector(1536) NOT NULL` on a nonpartitioned base table with the clustered
-primary key `(ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal)`, PAGE compression,
+primary key `(ResourceTypeId, ResourceSurrogateId, SearchParamId, EmbeddingModelId, ChunkOrdinal)`, PAGE compression,
 and a separate `SourceTextCompressed varbinary(max) NOT NULL` payload.
 
 | Property | Assessment against current documentation |
@@ -54,12 +54,56 @@ and a separate `SourceTextCompressed varbinary(max) NOT NULL` payload.
 | Native `vector(1536)` and cosine distance | Supported type/metric. The vector type permits up to 1,998 dimensions. |
 | Nonpartitioned base table | Matches the stated prerequisite; vector indexes cannot be partitioned. |
 | Clustered primary key | Matches the stated prerequisite. The current documentation says "The table must have a primary key clustered index"; it does not state the older single-integer-key restriction. |
-| This four-column composite key | No explicit current example or guarantee was found for the exact key. Do not infer either incompatibility or proven compatibility solely from the absence of a restriction. |
-| PAGE compression plus compressed binary payload | PAGE compression is supported for Azure SQL rowstore tables, but the vector-index documentation does not explicitly certify this combination. Off-row data is not compressed by PAGE compression; the application separately compresses passage bytes. |
+| This five-column composite key | Index creation and indexed DML succeeded in the General Purpose execution below. This is not certification of every tier, region or index format. |
+| PAGE compression plus compressed binary payload | The exact combination succeeded in the execution below. Off-row data is not compressed by PAGE compression; the application separately compresses passage bytes. |
 
 The migration's `sys.types` probe confirms the native vector type only. It does not prove that a
-DiskANN index can be created or that a query will use it. No Azure SQL GP or Hyperscale execution
-test of this exact layout was performed for this documentation assessment.
+DiskANN index can be created or that a query will use it. The execution below validates one Azure
+SQL General Purpose configuration; Hyperscale and other offerings have not been execution-tested.
+
+Model identity is part of the table key, TVP uniqueness constraint and application deduplication
+key. The runtime MVP still uses one configured model; these keys do not enable model-preserving
+reindexing, side-by-side backfill or query cutover.
+
+## Recorded execution: General Purpose, 2026-09-21
+
+The finalized schema was deployed to a newly created, disposable Azure SQL database. No existing
+application database was modified. The database, server and dedicated resource group were removed
+after validation.
+
+| Property | Observed value |
+|---|---|
+| Offering | General Purpose, provisioned Gen5, 2 vCores (`GP_Gen5_2`), West US 2 |
+| Engine | Microsoft SQL Azure `12.0.2000.8`, build dated August 19, 2026 |
+| Schema | Generated V117 full snapshot, five-column clustered PK, PAGE compression, compressed passage payload, `vector(1536)` |
+| Index | Cosine DiskANN; `sys.vector_indexes.build_parameters` reported version `3` |
+| Population | 1,000 deterministic nonzero seed vectors inserted through `MergeResources`, plus isolated lifecycle-test rows |
+| Query evidence | Actual execution plan contained `Vector Index Seek`; diagnostic `VECTOR_SEARCH` used `FORCE_ANN_ONLY` |
+
+With the index present, the following checks passed:
+
+- Legacy callers of both merge procedures omitting the vector TVP.
+- Insertion of model-distinct rows with identical other key columns.
+- Idempotent merge retry and recovery of missing single-model vectors.
+- Resource version updates, historical-vector cleanup and purge-history preservation of current vectors.
+- Reindex replacement, evaluated-empty removal, omitted-input preservation and input-subset/version guards.
+- Wrong-dimension failure inside reindex, preserving the original ordinary hash and vector payload.
+- Hard deletion and absence of the deleted vector from forced-ANN results.
+- Model, SearchParameter and resource filters, with post-commit results checked on separate connections.
+- Reapplication of the actual `117.diff.sql`, preserving row count and the version-3 index.
+
+Local SQL Server 2025 tests separately passed full-snapshot/migration-chain equivalence and
+reapplication, as well as table/TVP acceptance of distinct models and rejection of duplicate full
+keys. Azure execution used the full snapshot followed by V117 reapplication; it did not repeat the
+entire historical upgrade chain in Azure.
+
+ANN quality was measured, not certified. Ten filtered recall-at-10 probes averaged **0.57** on a
+two-dimensional circle padded to 1,536 dimensions. A second deterministic fixture with 50 dense
+1,536-dimensional clusters averaged **1.0** across ten probes, and the indexed lifecycle checks
+passed again. These small synthetic results are workload-dependent, not a production recall or
+performance guarantee. No stale-index setting was enabled. The production MVP continues to use
+exact distance queries; enabling an approximate FHIR query path requires separate acceptance of
+recall, authorization, resource-level deduplication and paging.
 
 Additional references:
 

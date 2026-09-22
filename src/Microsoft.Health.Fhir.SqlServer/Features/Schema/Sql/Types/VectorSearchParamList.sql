@@ -11,6 +11,6 @@ CREATE TYPE dbo.VectorSearchParamList AS TABLE
    ,SourceTextCompressed     varbinary(max) NOT NULL
    ,Embedding                nvarchar(max) NOT NULL
 
-    UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal)
+    UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, EmbeddingModelId, ChunkOrdinal)
 )
 GO

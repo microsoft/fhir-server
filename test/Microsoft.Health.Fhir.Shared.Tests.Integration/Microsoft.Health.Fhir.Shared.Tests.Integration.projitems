@@ -58,6 +58,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSqlCompatibilityTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerVectorStorageTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\QueueClientTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTransactionScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\TestSqlHashCalculator.cs" />

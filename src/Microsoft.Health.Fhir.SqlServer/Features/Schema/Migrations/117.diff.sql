@@ -48,12 +48,13 @@ BEGIN
 
     ALTER TABLE dbo.VectorSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-    ALTER TABLE dbo.VectorSearchParam ADD CONSTRAINT PKC_VectorSearchParam_ResourceTypeId_ResourceSurrogateId_SearchParamId_ChunkOrdinal
+    ALTER TABLE dbo.VectorSearchParam ADD CONSTRAINT PKC_VectorSearchParam_ResourceTypeId_ResourceSurrogateId_SearchParamId_EmbeddingModelId_ChunkOrdinal
     PRIMARY KEY CLUSTERED
     (
         ResourceTypeId,
         ResourceSurrogateId,
         SearchParamId,
+        EmbeddingModelId,
         ChunkOrdinal
     )
     WITH (DATA_COMPRESSION = PAGE)
@@ -73,7 +74,7 @@ BEGIN
         SourceTextCompressed     varbinary(max) NOT NULL,
         Embedding                nvarchar(max) NOT NULL
 
-        UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal)
+        UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, EmbeddingModelId, ChunkOrdinal)
     )
 END
 GO
