@@ -167,6 +167,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             AssertAudited(expectedStatus);
         }
 
+        [Theory]
+        [InlineData(Authority + "/.well-known/openid-configuration")]
+        [InlineData(TokenEndpoint)]
+        public async Task GivenResponseFromTestHandler_WhenClientIsDisposed_ThenResponseContentIsDisposed(string requestUri)
+        {
+            using var handler = new DiscoveryHttpMessageHandler(failDiscovery: false);
+            using var client = new HttpClient(handler);
+            using var response = await client.GetAsync(new Uri(requestUri));
+            Assert.NotEmpty(await response.Content.ReadAsStringAsync());
+
+            client.Dispose();
+
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => response.Content.ReadAsStringAsync());
+        }
+
         private IHost CreateHost(bool enableProxy, string authority)
         {
             // Capture the status during auditing, before TestServer disposes the request context.
@@ -258,6 +273,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private sealed class DiscoveryHttpMessageHandler : HttpMessageHandler
         {
             private readonly bool _failDiscovery;
+            private readonly HttpResponseMessage _discoveryResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($"{{\"authorization_endpoint\":\"{AuthorizeEndpoint}\",\"token_endpoint\":\"{TokenEndpoint}\"}}"),
+            };
+
+            private readonly HttpResponseMessage _tokenResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"access_token\":\"test-token\"}"),
+            };
 
             public DiscoveryHttpMessageHandler(bool failDiscovery)
             {
@@ -276,17 +300,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         throw new HttpRequestException("Discovery is unavailable.");
                     }
 
-                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent($"{{\"authorization_endpoint\":\"{AuthorizeEndpoint}\",\"token_endpoint\":\"{TokenEndpoint}\"}}"),
-                    });
+                    return Task.FromResult(_discoveryResponse);
                 }
 
                 Assert.Equal(new Uri(TokenEndpoint), request.RequestUri);
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                return Task.FromResult(_tokenResponse);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
                 {
-                    Content = new StringContent("{\"access_token\":\"test-token\"}"),
-                });
+                    _discoveryResponse.Dispose();
+                    _tokenResponse.Dispose();
+                }
+
+                base.Dispose(disposing);
             }
         }
     }
