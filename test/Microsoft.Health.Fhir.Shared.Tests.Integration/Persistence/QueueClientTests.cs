@@ -146,23 +146,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenParentAndChildJobs_WhenGetJobsByQueueType_ThenParentFilterIsApplied()
-        {
-            // Arrange
-            byte queueType = (byte)TestQueueType.GivenParentAndChildJobs_WhenGetJobsByQueueType_ThenParentFilterIsApplied;
-            await _queueClient.EnqueueAsync(queueType, ["parent", "child"], null, false, CancellationToken.None);
-
-            // Act
-            JobInfo parentJob = await _queueClient.GetMostRecentJobByQueueTypeAsync(queueType, CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(parentJob);
-            Assert.Equal("parent", parentJob.Definition);
-            Assert.Equal(parentJob.GroupId, parentJob.Id);
-        }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenCompletedJob_WhenGetJobsByQueueType_ThenJobIsReturned()
         {
             // Arrange

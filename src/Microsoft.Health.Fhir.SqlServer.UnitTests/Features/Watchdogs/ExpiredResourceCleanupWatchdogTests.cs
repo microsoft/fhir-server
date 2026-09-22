@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
     public class ExpiredResourceCleanupWatchdogTests
     {
         private const string CleanupUrl = "./ExpiredResourceCleanupWatchdog";
+        private const int CleanupIntervalInMinutes = 60;
 
         private readonly ExpiredResourceCleanupWatchdog _watchdog;
         private readonly ISqlRetryService _sqlRetryService;
@@ -47,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 
             var configuration = new WatchdogConfiguration();
             configuration.ExpiredResource.Enabled = true;
+            configuration.ExpiredResource.ExecutionIntervalInMinutes = CleanupIntervalInMinutes;
 
             var watchdogOptions = Options.Create(configuration);
 
@@ -97,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         }
 
         [Fact]
-        public async Task GivenNoRecentCleanupJobs_WhenRunWorkAsyncIsCalled_ThenRecentParentBulkDeleteJobsAreQueried()
+        public async Task GivenNoCleanupJobs_WhenRunWorkAsyncIsCalled_ThenRecentParentBulkDeleteJobsAreQueried()
         {
             // Arrange
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -112,10 +114,26 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         }
 
         [Fact]
+        public async Task GivenNoRecentCleanupJobs_WhenRunWorkAsyncIsCalled_ThenRecentParentBulkDeleteJobsAreQueried()
+        {
+            // Arrange
+            using var cancellationTokenSource = new CancellationTokenSource();
+            ReturnRecentBulkDeleteJobs(CreateBulkDeleteJob(123, CleanupUrl, DateTime.UtcNow.AddMinutes(-(CleanupIntervalInMinutes + 1))));
+
+            // Act
+            await _watchdog.RunWorkForTestingAsync(cancellationTokenSource.Token);
+
+            // Assert
+            await _queueClient.Received(1).GetMostRecentJobByQueueTypeAsync(
+                (byte)QueueType.BulkDelete,
+                cancellationTokenSource.Token);
+        }
+
+        [Fact]
         public async Task GivenRecentCleanupJob_WhenRunWorkAsyncIsCalled_ThenBulkDeleteJobIsNotEnqueued()
         {
             // Arrange
-            ReturnRecentBulkDeleteJobs(CreateBulkDeleteJob(123, CleanupUrl));
+            ReturnRecentBulkDeleteJobs(CreateBulkDeleteJob(123, CleanupUrl, DateTime.UtcNow));
 
             // Act
             await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
@@ -128,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         public async Task GivenRecentUnrelatedBulkDeleteJob_WhenRunWorkAsyncIsCalled_ThenCleanupJobIsEnqueued()
         {
             // Arrange
-            ReturnRecentBulkDeleteJobs(CreateBulkDeleteJob(123, "./$bulk-delete"));
+            ReturnRecentBulkDeleteJobs(CreateBulkDeleteJob(123, "./$bulk-delete", DateTime.UtcNow));
 
             // Act
             await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
@@ -199,7 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
         }
 
-        private static JobInfo CreateBulkDeleteJob(long jobId, string url)
+        private static JobInfo CreateBulkDeleteJob(long jobId, string url, DateTime createDate)
         {
             var definition = new BulkDeleteDefinition(
                 JobType.BulkDeleteOrchestrator,
@@ -217,6 +235,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             {
                 Id = jobId,
                 Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = createDate,
             };
         }
 
