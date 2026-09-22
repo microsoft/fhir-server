@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             EnsureArg.IsNotNull(resources, nameof(resources));
 
-            var keys = new HashSet<(short ResourceTypeId, long ResourceSurrogateId, short SearchParamId, short ChunkOrdinal)>();
+            var keys = new HashSet<(short ResourceTypeId, long ResourceSurrogateId, short SearchParamId, short EmbeddingModelId, short ChunkOrdinal)>();
             foreach (MergeResourceWrapper merge in resources.Where(resource => !resource.ResourceWrapper.IsHistory))
             {
                 short resourceTypeId = _model.GetResourceTypeId(merge.ResourceWrapper.ResourceTypeName);
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     foreach (VectorSearchChunk chunk in vectorIndex.Chunks)
                     {
                         short chunkOrdinal = checked((short)chunk.ChunkOrdinal);
-                        if (!keys.Add((resourceTypeId, merge.ResourceWrapper.ResourceSurrogateId, searchParamId, chunkOrdinal)))
+                        if (!keys.Add((resourceTypeId, merge.ResourceWrapper.ResourceSurrogateId, searchParamId, vectorIndex.EmbeddingModelId, chunkOrdinal)))
                         {
                             continue;
                         }

@@ -455,8 +455,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                         }),
                     new VectorSearchIndexEntry(
                         searchParameter,
-                        embeddingModelId: 8,
+                        embeddingModelId: 7,
                         new[] { CreateChunk(0, "duplicate key with different payload", 0.75f) }),
+                    new VectorSearchIndexEntry(
+                        searchParameter,
+                        embeddingModelId: 8,
+                        new[] { CreateChunk(0, unicodePassage, 0.75f) }),
                 });
             ResourceWrapper secondResource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"456\"}", resourceSurrogateId: 42);
             secondResource.UpdateVectorSearchIndices(
@@ -501,6 +505,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                     Assert.Equal((41, (short)1, (short)7), (passage.ResourceSurrogateId, passage.ChunkOrdinal, passage.EmbeddingModelId));
                     Assert.Equal(string.Empty, passage.Text);
                     Assert.Equal(SHA256.HashData(Array.Empty<byte>()), passage.Hash);
+                },
+                passage =>
+                {
+                    Assert.Equal((41, (short)0, (short)8), (passage.ResourceSurrogateId, passage.ChunkOrdinal, passage.EmbeddingModelId));
+                    Assert.Equal(unicodePassage, passage.Text);
+                    Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(unicodePassage)), passage.Hash);
                 },
                 passage =>
                 {

@@ -67,6 +67,11 @@ First activation uses the normal reindex workflow to backfill existing resources
 
 ## Indexing and recovery
 
+The MVP uses one configured embedding model for indexing and queries. Storage and transport keys
+include `EmbeddingModelId`, allowing model-distinct rows for the same resource, SearchParameter,
+and chunk. This does not enable multi-model migration or runtime model selection: replacement,
+reindex, and recovery still manage vector rows resource-wide, not independently per model.
+
 Create and update requests extract configured text, chunk it, create embeddings synchronously, and
 send vector rows in the same SQL merge operation as the resource and ordinary search indices.
 Deletes and empty extraction replace prior vector rows with an empty set. Reindex uses the existing `UpdateResourceSearchParams` procedure so ordinary and vector indices are
