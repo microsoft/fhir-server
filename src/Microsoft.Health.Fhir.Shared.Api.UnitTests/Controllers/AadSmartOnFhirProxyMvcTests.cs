@@ -61,9 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenProxyDisabled_WhenRequestUsesMvc_ThenUnauthorizedIsAuditedWithoutDiscovery(string action, string authority)
         {
             using var handler = new DiscoveryHttpMessageHandler(failDiscovery: true);
-            using var discoveryClient = new HttpClient(handler);
-            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(discoveryClient);
-            using var server = CreateHost(enableProxy: false, authority);
+            using var server = CreateHost(enableProxy: false, authority, handler);
             using var client = server.GetTestClient();
             using var request = CreateRequest(action);
 
@@ -83,9 +81,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenProxyEnabled_WhenRequestUsesMvc_ThenDiscoveryAndActionExecuteAndAreAudited(string action, HttpStatusCode expectedStatus, string grantType)
         {
             using var handler = new DiscoveryHttpMessageHandler(failDiscovery: false);
-            using var discoveryClient = new HttpClient(handler);
-            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(discoveryClient);
-            using var server = CreateHost(enableProxy: true, Authority);
+            using var server = CreateHost(enableProxy: true, Authority, handler);
             using var client = server.GetTestClient();
             using var request = CreateRequest(action, grantType);
 
@@ -126,9 +122,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenProxyEnabledAndDiscoveryUnavailable_WhenRequestUsesMvc_ThenDiscoveryErrorIsPreserved(string action)
         {
             using var handler = new DiscoveryHttpMessageHandler(failDiscovery: true);
-            using var discoveryClient = new HttpClient(handler);
-            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(discoveryClient);
-            using var server = CreateHost(enableProxy: true, Authority);
+            using var server = CreateHost(enableProxy: true, Authority, handler);
             using var client = server.GetTestClient();
             using var request = CreateRequest(action);
 
@@ -145,9 +139,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenInvalidRequest_WhenRequestUsesMvc_ThenFeatureGatePrecedesActionValidationAndResultIsAudited(string path, bool enableProxy, HttpStatusCode expectedStatus)
         {
             using var handler = new DiscoveryHttpMessageHandler(failDiscovery: !enableProxy);
-            using var discoveryClient = new HttpClient(handler);
-            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(discoveryClient);
-            using var server = CreateHost(enableProxy, Authority);
+            using var server = CreateHost(enableProxy, Authority, handler);
             using var client = server.GetTestClient();
             using var request = new HttpRequestMessage(path == "token" ? HttpMethod.Post : HttpMethod.Get, $"/AadSmartOnFhirProxy/{path}");
 
@@ -182,7 +174,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<ObjectDisposedException>(() => response.Content.ReadAsStringAsync());
         }
 
-        private IHost CreateHost(bool enableProxy, string authority)
+        private IHost CreateHost(bool enableProxy, string authority, DiscoveryHttpMessageHandler handler)
         {
             // Capture the status during auditing, before TestServer disposes the request context.
             _auditHelper.When(helper => helper.LogExecuted(
@@ -205,7 +197,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .ConfigureServices(services =>
                 {
                     services.AddSingleton(Options.Create(configuration));
-                    services.AddSingleton(_httpClientFactory);
+                    services.AddSingleton(_ => new HttpClient(handler, disposeHandler: false));
+                    services.AddSingleton(provider =>
+                    {
+                        _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(provider.GetRequiredService<HttpClient>());
+                        return _httpClientFactory;
+                    });
                     services.AddSingleton(_auditHelper);
                     services.AddSingleton(urlResolver);
                     services.AddHttpContextAccessor();
