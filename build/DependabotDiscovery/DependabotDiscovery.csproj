@@ -46,6 +46,7 @@
   <!-- One bare entry per PackageVersion in Directory.Packages.props, which supplies the version. -->
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
+    <PackageReference Include="Azure.AI.OpenAI" />
     <PackageReference Include="Azure.Containers.ContainerRegistry" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />
     <PackageReference Include="Azure.Identity" />
@@ -126,6 +127,8 @@
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" />
     <PackageReference Include="Microsoft.Identity.Web" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" />
+    <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.Rest.ClientRuntime" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" />
