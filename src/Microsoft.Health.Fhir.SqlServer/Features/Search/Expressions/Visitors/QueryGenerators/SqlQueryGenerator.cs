@@ -838,7 +838,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Everything in the top expression is considered a match
             const string selectStatement = "SELECT DISTINCT";
-            StringBuilder.Append(selectStatement).Append(" TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+
+            // Replayed includes pages must not seed includes from the outer search's lookahead row.
+            var matchPageSize = IncludesContinuationToken.FromString(context.IncludesContinuationToken)?.MatchPageSize;
+            StringBuilder.Append(selectStatement).Append(" TOP (").Append(Parameters.AddParameter(matchPageSize ?? context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName);
 

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -217,6 +218,45 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Verify both type IDs were passed as parameters by checking the mock was called
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
+    }
+
+    [Theory]
+    [InlineData(null, 11)]
+    [InlineData("[10,100,300,null,null,false]", 11)]
+    [InlineData("[10,100,300,null,null,false,null,null,3]", 3)]
+    public void GivenMatchPageScope_WhenSqlGenerated_ThenOnlyReplayedIncludesOmitTheLookaheadRow(string includesToken, int expectedLimit)
+    {
+        // Arrange
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false);
+        SqlRootExpression expression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+            ],
+            []);
+        SearchOptions options = new()
+        {
+            MaxItemCount = 10,
+            IncludesContinuationToken = includesToken,
+            Sort = [(new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Ascending)],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        // Act
+        generator.VisitSqlRoot(expression, options);
+
+        // Assert
+        var top = Regex.Match(_strBuilder.ToString(), @"SELECT DISTINCT TOP \((@\w+)\)");
+        Assert.True(top.Success);
+        Assert.Equal(expectedLimit, command.Parameters[top.Groups[1].Value].Value);
     }
 
     [Theory]
