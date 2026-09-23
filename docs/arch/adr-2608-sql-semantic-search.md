@@ -2,7 +2,7 @@
 
 **Status**: Proposed
 **Date**: 2026-08-23
-**Revised**: 2026-09-21
+**Revised**: 2026-09-23
 **Feature**: SQL semantic search
 
 ## Context
@@ -24,7 +24,7 @@ the feature impossible to restore and build independently.
 
 ### Engine compatibility alternatives
 
-Because the chosen storage contract is the native `vector` type, V117 cannot install on an engine
+Because the chosen storage contract is the native `vector` type, V118 cannot install on an engine
 that does not provide it. Three ways to avoid that were considered and rejected:
 
 4. **Conditional installation via dynamic SQL** - create the vector table, table type and the
@@ -34,16 +34,16 @@ that does not provide it. Three ways to avoid that were considered and rejected:
    requires maintaining two shapes of the hottest write procedures indefinitely, and schema version
    would no longer imply vector capability, so every caller check would need a runtime probe.
    *(rejected)*
-5. **Portable storage column** - persist `Embedding` as `varbinary(max)` in V117 and add the native
+5. **Portable storage column** - persist `Embedding` as `varbinary(max)` in V118 and add the native
    column later. Rejected: it abandons the fixed native-vector storage contract that option 3 was
    chosen to preserve, and defers the same decision into the query layer. *(rejected)*
-6. **Separate opt-in enablement script** - keep V117 vector-free and ship vector objects as an
+6. **Separate opt-in enablement script** - keep V118 vector-free and ship vector objects as an
    explicitly executed operation. Rejected: the merge procedures still need dual shapes, so it
    carries option 4's cost without its benefit. *(rejected)*
 
 ## Decision
 
-Add one schema version, 117, for the embedding model registry, vector search parameter table and TVP,
+Add one schema version, 118, for the embedding model registry, vector search parameter table and TVP,
 and vector support in the existing merge, reindex, and hard-delete procedures. Persist the exact source
 passage as compressed bytes with its SHA-256 hash; do not retain plaintext or source-provenance columns.
 Reindex callers identify the evaluated resource subset explicitly so an omitted subset preserves vectors
@@ -57,12 +57,12 @@ reindex replacement and merge recovery still operate at resource scope.
 
 Build with officially released `Microsoft.Health.*` packages. Supply a narrow local `VectorColumn`
 schema descriptor for generated column-name metadata, while vector values cross stored-procedure
-boundaries as JSON text and are explicitly cast to native `vector(1536)` in SQL. The V117 migration
+boundaries as JSON text and are explicitly cast to native `vector(1536)` in SQL. The V118 migration
 probes `sys.types` and fails before DDL when the native vector type is unavailable. The shared
 initialization script carries no such probe: a fresh install is already guarded by the vector DDL
 itself, which fails inside the initialization transaction on an engine without the type.
 
-Accept the resulting engine requirement rather than working around it: schema V117 requires
+Accept the resulting engine requirement rather than working around it: schema V118 requires
 Azure SQL Database, or SQL Server 2025 or later. Local development and integration testing move to
 SQL Server 2025 accordingly.
 
@@ -76,9 +76,9 @@ semantics still require execution validation.
 
 ## Consequences
 
-- **Deployments on SQL Server 2019 and 2022 cannot reach schema V117 and remain pinned at V116.**
+- **Deployments on SQL Server 2019 and 2022 cannot reach schema V118 and remain pinned at V117.**
   With `SchemaVersionConstants.Min` at V113 those deployments stay supported, but they cannot take
-  V117 or any later schema version until the engine is upgraded. This is a deliberate
+  V118 or any later schema version until the engine is upgraded. This is a deliberate
   supportability commitment, not an incidental migration failure.
 - Contributors need a vector-capable engine for local work: the Docker samples pin
   `mcr.microsoft.com/mssql/server:2025-latest`, and the integration test fixture's default
@@ -87,7 +87,9 @@ semantics still require execution validation.
 - Vector replacement shares the existing reindex transaction, version checks, failure count, and rollback behavior.
 - Existing callers remain valid because omitted input TVPs behave as empty tables.
 - Model-distinct keys do not provide a model-preserving reindex or backfill/cutover workflow.
-- Experimental schema versions 117 through 119 cannot upgrade in place to the consolidated schema.
+- Databases created by experimental builds of this feature, which numbered the vector schema 117
+  through 119, cannot upgrade in place and must be recreated. V117 is now the unrelated
+  `GetMostRecentJob` migration, which such databases would otherwise skip.
 - Persisted passage bytes are not consumed by score-only MVP queries.
 - Extraction, embedding calls, vector queries, and FHIR response behavior remain owned by the application layer.
 - DiskANN remains a future, explicit approximate-query choice; the current schema does not certify
