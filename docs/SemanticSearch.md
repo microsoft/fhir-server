@@ -80,7 +80,7 @@ Foundry requests are split without reordering when they would exceed 2,048 input
 tokens; provider failures and output-count mismatches fail the indexing operation.
 
 If a multi-call resource transaction times out, the transaction watchdog rebuilds search indices
-and embeddings before rolling the transaction forward. The vector TVP is sent only to schema 117
+and embeddings before rolling the transaction forward. The vector TVP is sent only to schema 118
 or later, preserving new-caller compatibility with older supported schemas. Existing callers may
 omit the TVP against current schemas; SQL Server treats an omitted input TVP as empty.
 
