@@ -108,8 +108,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
             var request = context.Request;
 
             string name = string.Empty;
-            string action = request.RouteValues != null && request.RouteValues.ContainsKey(ActionKeyName) ? request.RouteValues[ActionKeyName]?.ToString() : string.Empty;
-            string controller = request.RouteValues != null && request.RouteValues.ContainsKey(ControllerKeyName) ? request.RouteValues[ControllerKeyName]?.ToString() : string.Empty;
+            string action = request.RouteValues != null && request.RouteValues.TryGetValue(ActionKeyName, out var actionValue) ? actionValue?.ToString() : string.Empty;
+            string controller = request.RouteValues != null && request.RouteValues.TryGetValue(ControllerKeyName, out var controllerValue) ? controllerValue?.ToString() : string.Empty;
 
             if (!string.IsNullOrWhiteSpace(action) && !string.IsNullOrWhiteSpace(controller))
             {
