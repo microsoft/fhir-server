@@ -347,7 +347,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     FROM dbo.ResourceType
                     WHERE Name = 'Observation';
 
-                    -- This is the complete pre-117 named-argument contract. The schema-117
+                    -- This is the complete pre-118 named-argument contract. The schema-118
                     -- vector TVP is intentionally omitted.
                     EXECUTE {procedureName}
                         {searchParamsArgument}

@@ -4,7 +4,7 @@
 
 ## SQL Server prerequisites
 
-Schema version 117 and later store embeddings in SQL Server's native `vector` type. The FHIR
+Schema version 118 and later store embeddings in SQL Server's native `vector` type. The FHIR
 server's SQL schema therefore requires **Azure SQL Database, or SQL Server 2025 or later**;
 schema creation fails with error 50419 on an engine that does not provide the type.
 
