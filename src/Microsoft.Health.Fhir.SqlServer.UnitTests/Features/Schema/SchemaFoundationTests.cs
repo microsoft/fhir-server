@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
         {
             var scriptProvider = new ScriptProvider<SchemaVersion>();
 
-            string script = scriptProvider.GetMigrationScript((int)SchemaVersion.V117, applyFullSchemaSnapshot: false);
+            string script = scriptProvider.GetMigrationScript((int)SchemaVersion.V118, applyFullSchemaSnapshot: false);
 
             int guardIndex = script.IndexOf("sys.types", StringComparison.Ordinal);
             int vectorTableIndex = script.IndexOf("VectorSearchParam", StringComparison.Ordinal);
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
         {
             var scriptProvider = new ScriptProvider<SchemaVersion>();
 
-            string script = scriptProvider.GetMigrationScript((int)SchemaVersion.V117, applyFullSchemaSnapshot: true);
+            string script = scriptProvider.GetMigrationScript((int)SchemaVersion.V118, applyFullSchemaSnapshot: true);
 
             // A fresh install is guarded by the native vector DDL itself: CREATE TABLE fails inside the
             // initialization transaction when the engine has no vector type. The shared initialization
@@ -55,10 +55,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
         }
 
         [Fact]
-        public void GivenConsolidatedVectorSchema_WhenVersionConstantsAreRead_ThenOnlyVersion117IsRequired()
+        public void GivenConsolidatedVectorSchema_WhenVersionConstantsAreRead_ThenOnlyVersion118IsRequired()
         {
-            Assert.Equal((int)SchemaVersion.V117, SchemaVersionConstants.Max);
-            Assert.Equal((int)SchemaVersion.V117, SchemaVersionConstants.VectorSearchVersion);
+            Assert.Equal((int)SchemaVersion.V118, SchemaVersionConstants.Max);
+            Assert.Equal((int)SchemaVersion.V118, SchemaVersionConstants.VectorSearchVersion);
         }
     }
 }
