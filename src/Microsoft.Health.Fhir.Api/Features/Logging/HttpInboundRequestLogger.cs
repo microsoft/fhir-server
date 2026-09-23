@@ -104,7 +104,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
 
         private static string GetOperationName(HttpContext context)
         {
-            string operationName = string.Empty;
             var request = context.Request;
 
             string name = string.Empty;
