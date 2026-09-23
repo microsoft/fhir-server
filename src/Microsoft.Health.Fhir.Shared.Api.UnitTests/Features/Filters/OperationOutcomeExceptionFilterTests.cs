@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Threading;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
@@ -273,6 +274,50 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenAnOperationCanceledExceptionAndTheClientDisconnected_WhenExecutingAnAction_ThenACancellationWarningWithClientDisconnectedTrueShouldBeLogged()
+        {
+            using var requestAborted = new CancellationTokenSource();
+            requestAborted.Cancel();
+            _context.HttpContext.RequestAborted = requestAborted.Token;
+            var exception = new System.OperationCanceledException(requestAborted.Token);
+
+            OperationOutcomeResult result = ValidateOperationOutcome(exception, HttpStatusCode.RequestTimeout);
+
+            Assert.Equal(OperationOutcome.IssueType.Timeout, Assert.Single(result.Result.Issue).Code);
+            AssertSingleCancellationWarning(exception, expectedClientDisconnected: true);
+        }
+
+        [Fact]
+        public void GivenAnOperationCanceledExceptionAndTheClientIsStillConnected_WhenExecutingAnAction_ThenACancellationWarningWithClientDisconnectedFalseShouldBeLogged()
+        {
+            using var otherToken = new CancellationTokenSource();
+            otherToken.Cancel();
+            var exception = new System.Threading.Tasks.TaskCanceledException(null, null, otherToken.Token);
+
+            OperationOutcomeResult result = ValidateOperationOutcome(exception, HttpStatusCode.RequestTimeout);
+
+            Assert.False(_context.HttpContext.RequestAborted.IsCancellationRequested);
+            Assert.Equal(OperationOutcome.IssueType.Timeout, Assert.Single(result.Result.Issue).Code);
+            AssertSingleCancellationWarning(exception, expectedClientDisconnected: false);
+        }
+
+        [Fact]
+        public void GivenAWrappedOperationCanceledException_WhenExecutingAnAction_ThenTheCancellationShouldBeLoggedExactlyOnce()
+        {
+            using var requestAborted = new CancellationTokenSource();
+            requestAborted.Cancel();
+            _context.HttpContext.RequestAborted = requestAborted.Token;
+            var innerException = new System.OperationCanceledException(requestAborted.Token);
+
+            OperationOutcomeResult result = ValidateOperationOutcome(
+                new Exception("outer", new InvalidOperationException("middle", innerException)),
+                HttpStatusCode.RequestTimeout);
+
+            Assert.Equal(OperationOutcome.IssueType.Timeout, Assert.Single(result.Result.Issue).Code);
+            AssertSingleCancellationWarning(innerException, expectedClientDisconnected: true);
+        }
+
+        [Fact]
         public void GivenAFhirTransactionCancelledException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(
@@ -490,6 +535,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.IsType<OperationOutcomeResult>(result);
 
             return result;
+        }
+
+        private void AssertSingleCancellationWarning(Exception expectedException, bool expectedClientDisconnected)
+        {
+            var logCall = Assert.Single(_logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log));
+            object[] arguments = logCall.GetArguments();
+
+            Assert.Equal(LogLevel.Warning, (LogLevel)arguments[0]);
+            Assert.Same(expectedException, arguments[3]);
+
+            var state = Assert.IsAssignableFrom<IReadOnlyList<KeyValuePair<string, object>>>(arguments[2]);
+            Assert.Contains(state, kvp => kvp.Key == "{OriginalFormat}" && (string)kvp.Value == "Request was canceled. ClientDisconnected: {ClientDisconnected}");
+            Assert.Contains(state, kvp => kvp.Key == "ClientDisconnected" && kvp.Value is bool value && value == expectedClientDisconnected);
         }
 
         private static object CreateObject(Type type, string defaultStringValue = null)
