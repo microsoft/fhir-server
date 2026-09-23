@@ -28,6 +28,11 @@ updates:
           - "version-update:semver-major"
           - "version-update:semver-minor"
           - "version-update:semver-patch"
+      # Anonymizer 4.3+ requires Hl7.Fhir 5.12+, and Dependabot bumps a required dependency even
+      # when it is ignored above. Lift this together with the Hl7.Fhir.* rule.
+      - dependency-name: "Microsoft.Health.Fhir.Anonymizer.*"
+        versions:
+          - ">= 4.3"
     groups:
       hl7-fhir:
         patterns:
