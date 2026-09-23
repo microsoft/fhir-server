@@ -173,7 +173,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         protected override async Task OnInitializedAsync()
         {
             await base.OnInitializedAsync();
+            await InitializeSortedSetAsync();
+            await InitializePhaseSetAsync();
+        }
 
+        private async Task InitializeSortedSetAsync()
+        {
             var sortedSetDayOffsets = new int?[SortedSetSize];
             for (var rank = 0; rank < SortedSetDescendingRankToCreationIndex.Length; rank++)
             {
@@ -186,7 +191,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _sortedSetReportReferences.Add(reportReference);
                 _sortedSetObservationReferences.Add(observationReference);
             }
+        }
 
+        private async Task InitializePhaseSetAsync()
+        {
             var phaseSetDayOffsets = new int?[PhaseSetSize];
             for (var rank = 0; rank < PhaseSetDescendingRankToCreationIndex.Length; rank++)
             {

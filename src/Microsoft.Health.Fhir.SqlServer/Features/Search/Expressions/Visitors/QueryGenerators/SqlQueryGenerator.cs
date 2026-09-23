@@ -839,7 +839,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Everything in the top expression is considered a match
             const string selectStatement = "SELECT DISTINCT";
 
-            // Replayed includes pages must not seed includes from the outer search's lookahead row.
+            // Normal searches fetch one extra match to detect the next page. When replaying a page for
+            // $includes, select only the matches actually returned so references from that extra match are excluded.
             var matchPageSize = IncludesContinuationToken.FromString(context.IncludesContinuationToken)?.MatchPageSize;
             StringBuilder.Append(selectStatement).Append(" TOP (").Append(Parameters.AddParameter(matchPageSize ?? context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
