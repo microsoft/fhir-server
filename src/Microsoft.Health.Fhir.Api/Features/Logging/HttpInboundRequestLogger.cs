@@ -24,12 +24,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
     /// </remarks>
     public sealed class HttpInboundRequestLogger : IHttpInboundRequestLogger
     {
+        internal const string RouteNotAvailablePlaceHolder = "[RouteNotAvailable]";
+        internal const string ActionKeyName = "action";
+        internal const string ControllerKeyName = "controller";
         internal const string DurationColumnName = "duration";
         internal const string HttpHostColumnName = "httpHost";
         internal const string HttpMethodColumnName = "httpMethod";
         internal const string HttpPathColumnName = "httpPath";
         internal const string HttpStatusCodeColumnName = "httpStatusCode";
         internal const string XCorrelationIdColumnName = "XCorrelationId";
+        internal const string FhirHttpOperationName = "fhir_http_operationName";
 
         private static readonly EventId RequestCompletedEventId = new EventId(1, "RequestCompleted");
         private static readonly EventId RequestProcessingErrorEventId = new EventId(2, "RequestProcessingError");
@@ -70,14 +74,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
                     new KeyValuePair<string, object>(HttpPathColumnName, SanitizeForLog(context.Request?.Path.Value)),
                     new KeyValuePair<string, object>(HttpStatusCodeColumnName, httpStatusCode),
                     new KeyValuePair<string, object>(XCorrelationIdColumnName, GetCorrelationId(context)),
+                    new KeyValuePair<string, object>(FhirHttpOperationName, GetOperationName(context)),
                 ];
 
                 _logger.Log(
-                    httpStatusCode >= 500 && exception != null ? LogLevel.Error : LogLevel.Information,
-                    exception != null ? RequestProcessingErrorEventId : RequestCompletedEventId,
-                    state,
-                    exception,
-                    FormatLogMessage);
+                    logLevel: httpStatusCode >= 500 && exception != null ? LogLevel.Error : LogLevel.Information,
+                    eventId: exception != null ? RequestProcessingErrorEventId : RequestCompletedEventId,
+                    state: state,
+                    exception: exception,
+                    formatter: FormatLogMessage);
             }
             catch (Exception e)
             {
@@ -95,6 +100,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
             }
 
             return string.Empty;
+        }
+
+        private static string GetOperationName(HttpContext context)
+        {
+            string operationName = string.Empty;
+            var request = context.Request;
+
+            string name = string.Empty;
+            string action = request.RouteValues != null && request.RouteValues.ContainsKey(ActionKeyName) ? request.RouteValues[ActionKeyName]?.ToString() : string.Empty;
+            string controller = request.RouteValues != null && request.RouteValues.ContainsKey(ControllerKeyName) ? request.RouteValues[ControllerKeyName]?.ToString() : string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(action) && !string.IsNullOrWhiteSpace(controller))
+            {
+                name = $"{controller}/{action}";
+            }
+            else
+            {
+                name = RouteNotAvailablePlaceHolder;
+            }
+
+            return $"{context.Request.Method} {name}";
         }
 
         private static long GetElapsedMilliseconds(HttpContext context)
