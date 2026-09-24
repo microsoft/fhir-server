@@ -130,6 +130,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StartupWithStatusInitializationFailure.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\AlwaysFailingSearchParameterStatusDataStore.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\FailingSearchParameterStatusManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortedIncludesTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortedIncludesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />

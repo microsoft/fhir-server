@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -687,6 +688,79 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenALaterPageEndingTheFirstSortPhase_WhenAccurateTotalIsRequested_ThenTotalCountsAllMatches(bool hasDatedMatch)
+        {
+            // Arrange
+            var tag = Guid.NewGuid().ToString();
+            var totalCount = hasDatedMatch ? 5 : 6;
+            for (var i = 0; i < totalCount; i++)
+            {
+                await CreateIndexedPatient(tag, hasDatedMatch && i == totalCount - 1 ? "1980-01-01" : null);
+            }
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_tag", tag),
+                Tuple.Create("_sort", "birthdate"),
+                Tuple.Create("_count", "3"),
+                Tuple.Create("_total", "accurate"),
+            };
+            var firstPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Equal(totalCount, firstPage.TotalCount);
+            Assert.NotNull(firstPage.ContinuationToken);
+            query.Add(Tuple.Create("ct", ContinuationTokenEncoder.Encode(firstPage.ContinuationToken)));
+
+            // Act
+            var lastPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+
+            // Assert
+            Assert.Null(lastPage.ContinuationToken);
+            Assert.Equal(totalCount, lastPage.TotalCount);
+            Assert.Equal(hasDatedMatch ? 2 : 3, lastPage.Results.Count());
+        }
+
+        [Fact]
+        public async Task GivenADescendingMissingValuePage_WhenRemainingMatchesAreDeleted_ThenContinuationDoesNotRestartThePhase()
+        {
+            // Arrange
+            var tag = Guid.NewGuid().ToString();
+            var patients = new List<ResourceWrapper>();
+            for (var i = 0; i < 5; i++)
+            {
+                patients.Add(await CreateIndexedPatient(tag));
+            }
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_tag", tag),
+                Tuple.Create("_sort", "-birthdate"),
+                Tuple.Create("_count", "3"),
+            };
+            var firstPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Equal(3, firstPage.Results.Count());
+            Assert.NotNull(firstPage.ContinuationToken);
+            var returnedIds = firstPage.Results.Select(result => result.Resource.ResourceId).ToHashSet();
+            foreach (var patient in patients.Where(patient => !returnedIds.Contains(patient.ResourceId)))
+            {
+                await _fixture.Mediator.DeleteResourceAsync(
+                    new ResourceKey("Patient", patient.ResourceId),
+                    DeleteOperation.SoftDelete,
+                    CancellationToken.None);
+            }
+
+            query.Add(Tuple.Create("ct", ContinuationTokenEncoder.Encode(firstPage.ContinuationToken)));
+
+            // Act
+            var lastPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+
+            // Assert
+            Assert.Empty(lastPage.Results);
+            Assert.Null(lastPage.ContinuationToken);
+        }
+
         [Fact]
         public async Task Search_WithCountOnlyAndTotal_ReturnsAccurateCount()
         {
@@ -812,6 +886,31 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             // The deleted current version should be filtered out
             var deletedResourceInNonDeletedSearch = resultWithoutDeleted.Results.FirstOrDefault(r => r.Resource.ResourceId == resourceId && r.Resource.IsDeleted);
             Assert.Null(deletedResourceInNonDeletedSearch.Resource);
+        }
+
+        private async Task<ResourceWrapper> CreateIndexedPatient(string tag, string birthDate = null)
+        {
+            var patient = new Patient
+            {
+                Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } },
+                BirthDate = birthDate,
+            };
+            var saved = await _fixture.Mediator.UpsertResourceAsync(patient.ToResourceElement());
+            var wrapper = await _dataStore.GetAsync(new ResourceKey("Patient", saved.RawResourceElement.Id), CancellationToken.None);
+            Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter("Patient", "_tag", out var tagParameter));
+
+            // This storage fixture's mediator does not extract Patient search indices.
+            var indices = new List<SearchIndexEntry> { new SearchIndexEntry(tagParameter, new TokenSearchValue(null, tag, null)) };
+            if (birthDate != null)
+            {
+                Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter("Patient", "birthdate", out var birthdateParameter));
+                indices.Add(new SearchIndexEntry(
+                    birthdateParameter,
+                    new DateTimeSearchValue(PartialDateTime.Parse(birthDate)) { IsMin = true, IsMax = true }));
+            }
+
+            wrapper.SearchIndices = indices;
+            return await _dataStore.UpdateSearchParameterIndicesAsync(wrapper, CancellationToken.None);
         }
 
         private async Task<List<ResourceWrapper>> CreateTestPatients(int count)

@@ -23,6 +23,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -84,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private readonly FhirSqlServerConfiguration _fhirSqlServerConfiguration;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
@@ -163,6 +165,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -180,6 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _fhirSqlServerConfiguration = EnsureArg.IsNotNull(fhirSqlServerConfiguration, nameof(fhirSqlServerConfiguration));
+            _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _fhirDataStore = fhirDataStore;
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
@@ -230,16 +234,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
+            var isFirstPage = searchOptions.ContinuationToken == null;
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
             if (sqlSearchOptions.IsIncludesOperation)
             {
-                var includesContinuationToken = IncludesContinuationToken.FromString(sqlSearchOptions.IncludesContinuationToken);
-                if (includesContinuationToken == null)
-                {
-                    _logger.LogWarning("Bad Request (InvalidIncludesContinuationToken)");
-                    throw new BadRequestException(Resources.InvalidIncludesContinuationToken);
-                }
+                var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
 
                 sqlSearchOptions.SortQuerySecondPhase = includesContinuationToken.SortQuerySecondPhase ?? false;
 
@@ -274,17 +274,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // We need to preserve the second phase continuation token.
                     var newIncludesContinuationToken = IncludesContinuationToken.FromString(includesSearchResult.IncludesContinuationToken);
 
-                    var combinedIncludesContinuationToken = new IncludesContinuationToken(
-                        new object[]
-                        {
-                            newIncludesContinuationToken.MatchResourceTypeId,
-                            newIncludesContinuationToken.MatchResourceSurrogateIdMin,
-                            newIncludesContinuationToken.MatchResourceSurrogateIdMax,
-                            newIncludesContinuationToken.IncludeResourceTypeId,
-                            newIncludesContinuationToken.IncludeResourceSurrogateId,
-                            includesContinuationToken.SortQuerySecondPhase,
-                            includesContinuationToken.SecondPhaseContinuationToken,
-                        }).ToJson();
+                    var combinedIncludesContinuationToken = newIncludesContinuationToken
+                        .WithSecondPhase(includesContinuationToken.SecondPhaseContinuationToken).ToJson();
                     includesSearchResult = new SearchResult(
                         includesSearchResult.Results,
                         includesSearchResult.ContinuationToken,
@@ -323,12 +314,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
                 if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && !sqlSearchOptions.CountOnly))
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value && !sqlSearchOptions.SortHasMissingModifier) || (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && resultCount == 0 && sqlSearchOptions.DidWeSearchForSortValue != false && !sqlSearchOptions.CountOnly))
                 {
                     if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
                         // Check if more resources to be retrieved.
                         sqlSearchOptions.SortQuerySecondPhase = true;
+                        sqlSearchOptions.ContinuationToken = null;
                         sqlSearchOptions.MaxItemCount = 1;
                         var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
@@ -354,6 +346,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         var finalResultsInOrder = new List<SearchResultEntry>();
                         finalResultsInOrder.AddRange(searchResult.Results);
                         sqlSearchOptions.SortQuerySecondPhase = true;
+
+                        // The previous phase's surrogate cursor must not filter the next phase's matches.
+                        sqlSearchOptions.ContinuationToken = null;
                         sqlSearchOptions.MaxItemCount -= resultCount;
 
                         var includesCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Include);
@@ -383,16 +378,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             {
                                 var firstToken = IncludesContinuationToken.FromString(includesContinuationToken);
                                 var secondToken = IncludesContinuationToken.FromString(secondSearchResult.IncludesContinuationToken);
-                                includesContinuationToken = new IncludesContinuationToken(new object[]
-                                {
-                                    firstToken.MatchResourceTypeId,
-                                    firstToken.MatchResourceSurrogateIdMin,
-                                    firstToken.MatchResourceSurrogateIdMax,
-                                    firstToken.IncludeResourceTypeId,
-                                    firstToken.IncludeResourceSurrogateId,
-                                    false,
-                                    secondToken,
-                                }).ToJson();
+                                includesContinuationToken = firstToken.WithSecondPhase(secondToken).ToJson();
                             }
                         }
 
@@ -410,7 +396,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (sqlSearchOptions.IncludeTotal == TotalType.Accurate && !sqlSearchOptions.CountOnly)
             {
                 // If this is the first page and there aren't any more pages
-                if (sqlSearchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+                if (isFirstPage && searchResult.ContinuationToken == null)
                 {
                     // Count the match results on the page.
                     searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
@@ -495,60 +481,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            Expression searchExpression = sqlSearchOptions.Expression;
-
-            // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
-            {
-                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
-                if (continuationToken != null)
-                {
-                    if (string.IsNullOrEmpty(continuationToken.SortValue))
-                    {
-                        // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
-                        bool optimize = true;
-                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = sqlSearchOptions.Sort.Count == 0 ? default : sqlSearchOptions.Sort[0];
-                        if (sqlSearchOptions.Sort.Count > 0)
-                        {
-                            if (!(searchParamInfo.Name == SearchParameterNames.LastUpdated || searchParamInfo.Name == SearchParameterNames.ResourceType))
-                            {
-                                optimize = false;
-                            }
-                        }
-
-                        FieldName fieldName;
-                        object keyValue;
-                        SearchParameterInfo parameter;
-                        if (continuationToken.ResourceTypeId == null || _schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
-                        {
-                            // backwards compat
-                            parameter = SqlSearchParameters.ResourceSurrogateIdParameter;
-                            fieldName = SqlFieldName.ResourceSurrogateId;
-                            keyValue = continuationToken.ResourceSurrogateId;
-                        }
-                        else
-                        {
-                            parameter = SqlSearchParameters.PrimaryKeyParameter;
-                            fieldName = SqlFieldName.PrimaryKey;
-                            keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
-                        }
-
-                        Expression lastUpdatedExpression = !optimize
-                            ? Expression.GreaterThan(fieldName, null, keyValue)
-                            : sortOrder == SortOrder.Ascending
-                                ? Expression.GreaterThan(fieldName, null, keyValue)
-                                : Expression.LessThan(fieldName, null, keyValue);
-
-                        var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
-                        searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("Bad Request (InvalidContinuationToken)");
-                    throw new BadRequestException(Resources.InvalidContinuationToken);
-                }
-            }
+            var matchContinuationToken = sqlSearchOptions.ContinuationToken;
+            Expression searchExpression = AddContinuationToken(sqlSearchOptions);
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
@@ -827,16 +761,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     && (isResultPartial || includedResources.Count > clonedSearchOptions.IncludeCount)
                                     && !clonedSearchOptions.ContainsIterativeInclude)
                                 {
-                                    clonedSearchOptions.IncludesContinuationToken = new IncludesContinuationToken(
-                                        new object[]
-                                        {
-                                            newContinuationType.Value,
-                                            matchedResourceSurrogateIdStart.Value,
-                                            newContinuationId.Value,
-                                            null,
-                                            null,
-                                            sqlSearchOptions.SortQuerySecondPhase,
-                                        }).ToJson();
+                                    object[] includeTokens =
+                                    {
+                                        newContinuationType.Value,
+                                        matchedResourceSurrogateIdStart.Value,
+                                        newContinuationId.Value,
+                                        null,
+                                        null,
+                                        sqlSearchOptions.SortQuerySecondPhase,
+                                    };
+                                    if (clonedSearchOptions.Sort.Any(s => s.searchParameterInfo.Name is not (SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated)))
+                                    {
+                                        // Custom sort order is unrelated to surrogate IDs. Replay the exact
+                                        // match page (and phase), not an interval between its endpoint IDs.
+                                        Array.Resize(ref includeTokens, 9);
+                                        includeTokens[7] = matchContinuationToken;
+                                        includeTokens[8] = matchCount;
+                                    }
+
+                                    clonedSearchOptions.IncludesContinuationToken = new IncludesContinuationToken(includeTokens).ToJson();
 
                                     var includesSearchResult = await SearchIncludeImpl(clonedSearchOptions, cancellationToken);
                                     includedResources.Clear();
@@ -1970,27 +1913,93 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             cancel);
         }
 
-        private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
+        private Expression AddContinuationToken(SqlSearchOptions sqlSearchOptions)
+        {
+            Expression searchExpression = sqlSearchOptions.Expression;
+
+            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
+            {
+                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
+                if (continuationToken == null)
+                {
+                    _logger.LogWarning("Bad Request (InvalidContinuationToken)");
+                    throw new BadRequestException(Resources.InvalidContinuationToken);
+                }
+
+                if (string.IsNullOrEmpty(continuationToken.SortValue))
+                {
+                    (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = sqlSearchOptions.Sort.Count == 0 ? default : sqlSearchOptions.Sort[0];
+                    bool optimize = sqlSearchOptions.Sort.Count == 0
+                        || searchParamInfo.Name is SearchParameterNames.LastUpdated or SearchParameterNames.ResourceType;
+
+                    FieldName fieldName;
+                    object keyValue;
+                    SearchParameterInfo parameter;
+                    if (continuationToken.ResourceTypeId == null || _schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
+                    {
+                        parameter = SqlSearchParameters.ResourceSurrogateIdParameter;
+                        fieldName = SqlFieldName.ResourceSurrogateId;
+                        keyValue = continuationToken.ResourceSurrogateId;
+                    }
+                    else
+                    {
+                        parameter = SqlSearchParameters.PrimaryKeyParameter;
+                        fieldName = SqlFieldName.PrimaryKey;
+                        keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
+                    }
+
+                    Expression lastUpdatedExpression = !optimize || sortOrder == SortOrder.Ascending
+                        ? Expression.GreaterThan(fieldName, null, keyValue)
+                        : Expression.LessThan(fieldName, null, keyValue);
+
+                    var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
+                    searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
+                }
+            }
+
+            return searchExpression;
+        }
+
+        private IncludesContinuationToken ParseIncludesContinuationToken(SqlSearchOptions sqlSearchOptions)
         {
             var includesContinuationToken = IncludesContinuationToken.FromString(sqlSearchOptions.IncludesContinuationToken);
-            if (includesContinuationToken == null)
+            if (includesContinuationToken == null
+                || (!sqlSearchOptions.IsAsyncOperation && includesContinuationToken.MatchPageSize > _coreFeatureConfiguration.MaxItemCountPerSearch))
             {
                 _logger.LogWarning("Bad Request (InvalidIncludesContinuationToken)");
                 throw new BadRequestException(Resources.InvalidIncludesContinuationToken);
             }
 
-            var gteExpression = Expression.GreaterThanOrEqual(
-                SqlFieldName.ResourceSurrogateId,
-                null,
-                includesContinuationToken.MatchResourceSurrogateIdMin);
-            var lteExpression = Expression.LessThanOrEqual(
-                SqlFieldName.ResourceSurrogateId,
-                null,
-                includesContinuationToken.MatchResourceSurrogateIdMax);
-            var tokenExpression = Expression.And(
-                Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, gteExpression),
-                Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lteExpression));
-            Expression searchExpression = sqlSearchOptions.Expression == null ? tokenExpression : Expression.And(tokenExpression, sqlSearchOptions.Expression);
+            return includesContinuationToken;
+        }
+
+        private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
+        {
+            var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
+            Expression searchExpression;
+            if (includesContinuationToken.MatchPageSize.HasValue)
+            {
+                sqlSearchOptions = sqlSearchOptions.CloneSqlSearchOptions();
+                sqlSearchOptions.ContinuationToken = includesContinuationToken.MatchContinuationToken;
+                sqlSearchOptions.MaxItemCount = includesContinuationToken.MatchPageSize.Value;
+                searchExpression = AddContinuationToken(sqlSearchOptions);
+            }
+            else
+            {
+                var gteExpression = Expression.GreaterThanOrEqual(
+                    SqlFieldName.ResourceSurrogateId,
+                    null,
+                    includesContinuationToken.MatchResourceSurrogateIdMin);
+                var lteExpression = Expression.LessThanOrEqual(
+                    SqlFieldName.ResourceSurrogateId,
+                    null,
+                    includesContinuationToken.MatchResourceSurrogateIdMax);
+                var tokenExpression = Expression.And(
+                    Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, gteExpression),
+                    Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lteExpression));
+                searchExpression = sqlSearchOptions.Expression == null ? tokenExpression : Expression.And(tokenExpression, sqlSearchOptions.Expression);
+            }
+
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
@@ -2095,7 +2104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                                 var moreResults = false;
                                 var moreResultsSurrogateIdCutOff = 0L;
-                                var moreResultsResourceTypeId = 0;
+                                short moreResultsResourceTypeId = 0;
                                 var resources = new List<SearchResultEntry>(sqlSearchOptions.IncludeCount);
 
                                 while (await reader.ReadAsync(cancellationToken))
@@ -2174,16 +2183,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 if (moreResults)
                                 {
                                     _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
-                                    nextIncludesContinuationToken = new IncludesContinuationToken(
-                                        new object[]
-                                        {
-                                    includesContinuationToken.MatchResourceTypeId,
-                                    includesContinuationToken.MatchResourceSurrogateIdMin,
-                                    includesContinuationToken.MatchResourceSurrogateIdMax,
-                                    moreResultsResourceTypeId,
-                                    moreResultsSurrogateIdCutOff,
-                                    includesContinuationToken.SortQuerySecondPhase,
-                                        });
+                                    nextIncludesContinuationToken = includesContinuationToken.WithIncludeCursor(
+                                        moreResultsResourceTypeId,
+                                        moreResultsSurrogateIdCutOff);
                                 }
 
                                 searchResult = new SearchResult(
