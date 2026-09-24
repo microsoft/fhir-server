@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// <summary>
         /// Expanded bundle processing header.
         /// </summary>
-        public const string ExpandedBundle = "x-ms-expanded-bundle-limit";
+        public const string ExpandedBundle = "x-expanded-bundle";
 
         // #conditionalQueryParallelism - Header used to activate parallel conditional-query processing.
         public const string ConditionalQueryProcessingLogic = "x-conditionalquery-processing-logic";
