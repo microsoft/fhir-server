@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
             Assert.Equal("error", issue.GetProperty("severity").GetString());
             Assert.Equal("business-rule", issue.GetProperty("code").GetString());
             Assert.Equal("service-deprecated", issue.GetProperty("details").GetProperty("coding")[0].GetProperty("code").GetString());
-            Assert.Contains("This FHIR service is deprecated no longer accepts normal workloads.", issue.GetProperty("diagnostics").GetString());
+            Assert.Contains("Azure API for FHIR has been retired. Non-GET API calls to this account are currently blocked and the account is deprecated. GET requests and the Export operation are allowed. For questions or assistance, create an Azure support request with Azure API for FHIR Extension Request.", issue.GetProperty("diagnostics").GetString());
 
             Assert.DoesNotContain("patient-id", issue.GetRawText());
             Assert.DoesNotContain("Smith", issue.GetRawText());
