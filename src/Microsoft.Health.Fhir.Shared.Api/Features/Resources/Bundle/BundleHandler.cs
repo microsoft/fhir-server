@@ -201,7 +201,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (await _authorizationService.CheckAccess(DataActions.All, cancellationToken) == DataActions.None)
             {
-                _logger.LogWarning("UnauthorizedFhirActionException");
                 throw new UnauthorizedFhirActionException();
             }
 

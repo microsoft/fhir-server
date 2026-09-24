@@ -104,12 +104,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
 
         private static string GetOperationName(HttpContext context)
         {
-            var request = context.Request;
+            HttpRequest request = context.Request;
+
+            string action = request.RouteValues.TryGetValue(ActionKeyName, out var actionValue) ? actionValue?.ToString() : string.Empty;
+            string controller = request.RouteValues.TryGetValue(ControllerKeyName, out var controllerValue) ? controllerValue?.ToString() : string.Empty;
 
             string name = string.Empty;
-            string action = request.RouteValues != null && request.RouteValues.TryGetValue(ActionKeyName, out var actionValue) ? actionValue?.ToString() : string.Empty;
-            string controller = request.RouteValues != null && request.RouteValues.TryGetValue(ControllerKeyName, out var controllerValue) ? controllerValue?.ToString() : string.Empty;
-
             if (!string.IsNullOrWhiteSpace(action) && !string.IsNullOrWhiteSpace(controller))
             {
                 name = $"{controller}/{action}";
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Logging
                 name = RouteNotAvailablePlaceHolder;
             }
 
-            return $"{context.Request.Method} {name}";
+            return $"{request.Method} {name}";
         }
 
         private static long GetElapsedMilliseconds(HttpContext context)
