@@ -13,6 +13,12 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+    # Some consumers restore through package mirrors that hold back newly published NuGet versions
+    # for about a week. Waiting longer than that keeps a bump here from needing a version those
+    # mirrors cannot serve yet. Security updates skip cooldown, so they can still hit that window.
+    cooldown:
+      default-days: 8
+      semver-major-days: 14
     # Naming labels here replaces Dependabot's defaults, which are the lowercase "dependencies" plus
     # a per-ecosystem label such as ".NET". That is deliberate: this repo labels dependency PRs
     # "Dependencies" and "Open source" and does not use the per-ecosystem labels. Label matching is
