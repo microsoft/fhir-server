@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -29,8 +30,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     /// </summary>
     internal sealed class ExpiredResourceCleanupWatchdog : Watchdog<ExpiredResourceCleanupWatchdog>
     {
-        private const int DefaultPeriodSec = 4 * 3600; // 4 hours
-        private const int DefaultLeasePeriodSec = 3600; // 1 hour
+        private const int DefaultPeriodSec = 15 * 60; // 15 minutes
+        private const int DefaultLeasePeriodSec = 15 * 60; // 15 minutes
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
@@ -48,6 +49,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value?.ExpiredResource, nameof(watchdogConfiguration));
+
+            AllowDbPeriodOverride = false;
         }
 
         internal ExpiredResourceCleanupWatchdog()
@@ -77,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             if (!_configuration.Enabled)
             {
-                _logger.LogDebug("ExpiredResourceCleanupWatchdog is disabled. Skipping cleanup.");
+                _logger.LogInformation("ExpiredResourceCleanupWatchdog is disabled. Skipping cleanup.");
                 return;
             }
 
@@ -88,45 +91,72 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             try
             {
-                var cutoffDate = Clock.UtcNow;
-                var cutoffDateString = cutoffDate.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-                var searchParameters = new List<Tuple<string, string>>
+                if (await ShouldCreateNewCleanupJob(cancellationToken))
                 {
-                    Tuple.Create("_expiryDate", $"lt{cutoffDateString}"),
-                    Tuple.Create(KnownQueryParameterNames.RemoveReferences, "true"),
-                };
+                    var cutoffDate = Clock.UtcNow;
+                    var cutoffDateString = cutoffDate.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
-                var definition = new BulkDeleteDefinition(
-                    JobType.BulkDeleteOrchestrator,
-                    DeleteOperation.HardDelete,
-                    type: null,
-                    searchParameters,
-                    excludedResourceTypes: null,
-                    url: $"./ExpiredResourceCleanupWatchdog",
-                    baseUrl: $"./ExpiredResourceCleanupWatchdog",
-                    parentRequestId: Guid.NewGuid().ToString(),
-                    versionType: ResourceVersionType.Latest,
-                    removeReferences: false);
+                    var searchParameters = new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_expiryDate", $"lt{cutoffDateString}"),
+                        Tuple.Create(KnownQueryParameterNames.RemoveReferences, "true"),
+                    };
 
-                var jobs = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definition);
+                    var definition = new BulkDeleteDefinition(
+                        JobType.BulkDeleteOrchestrator,
+                        DeleteOperation.HardDelete,
+                        type: null,
+                        searchParameters,
+                        excludedResourceTypes: null,
+                        url: $"./ExpiredResourceCleanupWatchdog",
+                        baseUrl: $"./ExpiredResourceCleanupWatchdog",
+                        parentRequestId: Guid.NewGuid().ToString(),
+                        versionType: ResourceVersionType.Latest,
+                        removeReferences: false);
 
-                if (jobs != null && jobs.Count > 0)
-                {
-                    _logger.LogInformation(
-                        "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate}.",
-                        jobs[0].Id,
-                        cutoffDateString);
-                }
-                else
-                {
-                    _logger.LogWarning("ExpiredResourceCleanupWatchdog: Failed to enqueue bulk delete job.");
+                    var jobs = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definition);
+
+                    if (jobs != null && jobs.Count > 0)
+                    {
+                        _logger.LogInformation(
+                            "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate}.",
+                            jobs[0].Id,
+                            cutoffDateString);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("ExpiredResourceCleanupWatchdog: Failed to enqueue bulk delete job.");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ExpiredResourceCleanupWatchdog: Error while enqueuing bulk delete job.");
             }
+        }
+
+        private async Task<bool> ShouldCreateNewCleanupJob(CancellationToken cancellationToken)
+        {
+            // Checks the database for the last bulk delete job definition that was created by this watchdog. If the last job was created before the retention period, returns true to indicate a new job should be created.
+            JobInfo job = await _queueClient.GetMostRecentJobByQueueTypeAsync((byte)QueueType.BulkDelete, cancellationToken);
+
+            if (job == null)
+            {
+                _logger.LogInformation("ExpiredResourceCleanupWatchdog: No previous bulk delete jobs found. A new job will be created.");
+                return true;
+            }
+
+            var bulkDeleteDefinition = job.DeserializeDefinition<BulkDeleteDefinition>();
+            if (bulkDeleteDefinition != null && bulkDeleteDefinition.Url == "./ExpiredResourceCleanupWatchdog" && job.CreateDate > Clock.UtcNow.AddMinutes(-_configuration.ExecutionIntervalInMinutes))
+            {
+                _logger.LogInformation(
+                    "ExpiredResourceCleanupWatchdog: Last cleanup job {JobId} was created on {CreatedOn}, which is within the retention period. Skipping new job creation.",
+                    job.Id,
+                    job.CreateDate);
+                return false;
+            }
+
+            return true;
         }
     }
 }
