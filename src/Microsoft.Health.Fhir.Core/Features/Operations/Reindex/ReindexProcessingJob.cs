@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private async Task ProcessWithContinuationTokensAsync()
         {
-            _logger.LogJobInformation(_jobInfo, "Cosmos reindex starts. BatchSize={BatchSize}", _batchSize);
+            _logger.LogJobInformation(_jobInfo, $"Cosmos reindex starts. BatchSize={_batchSize}");
 
             using var store = _fhirDataStoreFactory();
             string continuationToken = null;
@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _result.SucceededResourceCount += resources.Count;
                     _jobInfo.Data = _result.SucceededResourceCount;
 
-                    _logger.LogJobInformation(_jobInfo, "Cosmos reindex batch complete. BatchSize={BatchSize}, TotalProcessed={TotalProcessed}", resources.Count, _result.SucceededResourceCount);
+                    _logger.LogJobInformation(_jobInfo, $"Cosmos reindex batch complete. BatchSize={resources.Count}, TotalProcessed={_result.SucceededResourceCount}");
                 }
 
                 if (string.IsNullOrEmpty(result.ContinuationToken))

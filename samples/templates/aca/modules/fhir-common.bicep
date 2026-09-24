@@ -247,7 +247,7 @@ resource keyVaultSecretsOfficerRole 'Microsoft.Authorization/roleAssignments@202
 resource storageAccount 'Microsoft.Storage/storageAccounts@2019-06-01' = if (enableIntegrationStore) {
   name: storageAccountName
   location: resourceGroup().location
-  kind: 'Storage'
+  kind: 'StorageV2'
   sku: {
     name: 'Standard_LRS'
   }

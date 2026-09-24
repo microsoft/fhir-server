@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
             _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
             _searchDefinitionManager.AllSearchParameters.Returns(new List<SearchParameterInfo>());
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new List<ResourceSearchParameterStatus>());
             _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
                 .Returns(new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 });
@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task ExecuteAsync_WithExceptionInProcessing_ThrowsJobExecutionExceptionWithErrorResult()
         {
             // Arrange
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(
                     new InvalidOperationException("Database error")));
 
@@ -346,7 +346,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var emptyStatus = new ReadOnlyCollection<ResourceSearchParameterStatus>(
                 new List<ResourceSearchParameterStatus>());
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(emptyStatus);
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>()).Returns(false);
@@ -380,7 +380,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
@@ -498,7 +498,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
@@ -609,7 +609,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
@@ -714,7 +714,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
                 .Returns(callInfo =>
@@ -775,7 +775,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
                 .Returns(callInfo =>
@@ -856,7 +856,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
@@ -952,7 +952,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchDefinitionManager.AllSearchParameters.Returns(new List<SearchParameterInfo> { searchParam });
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
@@ -1003,7 +1003,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchDefinitionManager.AllSearchParameters.Returns(new List<SearchParameterInfo> { systemParam });
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(
                     new List<ResourceSearchParameterStatus>
                     {
@@ -1053,7 +1053,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchDefinitionManager.AllSearchParameters.Returns(new List<SearchParameterInfo> { systemParam });
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(
                     new List<ResourceSearchParameterStatus>
                     {
@@ -1099,7 +1099,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchDefinitionManager.AllSearchParameters.Returns(new List<SearchParameterInfo> { systemParam });
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(
                     new List<ResourceSearchParameterStatus>
                     {
@@ -1138,7 +1138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.PendingDelete,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
@@ -1183,7 +1183,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var emptyStatus = new ReadOnlyCollection<ResourceSearchParameterStatus>(
                 new List<ResourceSearchParameterStatus>());
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(emptyStatus);
 
             _searchDefinitionManager.AllSearchParameters
@@ -1246,7 +1246,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2, searchParamStatus3 });
 
             // ALL three parameters are in the reindex job
@@ -1330,7 +1330,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var emptyStatus = new ReadOnlyCollection<ResourceSearchParameterStatus>(
                 new List<ResourceSearchParameterStatus>());
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(emptyStatus);
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>()).Returns(false);
@@ -1396,7 +1396,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2, searchParamStatus3 });
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
@@ -1606,7 +1606,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2, searchParamStatus3 });
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
@@ -1711,7 +1711,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
@@ -1877,7 +1877,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task HandleException_ThrowsJobExecutionExceptionWithError()
         {
             // Arrange
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(
                     new SystemException("Critical error")));
 
@@ -1918,7 +1918,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
@@ -2021,7 +2021,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
             _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
@@ -2088,7 +2088,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
@@ -2171,7 +2171,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.PendingDelete,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
@@ -2263,7 +2263,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.PendingDisable,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
             _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
@@ -2340,7 +2340,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = SearchParameterStatus.Supported,
             };
 
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
             _searchDefinitionManager.AllSearchParameters
@@ -2397,7 +2397,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task RefreshSearchParameterCache_WaitsForConfiguredNumberOfCacheRefreshCycles()
         {
             var emptyStatus = new List<ResourceSearchParameterStatus>();
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(emptyStatus);
 
             var jobInfo = await CreateReindexJobRecord();
@@ -2414,7 +2414,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task CreateReindexProcessingJobsAsync_WhenStatusExistsButDefinitionMissing_ThrowsJobExecutionException()
         {
             var missingUrl = "http://example.org/fhir/SearchParameter/missing-sp";
-            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus>
                 {
                     new ResourceSearchParameterStatus
@@ -2432,7 +2432,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var orchestrator = CreateReindexOrchestratorJob();
 
             var ex = await Assert.ThrowsAsync<JobExecutionException>(() => orchestrator.ExecuteAsync(jobInfo, _cancellationToken));
-            var expectedMessage = $"GetDefinitionFromCache: {missingUrl} not found in cache.";
+            var expectedMessage = $"Reindex.GetDefinitionFromCache: url=[{missingUrl}] not found in cache.";
 
             Assert.Contains(expectedMessage, ex.Message);
             var result = Assert.IsType<ReindexOrchestratorJobResult>(ex.Error);
