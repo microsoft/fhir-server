@@ -272,6 +272,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new System.OperationCanceledException(), HttpStatusCode.RequestTimeout);
         }
 
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        public void GivenAnOperationCanceledException_WhenExecutingAnAction_ThenTheCancellationShouldBeLoggedOnceWithClientDisconnected(bool clientDisconnected, bool wrapped)
+        {
+            _context.HttpContext.RequestAborted = new System.Threading.CancellationToken(clientDisconnected);
+            var exception = new System.OperationCanceledException();
+
+            OperationOutcomeResult result = ValidateOperationOutcome(wrapped ? new Exception(null, exception) : exception, HttpStatusCode.RequestTimeout);
+
+            Assert.Equal(OperationOutcome.IssueType.Timeout, Assert.Single(result.Result.Issue).Code);
+            object[] logArgs = Assert.Single(_logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log)).GetArguments();
+            Assert.Equal(LogLevel.Warning, logArgs[0]);
+            Assert.Same(exception, logArgs[3]);
+            Assert.Contains(new KeyValuePair<string, object>("ClientDisconnected", clientDisconnected), (IReadOnlyList<KeyValuePair<string, object>>)logArgs[2]);
+        }
+
         [Fact]
         public void GivenAFhirTransactionCancelledException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
