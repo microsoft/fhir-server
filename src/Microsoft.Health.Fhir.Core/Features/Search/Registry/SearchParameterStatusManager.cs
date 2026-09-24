@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -126,60 +126,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _logger.LogError("SearchParameterStatusManager: Sort status is not enabled {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", disableSortIndicesList.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
             }
 
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
-            await _mediator.Publish(new SearchParametersInitializedNotification(), cancellationToken);
+            await _mediator.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _mediator.PublishAsync(new SearchParametersInitializedNotification(), cancellationToken);
         }
 
-        public async Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterStatusManager: Search parameter definition manager initialized");
+            _logger.LogInformation("SearchParameterStatusManager: initialization starting...");
             await EnsureInitializedAsync(cancellationToken);
+            _logger.LogInformation("SearchParameterStatusManager: initialization completed.");
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, long? reindexId = null, DateTimeOffset? lastUpdated = null)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, long? reindexId = null, DateTimeOffset? lastUpdated = null)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
-            if (searchParameterUris.Count == 0)
-            {
-                return;
-            }
-
-            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
-            var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
-                .ToDictionary(x => x.Uri.OriginalString, StringComparer.Ordinal);
-
+            var statuses = new List<ResourceSearchParameterStatus>();
             foreach (string uri in searchParameterUris)
             {
-                _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
+                _logger.LogInformation($"UpdateSearchParameterStatus: url=[{uri}] status={status} starting...");
 
-                // Validate that the search parameter exists in the definition manager
-                _searchParameterDefinitionManager.GetSearchParameter(uri);
+                // Validate that the search parameter exists in the definition manager.
+                // This makes sense only for status other than Deleted.
+                if (status != SearchParameterStatus.Deleted)
+                {
+                    _searchParameterDefinitionManager.GetSearchParameter(uri);
+                }
 
-                if (parameters.TryGetValue(uri, out var existingStatus))
+                // It does not make sense to keep any of existing ResourceSearchParameterStatus components as results do not depend on them.
+                statuses.Add(new ResourceSearchParameterStatus
                 {
-                    existingStatus.Status = status;
-                    searchParameterStatusList.Add(existingStatus);
-                    existingStatus.LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow;
-                }
-                else
-                {
-                    searchParameterStatusList.Add(new ResourceSearchParameterStatus
-                    {
-                        Status = status,
-                        Uri = new Uri(uri),
-                        LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow,
-                    });
-                }
+                    Status = status,
+                    Uri = new Uri(uri),
+                    LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow,
+                });
             }
 
-            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken, reindexId);
-        }
-
-        public async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
-        {
-            var searchParamUris = new List<string>() { url };
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
+            await _searchParameterStatusDataStore.UpsertStatuses(statuses, cancellationToken, reindexId);
+            _logger.LogInformation($"UpdateSearchParameterStatus: urls=[{string.Join(", ", searchParameterUris)}] completed.");
         }
 
         public async Task<(IReadOnlyCollection<ResourceSearchParameterStatus> Statuses, DateTimeOffset? LastUpdated)> GetSearchParameterStatusUpdates(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
@@ -190,21 +174,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         }
 
         // This is just a conveniance wrapper method that should not be going to store directly
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatuses(CancellationToken cancellationToken)
         {
             return (await GetSearchParameterStatusUpdates(cancellationToken)).Statuses;
         }
 
         /// <summary>
-        /// Used to apply search parameter status updates to the SearchParameterDefinitionManager.Used in reindex operation when checking every 10 minutes or so.
+        /// Used to apply search parameter status updates in the SearchParameterDefinitionManager.
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        public async Task ApplySearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
             if (!updatedSearchParameterStatus.Any())
             {
-                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply.");
+                _logger.LogDebug("ApplySearchParameterStatuses: No search parameter status updates to apply.");
                 return;
             }
 
@@ -235,8 +219,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
-            _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            _logger.LogDebug($"ApplySearchParameterStatuses: Synced params. urls=[{string.Join(", ", updatedSearchParameterStatus.Select(_ => _.Uri))}]");
+            await _mediator.PublishAsync(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)

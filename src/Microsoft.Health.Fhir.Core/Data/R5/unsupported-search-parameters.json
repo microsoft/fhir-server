@@ -39,7 +39,6 @@
         "http://hl7.org/fhir/SearchParameter/RequestOrchestration-participant",
         "http://hl7.org/fhir/SearchParameter/Requirements-actor",
         "http://hl7.org/fhir/SearchParameter/Requirements-derived-from",
-        "http://hl7.org/fhir/SearchParameter/ResearchStudy-focus-code",
         "http://hl7.org/fhir/SearchParameter/SearchParameter-derived-from",
         "http://hl7.org/fhir/SearchParameter/SearchParameter-component",
         "http://hl7.org/fhir/SearchParameter/ServiceRequest-instantiates-canonical",

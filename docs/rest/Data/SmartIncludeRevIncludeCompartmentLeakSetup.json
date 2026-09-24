@@ -1,0 +1,235 @@
+{
+  "resourceType": "Bundle",
+  "type": "batch",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smart-patient-A",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://github.com/microsoft/fhir-server/repro",
+              "code": "smart-compartment-include-leak"
+            }
+          ]
+        },
+        "active": true,
+        "name": [
+          {
+            "family": "AuthorizedPatient",
+            "given": [
+              "SMART"
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/smart-patient-A"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smart-compartment-leak-patient-b",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://github.com/microsoft/fhir-server/repro",
+              "code": "smart-compartment-include-leak"
+            }
+          ]
+        },
+        "active": true,
+        "name": [
+          {
+            "family": "OutsideCompartment",
+            "given": [
+              "PatientB"
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/smart-compartment-leak-patient-b"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "smart-compartment-focus-observation-b",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://github.com/microsoft/fhir-server/repro",
+              "code": "smart-compartment-include-leak"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body weight"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smart-compartment-leak-patient-b"
+        },
+        "focus": [
+          {
+            "reference": "Patient/smart-patient-A"
+          }
+        ],
+        "valueQuantity": {
+          "value": 70,
+          "unit": "kg",
+          "system": "http://unitsofmeasure.org",
+          "code": "kg"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/smart-compartment-focus-observation-b"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "smart-compartment-focus-report-a",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://github.com/microsoft/fhir-server/repro",
+              "code": "smart-compartment-include-leak"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "11502-2",
+              "display": "Laboratory report"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smart-patient-A"
+        },
+        "result": [
+          {
+            "reference": "Observation/smart-compartment-focus-observation-b"
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "DiagnosticReport/smart-compartment-focus-report-a"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Coverage",
+        "id": "smart-compartment-leak-coverage",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://github.com/microsoft/fhir-server/repro",
+              "code": "smart-compartment-include-leak"
+            }
+          ]
+        },
+        "status": "active",
+        "subscriber": {
+          "reference": "Patient/smart-compartment-leak-patient-b"
+        },
+        "beneficiary": {
+          "reference": "Patient/smart-patient-A"
+        },
+        "payor": [
+          {
+            "reference": "Patient/smart-patient-A"
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Coverage/smart-compartment-leak-coverage"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "smart-compartment-leak-observation-a",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://github.com/microsoft/fhir-server/repro",
+              "code": "smart-compartment-include-leak"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "4548-4",
+              "display": "Hemoglobin A1c"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smart-patient-A"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/smart-compartment-leak-observation-a"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "smart-compartment-leak-report-b",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://github.com/microsoft/fhir-server/repro",
+              "code": "smart-compartment-include-leak"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "11502-2",
+              "display": "Laboratory report"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smart-compartment-leak-patient-b"
+        },
+        "result": [
+          {
+            "reference": "Observation/smart-compartment-leak-observation-a"
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "DiagnosticReport/smart-compartment-leak-report-b"
+      }
+    }
+  ]
+}

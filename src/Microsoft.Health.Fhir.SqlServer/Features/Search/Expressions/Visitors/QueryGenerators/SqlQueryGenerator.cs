@@ -112,6 +112,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             _rootExpression = expression;
 
+            // Fail-closed invariant: when a SMART compartment membership context was attached for this search
+            // (see SqlServerSearchService.AttachSmartCompartmentMembership), it must still be present on the
+            // root expression that reaches SQL generation. SmartCompartmentMembership is carried outside the
+            // visitable expression tree, so a rewrite step that reconstructs SqlRootExpression after the attach
+            // would silently drop it — and the include CTEs would be generated without compartment
+            // authorization. Refuse to generate that SQL. This cannot affect non-SMART or system-scope
+            // searches: IsSmartCompartmentSearch is only set when a membership context was actually attached.
+            if (context is SqlSearchOptions { IsSmartCompartmentSearch: true }
+                && expression.SmartCompartmentMembership == null
+                && expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+            {
+                throw new InvalidOperationException(
+                    "SMART compartment membership context was dropped before SQL generation; refusing to generate _include/_revinclude SQL without compartment authorization.");
+            }
+
             var visitedInclude = false;
             if (expression.SearchParamTableExpressions.Count > 0)
             {
@@ -194,7 +209,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                             if (_smartV2UnionVisited)
                             {
-                                // If we have smart v2 scopes with search parameters we need to re-generate the scoped restricted data for the include
+                                // If we have smart v2 scopes with search parameters we need to re-generate the scope
+                                // restricted data set for the include, because the
+                                // include CTEs are emitted in a new ;WITH statement that cannot reference the CTEs above.
                                 sb.AppendLine("OPTION (RECOMPILE)");
                                 sb.AppendLine($";WITH");
                                 int saveTableExpressionCounter = _tableExpressionCounter;
@@ -1199,6 +1216,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).Append(" = Sid1)");
                     }
                 }
+
+                if (_rootExpression.SmartCompartmentMembership != null)
+                {
+                    AppendSmartCompartmentCandidatePredicate(
+                        delimited.BeginDelimitedElement(),
+                        includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias,
+                        candidateIsResourceTable: !includeExpression.Reversed);
+                }
             }
 
             if (context.IsIncludesOperation)
@@ -1242,6 +1267,205 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 includeExpression.ReferencedTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
             }
+        }
+
+        private void AppendSmartCompartmentCandidatePredicate(
+            IndentedStringBuilder scope,
+            string candidateTableAlias,
+            bool candidateIsResourceTable)
+        {
+            const string membershipAlias = "smartCompartmentMembership";
+            const string rootAlias = "smartCompartmentRoot";
+
+            SmartCompartmentMembershipContext membership = _rootExpression.SmartCompartmentMembership;
+            var candidateResourceTypeId = candidateIsResourceTable
+                ? VLatest.Resource.ResourceTypeId
+                : VLatest.ReferenceSearchParam.ResourceTypeId;
+            var candidateResourceSurrogateId = candidateIsResourceTable
+                ? VLatest.Resource.ResourceSurrogateId
+                : VLatest.ReferenceSearchParam.ResourceSurrogateId;
+
+            object compartmentResourceTypeId = Parameters.AddParameter(
+                VLatest.Resource.ResourceTypeId,
+                Model.GetResourceTypeId(membership.CompartmentResourceType),
+                true);
+            object compartmentResourceId = Parameters.AddParameter(
+                VLatest.Resource.ResourceId,
+                membership.CompartmentResourceId,
+                true);
+
+            scope.Append("(")
+                .Append("(")
+                .Append(candidateResourceTypeId, candidateTableAlias)
+                .Append(" = ")
+                .Append(compartmentResourceTypeId)
+                .Append(" AND ");
+
+            if (candidateIsResourceTable)
+            {
+                scope.Append(VLatest.Resource.ResourceId, candidateTableAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceId);
+            }
+            else
+            {
+                scope.Append("EXISTS (SELECT 1 FROM ")
+                    .Append(VLatest.Resource)
+                    .Append(' ')
+                    .Append(rootAlias)
+                    .Append(" WHERE ")
+                    .Append(VLatest.Resource.ResourceTypeId, rootAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceTypeId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, rootAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceSurrogateId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.Resource.ResourceId, rootAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceId)
+                    .Append(")");
+            }
+
+            scope.Append(")");
+
+            if (!membership.SharedResourceTypes.IsDefaultOrEmpty)
+            {
+                scope.Append(" OR ")
+                    .Append(candidateResourceTypeId, candidateTableAlias)
+                    .Append(" IN (")
+                    .Append(string.Join(
+                        ", ",
+                        membership.SharedResourceTypes.Select(resourceType => Parameters.AddParameter(
+                            VLatest.Resource.ResourceTypeId,
+                            Model.GetResourceTypeId(resourceType),
+                            true))))
+                    .Append(")");
+            }
+
+            if (!membership.MembershipRules.IsDefaultOrEmpty)
+            {
+                scope.Append(" OR EXISTS (SELECT 1 FROM ")
+                    .Append(VLatest.ReferenceSearchParam)
+                    .Append(' ')
+                    .Append(membershipAlias)
+                    .Append(" WHERE ")
+                    .Append(VLatest.ReferenceSearchParam.ResourceTypeId, membershipAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceTypeId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, membershipAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceSurrogateId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, membershipAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceTypeId)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, membershipAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceId)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.BaseUri, membershipAlias)
+                    .Append(" IS NULL AND (");
+
+                for (int ruleIndex = 0; ruleIndex < membership.MembershipRules.Length; ruleIndex++)
+                {
+                    SmartCompartmentMembershipRule rule = membership.MembershipRules[ruleIndex];
+                    if (ruleIndex > 0)
+                    {
+                        scope.Append(" OR ");
+                    }
+
+                    scope.Append("(")
+                        .Append(VLatest.ReferenceSearchParam.ResourceTypeId, membershipAlias)
+                        .Append(" = ")
+                        .Append(Parameters.AddParameter(
+                            VLatest.ReferenceSearchParam.ResourceTypeId,
+                            Model.GetResourceTypeId(rule.ResourceType),
+                            true))
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.SearchParamId, membershipAlias)
+                        .Append(" IN (")
+                        .Append(string.Join(
+                            ", ",
+                            rule.SearchParameterUrls.Select(url => Parameters.AddParameter(
+                                VLatest.ReferenceSearchParam.SearchParamId,
+                                Model.GetSearchParamId(url),
+                                true))))
+                        .Append("))");
+                }
+
+                scope.Append("))");
+            }
+
+            if (!membership.ConditionalRules.IsDefaultOrEmpty)
+            {
+                // Conditional-visibility legs (for example the SMART Device limits). Each rule authorizes a candidate
+                // of a given resource type that either references the compartment root (own device) or has no
+                // reference at all (unassigned device). Candidates that satisfy neither (for example a device
+                // assigned to a different patient) are excluded, closing the _include/_revinclude leak. This loop is
+                // generic: the rules are data supplied by SmartCompartmentSearchRewriter.GetConditionalCompartmentRules,
+                // so no resource-type-specific logic lives here.
+                for (int conditionalIndex = 0; conditionalIndex < membership.ConditionalRules.Length; conditionalIndex++)
+                {
+                    SmartCompartmentConditionalMembershipRule rule = membership.ConditionalRules[conditionalIndex];
+                    string conditionalAlias = "smartCompartmentConditional" + conditionalIndex.ToString(CultureInfo.InvariantCulture);
+
+                    object ruleResourceTypeId = Parameters.AddParameter(
+                        VLatest.Resource.ResourceTypeId,
+                        Model.GetResourceTypeId(rule.ResourceType),
+                        true);
+                    object ruleSearchParamId = Parameters.AddParameter(
+                        VLatest.ReferenceSearchParam.SearchParamId,
+                        Model.GetSearchParamId(new Uri(rule.ReferenceSearchParameterUrl)),
+                        true);
+
+                    scope.Append(" OR (")
+                        .Append(candidateResourceTypeId, candidateTableAlias)
+                        .Append(" = ")
+                        .Append(ruleResourceTypeId)
+                        .Append(" AND ");
+
+                    scope.Append(rule.Visibility == SmartCompartmentConditionalVisibility.HasNoReference ? "NOT EXISTS" : "EXISTS")
+                        .Append(" (SELECT 1 FROM ")
+                        .Append(VLatest.ReferenceSearchParam)
+                        .Append(' ')
+                        .Append(conditionalAlias)
+                        .Append(" WHERE ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceTypeId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(candidateResourceTypeId, candidateTableAlias)
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(candidateResourceSurrogateId, candidateTableAlias)
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.SearchParamId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(ruleSearchParamId);
+
+                    if (rule.Visibility == SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot)
+                    {
+                        scope.Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, conditionalAlias)
+                            .Append(" = ")
+                            .Append(compartmentResourceTypeId)
+                            .Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, conditionalAlias)
+                            .Append(" = ")
+                            .Append(compartmentResourceId)
+                            .Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.BaseUri, conditionalAlias)
+                            .Append(" IS NULL");
+                    }
+
+                    scope.Append("))");
+                }
+            }
+
+            scope.Append(")");
         }
 
         private void HandleTableKindIncludeLimit(SearchOptions context)

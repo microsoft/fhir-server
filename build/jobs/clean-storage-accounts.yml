@@ -5,7 +5,8 @@ parameters:
 jobs:
 - job: "cleanStorageAccounts"
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(AzurePipelinesPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - task: AzurePowerShell@5
     displayName: 'Clean Storage Accounts'

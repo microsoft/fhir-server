@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             _testFhirClient = fixture.TestFhirClient;
             var convertDataConfiguration = ((IOptions<ConvertDataConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ConvertDataConfiguration>)))?.Value;
-            _convertDataEnabled = convertDataConfiguration?.Enabled ?? false;
+            _convertDataEnabled = ConvertDataTestMode.IsEnabled(fixture.IsUsingInProcTestServer, convertDataConfiguration?.Enabled ?? false);
         }
 
         [SkippableTheory]
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.SampleJsonMessage, "Json", JsonDefaultTemplateSetReference, "ExamplePatient");
+            var parameters = GetConvertDataParams(Samples.SampleJsonMessage, "Json", JsonDefaultTemplateSetReference, "ExamplePatient", treatDatesAsStrings: true);
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -331,7 +331,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return request;
         }
 
-        private static Parameters GetConvertDataParams(string inputData, string inputDataType, string templateSetReference, string rootTemplate)
+        private static Parameters GetConvertDataParams(
+            string inputData,
+            string inputDataType,
+            string templateSetReference,
+            string rootTemplate,
+            bool? treatDatesAsStrings = null)
         {
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
@@ -340,6 +345,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.InputDataType, Value = new FhirString(inputDataType) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.TemplateCollectionReference, Value = new FhirString(templateSetReference) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.RootTemplate, Value = new FhirString(rootTemplate) });
+
+            if (treatDatesAsStrings.HasValue)
+            {
+                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.JsonDeserializationTreatDatesAsStrings, Value = new FhirBoolean(treatDatesAsStrings) });
+            }
 
             return parametersResource;
         }

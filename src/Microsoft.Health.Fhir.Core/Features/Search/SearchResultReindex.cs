@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Newtonsoft.Json;
-
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     /// <summary>
@@ -35,18 +33,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// The Max resource surrogate id for the resource
         /// </summary>
         public long EndResourceSurrogateId { get; set; }
-
-        /// <summary>
-        /// The continuation token for the search results
-        /// </summary>
-        public string ContinuationToken { get; set; }
-
-        /// <summary>
-        /// Determines whether the Count property should be serialized.
-        /// </summary>
-        public bool ShouldSerializeCount()
-        {
-            return Count != 0;
-        }
     }
 }

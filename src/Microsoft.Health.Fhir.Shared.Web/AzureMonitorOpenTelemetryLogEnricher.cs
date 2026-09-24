@@ -11,6 +11,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Extensions;
+using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using OpenTelemetry;
@@ -23,16 +24,20 @@ namespace Microsoft.Health.Fhir.Shared.Web
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IFailureMetricHandler _failureMetricHandler;
+        private readonly IReadOnlyList<IExceptionMetricEmissionFilter> _exceptionMetricEmissionFilters;
 
         public AzureMonitorOpenTelemetryLogEnricher(
             IHttpContextAccessor httpContextAccessor,
-            IFailureMetricHandler failureMetricHandler)
+            IFailureMetricHandler failureMetricHandler,
+            IEnumerable<IExceptionMetricEmissionFilter>? exceptionMetricEmissionFilters = null)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(failureMetricHandler, nameof(failureMetricHandler));
 
             _httpContextAccessor = httpContextAccessor;
             _failureMetricHandler = failureMetricHandler;
+            _exceptionMetricEmissionFilters = exceptionMetricEmissionFilters?.ToArray()
+                ?? System.Array.Empty<IExceptionMetricEmissionFilter>();
         }
 
         public override void OnEnd(LogRecord data)
@@ -76,8 +81,18 @@ namespace Microsoft.Health.Fhir.Shared.Web
             // Metrics should be emitted if there is an exception, or if an error is logged.
             if (data.Exception != null || data.LogLevel == LogLevel.Error)
             {
+                HttpContext? httpContext = _httpContextAccessor.HttpContext;
+
+                // Consult registered filters. A metric is emitted only when every filter returns true.
+                // This is the single chokepoint for the fhir/failures/exceptions metric, so suppressing here
+                // suppresses it for all downstream consumers (see ADR-2605).
+                if (!_exceptionMetricEmissionFilters.All(filter => filter.ShouldEmit(data.Exception, httpContext)))
+                {
+                    return;
+                }
+
                 string operationName = string.Empty;
-                var request = _httpContextAccessor.HttpContext?.Request;
+                var request = httpContext?.Request;
                 if (request != null)
                 {
                     operationName = request.GetOperationName(includeRouteValues: false);

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         public async Task GivenAHl7v2ConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();
-            var response = await convertDataRequestHandler.Handle(GetSampleHl7v2Request(), default);
+            var response = await convertDataRequestHandler.HandleAsync(GetSampleHl7v2Request(), default);
 
             var setting = new ParserSettings()
             {
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         public async Task GivenACcdaConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();
-            var response = await convertDataRequestHandler.Handle(GetSampleCcdaRequest(), default);
+            var response = await convertDataRequestHandler.HandleAsync(GetSampleCcdaRequest(), default);
 
             var setting = new ParserSettings()
             {
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         public async Task GivenAJsonConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();
-            var response = await convertDataRequestHandler.Handle(GetSampleJsonRequest(), default);
+            var response = await convertDataRequestHandler.HandleAsync(GetSampleJsonRequest(), default);
 
             var setting = new ParserSettings()
             {
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         public async Task GivenAFhirConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();
-            var response = await convertDataRequestHandler.Handle(GetSampleFhirRequest(), default);
+            var response = await convertDataRequestHandler.HandleAsync(GetSampleFhirRequest(), default);
 
             var setting = new ParserSettings()
             {

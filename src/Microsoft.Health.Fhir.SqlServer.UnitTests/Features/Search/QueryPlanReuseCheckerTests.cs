@@ -186,7 +186,7 @@ public class QueryPlanReuseCheckerTests
         var notification = new SearchParametersInitializedNotification();
 
         // Act
-        await checker.Handle(notification, CancellationToken.None);
+        await checker.HandleAsync(notification, CancellationToken.None);
 
         // Assert - Verify by checking the private field through reflection
         var storageReadyField = typeof(QueryPlanReuseChecker)
@@ -282,7 +282,7 @@ public class QueryPlanReuseCheckerTests
         var checker = new QueryPlanReuseChecker(_sqlRetryService, _fhirSqlServerConfiguration, _logger);
         var notification = new SearchParametersInitializedNotification();
 
-        await checker.Handle(notification, CancellationToken.None);
+        await checker.HandleAsync(notification, CancellationToken.None);
 
         try
         {

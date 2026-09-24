@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         {
             _fixture = fixture;
             _httpClient = fixture.TestFhirClient.HttpClient;
-            _tokenUri = fixture.TestFhirServer.TokenUri;
+            _tokenUri = fixture.TestFhirServer.ClientCredentialTokenUri;
             _introspectionUri = new Uri(fixture.TestFhirServer.BaseAddress, "/connect/introspect");
         }
 

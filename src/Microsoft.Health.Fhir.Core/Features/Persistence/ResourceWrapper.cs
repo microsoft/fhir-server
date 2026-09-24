@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public CompartmentIndices CompartmentIndices { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
-        public string SearchParameterHash { get; set; }
+        public string SearchParameterHash { get; private set; }
 
         public ResourceKey ToResourceKey(bool ignoreVersion = false)
         {
@@ -125,6 +125,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public virtual void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
             SearchIndices = searchIndices;
+        }
+
+        internal void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices, string searchParameterHash)
+        {
+            UpdateSearchIndices(searchIndices);
+            SearchParameterHash = searchParameterHash;
         }
     }
 }

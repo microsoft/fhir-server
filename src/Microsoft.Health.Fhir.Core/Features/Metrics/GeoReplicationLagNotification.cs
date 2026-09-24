@@ -8,9 +8,9 @@ using System;
 namespace Microsoft.Health.Fhir.Core.Features.Metrics
 {
     /// <summary>
-    /// A MediatR message containing information about geo-replication lag.
+    /// A Medino message containing information about geo-replication lag.
     /// This gets emitted by the GeoReplicationLagWatchdog.
-    /// Consume these using MediatR to collect stats about geo-replication health.
+    /// Consume these using Medino to collect stats about geo-replication health.
     /// </summary>
     public class GeoReplicationLagNotification : IMetricsNotification
     {

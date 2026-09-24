@@ -1,9 +1,9 @@
-﻿CREATE PROCEDURE dbo.GetResourceSearchParamStats @Table varchar(100) = NULL, @ResourceTypeId smallint = NULL, @SearchParamId smallint = NULL
+﻿CREATE PROCEDURE dbo.GetResourceSearchParamStats @Table varchar(100) = NULL, @ResourceTypeId smallint = NULL, @SearchParamId smallint = NULL, @ReferenceResourceTypeId smallint = NULL
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'T='+isnull(@Table,'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' SP='+isnull(convert(varchar,@SearchParamId),'NULL')
+       ,@Mode varchar(200) = 'T='+isnull(@Table,'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' SP='+isnull(convert(varchar,@SearchParamId),'NULL')+' RRT='+isnull(convert(varchar,@ReferenceResourceTypeId),'NULL')
        ,@st datetime = getUTCdate()
 
 BEGIN TRY
@@ -16,7 +16,8 @@ BEGIN TRY
       AND S.name LIKE 'ST[_]%'
       AND (T.name LIKE @Table OR @Table IS NULL)
       AND (S.name LIKE '%ResourceTypeId[_]'+convert(varchar,@ResourceTypeId)+'[_]%' OR @ResourceTypeId IS NULL)
-      AND (S.name LIKE '%SearchParamId[_]'+convert(varchar,@SearchParamId) OR @SearchParamId IS NULL)
+      AND ((S.name LIKE '%SearchParamId[_]'+convert(varchar,@SearchParamId)+'[_]%' OR S.name LIKE '%SearchParamId[_]'+convert(varchar,@SearchParamId)) OR @SearchParamId IS NULL)
+      AND (S.name LIKE '%ReferenceResourceTypeId[_]'+convert(varchar,@ReferenceResourceTypeId) OR @ReferenceResourceTypeId IS NULL)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Rows=@@rowcount,@Start=@st
 END TRY

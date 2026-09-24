@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
 
-            SearchResourceResponse actualResponse = await _searchResourceHandler.Handle(request, CancellationToken.None);
+            SearchResourceResponse actualResponse = await _searchResourceHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchService.SearchAsync(request.ResourceType, request.Queries, CancellationToken.None).Returns(searchResult);
             _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
 
-            SearchResourceResponse actualResponse = await searchResourceHandler.Handle(request, CancellationToken.None);
+            SearchResourceResponse actualResponse = await searchResourceHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var request = new SearchResourceRequest("Patient", null);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                searchResourceHandler.Handle(request, CancellationToken.None));
+                searchResourceHandler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchService.SearchAsync(request.ResourceType, request.Queries, CancellationToken.None).Returns(searchResult);
             _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
 
-            SearchResourceResponse actualResponse = await searchResourceHandler.Handle(request, CancellationToken.None);
+            SearchResourceResponse actualResponse = await searchResourceHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Returns(DataActions.None);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
-                searchResourceHandler.Handle(request, CancellationToken.None));
+                searchResourceHandler.HandleAsync(request, CancellationToken.None));
         }
     }
 }

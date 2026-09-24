@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -29,8 +29,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
         private readonly ExpiredResourceCleanupWatchdog _expiredResourceCleanupWatchdog;
         private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
+        private readonly JobMonitorWatchdog _jobMonitorWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly WatchdogConfiguration _watchdogConfiguration;
+        private readonly Guid _guid = Guid.NewGuid();
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             ExpiredResourceCleanupWatchdog expiredResourceCleanupWatchdog,
             GeoReplicationLagWatchdog geoReplicationLagWatchdog,
+            JobMonitorWatchdog jobMonitorWatchdog,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
         {
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
             _expiredResourceCleanupWatchdog = EnsureArg.IsNotNull(expiredResourceCleanupWatchdog, nameof(expiredResourceCleanupWatchdog));
             _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
+            _jobMonitorWatchdog = EnsureArg.IsNotNull(jobMonitorWatchdog, nameof(jobMonitorWatchdog));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _watchdogConfiguration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration));
         }
@@ -64,21 +68,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             var tasks = new List<Task>
             {
-                _defragWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
-                _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _defragWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token),
+                _cleanupEventLogWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token),
+                _transactionWatchdog.Value.ExecuteAsync(_guid, continuationTokenSource.Token),
+                _invisibleHistoryCleanupWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token),
             };
 
             // Only add GeoReplicationLagWatchdog if the feature is enabled
             if (_coreFeatureConfiguration.EnableGeoRedundancy)
             {
-                tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(continuationTokenSource.Token));
+                tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token));
+            }
+
+            // Only add JobMonitorWatchdog if the feature is enabled (enabled by default)
+            if (_coreFeatureConfiguration.EnableJobMonitor)
+            {
+                tasks.Add(_jobMonitorWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token));
             }
 
             if (_watchdogConfiguration.ExpiredResource.Enabled)
             {
-                tasks.Add(_expiredResourceCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token));
+                tasks.Add(_expiredResourceCleanupWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token));
             }
 
             await Task.WhenAny(tasks);
@@ -92,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await Task.WhenAll(tasks);
         }
 
-        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;

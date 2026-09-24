@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -32,7 +33,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
                 "1.0");
             _result = new OperationVersionsResult(
                 _versionsResult,
-                HttpStatusCode.Accepted);
+                HttpStatusCode.Accepted,
+                NullLogger.Instance);
         }
 
         [Theory]

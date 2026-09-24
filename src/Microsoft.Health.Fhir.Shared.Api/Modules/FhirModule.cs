@@ -10,7 +10,7 @@ using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -176,11 +177,19 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
 
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
-            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderBehavior>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
-            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+            services.Add<ProfileResourcesBehaviour>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ExportSmartScopeAuthorizer>().Transient().AsSelf().AsImplementedInterfaces();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();

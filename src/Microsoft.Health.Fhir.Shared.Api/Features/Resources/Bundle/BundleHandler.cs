@@ -17,7 +17,7 @@ using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext) : true;
         }
 
-        public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
+        public async Task<BundleResponse> HandleAsync(BundleRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -251,7 +251,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _logger.LogInformation("Edge Case scenario: sequential transactional bundle has a single record, and it's now changed to execute as parallel.");
                             bundleProcessingLogic = BundleProcessingLogic.Parallel;
                         }
-                        else if (bundleResource.Entry.Any(e => string.Equals(e.Resource?.TypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal)))
+                        else if (bundleResource.Entry.Any(e => e.Resource?.TypeName == KnownResourceTypes.SearchParameter
+                                                               //// for deletes type name is not populated, so checking url
+                                                               || e.Request?.Url?.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase) == true))
                         {
                             // SearchParameter persistence relies on the parallel-bundle path (MergeResourcesAndSearchParams)
                             // for atomic resource + status row commit, so any sequential transaction bundle containing a
@@ -316,13 +318,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (dupCodes.Count == 0)
                 {
+                    _logger.LogWarning("RequestNotValidException: DuplicateSearchParamUrlsInBundle");
                     throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamUrlsInBundle, string.Join(", ", dupUrls)));
                 }
                 else if (dupUrls.Count == 0)
                 {
+                    _logger.LogWarning("RequestNotValidException: DuplicateSearchParamCodesInBundle");
                     throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesInBundle, string.Join(", ", dupCodes)));
                 }
 
+                _logger.LogWarning("RequestNotValidException: DuplicateSearchParamCodesAndUrlsInBundle");
                 throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
             }
 
@@ -392,6 +397,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         if (_requests[verb].Any())
                         {
+                            _logger.LogInformation(
+                                "BundleHandler - Starting the sequential processing of a sub-{BundleType} with {NumberOfRequests} '{HttpVerb}' operations.",
+                                _bundleType,
+                                _requests[verb].Count,
+                                verb);
+
                             throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
                                 responseBundle: responseBundle,
                                 httpVerb: verb,
@@ -415,8 +426,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 expectedNumberOfResources: _requests[verb].Count);
 
                             _logger.LogInformation(
-                                "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
-                                bundleOperation.OriginalExpectedNumberOfResources,
+                                "BundleHandler - Starting the parallel processing of a sub-batch with {NumberOfRequests} '{HttpVerb}' requests.",
+                                _requests[verb].Count,
                                 verb);
 
                             throttledEntryComponent = await ExecuteRequestsInParallelAsync(
@@ -442,7 +453,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         _logger.LogInformation(
                             "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
-                            bundleOperation.OriginalExpectedNumberOfResources);
+                            resources.Count);
 
                         EntryComponent throttledEntryComponent = await ExecuteRequestsInParallelAsync(
                             responseBundle: responseBundle,
@@ -552,7 +563,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
             }
 
-            await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, _outerHttpContext.Request.Scheme), CancellationToken.None);
+            await _mediator.PublishAsync(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, _outerHttpContext.Request.Scheme), CancellationToken.None);
         }
 
         private async Task ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
@@ -588,6 +599,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
             {
+                _logger.LogWarning("BundleEntryLimitExceededException: BundleEntryLimitExceeded");
                 throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, _bundleConfiguration.EntryLimit));
             }
 

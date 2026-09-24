@@ -542,6 +542,23 @@
         },
         {
             "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-B2",
+                "identifier": [{
+                    "system": "http://goodcare.org/devices/id",
+                    "value": "345678"
+                }],
+                "patient": {
+                    "reference": "Patient/smart-patient-B"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-B2"
+            }
+        },
+        {
+            "resource": {
 			  "resourceType": "DeviceRequest",
 			  "id": "smart-devicerequest-B1",
 			  "text": {

@@ -25,23 +25,50 @@ steps:
         'Microsoft.Graph.Users',
         'Microsoft.Graph.Identity.DirectoryManagement'
       )
-      
-      Write-Host "Installing Microsoft Graph modules..."
-      $graphModules | ForEach-Object { Install-Module -Name $_ -Force -Scope CurrentUser -AllowClobber }
-      
-      Write-Host "Importing Microsoft Graph modules..."
-      $graphModules | ForEach-Object { Import-Module -Name $_ -ErrorAction Stop }
-      
-      $graphAuthModule = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
+
+      # Pin all Graph submodules to a single version so the installed and imported set always match
+      # (floating to "latest" independently, or importing a stale copy pre-baked on the agent, can
+      # produce a mismatched set and fail Connect-MgGraph with EntryPointNotFoundException).
+      $graphVersion = '2.38.0'
+
+      Write-Host "Installing Microsoft Graph modules (version $graphVersion)..."
+      $graphModules | ForEach-Object { Install-Module -Name $_ -RequiredVersion $graphVersion -Force -Scope CurrentUser -AllowClobber }
+
+      Write-Host "Importing Microsoft Graph modules (version $graphVersion)..."
+      $graphModules | ForEach-Object { Import-Module -Name $_ -RequiredVersion $graphVersion -ErrorAction Stop }
+
+      $graphAuthModule = Get-Module -Name Microsoft.Graph.Authentication | Select-Object -First 1
       Write-Host "Microsoft.Graph.Authentication version: $($graphAuthModule.Version)"
 
-      # Install and import Az modules AFTER Microsoft.Graph modules are loaded
-      Write-Host "Installing Az modules..."
-      Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
+      # Install and import Az modules AFTER Microsoft.Graph modules are loaded.
+      # Pin Az.Accounts / Az.KeyVault to 5.5.0 / 6.5.0. Two separate assembly conflicts are in play:
+      #   1. Az.Accounts 5.5.1 (published 2026-07-07) ships a shared assembly that breaks
+      #      Connect-MgGraph with EntryPointNotFoundException, so we must load 5.5.0 (not 5.5.1).
+      #   2. SecretManagement's Register-SecretVault (called later in Add-AadTestAuthEnvironment.ps1)
+      #      resolves Az.KeyVault to the HIGHEST installed version. The hosted agent image also ships
+      #      Az.KeyVault 6.5.1 / Az.Accounts 5.5.1, so it would pick 6.5.1 and fail with
+      #      "Assembly with same name is already loaded" against the pinned 5.5.0/6.5.0 we loaded.
+      # Fix: pin to 5.5.0/6.5.0 AND remove any higher versions from the module path so the whole
+      # process (Connect-MgGraph and Register-SecretVault alike) only ever sees the pinned build.
+      $azAccountsVersion = '5.5.0'
+      $azKeyVaultVersion = '6.5.0'
+      Write-Host "Installing Az modules (Az.Accounts $azAccountsVersion, Az.KeyVault $azKeyVaultVersion)..."
+      Install-Module -Name Az.Accounts -RequiredVersion $azAccountsVersion -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Az.KeyVault -RequiredVersion $azKeyVaultVersion -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
-      Import-Module Az.Accounts -ErrorAction Stop
-      Import-Module Az.KeyVault -ErrorAction Stop
+
+      # Remove any Az.Accounts / Az.KeyVault versions newer than the pin (shipped by the agent image),
+      # so Register-SecretVault cannot auto-resolve to a newer build whose shared assembly conflicts.
+      $azPins = @{ 'Az.Accounts' = [version]$azAccountsVersion; 'Az.KeyVault' = [version]$azKeyVaultVersion }
+      foreach ($azName in $azPins.Keys) {
+        Get-Module -ListAvailable -Name $azName | Where-Object { $_.Version -gt $azPins[$azName] } | ForEach-Object {
+          Write-Host "Removing higher $azName $($_.Version) at $($_.ModuleBase) to avoid assembly conflict"
+          Remove-Item -LiteralPath $_.ModuleBase -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      }
+
+      Import-Module Az.Accounts -RequiredVersion $azAccountsVersion -ErrorAction Stop
+      Import-Module Az.KeyVault -RequiredVersion $azKeyVaultVersion -ErrorAction Stop
       Import-Module Microsoft.PowerShell.SecretManagement -ErrorAction Stop
 
       # Set up variables

@@ -7,7 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             _contextAccessor = contextAccessor;
         }
 
-        public async Task<UpsertResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(PatchResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             ResourceElement patchedResource = request.Payload.Patch(currentDoc);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag, request.MetaHistory), cancellationToken);
+            return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag, request.MetaHistory), cancellationToken);
         }
     }
 }

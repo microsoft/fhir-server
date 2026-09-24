@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -348,14 +348,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             Assert.Single(profiles);
         }
 
+        [Fact]
+        public async Task GivenMultipleVersionsOfSameProfile_WhenGettingSupportedProfiles_ThenAllVersionsAreReturned()
+        {
+            // Arrange
+            var patientProfileV1 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "1.0.0");
+            var patientProfileV2 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "2.0.0");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfileV1, patientProfileV2);
+
+            // Act
+            var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+
+            // Assert - both versions should be present, not just the last one loaded
+            Assert.NotNull(profiles);
+            Assert.Equal(2, profiles.Count());
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|1.0.0", profiles);
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|2.0.0", profiles);
+        }
+
+        [Fact]
+        public async Task GivenMultipleVersionsOfSameProfile_WhenResolvingByVersionedCanonicalUri_ThenCorrectVersionIsReturned()
+        {
+            // Arrange
+            var patientProfileV1 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "1.0.0");
+            var patientProfileV2 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "2.0.0");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfileV1, patientProfileV2);
+
+            // Warm the cache
+            await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+
+            // Act - resolve the specific version 1.0.0
+            var resolvedV1 = await _serverProvideProfileValidation.ResolveByCanonicalUriAsync(
+                "http://example.org/fhir/StructureDefinition/custom-patient|1.0.0");
+
+            // Act - resolve the specific version 2.0.0
+            var resolvedV2 = await _serverProvideProfileValidation.ResolveByCanonicalUriAsync(
+                "http://example.org/fhir/StructureDefinition/custom-patient|2.0.0");
+
+            // Assert - each versioned lookup returns the correct profile
+            Assert.NotNull(resolvedV1);
+            Assert.Equal("1.0.0", ((StructureDefinition)resolvedV1).Version);
+
+            Assert.NotNull(resolvedV2);
+            Assert.Equal("2.0.0", ((StructureDefinition)resolvedV2).Version);
+        }
+
         public void Dispose()
         {
             _serverProvideProfileValidation?.Dispose();
         }
 
-        private static StructureDefinition CreateStructureDefinition(string url, string type)
+        private static StructureDefinition CreateStructureDefinition(string url, string type, string version = null)
         {
-            return new StructureDefinition
+            var structureDefinition = new StructureDefinition
             {
                 Id = Guid.NewGuid().ToString("N").Substring(0, 16), // Generate valid FHIR ID
                 Url = url,
@@ -367,6 +412,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                 BaseDefinition = $"http://hl7.org/fhir/StructureDefinition/{type}",
                 Derivation = StructureDefinition.TypeDerivationRule.Constraint,
             };
+
+            if (!string.IsNullOrEmpty(version))
+            {
+                structureDefinition.Version = version;
+            }
+
+            return structureDefinition;
         }
 
         private void SetupSearchServiceWithNoResults()

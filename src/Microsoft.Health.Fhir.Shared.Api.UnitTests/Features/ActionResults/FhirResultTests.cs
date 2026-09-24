@@ -3,12 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -27,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         [Fact]
         public void GivenAGoneStatus_WhenReturningAResult_ThenTheContentShouldBeEmpty()
         {
-            var result = FhirResult.Gone();
+            var result = FhirResult.Gone(NullLogger.Instance);
             var context = new ActionContext
             {
                 HttpContext = new DefaultHttpContext(),
@@ -43,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         [Fact]
         public void GivenANoContentStatus_WhenReturningAResult_ThenTheStatusCodeIsSetCorrectly()
         {
-            var result = FhirResult.NoContent();
+            var result = FhirResult.NoContent(NullLogger.Instance);
             var context = new ActionContext
             {
                 HttpContext = new DefaultHttpContext(),
@@ -58,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         [Fact]
         public void GivenANotFoundStatus_WhenReturningAResult_ThenTheStatusCodeIsSetCorrectly()
         {
-            var result = FhirResult.NotFound();
+            var result = FhirResult.NotFound(NullLogger.Instance);
             var context = new ActionContext
             {
                 HttpContext = new DefaultHttpContext(),
@@ -73,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
         [Fact]
         public async Task GivenAFhirResult_WhenHeadersThatAlreadyExistsInResponseArePassed_ThenDuplicteHeadersAreRemoved()
         {
-            var result = FhirResult.Gone();
+            var result = FhirResult.Gone(NullLogger.Instance);
             var context = new ActionContext
             {
                 HttpContext = new DefaultHttpContext(),
@@ -106,6 +110,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             Assert.True(context.HttpContext.Response.Headers.TryGetValue("testKey2", out StringValues testKey2));
             Assert.Equal(new StringValues("3"), testKey1);
             Assert.Equal(new StringValues("2"), testKey2);
+        }
+
+        [Fact]
+        public async Task GivenDefaultHttpContext_WhenResponseHeadersAreModifiedConcurrently_ThenExceptionIsLogged()
+        {
+            ILogger logger = Substitute.For<ILogger>();
+            var result = FhirResult.Gone(logger);
+            var context = new ActionContext
+            {
+                HttpContext = new DefaultHttpContext(),
+            };
+
+            IHeaderDictionary responseHeaders = Substitute.For<IHeaderDictionary>();
+            var exception = new InvalidOperationException("Collection was modified.");
+            responseHeaders
+                .When(headers => headers[Arg.Any<string>()] = Arg.Any<StringValues>())
+                .Do(_ => throw exception);
+            context.HttpContext.Features.Set<IHttpResponseFeature>(new HttpResponseFeature { Headers = responseHeaders });
+
+            ServiceCollection collection = new ServiceCollection();
+            collection.AddSingleton(Substitute.For<RequestContextAccessor<IFhirRequestContext>>());
+            context.HttpContext.RequestServices = collection.BuildServiceProvider();
+            result.Headers["test"] = "value";
+
+            await result.ExecuteResultAsync(context);
+
+            var logCall = Assert.Single(logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log));
+            Assert.Equal(LogLevel.Warning, logCall.GetArguments()[0]);
+            Assert.Same(exception, logCall.GetArguments()[3]);
         }
     }
 }

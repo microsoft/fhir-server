@@ -6,10 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -20,7 +24,6 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Smart;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -163,8 +166,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
-        [MemberData(nameof(GetMixedTestScopes))]
-        public async Task GivenMixedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        [MemberData(nameof(GetMixedSmartScopeVersions))]
+        public async Task GivenMixedSmartScopeVersions_WhenInvoked_ThenBadRequestIsThrown(string scopes)
         {
             HttpContext httpContext = new DefaultHttpContext();
 
@@ -177,11 +180,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
 
+            using var stream = new MemoryStream();
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
                 var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-                var fhirRequestContext = new DefaultFhirRequestContext();
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
 
                 fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -194,8 +204,302 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-                await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                    _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(httpContext);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(GetMixedSmartScopeContexts))]
+        public async Task GivenMixedSmartScopeContexts_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[] { Api.Resources.MixedSMARTScopeContextsAreNotAllowed });
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(GetScopesWithModifiers))]
+        public async Task GivenSmartScopeWithModifier_WhenInvoked_ThenBadRequestIsThrownWithModifierMessage(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[]
+                    {
+                        "modifiers are not supported",
+                        "unsupported modifier",
+                    },
+                    true);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(GetScopesWithChainedSearch))]
+        public async Task GivenSmartScopeWithChainedSearch_WhenInvoked_ThenBadRequestIsThrownWithChainedSearchMessage(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[]
+                    {
+                        "Chained search parameters are not supported",
+                        "chained search parameter",
+                    },
+                    true);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(GetScopesWithIncludes))]
+        public async Task GivenSmartScopeWithIncludeParameter_WhenInvoked_ThenBadRequestIsThrownWithIncludeMessage(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[]
+                    {
+                        "_include and _revinclude are not supported",
+                    },
+                    true);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(GetMalformedScopes))]
+        public async Task GivenMalformedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(httpContext);
+            }
+        }
+
+        [Theory]
+        [InlineData("patient/Observaton.rs")] // typo'd resource type
+        [InlineData("patient/observation.rs")] // resource type casing must match the FHIR specification
+        [InlineData("patient/Foobar.read")] // non-existent resource type
+        [InlineData("user/NotAResource.cruds")] // non-existent resource type
+        public async Task GivenSmartScopeWithUnknownResourceType_WhenInvoked_ThenBadRequestIsThrown(string scopes)
+        {
+            await AssertScopeThrowsBadRequest(scopes);
+        }
+
+        private async Task AssertScopeThrowsBadRequest(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(httpContext);
             }
         }
 
@@ -240,7 +544,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-            var fhirRequestContext = new DefaultFhirRequestContext();
+            var fhirRequestContext = new DefaultFhirRequestContext()
+            {
+                CorrelationId = Guid.NewGuid().ToString(),
+            };
 
             fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
@@ -250,7 +557,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             fhirConfiguration.Security.Enabled = true;
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
             authorizationConfiguration.Enabled = true;
-            authorizationConfiguration.ErrorOnMissingFhirUserClaim = true;
+
+            // ErrorOnMissingFhirUserClaim is true by default — no explicit assignment needed.
             await LoadRoles(authorizationConfiguration);
 
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
@@ -262,8 +570,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-            await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
+            using var stream = new MemoryStream();
+            httpContext.Response.Body = stream;
+
+            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+            ValidateErrorResponse(httpContext);
+        }
+
+        [Fact]
+        public async Task GivenOnlySystemScopes_WhenFhirUserNotProvided_ThenScopeRestrictionsAreApplied()
+        {
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+                var fhirRequestContext = new DefaultFhirRequestContext();
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                HttpContext httpContext = new DefaultHttpContext();
+                var scopesClaim = new Claim(singleClaim, "system/Patient.read");
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+                Assert.Equal(
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "system"),
+                    Assert.Single(fhirRequestContext.AccessControlContext.AllowedResourceActions));
+            }
         }
 
         [Fact]
@@ -288,7 +634,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -324,7 +670,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -362,7 +708,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
             {
-                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var scopesClaim = new Claim(singleClaim, "patient.Patient.read");
                 var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim, extensionFhirUserClaim });
                 var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
@@ -391,11 +737,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
             yield return new object[]
             {
-                "patient.Patient.read",
+                "user.Patient.read",
                 "user.Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "user"),
                     new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Delete | DataActions.Update, "user"),
                 },
             };
@@ -433,10 +779,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
             yield return new object[]
             {
-                "patient.Patient.read user.Observation.write",
+                "user.Patient.read user.Observation.write",
                 new List<ScopeRestriction>()
                 {
-                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "user"),
                     new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
                 },
             };
@@ -486,12 +832,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
             yield return new object[]
             {
-                "patient/Patient.read launch/patient user/Observation.read offline_access openid user/Encounter.* fhirUser",
+                "patient/Patient.read launch/patient patient/Observation.read offline_access openid patient/Encounter.* fhirUser",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "user"),
-                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "patient"),
                 },
             };
 
@@ -508,11 +854,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "user/*.rs", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById | DataActions.Search | DataActions.Export, "user") } };
             yield return new object[]
             {
-                "patient/Patient.rs user/Observation.cud",
+                "patient/Patient.rs patient/Observation.cud",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update | DataActions.Delete, "patient"),
                 },
             };
 
@@ -532,11 +878,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Patient.write", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "patient") } };
             yield return new object[]
             {
-                "patient/Patient.c user/Observation.cu",
+                "patient/Patient.c patient/Observation.cu",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Create, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update, "user"),
+                    new ScopeRestriction("Observation", DataActions.Create | DataActions.Update, "patient"),
                 },
             };
 
@@ -570,27 +916,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-            // With _include parameter
-            yield return new object[]
-            {
-                "patient/Observation.rs?code=http://loinc.org|55233-1&_include=Observation:subject",
-                new List<ScopeRestriction>()
-                {
-                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "http://loinc.org|55233-1").Add("_include", "Observation:subject")),
-                },
-            };
-
-                        // With _revinclude parameter
-            yield return new object[]
-            {
-                "patient/Patient.rs?name=SMARTGivenName1&_revinclude=Observation:subject",
-                new List<ScopeRestriction>()
-                {
-                    new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("name", "SMARTGivenName1").Add("_revinclude", "Observation:subject")),
-                },
-            };
-
-                        // Multiple scopes with search parameters
+            // Multiple scopes with search parameters
             yield return new object[]
             {
                 "patient/Patient.rs?name=john patient/Observation.s?code=44501&status=final",
@@ -601,7 +927,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-                        // Complex example with all SMART v2 granular permissions and search parameters
+            // Complex example with all SMART v2 granular permissions and search parameters
             yield return new object[]
             {
                 "user/Patient.cruds?name=Smith&birthdate=ge2000 user/Observation.rs?category=vital-signs",
@@ -619,6 +945,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "system", new Hl7.Fhir.Rest.SearchParams("active", "true")),
+                },
+            };
+
+            // Base parameter names that collide with modifier literals must NOT be rejected (they are valid search params, not modifiers)
+            yield return new object[]
+            {
+                "patient/Patient.rs?identifier=http://example.com|123",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "http://example.com|123")),
                 },
             };
 
@@ -686,14 +1022,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 },
             };
 
-            // Mixed: some scopes with %2f, some with regular / separator
+            // Some scopes with %2f, some with regular / separator
             yield return new object[]
             {
-                "patient%2fPatient.read user/Observation.write",
+                "patient%2fPatient.read patient/Observation.write",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "patient"),
                 },
             };
 
@@ -711,11 +1047,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // V2 granular with %2f
             yield return new object[]
             {
-                "user%2fPatient.cud patient%2fObservation.rs",
+                "user%2fPatient.cud user%2fObservation.rs",
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
-                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient"),
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user"),
                 },
             };
 
@@ -731,24 +1067,114 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             };
         }
 
-        public static IEnumerable<object[]> GetMixedTestScopes()
+        public static IEnumerable<object[]> GetMixedSmartScopeVersions()
         {
             yield return new object[] { "patient/Patient.read patient/Observation.r" };
-            yield return new object[] { "patient.Patient.read user.Observation.cr" };
+            yield return new object[] { "patient.Patient.read patient.Observation.cr" };
             yield return new object[] { "patient$Patient.rd patient/Observation.write" };
             yield return new object[] { "patient$Patient.read patient/Observation.cr" };
-            yield return new object[] { "patient/Patient.read launch/patient user/Observation.read offline_access openid user/Encounter.r fhirUser" };
-            yield return new object[] { "patient/Patient.rs user/Observation.cud user/Encounter.write" };
-            yield return new object[] { "patient/Patient.read user/Observation.c" };
-            yield return new object[] { "patient/Patient.all user/Observation.r" };
-            yield return new object[] { "patient/Patient.write user/Observation.u" };
-            yield return new object[] { "patient/Patient.read user/Observation.d" };
+            yield return new object[] { "patient/Patient.read launch/patient patient/Observation.read offline_access openid patient/Encounter.r fhirUser" };
+            yield return new object[] { "patient/Patient.rs patient/Observation.cud patient/Encounter.write" };
+            yield return new object[] { "patient/Patient.read patient/Observation.c" };
+            yield return new object[] { "patient/Patient.all patient/Observation.r" };
+            yield return new object[] { "patient/Patient.write patient/Observation.u" };
+            yield return new object[] { "patient/Patient.read patient/Observation.d" };
             yield return new object[] { "patient/Patient.read patient/Patient.cruds" };
-            yield return new object[] { "system/Patient.write user/Patient.r" };
-            yield return new object[] { "patient/Patient.* user/Observation.d" };
+            yield return new object[] { "system/Patient.write system/Patient.r" };
+            yield return new object[] { "patient/Patient.* patient/Observation.d" };
             yield return new object[] { "patient/Patient.all patient/Patient.cruds" };
-            yield return new object[] { "system/Patient.all user/Patient.r" };
-            yield return new object[] { "system/Patient.* user/Patient.r" };
+            yield return new object[] { "system/Patient.all system/Patient.r" };
+            yield return new object[] { "system/Patient.* system/Patient.r" };
+        }
+
+        public static IEnumerable<object[]> GetMixedSmartScopeContexts()
+        {
+            yield return new object[] { "patient/Patient.read user/Observation.read" };
+            yield return new object[] { "user/Patient.read patient/Observation.read" };
+            yield return new object[] { "patient/Patient.read system/Observation.read" };
+            yield return new object[] { "system/Patient.read patient/Observation.read" };
+            yield return new object[] { "user/Patient.read system/Observation.read" };
+            yield return new object[] { "system/Patient.read user/Observation.read" };
+            yield return new object[] { "patient/Patient.read user/Observation.read system/Encounter.read" };
+            yield return new object[] { "patient%2fPatient.read system/Observation.read" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithModifiers()
+        {
+            // Modifiers on search parameter names
+            yield return new object[] { "patient/Patient.rs?gender:not=male" };
+            yield return new object[] { "patient/Patient.rs?gender:missing=true" };
+            yield return new object[] { "patient/Patient.rs?name:exact=Smith" };
+            yield return new object[] { "patient/Patient.rs?name:contains=mit" };
+            yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/condition-category" };
+            yield return new object[] { "user/Condition.rs?category:not-in=http://hl7.org/fhir/ValueSet/condition-category" };
+            yield return new object[] { "user/Condition.rs?code:text=diabetes" };
+            yield return new object[] { "patient/Observation.rs?code:above=http://loinc.org|LP29693-6" };
+            yield return new object[] { "patient/Observation.rs?code:below=http://loinc.org|LP29693-6" };
+            yield return new object[] { "patient/Observation.rs?subject:identifier=http://example.com|123" };
+            yield return new object[] { "patient/Observation.rs?value-quantity:ofType=http://unitsofmeasure.org|mg" };
+
+            // Include/revinclude modifiers (_include:iterate is R4, _revinclude:recurse is STU3)
+            yield return new object[] { "patient/Patient.rs?_include:iterate=Observation:subject" };
+            yield return new object[] { "patient/Patient.rs?_revinclude:recurse=Observation:patient" };
+
+            // Modifier combined with normal param
+            yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithChainedSearch()
+        {
+            // Forward chaining (dot in the key), with and without an additional modifier
+            yield return new object[] { "patient/Observation.rs?subject.name=Smith" };
+            yield return new object[] { "patient/Observation.rs?subject:Patient.name=Smith" };
+            yield return new object[] { "patient/Observation.rs?subject:Patient.name:exact=Smith" };
+            yield return new object[] { "user/Observation.rs?patient.birthdate:missing=true" };
+            yield return new object[] { "user/Patient.rs?general-practitioner:Practitioner.name:contains=Smith" };
+
+            // Chained search combined with a normal param
+            yield return new object[] { "patient/Observation.rs?subject.name=Smith&status=final" };
+
+            // Reverse chaining (_has), with and without an additional modifier
+            yield return new object[] { "user/Patient.rs?_has:Observation:patient:code=http://loinc.org|1234-5" };
+            yield return new object[] { "user/Patient.rs?_has:Observation:patient:code:in=http://loinc.org|1234-5" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithIncludes()
+        {
+            // _include / _revinclude result parameters (plain form) are not enforceable scope constraints
+            yield return new object[] { "patient/Observation.rs?_include=Observation:subject" };
+            yield return new object[] { "patient/Patient.rs?_revinclude=Observation:subject" };
+
+            // Combined with a normal search parameter
+            yield return new object[] { "patient/Observation.rs?code=http://loinc.org|55233-1&_include=Observation:subject" };
+            yield return new object[] { "patient/Patient.rs?name=SMARTGivenName1&_revinclude=Observation:subject" };
+
+            // Case-insensitive key
+            yield return new object[] { "patient/Observation.rs?_INCLUDE=Observation:subject" };
+        }
+
+        public static IEnumerable<object[]> GetMalformedScopes()
+        {
+            // Trailing junk on an otherwise valid scope token: the regex finds the valid prefix but the
+            // token is not fully consumed, so the scope must be rejected rather than silently enforcing
+            // the truncated prefix (over-broad / fail-open).
+            yield return new object[] { "patient/Observation.read-only" };   // "-only" not consumed
+            yield return new object[] { "patient/Observation.rs?active" };    // "?active" has no '=', not consumed
+            yield return new object[] { "patient/Observation.rsXYZ" };        // "XYZ" not consumed
+            yield return new object[] { "patient/Observation.rssszz" };       // matches "rsss", trailing "zz" not consumed
+
+            // Malformed search-parameter constraints with an extra '=' that previously bypassed the
+            // modifier/chained checks and were silently dropped (fail-open).
+            yield return new object[] { "patient/Observation.rs?code:exact=a=b" };          // modifier hidden behind extra '='
+            yield return new object[] { "patient/Observation.rs?identifier=x?mrn=12345" };  // extra '=' in value
+
+            // v2 access level with duplicate permission letters (e.g. "rrrrrs"): the regex [cruds]+ accepts
+            // repeats, but a duplicated letter is malformed and must be rejected.
+            yield return new object[] { "patient/Observation.rrrrrs" };     // duplicate 'r'
+            yield return new object[] { "patient/Observation.rss" };        // duplicate 's'
+            yield return new object[] { "patient/Observation.rrrrssssss" }; // multiple duplicates
+            yield return new object[] { "user/Patient.crudss" };            // duplicate 's' after a full set
+            yield return new object[] { "user/Patient.crudsc" };            // duplicate 'c' wrapping a full set
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)
@@ -786,6 +1212,49 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var roleLoader = new RoleLoader(authConfig, hostEnvironment);
             await roleLoader.StartAsync(CancellationToken.None);
             return authConfig;
+        }
+
+        private static void ValidateErrorResponse(HttpContext context, string[] errorMessages = null, bool contain = false)
+        {
+            Assert.NotNull(context.Response);
+            Assert.Equal(HttpStatusCode.BadRequest, (HttpStatusCode)context.Response.StatusCode);
+
+            Assert.NotNull(context.Response.Body);
+            context.Response.Body.Seek(0, SeekOrigin.Begin);
+            using var reader = new StreamReader(context.Response.Body, leaveOpen: true);
+            var body = reader.ReadToEnd();
+            var options = new JsonSerializerOptions().ForFhir(typeof(OperationOutcome).Assembly);
+            var resource = JsonSerializer.Deserialize<OperationOutcome>(body, options);
+
+            Assert.NotNull(resource);
+            Assert.Single(
+                resource.Issue,
+                x =>
+                {
+                    Assert.Equal(OperationOutcome.IssueSeverity.Error, x.Severity);
+                    Assert.Equal(OperationOutcome.IssueType.Invalid, x.Code);
+                    if (errorMessages == null || errorMessages.Length == 0)
+                    {
+                        Assert.NotNull(x.Diagnostics);
+                    }
+                    else
+                    {
+                        if (contain)
+                        {
+                            foreach (var errorMessage in errorMessages)
+                            {
+                                Assert.Contains(errorMessage, x.Diagnostics);
+                            }
+                        }
+                        else
+                        {
+                            Assert.Equal(errorMessages[0], x.Diagnostics);
+                        }
+                    }
+
+                    Assert.NotEmpty(x.Diagnostics);
+                    return true;
+                });
         }
     }
 }

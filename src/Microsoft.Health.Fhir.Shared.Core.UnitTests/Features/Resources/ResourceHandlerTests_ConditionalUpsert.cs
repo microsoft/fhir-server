@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(SaveOutcomeType.Created, Samples.GetDefaultObservation());
 
-            UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
             var deserialized = result.Outcome.RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer).ToResourceElement();
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(SaveOutcomeType.Created, Samples.GetDefaultObservation().UpdateId(id));
 
-            UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
 
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Samples.GetDefaultObservation(),
                 mockResultEntry);
 
-            UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
 
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Samples.GetDefaultObservation().UpdateId(id),
                 mockResultEntry);
 
-            UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
+            UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
 
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()),
                 mockResultEntry);
 
-            await Assert.ThrowsAsync<BadRequestException>(() => _mediator.Send<UpsertResourceResponse>(message));
+            await Assert.ThrowsAsync<BadRequestException>(async () => await _mediator.SendAsync<UpsertResourceResponse>(message));
         }
 
         [Fact]
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 mockResultEntry1,
                 mockResultEntry2);
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
+            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _mediator.SendAsync<UpsertResourceResponse>(message));
         }
 
         private ConditionalUpsertResourceRequest SetupConditionalUpdate(

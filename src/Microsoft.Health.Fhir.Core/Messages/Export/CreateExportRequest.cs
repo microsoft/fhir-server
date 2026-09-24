@@ -5,7 +5,7 @@
 
 using System;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Models;
 

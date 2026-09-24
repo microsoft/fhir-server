@@ -16,8 +16,10 @@
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportUsingAcrTests.cs" Link="Rest\Export\AnonymizedExportUsingAcrTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportTests.cs" Link="Rest\Export\AnonymizedExportTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\ContainerRegistryTemplateUploader.cs" Link="Rest\ContainerRegistryTemplateUploader.cs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Containers.ContainerRegistry" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.Azure.ContainerRegistry" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />

@@ -37,8 +37,9 @@ parameters:
 jobs:
 - job: provisionEnvironment
   pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
@@ -72,6 +73,7 @@ jobs:
         -SqlElasticPoolName "${{ parameters.sqlElasticPoolName }}"
         -SchemaAutomaticUpdatesEnabled "${{ parameters.schemaAutomaticUpdatesEnabled }}"
         -ReindexEnabled "${{ parameters.reindexEnabled }}"
+        -ImportInMemoryTestEnabled "$(importInMemoryTestEnabled)"
         -MinReplicas $(minReplicas)
         -MaxReplicas $(maxReplicas)
         -ContainerCpu "$(containerCpu)"
@@ -82,3 +84,4 @@ jobs:
         -SearchParameterCacheRefreshIntervalSeconds $(searchParameterCacheRefreshIntervalSeconds)
         -SystemConformanceProviderRefreshIntervalSeconds $(systemConformanceProviderRefreshIntervalSeconds)
         -ReindexCacheRefreshWaitMultiplier $(reindexCacheRefreshWaitMultiplier)
+        -ReindexJobsPollingIntervalSec $(reindexJobsPollingIntervalSec)

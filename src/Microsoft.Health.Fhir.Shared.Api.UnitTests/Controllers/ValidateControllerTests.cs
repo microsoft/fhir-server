@@ -8,11 +8,12 @@ using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -43,11 +44,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<ValidateOperationResponse>(
+            _mediator.SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new ValidateOperationResponse(new OperationOutcomeIssue[0]));
-            _mediator.Send<GetResourceResponse>(
+            _mediator.SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetResourceResponse(new RawResourceElement(
@@ -68,7 +69,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             _controller = new ValidateController(
                 _mediator,
-                _resourceDeserializer);
+                _resourceDeserializer,
+                NullLogger<ValidateController>.Instance);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),
@@ -115,7 +117,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ValidateOperationResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -142,10 +144,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ValidateOperationResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(valid ? 1 : 0).Send<GetResourceResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -198,11 +200,55 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ValidateOperationResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(valid && getResource ? 1 : 0).Send<GetResourceResponse>(
+            await _mediator.Received(valid && getResource ? 1 : 0).SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenParametersWithNullParameterCollection_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter = null;
+
+            // Should not throw NullReferenceException; ProcessResource should handle gracefully
+            await _controller.Validate(parameters, null);
+        }
+
+        [Fact]
+        public async Task GivenParametersWithMissingResourceParameter_WhenValidating_ThenShouldNotThrowNullReferenceException()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter.Add(
+                new Parameters.ParameterComponent()
+                {
+                    Name = "otherParam",
+                    Value = new FhirString("test"),
+                });
+
+            // Should not throw NullReferenceException; ProcessResource should handle gracefully
+            await _controller.Validate(parameters, null);
+        }
+
+        [Fact]
+        public async Task GivenParametersWithNullResourceParameter_WhenValidating_ThenBadRequestExceptionShouldBeThrown()
+        {
+            var parameters = new Parameters();
+            parameters.Parameter.Add(
+                new Parameters.ParameterComponent()
+                {
+                    Name = "resource",
+                    Resource = null,
+                });
+
+            // The inner resource is null, so there is nothing to validate.
+            await Assert.ThrowsAsync<BadRequestException>(() => _controller.Validate(parameters, null));
+
+            await _mediator.Received(0).SendAsync<ValidateOperationResponse>(
+                Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
         }
 

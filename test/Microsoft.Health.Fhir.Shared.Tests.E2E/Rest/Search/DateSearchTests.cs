@@ -270,9 +270,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 // FHIR R4 search prefixes define equality for ranges as: "the range of the search value fully contains
                 // the range of the target value." See https://hl7.org/fhir/R4/search.html#prefix.
-                // Tracked by AB#191826. The current implementation instead matches partial birthdates using range overlap. For example,
+                // Tracked by AB#191826. The current default implementation instead matches partial birthdates using range overlap. For example,
                 // birthdate=2000-03 currently returns a Patient with birthDate "2000" because the whole-year range
                 // overlaps March 2000, but that Patient should not match under the R4 equality containment rule.
+                // Spec-compliant containment is available behind the EnableFhirDateContainment flag (default off); this test asserts the shipped default (overlap) behavior.
                 Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
                 ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
 
@@ -287,6 +288,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
                 ValidateBundle(lastDayBundle, patient2000, patient2000March, patient2000March31);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Theory]
+        [InlineData("lt9999-12-31", true)]
+        [InlineData("le9999-12-31", true)]
+        [InlineData("gt9999-12-31", false)]
+        [InlineData("ge9999-12-31", false)]
+        [InlineData("lt9999-12-31T23:59:59.999Z", true)]
+        [InlineData("le9999-12-31T23:59:59.999Z", true)]
+        [InlineData("gt9999-12-31T23:59:59.999Z", false)]
+        [InlineData("ge9999-12-31T23:59:59.999Z", false)]
+        [InlineData("lt3654-06-18T21:21:00.6839999Z", true)]
+        [InlineData("le3654-06-18T21:21:00.6839999Z", true)]
+        [InlineData("gt3654-06-18T21:21:00.6839999Z", false)]
+        [InlineData("ge3654-06-18T21:21:00.6839999Z", false)]
+        [InlineData("ge1970-01-01T00:00:00Z", true)]
+        [InlineData("lt1970-01-01T00:00:00Z", false)]
+        public async Task GivenALargeLastUpdatedSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, bool resourceSearched)
+        {
+            try
+            {
+                Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"_lastUpdated={queryValue}&code={Fixture.Coding.Code}");
+
+                if (resourceSearched)
+                {
+                    ValidateBundle(bundle, Fixture.Observations.ToArray());
+                }
+                else
+                {
+                    Assert.Empty(bundle.Entry);
+                }
             }
             catch (FhirClientException fce)
             {

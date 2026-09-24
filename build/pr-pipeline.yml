@@ -14,8 +14,9 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
@@ -25,6 +26,28 @@ stages:
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
+
+- stage: ValidateDependabotDiscovery
+  displayName: 'Validate Dependabot discovery project'
+  dependsOn: []
+  jobs:
+  - job: Validate
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET SDK'
+      inputs:
+        useGlobalJson: true
+    # Checks that the discovery project's package list still matches Directory.Packages.props, that
+    # every version resolves, that the solution has not claimed the project, and that dependabot.yml
+    # still points at it. Each of those failing silently stops Dependabot updating NuGet packages.
+    # This only evaluates the project, so it needs no package feeds and takes about a second.
+    # See build/DependabotDiscovery/README.md.
+    - script: dotnet msbuild build/DependabotDiscovery -t:ValidateDependabotCoverage
+      displayName: 'Validate Dependabot discovery project'
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
@@ -37,11 +60,11 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet9
+  - job: Windows_dotnet10
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+        - ImageOverride -equals $(InternalWindowsImage)
     variables:
       AllowPtrToDetectTestRunRetryFiles: true
     steps:
@@ -50,16 +73,6 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet8
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        targetBuildFramework: 'net8.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
@@ -74,8 +87,9 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -93,9 +107,9 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
 
@@ -119,8 +133,9 @@ stages:
   - job: deleteOldResourceGroups
     displayName: 'Delete Old Resource Groups'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./tasks/delete-resource-groups.yml
 
@@ -131,8 +146,9 @@ stages:
   - job: provision
     displayName: 'Create Resource Group'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: Provision Resource Group
@@ -172,8 +188,9 @@ stages:
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./tasks/delete-keyvaults.yml
   - job: setup
@@ -182,14 +199,16 @@ stages:
     - cleanupAad
     - deleteKeyVaults
     pool:
+      name: '$(AzurePipelinesPool)'
       vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml
   - job: createAcaEnvironment
     displayName: 'Create ACA Managed Environment'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: 'Create ACA Managed Environment'
@@ -471,7 +490,8 @@ stages:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml

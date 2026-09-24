@@ -1,18 +1,21 @@
 ﻿--DROP PROCEDURE dbo.CreateResourceSearchParamStats
 GO
-CREATE PROCEDURE dbo.CreateResourceSearchParamStats @Table varchar(100), @Column varchar(100), @ResourceTypeId smallint, @SearchParamId smallint
+CREATE PROCEDURE dbo.CreateResourceSearchParamStats @Table varchar(100), @Column varchar(100), @ResourceTypeId smallint, @SearchParamId smallint, @ReferenceResourceTypeId smallint = NULL
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'T='+isnull(@Table,'NULL')+' C='+isnull(@Column,'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' SP='+isnull(convert(varchar,@SearchParamId),'NULL')
+       ,@Mode varchar(200) = 'T='+isnull(@Table,'NULL')+' C='+isnull(@Column,'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' SP='+isnull(convert(varchar,@SearchParamId),'NULL')+' RRT='+isnull(convert(varchar,@ReferenceResourceTypeId),'NULL')
        ,@st datetime = getUTCdate()
 
 BEGIN TRY
   IF @Table IS NULL OR @Column IS NULL OR @ResourceTypeId IS NULL OR @SearchParamId IS NULL
     RAISERROR('@TableName IS NULL OR @KeyColumn IS NULL OR @ResourceTypeId IS NULL OR @SearchParamId IS NULL',18,127)
   
-  EXECUTE('CREATE STATISTICS ST_'+@Column+'_WHERE_ResourceTypeId_'+@ResourceTypeId+'_SearchParamId_'+@SearchParamId+' ON dbo.'+@Table+' ('+@Column+') WHERE ResourceTypeId = '+@ResourceTypeId+' AND SearchParamId = '+@SearchParamId)
+  IF @ReferenceResourceTypeId IS NOT NULL
+    EXECUTE('CREATE STATISTICS ST_'+@Column+'_WHERE_ResourceTypeId_'+@ResourceTypeId+'_SearchParamId_'+@SearchParamId+'_ReferenceResourceTypeId_'+@ReferenceResourceTypeId+' ON dbo.'+@Table+' ('+@Column+') WHERE ResourceTypeId = '+@ResourceTypeId+' AND SearchParamId = '+@SearchParamId+' AND ReferenceResourceTypeId = '+@ReferenceResourceTypeId)
+  ELSE
+    EXECUTE('CREATE STATISTICS ST_'+@Column+'_WHERE_ResourceTypeId_'+@ResourceTypeId+'_SearchParamId_'+@SearchParamId+' ON dbo.'+@Table+' ('+@Column+') WHERE ResourceTypeId = '+@ResourceTypeId+' AND SearchParamId = '+@SearchParamId)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text='Stats created'
 END TRY

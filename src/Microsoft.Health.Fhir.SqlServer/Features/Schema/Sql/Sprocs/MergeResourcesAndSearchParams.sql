@@ -1,6 +1,6 @@
 ﻿CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
-    ,@ReindexId bigint = -1
+    ,@ReindexId bigint = NULL
     ,@IsResourceChangeCaptureEnabled bit = 0
     ,@TransactionId bigint = NULL
     ,@Resources dbo.ResourceList READONLY
@@ -56,6 +56,9 @@ BEGIN TRY
             ,@TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams
             ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
             ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
+  ELSE
+    IF @TransactionId IS NOT NULL
+      EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
   COMMIT TRANSACTION
 

@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _provider = provider;
         }
 
-        public async Task<GetCapabilitiesResponse> Handle(GetCapabilitiesRequest request, CancellationToken cancellationToken)
+        public async Task<GetCapabilitiesResponse> HandleAsync(GetCapabilitiesRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

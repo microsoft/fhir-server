@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.MemberMatch
 {
-    public sealed class MemberMatchRequest : IRequest<MemberMatchResponse>, IRequest
+    public sealed class MemberMatchRequest : IRequest<MemberMatchResponse>
     {
         public MemberMatchRequest(ResourceElement coverage, ResourceElement patient)
         {

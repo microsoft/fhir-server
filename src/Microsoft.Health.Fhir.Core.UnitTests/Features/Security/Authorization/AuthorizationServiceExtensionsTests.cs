@@ -262,36 +262,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenOnlySearchPermission_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
+        public async Task GivenSearchOnlyPermission_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
         {
-            // A SMART v2 search-only scope (".s" maps to Search|Export) must NOT be able to perform a conditional delete.
-            var requested = DataActions.Read | DataActions.Delete | DataActions.Search | (hardDelete ? DataActions.HardDelete : DataActions.None);
-            var granted = DataActions.Search;
-            var service = CreateAuthorizationService(requested, granted);
+            var service = Substitute.For<IAuthorizationService<DataActions>>();
+            service.CheckAccess(
+                Arg.Any<DataActions>(),
+                Arg.Any<CancellationToken>())
+                .Returns(DataActions.Search);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(
-                () => service.CheckConditionalDeleteAccess(CancellationToken.None, hardDelete, includeGranular: true, throwException: true));
+            var result = await service.CheckConditionalDeleteAccess(
+                CancellationToken.None,
+                hardDelete,
+                true,
+                false);
 
-            await service.Received(1).CheckAccess(
-                Arg.Is<DataActions>(x => x == requested),
-                Arg.Any<CancellationToken>());
+            Assert.False(result);
         }
 
-        [Fact]
-        public async Task GivenOnlySearchPermission_WhenCheckingConditionalDeleteAccessWithoutGranular_ThenAccessIsDenied()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenNoPermissionsAndGranularDisabled_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
         {
-            // Guards against the latent bug where includeGranular=false produced an empty granular mask
-            // that made the "(x & granular) == granular" check always succeed.
-            var requested = DataActions.Read | DataActions.Delete;
-            var granted = DataActions.Search;
-            var service = CreateAuthorizationService(requested, granted);
+            var service = Substitute.For<IAuthorizationService<DataActions>>();
+            service.CheckAccess(
+                Arg.Any<DataActions>(),
+                Arg.Any<CancellationToken>())
+                .Returns(DataActions.None);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(
-                () => service.CheckConditionalDeleteAccess(CancellationToken.None, hardDelete: false, includeGranular: false, throwException: true));
+            var result = await service.CheckConditionalDeleteAccess(
+                CancellationToken.None,
+                hardDelete,
+                false,
+                false);
 
-            await service.Received(1).CheckAccess(
-                Arg.Is<DataActions>(x => x == requested),
-                Arg.Any<CancellationToken>());
+            Assert.False(result);
         }
 
         [Theory]

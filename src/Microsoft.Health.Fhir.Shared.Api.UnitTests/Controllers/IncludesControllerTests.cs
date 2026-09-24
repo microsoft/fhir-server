@@ -5,11 +5,12 @@
 
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public IncludesControllerTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<SearchResourceResponse>(
+            _mediator.SendAsync<SearchResourceResponse>(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new SearchResourceResponse(new Bundle().ToResourceElement()));
@@ -44,7 +45,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _coreFeatureConfiguration = new CoreFeatureConfiguration();
             _controller = new IncludesController(
                 _mediator,
-                Options.Create(_coreFeatureConfiguration));
+                Options.Create(_coreFeatureConfiguration),
+                NullLogger<IncludesController>.Instance);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),
@@ -68,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled);
             }
 
-            await _mediator.Received(enabled ? 1 : 0).Send<SearchResourceResponse>(
+            await _mediator.Received(enabled ? 1 : 0).SendAsync<SearchResourceResponse>(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }

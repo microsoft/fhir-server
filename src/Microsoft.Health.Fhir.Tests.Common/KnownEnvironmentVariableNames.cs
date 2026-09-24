@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string CosmosDbUseManagedIdentity = "CosmosDb__UseManagedIdentity";
         public const string SqlServerConnectionString = "SqlServer:ConnectionString";
         public const string SystemAccessToken = "SYSTEM_ACCESSTOKEN";
-        public const string TestContainerRegistryPassword = "TestContainerRegistryPassword";
         public const string TestContainerRegistryServer = "TestContainerRegistryServer";
         public const string TestEnvironmentName = "TestEnvironmentName";
         public const string TestEnvironmentUrl = "TestEnvironmentUrl";
+        public const string TestTokenEndpoint = "TestTokenEndpoint";
         public const string TestExportStoreUri = "TestExportStoreUri";
         public const string TestIntegrationStoreUri = "TestIntegrationStoreUri";
         public const string TestProxyForwardedHost = "TestProxyForwardedHost";

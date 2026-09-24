@@ -7,19 +7,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Containers.ContainerRegistry;
+using Azure.Core;
+using Azure.Identity;
 using Azure.Storage.Blobs;
-using Microsoft.Azure.ContainerRegistry;
-using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -28,7 +30,6 @@ using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Utilities;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.Rest;
 using NSubstitute;
 using Xunit;
 
@@ -54,15 +55,15 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
 
         public AnonymizationConfigurationArtifactProviderTests()
         {
-            var registry = GetTestContainerRegistryInfo();
-
-            // Use basic token here, which can work when there is no Managed Identity for container registry token.
-            AcrBasicToken acrTokenProvider = new AcrBasicToken(registry);
             var exportJobConfiguration = new ExportJobConfiguration();
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(exportJobConfiguration);
             var logger = Substitute.For<ILogger<AzureConnectionStringClientInitializer>>();
             var azureAccessTokenClientInitializer = new AzureConnectionStringClientInitializer(optionsExportConfig, logger);
+
+            // Use federated managed identity (Azure Pipelines workload identity) to access ACR when configured;
+            // otherwise fall back to a mock for the argument-validation unit tests that never reach ACR.
+            IContainerRegistryTokenProvider acrTokenProvider = CreateAcrTokenProvider() ?? Substitute.For<IContainerRegistryTokenProvider>();
             _provider = new AnonymizationConfigurationArtifactProvider(azureAccessTokenClientInitializer, acrTokenProvider, optionsExportConfig, new NullLogger<AnonymizationConfigurationArtifactProvider>());
         }
 
@@ -251,12 +252,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
         [SkippableFact]
         public async Task GivenAValidConfigName_WithValidAcrReference_WhenFetchAnonymizedConfig_TheConfigContentInAcrShouldBeRerturn()
         {
-            var registry = GetTestContainerRegistryInfo();
+            Skip.If(!IsAcrConfigured());
 
-            // Skip when there is no registry configuration
-            Skip.If(registry == null);
-
-            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
+            await PushConfigurationAsync(TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
             var jobRecord = new ExportJobRecord(
                 new Uri("https://localhost/$export"),
                 ExportJobType.All,
@@ -265,7 +263,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 filters: null,
                 "hash",
                 rollingFileSizeInMB: 1,
-                anonymizationConfigurationCollectionReference: $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}",
+                anonymizationConfigurationCollectionReference: $"{GetRegistryServer()}/{TestRepositoryName}:{TestRepositoryTag}",
                 anonymizationConfigurationLocation: TestConfigName);
             using (Stream stream = new MemoryStream())
             {
@@ -282,12 +280,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
         [SkippableFact]
         public async Task GivenAValidAcrReference_WithInvalidConfigName_WhenFetchAnonymizedConfig_ExceptionShouldBeThrown()
         {
-            var registry = GetTestContainerRegistryInfo();
+            Skip.If(!IsAcrConfigured());
 
-            // Skip when there is no registry configuration
-            Skip.If(registry == null);
-
-            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
+            await PushConfigurationAsync(TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
             var jobRecord = new ExportJobRecord(
                 new Uri("https://localhost/$export"),
                 ExportJobType.All,
@@ -296,7 +291,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 filters: null,
                 "hash",
                 rollingFileSizeInMB: 1,
-                anonymizationConfigurationCollectionReference: $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}",
+                anonymizationConfigurationCollectionReference: $"{GetRegistryServer()}/{TestRepositoryName}:{TestRepositoryTag}",
                 anonymizationConfigurationLocation: "InvalidConfigName");
             using (Stream stream = new MemoryStream())
             {
@@ -304,116 +299,109 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             }
         }
 
-        private async Task PushConfigurationAsync(ContainerRegistryInfo registry, string repository, string tag, string configContent)
+        private static async Task PushConfigurationAsync(string repository, string tag, string configContent)
         {
-            AzureContainerRegistryClient acrClient = new AzureContainerRegistryClient(registry.Server, new AcrBasicToken(registry));
+            var client = new ContainerRegistryContentClient(new Uri($"https://{GetRegistryServer()}"), repository, CreateAzurePipelinesCredential());
 
-            int schemaV2 = 2;
-            string mediatypeV2Manifest = "application/vnd.docker.distribution.manifest.v2+json";
-            string mediatypeV1Manifest = "application/vnd.oci.image.config.v1+json";
-            string emptyConfigStr = "{}";
+            using var configStream = new MemoryStream("{}"u8.ToArray());
+            var configResult = await client.UploadBlobAsync(configStream);
 
-            // Upload config blob
-            byte[] originalConfigBytes = Encoding.UTF8.GetBytes(emptyConfigStr);
-            using var originalConfigStream = new MemoryStream(originalConfigBytes);
-            string originalConfigDigest = ComputeDigest(originalConfigStream);
-            await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
-
-            // Upload memory blob
             byte[] configContentBytes = Encoding.UTF8.GetBytes(configContent);
+            byte[] tarGzBytes = StreamUtility.CompressToTarGz(new Dictionary<string, byte[]>() { { TestConfigName, configContentBytes } }, false);
+            using var layerStream = new MemoryStream(tarGzBytes);
+            var layerResult = await client.UploadBlobAsync(layerStream);
 
-            configContentBytes = StreamUtility.CompressToTarGz(new Dictionary<string, byte[]>() { { TestConfigName, configContentBytes } }, false);
-            using Stream byteStream = new MemoryStream(configContentBytes);
-            var blobLength = byteStream.Length;
-            string blobDigest = ComputeDigest(byteStream);
-            await UploadBlob(acrClient, byteStream, repository, blobDigest);
-
-            // Push manifest
-            List<Descriptor> layers = new List<Descriptor>
+            var manifest = new
             {
-                new Descriptor("application/vnd.oci.image.layer.v1.tar", blobLength, blobDigest),
-            };
-            var v2Manifest = new V2Manifest(schemaV2, mediatypeV2Manifest, new Descriptor(mediatypeV1Manifest, originalConfigBytes.Length, originalConfigDigest), layers);
-            await acrClient.Manifests.CreateAsync(repository, tag, v2Manifest);
-            acrClient.Dispose();
-        }
-
-        private static string ComputeDigest(Stream s)
-        {
-            s.Position = 0;
-            StringBuilder sb = new StringBuilder();
-
-            using (var hash = SHA256.Create())
-            {
-                byte[] result = hash.ComputeHash(s);
-                foreach (byte b in result)
+                schemaVersion = 2,
+                config = new
                 {
-                    sb.Append(b.ToString("x2"));
-                }
-            }
-
-            return "sha256:" + sb.ToString();
-        }
-
-        private async Task UploadBlob(AzureContainerRegistryClient acrClient, Stream stream, string repository, string digest)
-        {
-            stream.Position = 0;
-            var uploadInfo = await acrClient.Blob.StartUploadAsync(repository);
-            var uploadedLayer = await acrClient.Blob.UploadAsync(stream, uploadInfo.Location);
-            await acrClient.Blob.EndUploadAsync(digest, uploadedLayer.Location);
-        }
-
-        private ContainerRegistryInfo GetTestContainerRegistryInfo()
-        {
-            var containerRegistry = new ContainerRegistryInfo
-            {
-                Server = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer),
-                Username = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer)?.Split('.')[0],
-                Password = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryPassword),
+                    mediaType = "application/vnd.oci.image.config.v1+json",
+                    digest = configResult.Value.Digest,
+                    size = configResult.Value.SizeInBytes,
+                },
+                layers = new[]
+                {
+                    new
+                    {
+                        mediaType = "application/vnd.oci.image.layer.v1.tar",
+                        digest = layerResult.Value.Digest,
+                        size = layerResult.Value.SizeInBytes,
+                    },
+                },
             };
 
-            if (string.IsNullOrEmpty(containerRegistry.Server) || string.IsNullOrEmpty(containerRegistry.Password))
+            BinaryData manifestData = BinaryData.FromString(JsonSerializer.Serialize(manifest));
+            await client.SetManifestAsync(manifestData, tag, ManifestMediaType.OciImageManifest);
+        }
+
+        private static string GetRegistryServer()
+        {
+            return EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer);
+        }
+
+        private static bool IsAcrConfigured()
+        {
+            return !string.IsNullOrEmpty(GetRegistryServer()) && HasFederatedIdentityEnvironment();
+        }
+
+        private static bool HasFederatedIdentityEnvironment()
+        {
+            return !string.IsNullOrEmpty(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId))
+                && !string.IsNullOrEmpty(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId))
+                && !string.IsNullOrEmpty(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId))
+                && !string.IsNullOrEmpty(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken));
+        }
+
+        private static AzurePipelinesCredential CreateAzurePipelinesCredential()
+        {
+            string tenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+            string clientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
+
+            return new AzurePipelinesCredential(tenantId, clientId, serviceConnectionId, systemAccessToken);
+        }
+
+        private static IContainerRegistryTokenProvider CreateAcrTokenProvider()
+        {
+            if (!IsAcrConfigured())
             {
                 return null;
             }
 
-            return containerRegistry;
+            var aadTokenProvider = new AzurePipelinesAccessTokenProvider(CreateAzurePipelinesCredential());
+            return new AzureContainerRegistryAccessTokenProvider(
+                aadTokenProvider,
+                new SingleHttpClientFactory(),
+                Options.Create(new ConvertDataConfiguration()),
+                NullLogger<AzureContainerRegistryAccessTokenProvider>.Instance);
         }
 
-        internal class AcrBasicToken : ServiceClientCredentials, IContainerRegistryTokenProvider
+        private sealed class AzurePipelinesAccessTokenProvider : IAccessTokenProvider
         {
-            private ContainerRegistryInfo _registry;
+            private readonly AzurePipelinesCredential _credential;
 
-            public AcrBasicToken(ContainerRegistryInfo registry)
+            public AzurePipelinesAccessTokenProvider(AzurePipelinesCredential credential)
             {
-                _registry = registry;
+                _credential = credential;
             }
 
-            public Task<string> GetTokenAsync(string registryServer, CancellationToken cancellationToken)
-            {
-                return Task.FromResult("Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_registry.Username}:{_registry.Password}")));
-            }
+            public TokenCredential TokenCredential => _credential;
 
-            public override void InitializeServiceClient<T>(ServiceClient<T> client)
+            public async Task<string> GetAccessTokenForResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
             {
-                base.InitializeServiceClient(client);
-            }
-
-            public override Task ProcessHttpRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                var basicToken = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_registry.Username}:{_registry.Password}"));
-                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicToken);
-                return base.ProcessHttpRequestAsync(request, cancellationToken);
+                string scope = new Uri(resourceUri, "/.default").ToString();
+                AccessToken token = await _credential.GetTokenAsync(new TokenRequestContext(new[] { scope }), cancellationToken);
+                return token.Token;
             }
         }
 
-        internal class ContainerRegistryInfo
+        private sealed class SingleHttpClientFactory : IHttpClientFactory
         {
-            public string Server { get; set; }
+            private static readonly HttpClient SharedClient = new HttpClient();
 
-            public string Username { get; set; }
-
-            public string Password { get; set; }
+            public HttpClient CreateClient(string name) => SharedClient;
         }
     }
 }

@@ -1,155 +1,97 @@
 ---
 mode: 'agent'
-description: 'Update .NET SDK and runtime versions across the FHIR server repository to the latest patch versions within the same major version'
-
+description: 'Update .NET SDK and runtime versions across the FHIR server repository to the latest stable patch versions within supported major versions'
 ---
 
 # .NET Version Updater
 
-Your goal is to update .NET SDK and runtime versions across the Microsoft FHIR Server repository to the latest stable patch versions while staying within the same major version (e.g., update .NET 9.x.x versions but don't change from .NET 9 to .NET 10).
+Update .NET SDK and runtime versions across the Microsoft FHIR Server repository to the latest stable patch versions for the supported major versions (.NET 9 and .NET 10).
 
 ## Files to Update
 
-When updating .NET versions, you need to update the following files consistently:
+### 1. `global.json`
+- Update `sdk.version` to the latest stable patch for the chosen major version.
 
-### 1. Main .NET 9 SDK Configuration
-- **File**: `global.json`
-- **What to update**: The SDK version under `sdk.version`
-- **Example**: `"version": "9.0.310"` → `"version": "9.0.xxx"` (latest patch)
+### 2. `build/docker/Dockerfile` (build stage)
+- Update the SDK image tag in the `FROM` line.
+- The Docker SDK image is maintained independently from `global.json` and may intentionally differ by patch.
+- Example: `global.json` can pin `10.0.301` while the Docker SDK image uses `10.0.302-azurelinux3.0`.
 
-### 2. Docker Build Image (SDK)
-- **File**: `build/docker/Dockerfile`
-- **Line**: The `FROM` statement for the build stage (line ~2)
-- **What to update**: The SDK version in the Docker base image
-- **Example**: `FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.310-azurelinux3.0 AS build`
-- **Note**: The SDK version must match the version in `global.json`
+### 3. `build/docker/Dockerfile` (runtime stage)
+- Update the ASP.NET runtime image tag to the latest compatible patch for the same major version.
 
-### 3. Docker Runtime Image (ASP.NET)
-- **File**: `build/docker/Dockerfile`
-- **Line**: The `FROM` statement for the runtime stage (line ~83)
-- **What to update**: The ASP.NET runtime version
-- **Example**: `FROM mcr.microsoft.com/dotnet/aspnet:9.0.12-azurelinux3.0 AS runtime`
-- **Note**: Update to the latest compatible runtime version for the SDK major version
+## Version Guidance
 
-### 4. .NET 8 Compatibility SDK
-- **File**: `build/dotnet8-compat/global.json`
-- **What to update**: The SDK version under `sdk.version`
-- **Example**: `"version": "8.0.417"` → `"version": "8.0.xxx"` (latest .NET 8 patch)
-- **Note**: This is used for building .NET 8 target framework projects
+- Use the latest stable patch for the selected supported major version.
+- Keep .NET 9 guidance while that major is supported, and apply the same process for .NET 10.
+- Do not require exact patch equality between `global.json` and the Docker SDK image.
+
+## Release Metadata
+
+Use Microsoft .NET release metadata to identify current SDK patches:
+
+```bash
+# .NET 9
+curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/9.0/releases.json" | python3 -c "import sys, json; data=json.load(sys.stdin); sdks=[r['sdk']['version'] for r in data['releases'] if 'sdk' in r]; print('\n'.join(sorted(set(sdks), reverse=True)[:5]))"
+
+# .NET 10
+curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/10.0/releases.json" | python3 -c "import sys, json; data=json.load(sys.stdin); sdks=[r['sdk']['version'] for r in data['releases'] if 'sdk' in r]; print('\n'.join(sorted(set(sdks), reverse=True)[:5]))"
+```
+
+## Docker Tag Checks
+
+Verify the SDK and ASP.NET runtime images exist in MCR before updating:
+
+```bash
+# .NET 9 images
+curl -s -L "https://mcr.microsoft.com/v2/dotnet/sdk/tags/list" | grep -o '"9\.0\.[^"]*-azurelinux3\.0"'
+curl -s -L "https://mcr.microsoft.com/v2/dotnet/aspnet/tags/list" | grep -o '"9\.0\.[^"]*-azurelinux3\.0"'
+
+# .NET 10 images
+curl -s -L "https://mcr.microsoft.com/v2/dotnet/sdk/tags/list" | grep -o '"10\.0\.[^"]*-azurelinux3\.0"'
+curl -s -L "https://mcr.microsoft.com/v2/dotnet/aspnet/tags/list" | grep -o '"10\.0\.[^"]*-azurelinux3\.0"'
+```
 
 ## Process
 
-### Step 1: Determine Current Versions
-1. Check current SDK version in `global.json`
-2. Check current Docker SDK version in `build/docker/Dockerfile`
-3. Check current runtime version in `build/docker/Dockerfile`
-4. Check current .NET 8 SDK version in `build/dotnet8-compat/global.json`
+1. Check current versions in `global.json` and `build/docker/Dockerfile`.
+2. Review release metadata for the selected supported major version.
+3. Verify that the selected Docker SDK and runtime tags exist in MCR and use the `-azurelinux3.0` suffix.
+4. Update the SDK and runtime versions independently where required.
+5. Validate that the versions are supported and the image tags are available.
 
-### Step 2: Find Latest Versions
-Use the Microsoft .NET release metadata to find the latest patch versions:
+## Validation
 
-**For .NET 9 (current main version):**
-```bash
-curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/9.0/releases.json" | python3 -c "import sys, json; data=json.load(sys.stdin); sdks=[r['sdk']['version'] for r in data['releases'] if 'sdk' in r]; print('\n'.join(sorted(set(sdks), reverse=True)[:5]))"
+- Confirm `global.json` and the Docker SDK image are on the intended major version.
+- Do not enforce exact SDK patch matching; patch drift is allowed when intentional.
+- Check for stale version references after the update.
+
+## Examples
+
+For .NET 9:
+
+```dockerfile
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.xxx-azurelinux3.0 AS build
+FROM mcr.microsoft.com/dotnet/aspnet:9.0.xx-azurelinux3.0 AS runtime
 ```
 
-**For .NET 8 (compatibility):**
-```bash
-curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/8.0/releases.json" | python3 -c "import sys, json; data=json.load(sys.stdin); sdks=[r['sdk']['version'] for r in data['releases'] if 'sdk' in r]; print('\n'.join(sorted(set(sdks), reverse=True)[:5]))"
-```
-
-### Step 3: Verify Docker Images Exist
-Before updating, verify that the Docker images are available in Microsoft Container Registry:
-
-```bash
-# Check SDK image
-curl -s -L "https://mcr.microsoft.com/v2/dotnet/sdk/tags/list" | grep -o '"9.0.xxx[^"]*azurelinux'
-
-# Check runtime image
-curl -s -L "https://mcr.microsoft.com/v2/dotnet/aspnet/tags/list" | grep -o '"9.0.xx[^"]*azurelinux'
-```
-
-Look for images with the `-azurelinux3.0` suffix as that's what the Dockerfile uses.
-
-### Step 4: Update Files
-
-Update all four locations with the appropriate versions:
-
-1. **global.json**: Latest .NET 9 SDK version
-2. **build/docker/Dockerfile** (line ~2): SDK version matching global.json
-3. **build/docker/Dockerfile** (line ~83): Latest .NET 9 runtime version
-4. **build/dotnet8-compat/global.json**: Latest .NET 8 SDK version
-
-### Step 5: Validate
-
-After making changes:
-1. Ensure `global.json` SDK version matches the Dockerfile SDK image version
-2. Verify all versions are within the same major version (don't accidentally jump from 9.x to 10.x)
-3. Check that no other files reference the old version numbers
-
-```bash
-# Check for old version references
-grep -r "9.0.OLD_VERSION" . --include="*.json" --include="Dockerfile*" --include="*.yml"
-```
-
-## Important Rules
-
-1. **Stay Within Major Version**: Only update patch versions (e.g., 9.0.310 → 9.0.315), never change major versions (e.g., 9.x → 10.x) without explicit approval
-2. **Consistency**: The SDK version in `global.json` MUST match the Docker SDK image version
-3. **Verify Availability**: Always verify that Docker images exist in MCR before updating
-4. **Both .NET Versions**: Remember to update both .NET 9 (main) and .NET 8 (compat) configurations
-5. **Runtime Independence**: The runtime version doesn't need to exactly match SDK version, but should be the latest compatible version
-
-## Common Pitfalls
-
-- ❌ Forgetting to update `build/dotnet8-compat/global.json`
-- ❌ Updating SDK version but forgetting to update Docker image version
-- ❌ Using an SDK version that doesn't have a corresponding `-azurelinux3.0` Docker image
-- ❌ Accidentally changing major versions (9.x → 10.x)
-- ❌ Not updating the runtime image version
-
-## Example Update
-
-If updating from .NET 9.0.310 to 9.0.315:
+For the current .NET 10 configuration:
 
 ```json
 // global.json
 {
-    "sdk": {
-        "version": "9.0.315"  // Updated from 9.0.310
-    }
+  "sdk": {
+    "version": "10.0.301"
+  }
 }
 ```
 
 ```dockerfile
-// build/docker/Dockerfile (line ~2)
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.315-azurelinux3.0 AS build
-
-// build/docker/Dockerfile (line ~83)
-FROM mcr.microsoft.com/dotnet/aspnet:9.0.14-azurelinux3.0 AS runtime
+// build/docker/Dockerfile
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.302-azurelinux3.0 AS build
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10-azurelinux3.0 AS runtime
 ```
-
-```json
-// build/dotnet8-compat/global.json
-{
-    "sdk": {
-        "version": "8.0.420"  // Updated from 8.0.417
-    }
-}
-```
-
-## Testing
-
-After updates, verify the changes don't break CI/CD:
-1. The Docker build should succeed with the new SDK image
-2. .NET 8 target framework builds should use the dotnet8-compat SDK
-3. Runtime deployments should use the updated ASP.NET runtime image
 
 ## Summary
 
-To update .NET to the latest patch version:
-1. Find the latest SDK versions for .NET 9 and .NET 8
-2. Update `global.json` (main SDK)
-3. Update `build/docker/Dockerfile` (SDK and runtime images)
-4. Update `build/dotnet8-compat/global.json` (.NET 8 SDK)
-5. Verify all versions match and images exist in MCR
+Update the supported .NET 9 or .NET 10 SDK/runtime patches, verify the matching-major Docker tags are available, and avoid false exact-match requirements between `global.json` and the Docker SDK image.

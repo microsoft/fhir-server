@@ -22,11 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public long FailedResources { get; set; }
 
         /// <summary>
-        /// Critical error during data processing.
-        /// </summary>
-        public string ErrorDetails { get; set; }
-
-        /// <summary>
         /// Count of jobs created for all query processing jobs
         /// </summary>
         public int CreatedJobs { get; set; }
@@ -35,6 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Count of completed query processing jobs
         /// </summary>
         public int CompletedJobs { get; set; }
+
+        public IReadOnlyCollection<string> SearchParameterUrls { get; set; }
 
         [JsonProperty(JobRecordProperties.Error)]
         public IReadOnlyCollection<OperationOutcomeIssue> Error { get; set; } = new List<OperationOutcomeIssue>();

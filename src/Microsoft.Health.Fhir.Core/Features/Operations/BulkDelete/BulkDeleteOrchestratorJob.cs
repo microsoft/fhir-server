@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     JobType.BulkDeleteProcessing,
                     baseDefinition.DeleteOperation,
                     resourceType,
-                    baseDefinition.SearchParameters,
+                    searchParameters,
                     baseDefinition.ExcludedResourceTypes,
                     baseDefinition.Url,
                     baseDefinition.BaseUrl,

@@ -35,6 +35,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     && e.Message.Contains("expected last updated", StringComparison.OrdinalIgnoreCase);
         }
 
+        public static bool IsReindexJobConflict(this Exception e)
+        {
+            var sqlEx = e as SqlException;
+            return sqlEx != null
+                    && sqlEx.Number == 50002
+                    && e.Message.Contains("reindex job is in progress", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool HasDeadlockErrorPattern(string str)
         {
             return str.Contains("deadlock", StringComparison.OrdinalIgnoreCase);

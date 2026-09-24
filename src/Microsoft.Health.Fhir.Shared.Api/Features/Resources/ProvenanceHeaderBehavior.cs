@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -46,28 +46,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             _state = state;
         }
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(next, cancellationToken);
 
         private async Task<UpsertResourceResponse> GenericHandle(RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             if (_state.Intercepted)
             {
-                return await next(cancellationToken);
+                return await next();
             }
 
             _state.Intercepted = true;
             Provenance provenance = GetProvenanceFromHeader();
-            var response = await next(cancellationToken);
+            var response = await next();
 
             if (response != null && provenance != null)
             {
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
                 // Create Provenance resource.
                 // TODO: It should probaby go through controller to trigger audit events, but it's quite tricky to do now.
-                await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement(), bundleResourceContext: null), cancellationToken);
+                await _mediator.SendAsync<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement(), bundleResourceContext: null), cancellationToken);
             }
 
             return response;

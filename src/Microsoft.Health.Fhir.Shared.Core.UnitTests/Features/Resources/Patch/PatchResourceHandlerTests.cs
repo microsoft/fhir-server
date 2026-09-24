@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -70,11 +70,11 @@ public class PatchResourceHandlerTests
         var etag = WeakETag.FromWeakETag("W/\"1\"");
 
         var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleResourceContext: null, weakETag: etag);
-        await _patchHandler.Handle(request, CancellationToken.None);
+        await _patchHandler.HandleAsync(request, CancellationToken.None);
 
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Is<UpsertResourceRequest>(x => x.WeakETag.VersionId == etag.VersionId), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Is<UpsertResourceRequest>(x => x.WeakETag.VersionId == etag.VersionId), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class PatchResourceHandlerTests
 
         var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleResourceContext: null, weakETag: etag);
 
-        await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _patchHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _patchHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Theory]
@@ -121,11 +121,11 @@ public class PatchResourceHandlerTests
         var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleResourceContext: null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        await patchHandler.Handle(request, CancellationToken.None);
+        await patchHandler.HandleAsync(request, CancellationToken.None);
 
         await mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -150,6 +150,6 @@ public class PatchResourceHandlerTests
         var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleResourceContext: null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => patchHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => patchHandler.HandleAsync(request, CancellationToken.None));
     }
 }

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -85,6 +85,44 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
+        public async Task GivenAnImportRequest_WhenInMemoryImportTestIsDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var request = GetValidBulkImportRequestConfiguration();
+            request.Input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("inmemorytest://input"),
+                },
+            };
+            request.InMemoryTestProcessingJobs = 1;
+
+            var controller = GetController(new ImportJobConfiguration { Enabled = true });
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(request.ToParameters()));
+        }
+
+        [Fact]
+        public async Task GivenAnImportRequest_WhenInMemoryImportTestIsEnabledWithRelativeInputUrl_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var request = GetValidBulkImportRequestConfiguration();
+            request.Input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("relative.ndjson", UriKind.RelativeOrAbsolute),
+                },
+            };
+            request.InMemoryTestProcessingJobs = 1;
+
+            var controller = GetController(new ImportJobConfiguration { Enabled = true, InMemoryTestEnabled = true });
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => controller.Import(request.ToParameters()));
+        }
+
+        [Fact]
         public async Task GivenAnBulkImportRequest_WhenRequestWithNullParameters_ThenRequestNotValidExceptionShouldBeThrown()
         {
             Parameters parameters = null;
@@ -127,12 +165,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             importRequest.ProcessingUnitBytesToRead = int.MaxValue;
 
             var id = Guid.NewGuid().ToString();
-            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateImportResponse(id));
 
             var request = default(CreateImportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CreateImportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(callInfo =>
@@ -199,7 +237,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(baseUri);
 
-            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateImportResponse(Guid.NewGuid().ToString()));
 
             var importRequest = GetValidBulkImportRequestConfiguration();
@@ -237,7 +275,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(baseUri);
 
-            _mediator.Send(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
+            _mediator.SendAsync(Arg.Any<CreateImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateImportResponse(Guid.NewGuid().ToString()));
 
             var importRequest = GetValidBulkImportRequestConfiguration();
@@ -364,12 +402,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenACancelImportRequest_WhenProcessing_ThenCancelImportRequestShouldBeCreatedCorrectly()
         {
             _mediator
-                .Send(Arg.Any<CancelImportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CancelImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CancelImportResponse(HttpStatusCode.OK));
 
             var request = default(CancelImportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CancelImportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>
@@ -405,7 +443,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .Returns(baseUri);
 
             _mediator
-                .Send(Arg.Any<GetImportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<GetImportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
@@ -427,7 +465,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(GetImportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<GetImportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>

@@ -37,19 +37,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
     public class FhirOperationDataStoreReindexTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly IFhirOperationDataStore _operationDataStore;
-        private readonly IFhirStorageTestHelper _testHelper;
 
         public FhirOperationDataStoreReindexTests(FhirStorageTestsFixture fixture)
         {
-            _operationDataStore = fixture.OperationDataStore;
-            _testHelper = fixture.TestHelper;
+            _operationDataStore = fixture.TestSqlServerOperationDataStore ?? fixture.OperationDataStore;
         }
 
         public async Task InitializeAsync()
         {
-            await _testHelper.DeleteAllReindexJobRecordsAsync();
-            await CancelActiveReindexJobIfExists();
-
             GetTestQueueClient().ClearJobs();
 
             await AssertNoReindexJobsExist();
@@ -62,8 +57,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
         private async Task AssertNoReindexJobsExist()
         {
-            var jobs = await _operationDataStore.AcquireReindexJobsAsync(10, TimeSpan.FromSeconds(1), CancellationToken.None);
-            Assert.Empty(jobs);
+            var (found, id) = await _operationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None);
+            Assert.False(found);
+            Assert.Null(id);
         }
 
         [Fact]
@@ -85,54 +81,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereIsNoRunningReindexJob_WhenAcquiringReindexJobs_ThenAvailableReindexJobsShouldBeReturned()
-        {
-            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
-
-            IReadOnlyCollection<ReindexJobWrapper> jobs = await AcquireReindexJobsAsync();
-
-            // The job should be marked as running now since it's acquired.
-            jobRecord.Status = OperationStatus.Running;
-
-            Assert.NotNull(jobs);
-            Assert.Collection(
-                jobs,
-                job => ValidateReindexJobRecord(jobRecord, job.JobRecord));
-        }
-
-        [Theory]
-        [InlineData(OperationStatus.Canceled)]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Failed)]
-        [InlineData(OperationStatus.Running)]
-        public async Task GivenNoReindexJobInQueuedState_WhenAcquiringReindexJobs_ThenNoReindexJobShouldBeReturned(OperationStatus operationStatus)
-        {
-            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
-
-            // Transition the job to its final state
-            await CompleteReindexJobAsync(jobRecord, (JobStatus)operationStatus);
-
-            IReadOnlyCollection<ReindexJobWrapper> jobs = await AcquireReindexJobsAsync();
-
-            Assert.NotNull(jobs);
-            Assert.Empty(jobs);
-        }
-
-        [Fact]
         public async Task GivenAReindexJobWithQueryErrors_ThenErrorsAreNotDisplayed()
         {
-            string queryListError = "An unhandled error has occurred.";
-            string resourceType = KnownResourceTypes.Device;
-            string errorResult = $"{resourceType}: {queryListError}";
-
             ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync(jobRecord => jobRecord.Status = OperationStatus.Completed);
             ReindexJobWrapper job = await _operationDataStore.GetReindexJobByIdAsync(jobRecord.Id, default);
-
-            var reindexJobQueryStatus = new ReindexJobQueryStatus(resourceType, null)
-            {
-                Error = queryListError,
-            };
-            job.JobRecord.QueryList.TryAdd(reindexJobQueryStatus, 1);
 
             ResourceElement resp = job.ToParametersResourceElement();
             var parms = resp.ResourceInstance as Hl7.Fhir.Model.Parameters;
@@ -142,21 +94,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             var parm = parms.Parameter.Where(e => e.Name == JobRecordProperties.QueryListErrors).SingleOrDefault();
 
             Assert.Null(parm);
-        }
-
-        [Fact]
-        public async Task GivenThereIsRunningReindexJobThatExpired_WhenAcquiringReindexJobs_ThenTheExpiredReindexJobShouldBeReturned()
-        {
-            ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
-
-            await Task.Delay(1200);
-
-            IReadOnlyCollection<ReindexJobWrapper> expiredJobs = await AcquireReindexJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
-
-            Assert.NotNull(expiredJobs);
-            Assert.Collection(
-                expiredJobs,
-                expiredJobWrapper => ValidateReindexJobRecord(jobWrapper.JobRecord, expiredJobWrapper.JobRecord));
         }
 
         [Fact]
@@ -177,7 +114,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         public async Task GivenANonexistentReindexJob_WhenUpdatingTheReindexJob_ThenJobNotFoundExceptionShouldBeThrown()
         {
             // Create a local job record with a random ID that doesn't exist in the database or queue
-            var nonExistentJobRecord = new ReindexJobRecord(new List<string>())
+            var nonExistentJobRecord = new ReindexJobRecord()
             {
                 Id = "999999", // Use a non-existent ID
             };
@@ -228,15 +165,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         private async Task<ReindexJobWrapper> CreateRunningReindexJob()
         {
             // Create a queued job.
-            await InsertNewReindexJobRecordAsync();
-
-            // Acquire the job. This will timestamp it and set it to running.
-            IReadOnlyCollection<ReindexJobWrapper> jobWrappers = await AcquireReindexJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
-
-            Assert.NotNull(jobWrappers);
-            Assert.Single(jobWrappers);
-
-            ReindexJobWrapper jobWrapper = jobWrappers.FirstOrDefault();
+            var jobRecord = await InsertNewReindexJobRecordAsync();
+            await CompleteReindexJobAsync(jobRecord, JobStatus.Running, CancellationToken.None);
+            ReindexJobWrapper jobWrapper = await _operationDataStore.GetReindexJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.NotNull(jobWrapper);
             Assert.NotNull(jobWrapper.JobRecord);
@@ -247,7 +178,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
         private async Task<ReindexJobRecord> InsertNewReindexJobRecordAsync(Action<ReindexJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ReindexJobRecord(new List<string>());
+            var jobRecord = new ReindexJobRecord();
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
@@ -256,27 +187,21 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             return result.JobRecord;
         }
 
-        private async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(
-            ushort maximumNumberOfConcurrentJobAllowed = 1,
-            TimeSpan? jobHeartbeatTimeoutThreshold = null)
-        {
-            if (jobHeartbeatTimeoutThreshold == null)
-            {
-                jobHeartbeatTimeoutThreshold = TimeSpan.FromMinutes(1);
-            }
-
-            return await _operationDataStore.AcquireReindexJobsAsync(
-                maximumNumberOfConcurrentJobAllowed,
-                jobHeartbeatTimeoutThreshold.Value,
-                CancellationToken.None);
-        }
-
         private void ValidateReindexJobRecord(ReindexJobRecord expected, ReindexJobRecord actual)
         {
             Assert.Equal(expected.Id, actual.Id);
             Assert.Equal(expected.CanceledTime, actual.CanceledTime);
             Assert.Equal(expected.EndTime, actual.EndTime);
-            Assert.Equal(expected.StartTime, actual.StartTime);
+            if (expected.StartTime.HasValue)
+            {
+                Assert.True(actual.StartTime.HasValue);
+                Assert.True(actual.StartTime.Value >= expected.StartTime.Value);
+            }
+            else
+            {
+                Assert.Null(actual.StartTime);
+            }
+
             Assert.Equal(expected.Status, actual.Status);
             Assert.Equal(
                 expected.QueuedTime.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss"),
@@ -289,7 +214,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             if (found && !string.IsNullOrEmpty(id))
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_operationDataStore, DisabledFhirAuthorizationService.Instance);
-                await cancelReindexHandler.Handle(new CancelReindexRequest(id), cancellationToken);
+                await cancelReindexHandler.HandleAsync(new CancelReindexRequest(id), cancellationToken);
 
                 // Optionally, wait for the job to be marked as canceled
                 var job = await _operationDataStore.GetReindexJobByIdAsync(id, cancellationToken);

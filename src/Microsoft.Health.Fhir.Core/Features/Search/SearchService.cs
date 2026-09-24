@@ -282,13 +282,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <inheritdoc />
+        public virtual bool IsValidResourceType(string resourceType)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
-        protected abstract Task<SearchResult> SearchForReindexInternalAsync(
-            SearchOptions searchOptions,
-            string searchParameterHash,
-            CancellationToken cancellationToken);
+        public virtual Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

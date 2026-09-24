@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR.Pipeline;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -18,6 +18,11 @@ using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
+    /// <summary>
+    /// Utility class for handling SQL-specific exceptions and converting them to FHIR exceptions.
+    /// </summary>
+    /// <typeparam name="TRequest">The request type associated with the exception.</typeparam>
+    /// <typeparam name="TException">The exception type to handle.</typeparam>
     public class SqlExceptionActionProcessor<TRequest, TException> : IRequestExceptionAction<TRequest, TException>
         where TException : Exception
     {
@@ -29,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public Task Execute(TRequest request, TException exception, CancellationToken cancellationToken)
+        public Task ExecuteAsync(TRequest request, TException exception, CancellationToken cancellationToken)
         {
             if (exception is SqlException sqlException)
             {

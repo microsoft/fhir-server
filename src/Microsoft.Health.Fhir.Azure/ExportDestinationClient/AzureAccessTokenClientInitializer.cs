@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             try
             {
-                return new BlobServiceClient(storageAccountUri, new ManagedIdentityCredential());
+                return new BlobServiceClient(storageAccountUri, new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
             }
             catch (AccessTokenProviderException atp)
             {

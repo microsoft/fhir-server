@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 RetentionPeriodDays = 2.0 / 24 / 3600,
             };
 
-            var wdTask = wd.ExecuteAsync(cts.Token); // retention 2 seconds
+            var wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token); // retention 2 seconds
             var startTime = DateTime.UtcNow;
 
             while ((!wd.IsLeaseHolder || !wd.IsInitialized) && !cts.IsCancellationRequested)
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 RetentionPeriodDays = 2.0 / 24 / 3600,
             };
 
-            var wdTask = wd.ExecuteAsync(cts.Token); // retention 2 seconds
+            var wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token); // retention 2 seconds
             var startTime = DateTime.UtcNow;
             while ((!wd.IsLeaseHolder || !wd.IsInitialized) && !cts.IsCancellationRequested)
             {

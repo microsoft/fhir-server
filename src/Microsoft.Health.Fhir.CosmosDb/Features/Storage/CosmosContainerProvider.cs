@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,6 +18,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
@@ -31,6 +32,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class CosmosContainerProvider : IHostedService, IRequireInitializationOnFirstRequest, IDisposable
     {
         private const int CollectionSettingsVersion = 3;
+
+        private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private readonly ILogger<CosmosContainerProvider> _logger;
         private readonly IMediator _mediator;
         private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
@@ -40,6 +43,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly Func<CancellationToken, Task> _containerTestFactory;
 
         public CosmosContainerProvider(
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             ICosmosClientInitializer cosmosClientInitializer,
@@ -52,6 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosDbDistributedLockFactory distributedLockFactory,
             ICosmosClientTestProvider cosmosClientTestProvider)
         {
+            EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(collectionConfiguration, nameof(collectionConfiguration));
             EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
@@ -63,6 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
 
+            _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
             _logger = logger;
             _mediator = mediator;
             _distributedLockFactory = distributedLockFactory;
@@ -111,6 +117,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             try
             {
+                LogRuntimeStateConfiguration();
+
                 using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
                 _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
@@ -177,7 +185,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within CosmosClientInitializer.
             _initializationOperation.EnsureInitialized()
                 .AsTask()
-                .ContinueWith(_ => _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default);
+                .ContinueWith(_ => _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default)
+                .Unwrap();
 #pragma warning restore CS4014
 
             return Task.CompletedTask;
@@ -252,6 +261,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             collectionVersion.Version = CollectionSettingsVersion;
             await container.UpsertItemAsync(collectionVersion, new PartitionKey(collectionVersion.PartitionKey), cancellationToken: cancellationToken);
+        }
+
+        private void LogRuntimeStateConfiguration()
+        {
+            _logger.LogInformation("FHIR Runtime State: {RuntimeState}.", _fhirRuntimeConfiguration.RuntimeState);
         }
     }
 }

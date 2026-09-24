@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>113</LatestSchemaVersion>
+    <LatestSchemaVersion>117</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <PackageTags>LatestSchemaVersion-$(LatestSchemaVersion)</PackageTags>
   </PropertyGroup>
@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.Health.SqlServer.Api" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" />
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" />
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />
@@ -87,8 +88,16 @@
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
   </ItemGroup>
 
-  <!-- Target contains sql build tasks -->
-  <Import Project="$([MSBuild]::NormalizePath($(NuGetPackageRoot), 'microsoft.health.tools.sql.tasks', $(HealthcareSharedPackageVersion), 'build', 'Sql.targets'))" />
+  <!--
+    Target contains sql build tasks.
+
+    The condition exists for evaluation-only tools. Dependabot reads project files without
+    restoring, which leaves NuGetPackageRoot empty and made this import throw MissingFileException,
+    failing the entire update job. It does not open a silent-failure window in a real build: a build
+    without a restore already fails on the missing assets file (NETSDK1004), and after a restore
+    NuGetPackageRoot is always set by nuget.g.props, so the import is never skipped.
+  -->
+  <Import Project="$([MSBuild]::NormalizePath($(NuGetPackageRoot), 'microsoft.health.tools.sql.tasks', $(HealthcareSharedPackageVersion), 'build', 'Sql.targets'))" Condition="'$(NuGetPackageRoot)' != ''" />
 
   <!--
   <Target Name="PrintEmbeddedResources" BeforeTargets="ComputeGeneratorInputs">

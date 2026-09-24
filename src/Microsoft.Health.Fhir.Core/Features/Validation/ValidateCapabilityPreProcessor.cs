@@ -7,25 +7,38 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR.Pipeline;
+using Medino;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class ValidateCapabilityPreProcessor<TRequest> : IRequestPreProcessor<TRequest>
+    /// <summary>
+    /// Generic pipeline behavior that validates requests requiring specific capabilities.
+    /// Converted from IRequestPreProcessor to IPipelineBehavior in response to Medino API changes.
+    /// </summary>
+    /// <typeparam name="TRequest">The type of request being validated.</typeparam>
+    /// <typeparam name="TResponse">The type of response returned by the handler.</typeparam>
+    public class ValidateCapabilityPreProcessor<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+        where TRequest : class
     {
         private readonly IConformanceProvider _conformanceProvider;
 
         public ValidateCapabilityPreProcessor(IConformanceProvider conformanceProvider)
         {
             EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
-
             _conformanceProvider = conformanceProvider;
         }
 
-        public async Task Process(TRequest request, CancellationToken cancellationToken)
+        public async Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
+            // Medino composes both the strongly typed and object pipelines for each request.
+            // Validation belongs to the strongly typed pipeline only.
+            if (typeof(TRequest) == typeof(object))
+            {
+                return await next();
+            }
+
             if (request is IRequireCapability provider)
             {
                 if (!await _conformanceProvider.SatisfiesAsync(provider.RequiredCapabilities().ToList(), cancellationToken))
@@ -33,6 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     throw new MethodNotAllowedException(Core.Resources.RequestedActionNotAllowed);
                 }
             }
+
+            return await next();
         }
     }
 }
