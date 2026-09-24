@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         /// Retrieves from the HTTP header if high-latency bundle processing is enabled.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context.</param>
-        /// <returns><see langword="true"/> when the high-latency header is set to true; otherwise, <see langword="false"/>.</returns>
-        public static bool IsHighLatencyEnabled(this HttpContext outerHttpContext)
+        /// <returns><see langword="true"/> when the expanded bundle header is set to true; otherwise, <see langword="false"/>.</returns>
+        public static bool IsExpandedBundleEnabled(this HttpContext outerHttpContext)
         {
             const bool defaultValue = false;
 
@@ -62,11 +62,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
                 return defaultValue;
             }
 
-            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.HighLatency, out StringValues headerValues))
+            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ExpandedBundle, out StringValues headerValues))
             {
-                string highLatencyAsString = headerValues.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(highLatencyAsString) &&
-                    bool.TryParse(highLatencyAsString.Trim(), out bool result))
+                string expandedBundle = headerValues.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(expandedBundle) &&
+                    bool.TryParse(expandedBundle.Trim(), out bool result))
                 {
                     return result;
                 }

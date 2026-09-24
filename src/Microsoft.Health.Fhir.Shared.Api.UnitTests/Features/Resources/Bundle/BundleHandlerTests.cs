@@ -1010,11 +1010,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenHighLatencyHeader_WhenNormalLimitIsExceededButHighLatencyLimitIsNotExceeded_ThenBundleIsProcessed()
+        public async Task GivenExpandedBundleHeader_WhenNormalLimitIsExceededButExpandedBundleLimitIsNotExceeded_ThenBundleIsProcessed()
         {
             _bundleConfiguration.EntryLimit = 1;
-            _bundleConfiguration.EntryLimitHighLatency = 2;
-            _httpContext.Request.Headers[KnownHeaders.HighLatency] = "true";
+            _bundleConfiguration.EntryLimitExpanded = 2;
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
             BundleRequest bundleRequest = CreateBundleRequest(2);
 
             BundleResponse response = await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
@@ -1023,11 +1023,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenHighLatencyHeader_WhenHighLatencyLimitIsExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
+        public async Task GivenExpandedBundleHeader_WhenExpandedBundleLimitIsExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
         {
             _bundleConfiguration.EntryLimit = 1;
-            _bundleConfiguration.EntryLimitHighLatency = 2;
-            _httpContext.Request.Headers[KnownHeaders.HighLatency] = "true";
+            _bundleConfiguration.EntryLimitExpanded = 2;
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
             BundleRequest bundleRequest = CreateBundleRequest(3);
 
             BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(
@@ -1040,11 +1040,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData("")]
         [InlineData("false")]
         [InlineData("invalid")]
-        public async Task GivenHighLatencyHeaderWithoutTrueValue_WhenNormalLimitIsExceeded_ThenNormalLimitIsEnforced(string headerValue)
+        public async Task GivenExpandedBundleHeaderWithoutTrueValue_WhenNormalLimitIsExceeded_ThenNormalLimitIsEnforced(string headerValue)
         {
             _bundleConfiguration.EntryLimit = 1;
-            _bundleConfiguration.EntryLimitHighLatency = 3;
-            _httpContext.Request.Headers[KnownHeaders.HighLatency] = headerValue;
+            _bundleConfiguration.EntryLimitExpanded = 3;
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = headerValue;
             BundleRequest bundleRequest = CreateBundleRequest(2);
 
             BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(

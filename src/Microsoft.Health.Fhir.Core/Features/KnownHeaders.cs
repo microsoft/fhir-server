@@ -33,9 +33,9 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string QueryLatencyOverEfficiency = "x-ms-query-latency-over-efficiency";
 
         /// <summary>
-        /// High-latency bundle processing header.
+        /// Expanded bundle processing header.
         /// </summary>
-        public const string HighLatency = "x-ms-high-latency";
+        public const string ExpandedBundle = "x-ms-expanded-bundle-limit";
 
         // #conditionalQueryParallelism - Header used to activate parallel conditional-query processing.
         public const string ConditionalQueryProcessingLogic = "x-conditionalquery-processing-logic";

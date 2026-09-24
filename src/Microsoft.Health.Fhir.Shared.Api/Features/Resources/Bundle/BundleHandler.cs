@@ -588,9 +588,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private int GetEntryLimit()
         {
-            if (_outerHttpContext.IsHighLatencyEnabled())
+            if (_outerHttpContext.IsExpandedBundleEnabled())
             {
-                return _bundleConfiguration.EntryLimitHighLatency;
+                return _bundleConfiguration.EntryLimitExpanded;
             }
 
             return _bundleConfiguration.EntryLimit;

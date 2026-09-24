@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             bool isLatencyOverEfficiencyEnabled = httpContext.IsLatencyOverEfficiencyEnabled();
             Assert.False(isLatencyOverEfficiencyEnabled);
 
-            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
             Assert.False(isHighLatencyEnabled);
 
             // Given different default values for the bundle processing logic, we expect the same value to be returned.
@@ -89,11 +89,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         public void WhenHttpContextHasHighLatencyHeader_ReturnIfHighLatencyIsEnabled(string value, bool isEnabled)
         {
             // Arrange
-            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.HighLatency, value } };
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.ExpandedBundle, value } };
             HttpContext httpContext = GetFakeHttpContext(httpHeaders);
 
             // Act
-            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
 
             // Assert
             Assert.Equal(isEnabled, isHighLatencyEnabled);
@@ -104,10 +104,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         {
             // Arrange
             HttpContext httpContext = new DefaultHttpContext();
-            httpContext.Request.Headers.Append(KnownHeaders.HighLatency, new StringValues(new[] { "true", "false" }));
+            httpContext.Request.Headers.Append(KnownHeaders.ExpandedBundle, new StringValues(new[] { "true", "false" }));
 
             // Act
-            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
 
             // Assert
             Assert.True(isHighLatencyEnabled);
@@ -118,10 +118,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         {
             // Arrange
             HttpContext httpContext = new DefaultHttpContext();
-            httpContext.Request.Headers.Append(KnownHeaders.HighLatency, new StringValues(new[] { "false", "true" }));
+            httpContext.Request.Headers.Append(KnownHeaders.ExpandedBundle, new StringValues(new[] { "false", "true" }));
 
             // Act
-            bool isHighLatencyEnabled = httpContext.IsHighLatencyEnabled();
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
 
             // Assert
             Assert.False(isHighLatencyEnabled);
