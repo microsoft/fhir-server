@@ -1743,9 +1743,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
 
-            // A direct legacy/provider comparison found six resources with changed patient-parameter output,
-            // but only this Immunization changed Patient A compartment membership. The provider path therefore
-            // adds exactly this resource to the previous 40-result set.
             Assert.Contains(
                 results.Results,
                 r => r.Resource.ResourceTypeName == KnownResourceTypes.Immunization &&
