@@ -6,7 +6,7 @@
   </PropertyGroup>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>11.0.135</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>11.0.154</HealthcareSharedPackageVersion>
     <!-- Pinned. Dependabot will not propose Hl7.Fhir.* updates while the matching ignore rules in
          .github/dependabot.yml are in place, so these two versions only move by hand. To unpin,
          delete the Hl7.Fhir.* and Anonymizer ignore rules; the hl7-fhir group resumes on its own.
@@ -35,9 +35,9 @@
     <!--Please include the CGA id if possible-->
     <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.9" />
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
-    <PackageVersion Include="Microsoft.Bcl.Memory" Version="9.0.17" />
+    <PackageVersion Include="Microsoft.Bcl.Memory" Version="9.0.20" />
     <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore -->
-    <PackageVersion Include="OpenTelemetry.Api" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.18.0" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
@@ -49,18 +49,18 @@
     <PackageVersion Include="Microsoft.Rest.ClientRuntime" Version="2.3.24" />
   </ItemGroup>
   <ItemGroup>
-    <PackageVersion Include="AngleSharp" Version="1.5.0" />
+    <PackageVersion Include="AngleSharp" Version="1.8.1" />
     <PackageVersion Include="Azure.Containers.ContainerRegistry" Version="1.3.0" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Azure.ResourceManager.CosmosDB" Version="1.5.0" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.2" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.2" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.1.0" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.0.2" />
-    <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.2.25" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
+    <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.2.39" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
+    <PackageVersion Include="FluentValidation" Version="11.12.0" />
     <PackageVersion Include="Hl7.Fhir.Base" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
@@ -84,7 +84,7 @@
     <PackageVersion Include="Ignixa.Serialization" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Specification" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Medino" Version="3.0.9" />
-    <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
+    <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="$(AspNetPackageVersion)" />
@@ -92,7 +92,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.48.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.0" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.0" />
     <PackageVersion Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.0" />
@@ -119,51 +119,51 @@
     <PackageVersion Include="Microsoft.Health.Encryption" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="4.1.1.3" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="4.1.1.3" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="4.2.2.5" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="4.2.2.5" />
     <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="7.0.15" />
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Identity.Web" Version="2.13.3" />
+    <PackageVersion Include="Microsoft.Identity.Web" Version="2.21.1" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="170.5.96" />
-    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.64.0" />
+    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.87.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageVersion Include="NSubstitute" Version="6.0.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.12" />
     <PackageVersion Include="OpenIddict.Abstractions" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Server.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="$(OpenIddictPackageVersion)" />
-    <PackageVersion Include="Polly" Version="8.5.2" />
+    <PackageVersion Include="Polly" Version="8.8.0" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="3.1.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
     <PackageVersion Include="System.Collections.Immutable" Version="$(DotNetSdkPackageVersion)" />
-    <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
-    <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+    <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta5.25306.1" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.12" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
     <PackageVersion Include="System.Configuration.ConfigurationManager" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageVersion Include="System.Net.Http" Version="4.3.4" />
     <PackageVersion Include="System.Private.ServiceModel" Version="4.10.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="YTest.MTP.XUnit2" Version="1.0.3" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="2.0.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="2.4.1" />
     <PackageVersion Include="xunit.extensibility.core" Version="2.9.3" />
-    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.assert" Version="2.9.3" />
-    <PackageVersion Include="System.Drawing.Common" Version="8.0.8" />
-    <PackageVersion Include="Moq" Version="4.20.69" />
+    <PackageVersion Include="System.Drawing.Common" Version="8.0.31" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>
 </Project>
