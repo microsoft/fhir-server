@@ -637,7 +637,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new DeleteResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, authorizationService, deleter, searchService, contextAccessor);
             var request = new DeleteResourceRequest("Observation", "obs-in-other-compartment", DeleteOperation.HardDelete);
 
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.HandleAsync(request, CancellationToken.None));
             await deleter.DidNotReceive().DeleteAsync(Arg.Any<DeleteResourceRequest>(), Arg.Any<CancellationToken>());
         }
 
@@ -670,7 +670,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, referenceResolver, contextAccessor, authorizationService, ModelInfoProvider.Instance, searchService);
             var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
 
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.HandleAsync(request, CancellationToken.None));
             await fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>());
         }
     }
