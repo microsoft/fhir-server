@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -17,6 +18,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             bool onlyIds = false,
             bool isIncludesOperation = false);
+
+        /// <summary>
+        /// Creates <see cref="SearchOptions"/> using only SMART scope restrictions that permit one of the supplied actions.
+        /// </summary>
+        /// <remarks>
+        /// The default interface implementation delegates to the overload that does not take <paramref name="scopeDataActions"/>,
+        /// so implementations should override this method to enforce action-specific scope filtering.
+        /// </remarks>
+        SearchOptions Create(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            DataActions scopeDataActions,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            return Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+        }
 
         SearchOptions Create(
             string compartmentType,
