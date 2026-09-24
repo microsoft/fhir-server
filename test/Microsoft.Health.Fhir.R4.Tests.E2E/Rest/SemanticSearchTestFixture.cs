@@ -16,13 +16,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
         }
 
-        public string ConnectionString => ((InProcTestFhirServer)TestFhirServer).ConnectionString;
+        public string ConnectionString => InProcServer.ConnectionString;
+
+        private InProcTestFhirServer InProcServer => TestFhirServer as InProcTestFhirServer
+            ?? throw new InvalidOperationException("Semantic search test services and SQL access require the in-process test server.");
 
         public T GetService<T>()
             where T : notnull
         {
-            var server = (InProcTestFhirServer)TestFhirServer;
-            return server.Server.Host.Services.GetRequiredService<T>();
+            return InProcServer.Server.Host.Services.GetRequiredService<T>();
         }
     }
 }

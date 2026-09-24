@@ -14,6 +14,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public sealed class SemanticSearchTests : IClassFixture<SemanticSearchTestFixture>
     {
         private const string Query = "difficulty breathing after exercise";
+        private readonly string _testTag = Guid.NewGuid().ToString();
         private readonly SemanticSearchTestFixture _fixture;
         private readonly TestFhirClient _client;
 
@@ -39,9 +41,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenEmbeddingIsDelayed_WhenWritingResource_ThenTransactionHeartbeatAdvancesBeforeEmbeddingCompletes()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
                 SemanticSearchTestParameterResolver.ObservationCanonical,
@@ -78,9 +82,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await createTask;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenRequestIsCancelledDuringEmbedding_WhenWritingResource_ThenCancellationIsPropagated()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
                 SemanticSearchTestParameterResolver.ObservationCanonical,
@@ -109,9 +115,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenHeartbeatSqlFailsDuringEmbedding_WhenWritingResource_ThenRequestFailsPromptly()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
                 SemanticSearchTestParameterResolver.ObservationCanonical,
@@ -150,9 +158,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenDirectTextResources_WhenOrdinarySearchIsInvoked_ThenFiltersScoresAndPagingArePreserved()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
                 SemanticSearchTestParameterResolver.ObservationCanonical,
@@ -165,8 +175,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Observation excluded = await CreateAsync(CreateObservation(Query, ObservationStatus.Preliminary));
 
             Bundle firstPage = await _client.SearchAsync(
-                ResourceType.Observation,
-                $"semantic-text={Uri.EscapeDataString(Query)}&status=final&_count=1");
+                $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&status=final&_count=1",
+                Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
 
             Bundle.EntryComponent match = Assert.Single(firstPage.Entry, entry => entry.Search.Mode == Bundle.SearchEntryMode.Match);
             Assert.Contains(match.Resource.Id, new[] { first.Id, second.Id });
@@ -174,7 +184,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.DoesNotContain(firstPage.Entry, entry => entry.Resource.Id == excluded.Id);
             Assert.NotNull(firstPage.NextLink);
 
-            using FhirResponse<Bundle> nextResponse = await _client.SearchAsync(firstPage.NextLink.ToString());
+            using FhirResponse<Bundle> nextResponse = await _client.SearchAsync(
+                firstPage.NextLink.ToString(),
+                Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
             Bundle.EntryComponent nextMatch = Assert.Single(nextResponse.Resource.Entry, entry => entry.Search.Mode == Bundle.SearchEntryMode.Match);
             Assert.Contains(nextMatch.Resource.Id, new[] { first.Id, second.Id });
             Assert.NotEqual(match.Resource.Id, nextMatch.Resource.Id);
@@ -183,16 +195,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             first.Note.Clear();
             using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(first);
             Bundle afterEmptyExtraction = await _client.SearchAsync(
-                ResourceType.Observation,
-                $"semantic-text={Uri.EscapeDataString(Query)}&status=final&_count=10");
+                $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&status=final&_count=10",
+                Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
 
             Assert.DoesNotContain(afterEmptyExtraction.Entry, entry => entry.Resource.Id == first.Id);
             Assert.Contains(afterEmptyExtraction.Entry, entry => entry.Resource.Id == second.Id);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenNewDirectTextSearchParameter_WhenActivatedAndReindexed_ThenExistingResourceIsSearchable()
         {
+            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
             Patient patient = await CreateAsync(new Patient { Active = true });
             Organization payor = await CreateAsync(new Organization { Active = true, Name = "Semantic search test payor" });
             Coverage coverage = await CreateAsync(CreateCoverage(patient.Id, payor.Id, Query));
@@ -205,8 +219,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "Coverage.class.name");
 
             Bundle bundle = await _client.SearchAsync(
-                ResourceType.Coverage,
-                $"semantic-text={Uri.EscapeDataString(Query)}&status=active");
+                $"Coverage?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&status=active",
+                Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
 
             Bundle.EntryComponent match = Assert.Single(bundle.Entry, entry => entry.Search.Mode == Bundle.SearchEntryMode.Match);
             Assert.Equal(coverage.Id, match.Resource.Id);
@@ -321,6 +335,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private async Task<T> CreateAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
+            resource.Meta ??= new Meta();
+            resource.Meta.Tag.Add(new Coding(null, _testTag));
+
             using FhirResponse<T> response = await _client.CreateAsync(resource, cancellationToken: cancellationToken);
             return response.Resource;
         }
