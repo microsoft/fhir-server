@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                   ? (await _searchService.GetUsedResourceTypes(cancellationToken))
-                                  : record.ResourceType.Split(',');
+                                  : record.ResourceType.Split(',').Select(type => type.Trim());
                 resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
 
                 // Validate the resource types to ensure they are valid and supported.
