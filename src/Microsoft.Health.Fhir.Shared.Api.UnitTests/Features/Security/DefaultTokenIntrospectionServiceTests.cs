@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http;
@@ -22,10 +23,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Security)]
-    public class DefaultTokenIntrospectionServiceTests
+    public class DefaultTokenIntrospectionServiceTests : IDisposable
     {
         private const string ExpectedClientId = "ef0c25fd-8da1-47d5-9c85-7ece2c7c1779";
         private const string UserSubject = "9di8U8daZj2Gfq8XmjWGYC3qBanXsnRG8eS7tvH3lcM";
+        private readonly HttpClient _httpClient = new HttpClient();
+
+        public void Dispose()
+        {
+            _httpClient.Dispose();
+        }
 
         [Theory]
         [InlineData("appid")]
@@ -76,12 +83,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             Assert.Equal(ExpectedClientId, response["client_id"]);
         }
 
-        private static StubTokenIntrospectionService CreateService(params Claim[] claims)
+        private StubTokenIntrospectionService CreateService(params Claim[] claims)
         {
             var httpClientFactory = Substitute.For<IHttpClientFactory>();
             httpClientFactory
                 .CreateClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName)
-                .Returns(new HttpClient());
+                .Returns(_httpClient);
 
             var securityConfiguration = new SecurityConfiguration
             {
