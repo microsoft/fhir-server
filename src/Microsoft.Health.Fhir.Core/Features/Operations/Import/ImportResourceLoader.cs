@@ -156,6 +156,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     throw new ArgumentException("SearchParameter resources cannot be processed by import.");
                 }
+
+                // Writing a StructureDefinition requires the editProfileDefinitions data action, which the import data
+                // action does not grant. Import runs as a background job with no caller principal, so it cannot be checked here.
+                if (importResource.ResourceWrapper != null && importResource.ResourceWrapper.ResourceTypeName.Equals("StructureDefinition", StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("StructureDefinition resources cannot be processed by import.");
+                }
             }
             catch (Exception ex)
             {

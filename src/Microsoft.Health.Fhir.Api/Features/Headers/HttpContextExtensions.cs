@@ -49,6 +49,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         }
 
         /// <summary>
+        /// Retrieves from the HTTP header if high-latency bundle processing is enabled.
+        /// </summary>
+        /// <param name="outerHttpContext">HTTP context.</param>
+        /// <returns><see langword="true"/> when the expanded bundle header is set to true; otherwise, <see langword="false"/>.</returns>
+        public static bool IsExpandedBundleEnabled(this HttpContext outerHttpContext)
+        {
+            const bool defaultValue = false;
+
+            if (outerHttpContext == null)
+            {
+                return defaultValue;
+            }
+
+            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ExpandedBundle, out StringValues headerValues))
+            {
+                string expandedBundle = headerValues.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(expandedBundle) &&
+                    bool.TryParse(expandedBundle.Trim(), out bool result))
+                {
+                    return result;
+                }
+            }
+
+            return defaultValue;
+        }
+
+        /// <summary>
         /// Retrieves from the HTTP header information on using query caching.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context</param>

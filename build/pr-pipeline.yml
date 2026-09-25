@@ -27,6 +27,28 @@ stages:
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
 
+- stage: ValidateDependabotDiscovery
+  displayName: 'Validate Dependabot discovery project'
+  dependsOn: []
+  jobs:
+  - job: Validate
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET SDK'
+      inputs:
+        useGlobalJson: true
+    # Checks that the discovery project's package list still matches Directory.Packages.props, that
+    # every version resolves, that the solution has not claimed the project, and that dependabot.yml
+    # still points at it. Each of those failing silently stops Dependabot updating NuGet packages.
+    # This only evaluates the project, so it needs no package feeds and takes about a second.
+    # See build/DependabotDiscovery/README.md.
+    - script: dotnet msbuild build/DependabotDiscovery -t:ValidateDependabotCoverage
+      displayName: 'Validate Dependabot discovery project'
+
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn:
