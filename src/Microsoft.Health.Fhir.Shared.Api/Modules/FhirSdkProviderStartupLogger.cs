@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public sealed class FhirSdkProviderStartupLogger : IHostedService
     {
-        private readonly FhirSdkProvider _provider;
+        private readonly FhirSdkProviderConfiguration _configuration;
         private readonly ILogger<FhirSdkProviderStartupLogger> _logger;
 
         /// <summary>
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             IOptions<CoreFeatureConfiguration> configuration,
             ILogger<FhirSdkProviderStartupLogger> logger)
         {
-            _provider = configuration.Value.FhirSdkProvider;
+            _configuration = configuration.Value.FhirSdkProvider;
             _logger = logger;
         }
 
@@ -37,8 +37,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "FHIR SDK provider configured: {FhirSdkProvider}; migrated seams: Import.",
-                _provider);
+                "FHIR SDK providers configured: Default={DefaultProvider}; Import={ImportProvider}; FHIRPath={FhirPathProvider}. FHIRPath Patch remains Firely-backed.",
+                _configuration.Default,
+                _configuration.EffectiveImport,
+                _configuration.EffectiveFhirPath);
             return Task.CompletedTask;
         }
 
