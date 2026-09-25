@@ -594,12 +594,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
+        private int GetEntryLimit()
+        {
+            if (_outerHttpContext.IsExpandedBundleEnabled())
+            {
+                return _bundleConfiguration.EntryLimitExpanded;
+            }
+
+            return _bundleConfiguration.EntryLimit;
+        }
+
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
         {
-            if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
+            int entryLimit = GetEntryLimit();
+
+            if (entryLimit != default && bundleEntries.Count > entryLimit)
             {
                 _logger.LogWarning("BundleEntryLimitExceededException: BundleEntryLimitExceeded");
-                throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, _bundleConfiguration.EntryLimit));
+                throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, entryLimit));
             }
 
             int order = 0;

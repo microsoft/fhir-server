@@ -26,11 +26,13 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -66,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly IBundleMetricHandler _bundleMetricHandler;
         private readonly ITransactionHandler _transactionHandler;
         private readonly FhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly HttpContext _outerHttpContext;
+        private readonly DefaultHttpContext _httpContext;
         private DefaultFhirRequestContext _fhirRequestContext;
         private readonly IProvideProfilesForValidation _profilesResolver;
 
@@ -106,8 +108,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleOrchestratorLogger = Substitute.For<ILogger<BundleOrchestrator>>();
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, bundleOrchestratorLogger);
 
-            IFeatureCollection featureCollection = CreateFeatureCollection();
-            var httpContext = new DefaultHttpContext(featureCollection)
+            _httpContext = new DefaultHttpContext()
             {
                 Request =
                 {
@@ -116,8 +117,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     PathBase = new PathString("/"),
                 },
             };
-            httpContextAccessor.HttpContext.Returns(httpContext);
-            _outerHttpContext = httpContext;
+            ConfigureFeatures(_httpContext.Features);
+            httpContextAccessor.HttpContext.Returns(_httpContext);
 
             _transactionHandler = Substitute.For<ITransactionHandler>();
 
@@ -1010,6 +1011,50 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
+        public async Task GivenExpandedBundleHeader_WhenNormalLimitIsExceededButExpandedBundleLimitIsNotExceeded_ThenBundleIsProcessed()
+        {
+            _bundleConfiguration.EntryLimit = 1;
+            _bundleConfiguration.EntryLimitExpanded = 2;
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
+            BundleRequest bundleRequest = CreateBundleRequest(2);
+
+            BundleResponse response = await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
+
+            Assert.NotNull(response);
+        }
+
+        [Fact]
+        public async Task GivenExpandedBundleHeader_WhenExpandedBundleLimitIsExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
+        {
+            _bundleConfiguration.EntryLimit = 1;
+            _bundleConfiguration.EntryLimitExpanded = 2;
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
+            BundleRequest bundleRequest = CreateBundleRequest(3);
+
+            BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(
+                () => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+
+            Assert.Equal("The number of entries in the bundle exceeded the configured limit of 2.", exception.Message);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("false")]
+        [InlineData("invalid")]
+        public async Task GivenExpandedBundleHeaderWithoutTrueValue_WhenNormalLimitIsExceeded_ThenNormalLimitIsEnforced(string headerValue)
+        {
+            _bundleConfiguration.EntryLimit = 1;
+            _bundleConfiguration.EntryLimitExpanded = 3;
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = headerValue;
+            BundleRequest bundleRequest = CreateBundleRequest(2);
+
+            BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(
+                () => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+
+            Assert.Equal("The number of entries in the bundle exceeded the configured limit of 1.", exception.Message);
+        }
+
+        [Fact]
         public async Task GivenABundleWithAnExportPost_WhenProcessed_ThenItIsProcessedCorrectly()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -1269,7 +1314,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
             const string contextKey = BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext;
             const string forgedHeader = "{\"HttpVerb\":\"DELETE\"}";
-            _outerHttpContext.Request.Headers[contextKey] = forgedHeader;
+            _httpContext.Request.Headers[contextKey] = forgedHeader;
             _fhirRequestContext.RequestHeaders[contextKey] = forgedHeader;
             var outerBundleContext = new BundleResourceContext(BundleType.Batch, processingLogic, HTTPVerb.DELETE, null, Guid.NewGuid());
             _fhirRequestContext.Properties[contextKey] = outerBundleContext;
@@ -1318,6 +1363,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Same(outerBundleContext, _fhirRequestContext.Properties[contextKey]);
         }
 
+        private static BundleRequest CreateBundleRequest(int entryCount)
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = Enumerable.Range(0, entryCount)
+                    .Select(_ => new EntryComponent())
+                    .ToList(),
+            };
+
+            return new BundleRequest(bundle.ToResourceElement());
+        }
+
         private void RouteAsyncFunction(CallInfo callInfo)
         {
             var routeContext = callInfo.Arg<RouteContext>();
@@ -1340,10 +1398,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
         }
 
-        private IFeatureCollection CreateFeatureCollection()
+        private void ConfigureFeatures(IFeatureCollection featureCollection)
         {
-            var featureCollection = Substitute.For<IFeatureCollection>();
-
             var httpAuthenticationFeature = Substitute.For<IHttpAuthenticationFeature>();
 
             var routingFeature = Substitute.For<IRoutingFeature>();
@@ -1351,20 +1407,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             routeData.Routers.Add(_router);
             routingFeature.RouteData.Returns(routeData);
 
-            featureCollection.Get<IHttpAuthenticationFeature>().Returns(httpAuthenticationFeature);
-            featureCollection.Get<IRoutingFeature>().Returns(routingFeature);
-
-            var features = new List<KeyValuePair<Type, object>>
-            {
-                new KeyValuePair<Type, object>(typeof(IHttpAuthenticationFeature), httpAuthenticationFeature),
-                new KeyValuePair<Type, object>(typeof(IRoutingFeature), routingFeature),
-            };
-
-            featureCollection[typeof(IHttpAuthenticationFeature)].Returns(httpAuthenticationFeature);
-            featureCollection[typeof(IRoutingFeature)].Returns(routingFeature);
-
-            featureCollection.GetEnumerator().Returns(features.GetEnumerator());
-            return featureCollection;
+            featureCollection.Set(httpAuthenticationFeature);
+            featureCollection.Set(routingFeature);
         }
     }
 }
