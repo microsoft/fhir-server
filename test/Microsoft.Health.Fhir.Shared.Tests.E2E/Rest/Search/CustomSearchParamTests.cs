@@ -35,10 +35,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     {
         private const int MaxAllowedUrlLength = 128;
         private const string UrlLengthValidationMessage = "exceeds the maximum length limit of 128";
+        private const string BuiltInSearchParameterUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
+
+        private readonly bool _isSql;
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
         {
+            _isSql = fixture.DataStore == DataStore.SqlServer;
         }
 
         [RetryTheory]
@@ -144,6 +148,56 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 await Client.DeleteAsync(searchParam);
             }
+        }
+
+        [Fact]
+        public async Task GivenAnExistingSearchParameter_WhenPatchingItsUrlToABuiltInCanonical_ThenMethodNotAllowedReturned()
+        {
+            SearchParameter searchParam = CreateCustomSearchParameter();
+
+            using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(searchParam);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            try
+            {
+                // $status is SQL only.
+                string statusBefore = _isSql ? await GetBuiltInSearchParameterStatusAsync() : null;
+
+                string patchDocument = $"[{{\"op\":\"replace\",\"path\":\"/url\",\"value\":\"{BuiltInSearchParameterUrl}\"}}]";
+
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
+                    () => Client.JsonPatchAsync(createResponse.Resource, patchDocument));
+
+                Assert.Equal(HttpStatusCode.MethodNotAllowed, exception.StatusCode);
+
+                // The rejected PATCH must leave the persisted resource untouched.
+                using FhirResponse<SearchParameter> readResponse = await Client.ReadAsync<SearchParameter>($"SearchParameter/{createResponse.Resource.Id}");
+                Assert.Equal(searchParam.Url, readResponse.Resource.Url);
+
+                if (_isSql)
+                {
+                    // ... and must leave the built-in parameter's registry status untouched.
+                    Assert.Equal(statusBefore, await GetBuiltInSearchParameterStatusAsync());
+                }
+            }
+            finally
+            {
+                await Client.DeleteAsync(createResponse.Resource);
+            }
+        }
+
+        // Reads the built-in parameter's $status. Assert.Single fails if the built-in is absent from the
+        // response, so a status assertion built on this can never pass vacuously.
+        private async Task<string> GetBuiltInSearchParameterStatusAsync()
+        {
+            using FhirResponse<Parameters> statusResponse = await Client.ReadAsync<Parameters>($"SearchParameter/$status?url={BuiltInSearchParameterUrl}");
+            Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+
+            Parameters.ParameterComponent builtInState = Assert.Single(
+                statusResponse.Resource.Parameter,
+                p => p.Part.Any(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value?.ToString() == BuiltInSearchParameterUrl));
+
+            return Assert.Single(builtInState.Part, pt => pt.Name == SearchParameterStateProperties.Status).Value.ToString();
         }
 
         // Builds a unique (per call) SearchParameter URL of exactly the requested length.
