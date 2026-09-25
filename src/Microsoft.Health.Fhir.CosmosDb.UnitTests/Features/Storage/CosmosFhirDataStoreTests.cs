@@ -10,8 +10,8 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -86,6 +86,48 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 ModelInfoProvider.Instance,
                 Substitute.For<ISearchParameterStatusDataStore>(),
                 requestContextAccessor);
+        }
+
+        [Fact]
+        public void GivenCanonicallyEquivalentJapaneseText_WhenComparingResourcesWithoutVersionMetadata_ThenTheDataMatches()
+        {
+            const string existingData = "{\"resourceType\":\"Patient\",\"id\":\"id1\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2026-08-26T21:00:00+00:00\"},\"name\":[{\"text\":\"\u304C\"}]}";
+            const string incomingData = "{\"resourceType\":\"Patient\",\"id\":\"id1\",\"meta\":{\"versionId\":\"2\",\"lastUpdated\":\"2026-08-26T21:01:00+00:00\"},\"name\":[{\"text\":\"\u304B\u3099\"}]}";
+
+            var lastModified = new DateTimeOffset(2026, 8, 26, 21, 0, 0, TimeSpan.Zero);
+            var request = new ResourceRequest(HttpMethod.Put, "http://fhir");
+
+            var existingResource = new FhirCosmosResourceWrapper(
+                "id1",
+                "1",
+                "Patient",
+                new RawResource(existingData, FhirResourceFormat.Json, isMetaSet: true),
+                request,
+                lastModified,
+                deleted: false,
+                history: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null);
+
+            var incomingResource = new FhirCosmosResourceWrapper(
+                "id1",
+                "2",
+                "Patient",
+                new RawResource(incomingData, FhirResourceFormat.Json, isMetaSet: true),
+                request,
+                lastModified.AddMinutes(1),
+                deleted: false,
+                history: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null);
+
+            var existingResourceData = CosmosFhirDataStore.RemoveVersionIdAndLastUpdatedFromMeta(existingResource);
+            var incomingResourceData = CosmosFhirDataStore.RemoveVersionIdAndLastUpdatedFromMeta(incomingResource);
+
+            Assert.Equal(existingResourceData, incomingResourceData);
+            Assert.True(existingResourceData.IsNormalized(NormalizationForm.FormC));
         }
 
         [Fact]
