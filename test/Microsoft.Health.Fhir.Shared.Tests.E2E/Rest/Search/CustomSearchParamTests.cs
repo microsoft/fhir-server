@@ -160,6 +160,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             try
             {
+                // $status is SQL only.
+                string statusBefore = _isSql ? await GetBuiltInSearchParameterStatusAsync() : null;
+
                 string patchDocument = $"[{{\"op\":\"replace\",\"path\":\"/url\",\"value\":\"{BuiltInSearchParameterUrl}\"}}]";
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
@@ -173,31 +176,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 if (_isSql)
                 {
-                    // ... and must leave the built-in parameter's registry status untouched. ($status is SQL only.)
-                    using FhirResponse<Parameters> statusResponse = await Client.ReadAsync<Parameters>($"SearchParameter/$status?url={BuiltInSearchParameterUrl}");
-                    Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
-
-                    foreach (Parameters.ParameterComponent parameter in statusResponse.Resource.Parameter)
-                    {
-                        string url = parameter.Part.FirstOrDefault(p => p.Name == SearchParameterStateProperties.Url)?.Value?.ToString();
-
-                        if (url != BuiltInSearchParameterUrl)
-                        {
-                            continue;
-                        }
-
-                        string status = parameter.Part.FirstOrDefault(p => p.Name == SearchParameterStateProperties.Status)?.Value?.ToString();
-
-                        Assert.False(
-                            status == SearchParameterStatus.PendingDelete.ToString() || status == SearchParameterStatus.Deleted.ToString(),
-                            $"The built-in search parameter status must be unaffected by a rejected PATCH but found {status}.");
-                    }
+                    // ... and must leave the built-in parameter's registry status untouched.
+                    Assert.Equal(statusBefore, await GetBuiltInSearchParameterStatusAsync());
                 }
             }
             finally
             {
                 await Client.DeleteAsync(createResponse.Resource);
             }
+        }
+
+        // Reads the built-in parameter's $status. Assert.Single fails if the built-in is absent from the
+        // response, so a status assertion built on this can never pass vacuously.
+        private async Task<string> GetBuiltInSearchParameterStatusAsync()
+        {
+            using FhirResponse<Parameters> statusResponse = await Client.ReadAsync<Parameters>($"SearchParameter/$status?url={BuiltInSearchParameterUrl}");
+            Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+
+            Parameters.ParameterComponent builtInState = Assert.Single(
+                statusResponse.Resource.Parameter,
+                p => p.Part.Any(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value?.ToString() == BuiltInSearchParameterUrl));
+
+            return Assert.Single(builtInState.Part, pt => pt.Name == SearchParameterStateProperties.Status).Value.ToString();
         }
 
         // Builds a unique (per call) SearchParameter URL of exactly the requested length.

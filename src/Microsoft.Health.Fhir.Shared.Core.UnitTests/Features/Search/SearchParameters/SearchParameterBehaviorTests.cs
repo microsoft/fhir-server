@@ -547,8 +547,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(nextInvoked);
 
-            var pendingStatus = contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus] as ResourceSearchParameterStatus;
-            Assert.NotNull(pendingStatus);
+            var pendingStatus = Assert.IsType<ResourceSearchParameterStatus>(contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus]);
             Assert.Equal(customUrl, pendingStatus.Uri.OriginalString);
             Assert.Equal(SearchParameterStatus.Supported, pendingStatus.Status);
         }
