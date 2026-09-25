@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using EnsureThat;
+using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
@@ -16,6 +18,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public class BundleSerializer
     {
+        private readonly FhirJsonSerializer _fhirJsonSerializer;
+
         private readonly JsonWriterOptions _writerOptions = new JsonWriterOptions
         {
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -27,8 +31,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             Indented = true,
         };
 
-        public BundleSerializer()
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BundleSerializer"/> class.
+        /// </summary>
+        /// <param name="fhirJsonSerializer">The serializer for FHIR search metadata fragments.</param>
+        public BundleSerializer(FhirJsonSerializer fhirJsonSerializer)
         {
+            _fhirJsonSerializer = EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
         }
 
         public async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream, bool pretty = false)
@@ -99,6 +108,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             throw new ArgumentException("BundleSerializer can only be used when all Entry elements are of type RawBundleEntryComponent.", nameof(bundle));
                         }
 
+                        // Let the SDK handle backbone/primitive metadata without materializing the resource.
+                        string searchJson = rawBundleEntry.Search == null ? null : await _fhirJsonSerializer.SerializeToStringAsync(rawBundleEntry.Search);
+
+                        // The SDK omits empty search components when serializing a bundle.
+                        bool hasSearch = searchJson != null && searchJson != "{}";
                         bool wroteFullUrl = false;
                         writer.WriteStartObject();
 
@@ -116,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
 
-                        if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
+                        if (!wroteFullUrl && (hasSearch || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
                         {
                             // If fullUrl was written, the Utf8JsonWriter knows it needs to write a comma before the next property since a comma is needed, and will do so.
                             // If fullUrl wasn't written, since we are writing resource in a separate writer, we need to add this comma manually.
@@ -124,11 +138,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             await streamWriter.FlushAsync();
                         }
 
-                        if (rawBundleEntry?.Search?.Mode != null)
+                        if (hasSearch)
                         {
-                            writer.WriteStartObject("search");
-                            writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
-                            writer.WriteEndObject();
+                            writer.WritePropertyName("search");
+                            writer.WriteRawValue(searchJson, skipInputValidation: true);
                         }
 
                         if (rawBundleEntry.Request != null)
