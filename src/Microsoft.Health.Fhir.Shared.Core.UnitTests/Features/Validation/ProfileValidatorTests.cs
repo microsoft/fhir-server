@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Reflection;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Logging;
@@ -74,5 +77,80 @@ public class ProfileValidatorTests
 
         // Asser
         Assert.DoesNotContain("cid-0", internalValidator.Settings.ConstraintsToIgnore ?? []);
+    }
+
+    [Fact]
+    public void GivenABundleWithAnEntryThatHasNoResource_WhenValidating_ThenNoInternalLogicFailureIsReported()
+    {
+        // Arrange
+        var validator = new ProfileValidator(_profilesResolver, _options, _logger, ModelInfoProvider.Instance);
+        Bundle bundle = CreateTransactionBundleWithAResourcelessEntry();
+
+        // Act
+        OperationOutcomeIssue[] issues = validator.TryValidate(bundle.ToTypedElement());
+
+        // Assert - ordinary validation issues are expected and fine, an internal failure is not.
+        Assert.DoesNotContain(issues, IsCatastrophicFailure);
+    }
+
+    private static bool IsCatastrophicFailure(OperationOutcomeIssue issue)
+    {
+        if (issue.DetailsText?.Contains("Internal logic failure", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        return string.Equals(issue.Severity, "Fatal", StringComparison.OrdinalIgnoreCase)
+            && issue.DetailsCodes?.Coding.Any(coding => string.Equals(coding.Code, "5003", StringComparison.Ordinal)) == true;
+    }
+
+    private static Bundle CreateTransactionBundleWithAResourcelessEntry()
+    {
+        const string organizationFullUrl = "urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0001";
+
+        var bundle = new Bundle
+        {
+            Type = Bundle.BundleType.Transaction,
+        };
+
+        bundle.Entry.Add(new Bundle.EntryComponent
+        {
+            FullUrl = "urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0002",
+            Resource = new Patient
+            {
+                ManagingOrganization = new ResourceReference(organizationFullUrl),
+            },
+            Request = new Bundle.RequestComponent
+            {
+                Method = Bundle.HTTPVerb.POST,
+                Url = "Patient",
+            },
+        });
+
+        bundle.Entry.Add(new Bundle.EntryComponent
+        {
+            FullUrl = organizationFullUrl,
+            Resource = new Organization
+            {
+                Name = "Contoso Health",
+            },
+            Request = new Bundle.RequestComponent
+            {
+                Method = Bundle.HTTPVerb.POST,
+                Url = "Organization",
+            },
+        });
+
+        // The trigger: a transaction DELETE entry has a request but no resource.
+        bundle.Entry.Add(new Bundle.EntryComponent
+        {
+            Request = new Bundle.RequestComponent
+            {
+                Method = Bundle.HTTPVerb.DELETE,
+                Url = "Patient/does-not-exist",
+            },
+        });
+
+        return bundle;
     }
 }

@@ -1,0 +1,45 @@
+{
+    "resourceType": "Bundle",
+    "type": "transaction",
+    "entry": [
+        {
+            "fullUrl": "urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0002",
+            "resource": {
+                "resourceType": "Patient",
+                "name": [
+                    {
+                        "use": "official",
+                        "family": "Foo",
+                        "given": [ "Bar" ]
+                    }
+                ],
+                "gender": "male",
+                "birthDate": "2005-02-05",
+                "managingOrganization": {
+                    "reference": "urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0001"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        },
+        {
+            "fullUrl": "urn:uuid:6e2b8f22-6f2c-4a5f-9bd2-0f5f8c0a0001",
+            "resource": {
+                "resourceType": "Organization",
+                "name": "Contoso Health"
+            },
+            "request": {
+                "method": "POST",
+                "url": "Organization"
+            }
+        },
+        {
+            "request": {
+                "method": "DELETE",
+                "url": "Patient/does-not-exist"
+            }
+        }
+    ]
+}
