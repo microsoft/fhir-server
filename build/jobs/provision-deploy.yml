@@ -64,6 +64,7 @@ jobs:
         -AcaEnvironmentName "${{ parameters.acaEnvironmentName }}"
         -ResourceGroup "${{ parameters.resourceGroup }}"
         -KeyVaultName "${{ parameters.keyVaultName }}"
+        -TestKeyVaultName "$(KeyVaultBaseName)-ts"
         -ImageTag "${{ parameters.imageTag }}"
         -TestEnvironmentUrl "${{ parameters.testEnvironmentUrl }}"
         -WorkingDirectory "$(System.DefaultWorkingDirectory)"

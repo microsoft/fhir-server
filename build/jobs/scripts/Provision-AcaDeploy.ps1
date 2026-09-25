@@ -19,6 +19,7 @@ param(
     [Parameter(Mandatory = $true)] [string] $AcaEnvironmentName,
     [Parameter(Mandatory = $true)] [string] $ResourceGroup,
     [Parameter(Mandatory = $true)] [string] $KeyVaultName,
+    [Parameter(Mandatory = $true)] [string] $TestKeyVaultName,
     [Parameter(Mandatory = $true)] [string] $ImageTag,
     [Parameter(Mandatory = $true)] [string] $TestEnvironmentUrl,
     [Parameter(Mandatory = $true)] [string] $WorkingDirectory,                   # repo root ($(System.DefaultWorkingDirectory))
@@ -65,6 +66,21 @@ $deployPath = "$WorkingDirectory/test/Configuration"
 $testConfig = ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json")
 $flattenedTestConfig = & "$WorkingDirectory/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1" -InputObject $testConfig
 
+$smartIdpDeployment = New-AzResourceGroupDeployment `
+    -Name "test-smart-idp-$WebAppName" `
+    -ResourceGroupName $ResourceGroup `
+    -TemplateFile "$WorkingDirectory/samples/templates/aca/test-smart-idp.bicep" `
+    -ErrorAction Stop
+
+$smartIdpIssuer = & "$WorkingDirectory/build/jobs/scripts/Provision-TestSmartIdp.ps1" `
+    -KeyVaultName $TestKeyVaultName `
+    -ResourceGroupName $ResourceGroup `
+    -StorageAccountName $smartIdpDeployment.Outputs.storageAccountName.Value
+
+if ([string]::IsNullOrWhiteSpace($smartIdpIssuer)) {
+    throw 'SMART test identity provider did not return an issuer URL.'
+}
+
 $additionalProperties = $flattenedTestConfig
 $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = $TaskHostingPollingFrequencyInSeconds
 $additionalProperties["TaskHosting__MaxRunningTaskCount"] = $TaskHostingMaxRunningTaskCount
@@ -74,6 +90,7 @@ $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultipli
 $additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"] = $ReindexJobsPollingIntervalSec
 $additionalProperties["FhirServer__Operations__Import__InMemoryTestEnabled"] = $importInMemoryTestEnabledBool.ToString().ToLowerInvariant()
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
+$additionalProperties["FhirServer__Security__AdditionalAuthenticationAuthorities__0"] = $smartIdpIssuer
 
 $staticEnvNames = @(
     "ASPNETCORE_FORWARDEDHEADERS_ENABLED",
