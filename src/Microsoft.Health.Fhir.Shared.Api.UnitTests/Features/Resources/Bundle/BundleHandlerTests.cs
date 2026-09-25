@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -64,6 +65,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly IMediator _mediator;
         private readonly IBundleMetricHandler _bundleMetricHandler;
         private readonly ITransactionHandler _transactionHandler;
+        private readonly FhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly HttpContext _outerHttpContext;
         private DefaultFhirRequestContext _fhirRequestContext;
         private readonly IProvideProfilesForValidation _profilesResolver;
 
@@ -79,8 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 RequestHeaders = new HeaderDictionary(),
             };
 
-            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor = new FhirRequestContextAccessor { RequestContext = _fhirRequestContext };
 
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
 
@@ -115,6 +117,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
             httpContextAccessor.HttpContext.Returns(httpContext);
+            _outerHttpContext = httpContext;
 
             _transactionHandler = Substitute.For<ITransactionHandler>();
 
@@ -131,7 +134,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
-                fhirRequestContextAccessor,
+                _fhirRequestContextAccessor,
                 fhirJsonSerializer,
                 fhirJsonParser,
                 _transactionHandler,
@@ -1253,6 +1256,66 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+        }
+
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential, HTTPVerb.POST)]
+        [InlineData(BundleProcessingLogic.Sequential, HTTPVerb.PUT)]
+        [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.POST)]
+        [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.PUT)]
+        public async Task GivenConflictingOuterBundleContext_WhenProcessingEntries_ThenEachEntryHasIsolatedServerContext(BundleProcessingLogic processingLogic, HTTPVerb httpVerb)
+        {
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+            _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
+            const string contextKey = BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext;
+            const string forgedHeader = "{\"HttpVerb\":\"DELETE\"}";
+            _outerHttpContext.Request.Headers[contextKey] = forgedHeader;
+            _fhirRequestContext.RequestHeaders[contextKey] = forgedHeader;
+            var outerBundleContext = new BundleResourceContext(BundleType.Batch, processingLogic, HTTPVerb.DELETE, null, Guid.NewGuid());
+            _fhirRequestContext.Properties[contextKey] = outerBundleContext;
+            var capturedContexts = new ConcurrentBag<IFhirRequestContext>();
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Resource = new Patient { Id = "first" }, Request = new RequestComponent { Method = httpVerb, Url = "Patient/first" } },
+                    new EntryComponent { Resource = new Patient { Id = "second" }, Request = new RequestComponent { Method = httpVerb, Url = "Patient/second" } },
+                },
+            };
+            _router.When(router => router.RouteAsync(Arg.Any<RouteContext>())).Do(info =>
+            {
+                info.Arg<RouteContext>().Handler = async context =>
+                {
+                    var innerContext = _fhirRequestContextAccessor.RequestContext;
+                    capturedContexts.Add(innerContext);
+                    await Task.Yield();
+                    Assert.Same(innerContext, _fhirRequestContextAccessor.RequestContext);
+                    context.Response.StatusCode = StatusCodes.Status200OK;
+                };
+            });
+
+            var response = await _bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+
+            Assert.Equal(processingLogic, response.Info.ProcessingLogic);
+            Assert.Equal(2, capturedContexts.Count);
+            Assert.All(response.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry, entry => Assert.Equal("200", entry.Response.Status));
+            var contexts = capturedContexts.ToArray();
+            Assert.NotSame(contexts[0], contexts[1]);
+            Assert.NotSame(contexts[0].Properties, contexts[1].Properties);
+            Assert.NotSame(contexts[0].Properties[contextKey], contexts[1].Properties[contextKey]);
+            Assert.All(contexts, context =>
+            {
+                Assert.NotSame(_fhirRequestContext, context);
+                Assert.NotSame(_fhirRequestContext.Properties, context.Properties);
+                var bundleContext = Assert.IsType<BundleResourceContext>(context.Properties[contextKey]);
+                Assert.NotSame(outerBundleContext, bundleContext);
+                Assert.Equal(httpVerb, bundleContext.HttpVerb);
+                Assert.Equal(processingLogic, bundleContext.ProcessingLogic);
+                Assert.Equal(BundleType.Batch, bundleContext.BundleType);
+            });
+
+            Assert.Same(outerBundleContext, _fhirRequestContext.Properties[contextKey]);
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)

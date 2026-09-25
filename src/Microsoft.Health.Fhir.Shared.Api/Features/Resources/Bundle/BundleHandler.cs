@@ -55,7 +55,6 @@ using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -318,13 +317,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (dupCodes.Count == 0)
                 {
+                    _logger.LogWarning("RequestNotValidException: DuplicateSearchParamUrlsInBundle");
                     throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamUrlsInBundle, string.Join(", ", dupUrls)));
                 }
                 else if (dupUrls.Count == 0)
                 {
+                    _logger.LogWarning("RequestNotValidException: DuplicateSearchParamCodesInBundle");
                     throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesInBundle, string.Join(", ", dupCodes)));
                 }
 
+                _logger.LogWarning("RequestNotValidException: DuplicateSearchParamCodesAndUrlsInBundle");
                 throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
             }
 
@@ -394,6 +396,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         if (_requests[verb].Any())
                         {
+                            _logger.LogInformation(
+                                "BundleHandler - Starting the sequential processing of a sub-{BundleType} with {NumberOfRequests} '{HttpVerb}' operations.",
+                                _bundleType,
+                                _requests[verb].Count,
+                                verb);
+
                             throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
                                 responseBundle: responseBundle,
                                 httpVerb: verb,
@@ -417,8 +425,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 expectedNumberOfResources: _requests[verb].Count);
 
                             _logger.LogInformation(
-                                "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
-                                bundleOperation.OriginalExpectedNumberOfResources,
+                                "BundleHandler - Starting the parallel processing of a sub-batch with {NumberOfRequests} '{HttpVerb}' requests.",
+                                _requests[verb].Count,
                                 verb);
 
                             throttledEntryComponent = await ExecuteRequestsInParallelAsync(
@@ -444,7 +452,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         _logger.LogInformation(
                             "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
-                            bundleOperation.OriginalExpectedNumberOfResources);
+                            resources.Count);
 
                         EntryComponent throttledEntryComponent = await ExecuteRequestsInParallelAsync(
                             responseBundle: responseBundle,
@@ -590,6 +598,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
             {
+                _logger.LogWarning("BundleEntryLimitExceededException: BundleEntryLimitExceeded");
                 throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, _bundleConfiguration.EntryLimit));
             }
 
@@ -1015,7 +1024,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpVerb,
                 persistedId: persistedId,
                 bundleOperationId: bundleOperationId);
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, JObject.FromObject(bundleResourceExecutionContext).ToString());
+            newFhirRequestContext.Properties.Add(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, bundleResourceExecutionContext);
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
             bundleHttpContextAccessor.HttpContext = httpContext;
