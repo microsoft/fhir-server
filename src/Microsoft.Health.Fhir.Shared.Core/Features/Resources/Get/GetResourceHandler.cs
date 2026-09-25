@@ -65,10 +65,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 
                 var results = await _searchService.SearchAsync(key.ResourceType, query, cancellationToken);
 
-                if (results.Results.Any())
-                {
-                    currentDoc = results.Results?.FirstOrDefault().Resource;
-                }
+                // The authorization filter is applied by turning the read into a search, so the returned bundle is
+                // only trustworthy as an answer to "read this resource" if it actually contains that resource.
+                // Taking the first entry unconditionally would return some other resource the caller happens to be
+                // allowed to see whenever the _id constraint did not make it into the query (for example because
+                // the _id search parameter is unavailable). Match the requested key explicitly instead, and fall
+                // through to the not-found handling below when it is absent.
+                currentDoc = results.Results?
+                    .Select(searchResultEntry => searchResultEntry.Resource)
+                    .FirstOrDefault(resource =>
+                        resource != null &&
+                        string.Equals(resource.ResourceId, key.Id, StringComparison.Ordinal) &&
+                        string.Equals(resource.ResourceTypeName, key.ResourceType, StringComparison.Ordinal));
             }
             else
             {
