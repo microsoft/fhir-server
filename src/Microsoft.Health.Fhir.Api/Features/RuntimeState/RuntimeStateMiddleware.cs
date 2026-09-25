@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
                             },
                             text = "This FHIR service has been deprecated.",
                         },
-                        diagnostics = "This FHIR service is deprecated no longer accepts normal workloads.",
+                        diagnostics = "Azure API for FHIR has been retired. API calls to this account are currently blocked and account is deprecated. For questions or assistance, create an Azure support request with Azure API for FHIR Extension Request.",
                     },
                 },
             };

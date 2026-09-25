@@ -209,10 +209,6 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder app)
         {
-            IFhirRuntimeConfiguration runtimeConfiguration = app.ApplicationServices.GetRequiredService<IFhirRuntimeConfiguration>();
-            ILogger<Startup> logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
-            logger.LogInformation("The effective FHIR runtime state is {RuntimeState}.", runtimeConfiguration.RuntimeState);
-
             app.Use(async (context, next) =>
             {
                 if (instanceId != null)
