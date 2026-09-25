@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,8 +14,10 @@ using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -37,9 +41,11 @@ public class PatchResourceHandlerTests
     {
         IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        ISearchService searchService = Substitute.For<ISearchService>();
+        FhirRequestContextAccessor contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         _mediator = Substitute.For<IMediator>();
 
-        _patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(_mediator, authService, fhirDataStore);
+        _patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(_mediator, authService, fhirDataStore, searchService, contextAccessor);
 
         authService
             .CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
@@ -91,9 +97,11 @@ public class PatchResourceHandlerTests
         // Arrange
         IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        ISearchService searchService = Substitute.For<ISearchService>();
+        FhirRequestContextAccessor contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         IMediator mediator = Substitute.For<IMediator>();
 
-        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore);
+        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore, searchService, contextAccessor);
 
         authService
             .CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, CancellationToken.None)
@@ -131,9 +139,11 @@ public class PatchResourceHandlerTests
         // Arrange
         IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        ISearchService searchService = Substitute.For<ISearchService>();
+        FhirRequestContextAccessor contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         IMediator mediator = Substitute.For<IMediator>();
 
-        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore);
+        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore, searchService, contextAccessor);
 
         authService
             .CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, CancellationToken.None)
@@ -143,5 +153,41 @@ public class PatchResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => patchHandler.HandleAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait(Traits.Category, Categories.Authorization)]
+    public async Task GivenASmartRequest_WhenPatchingAResourceOutsideTheCompartment_ThenNotFoundIsThrown()
+    {
+        // Arrange
+        IAuthorizationService<DataActions> authService = Substitute.For<IAuthorizationService<DataActions>>();
+        IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
+        ISearchService searchService = Substitute.For<ISearchService>();
+        FhirRequestContextAccessor contextAccessor = Substitute.For<FhirRequestContextAccessor>();
+        IMediator mediator = Substitute.For<IMediator>();
+
+        var patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(mediator, authService, fhirDataStore, searchService, contextAccessor);
+
+        authService
+            .CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
+            .Returns(x => ValueTask.FromResult((DataActions)x[0]));
+
+        var requestContext = Substitute.For<IFhirRequestContext>();
+        requestContext.AccessControlContext.Returns(new AccessControlContext { ApplyFineGrainedAccessControl = true });
+        contextAccessor.RequestContext.Returns(requestContext);
+
+        // An out-of-compartment target is reported by the search layer as no match.
+        searchService
+            .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(new SearchResult(new List<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()));
+
+        var request = new PatchResourceRequest(new ResourceKey("Patient", "other-patient"), new FhirPathPatchPayload(new Parameters()), bundleResourceContext: null);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => patchHandler.HandleAsync(request, CancellationToken.None));
+
+        await mediator
+            .DidNotReceive()
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 }
