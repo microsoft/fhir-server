@@ -9,8 +9,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
     public interface IBundleOrchestrator
     {
-        bool IsEnabled { get; }
-
         IBundleOrchestratorOperation CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources);
 
         IBundleOrchestratorOperation GetOperation(Guid operationId);

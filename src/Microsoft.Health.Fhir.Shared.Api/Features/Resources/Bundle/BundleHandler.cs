@@ -89,6 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly bool _optimizedQuerySet;
+        private readonly bool _isBundleExtendedOperation;
         private readonly bool _isBundleProcessingLogicValid;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -96,15 +97,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IRouter _router;
         private readonly ILogger<BundleHandler> _logger;
         private readonly IBundleMetricHandler _metricHandler;
-
-        // Temporary --------------------------------
-        private readonly Random _random;
-
-        private readonly bool _optimizeConditionalOperations = false;
-
-        private readonly bool _optimizeBigBundleOperations = false;
-
-        // Temporary --------------------------------
 
         // Total number of requests in the bundle.
         private int _requestCount;
@@ -194,22 +186,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Set optimized-query processing logic.
             _optimizedQuerySet = SetRequestContextWithOptimizedQuerying(_outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
 
-            _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext) : true;
-
-            // Temporary --------------------------------
-            _random = new Random(Seed: DateTime.Now.Millisecond);
-
-            if (_outerHttpContext.Request.Headers.TryGetValue("x-bundle-optimize-big-bundle-operations", out StringValues headerValues1))
-            {
-                _optimizeBigBundleOperations = headerValues1.First() == "true";
-            }
-
-            if (_outerHttpContext.Request.Headers.TryGetValue("x-bundle-optimize-conditional-operations", out StringValues headerValues2))
-            {
-                _optimizeConditionalOperations = headerValues2.First() == "true";
-            }
-
-            // Temporary --------------------------------
+            _isBundleExtendedOperation = _runtimeConfiguration.IsBundleExtendedSupported && _outerHttpContext.IsExpandedBundleEnabled();
+            _isBundleProcessingLogicValid = BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext);
         }
 
         public async Task<BundleResponse> HandleAsync(BundleRequest request, CancellationToken cancellationToken)
@@ -240,7 +218,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleType = bundleResource.Type;
 
                 // Retrieve bundle processing logic.
-                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
+                BundleProcessingLogic bundleProcessingLogic = _isBundleExtendedOperation ? BundleProcessingLogic.Parallel : BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType);
 
                 if (_bundleType == BundleType.Batch)
                 {
@@ -625,7 +603,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private int GetEntryLimit()
         {
-            if (_outerHttpContext.IsExpandedBundleEnabled())
+            if (_isBundleExtendedOperation)
             {
                 return _bundleConfiguration.EntryLimitExpanded;
             }

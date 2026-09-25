@@ -18,11 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public int MaxExecutionTimeInSeconds { get; set; } = 100;
 
-        /// <summary>
-        /// Gets or sets a value indicating whether bundle orchestrator is enabled or not.
-        /// </summary>
-        public bool SupportsBundleOrchestrator { get; set; }
-
         // The default bundle processing logic for Transactions is set to Parallel, as by the FHIR specification, a transactional bundle
         // cannot contain duplicated operations under the same bundle.
         public BundleProcessingLogic TransactionDefaultProcessingLogic { get; set; } = BundleProcessingLogic.Parallel;

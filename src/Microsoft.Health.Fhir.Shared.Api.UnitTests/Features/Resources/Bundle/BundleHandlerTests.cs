@@ -910,7 +910,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenATransaction_WithMultipleEntriesAndOneFailsWithClientError_ReturnClientErrorNotTimeout(BundleProcessingLogic bundleProcessingLogic)
         {
             _bundleConfiguration.TransactionDefaultProcessingLogic = bundleProcessingLogic;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             // When a transaction bundle has multiple entries processed in parallel, and one entry
             // fails with a client error (400), the transaction should return that client error
@@ -1263,7 +1262,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenABundleRequest_WhenBatchAndParallelProcessing_ThenTheRequestShouldBeProcessedSuccessfully()
         {
             _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -1314,7 +1312,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.PUT)]
         public async Task GivenConflictingOuterBundleContext_WhenProcessingEntries_ThenEachEntryHasIsolatedServerContext(BundleProcessingLogic processingLogic, HTTPVerb httpVerb)
         {
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
             const string contextKey = BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext;
             const string forgedHeader = "{\"HttpVerb\":\"DELETE\"}";
