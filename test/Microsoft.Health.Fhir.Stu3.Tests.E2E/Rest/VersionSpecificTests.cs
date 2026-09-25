@@ -22,13 +22,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        [RetryFact]
+        [Fact]
         public async Task GivenStu3Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
             await TestCapabilityStatementFhirVersion("3.0.2");
         }
 
-        [RetryFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnObservation_WithInvalidDecimalSpecification_ThenBadRequestShouldBeReturned()
         {
