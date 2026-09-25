@@ -634,6 +634,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _logger.LogWarning("Unable to log search parameters. Error: {Exception}", e.ToString());
             }
 
+            searchOptions.NormalizedQueryShape = FhirQueryNormalizer.Normalize(
+                resourceType,
+                queryParameters?.Select(query => unsupportedSearchParameters.Contains(query) ? "_unsupported" : query.Item1),
+                compartmentType,
+                resourceVersionTypes.HasFlag(ResourceVersionType.History));
+
             return searchOptions;
         }
 

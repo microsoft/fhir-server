@@ -617,7 +617,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = _queryHashCalculator.CalculateHash(queryText);
+                            queryText = CalculateHashThenAddNormalizedQueryShape(queryText, clonedSearchOptions.NormalizedQueryShape, _queryHashCalculator, out var queryHash);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
@@ -1233,7 +1233,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         /// <summary>
         /// Extracts the parameter hash value from a query text that contains a
-        /// <c>/* HASH {base64hash} params=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>.
+        /// <c>/* HASH {base64hash} params=... fhir=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>.
         /// Returns <c>null</c> if no hash comment is found.
         /// </summary>
         internal static string ExtractParameterHash(string queryText)
@@ -1267,6 +1267,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // Guard against an empty/whitespace-only hash, which would make the downstream
             // LIKE '%/* HASH {hash}%' filter match every hash-bearing row.
             return string.IsNullOrWhiteSpace(hash) ? null : hash;
+        }
+
+        internal static string CalculateHashThenAddNormalizedQueryShape(
+            string queryText,
+            string normalizedQueryShape,
+            ISqlQueryHashCalculator queryHashCalculator,
+            out string queryHash)
+        {
+            queryHash = queryHashCalculator.CalculateHash(queryText);
+
+            if (string.IsNullOrEmpty(normalizedQueryShape))
+            {
+                return queryText;
+            }
+
+            if (queryText.Contains(SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal))
+            {
+                return queryText.Replace(
+                    SqlQueryGenerator.ParametersHashEnd,
+                    $" fhir={normalizedQueryShape}{SqlQueryGenerator.ParametersHashEnd}",
+                    StringComparison.Ordinal);
+            }
+
+            return $"/* fhir={normalizedQueryShape} */\n{queryText}";
         }
 
         /// <summary>
@@ -2044,7 +2068,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = _queryHashCalculator.CalculateHash(queryText);
+                            queryText = CalculateHashThenAddNormalizedQueryShape(queryText, clonedSearchOptions.NormalizedQueryShape, _queryHashCalculator, out var queryHash);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
