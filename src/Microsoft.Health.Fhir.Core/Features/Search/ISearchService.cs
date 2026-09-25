@@ -82,6 +82,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false);
 
         /// <summary>
+        /// Searches current soft-deleted resources.
+        /// </summary>
+        Task<SearchResult> SearchDeletedAsync(
+            string resourceType,
+            PartialDateTime since,
+            PartialDateTime before,
+            int? count,
+            string continuationToken,
+            string sort,
+            CancellationToken cancellationToken);
+
+        /// <summary>
         /// Searches resources by queryParameters and returns the raw resource,
         /// the current search param values for each resource,
         /// the history of each resource,
