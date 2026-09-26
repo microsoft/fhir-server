@@ -54,6 +54,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.ValueSets;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
+        private readonly IFhirRuntimeConfiguration _runtimeConfiguration;
         private readonly HttpContext _outerHttpContext;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
@@ -87,6 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly bool _optimizedQuerySet;
+        private readonly bool _isBundleExtendedOperation;
         private readonly bool _isBundleProcessingLogicValid;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -125,6 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private IFhirRequestContext _originalFhirRequestContext;
 
         public BundleHandler(
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             IHttpContextAccessor httpContextAccessor,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
@@ -148,6 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
+            _runtimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _fhirRequestContextAccessor = EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             _fhirJsonSerializer = EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             _fhirJsonParser = EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
@@ -181,7 +186,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Set optimized-query processing logic.
             _optimizedQuerySet = SetRequestContextWithOptimizedQuerying(_outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
 
-            _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext) : true;
+            _isBundleExtendedOperation = _runtimeConfiguration.IsBundleExtendedSupported && _outerHttpContext.IsExpandedBundleEnabled();
+            _isBundleProcessingLogicValid = BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext);
         }
 
         public async Task<BundleResponse> HandleAsync(BundleRequest request, CancellationToken cancellationToken)
@@ -212,7 +218,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleType = bundleResource.Type;
 
                 // Retrieve bundle processing logic.
-                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
+                BundleProcessingLogic bundleProcessingLogic = _isBundleExtendedOperation ? BundleProcessingLogic.Parallel : BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType);
 
                 if (_bundleType == BundleType.Batch)
                 {
@@ -365,8 +371,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task ProcessAllResourcesInABundleAsRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
         {
-            // List is not created initially since it doesn't create a list with _requestCount elements
-            responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
+            // Initialize response "Entry" with an empty list.
+            responseBundle.Entry = BundleHandlerRuntime.CreateEmptyEntryList(_requestCount);
+
             foreach (int emptyRequestOrder in _emptyRequestsOrder)
             {
                 var entryComponent = new EntryComponent
@@ -596,7 +603,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private int GetEntryLimit()
         {
-            if (_outerHttpContext.IsExpandedBundleEnabled())
+            if (_isBundleExtendedOperation)
             {
                 return _bundleConfiguration.EntryLimitExpanded;
             }
@@ -734,7 +741,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId));
+            // Detects existence of conditional operations.
+            bool isConditionalOperation = entry.Request.IsConditionalOperation();
+
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId, isConditionalOperation));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, DefaultHttpContext httpContext)
