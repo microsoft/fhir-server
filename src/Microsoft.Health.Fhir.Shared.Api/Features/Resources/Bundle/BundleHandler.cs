@@ -810,6 +810,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 continue;
                             }
 
+                            // The throttled attempt can write a response body and headers. Clear them before reusing the context for the retry.
+                            httpContext.Response.Clear();
                             await resourceContext.Context.Handler.Invoke(httpContext);
                         }
 
