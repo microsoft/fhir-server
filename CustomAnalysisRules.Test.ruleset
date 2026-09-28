@@ -130,7 +130,12 @@
     <Rule Id="CA2234" Action="None" />
   </Rules>
   <Rules AnalyzerId="xunit.analyzers" RuleNamespace="Xunit.Analyzers">
-    <Rule Id="xUnit1031" Action="None" />
+    <!--
+      xUnit1051 is new in xUnit v3: it asks tests to pass TestContext.Current.CancellationToken to any
+      method that accepts a CancellationToken. Existing tests have about 1,500 such call sites, and
+      TreatWarningsAsErrors would fail the build. Turned off to keep the v2 to v3 migration mechanical;
+      adopting the test cancellation token can be done separately.
+    -->
     <Rule Id="xUnit1051" Action="None" />
   </Rules>
 </RuleSet>

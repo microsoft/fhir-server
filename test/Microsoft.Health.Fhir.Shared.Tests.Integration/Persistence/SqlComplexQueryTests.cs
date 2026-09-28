@@ -292,7 +292,9 @@ END CATCH
             CustomQueries.WaitTime = 60;
 
             // drop stored procedure and clear cache, so no other tests use this stored procedure.
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
+#pragma warning restore xUnit1031
             CustomQueries.QueryStore.Clear();
         }
 
