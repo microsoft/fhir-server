@@ -110,6 +110,41 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSystemLevelBulkDelete_WhenStructureDefinitionMatches_ThenItIsPreserved(bool hardDelete)
+        {
+            CheckBulkDeleteEnabled();
+            var tag = Guid.NewGuid().ToString();
+            var structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-birthsex");
+            structureDefinition.Meta = new Meta
+            {
+                Tag = new List<Coding> { new Coding("testTag", tag) },
+            };
+            structureDefinition = await _fhirClient.CreateAsync(structureDefinition);
+
+            try
+            {
+                await _fhirClient.CreateResourcesAsync<Patient>(1, tag);
+                var queryParams = hardDelete
+                    ? new Dictionary<string, string> { { KnownQueryParameterNames.HardDelete, "true" } }
+                    : null;
+                using HttpRequestMessage request = GenerateBulkDeleteRequest(tag, queryParams: queryParams);
+
+                using HttpResponseMessage response = await _httpClient.SendAsync(request);
+
+                Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+                await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, new Dictionary<string, long> { { "Patient", 1 } });
+                var remaining = await _fhirClient.ReadAsync<StructureDefinition>(ResourceType.StructureDefinition, structureDefinition.Id);
+                Assert.NotNull(remaining.Resource);
+            }
+            finally
+            {
+                await _fhirClient.DeleteAsync(structureDefinition);
+            }
+        }
+
         [SkippableFact]
         public async Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {

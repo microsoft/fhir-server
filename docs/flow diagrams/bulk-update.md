@@ -1,4 +1,4 @@
-Type-scoped `$bulk-update` rejects `SearchParameter` and `StructureDefinition`. System-level jobs ignore those types, including included search results; updating profile definitions requires the separate `editProfileDefinitions` action that background jobs cannot check.
+Type-scoped `$bulk-update` rejects `SearchParameter` and `StructureDefinition`. System-level orchestration skips scheduling those types; processing jobs ignore them in search results, including included resources from type-scoped searches. Updating `StructureDefinition` requires the separate `editProfileDefinitions` action that background jobs cannot check. Other profile-related resources such as `ValueSet` and `CodeSystem` remain supported.
 
 ```mermaid
 sequenceDiagram

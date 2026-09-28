@@ -191,6 +191,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ExcludedResourceTypes = "excludedResourceTypes";
 
+        public const string AllowStructureDefinitionDeletion = "allowStructureDefinitionDeletion";
+
         public const string Parameters = "parameters";
 
         public const string RemoveReferences = "removeReferences";

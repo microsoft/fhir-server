@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -78,7 +79,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         public async Task GivenProcessingJob_WhenJobHasCallerExclusions_ThenStructureDefinitionIsAlwaysExcluded()
         {
             var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), new List<string> { "Observation" }, "https:\\\\test.com", "https:\\\\test.com", "test");
-            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            var oldDefinition = JObject.FromObject(definition);
+            oldDefinition.Remove(JobRecordProperties.AllowStructureDefinitionDeletion);
+            var jobInfo = new JobInfo { Id = 1, Definition = oldDefinition.ToString() };
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
                 .Returns(new Dictionary<string, long> { ["Patient"] = 1 });
 
@@ -90,15 +93,70 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Arg.Is<IList<string>>(types => types.Contains("Observation") && types.Contains("StructureDefinition") && types.Count == 2));
         }
 
-        [Fact]
-        public async Task GivenQueuedProcessingJobForStructureDefinition_WhenJobIsRun_ThenItIsRejected()
+        [Theory]
+        [InlineData(DeleteOperation.SoftDelete, "StructureDefinition")]
+        [InlineData(DeleteOperation.HardDelete, "structuredefinition")]
+        [InlineData(DeleteOperation.PurgeHistory, "StructureDefinition")]
+        public async Task GivenQueuedProcessingJobForStructureDefinition_WhenJobIsRun_ThenItIsRejected(DeleteOperation operation, string resourceType)
         {
-            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "StructureDefinition", new List<Tuple<string, string>>(), null, "https:\\\\test.com", "https:\\\\test.com", "test");
-            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, operation, resourceType, new List<Tuple<string, string>>(), null, "https:\\\\test.com", "https:\\\\test.com", "test");
+            var oldDefinition = JObject.FromObject(definition);
+            oldDefinition.Remove(JobRecordProperties.AllowStructureDefinitionDeletion);
+            var jobInfo = new JobInfo { Id = 1, Definition = oldDefinition.ToString() };
 
-            await Assert.ThrowsAsync<BadRequestException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            var ex = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
 
+            Assert.Contains("StructureDefinition", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("StructureDefinition", Assert.IsType<BulkDeleteResult>(ex.Error).Issues.Single(), StringComparison.OrdinalIgnoreCase);
             await _deleter.DidNotReceiveWithAnyArgs().DeleteMultipleAsync(default, default, default);
+        }
+
+        [Theory]
+        [InlineData("StructureDefinition,Patient")]
+        [InlineData("Patient,StructureDefinition,Observation")]
+        [InlineData("Patient,StructureDefinition")]
+        public async Task GivenQueuedProcessingJobWithProtectedAndAllowedTypes_WhenJobIsRun_ThenAllowedTypesContinue(string resourceTypes)
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, resourceTypes, new List<Tuple<string, string>>(), null, "https:\\\\test.com", "https:\\\\test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
+                .Returns(new Dictionary<string, long> { ["Patient"] = 1 });
+
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            Assert.Equal(1, result.ResourcesDeleted["Patient"]);
+            Assert.Contains(result.Issues, issue => issue.Contains("StructureDefinition", StringComparison.Ordinal));
+            await _deleter.Received(1).DeleteMultipleAsync(
+                Arg.Is<ConditionalDeleteResourceRequest>(request => request.ResourceType == "Patient"),
+                Arg.Any<CancellationToken>(),
+                Arg.Is<IList<string>>(types => types.Contains("StructureDefinition")));
+            var calls = _queueClient.ReceivedCalls().ToList();
+            if (resourceTypes.EndsWith("Observation", StringComparison.Ordinal))
+            {
+                var followUp = JsonConvert.DeserializeObject<BulkDeleteDefinition>(((string[])Assert.Single(calls).GetArguments()[1])[0]);
+                Assert.Equal("Observation", followUp.Type);
+            }
+            else
+            {
+                Assert.Empty(calls);
+            }
+        }
+
+        [Fact]
+        public async Task GivenTrustedCleanupProcessingJob_WhenStructureDefinitionIsExpired_ThenItCanBeDeleted()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "StructureDefinition", new List<Tuple<string, string>>(), null, "https:\\\\test.com", "https:\\\\test.com", "test", allowStructureDefinitionDeletion: true);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
+                .Returns(new Dictionary<string, long> { ["StructureDefinition"] = 1 });
+
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            Assert.Equal(1, result.ResourcesDeleted["StructureDefinition"]);
+            await _deleter.Received(1).DeleteMultipleAsync(
+                Arg.Is<ConditionalDeleteResourceRequest>(request => request.ResourceType == "StructureDefinition"),
+                Arg.Any<CancellationToken>(),
+                Arg.Is<IList<string>>(types => !types.Contains("StructureDefinition")));
         }
 
         [Fact]

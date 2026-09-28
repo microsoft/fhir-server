@@ -24,7 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             string baseUrl,
             string parentRequestId,
             ResourceVersionType versionType = ResourceVersionType.Latest,
-            bool removeReferences = false)
+            bool removeReferences = false,
+            bool allowStructureDefinitionDeletion = false)
         {
             TypeId = (int)jobType;
             DeleteOperation = deleteOperation;
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             ParentRequestId = parentRequestId;
             VersionType = versionType;
             RemoveReferences = removeReferences;
+            AllowStructureDefinitionDeletion = allowStructureDefinitionDeletion;
         }
 
         [JsonConstructor]
@@ -72,5 +74,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.RemoveReferences)]
         public bool RemoveReferences { get; private set; }
+
+        [JsonProperty(JobRecordProperties.AllowStructureDefinitionDeletion)]
+        public bool AllowStructureDefinitionDeletion { get; private set; }
     }
 }

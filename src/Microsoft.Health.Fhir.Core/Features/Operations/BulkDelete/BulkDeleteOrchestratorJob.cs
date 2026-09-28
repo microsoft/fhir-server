@@ -69,7 +69,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         // Each processing job only deletes one resource type, but it contains a comma seperated list of all resource types to be deleted. Once one type is deleted it will start a new job to delete the next one.
         internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(JobInfo jobInfo, BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
         {
-            resourceTypes = resourceTypes.Where(type => !string.Equals(type, KnownResourceTypes.StructureDefinition, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (!baseDefinition.AllowStructureDefinitionDeletion)
+            {
+                resourceTypes = resourceTypes.Where(type => !string.Equals(type, KnownResourceTypes.StructureDefinition, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
 
             var createDate = new PartialDateTime(new DateTimeOffset(jobInfo.CreateDate, TimeSpan.Zero));
             var searchParameters = new List<Tuple<string, string>>()
@@ -107,7 +110,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     baseDefinition.BaseUrl,
                     baseDefinition.ParentRequestId,
                     baseDefinition.VersionType,
-                    baseDefinition.RemoveReferences);
+                    baseDefinition.RemoveReferences,
+                    baseDefinition.AllowStructureDefinitionDeletion);
             }
 
             return null;

@@ -157,6 +157,90 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
         }
 
+        [Theory]
+        [InlineData(DeleteOperation.HardDelete, true)]
+        [InlineData(DeleteOperation.PurgeHistory, true)]
+        [InlineData(DeleteOperation.HardDelete, false)]
+        public async Task GivenBulkDeleteWithProtectedIncludesOnMultiplePages_WhenExclusionChanges_ThenOnlyRequestedTypesAreDeleted(DeleteOperation operation, bool excludeStructureDefinition)
+        {
+            var request = new ConditionalDeleteResourceRequest(
+                "Patient",
+                new List<Tuple<string, string>> { Tuple.Create("_lastUpdated", "lt2030") },
+                operation,
+                maxDeleteCount: null,
+                deleteAll: true);
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            static SearchResultEntry Entry(Resource resource, SearchEntryMode mode)
+            {
+                resource.Id = Guid.NewGuid().ToString();
+                var wrapper = new ResourceWrapper(
+                    resource.ToResourceElement(),
+                    new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false),
+                    Substitute.For<ResourceRequest>(),
+                    false,
+                    null,
+                    Substitute.For<CompartmentIndices>(),
+                    new List<KeyValuePair<string, string>>(),
+                    "hash");
+                return new SearchResultEntry(wrapper, mode);
+            }
+
+            var firstPage = new List<SearchResultEntry>
+            {
+                Entry(Samples.GetDefaultPatient().ToPoco<Patient>(), SearchEntryMode.Match),
+                Entry(new StructureDefinition(), SearchEntryMode.Include),
+            };
+            var secondPage = new List<SearchResultEntry>
+            {
+                Entry(new StructureDefinition(), SearchEntryMode.Include),
+                Entry(Samples.GetDefaultPatient().ToPoco<Patient>(), SearchEntryMode.Match),
+            };
+            var page = 0;
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(_ =>
+                ++page == 1
+                    ? new SearchResult(firstPage, "next-page", null, Array.Empty<Tuple<string, string>>())
+                    : new SearchResult(secondPage, null, null, Array.Empty<Tuple<string, string>>()));
+
+            var dataStore = Substitute.For<IFhirDataStore>();
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(dataStore));
+
+            var excludedTypes = excludeStructureDefinition ? new List<string> { "StructureDefinition" } : new List<string>();
+            var result = await _service.DeleteMultipleAsync(request, CancellationToken.None, excludedTypes);
+
+            Assert.Equal(2, result["Patient"]);
+            if (excludeStructureDefinition)
+            {
+                Assert.False(result.ContainsKey("StructureDefinition"));
+            }
+            else
+            {
+                Assert.Equal(2, result["StructureDefinition"]);
+            }
+
+            Assert.Equal(2, page);
+            await dataStore.Received(2).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "Patient"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+            await dataStore.Received(excludeStructureDefinition ? 0 : 2).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "StructureDefinition"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
         [Fact]
         public async Task GivenSearchParameterDelete_WhenConcurrencyConflictOccurs_ThenRetries()
         {

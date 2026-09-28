@@ -109,6 +109,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Fact]
+        public async Task GivenTrustedCleanupJob_WhenStructureDefinitionIsUsed_ThenItIsScheduled()
+        {
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string> { "StructureDefinition", "Patient" });
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), resourceVersionTypes: Arg.Any<ResourceVersionType>())
+                .Returns(Task.FromResult(new SearchResult(1, new List<Tuple<string, string>>())));
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, null, "test", "test", "test", allowStructureDefinitionDeletion: true);
+            var jobInfo = new JobInfo { GroupId = 1, Definition = JsonConvert.SerializeObject(definition) };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            var queued = Assert.Single(_queueClient.ReceivedCalls());
+            var processingDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(((string[])queued.GetArguments()[1])[0]);
+            Assert.Equal("StructureDefinition,Patient", processingDefinition.Type);
+            Assert.True(processingDefinition.AllowStructureDefinitionDeletion);
+            await _searchService.Received(1).SearchAsync("StructureDefinition", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), resourceVersionTypes: Arg.Any<ResourceVersionType>());
+        }
+
+        [Fact]
         public async Task GivenBulkDeleteJob_WhenResourceTypeIsGiven_ThenOneProcessingJobIsCreated()
         {
             _queueClient.ClearReceivedCalls();

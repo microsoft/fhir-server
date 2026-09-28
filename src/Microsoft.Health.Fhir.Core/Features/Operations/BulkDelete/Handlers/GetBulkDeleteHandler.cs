@@ -116,6 +116,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 {
                     succeeded = false;
                 }
+                else if (result != null)
+                {
+                    foreach (var issue in result.Issues)
+                    {
+                        issues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Warning,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            detailsText: issue));
+                    }
+                }
+
+                if (job.Status == JobStatus.Completed && job.GetJobTypeId() == (int)JobType.BulkDeleteOrchestrator)
+                {
+                    var definition = job.DeserializeDefinition<BulkDeleteDefinition>();
+                    bool mayIncludeStructureDefinition = string.IsNullOrEmpty(definition.Type) ||
+                        definition.SearchParameters?.Any(parameter =>
+                            string.Equals(parameter.Item1, SearchParameterNames.Include, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(parameter.Item1, KnownQueryParameterNames.ReverseInclude, StringComparison.OrdinalIgnoreCase)) == true;
+
+                    if (!definition.AllowStructureDefinitionDeletion && mayIncludeStructureDefinition)
+                    {
+                        issues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Warning,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            detailsText: "StructureDefinition resources are excluded from this bulk delete job."));
+                    }
+                }
 
                 if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && result != null)
                 {

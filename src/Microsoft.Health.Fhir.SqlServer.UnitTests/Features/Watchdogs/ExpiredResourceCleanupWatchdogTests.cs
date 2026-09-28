@@ -249,6 +249,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
                    definition.BaseUrl == CleanupUrl &&
                    definition.VersionType == ResourceVersionType.Latest &&
                    !definition.RemoveReferences &&
+                   definition.AllowStructureDefinitionDeletion &&
                    definition.SearchParameters.Any(parameter => parameter.Item1 == "_expiryDate" && parameter.Item2.StartsWith("lt", StringComparison.Ordinal)) &&
                    definition.SearchParameters.Any(parameter => parameter.Item1 == KnownQueryParameterNames.RemoveReferences && parameter.Item2 == "true");
         }

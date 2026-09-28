@@ -163,14 +163,53 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 true,
                 ResourceVersionType.Latest,
                 false,
-                isIncludesRequest).Returns(
-                    GenerateSearchResult(new Dictionary<string, int> { ["StructureDefinition"] = 2, ["SearchParameter"] = 1 }));
+                isIncludesRequest).Returns(_ =>
+                {
+                    var entries = GenerateSearchResult(new Dictionary<string, int> { ["StructureDefinition"] = 2, ["SearchParameter"] = 1 })
+                        .Results.Select(entry => new SearchResultEntry(entry.Resource, isIncludesRequest ? SearchEntryMode.Include : SearchEntryMode.Match));
+                    return new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>());
+                });
             var patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
 
             var result = await _service.UpdateMultipleAsync(null, patchParameters, false, 0, isIncludesRequest, new List<Tuple<string, string>>(), null, true, CancellationToken.None);
 
             Assert.Equal(2, result.ResourcesIgnored["StructureDefinition"]);
             Assert.Equal(1, result.ResourcesIgnored["SearchParameter"]);
+            Assert.Empty(result.ResourcesUpdated);
+            _fhirDataStoreFactory.DidNotReceiveWithAnyArgs().Invoke();
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenProtectedResourceTypeHasDifferentCase_ThenItIsIgnored()
+        {
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            var wrapper = new ResourceWrapper(
+                "id",
+                "1",
+                "structuredefinition",
+                new RawResource("{}", FhirResourceFormat.Json, isMetaSet: false),
+                new ResourceRequest("GET"),
+                DateTimeOffset.UtcNow,
+                false,
+                null,
+                null,
+                null);
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(new SearchResult(new[] { new SearchResultEntry(wrapper, SearchEntryMode.Match) }, null, null, Array.Empty<Tuple<string, string>>()));
+            var patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
+
+            var result = await _service.UpdateMultipleAsync(null, patchParameters, false, 0, false, new List<Tuple<string, string>>(), null, true, CancellationToken.None);
+
+            Assert.Equal(1, result.ResourcesIgnored["structuredefinition"]);
             Assert.Empty(result.ResourcesUpdated);
             _fhirDataStoreFactory.DidNotReceiveWithAnyArgs().Invoke();
         }

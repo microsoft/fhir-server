@@ -81,13 +81,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
-                if (types.Count == 1 && string.Equals(types[0], KnownResourceTypes.StructureDefinition, StringComparison.OrdinalIgnoreCase))
+                bool skippedStructureDefinition = !definition.AllowStructureDefinitionDeletion &&
+                    types.RemoveAll(type => string.Equals(type, KnownResourceTypes.StructureDefinition, StringComparison.OrdinalIgnoreCase)) > 0;
+
+                if (types.Count == 0)
                 {
-                    throw new BadRequestException($"Bulk delete is not supported for resource type {types[0]}.");
+                    const string message = "Bulk delete is not supported for resource type StructureDefinition.";
+                    result.Issues.Add(message);
+                    throw new JobExecutionException(message, result, new BadRequestException(message), false);
                 }
 
                 var excludedResourceTypes = new List<string>(definition.ExcludedResourceTypes ?? Array.Empty<string>());
-                if (!excludedResourceTypes.Contains(KnownResourceTypes.StructureDefinition, StringComparer.OrdinalIgnoreCase))
+                if (!definition.AllowStructureDefinitionDeletion &&
+                    !excludedResourceTypes.Contains(KnownResourceTypes.StructureDefinition, StringComparer.OrdinalIgnoreCase))
                 {
                     excludedResourceTypes.Add(KnownResourceTypes.StructureDefinition);
                 }
@@ -150,6 +156,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 if (exception != null)
                 {
                     throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
+                }
+
+                if (skippedStructureDefinition)
+                {
+                    result.Issues.Add("StructureDefinition resources were excluded from bulk delete.");
                 }
 
                 if (types.Count > 1)

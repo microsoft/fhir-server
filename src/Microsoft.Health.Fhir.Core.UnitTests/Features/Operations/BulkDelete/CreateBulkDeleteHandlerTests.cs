@@ -85,6 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Assert.Equal(_testUrl, definition.BaseUrl);
                 Assert.Equal(DeleteOperation.HardDelete, definition.DeleteOperation);
                 Assert.Equal(searchParams.Count, definition.SearchParameters.Count);
+                Assert.False(definition.AllowStructureDefinitionDeletion);
 
                 return new List<JobInfo>()
                     {

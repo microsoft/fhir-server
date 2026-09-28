@@ -1,4 +1,4 @@
-Type-scoped `$bulk-delete` rejects `StructureDefinition`. System-level jobs skip it, including included search results, because deleting profile definitions requires the separate `editProfileDefinitions` action that background jobs cannot check.
+Type-scoped `$bulk-delete` rejects `StructureDefinition`. User-initiated system-level jobs skip it, and their processing jobs exclude it from search results, including included resources. Completed system-level jobs and type-scoped jobs with includes report this exclusion as a warning in the job status. Deleting `StructureDefinition` requires the separate `editProfileDefinitions` action, which background jobs cannot check. The trusted expired-resource cleanup watchdog is exempt: it must delete expired resources of every type, including `StructureDefinition`.
 
 ```mermaid
 sequenceDiagram

@@ -206,6 +206,75 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Fact]
+        public async Task GivenRejectedQueuedStructureDefinitionJob_WhenStatusRequested_ThenFailureReasonIsReturned()
+        {
+            var rejected = new BulkDeleteResult();
+            rejected.Issues.Add("Bulk delete is not supported for resource type StructureDefinition.");
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: rejected.Issues.Single()),
+            };
+
+            await RunGetBulkDeleteTest(
+                new List<Tuple<JobInfo, int>>
+                {
+                    new(new JobInfo { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(rejected) }, 0),
+                },
+                new GetBulkDeleteResponse(Array.Empty<Parameters.ParameterComponent>(), issues, System.Net.HttpStatusCode.InternalServerError));
+        }
+
+        [Fact]
+        public async Task GivenCompletedBulkDeleteJobThatSkippedProtectedType_WhenStatusRequested_ThenWarningIsReturned()
+        {
+            var result = new BulkDeleteResult();
+            result.ResourcesDeleted.Add(KnownResourceTypes.Patient, 1);
+            result.Issues.Add("StructureDefinition resources were excluded from bulk delete.");
+            var expected = new Dictionary<string, ICollection<Tuple<string, Base>>>
+            {
+                { _countLabel, new List<Tuple<string, Base>> { new(KnownResourceTypes.Patient, new Integer64(1)) } },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, detailsText: result.Issues.Single()),
+            };
+
+            await RunGetBulkDeleteTest(
+                new List<Tuple<JobInfo, int>>
+                {
+                    new(new JobInfo { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result) }, 1),
+                },
+                new GetBulkDeleteResponse(ToParameters(expected).ToArray(), issues, System.Net.HttpStatusCode.OK));
+        }
+
+        [Theory]
+        [InlineData(false, null, null, true)]
+        [InlineData(false, "Patient", "_include", true)]
+        [InlineData(false, "Patient", "_revinclude", true)]
+        [InlineData(false, "Patient", null, false)]
+        [InlineData(true, null, null, false)]
+        public async Task GivenCompletedBulkDeleteJob_WhenStatusRequested_ThenProtectedTypePolicyIsDisclosedWhenApplicable(bool allowDeletion, string resourceType, string includeParameter, bool expectWarning)
+        {
+            var parameters = includeParameter == null
+                ? new List<Tuple<string, string>>()
+                : new List<Tuple<string, string>> { Tuple.Create(includeParameter, "*") };
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, resourceType, parameters, null, "test", "test", "test", allowStructureDefinitionDeletion: allowDeletion);
+            var job = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(definition),
+                Result = "Completed",
+            };
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>())
+                .Returns(new List<JobInfo> { job });
+
+            var response = await _handler.HandleAsync(new GetBulkDeleteRequest(1), CancellationToken.None);
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
+            Assert.Equal(expectWarning, response.Issues.Any(issue => issue.DetailsText.Contains("StructureDefinition", StringComparison.Ordinal)));
+        }
+
+        [Fact]
         public async Task GivenCancelledBulkDeleteJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkDeleteResult();
