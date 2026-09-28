@@ -153,6 +153,61 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
+    public void GivenGeneratedSql_WhenNormalizedQueryShapeAdded_ThenHashCommentContainsSafeQueryShapeWithoutChangingHash()
+    {
+        // Arrange
+        const string rawValue = "Alice-Recognizable-Value";
+        const string normalizedQuery = "Patient?birthdate&name";
+        string sqlWithoutAnnotation = GenerateSqlWithHashedParameter(rawValue);
+        var queryHashCalculator = new SqlQueryHashCalculator();
+
+        // Act
+        string sqlWithAnnotation = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutAnnotation,
+            normalizedQuery,
+            queryHashCalculator,
+            out string queryHash);
+
+        // Assert
+        Assert.Contains($" fhir={normalizedQuery} */", sqlWithAnnotation, StringComparison.Ordinal);
+        Assert.DoesNotContain(rawValue, sqlWithAnnotation, StringComparison.Ordinal);
+        Assert.Equal(
+            SqlServerSearchService.ExtractParameterHash(sqlWithoutAnnotation),
+            SqlServerSearchService.ExtractParameterHash(sqlWithAnnotation));
+        Assert.Equal(queryHashCalculator.CalculateHash(sqlWithoutAnnotation), queryHash);
+    }
+
+    [Fact]
+    public void GivenQueryPlanReuse_WhenNormalizedQueryShapesDiffer_ThenStandaloneCommentsDistinguishSqlText()
+    {
+        // Arrange
+        const string rawValue = "Alice-Recognizable-Value";
+        string sqlWithoutHashComment = GenerateSqlWithHashedParameter(rawValue, reuseQueryPlans: true);
+        var queryHashCalculator = new SqlQueryHashCalculator();
+
+        // Act
+        string patientSql = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutHashComment,
+            "Patient?name",
+            queryHashCalculator,
+            out string patientQueryHash);
+        string observationSql = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutHashComment,
+            "Observation?code",
+            queryHashCalculator,
+            out string observationQueryHash);
+
+        // Assert
+        Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, sqlWithoutHashComment, StringComparison.Ordinal);
+        Assert.StartsWith("/* fhir=Patient?name */\n", patientSql, StringComparison.Ordinal);
+        Assert.StartsWith("/* fhir=Observation?code */\n", observationSql, StringComparison.Ordinal);
+        Assert.NotEqual(patientSql, observationSql);
+        Assert.Equal(patientQueryHash, observationQueryHash);
+        Assert.DoesNotContain(rawValue, patientSql, StringComparison.Ordinal);
+        Assert.DoesNotContain(rawValue, observationSql, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GivenReferenceSearchParameterWithMultipleTargetTypes_WhenSqlGenerated_ThenSqlIncludesOrClauseForReferenceResourceTypeId()
     {
         // Setup mock to return resource type IDs
@@ -217,6 +272,34 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Verify both type IDs were passed as parameters by checking the mock was called
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
+    }
+
+    private string GenerateSqlWithHashedParameter(string parameterValue, bool reuseQueryPlans = false)
+    {
+        var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+        using Data.SqlClient.SqlCommand command = new();
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        parameters.AddParameter(parameterValue, includeInHash: true);
+        var queryGenerator = new SqlQueryGenerator(
+            stringBuilder,
+            parameters,
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            reuseQueryPlans,
+            isAsyncOperation: false);
+        var sqlExpression = new SqlRootExpression(
+            [new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All)],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = new SearchOptions
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        return stringBuilder.ToString();
     }
 
     [Theory]
