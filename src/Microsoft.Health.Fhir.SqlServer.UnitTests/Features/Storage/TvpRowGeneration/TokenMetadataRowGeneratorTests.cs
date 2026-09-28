@@ -108,51 +108,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             }
         }
 
-        [Fact]
-        public void GivenTokenFieldVariants_WhenComparingRows_ThenPreservesDefaultEquality()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenEveryInstanceField_WhenComparingRows_ThenPreservesDefaultEquality(bool textRows)
         {
-            // Arrange
-            var rows = new[]
+            // Arrange / Act / Assert
+            if (textRows)
             {
-                default,
-                new TokenSearchParamListRow(1, 2, 3, null, "code", null),
-                new TokenSearchParamListRow(1, 2, 3, null, new string("code".ToCharArray()), null),
-                new TokenSearchParamListRow(2, 2, 3, null, "code", null),
-                new TokenSearchParamListRow(1, 4, 3, null, "code", null),
-                new TokenSearchParamListRow(1, 2, 4, null, "code", null),
-                new TokenSearchParamListRow(1, 2, 3, 0, "code", null),
-                new TokenSearchParamListRow(1, 2, 3, 4, "code", null),
-                new TokenSearchParamListRow(1, 2, 3, null, "Code", null),
-                new TokenSearchParamListRow(1, 2, 3, null, null, null),
-                new TokenSearchParamListRow(1, 2, 3, null, string.Empty, null),
-                new TokenSearchParamListRow(1, 2, 3, null, "code", string.Empty),
-                new TokenSearchParamListRow(1, 2, 3, null, "code", "overflow"),
-                new TokenSearchParamListRow(1, 2, 3, null, "code", "Overflow"),
-            };
-
-            // Act / Assert
-            AssertDefaultEquality(rows, _tokens.Comparer);
-        }
-
-        [Fact]
-        public void GivenTextFieldVariants_WhenComparingRows_ThenPreservesDefaultEquality()
-        {
-            // Arrange
-            var rows = new[]
+                AssertEveryInstanceFieldParticipatesInEquality(_texts.Comparer);
+            }
+            else
             {
-                default,
-                new TokenTextListRow(1, 2, 3, "text"),
-                new TokenTextListRow(1, 2, 3, new string("text".ToCharArray())),
-                new TokenTextListRow(2, 2, 3, "text"),
-                new TokenTextListRow(1, 4, 3, "text"),
-                new TokenTextListRow(1, 2, 4, "text"),
-                new TokenTextListRow(1, 2, 3, "Text"),
-                new TokenTextListRow(1, 2, 3, null),
-                new TokenTextListRow(1, 2, 3, string.Empty),
-            };
-
-            // Act / Assert
-            AssertDefaultEquality(rows, _texts.Comparer);
+                AssertEveryInstanceFieldParticipatesInEquality(_tokens.Comparer);
+            }
         }
 
         [Fact]
@@ -215,6 +184,41 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Equal("text-only", Assert.Single(texts).Text);
         }
 
+        private static void AssertEveryInstanceFieldParticipatesInEquality<TRow>(IEqualityComparer<TRow> comparer)
+            where TRow : struct
+        {
+            var fields = typeof(TRow).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.NotEmpty(fields);
+            foreach (var field in fields)
+            {
+                var context = $"{typeof(TRow).Name}.{field.Name}";
+                var rows = new List<TRow> { default };
+                foreach (var value in GetFieldValues(field))
+                {
+                    // Boxed mutation covers future fields without updating a constructor or field list.
+                    object boxed = default(TRow);
+                    field.SetValue(boxed, value);
+                    var changed = (TRow)boxed;
+
+                    Assert.False(EqualityComparer<TRow>.Default.Equals(default, changed), $"{context}: mutation must change default equality.");
+                    rows.Add(changed);
+                }
+
+                AssertDefaultEquality(rows, comparer, context);
+            }
+        }
+
+        private static object[] GetFieldValues(FieldInfo field) =>
+            field.FieldType switch
+            {
+                var type when type == typeof(short) => new object[] { (short)1 },
+                var type when type == typeof(long) => new object[] { 1L },
+                var type when type == typeof(int) => new object[] { 1 },
+                var type when type == typeof(int?) => new object[] { 0, 1 },
+                var type when type == typeof(string) => new object[] { string.Empty, "text", "Text", new string("text".ToCharArray()) },
+                _ => throw new NotSupportedException($"Add test values for {field.DeclaringType.Name}.{field.Name} ({field.FieldType})."),
+            };
+
         private static void AssertLinearComparisons<TRow>(TRow[] rows, IEqualityComparer<TRow> comparer)
         {
             int comparisons = 0;
@@ -237,14 +241,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.InRange(comparisons, rows.Length, rows.Length * 4);
         }
 
-        private static void AssertDefaultEquality<TRow>(TRow[] rows, IEqualityComparer<TRow> comparer)
+        private static void AssertDefaultEquality<TRow>(IReadOnlyList<TRow> rows, IEqualityComparer<TRow> comparer, string context)
         {
             foreach (var left in rows)
             {
                 foreach (var right in rows)
                 {
                     bool expected = EqualityComparer<TRow>.Default.Equals(left, right);
-                    Assert.Equal(expected, comparer.Equals(left, right));
+                    Assert.True(expected == comparer.Equals(left, right), $"{context}: comparer differs from default equality.");
                     if (expected)
                     {
                         Assert.Equal(comparer.GetHashCode(left), comparer.GetHashCode(right));
