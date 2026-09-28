@@ -80,6 +80,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// </summary>
         public const string ReindexOperation = nameof(ReindexOperation);
 
+        public const string Logging = nameof(Logging);
+
         public const string MemberMatch = nameof(MemberMatch);
 
         public const string Operations = nameof(Operations);

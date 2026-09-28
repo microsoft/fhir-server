@@ -310,6 +310,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 firstPageEntries.Add(new SearchResultEntry(wrapper, SearchEntryMode.Match));
             }
 
+            var firstPageDeletesStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var hardDeleteCount = 0;
             var callCount = 0;
             searchService.SearchAsync(
                 Arg.Any<string>(),
@@ -329,14 +331,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                     else
                     {
                         // Second call throws a connection exception (simulating network failure)
-                        await Task.Delay(100); // Simulate some delay so that the first call can complete
+                        await firstPageDeletesStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
                         throw new InvalidOperationException("A transport-level error has occurred when receiving results from the server.");
                     }
                 });
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-                .Returns(Task.CompletedTask);
+                .Returns(_ =>
+                {
+                    if (Interlocked.Increment(ref hardDeleteCount) == firstPageEntries.Count)
+                    {
+                        firstPageDeletesStarted.TrySetResult();
+                    }
+
+                    return Task.CompletedTask;
+                });
 
             var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);

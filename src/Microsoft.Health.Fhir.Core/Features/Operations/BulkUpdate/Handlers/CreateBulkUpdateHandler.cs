@@ -13,9 +13,11 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Medino;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -46,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
         private readonly ILogger<CreateBulkUpdateHandler> _logger;
         private readonly List<string> _bulkUpdateSupportedOperations = new() { "Upsert", "Replace" };
         private readonly IResourceSerializer _resourceSerializer;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
         public CreateBulkUpdateHandler(
             IAuthorizationService<DataActions> authorizationService,
@@ -53,7 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISearchService searchService,
             IResourceSerializer resourceSerializer,
-            ILogger<CreateBulkUpdateHandler> logger)
+            ILogger<CreateBulkUpdateHandler> logger,
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -61,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _resourceSerializer = EnsureArg.IsNotNull(resourceSerializer, nameof(resourceSerializer));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
         public async Task<CreateBulkUpdateResponse> HandleAsync(CreateBulkUpdateRequest request, CancellationToken cancellationToken)
@@ -69,6 +74,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
             // Check access - Only super writer can perform bulk update
             await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
+
+            if (_coreFeatures.EnableSmartBulkUpdateRestriction &&
+                _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition
             if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))

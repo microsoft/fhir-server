@@ -362,7 +362,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 .Returns(async callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];
-                    var progress = new ImportProcessingProgress();
+                    var progress = new ImportProcessingProgress
+                    {
+                        DatabaseMilliseconds = 303,
+                    };
                     await foreach (var resource in resourceChannel.Reader.ReadAllAsync())
                     {
                         if (string.IsNullOrEmpty(resource.ImportError))
@@ -384,6 +387,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);
+            Assert.True(result.ClockMilliseconds >= 0);
+            Assert.Equal(303, result.DatabaseMilliseconds);
         }
 
         private ImportProcessingJobDefinition GetInputData()

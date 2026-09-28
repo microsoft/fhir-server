@@ -589,6 +589,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [InlineData("InvalidResourceType", "InvalidResourceType")]
         [InlineData("Patient,InvalidResourceType", "InvalidResourceType")]
         [InlineData("Patient,,Observation", "<empty>")]
+        [InlineData("Patient, ,Observation", "<empty>")]
         public async Task GivenExportWithInvalidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsBadRequest(
             string resourceTypes,
             string invalidResourceType)
@@ -636,6 +637,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                         && issue.Severity == OperationOutcome.IssueSeverity.Error
                         && issue.Diagnostics?.Contains(invalidResourceType) == true;
                 });
+        }
+
+        [Theory]
+        [InlineData(false, "Patient,Observation")]
+        [InlineData(false, " Patient , Observation ")]
+        [InlineData(true, "Patient,Observation")]
+        [InlineData(true, " Patient , Observation ")]
+        public async Task GivenExportWithWhitespacePaddedValidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsOk(
+            bool isParallel,
+            string resourceTypes)
+        {
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Type, resourceTypes },
+                { KnownQueryParameterNames.IsParallel, isParallel.ToString() },
+                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString("O") },
+            };
+            using HttpRequestMessage exportRequest = GenerateExportRequest("$export", queryParams: queryParam);
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            await ExportTestHelper.CheckExportStatus(_fixture.TestFhirClient, contentLocation);
         }
     }
 }
