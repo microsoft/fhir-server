@@ -457,7 +457,8 @@ if ($DataStore -eq 'SqlServer') {
     $filterParts += 'DataStore=CosmosDb'
 }
 if ($CategoryFilter) {
-    $filterParts += $CategoryFilter
+    # Split `&`-joined predicates so each gets its own parentheses in the query below.
+    $filterParts += ($CategoryFilter -split '&' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 }
 
 # MTP hosts (xunit.v3) reject VSTest's `--filter`; they take `--filter-query` with the graph-query

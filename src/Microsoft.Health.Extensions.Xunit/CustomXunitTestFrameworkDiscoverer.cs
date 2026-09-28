@@ -42,55 +42,19 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <inheritdoc/>
         protected override async ValueTask<bool> FindTestsForType(IXunitTestClass testClass, ITestFrameworkDiscoveryOptions options, Func<ITestCase, ValueTask<bool>> callback)
         {
-            FixtureArgumentSetsAttribute classAttribute;
-            SingleFlag[][] classOpenSets;
-            SingleFlag[][] classClosedSets;
-            try
+            var classAttribute = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), false).SingleOrDefault() as FixtureArgumentSetsAttribute;
+            if (classAttribute == null && !testClass.Methods.Any(m => m.IsDefined(typeof(FixtureArgumentSetsAttribute), false)))
             {
-                classAttribute = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), false).SingleOrDefault() as FixtureArgumentSetsAttribute;
-
-                // IsDefined detects presence without instantiating the attribute, so a single method whose attribute
-                // throws on construction does not take down the whole class here; it is isolated to its own per-method
-                // try below.
-                bool anyMethodAttribute = testClass.Methods.Any(m => m.IsDefined(typeof(FixtureArgumentSetsAttribute), false));
-                if (classAttribute == null && !anyMethodAttribute)
-                {
-                    return await base.FindTestsForType(testClass, options, callback);
-                }
-
-                classOpenSets = classAttribute == null ? Array.Empty<SingleFlag[]>() : Expand(classAttribute);
-                classClosedSets = classOpenSets.Length == 0 ? Array.Empty<SingleFlag[]>() : CartesianProduct(classOpenSets);
+                return await base.FindTestsForType(testClass, options, callback);
             }
-            catch (Exception ex)
-            {
-                // A throw out of discovery is silently dropped by xUnit v3: the class vanishes, the run reports fewer
-                // tests, and it still exits 0. Emit a failing case per method so the failure lands in the results and the
-                // exit code. Exact variants may be unavailable here, but ReportFault attaches a best-effort union of raw
-                // class/method flags so positive trait filters can still retain the failure.
-                return await ReportFault(testClass, TryGetMethods(testClass), null, ex, callback);
-            }
+
+            SingleFlag[][] classOpenSets = classAttribute == null ? Array.Empty<SingleFlag[]>() : Expand(classAttribute);
+            SingleFlag[][] classClosedSets = classOpenSets.Length == 0 ? Array.Empty<SingleFlag[]>() : CartesianProduct(classOpenSets);
 
             foreach (MethodInfo method in testClass.Methods)
             {
-                FixtureArgumentSetsAttribute methodAttribute = null;
-                bool succeeded;
-                try
-                {
-                    // Inside the try: a method whose attribute throws on construction becomes a loud fault case for that
-                    // one method instead of escaping FindTestsForType (which v3 swallows, silently dropping the method).
-                    methodAttribute = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), false).SingleOrDefault() as FixtureArgumentSetsAttribute;
-                    succeeded = await ExpandMethod(testClass, method, classAttribute, methodAttribute, classOpenSets, classClosedSets, options, callback);
-                }
-                catch (Exception ex)
-                {
-                    // Per-method isolation: one method's failure must not drop the rest of the class. Re-derive this
-                    // method's variants (best effort) so the fault carries their traits and a trait-filtered CI leg still
-                    // selects it.
-                    SingleFlag[][] variants = TryComputeVariants(testClass, method, classAttribute, methodAttribute, classOpenSets, classClosedSets);
-                    succeeded = await ReportFault(testClass, new[] { method }, variants, ex, callback);
-                }
-
-                if (!succeeded)
+                var methodAttribute = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), false).SingleOrDefault() as FixtureArgumentSetsAttribute;
+                if (!await ExpandMethod(testClass, method, classAttribute, methodAttribute, classOpenSets, classClosedSets, options, callback))
                 {
                     return false;
                 }
@@ -203,136 +167,6 @@ namespace Microsoft.Health.Extensions.Xunit
             return _classCache.GetOrAdd(
                 classKey,
                 _ => new FixtureArgumentSetTestClass(testClass.Class, testClass.TestCollection, variant, UniqueIDGenerator.ForTestClass(testClass.TestCollection.UniqueID, classKey)));
-        }
-
-        // Emit one execution-error case per (method, variant) so a discovery failure fails loudly and carries the variant
-        // traits. The fault path deliberately builds cases from the base XunitTestMethod and attaches best-effort raw
-        // trait values; it never retries the variant construction that may have failed.
-        // A fault handler that re-triggered that same failure
-        // would throw out of discovery, which v3 swallows - the class would vanish and the run would still exit 0.
-        private static async ValueTask<bool> ReportFault(IXunitTestClass testClass, IEnumerable<MethodInfo> methods, SingleFlag[][] variants, Exception ex, Func<ITestCase, ValueTask<bool>> callback)
-        {
-            MethodInfo[] methodList = methods as MethodInfo[] ?? methods.ToArray();
-            if (methodList.Length == 0)
-            {
-                return await EmitFaultCase(testClass, null, null, TryGetRawFlags(testClass, null), ex, callback);
-            }
-
-            foreach (MethodInfo method in methodList)
-            {
-                if (variants is { Length: > 0 })
-                {
-                    foreach (SingleFlag[] variant in variants)
-                    {
-                        if (!await EmitFaultCase(testClass, method, variant, variant, ex, callback))
-                        {
-                            return false;
-                        }
-                    }
-                }
-                else
-                {
-                    // The exact variants could not be computed. Attach a conservative union of the raw class/method flag
-                    // values so the fault still carries DataStore/Format traits and stays visible to a positive filter
-                    // (e.g. /[(DataStore=CosmosDb)]). Exact variants may be unavailable, but this best-effort union keeps
-                    // the failure visible to positive trait filters instead of dropping it into a green run.
-                    if (!await EmitFaultCase(testClass, method, null, TryGetRawFlags(testClass, method), ex, callback))
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
-        }
-
-        private static async ValueTask<bool> EmitFaultCase(IXunitTestClass testClass, MethodInfo method, SingleFlag[] nameVariant, IEnumerable<SingleFlag> traitFlags, Exception ex, Func<ITestCase, ValueTask<bool>> callback)
-        {
-            bool named = nameVariant is { Length: > 0 };
-            string suffix = named ? $"({string.Join(", ", nameVariant.Select(v => v.EnumValue))})" : string.Empty;
-            string discriminator = named ? "-" + string.Join("-", nameVariant.Select(v => Convert.ToInt64(v.EnumValue))) : string.Empty;
-            string methodName = method?.Name ?? "DiscoveryFailure";
-
-            // When method enumeration fails, use known reflection metadata that xUnit can serialize without probing
-            // the broken type again. ExecutionErrorTestCase reports the error instead of invoking this method.
-            MethodInfo metadataMethod = method ?? typeof(object).GetMethod(nameof(object.ToString));
-            var faultMethod = new XunitTestMethod(testClass, metadataMethod, Array.Empty<object>(), UniqueIDGenerator.ForTestMethod(testClass.UniqueID, methodName + discriminator));
-            string name = $"{testClass.TestClassName}{suffix}.{methodName}";
-            var errorCase = new ExecutionErrorTestCase(faultMethod, name, $"{faultMethod.UniqueID}-fault", sourceFilePath: null, sourceLineNumber: null, errorMessage: $"Discovering '{testClass.TestClassName}.{methodName}' failed, so none of its tests ran: {ex.Message}");
-            ApplyFlagTraits(errorCase, traitFlags);
-            return await callback(errorCase);
-        }
-
-        // Attach (DataStore, Format) traits derived directly from flag values. ExecutionErrorTestCase does NOT inherit its
-        // method's traits, so without this a fault case drops out of every trait-filtered CI leg and the failure is
-        // invisible. Sourced from raw flags so it never touches the reflected variant types. Load-bearing - do not remove.
-        private static void ApplyFlagTraits(ITestCase testCase, IEnumerable<SingleFlag> flags)
-        {
-            if (testCase is not XunitTestCase xunitTestCase)
-            {
-                return;
-            }
-
-            foreach (SingleFlag flag in flags)
-            {
-                string key = flag.EnumValue.GetType().Name;
-                if (!xunitTestCase.Traits.TryGetValue(key, out HashSet<string> values))
-                {
-                    xunitTestCase.Traits[key] = values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                }
-
-                values.Add(flag.EnumValue.ToString());
-            }
-        }
-
-        // Best-effort union of the raw class/method flags used when exact Cartesian variants cannot be computed.
-        private static List<SingleFlag> TryGetRawFlags(IXunitTestClass testClass, MethodInfo method)
-        {
-            var flags = new List<SingleFlag>();
-            CollectRawFlags(flags, () => testClass.Class);
-            CollectRawFlags(flags, () => method);
-            return flags;
-        }
-
-        private static void CollectRawFlags(List<SingleFlag> flags, Func<MemberInfo> member)
-        {
-            try
-            {
-                FixtureArgumentSetsAttribute attribute = member()?.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), false).SingleOrDefault() as FixtureArgumentSetsAttribute;
-                if (attribute != null)
-                {
-                    flags.AddRange(attribute.GetArgumentSets().Where(s => s != null).SelectMany(GetSingleValuedFlags));
-                }
-            }
-            catch
-            {
-                // Attribute constructor throws make the flags unknowable, but discovery can continue with the rest.
-            }
-        }
-
-        // Best-effort method list: if xUnit cannot enumerate visible members, the helper returns an empty array.
-        private static MethodInfo[] TryGetMethods(IXunitTestClass testClass)
-        {
-            try
-            {
-                return testClass.Methods.ToArray();
-            }
-            catch
-            {
-                return Array.Empty<MethodInfo>();
-            }
-        }
-
-        private static SingleFlag[][] TryComputeVariants(IXunitTestClass testClass, MethodInfo method, FixtureArgumentSetsAttribute classAttribute, FixtureArgumentSetsAttribute methodAttribute, SingleFlag[][] classOpenSets, SingleFlag[][] classClosedSets)
-        {
-            try
-            {
-                return ComputeVariants(testClass, method, classAttribute, methodAttribute, classOpenSets, classClosedSets);
-            }
-            catch
-            {
-                return Array.Empty<SingleFlag[]>();
-            }
         }
 
         // v2 form: insert the suffix after the class name -> Namespace.Class(SqlServer, Json).Method. Guarded: if the
