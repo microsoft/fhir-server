@@ -1,3 +1,5 @@
+Type-scoped `$bulk-delete` rejects `StructureDefinition`. System-level jobs skip it, including included search results, because deleting profile definitions requires the separate `editProfileDefinitions` action that background jobs cannot check.
+
 ```mermaid
 sequenceDiagram
     Client->>FhirServer: GET Create Bulk Delete Request

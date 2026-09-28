@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
-                    resourceTypes = resourceTypes.Where(x => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(x)).ToList();
+                    resourceTypes = resourceTypes.Where(x => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(x, StringComparer.OrdinalIgnoreCase)).ToList();
                     var globalStartId = new PartialDateTime(DateTime.MinValue).ToDateTimeOffset().ToId();
                     var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1;
                     _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs by resourceType-surrogateId ranges with Global start surrogate ID: {GlobalStartId}, Global end surrogate ID: {GlobalEndId}", globalStartId, globalEndId);

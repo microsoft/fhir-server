@@ -1,3 +1,5 @@
+Type-scoped `$bulk-update` rejects `SearchParameter` and `StructureDefinition`. System-level jobs ignore those types, including included search results; updating profile definitions requires the separate `editProfileDefinitions` action that background jobs cannot check.
+
 ```mermaid
 sequenceDiagram
     Client->>FhirServer: PATCH Create Bulk Update Request

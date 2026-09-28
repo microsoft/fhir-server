@@ -263,6 +263,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         [Theory]
         [InlineData("SearchParameter")]
         [InlineData("StructureDefinition")]
+        [InlineData("structuredefinition")]
         public async Task GivenBulkUpdateRequest_WhenResourceTypeIsExcluded_ThenBadRequestIsReturned(string resourceType)
         {
             var searchParams = new List<Tuple<string, string>>
@@ -276,6 +277,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var ex = await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
             Assert.Equal($"Bulk update is not supported for resource type {resourceType}.", ex.Message);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
         }
 
         [Fact]

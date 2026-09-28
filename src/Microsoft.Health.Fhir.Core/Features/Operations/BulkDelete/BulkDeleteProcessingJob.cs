@@ -81,6 +81,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
+                if (types.Count == 1 && string.Equals(types[0], KnownResourceTypes.StructureDefinition, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new BadRequestException($"Bulk delete is not supported for resource type {types[0]}.");
+                }
+
+                var excludedResourceTypes = new List<string>(definition.ExcludedResourceTypes ?? Array.Empty<string>());
+                if (!excludedResourceTypes.Contains(KnownResourceTypes.StructureDefinition, StringComparer.OrdinalIgnoreCase))
+                {
+                    excludedResourceTypes.Add(KnownResourceTypes.StructureDefinition);
+                }
+
                 try
                 {
                     resourcesDeleted = await deleter.Value.DeleteMultipleAsync(
@@ -94,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             allowPartialSuccess: false, // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                             removeReferences: definition.RemoveReferences),
                         cancellationToken,
-                        definition.ExcludedResourceTypes);
+                        excludedResourceTypes);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {

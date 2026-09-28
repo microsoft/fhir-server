@@ -80,6 +80,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             Assert.StartsWith("lt", actualDefinition.SearchParameters.First().Item2);
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenSystemLevelBulkDeleteJob_WhenStructureDefinitionIsUsed_ThenItIsNotScheduled(bool hasOtherTypes)
+        {
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(
+                hasOtherTypes ? new List<string> { "StructureDefinition", "Patient" } : new List<string> { "StructureDefinition" });
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), resourceVersionTypes: Arg.Any<ResourceVersionType>())
+                .Returns(Task.FromResult(new SearchResult(1, new List<Tuple<string, string>>())));
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, null, "test", "test", "test");
+            var jobInfo = new JobInfo { GroupId = 1, Definition = JsonConvert.SerializeObject(definition) };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            await _searchService.DidNotReceive().SearchAsync("StructureDefinition", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), resourceVersionTypes: Arg.Any<ResourceVersionType>());
+            var calls = _queueClient.ReceivedCalls().ToList();
+            if (hasOtherTypes)
+            {
+                Assert.Single(calls);
+                var processingDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(((string[])calls[0].GetArguments()[1])[0]);
+                Assert.Equal("Patient", processingDefinition.Type);
+            }
+            else
+            {
+                Assert.Empty(calls);
+            }
+        }
+
         [Fact]
         public async Task GivenBulkDeleteJob_WhenResourceTypeIsGiven_ThenOneProcessingJobIsCreated()
         {

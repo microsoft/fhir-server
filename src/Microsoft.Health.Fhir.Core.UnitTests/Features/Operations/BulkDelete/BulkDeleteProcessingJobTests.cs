@@ -75,6 +75,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Fact]
+        public async Task GivenProcessingJob_WhenJobHasCallerExclusions_ThenStructureDefinitionIsAlwaysExcluded()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), new List<string> { "Observation" }, "https:\\\\test.com", "https:\\\\test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
+                .Returns(new Dictionary<string, long> { ["Patient"] = 1 });
+
+            await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            await _deleter.Received(1).DeleteMultipleAsync(
+                Arg.Any<ConditionalDeleteResourceRequest>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Is<IList<string>>(types => types.Contains("Observation") && types.Contains("StructureDefinition") && types.Count == 2));
+        }
+
+        [Fact]
+        public async Task GivenQueuedProcessingJobForStructureDefinition_WhenJobIsRun_ThenItIsRejected()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "StructureDefinition", new List<Tuple<string, string>>(), null, "https:\\\\test.com", "https:\\\\test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            await _deleter.DidNotReceiveWithAnyArgs().DeleteMultipleAsync(default, default, default);
+        }
+
+        [Fact]
         public async Task GivenProcessingJob_WhenJobIsRunWithMultipleResourceTypes_ThenFollowupJobIsCreated()
         {
             _deleter.ClearReceivedCalls();

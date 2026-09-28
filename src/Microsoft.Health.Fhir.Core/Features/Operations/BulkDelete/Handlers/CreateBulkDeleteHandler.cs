@@ -73,6 +73,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 throw new UnauthorizedFhirActionException();
             }
 
+            if (string.Equals(request.ResourceType, KnownResourceTypes.StructureDefinition, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException($"Bulk delete is not supported for resource type {request.ResourceType}.");
+            }
+
             var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
 
             // Temporarily add _lastUpdated to the search parameters to mimic the behavior of the processing job. Conditional search will also fail if there are no search criteria.

@@ -97,6 +97,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
+        [SkippableTheory]
+        [InlineData("StructureDefinition/$bulk-delete")]
+        [InlineData("StructureDefinition/$bulk-delete-soft-deleted")]
+        public async Task GivenBulkDeleteRequestForStructureDefinition_WhenRequested_ThenBadRequestIsReturned(string path)
+        {
+            CheckBulkDeleteEnabled();
+            using HttpRequestMessage request = GenerateBulkDeleteRequest(Guid.NewGuid().ToString(), path);
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
         [SkippableFact]
         public async Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {

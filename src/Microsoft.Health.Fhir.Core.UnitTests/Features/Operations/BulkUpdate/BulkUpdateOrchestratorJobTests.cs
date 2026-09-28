@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _searchService.ClearReceivedCalls();
 
             var resourceTypes = new HashSet<string> { "Patient", "Observation" };
-            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(resourceTypes.ToList());
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(resourceTypes.Concat(new[] { "structuredefinition", "SearchParameter" }).ToList());
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>()).Returns((x) =>
             {
                 return Task.FromResult(GenerateSearchResult(2));

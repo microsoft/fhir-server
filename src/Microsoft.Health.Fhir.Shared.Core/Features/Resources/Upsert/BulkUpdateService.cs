@@ -381,7 +381,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Add excluded resource types to resourcesIgnored and remove it from resourcesPerPage
-            foreach (var kvp in resourcesPerPage.Where(kvp => OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(kvp.Key)))
+            foreach (var kvp in resourcesPerPage.Where(kvp => OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(kvp.Key, StringComparer.OrdinalIgnoreCase)))
             {
                 resourcesIgnored[kvp.Key] = resourcesIgnored.TryGetValue(kvp.Key, out var existing)
                     ? existing + kvp.Value

@@ -152,6 +152,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Theory]
+        [InlineData(DeleteOperation.SoftDelete, false, "StructureDefinition")]
+        [InlineData(DeleteOperation.HardDelete, false, "structuredefinition")]
+        [InlineData(DeleteOperation.HardDelete, true, "StructureDefinition")]
+        [InlineData(DeleteOperation.PurgeHistory, false, "StructureDefinition")]
+        public async Task GivenBulkDeleteRequestForStructureDefinition_WhenJobCreationRequested_ThenBadRequestIsReturned(DeleteOperation operation, bool includeSoftDeleted, string resourceType)
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);
+            var request = new CreateBulkDeleteRequest(operation, resourceType, new List<Tuple<string, string>>(), includeSoftDeleted, null, false);
+
+            var ex = await Assert.ThrowsAsync<BadRequestException>(() => _handler.HandleAsync(request, CancellationToken.None));
+
+            Assert.Equal($"Bulk delete is not supported for resource type {resourceType}.", ex.Message);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
+        }
+
+        [Theory]
         [InlineData(DeleteOperation.SoftDelete, DataActions.Read)]
         [InlineData(DeleteOperation.HardDelete, DataActions.Delete)]
         [InlineData(DeleteOperation.PurgeHistory, DataActions.Delete)]
