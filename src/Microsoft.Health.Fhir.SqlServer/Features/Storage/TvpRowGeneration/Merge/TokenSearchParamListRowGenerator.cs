@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -12,11 +13,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class TokenSearchParamListRowGenerator : MergeSearchParameterRowGenerator<TokenSearchValue, TokenSearchParamListRow>
     {
+        // Default hashing of the generated struct can collapse all rows for a resource into one bucket.
+        private static readonly IEqualityComparer<TokenSearchParamListRow> RowComparer = EqualityComparer<TokenSearchParamListRow>.Create(
+            (left, right) =>
+                left.ResourceTypeId == right.ResourceTypeId &&
+                left.ResourceSurrogateId == right.ResourceSurrogateId &&
+                left.SearchParamId == right.SearchParamId &&
+                left.SystemId == right.SystemId &&
+                string.Equals(left.Code, right.Code, StringComparison.Ordinal) &&
+                string.Equals(left.CodeOverflow, right.CodeOverflow, StringComparison.Ordinal),
+            row => HashCode.Combine(row.ResourceTypeId, row.ResourceSurrogateId, row.SearchParamId, row.SystemId, row.Code, row.CodeOverflow));
+
         private short _resourceIdSearchParamId;
         private readonly int _indexedCodeMaxLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength;
 
         public TokenSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
-            : base(model, searchParameterTypeMap)
+            : base(model, searchParameterTypeMap, RowComparer)
         {
         }
 

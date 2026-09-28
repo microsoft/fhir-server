@@ -18,16 +18,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         where TRow : struct
     {
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
+        private readonly IEqualityComparer<TRow> _rowComparer;
         private readonly bool _isConvertSearchValueOverridden;
         private bool _isInitialized;
 
-        protected MergeSearchParameterRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+        protected MergeSearchParameterRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap, IEqualityComparer<TRow> rowComparer = null)
         {
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
 
             Model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
+            _rowComparer = rowComparer;
             _isConvertSearchValueOverridden = GetType().GetMethod(nameof(ConvertSearchValue), BindingFlags.Instance | BindingFlags.NonPublic).DeclaringType != typeof(SearchParameterRowGenerator<TSearchValue, TRow>);
         }
 
@@ -45,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                         merge.ResourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                         merge.ResourceWrapper.LastModifiedClaims);
 
-                var resultsForDedupping = new HashSet<TRow>();
+                var resultsForDedupping = new HashSet<TRow>(_rowComparer);
 
                 foreach (SearchIndexEntry v in resourceMetadata.GetSearchIndexEntriesByType(typeof(TSearchValue)))
                 {

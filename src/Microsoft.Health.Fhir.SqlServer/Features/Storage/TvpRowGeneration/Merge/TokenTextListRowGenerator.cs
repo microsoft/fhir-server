@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -11,8 +12,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class TokenTextListRowGenerator : MergeSearchParameterRowGenerator<TokenSearchValue, TokenTextListRow>
     {
+        // Text is already normalized in the deduplication key; keep row equality ordinal.
+        private static readonly IEqualityComparer<TokenTextListRow> RowComparer = EqualityComparer<TokenTextListRow>.Create(
+            (left, right) =>
+                left.ResourceTypeId == right.ResourceTypeId &&
+                left.ResourceSurrogateId == right.ResourceSurrogateId &&
+                left.SearchParamId == right.SearchParamId &&
+                string.Equals(left.Text, right.Text, StringComparison.Ordinal),
+            row => HashCode.Combine(row.ResourceTypeId, row.ResourceSurrogateId, row.SearchParamId, row.Text));
+
         public TokenTextListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
-            : base(model, searchParameterTypeMap)
+            : base(model, searchParameterTypeMap, RowComparer)
         {
         }
 
