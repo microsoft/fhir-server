@@ -103,11 +103,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBulkDeleteRequestForStructureDefinition_WhenRequested_ThenBadRequestIsReturned(string path)
         {
             CheckBulkDeleteEnabled();
-            using HttpRequestMessage request = GenerateBulkDeleteRequest(Guid.NewGuid().ToString(), path);
+            using var request = new HttpRequestMessage(HttpMethod.Delete, new Uri(_httpClient.BaseAddress, path));
+            request.Headers.Add(KnownHeaders.Prefer, "respond-async");
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("StructureDefinition", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
         }
 
         [SkippableTheory]

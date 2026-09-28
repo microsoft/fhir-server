@@ -250,6 +250,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         [InlineData(false, null, null, true)]
         [InlineData(false, "Patient", "_include", true)]
         [InlineData(false, "Patient", "_revinclude", true)]
+        [InlineData(false, "Patient", "_include:iterate", true)]
+        [InlineData(false, "Patient", "_revinclude:iterate", true)]
+        [InlineData(false, "Patient", "_include:recurse", true)]
         [InlineData(false, "Patient", null, false)]
         [InlineData(true, null, null, false)]
         public async Task GivenCompletedBulkDeleteJob_WhenStatusRequested_ThenProtectedTypePolicyIsDisclosedWhenApplicable(bool allowDeletion, string resourceType, string includeParameter, bool expectWarning)
@@ -272,6 +275,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
             Assert.Equal(expectWarning, response.Issues.Any(issue => issue.DetailsText.Contains("StructureDefinition", StringComparison.Ordinal)));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenCompletedOrchestratorAndFailedProcessingJob_WhenStatusRequested_ThenWarningDoesNotHideFailure(bool wasCancelled)
+        {
+            var orchestrator = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, null, "test", "test", "test")),
+                Result = "Completed",
+            };
+            var failed = new JobInfo
+            {
+                Status = JobStatus.Failed,
+                CancelRequested = wasCancelled,
+                Definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", null, null, "test", "test", "test")),
+                Result = wasCancelled
+                    ? JsonConvert.SerializeObject(new BulkDeleteResult { Issues = { "A task was canceled." } })
+                    : JsonConvert.SerializeObject(new { message = "Unexpected failure" }),
+            };
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>())
+                .Returns(new List<JobInfo> { orchestrator, failed });
+
+            var response = await _handler.HandleAsync(new GetBulkDeleteRequest(1), CancellationToken.None);
+
+            Assert.Equal(wasCancelled ? System.Net.HttpStatusCode.OK : System.Net.HttpStatusCode.InternalServerError, response.HttpStatusCode);
+            Assert.Contains(response.Issues, issue => issue.Severity == OperationOutcomeConstants.IssueSeverity.Warning && issue.DetailsText.Contains("StructureDefinition", StringComparison.Ordinal));
+            Assert.Contains(response.Issues, issue =>
+                issue.Severity == (wasCancelled ? OperationOutcomeConstants.IssueSeverity.Warning : OperationOutcomeConstants.IssueSeverity.Error) &&
+                issue.DetailsText.Contains(wasCancelled ? "Job Canceled" : "Encountered an unhandled exception", StringComparison.Ordinal));
         }
 
         [Fact]

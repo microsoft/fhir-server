@@ -132,8 +132,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     var definition = job.DeserializeDefinition<BulkDeleteDefinition>();
                     bool mayIncludeStructureDefinition = string.IsNullOrEmpty(definition.Type) ||
                         definition.SearchParameters?.Any(parameter =>
-                            string.Equals(parameter.Item1, SearchParameterNames.Include, StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(parameter.Item1, KnownQueryParameterNames.ReverseInclude, StringComparison.OrdinalIgnoreCase)) == true;
+                        {
+                            string parameterName = parameter.Item1.Split(':')[0];
+                            return string.Equals(parameterName, SearchParameterNames.Include, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(parameterName, KnownQueryParameterNames.ReverseInclude, StringComparison.OrdinalIgnoreCase);
+                        }) == true;
 
                     if (!definition.AllowStructureDefinitionDeletion && mayIncludeStructureDefinition)
                     {
@@ -187,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 }
             }
 
-            if (failed && issues.Count > 0)
+            if (failed && issues.Any(issue => issue.Severity == OperationOutcomeConstants.IssueSeverity.Error))
             {
                 return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
             }
