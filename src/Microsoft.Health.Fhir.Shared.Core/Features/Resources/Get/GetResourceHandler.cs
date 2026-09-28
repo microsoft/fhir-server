@@ -66,8 +66,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 var results = await _searchService.SearchAsync(
                     key.ResourceType,
                     query,
-                    DataActions.Read | DataActions.ReadById,
-                    cancellationToken);
+                    cancellationToken,
+                    scopeDataActions: DataActions.Read | DataActions.ReadById);
 
                 if (results.Results.Any())
                 {

@@ -841,12 +841,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
         }
 
-        [Fact]
-        public void GivenReadByIdScopeActions_WhenCreatingConcreteResourceSearch_ThenReadByIdRestrictionIsApplied()
+        [Theory]
+        [InlineData(DataActions.Read)]
+        [InlineData(DataActions.ReadById)]
+        public void GivenReadOrReadByIdScope_WhenCreatingReadByIdSearch_ThenScopeIsApplied(DataActions grantedAction)
         {
+            // GetResourceHandler passes Read | ReadById because either a legacy .read scope or a SMART v2 .r scope
+            // authorizes a direct read by id. Verify each one independently satisfies the scope filter.
             _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
             _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
-                new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"));
+                new ScopeRestriction(KnownResourceTypes.All, grantedAction, "system"));
 
             SearchOptions options = _factory.Create(
                 KnownResourceTypes.Observation,
@@ -858,32 +862,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenReadByIdAndSearchScopes_WhenCreatingIncludeSearch_ThenOnlySearchScopedTypesArePassedToIncludeParser()
+        public void GivenWildcardReadByIdAndPatientSearchScopes_WhenIncludingPractitioner_ThenIncludeIsDropped()
         {
+            // system/*.r grants read by id for every type but search only for Patient, so
+            // Patient?_include=Patient:general-practitioner:Practitioner must not return Practitioner resources.
             _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
             _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
                 new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"));
             _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
                 new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search, "system"));
 
-            const string include = "Patient:general-practitioner";
-            _expressionParser.ParseInclude(
-                    Arg.Any<string[]>(),
-                    include,
-                    false,
-                    false,
-                    Arg.Any<IReadOnlyCollection<string>>())
-                .Throws(new InvalidSearchOperationException("Expected test exception."));
+            var generalPractitioner = new SearchParameterInfo(
+                "general-practitioner",
+                "general-practitioner",
+                ValueSets.SearchParamType.Reference,
+                targetResourceTypes: new[] { KnownResourceTypes.Practitioner, KnownResourceTypes.Organization, "PractitionerRole" });
 
-            Assert.Throws<InvalidSearchOperationException>(() =>
-                _factory.Create(
-                    resourceType: null,
-                    queryParameters: new[]
-                    {
-                        Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Patient),
-                        Tuple.Create(SearchParameterNames.Include, include),
-                    }));
+            const string include = "Patient:general-practitioner:Practitioner";
+            _expressionParser.ParseInclude(Arg.Any<string[]>(), include, false, false, Arg.Any<IReadOnlyCollection<string>>())
+                .Returns(x => new IncludeExpression(
+                    x.ArgAt<string[]>(0),
+                    generalPractitioner,
+                    KnownResourceTypes.Patient,
+                    KnownResourceTypes.Practitioner,
+                    referencedTypes: null,
+                    wildCard: false,
+                    reversed: false,
+                    iterate: false,
+                    x.ArgAt<IReadOnlyCollection<string>>(4)));
 
+            SearchOptions options = _factory.Create(
+                KnownResourceTypes.Patient,
+                queryParameters: new[] { Tuple.Create(SearchParameterNames.Include, include) });
+
+            // The wildcard read-by-id scope must not be offered to the include parser as an allowed type.
             _expressionParser.Received(1).ParseInclude(
                 Arg.Any<string[]>(),
                 include,
@@ -892,6 +904,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Arg.Is<IReadOnlyCollection<string>>(resourceTypes =>
                     resourceTypes.Count == 1 &&
                     resourceTypes.Contains(KnownResourceTypes.Patient)));
+            Assert.DoesNotContain("Include", options.Expression.ToString(), StringComparison.Ordinal);
         }
 
         [Fact]

@@ -32,7 +32,7 @@ public class ExpressionAccessControl
 
     public void CheckAndRaiseAccessExceptions(
         Expression expression,
-        IReadOnlyCollection<ScopeRestriction> applicableScopeRestrictions)
+        IReadOnlyCollection<ScopeRestriction> grantedScopes)
     {
         if (expression == null)
         {
@@ -48,7 +48,7 @@ public class ExpressionAccessControl
                     out IReadOnlyList<ChainedExpression> chainedExpressions,
                     out _))
             {
-                var validResourceTypes = applicableScopeRestrictions?.Select(r => r.Resource).ToHashSet();
+                var validResourceTypes = grantedScopes?.Select(r => r.Resource).ToHashSet();
 
                 // check resource type restrictions from SMART clinical scopes
                 foreach (var type in chainedExpressions

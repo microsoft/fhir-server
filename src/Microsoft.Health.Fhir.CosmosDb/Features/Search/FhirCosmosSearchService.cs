@@ -227,14 +227,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             bool onlyIds = false,
-            bool isIncludesOperation = false)
+            bool isIncludesOperation = false,
+            DataActions scopeDataActions = DataActions.Read | DataActions.Search)
         {
             if (isIncludesOperation)
             {
                 throw new SearchOperationNotSupportedException(Fhir.Core.Resources.UnsupportedIncludesOperation);
             }
 
-            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation, scopeDataActions);
         }
 
         public override bool IsValidResourceType(string resourceType)

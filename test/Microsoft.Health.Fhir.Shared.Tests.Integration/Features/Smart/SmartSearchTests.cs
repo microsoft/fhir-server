@@ -2807,8 +2807,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             results = await _searchService.Value.SearchAsync(
                 KnownResourceTypes.Observation,
                 query,
-                Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.ReadById,
-                CancellationToken.None);
+                CancellationToken.None,
+                scopeDataActions: Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.ReadById);
             Assert.Collection(results.Results, result => Assert.Equal("smart-observation-A1", result.Resource.ResourceId));
         }
 
