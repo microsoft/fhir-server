@@ -126,7 +126,6 @@
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" />
     <PackageReference Include="Microsoft.Identity.Web" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.Rest.ClientRuntime" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" />
     <PackageReference Include="Microsoft.SqlServer.DACFx" />
@@ -163,12 +162,9 @@
     <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="System.Text.Encodings.Web" />
     <PackageReference Include="System.Text.RegularExpressions" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.assert" />
-    <PackageReference Include="xunit.extensibility.core" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Xunit.SkippableFact" />
-    <PackageReference Include="YTest.MTP.XUnit2" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
 
   <!--
