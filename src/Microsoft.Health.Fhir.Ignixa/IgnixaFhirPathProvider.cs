@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Ignixa
     /// </summary>
     public sealed class IgnixaFhirPathProvider : IFhirPathProvider
     {
-        private const int CacheSize = 4096;
+        internal const int CacheSize = 4096;
         private readonly ConcurrentDictionary<string, ICompiledFhirPath> _cache = new(StringComparer.Ordinal);
         private readonly Queue<string> _insertionOrder = new();
         private readonly object _cacheMutationSync = new();
