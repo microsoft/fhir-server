@@ -3,11 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.ComponentModel;
+
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     /// <summary>
     /// Selects the SDK provider independently for each migrated seam.
+    /// A legacy scalar value (for example <c>"Ignixa"</c>) binds to <see cref="Default"/>.
     /// </summary>
+    [TypeConverter(typeof(FhirSdkProviderConfigurationConverter))]
     public sealed class FhirSdkProviderConfiguration
     {
         /// <summary>
