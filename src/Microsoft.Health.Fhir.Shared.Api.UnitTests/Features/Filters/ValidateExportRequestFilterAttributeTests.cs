@@ -191,6 +191,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
+        [InlineData("application/fhir+json; charset=utf-8")]
+        [InlineData("application/fhir+json;charset=utf-8")]
+        [InlineData("application/fhir+json; charset=UTF-8")]
+        public void GivenARequestWithAcceptHeaderContainingMediaTypeParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(string acceptHeader)
+        {
+            // .NET HttpClient automatically appends "; charset=utf-8" to the Accept header.
+            // Validate that media type parameters do not cause the request to be rejected.
+            var context = CreateContext();
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = acceptHeader;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
+
+            _filter.OnActionExecuting(context);
+        }
+
+        [Theory]
         [InlineData("respond-async", true)]
         [InlineData("respond-async,handling=strict", true)]
         [InlineData("  respond-async ,  handling    =   strict  ", true)]
