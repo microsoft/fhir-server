@@ -54,12 +54,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected HttpIntegrationTestFixture Fixture { get; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _createdResource = await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_createdResource?.Resource != null)
             {
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 userMessage: $"Record 0's latest update ({readResponse[0].Resource.Meta.LastUpdated}) is not greater or equal than Record's 1 latest update ({readResponse[1].Resource.Meta.LastUpdated}).");
         }
 
-        [RetryFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
