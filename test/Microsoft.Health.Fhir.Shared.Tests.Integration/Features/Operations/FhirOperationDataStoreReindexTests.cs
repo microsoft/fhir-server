@@ -43,16 +43,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             _operationDataStore = fixture.TestSqlServerOperationDataStore ?? fixture.OperationDataStore;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             GetTestQueueClient().ClearJobs();
 
             await AssertNoReindexJobsExist();
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         private async Task AssertNoReindexJobsExist()
