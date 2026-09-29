@@ -12,7 +12,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Data.SqlClient;
-using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
@@ -41,10 +40,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenEmbeddingIsDelayed_WhenWritingResource_ThenTransactionHeartbeatAdvancesBeforeEmbeddingCompletes()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
 
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
@@ -82,10 +81,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await createTask;
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenRequestIsCancelledDuringEmbedding_WhenWritingResource_ThenCancellationIsPropagated()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
 
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
@@ -115,10 +114,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenHeartbeatSqlFailsDuringEmbedding_WhenWritingResource_ThenRequestFailsPromptly()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
 
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
@@ -158,10 +157,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenDirectTextResources_WhenOrdinarySearchIsInvoked_ThenFiltersScoresAndPagingArePreserved()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
 
             await EnsureSearchParameterIsEnabledAsync(
                 "observation-semantic",
@@ -202,10 +201,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(afterEmptyExtraction.Entry, entry => entry.Resource.Id == second.Id);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenNewDirectTextSearchParameter_WhenActivatedAndReindexed_ThenExistingResourceIsSearchable()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
 
             Patient patient = await CreateAsync(new Patient { Active = true });
             Organization payor = await CreateAsync(new Organization { Active = true, Name = "Semantic search test payor" });
