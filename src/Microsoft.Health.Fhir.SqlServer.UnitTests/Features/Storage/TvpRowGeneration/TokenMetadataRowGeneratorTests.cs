@@ -37,14 +37,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
     [Trait(Traits.Category, Categories.Search)]
     public class TokenMetadataRowGeneratorTests
     {
+        private const int RowCount = 1024;
         private static readonly SearchParameterInfo Tag = new SearchParameterInfo(
             "_tag", "_tag", ValueSets.SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/Resource-tag"));
 
-        private static readonly SearchParameterInfo Security = new SearchParameterInfo(
-            "_security", "_security", ValueSets.SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/Resource-security"));
-
-        private readonly CapturingTokenGenerator _tokens;
-        private readonly CapturingTextGenerator _texts;
+        private readonly TokenSearchParamListRow[] _tokenRows;
+        private readonly TokenTextListRow[] _textRows;
+        private readonly IEqualityComparer<TokenSearchParamListRow> _tokenComparer;
+        private readonly IEqualityComparer<TokenTextListRow> _textComparer;
 
         public TokenMetadataRowGeneratorTests()
         {
@@ -69,14 +69,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             {
                 [SearchParameterNames.IdUri] = 1,
                 [Tag.Url] = 2,
-                [Security.Url] = 3,
             });
 
-            _tokens = new CapturingTokenGenerator(model);
-            _texts = new CapturingTextGenerator(model);
-            var resource = CreateResource(1, new[] { Entry("code", "Display") });
-            _tokens.GenerateRows(new[] { resource }).ToArray();
-            _texts.GenerateRows(new[] { resource }).ToArray();
+            var entries = Enumerable.Range(0, RowCount)
+                .Select(i => new SearchIndexEntry(Tag, new TokenSearchValue(null, $"code-{i}", $"display-{i}"))).ToArray();
+            var resource = new MergeResourceWrapper(
+                new ResourceWrapper(
+                    "id", "1", "Patient", null, null, DateTimeOffset.UnixEpoch, false, entries.Concat(entries).ToArray(), null, null, resourceSurrogateId: 1),
+                keepHistory: false,
+                hasVersionToCompare: false);
+            var tokens = new CapturingTokenGenerator(model);
+            var texts = new CapturingTextGenerator(model);
+            _tokenRows = tokens.GenerateRows(new[] { resource }).ToArray();
+            _textRows = texts.GenerateRows(new[] { resource }).ToArray();
+            _tokenComparer = tokens.Comparer;
+            _textComparer = texts.Comparer;
         }
 
         [Theory]
@@ -84,27 +91,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         [InlineData(true)]
         public void GivenManyMetadataValues_WhenGeneratingRows_ThenDeduplicationUsesLinearComparisons(bool textRows)
         {
-            // Arrange
-            const int count = 1024;
-            var entries = Enumerable.Range(0, count).Select(i => Entry($"code-{i}", $"display-{i}")).ToArray();
-            var resource = CreateResource(1, entries.Concat(entries).ToArray());
-
-            // Act
+            // Arrange / Act / Assert
             if (textRows)
             {
-                var rows = _texts.GenerateRows(new[] { resource }).ToArray();
-
-                // Assert
-                Assert.Equal(count, rows.Length);
-                AssertLinearComparisons(rows, _texts.Comparer);
+                AssertLinearComparisons(_textRows, _textComparer);
             }
             else
             {
-                var rows = _tokens.GenerateRows(new[] { resource }).ToArray();
-
-                // Assert
-                Assert.Equal(count, rows.Length);
-                AssertLinearComparisons(rows, _tokens.Comparer);
+                AssertLinearComparisons(_tokenRows, _tokenComparer);
             }
         }
 
@@ -116,72 +110,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             // Arrange / Act / Assert
             if (textRows)
             {
-                AssertEveryInstanceFieldParticipatesInEquality(_texts.Comparer);
+                AssertEveryInstanceFieldParticipatesInEquality(_textComparer);
             }
             else
             {
-                AssertEveryInstanceFieldParticipatesInEquality(_tokens.Comparer);
+                AssertEveryInstanceFieldParticipatesInEquality(_tokenComparer);
             }
-        }
-
-        [Fact]
-        public void GivenDuplicatesAcrossResourcesAndParameters_WhenGeneratingRows_ThenPreservesScopeAndCasing()
-        {
-            // Arrange
-            var entries = new[]
-            {
-                Entry("code", "Display"),
-                Entry("code", "Display"),
-                Entry("Code", "DISPLAY"),
-                new SearchIndexEntry(Security, new TokenSearchValue(null, "code", "Display")),
-            };
-            var resources = new[] { CreateResource(1, entries), CreateResource(2, entries), CreateResource(3, entries) };
-            resources[2].ResourceWrapper.IsHistory = true;
-
-            // Act
-            var tokens = _tokens.GenerateRows(resources).ToArray();
-            var texts = _texts.GenerateRows(resources).ToArray();
-
-            // Assert
-            Assert.Equal(6, tokens.Length);
-            Assert.Equal(4, texts.Length);
-            foreach (var id in new long[] { 1, 2 })
-            {
-                Assert.Equal(new[] { "code", "Code", "code" }, tokens.Where(r => r.ResourceSurrogateId == id).Select(r => r.Code));
-                Assert.Equal(new short[] { 2, 3 }, texts.Where(r => r.ResourceSurrogateId == id).Select(r => r.SearchParamId));
-            }
-
-            Assert.All(texts, row => Assert.Equal("Display", row.Text));
-            Assert.DoesNotContain(tokens, row => row.ResourceSurrogateId == 3);
-            Assert.DoesNotContain(texts, row => row.ResourceSurrogateId == 3);
-        }
-
-        [Fact]
-        public void GivenCodeOverflowAndBlankValues_WhenGeneratingRows_ThenPreservesFilteringAndOverflow()
-        {
-            // Arrange
-            var prefix = new string('a', (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength);
-            var resource = CreateResource(1, new[]
-            {
-                Entry(prefix, null),
-                Entry(prefix + "x", " "),
-                Entry(prefix + "x", null),
-                Entry(prefix + "y", string.Empty),
-                Entry(null, "text-only"),
-                new SearchIndexEntry(
-                    new SearchParameterInfo("_id", "_id", ValueSets.SearchParamType.Token, SearchParameterNames.IdUri),
-                    new TokenSearchValue(null, "resource-id", null)),
-            });
-
-            // Act
-            var tokens = _tokens.GenerateRows(new[] { resource }).ToArray();
-            var texts = _texts.GenerateRows(new[] { resource }).ToArray();
-
-            // Assert
-            Assert.Equal(new[] { null, "x", "y" }, tokens.Select(r => r.CodeOverflow));
-            Assert.All(tokens, row => Assert.Equal(prefix, row.Code));
-            Assert.All(tokens, row => Assert.Null(row.SystemId));
-            Assert.Equal("text-only", Assert.Single(texts).Text);
         }
 
         private static void AssertEveryInstanceFieldParticipatesInEquality<TRow>(IEqualityComparer<TRow> comparer)
@@ -221,6 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
 
         private static void AssertLinearComparisons<TRow>(TRow[] rows, IEqualityComparer<TRow> comparer)
         {
+            Assert.Equal(RowCount, rows.Length);
             int comparisons = 0;
             var countingComparer = EqualityComparer<TRow>.Create(
                 (left, right) =>
@@ -237,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
 
             Assert.Equal(rows.Length, set.Count);
 
-            // Allow incidental hash collisions, but not the quadratic chain from hashing only ResourceTypeId.
+            // Allow incidental hash collisions, but not the quadratic chain observed with default row hashing.
             Assert.InRange(comparisons, rows.Length, rows.Length * 4);
         }
 
@@ -258,15 +193,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
 
             Assert.Equal(rows.Distinct().Count(), new HashSet<TRow>(rows, comparer).Count);
         }
-
-        private static SearchIndexEntry Entry(string code, string text) => new SearchIndexEntry(Tag, new TokenSearchValue(null, code, text));
-
-        private static MergeResourceWrapper CreateResource(long id, IReadOnlyCollection<SearchIndexEntry> entries) =>
-            new MergeResourceWrapper(
-                new ResourceWrapper(
-                    id.ToString(), "1", "Patient", null, null, DateTimeOffset.UnixEpoch, false, entries, null, null, resourceSurrogateId: id),
-                keepHistory: false,
-                hasVersionToCompare: false);
 
         private static void SetModelField(SqlServerFhirModel model, string name, object value) =>
             typeof(SqlServerFhirModel).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(model, value);

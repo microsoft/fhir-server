@@ -12,7 +12,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class TokenTextListRowGenerator : MergeSearchParameterRowGenerator<TokenSearchValue, TokenTextListRow>
     {
-        // Text is already normalized in the deduplication key; keep row equality ordinal.
+        // Generated rows have no custom hashing; default struct hashing can cluster rows sharing ResourceTypeId,
+        // causing quadratic HashSet equality work for large metadata sets. Hash all fields to distribute rows
+        // while retaining full-field equality. Text is already normalized in the deduplication key,
+        // so ordinal comparison preserves the existing semantics.
         private static readonly IEqualityComparer<TokenTextListRow> RowComparer = EqualityComparer<TokenTextListRow>.Create(
             (left, right) =>
                 left.ResourceTypeId == right.ResourceTypeId &&

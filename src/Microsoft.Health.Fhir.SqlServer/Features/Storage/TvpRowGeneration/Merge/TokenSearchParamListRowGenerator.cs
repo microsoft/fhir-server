@@ -13,7 +13,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class TokenSearchParamListRowGenerator : MergeSearchParameterRowGenerator<TokenSearchValue, TokenSearchParamListRow>
     {
-        // Default hashing of the generated struct can collapse all rows for a resource into one bucket.
+        // Generated rows have no custom hashing; default struct hashing can put rows sharing ResourceTypeId
+        // into the same hash bucket, making HashSet deduplication quadratic for large metadata sets.
+        // Hash all fields to distribute these rows while preserving default full-field equality.
         private static readonly IEqualityComparer<TokenSearchParamListRow> RowComparer = EqualityComparer<TokenSearchParamListRow>.Create(
             (left, right) =>
                 left.ResourceTypeId == right.ResourceTypeId &&
