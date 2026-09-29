@@ -144,6 +144,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         }
 
         [Fact]
+        public void GivenIgnixaCacheAtCapacity_WhenNewExpressionsAreCompiled_ThenOldestAreEvictedInInsertionOrder()
+        {
+            var provider = new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+            static string ExpressionFor(int index) => $"{index}";
+
+            ICompiledFhirPath[] firstGeneration = Enumerable.Range(0, IgnixaFhirPathProvider.CacheSize)
+                .Select(i => provider.Compile(ExpressionFor(i)))
+                .ToArray();
+
+            // Every entry is still cached while the cache is exactly at capacity.
+            Assert.Same(firstGeneration[0], provider.Compile(ExpressionFor(0)));
+            Assert.Same(firstGeneration[^1], provider.Compile(ExpressionFor(IgnixaFhirPathProvider.CacheSize - 1)));
+
+            const int Overflow = 3;
+            for (int i = IgnixaFhirPathProvider.CacheSize; i < IgnixaFhirPathProvider.CacheSize + Overflow; i++)
+            {
+                provider.Compile(ExpressionFor(i));
+            }
+
+            // The oldest entry that was not evicted is still shared.
+            Assert.Same(firstGeneration[Overflow], provider.Compile(ExpressionFor(Overflow)));
+            Assert.Same(firstGeneration[^1], provider.Compile(ExpressionFor(IgnixaFhirPathProvider.CacheSize - 1)));
+
+            // The oldest entries were evicted, so compiling them again produces new, working instances.
+            for (int i = 0; i < Overflow; i++)
+            {
+                ICompiledFhirPath recompiled = provider.Compile(ExpressionFor(i));
+                Assert.NotSame(firstGeneration[i], recompiled);
+                Assert.Same(recompiled, provider.Compile(ExpressionFor(i)));
+            }
+        }
+
+        [Fact]
         public void GivenFirelyProvider_WhenHelpersEvaluate_ThenFirely5114BehaviorIsPreserved()
         {
             var patient = new Patient
