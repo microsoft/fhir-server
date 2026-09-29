@@ -198,6 +198,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
             services.TryAddSingleton<ISearchParameterCacheRefresherMetricHandler, DefaultSearchParameterCacheRefresherMetricHandler>();
             services.TryAddSingleton<IServiceMetricHandler, DefaultServiceMetricHandler>();
+            services.TryAddSingleton<IThrottlingMetricHandler, DefaultThrottlingMetricHandler>();
 
             // Job metric handlers.
             services.TryAddSingleton<IBulkDeleteMetricHandler, DefaultBulkDeleteMetricHandler>();

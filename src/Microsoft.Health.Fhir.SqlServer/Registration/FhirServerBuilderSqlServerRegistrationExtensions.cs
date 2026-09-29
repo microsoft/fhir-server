@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Medino;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -24,10 +25,12 @@ using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
+using Microsoft.Health.Fhir.SqlServer.Features.Metrics;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -229,6 +232,12 @@ namespace Microsoft.Extensions.DependencyInjection
             // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
+
+            services.TryAddSingleton<ISqlConnectionPoolMetricHandler, DefaultSqlConnectionPoolMetricHandler>();
+            services.Add<SqlConnectionPoolMetricsReporter>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>();
 
             IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
                 .AssignableTo<IJob>()

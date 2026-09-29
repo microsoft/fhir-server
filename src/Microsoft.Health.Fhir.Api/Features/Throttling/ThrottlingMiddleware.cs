@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 
 namespace Microsoft.Health.Fhir.Api.Features.Throttling
 {
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         private readonly RequestDelegate _next;
         private readonly IHttpInboundRequestLogger _inboundRequestLogger;
+        private readonly IThrottlingMetricHandler _metricHandler;
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly HashSet<(string method, string path)> _excludedEndpoints;
         private readonly bool _securityEnabled;
@@ -52,6 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private readonly LinkedList<TaskCompletionSource<object>> _queue = new LinkedList<TaskCompletionSource<object>>();
 
         private int _requestsInFlight;
+        private int _peakRequestsInFlight;
         private int _currentPeriodSuccessCount;
         private int _currentPeriodRejectedCount;
         private int _currentRetryAfterMilliseconds = MinRetryAfterMilliseconds;
@@ -65,10 +68,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             IOptions<ThrottlingConfiguration> throttlingConfiguration,
             IOptions<SecurityConfiguration> securityConfiguration,
             IHttpInboundRequestLogger inboundRequestLogger,
+            IThrottlingMetricHandler metricHandler,
             ILogger<ThrottlingMiddleware> logger)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _inboundRequestLogger = EnsureArg.IsNotNull(inboundRequestLogger, nameof(inboundRequestLogger));
+            _metricHandler = EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             ThrottlingConfiguration configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
@@ -130,6 +135,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                         successRate >= TargetSuccessPercentage
                             ? Math.Max(MinRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate))
                             : Math.Min(MaxRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate));
+
+                    ReportConcurrencyMetrics();
                 }
                 catch (TaskCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
                 {
@@ -140,6 +147,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     _logger.LogError(e, "Unexpected failure in background sampling loop");
                 }
             }
+        }
+
+        /// <summary>
+        /// Reports the current and peak requests in flight and the queue length, then starts a new peak window at the current in-flight count.
+        /// </summary>
+        internal void ReportConcurrencyMetrics()
+        {
+            if (!_throttlingEnabled)
+            {
+                return;
+            }
+
+            int requestsInFlight;
+            int peakRequestsInFlight;
+            int queuedRequests;
+            lock (_queue)
+            {
+                requestsInFlight = _requestsInFlight;
+                peakRequestsInFlight = _peakRequestsInFlight;
+                queuedRequests = _queue.Count;
+                _peakRequestsInFlight = _requestsInFlight;
+            }
+
+            _metricHandler.ReportConcurrency(requestsInFlight, peakRequestsInFlight, queuedRequests, _concurrentRequestLimit);
         }
 
         public async Task Invoke(HttpContext context)
@@ -180,6 +211,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                         {
                             canRun = true;
                             _requestsInFlight++;
+                            if (_requestsInFlight > _peakRequestsInFlight)
+                            {
+                                _peakRequestsInFlight = _requestsInFlight;
+                            }
+
                             break;
                         }
 

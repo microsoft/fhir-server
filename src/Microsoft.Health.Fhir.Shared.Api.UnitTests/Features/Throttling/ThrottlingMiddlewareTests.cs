@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -47,6 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         private ServiceCollection _collection = new ServiceCollection();
         private ServiceProvider _provider;
         private ThrottlingConfiguration _throttlingConfiguration;
+        private IThrottlingMetricHandler _metricHandler = Substitute.For<IThrottlingMetricHandler>();
         private bool _securityEnabled = true;
 
         public ThrottlingMiddlewareTests()
@@ -90,6 +92,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                     Options.Create(_throttlingConfiguration),
                     Options.Create(new SecurityConfiguration { Enabled = _securityEnabled }),
                     inboundRequestLogger,
+                    _metricHandler,
                     NullLogger<ThrottlingMiddleware>.Instance));
 
             IActionResultExecutor<ObjectResult> executor = Substitute.For<IActionResultExecutor<ObjectResult>>();
@@ -269,6 +272,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
                 inboundRequestLogger,
+                _metricHandler,
                 NullLogger<ThrottlingMiddleware>.Instance);
 
             await throttlingMiddleware.Invoke(_httpContext);
@@ -290,6 +294,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
                 inboundRequestLogger,
+                _metricHandler,
                 NullLogger<ThrottlingMiddleware>.Instance);
 
             _httpContext.Response.Body = new MemoryStream();
@@ -303,6 +308,52 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             OperationOutcome resourceType = JsonSerializer.Deserialize<OperationOutcome>(responseBody, options);
 
             Assert.Equal(OperationOutcome.IssueType.Throttled, resourceType.Issue[0].Code);
+        }
+
+        [Fact]
+        public void GivenRequestsInFlightAndQueued_WhenConcurrencyMetricsReported_ThenInFlightQueueAndLimitAreReported()
+        {
+            const int limit = 3;
+            _throttlingConfiguration.ConcurrentRequestLimit = limit;
+            _throttlingConfiguration.MaxMillisecondsInQueue = 5000000;
+            _throttlingConfiguration.MaxQueueSize = 10;
+
+            _ = SetupPreexistingRequests(limit + 2);
+
+            _middleware.Value.ReportConcurrencyMetrics();
+
+            _metricHandler.Received().ReportConcurrency(limit, limit, 2, limit);
+            _cts.Cancel();
+        }
+
+        [Fact]
+        public async Task GivenRequestsCompletedSincePreviousSample_WhenConcurrencyMetricsReported_ThenPeakIsReportedAndResetToCurrent()
+        {
+            _throttlingConfiguration.ConcurrentRequestLimit = 5;
+            List<(Task task, HttpContext httpContext, CancellationTokenSource cancellationTokenSource)> requests = SetupPreexistingRequests(4);
+
+            foreach ((Task task, HttpContext _, CancellationTokenSource cancellationTokenSource) in requests.Take(3))
+            {
+                cancellationTokenSource.Cancel();
+                await task;
+            }
+
+            _middleware.Value.ReportConcurrencyMetrics();
+            _middleware.Value.ReportConcurrencyMetrics();
+
+            _metricHandler.Received(1).ReportConcurrency(1, 4, 0, 5);
+            _metricHandler.Received().ReportConcurrency(1, 1, 0, 5);
+            _cts.Cancel();
+        }
+
+        [Fact]
+        public void GivenThrottlingDisabled_WhenConcurrencyMetricsReported_ThenNothingIsReported()
+        {
+            _throttlingConfiguration.Enabled = false;
+
+            _middleware.Value.ReportConcurrencyMetrics();
+
+            _metricHandler.DidNotReceiveWithAnyArgs().ReportConcurrency(default, default, default, default);
         }
 
         private List<(Task task, HttpContext httpContext, CancellationTokenSource cancellationTokenSource)> SetupPreexistingRequests(int numberOfConcurrentRequests, string path = "")
