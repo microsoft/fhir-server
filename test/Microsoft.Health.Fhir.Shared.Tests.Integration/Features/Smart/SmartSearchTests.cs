@@ -2770,10 +2770,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenSmartV2WildcardReadByIdAndPatientSearchScopes_WhenSearchingAcrossResourceTypes_ThenOnlyPatientsAreReturned()
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -2812,7 +2812,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Collection(results.Results, result => Assert.Equal("smart-observation-A1", result.Resource.ResourceId));
         }
 
-        [SkippableFact]
         [Fact]
         public async Task GivenSmartV2ObservationSearchScopeWithoutAndWithCodeAndStatusFilter_WhenSearching_ThenResultsAreReturnAsExpected()
         {
