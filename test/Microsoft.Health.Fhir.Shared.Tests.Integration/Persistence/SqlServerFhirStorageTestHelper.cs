@@ -426,7 +426,7 @@ UPDATE dbo.SearchParam
             collection.AddScoped(schemaUpgradeRunnerFactory);
             var serviceProvider = collection.BuildServiceProvider();
             var schemaInformationForInit = new SchemaInformation(minSchemaVersion, minSchemaVersion);
-            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), Substitute.For<ISchemaMetrics>(), NullLogger<SchemaInitializer>.Instance);
             return (schemaInitializer, schemaUpgradeRunner);
         }
 
