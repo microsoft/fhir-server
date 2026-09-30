@@ -526,6 +526,11 @@ public class CosmosQueueClient : IQueueClient
         return await GetActiveJobsByQueueTypeInternalAsync(queueType, returnParentOnly, cancellationToken);
     }
 
+    public async Task<JobInfo> GetMostRecentJobByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
     private async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeInternalAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
     {
         QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c

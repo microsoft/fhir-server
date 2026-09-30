@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (resourceIdList.Contains(resourceId))
                         {
                             string requestUrl = BuildRequestUrlForConditionalQueries(entry, conditionalCreateQuery);
+                            _logger.LogWarning("RequestNotValidException: ResourcesMustBeUnique");
                             throw new RequestNotValidException(string.Format(Api.Resources.ResourcesMustBeUnique, requestUrl));
                         }
 
@@ -97,6 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 string[] conditionalUpdate = entry.Request.Url.Split('?');
                 if (conditionalUpdate.Length <= 1)
                 {
+                    _logger.LogWarning("RequestNotValidException: InvalidBundleEntryRequest");
                     throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, entry.Request.Method));
                 }
 
@@ -114,7 +116,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (matchedResults?.Count > 1)
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enought
-                _logger.LogInformation("PreconditionFailed: ConditionalOperationInBundleNotSelectiveEnough");
+                _logger.LogWarning("PreconditionFailed: ConditionalOperationInBundleNotSelectiveEnough");
                 throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationInBundleNotSelectiveEnough, conditionalQueries));
             }
             else if (matchedResults?.Count == 1)

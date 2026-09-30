@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -41,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [RetryTheory]
+        [Theory]
         [InlineData("SearchParameterBadSyntax", "The search parameter definition contains one or more invalid entries.")]
 #if Stu3 || R4 || R4B
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]

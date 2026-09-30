@@ -299,6 +299,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        [Theory]
+        [InlineData("lt9999-12-31", true)]
+        [InlineData("le9999-12-31", true)]
+        [InlineData("gt9999-12-31", false)]
+        [InlineData("ge9999-12-31", false)]
+        [InlineData("lt9999-12-31T23:59:59.999Z", true)]
+        [InlineData("le9999-12-31T23:59:59.999Z", true)]
+        [InlineData("gt9999-12-31T23:59:59.999Z", false)]
+        [InlineData("ge9999-12-31T23:59:59.999Z", false)]
+        [InlineData("lt3654-06-18T21:21:00.6839999Z", true)]
+        [InlineData("le3654-06-18T21:21:00.6839999Z", true)]
+        [InlineData("gt3654-06-18T21:21:00.6839999Z", false)]
+        [InlineData("ge3654-06-18T21:21:00.6839999Z", false)]
+        [InlineData("ge1970-01-01T00:00:00Z", true)]
+        [InlineData("lt1970-01-01T00:00:00Z", false)]
+        public async Task GivenALargeLastUpdatedSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, bool resourceSearched)
+        {
+            try
+            {
+                Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"_lastUpdated={queryValue}&code={Fixture.Coding.Code}");
+
+                if (resourceSearched)
+                {
+                    ValidateBundle(bundle, Fixture.Observations.ToArray());
+                }
+                else
+                {
+                    Assert.Empty(bundle.Entry);
+                }
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
         private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
         {
             patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } };

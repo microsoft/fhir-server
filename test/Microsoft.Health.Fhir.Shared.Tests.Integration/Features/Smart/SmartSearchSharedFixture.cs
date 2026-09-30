@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         public FhirStorageTestsFixture Fixture => _fixture;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             if (ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B)
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             await UpsertResource(Samples.GetJsonSample<Location>("Location-example-hq"));
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_fixture != null)
             {

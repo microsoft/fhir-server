@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -162,12 +163,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         [Fact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()
@@ -905,9 +906,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.True(resourceTypeParam.IsSupported, $"_type should remain supported after initialization cycle {i + 1}");
             }
 
-            // Also verify that ApplySearchParameterStatus (called during refresh) doesn't
+            // Also verify that ApplySearchParameterStatuses (called during refresh) doesn't
             // affect _type, since it only processes statuses passed to it and _type has none.
-            await statusManager.ApplySearchParameterStatus(
+            await statusManager.ApplySearchParameterStatuses(
                 new[]
                 {
                     new ResourceSearchParameterStatus

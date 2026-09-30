@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
     public class AzureBlobIntegrationDataStoreClient : IIntegrationDataStoreClient
     {
         private IIntegrationDataStoreClientInitializer _integrationDataStoreClientInitializer;
-        private IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private IntegrationStoreRetryExceptionPolicyFactory _integrationStoreRetryExceptionPolicyFactory;
         private ILogger<AzureBlobIntegrationDataStoreClient> _logger;
 
@@ -40,7 +39,6 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _integrationDataStoreClientInitializer = integrationDataStoreClientInitializer;
-            _integrationDataStoreConfiguration = integrationDataStoreConfiguration.Value;
             _integrationStoreRetryExceptionPolicyFactory = new IntegrationStoreRetryExceptionPolicyFactory(integrationDataStoreConfiguration);
             _logger = logger;
         }
@@ -48,6 +46,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         public Stream DownloadResource(Uri resourceUri, long startOffset, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
+            {
+                return InMemoryTestDataSource.GetStream(startOffset);
+            }
 
             return new AzureBlobSourceStream(async () => await _integrationDataStoreClientInitializer.GetAuthorizedBlobClientAsync(resourceUri), startOffset, _logger);
         }
@@ -163,6 +166,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
+            {
+                return InMemoryTestDataSource.GetProperties();
+            }
+
             try
             {
                 return await _integrationStoreRetryExceptionPolicyFactory
@@ -202,6 +210,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
+            {
+                return InMemoryTestDataSource.AcquireLease();
+            }
+
             try
             {
                 BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
@@ -224,6 +237,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         public async Task TryReleaseLeaseAsync(Uri resourceUri, string leaseId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+
+            if (InMemoryTestDataSource.IsTestSourceUri(resourceUri))
+            {
+                return;
+            }
 
             try
             {

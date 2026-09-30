@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
-            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
+            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatuses(Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
-            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
+            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatuses(Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -280,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var newWrapper = CreateResourceWrapper(newResource, false);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(oldWrapper);
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new List<ResourceSearchParameterStatus>());
 
             var contextProperties = new Dictionary<string, object>();
