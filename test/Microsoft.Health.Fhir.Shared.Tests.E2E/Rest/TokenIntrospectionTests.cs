@@ -68,7 +68,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             Assert.True(response.TryGetValue("iss", out _), $"Response missing 'iss' claim. Response: {responseJson}");
             Assert.True(response.TryGetValue("aud", out _), $"Response missing 'aud' claim. Response: {responseJson}");
             Assert.True(response.TryGetValue("exp", out JsonElement expirationElement), $"Response missing 'exp' claim. Response: {responseJson}");
-            Assert.True(response.TryGetValue("client_id", out _), $"Response missing 'client_id' claim. Response: {responseJson}");
+            Assert.True(response.TryGetValue("client_id", out JsonElement clientIdElement), $"Response missing 'client_id' claim. Response: {responseJson}");
+            Assert.Equal(TestApplications.GlobalAdminServicePrincipal.ClientId, clientIdElement.GetString());
 
             // Verify timestamps are Unix timestamps (positive numbers)
             Assert.True(expirationElement.GetInt64() > 0);
@@ -261,6 +262,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             Assert.True(readerResponse.TryGetValue("client_id", out JsonElement readerClientIdElement), $"Reader response missing 'client_id'. Response: {readerResponseJson}");
             var adminClientId = adminClientIdElement.GetString();
             var readerClientId = readerClientIdElement.GetString();
+            Assert.Equal(TestApplications.GlobalAdminServicePrincipal.ClientId, adminClientId);
+            Assert.Equal(TestApplications.ReadOnlyUser.ClientId, readerClientId);
             Assert.NotEqual(adminClientId, readerClientId);
         }
 

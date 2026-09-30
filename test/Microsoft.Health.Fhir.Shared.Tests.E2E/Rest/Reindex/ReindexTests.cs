@@ -26,11 +26,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
 using Newtonsoft.Json;
 using Polly;
 using Xunit;
-using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Bundle;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using Task = System.Threading.Tasks.Task;
@@ -57,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _retries = Policy.Handle<Exception>().RetryAsync(3);
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             // delete leftover resources from previous test runs
             // this guarantees that we start from clean state even on previous hard failures when we cannot rely on finally
@@ -91,9 +89,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _output.WriteLine($"ReindexTests.InitializeAsync: Completed. Elapsed={(int)sw.Elapsed.TotalMilliseconds} msec.");
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         [Fact]
