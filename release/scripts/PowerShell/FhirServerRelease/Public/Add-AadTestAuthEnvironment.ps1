@@ -193,8 +193,11 @@ function Add-AadTestAuthEnvironment {
             $registrationParams.AppRoles = $appRoles
         }
 
-        $newApplication = New-FhirServerApiApplicationRegistration @registrationParams
-        $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
+        # Use the identity returned by the registration directly. Re-querying Microsoft Graph
+        # immediately after creation can return nothing while the new application propagates,
+        # which previously left $application null and failed later with
+        # "The property 'AppId' cannot be found on this object".
+        $application = New-FhirServerApiApplicationRegistration @registrationParams
         $createdApplication = $true
     }
 
