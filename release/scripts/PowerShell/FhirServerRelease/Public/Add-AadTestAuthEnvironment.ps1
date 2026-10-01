@@ -74,6 +74,23 @@ function Add-AadTestAuthEnvironment {
 
     Write-Host "Setting up Test Authorization Environment for Microsoft Graph"
 
+    # "AAD setup timing:" lines show where setup time goes so pipeline runs can be compared. They
+    # log only durations and test-configuration keys, never secrets, Graph identifiers, or
+    # response content.
+    function Step-AadSetupTimer {
+        param(
+            [Parameter(Mandatory = $true)]
+            [System.Diagnostics.Stopwatch]$Timer
+        )
+
+        $elapsedMs = $Timer.ElapsedMilliseconds
+        $Timer.Restart()
+        return $elapsedMs
+    }
+
+    $setupTimer = [System.Diagnostics.Stopwatch]::StartNew()
+    $phaseTimer = [System.Diagnostics.Stopwatch]::StartNew()
+
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
     $keyVault = Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName
@@ -97,6 +114,7 @@ function Add-AadTestAuthEnvironment {
     }
 
     $keyVaultResourceId = (Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName).ResourceId
+    Write-Host "AAD setup timing: phase=keyVault elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds)"
 
       $parameters = @{
         Name = 'AzureVault'
@@ -124,6 +142,7 @@ function Add-AadTestAuthEnvironment {
     else {
         Register-SecretVault @parameters -ErrorAction Stop
     }
+    Write-Host "AAD setup timing: phase=secretVaultRegistration elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds)"
 
     Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
@@ -157,6 +176,7 @@ function Add-AadTestAuthEnvironment {
             Write-Host "Role assignment already exists for $currentObjectId"
         }
     }
+    Write-Host "AAD setup timing: phase=keyVaultAccess elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds)"
 
     Write-Host "Ensuring API application exists"
 
@@ -166,6 +186,7 @@ function Add-AadTestAuthEnvironment {
         
     # Connect to Microsoft Graph using the credentials
     Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $ClientSecretCredential
+    Write-Host "AAD setup timing: phase=graphConnect elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds)"
 
     # Set the final roles during registration to avoid immediately removing the default admin role.
     $appRoles = @()
@@ -206,6 +227,7 @@ function Add-AadTestAuthEnvironment {
     if ($appRoles.Length -gt 0 -and -not $createdApplication) {
         Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
     }
+    Write-Host "AAD setup timing: phase=apiApplication elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds)"
 
     # 2 - Validating users
     $environmentUsers = @()
@@ -213,23 +235,37 @@ function Add-AadTestAuthEnvironment {
         Write-Host "Ensuring users and role assignments for API Application exist"
         $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.users -KeyVaultName $KeyVaultName
     }
+    Write-Host "AAD setup timing: phase=users elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds)"
 
     # 3 - Validating client applications
     $environmentClientApplications = @()
     if ($testAuthEnvironment.clientApplications -and $testAuthEnvironment.clientApplications.length -gt 0) {
         Write-Host "Ensuring client application exists"
+        $clientCount = @($testAuthEnvironment.clientApplications).Count
+        $clientPosition = 0
+        $totalScratchVaultMs = 0
         foreach ($clientApp in $testAuthEnvironment.clientApplications) {
+            $clientPosition++
+            $clientTimer = [System.Diagnostics.Stopwatch]::StartNew()
+            $clientLapTimer = [System.Diagnostics.Stopwatch]::StartNew()
+            $scratchVaultTimer = [System.Diagnostics.Stopwatch]::new()
+            Write-Host "AAD setup timing: client=$($clientApp.Id) position=$clientPosition/$clientCount started"
+
             $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
             $mgClientApplication = Get-AzureAdApplicationByDisplayName $displayName
+            $lookupMs = Step-AadSetupTimer $clientLapTimer
 
             $publicClient = -not $clientApp.roles
+            $clientState = if ($mgClientApplication) { 'reused' } else { 'created' }
 
             if (!$mgClientApplication) {
 
                 $mgClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
+            $scratchVaultTimer.Start()
             Set-Secret -Name secretSecure -Secret $mgClientApplication.AppSecret
             $secretSecureString = Get-Secret -Name secretSecure
+            $scratchVaultTimer.Stop()
 
         }
         else {
@@ -269,9 +305,12 @@ function Add-AadTestAuthEnvironment {
                 }
             }
 
+            $scratchVaultTimer.Start()
             Set-Secret -Name secretSecure -Secret $newPassword.SecretText
             $secretSecureString = Get-Secret -Name secretSecure 
+            $scratchVaultTimer.Stop()
         }
+        $credentialMs = Step-AadSetupTimer $clientLapTimer
 
         if ($publicClient) {
             Grant-ClientAppDelegatedPermissions -AppId $mgClientApplication.AppId -TenantAdminCredential $TenantAdminCredential -ResourceApplicationId $application.AppId
@@ -279,6 +318,8 @@ function Add-AadTestAuthEnvironment {
             # The public client (native app) is being used as SMART on FHIR client app in testing.
             New-FhirServerSmartClientReplyUrl -AppId $mgClientApplication.AppId -FhirServerUrl $fhirServiceAudience -ReplyUrl "https://localhost:6001/sampleapp/index.html"
         }
+        # Includes the SMART reply URL update; near zero for confidential clients.
+        $delegatedGrantMs = Step-AadSetupTimer $clientLapTimer
 
         $environmentClientApplications += @{
             id          = $clientApp.Id
@@ -286,13 +327,22 @@ function Add-AadTestAuthEnvironment {
             appId       = $mgClientApplication.AppId
         }
 
+        $scratchVaultTimer.Start()
         Set-Secret -Name appIdSecure -Secret $mgClientApplication.AppId
         $appIdSecureString = Get-Secret -Name appIdSecure
+        $scratchVaultTimer.Stop()
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null
+        $vaultWriteMs = Step-AadSetupTimer $clientLapTimer
 
         Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $mgClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
+        $roleAssignmentMs = Step-AadSetupTimer $clientLapTimer
+
+        # scratchVaultMs is the Set-Secret/Get-Secret time already counted in credentialMs and vaultWriteMs.
+        $totalScratchVaultMs += $scratchVaultTimer.ElapsedMilliseconds
+        Write-Host "AAD setup timing: client=$($clientApp.Id) position=$clientPosition/$clientCount state=$clientState public=$publicClient lookupMs=$lookupMs credentialMs=$credentialMs delegatedGrantMs=$delegatedGrantMs vaultWriteMs=$vaultWriteMs roleAssignmentMs=$roleAssignmentMs scratchVaultMs=$($scratchVaultTimer.ElapsedMilliseconds) totalMs=$($clientTimer.ElapsedMilliseconds)"
         }
+        Write-Host "AAD setup timing: phase=clientApplications elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds) clients=$clientCount scratchVaultMs=$totalScratchVaultMs"
     }
 
     @{
