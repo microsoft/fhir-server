@@ -408,7 +408,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             var configuration = Options.Create(new SqlServerDataStoreConfiguration { MaxPoolSize = 250 });
-            using var connection = new SqlConnection("Data Source=localhost;Initial Catalog=fhir;Application Name=test");
+            using var connection = new SqlConnection("Data Source=localhost;Encrypt=True;Initial Catalog=fhir;Application Name=test");
             _sqlConnectionBuilder.GetSqlConnectionAsync(false, null).Returns(Task.FromResult(connection));
             var service = new SqlRetryService(
                 _sqlConnectionBuilder,
@@ -436,7 +436,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public void ApplyMaxPoolSize_WithValue_ShouldSetMaxPoolSizeAndPreserveOtherSettings()
         {
             // Arrange
-            using var connection = new SqlConnection("Data Source=localhost;Initial Catalog=fhir;ApplicationIntent=ReadOnly;Application Name=MergeResources;Max Pool Size=100");
+            using var connection = new SqlConnection("Data Source=localhost;Encrypt=True;Initial Catalog=fhir;ApplicationIntent=ReadOnly;Application Name=MergeResources;Max Pool Size=100");
 
             // Act
             SqlRetryService.ApplyMaxPoolSize(connection, 400);
@@ -454,7 +454,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public void ApplyMaxPoolSize_WithoutValue_ShouldLeaveConnectionStringUnchanged()
         {
             // Arrange
-            const string connectionString = "Data Source=localhost;Initial Catalog=fhir";
+            const string connectionString = "Data Source=localhost;Encrypt=True;Initial Catalog=fhir";
             using var connection = new SqlConnection(connectionString);
 
             // Act

@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private int _maxRetries;
         private int _retryMillisecondsDelay;
         private int _commandTimeout;
-        private int? _maxPoolSize;
+        private readonly int? _maxPoolSize;
         private static ReplicaHandler _replicaHandler;
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
@@ -69,9 +69,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
             EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
-            _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
+            SqlServerDataStoreConfiguration storeConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _commandTimeout = (int)storeConfiguration.CommandTimeout.TotalSeconds;
 
-            _maxPoolSize = sqlServerDataStoreConfiguration.Value.MaxPoolSize;
+            _maxPoolSize = storeConfiguration.MaxPoolSize;
             if (_maxPoolSize.HasValue)
             {
                 EnsureArg.IsGt(_maxPoolSize.Value, 0, nameof(SqlServerDataStoreConfiguration.MaxPoolSize));

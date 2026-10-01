@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Metrics
         // already exist. Everything assigned in this class's constructor body is still unset during those calls.
         private readonly object _sync = new object();
         private EventSource _pendingEventSource;
-        private Action<string, double> _onCounter;
-        private int _intervalSeconds;
+        private readonly Action<string, double> _onCounter;
+        private readonly int _intervalSeconds;
 
         public SqlClientEventCounterListener(int intervalSeconds, Action<string, double> onCounter)
         {

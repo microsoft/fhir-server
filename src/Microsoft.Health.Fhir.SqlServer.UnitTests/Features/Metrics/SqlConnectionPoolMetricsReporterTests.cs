@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Metrics
         [Fact]
         public async Task GivenInUseCounter_WhenReported_ThenConfiguredMaxPoolSizeIsReportedWithIt()
         {
-            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost", MaxPoolSize = 300 });
+            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost;Encrypt=True", MaxPoolSize = 300 });
             await reporter.StartAsync(default);
 
             reporter.OnCounter(SqlConnectionPoolMetricsReporter.ActiveSoftConnectsCounter, 12);
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Metrics
         [Fact]
         public async Task GivenNoConfiguredMaxPoolSize_WhenInUseCounterReported_ThenConnectionStringMaxPoolSizeIsReported()
         {
-            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost;Max Pool Size=150" });
+            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost;Encrypt=True;Max Pool Size=150" });
             await reporter.StartAsync(default);
 
             reporter.OnCounter(SqlConnectionPoolMetricsReporter.ActiveSoftConnectsCounter, 1);
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Metrics
         [Fact]
         public void GivenCounterNotInAllowList_WhenReported_ThenItIsIgnored()
         {
-            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost" });
+            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost;Encrypt=True" });
 
             reporter.OnCounter("number-of-inactive-connection-pool-groups", 3);
 
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Metrics
         public void GivenHandlerThrows_WhenCounterReported_ThenExceptionIsNotPropagated()
         {
             _metricHandler.When(x => x.ReportConnectionPoolCounter(Arg.Any<string>(), Arg.Any<double>())).Throw(new InvalidOperationException());
-            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost" });
+            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost;Encrypt=True" });
 
             Exception exception = Record.Exception(() => reporter.OnCounter("hard-connects", 1));
 
@@ -113,12 +113,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Metrics
             var reported = new ConcurrentDictionary<string, double>();
             _metricHandler.When(x => x.ReportConnectionPoolCounter(Arg.Any<string>(), Arg.Any<double>()))
                 .Do(call => reported[call.ArgAt<string>(0)] = call.ArgAt<double>(1));
-            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost", MaxPoolSize = 200 }, intervalSeconds: 1);
+            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost;Encrypt=True", MaxPoolSize = 200 }, intervalSeconds: 1);
 
             await reporter.StartAsync(default);
             try
             {
-                using (new SqlConnection("Data Source=localhost"))
+                using (new SqlConnection("Data Source=localhost;Encrypt=True"))
                 {
                     SqlConnection.ClearAllPools();
                 }
@@ -143,12 +143,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Metrics
         [Fact]
         public async Task GivenReporterStarted_WhenSqlClientEventSourceIsEnabled_ThenSqlClientTracingStaysDisabled()
         {
-            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost" }, intervalSeconds: 1);
+            SqlConnectionPoolMetricsReporter reporter = CreateReporter(new SqlServerDataStoreConfiguration { ConnectionString = "Data Source=localhost;Encrypt=True" }, intervalSeconds: 1);
 
             await reporter.StartAsync(default);
             try
             {
-                using (new SqlConnection("Data Source=localhost"))
+                using (new SqlConnection("Data Source=localhost;Encrypt=True"))
                 {
                     SqlConnection.ClearAllPools();
                 }
