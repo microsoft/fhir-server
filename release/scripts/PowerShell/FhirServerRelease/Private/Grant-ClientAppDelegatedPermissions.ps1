@@ -223,8 +223,78 @@ function Grant-ClientAppDelegatedPermissions {
         return $false
     }
 
-    # A failed POST may have applied but remain invisible on an immediate Graph read.
-    # Poll read-only before reissuing; let read errors propagate to preserve the write error.
+    # Read the Graph error code from a failed Invoke-MgGraphRequest call. Its ErrorDetails.Message
+    # is an HTTP transcript (request line, status line, headers, blank line, body) rather than bare
+    # JSON, so the { "error": { "code" } } envelope is parsed from the text after the first blank
+    # line; bare JSON is accepted too. Returns $null when no structured code is present.
+    function Get-GraphReadErrorCode {
+        param(
+            [Parameter(Mandatory = $true)]
+            [System.Management.Automation.ErrorRecord]$ErrorRecord
+        )
+
+        if (-not $ErrorRecord.ErrorDetails -or -not $ErrorRecord.ErrorDetails.Message) {
+            return $null
+        }
+
+        $text = [string]$ErrorRecord.ErrorDetails.Message
+        $candidates = @($text)
+        $bodyStart = $text.IndexOf("`r`n`r`n")
+        if ($bodyStart -ge 0) {
+            $candidates += $text.Substring($bodyStart + 4)
+        }
+
+        foreach ($candidate in $candidates) {
+            try {
+                $parsed = $candidate | ConvertFrom-Json -ErrorAction Stop
+            }
+            catch {
+                continue
+            }
+
+            if ($parsed -is [System.Management.Automation.PSCustomObject]) {
+                $errorNode = $parsed.PSObject.Properties['error']
+                if ($errorNode -and $errorNode.Value -is [System.Management.Automation.PSCustomObject]) {
+                    $codeNode = $errorNode.Value.PSObject.Properties['code']
+                    if ($codeNode -and $codeNode.Value) {
+                        return [string]$codeNode.Value
+                    }
+                }
+            }
+        }
+
+        return $null
+    }
+
+    # A reconciliation read can fail with HTTP 404 while a newly created client service principal
+    # is still replicating across directory replicas (the same propagation lag behind the
+    # Directory_ObjectNotFound POST failure). Only an HTTP 404 that carries no structured code or a
+    # known object-not-found code is transient; an unrelated code that merely shares HTTP 404, and
+    # every other status, must fail fast.
+    function Test-TransientGraphReadNotFound {
+        param(
+            [Parameter(Mandatory = $true)]
+            [System.Management.Automation.ErrorRecord]$ErrorRecord
+        )
+
+        $responseProperty = $ErrorRecord.Exception.PSObject.Properties['Response']
+        if (-not $responseProperty -or -not $responseProperty.Value) {
+            return $false
+        }
+
+        $statusCodeProperty = $responseProperty.Value.PSObject.Properties['StatusCode']
+        if (-not $statusCodeProperty -or [int]$statusCodeProperty.Value -ne 404) {
+            return $false
+        }
+
+        $code = Get-GraphReadErrorCode -ErrorRecord $ErrorRecord
+        return (-not $code) -or (@('Request_ResourceNotFound', 'Directory_ObjectNotFound') -contains $code)
+    }
+
+    # A failed POST may have applied but remain invisible on an immediate Graph read, so poll
+    # read-only before reissuing. A transient read 404 is retried within its own bounded budget;
+    # any other read error, or a 404 that outlasts the budget, propagates so the caller preserves
+    # the write error and never re-POSTs without a successful read confirming the grant is absent.
     function Confirm-OAuth2PermissionGrantApplied {
         param(
             [Parameter(Mandatory = $true)]
@@ -243,22 +313,44 @@ function Grant-ClientAppDelegatedPermissions {
             [ValidateNotNullOrEmpty()]
             [string]$ConsentType,
 
-            [int]$MaxReadAttempts = 3
+            [int]$MaxReadAttempts = 3,
+
+            [int]$MaxNotFoundRetries = 4
         )
 
-        for ($read = 1; $read -le $MaxReadAttempts; $read++) {
-            if (Test-OAuth2PermissionGrantExists -ClientObjectId $ClientObjectId -ResourceObjectId $ResourceObjectId -Scope $Scope -ConsentType $ConsentType) {
+        $read = 1
+        $notFoundRetries = 0
+        while ($true) {
+            try {
+                $exists = Test-OAuth2PermissionGrantExists -ClientObjectId $ClientObjectId -ResourceObjectId $ResourceObjectId -Scope $Scope -ConsentType $ConsentType
+            }
+            catch {
+                if ($notFoundRetries -ge $MaxNotFoundRetries -or -not (Test-TransientGraphReadNotFound -ErrorRecord $_)) {
+                    throw
+                }
+
+                $notFoundRetries++
+                $code = Get-GraphReadErrorCode -ErrorRecord $_
+                $codeForLog = if (-not $code) { 'no error code' } elseif ($code -match '^[A-Za-z0-9_.]{1,100}$') { $code } else { 'unrecognized error code' }
+                $delay = 5 * [math]::Pow(2, $notFoundRetries - 1)
+                Write-Warning "Reconciliation read for scope '$Scope' returned HTTP 404 ($codeForLog) while Microsoft Graph replicates the client service principal (read retry $notFoundRetries of $MaxNotFoundRetries). Retrying the read after $delay second backoff."
+                Start-Sleep -Seconds $delay
+                continue
+            }
+
+            if ($exists) {
                 return $true
             }
 
-            if ($read -lt $MaxReadAttempts) {
-                $delay = 5 * [math]::Pow(2, $read - 1)
-                Write-Warning "Grant for scope '$Scope' not yet visible in Microsoft Graph (reconciliation read $read of $MaxReadAttempts). Retrying read after $delay second backoff."
-                Start-Sleep -Seconds $delay
+            if ($read -ge $MaxReadAttempts) {
+                return $false
             }
-        }
 
-        return $false
+            $delay = 5 * [math]::Pow(2, $read - 1)
+            Write-Warning "Grant for scope '$Scope' not yet visible in Microsoft Graph (reconciliation read $read of $MaxReadAttempts). Retrying read after $delay second backoff."
+            Start-Sleep -Seconds $delay
+            $read++
+        }
     }
 
     # Reconcile ambiguous writes before retrying; surface the original write error unless
