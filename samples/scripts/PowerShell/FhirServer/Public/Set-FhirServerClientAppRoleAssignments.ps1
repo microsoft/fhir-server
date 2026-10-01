@@ -164,16 +164,8 @@ function Set-FhirServerClientAppRoleAssignments {
         }
     }
 
-    # After an ambiguous Microsoft Graph write failure - a create that reported 404
-    # 'Request_ResourceNotFound' but may actually have applied, or a reissue that reported the
-    # assignment already exists - a single read can be STALE: Graph can answer with an empty,
-    # not-yet-visible result even though the assignment was persisted. Reconcile the SPECIFIC
-    # assignment with a bounded, read-only, capped backoff before concluding it is absent, so a
-    # delayed-visibility apply is not mistaken for a missing one (which would otherwise drive a
-    # duplicate reissue). This reuses the read-only 404 read-retry helper and never writes, so it
-    # cannot create a duplicate. A read error propagates to the caller, which preserves the
-    # original write error. Returns $true once the assignment is visible, $false if it never
-    # appears within the capped attempts.
+    # Graph can report a failed write before its applied assignment becomes visible.
+    # Reconcile read-only against the client principal before considering another write.
     function Confirm-MgClientAppRoleAssignmentWithRetry {
         param(
                 [Parameter(Mandatory = $true)]
@@ -205,12 +197,7 @@ function Set-FhirServerClientAppRoleAssignments {
         }
     }
 
-    # Microsoft Graph answers an attempt to create an appRoleAssignment that already exists with
-    # HTTP 400 and the specific message "Permission being assigned already exists on the object".
-    # There is no distinct, stable error code for this, so this classifier matches ONLY that
-    # specific phrase. A reissue that trips this is confirmation the assignment is present (a
-    # delayed-visibility apply that the prior read had not yet surfaced), not a real failure - so
-    # the caller verifies the assignment rather than failing. Any other error does not match.
+    # Graph uses a generic HTTP 400 code for duplicate assignments; inspect its message.
     function Test-MgAssignmentAlreadyExistsError {
         param(
                 [Parameter(Mandatory = $true)]
@@ -267,31 +254,13 @@ function Set-FhirServerClientAppRoleAssignments {
         }
     }
 
-    # Adding an app role assignment can fail transiently in several Graph-realistic ways, each of
-    # which resolves WITHOUT creating a duplicate assignment:
-    #   * The create reports a failure even though Microsoft Graph applied the assignment (a
-    #     known behaviour). Verifying the CLIENT service principal's own appRoleAssignments
-    #     surfaces the applied assignment and the reported failure is swallowed.
-    #   * The resource (API) app role has not yet propagated to the write endpoint, so the
-    #     write itself answers HTTP 404 'Request_ResourceNotFound'. The write may not have
-    #     persisted - or it may have applied and not yet be visible. Because a single read can be
-    #     stale, a bounded delayed-visibility RECONCILIATION (read-only, capped backoff) runs
-    #     before any reissue; the write is reissued ONLY when the assignment is still absent after
-    #     that reconciliation, so a lagging apply is never written a second time.
-    #   * A reissue can itself race a delayed-visibility apply and report the assignment already
-    #     exists; that is confirmation, not a failure, so the assignment is verified instead.
-    # Every re-read is read-only and never reissues the create. Any non-404 failure preserves the
-    # existing verify-then-rethrow semantics, and a 404 that never clears surfaces the ORIGINAL
-    # Graph error (type, code and message) after the bounded attempts.
+    # Reconcile ambiguous writes against the client principal before retrying to avoid
+    # duplicating an assignment that Graph has applied but not yet made visible.
     foreach ($role in $rolesToAdd) {
         for ($writeAttempt = 1; $writeAttempt -le 5; $writeAttempt++) {
             $writeError = $null
             try {
-                # -ErrorAction Stop is REQUIRED: the Microsoft Graph SDK commonly emits a Graph
-                # failure (including the transient write-endpoint 404) as a NON-terminating error,
-                # which would otherwise skip the catch and leave $writeError $null - falsely
-                # signalling success and defeating the retry/verification below. Stop promotes it
-                # to a terminating error so every Graph failure is observed here.
+                # Graph cmdlets may emit non-terminating errors, so make them catchable.
                 New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role -ErrorAction Stop | Out-Null
             }
             catch {
@@ -303,21 +272,13 @@ function Set-FhirServerClientAppRoleAssignments {
             }
 
             if (Test-MgAssignmentAlreadyExistsError -ErrorRecord $writeError) {
-                # Graph reported the assignment already exists. This happens when a reissue (or a
-                # create) races a delayed-visibility apply: the role IS assigned, so this is
-                # confirmation rather than a real failure. Reconcile against the CLIENT principal
-                # and, when the assignment is confirmed, treat the create as successful instead of
-                # falsely failing. If it genuinely cannot be confirmed, the ORIGINAL Graph error
-                # surfaces. The reconciliation is read-only and never reissues the create, so it
-                # cannot create a duplicate.
+                # A duplicate report is success only if the client's assignment becomes visible.
                 $confirmedExisting = $false
                 try {
                     $confirmedExisting = Confirm-MgClientAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role
                 }
                 catch {
-                    # The reconciliation read itself failed; it is only a probe, so surface it as a
-                    # warning and rethrow the preserved original write error rather than letting
-                    # the probe failure mask it.
+                    # A failed read must not mask the write error.
                     Write-Warning "Could not verify whether app role '$role' already exists on service principal $ObjectId after Microsoft Graph reported a duplicate assignment: $($_.Exception.Message)"
                     throw $writeError
                 }
@@ -330,15 +291,7 @@ function Set-FhirServerClientAppRoleAssignments {
             }
 
             if (Test-MgResourceNotFoundError -ErrorRecord $writeError) {
-                # Transient write-endpoint 404: the resource role is still propagating. The write
-                # may not have persisted - or it may have applied and not yet be visible. Reconcile
-                # the specific assignment with a bounded, read-only, capped backoff BEFORE
-                # reissuing, so a delayed-visibility apply is confirmed (and the write is not sent a
-                # second time, which would risk a duplicate/conflict). That reconciliation backoff
-                # also serves as the wait between reissues. The write is reissued ONLY when the
-                # assignment is still absent after reconciliation; when the bounded write attempts
-                # are exhausted the ORIGINAL 404 is rethrown. A read failure during reconciliation
-                # is surfaced as a warning and the original write error is preserved.
+                # Reconcile an ambiguous 404 before another write; preserve it if reads fail.
                 $alreadyAssigned = $false
                 try {
                     $alreadyAssigned = Confirm-MgClientAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role
@@ -360,46 +313,15 @@ function Set-FhirServerClientAppRoleAssignments {
                 continue
             }
 
-            # Any non-404 failure: the create is known to report a failure in some environments
-            # even though Microsoft Graph did apply the assignment. Verify it against the CLIENT
-            # service principal's own appRoleAssignments collection - that is the relationship
-            # this assignment is written to ('/servicePrincipals/{client}/appRoleAssignments').
-            # Reading the API (resource) service principal here, as a previous version did, would
-            # never surface the assignment and so masked a genuine success as a failure.
-            #
-            # Graph write propagation can lag the create call, so re-read with a bounded,
-            # targeted retry until the specific assignment becomes visible. This read is
-            # read-only and never re-issues the create above, so it cannot create a duplicate
-            # assignment. If the assignment still cannot be confirmed, the ORIGINAL Graph error
-            # is rethrown (preserving its type, code and message) instead of being masked by a
-            # generic message - so a real permission or other failure stays visible. A non-404
-            # error is NOT reissued.
-            $roleAssigned = $null
-            for ($verifyAttempt = 1; $verifyAttempt -le 5; $verifyAttempt++) {
-                try {
-                    $roleAssigned = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId |
-                        Where-Object { $_.PrincipalId -eq $ObjectId -and $_.ResourceId -eq $apiApplication.Id -and $_.AppRoleId -eq $role }
-                }
-                catch {
-                    # The verification read itself failed (e.g. a 403, or the transient 404 that
-                    # never cleared). This is only a diagnostic probe, so it must NOT replace the
-                    # original write failure: surface it via Write-Warning and fall through to
-                    # rethrow the preserved original Graph error below.
-                    Write-Warning "Could not verify whether app role '$role' was applied to service principal $ObjectId after the create reported a failure: $($_.Exception.Message)"
-                    $roleAssigned = $null
-                    break
-                }
-
-                if ($roleAssigned) {
-                    break
-                }
-
-                if ($verifyAttempt -eq 5) {
-                    break
-                }
-
-                Write-Warning "Verifying whether app role '$role' was applied to service principal $ObjectId despite the reported failure (attempt $verifyAttempt of 5)."
-                Start-Sleep -Seconds (5 * [math]::Pow(2, $verifyAttempt - 1))
+            # Non-404 errors are never reissued. Confirm against the client principal
+            # because Graph can report a failed write even when the assignment applied.
+            $roleAssigned = $false
+            try {
+                $roleAssigned = Confirm-MgClientAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role -MaxAttempts 5
+            }
+            catch {
+                Write-Warning "Could not verify whether app role '$role' was applied to service principal $ObjectId after the create reported a failure: $($_.Exception.Message)"
+                throw $writeError
             }
 
             if (-not $roleAssigned) {
