@@ -424,6 +424,13 @@ UPDATE dbo.SearchParam
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaManagerDataStoreFactory);
             collection.AddScoped(schemaUpgradeRunnerFactory);
+
+            // Microsoft.Health.SqlServer >= 11.0.x requires ISchemaWriteGate: SchemaInitializer.CanApplySchemaUpdatesAsync
+            // resolves it via GetRequiredService. Production registers it in AddSqlServerManagement<TVersion>()
+            // (TryAddSingleton<ISchemaWriteGate, DefaultSchemaWriteGate>). DefaultSchemaWriteGate is internal to the
+            // package, so this standalone provider registers an equivalent gate that always permits writes (matching
+            // the DefaultSchemaWriteGate default behavior) so the test fixture always applies schema updates.
+            collection.AddSingleton<ISchemaWriteGate, TestSchemaWriteGate>();
             var serviceProvider = collection.BuildServiceProvider();
             var schemaInformationForInit = new SchemaInformation(minSchemaVersion, minSchemaVersion);
             var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), Substitute.For<ISchemaMetrics>(), NullLogger<SchemaInitializer>.Instance);
@@ -440,6 +447,15 @@ UPDATE dbo.SearchParam
             var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
             var result = new SqlConnection(connectionBuilder.ToString());
             return result;
+        }
+
+        /// <summary>
+        /// Test-only <see cref="ISchemaWriteGate"/> for the standalone schema-initializer service provider.
+        /// Mirrors the package-internal DefaultSchemaWriteGate, whose default <see cref="ISchemaWriteGate.CanWriteAsync"/>
+        /// returns <c>true</c>, so schema updates are always applied against the test database.
+        /// </summary>
+        private sealed class TestSchemaWriteGate : ISchemaWriteGate
+        {
         }
     }
 }
