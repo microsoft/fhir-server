@@ -243,12 +243,10 @@ function Add-AadTestAuthEnvironment {
         Write-Host "Ensuring client application exists"
         $clientCount = @($testAuthEnvironment.clientApplications).Count
         $clientPosition = 0
-        $totalScratchVaultMs = 0
         foreach ($clientApp in $testAuthEnvironment.clientApplications) {
             $clientPosition++
             $clientTimer = [System.Diagnostics.Stopwatch]::StartNew()
             $clientLapTimer = [System.Diagnostics.Stopwatch]::StartNew()
-            $scratchVaultTimer = [System.Diagnostics.Stopwatch]::new()
             Write-Host "AAD setup timing: client=$($clientApp.Id) position=$clientPosition/$clientCount started"
 
             $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
@@ -262,10 +260,10 @@ function Add-AadTestAuthEnvironment {
 
                 $mgClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
-            $scratchVaultTimer.Start()
-            Set-Secret -Name secretSecure -Secret $mgClientApplication.AppSecret
-            $secretSecureString = Get-Secret -Name secretSecure
-            $scratchVaultTimer.Stop()
+            # Wrap the in-memory value directly; staging it through the default SecretManagement
+            # vault (the test Key Vault) cost two Key Vault round trips per value and left a stray
+            # copy that is exported with the other test Key Vault secrets as a pipeline variable.
+            $secretSecureString = ConvertTo-SecureString -String $mgClientApplication.AppSecret -AsPlainText -Force
 
         }
         else {
@@ -305,10 +303,7 @@ function Add-AadTestAuthEnvironment {
                 }
             }
 
-            $scratchVaultTimer.Start()
-            Set-Secret -Name secretSecure -Secret $newPassword.SecretText
-            $secretSecureString = Get-Secret -Name secretSecure 
-            $scratchVaultTimer.Stop()
+            $secretSecureString = ConvertTo-SecureString -String $newPassword.SecretText -AsPlainText -Force
         }
         $credentialMs = Step-AadSetupTimer $clientLapTimer
 
@@ -327,10 +322,7 @@ function Add-AadTestAuthEnvironment {
             appId       = $mgClientApplication.AppId
         }
 
-        $scratchVaultTimer.Start()
-        Set-Secret -Name appIdSecure -Secret $mgClientApplication.AppId
-        $appIdSecureString = Get-Secret -Name appIdSecure
-        $scratchVaultTimer.Stop()
+        $appIdSecureString = ConvertTo-SecureString -String $mgClientApplication.AppId -AsPlainText -Force
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null
         $vaultWriteMs = Step-AadSetupTimer $clientLapTimer
@@ -338,11 +330,9 @@ function Add-AadTestAuthEnvironment {
         Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $mgClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
         $roleAssignmentMs = Step-AadSetupTimer $clientLapTimer
 
-        # scratchVaultMs is the Set-Secret/Get-Secret time already counted in credentialMs and vaultWriteMs.
-        $totalScratchVaultMs += $scratchVaultTimer.ElapsedMilliseconds
-        Write-Host "AAD setup timing: client=$($clientApp.Id) position=$clientPosition/$clientCount state=$clientState public=$publicClient lookupMs=$lookupMs credentialMs=$credentialMs delegatedGrantMs=$delegatedGrantMs vaultWriteMs=$vaultWriteMs roleAssignmentMs=$roleAssignmentMs scratchVaultMs=$($scratchVaultTimer.ElapsedMilliseconds) totalMs=$($clientTimer.ElapsedMilliseconds)"
+        Write-Host "AAD setup timing: client=$($clientApp.Id) position=$clientPosition/$clientCount state=$clientState public=$publicClient lookupMs=$lookupMs credentialMs=$credentialMs delegatedGrantMs=$delegatedGrantMs vaultWriteMs=$vaultWriteMs roleAssignmentMs=$roleAssignmentMs totalMs=$($clientTimer.ElapsedMilliseconds)"
         }
-        Write-Host "AAD setup timing: phase=clientApplications elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds) clients=$clientCount scratchVaultMs=$totalScratchVaultMs"
+        Write-Host "AAD setup timing: phase=clientApplications elapsedMs=$(Step-AadSetupTimer $phaseTimer) totalMs=$($setupTimer.ElapsedMilliseconds) clients=$clientCount"
     }
 
     @{
