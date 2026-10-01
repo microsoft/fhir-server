@@ -22,21 +22,49 @@ function Get-MgServicePrincipal {
     [pscustomobject]@{ Id = 'client-object' }
 }
 
-# Simulates Microsoft Graph eventual consistency for the appRoleAssignedTo relationship of
-# a freshly created service principal: the first $script:roleAssignmentOtherErrorMisses reads
-# fail with a non-404 error (which must surface immediately), the next
-# $script:roleAssignment404Misses reads fail with the transient 404 Request_ResourceNotFound
-# (which must be retried), and every read after that returns the current assignments.
+# Builds a structured Microsoft Graph ErrorRecord (an error body carrying a typed error code,
+# as the Graph PowerShell SDK surfaces it) so the classifier can be exercised on the code
+# itself rather than on free text. The human-readable message deliberately omits the error
+# code so that only the structured code decides whether the read is retried. A real HTTP 404
+# status is attached to the exception so that an unrelated code exercises a genuine
+# "structured HTTP 404" - the case that must now fail fast rather than be retried on status.
+function New-MgStructuredGraphError {
+    param($Code, $ServicePrincipalId)
+    $humanMessage = "Resource '$ServicePrincipalId' is not available right now."
+    $body = [pscustomobject]@{ error = [pscustomobject]@{ code = $Code; message = $humanMessage } } | ConvertTo-Json -Compress
+    $exception = [System.Exception]::new($humanMessage)
+    $exception | Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{ StatusCode = 404 }) -Force
+    $errorRecord = [System.Management.Automation.ErrorRecord]::new(
+        $exception,
+        "$Code,Microsoft.Graph.PowerShell.Cmdlets.GetMgServicePrincipalAppRoleAssignment",
+        [System.Management.Automation.ErrorCategory]::ResourceUnavailable,
+        $ServicePrincipalId)
+    $errorRecord.ErrorDetails = [System.Management.Automation.ErrorDetails]::new($body)
+    return $errorRecord
+}
+
+# Simulates Microsoft Graph eventual consistency for the appRoleAssignedTo relationship. The
+# 1-based index of each read is matched against the configured read-index sets so a specific
+# read (e.g. the initial read vs. the final verification read) can be made to fail:
+#   $script:roleAssignmentOtherErrorReads - reads that fail with a non-404 error (fail fast)
+#   $script:roleAssignment404Reads        - reads that fail with the transient 404 (retried)
+#   $script:roleAssignmentStructuredReads - reads that fail with a structured error whose
+#                                           typed code is $script:roleAssignmentStructuredCode
+# Any read not in these sets returns the current assignments.
 function Get-MgServicePrincipalAppRoleAssignment {
     param($ServicePrincipalId, $ErrorAction)
-    $script:roleAssignmentReads++
+    $read = ++$script:roleAssignmentReads
 
-    if ($script:roleAssignmentReads -le $script:roleAssignmentOtherErrorMisses) {
+    if ($read -in $script:roleAssignmentOtherErrorReads) {
         throw "Graph 403 Authorization_RequestDenied: Insufficient privileges to complete the operation."
     }
 
-    if ($script:roleAssignmentReads -le ($script:roleAssignmentOtherErrorMisses + $script:roleAssignment404Misses)) {
+    if ($read -in $script:roleAssignment404Reads) {
         throw "Graph 404 Request_ResourceNotFound: Resource '$ServicePrincipalId' does not exist or one of its queried reference-property objects are not present."
+    }
+
+    if ($read -in $script:roleAssignmentStructuredReads) {
+        throw (New-MgStructuredGraphError -Code $script:roleAssignmentStructuredCode -ServicePrincipalId $ServicePrincipalId)
     }
 
     $script:assignments
@@ -63,8 +91,10 @@ function Reset-Counters {
     $script:clientMisses = 0
     $script:assignments = @()
     $script:roleAssignmentReads = 0
-    $script:roleAssignment404Misses = 0
-    $script:roleAssignmentOtherErrorMisses = 0
+    $script:roleAssignment404Reads = @()
+    $script:roleAssignmentOtherErrorReads = @()
+    $script:roleAssignmentStructuredReads = @()
+    $script:roleAssignmentStructuredCode = $null
 }
 
 # 1 - Both service principals are queryable immediately: no retries, roles are assigned.
@@ -120,7 +150,7 @@ if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 
 # 6 - The appRoleAssignedTo relationship propagates after two transient 404s: the read is
 #     retried exactly twice and the role is still assigned exactly once (no duplicate creation).
 Reset-Counters
-$script:roleAssignment404Misses = 2
+$script:roleAssignment404Reads = @(1, 2)
 Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
 if ($script:sleeps -ne 2) {
     throw "A transient 404 on the assignments read was not retried exactly twice (sleeps=$script:sleeps)."
@@ -131,7 +161,7 @@ if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 
 
 # 7 - A non-404 error on the assignments read is not retried and surfaces immediately.
 Reset-Counters
-$script:roleAssignmentOtherErrorMisses = 1
+$script:roleAssignmentOtherErrorReads = @(1)
 try {
     Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
     throw 'A non-404 error on the assignments read was swallowed.'
@@ -144,7 +174,7 @@ catch {
 
 # 8 - A 404 that never clears fails after bounded retries and propagates the original error.
 Reset-Counters
-$script:roleAssignment404Misses = 10
+$script:roleAssignment404Reads = @(1, 2, 3, 4, 5)
 try {
     Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
     throw 'A never-propagating 404 on the assignments read was swallowed.'
@@ -155,4 +185,44 @@ catch {
     }
 }
 
-Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals, and retries the transient 404 while reading existing assignments.'
+# 9 - The initial assignments read succeeds, but the final verification read hits one transient
+#     404: that read is wrapped in the same retry, so it recovers without a duplicate assignment.
+Reset-Counters
+$script:roleAssignment404Reads = @(2)
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:sleeps -ne 1 -or $script:roleAssignmentReads -ne 3) {
+    throw "The final verification read did not retry the transient 404 exactly once (sleeps=$script:sleeps reads=$script:roleAssignmentReads)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "Retrying the final verification read must not create duplicate app role assignments (assignments=$(@($script:assignments).Count))."
+}
+
+# 10 - A structured Graph 404 whose typed error code is Request_ResourceNotFound is retried
+#      even when the error code never appears in the human-readable message.
+Reset-Counters
+$script:roleAssignmentStructuredReads = @(1)
+$script:roleAssignmentStructuredCode = 'Request_ResourceNotFound'
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:sleeps -ne 1) {
+    throw "A structured Request_ResourceNotFound was not retried exactly once (sleeps=$script:sleeps)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw 'The requested app role was not assigned after a structured Request_ResourceNotFound retry.'
+}
+
+# 11 - A structured HTTP 404 carrying an UNRELATED error code must fail fast: the classifier
+#      trusts the typed code, so the read is not retried and the original error surfaces.
+Reset-Counters
+$script:roleAssignmentStructuredReads = @(1)
+$script:roleAssignmentStructuredCode = 'Request_UnsupportedQuery'
+try {
+    Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+    throw 'An unrelated structured 404 on the assignments read was swallowed.'
+}
+catch {
+    if ($_.FullyQualifiedErrorId -notlike 'Request_UnsupportedQuery*' -or $script:roleAssignmentReads -ne 1 -or $script:sleeps -ne 0) {
+        throw
+    }
+}
+
+Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals, retries the transient Request_ResourceNotFound while reading assignments (initial, catch, and final reads), and fails fast on unrelated 404s.'

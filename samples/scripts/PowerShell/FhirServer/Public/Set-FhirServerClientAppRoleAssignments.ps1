@@ -69,50 +69,77 @@ function Set-FhirServerClientAppRoleAssignments {
         }
     }
 
-    # Recognize the single transient failure retried below: Microsoft Graph answers a read of a
-    # freshly created service principal's appRoleAssignedTo relationship with HTTP 404 and the
-    # 'Request_ResourceNotFound' error code until the relationship propagates. Match either the
-    # HTTP status (when the SDK surfaces the response) or the error-code text so that only this
-    # specific 404 is retried and every other failure surfaces immediately.
+    # Microsoft Graph answers a read of a freshly created service principal's
+    # appRoleAssignedTo relationship with HTTP 404 'Request_ResourceNotFound' until that
+    # relationship propagates. This classifier recognizes ONLY that specific error so the
+    # read can be retried. It trusts the structured Graph error code when the SDK exposes it
+    # (an unrelated error that merely shares HTTP 404 carries a different code and must fail
+    # fast); otherwise it falls back to the fully-qualified error id, and finally the error
+    # text. Every other failure surfaces immediately.
     function Test-MgResourceNotFoundError {
         param(
             [Parameter(Mandatory = $true)]
             $ErrorRecord
         )
 
-        $exception = $ErrorRecord.Exception
-        if ($exception) {
-            $responseProperty = $exception.PSObject.Properties['Response']
-            if ($responseProperty -and $responseProperty.Value) {
-                $statusCodeProperty = $responseProperty.Value.PSObject.Properties['StatusCode']
-                if ($statusCodeProperty -and $null -ne $statusCodeProperty.Value -and ([int]$statusCodeProperty.Value) -eq 404) {
-                    return $true
-                }
-            }
-        }
+        $notFoundCode = 'Request_ResourceNotFound'
 
-        $messageParts = New-Object System.Collections.ArrayList
-        if ($exception -and $exception.Message) {
-            [void]$messageParts.Add($exception.Message)
-        }
+        # Prefer the structured error code from the Graph response body
+        # ({ "error": { "code": ... } }). When present it is authoritative: a 404 carrying a
+        # different code is deliberately NOT retried.
+        $structuredCode = $null
         $errorDetails = $ErrorRecord.PSObject.Properties['ErrorDetails']
         if ($errorDetails -and $errorDetails.Value) {
             $detailsMessage = $errorDetails.Value.PSObject.Properties['Message']
             if ($detailsMessage -and $detailsMessage.Value) {
-                [void]$messageParts.Add($detailsMessage.Value)
+                try {
+                    $parsedBody = $detailsMessage.Value | ConvertFrom-Json -ErrorAction Stop
+                    $errorNode = $parsedBody.PSObject.Properties['error']
+                    if ($errorNode -and $errorNode.Value) {
+                        $codeNode = $errorNode.Value.PSObject.Properties['code']
+                        if ($codeNode -and $codeNode.Value) {
+                            $structuredCode = [string]$codeNode.Value
+                        }
+                    }
+                }
+                catch {
+                    # Body was not JSON; fall through to the id / text heuristics below.
+                }
             }
+        }
+
+        if ($structuredCode) {
+            return ($structuredCode -eq $notFoundCode)
+        }
+
+        # Fall back to the fully-qualified error id, which Graph seeds with the error code
+        # (e.g. 'Request_ResourceNotFound,Microsoft.Graph.PowerShell.Cmdlets...').
+        $fqeidProperty = $ErrorRecord.PSObject.Properties['FullyQualifiedErrorId']
+        if ($fqeidProperty -and $fqeidProperty.Value) {
+            $fqeidCode = ("$($fqeidProperty.Value)" -split ',', 2)[0].Trim()
+            if ($fqeidCode -eq $notFoundCode) {
+                return $true
+            }
+        }
+
+        # Last resort: match the error-code token in the human-readable message / record text.
+        $messageParts = New-Object System.Collections.ArrayList
+        $exception = $ErrorRecord.Exception
+        if ($exception -and $exception.Message) {
+            [void]$messageParts.Add($exception.Message)
         }
         [void]$messageParts.Add("$ErrorRecord")
 
-        return ($messageParts -join ' ') -match 'Request_ResourceNotFound'
-}
+        return ($messageParts -join ' ') -match [regex]::Escape($notFoundCode)
+    }
 
-# Read the existing app role assignments, retrying only the transient Graph 404 described
-# above. This wraps the read alone so that retries never re-run role creation (no duplicate
-# assignments). An empty collection is a legitimate "no assignments yet" answer and is
-# returned as-is rather than retried; non-404 failures surface immediately; and once the
-# bounded retries are exhausted the original 404 is propagated.
-function Get-MgServicePrincipalAppRoleAssignmentWithRetry {
+    # Read the app role assignments for a service principal, retrying only the transient Graph
+    # 404 recognized above. This read-only helper wraps the read alone, so retrying it never
+    # re-runs role creation or removal (no duplicate assignments). An empty collection is a
+    # legitimate "no assignments yet" answer and is returned as-is rather than retried; non-404
+    # failures surface immediately; and once the bounded retries are exhausted the original 404
+    # is propagated.
+    function Get-MgServicePrincipalAppRoleAssignmentWithRetry {
         param(
             [Parameter(Mandatory = $true)]
             [string]$ServicePrincipalId
@@ -135,7 +162,7 @@ function Get-MgServicePrincipalAppRoleAssignmentWithRetry {
                 Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
             }
         }
-}
+    }
 
     # Get the collection of roles for the user
     $apiApplication = Get-MgServicePrincipalByAppIdWithRetry -ApplicationId $ApiAppId -Description 'API'
@@ -175,7 +202,9 @@ function Get-MgServicePrincipalAppRoleAssignmentWithRetry {
         }
         catch {
             #The role may have been assigned. Check:
-            $roleAssigned = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $apiApplication.Id | Where-Object {$_.PrincipalId -eq $ObjectId -and $_.AppRoleId -eq $role}
+            # Read-only verification, so the same transient-404 retry is safe here and never
+            # re-runs the role assignment above.
+            $roleAssigned = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $apiApplication.Id | Where-Object {$_.PrincipalId -eq $ObjectId -and $_.AppRoleId -eq $role}
             if (!$roleAssigned) {
                 throw "Failure adding app role assignment for service principal."
             }
@@ -187,7 +216,7 @@ function Get-MgServicePrincipalAppRoleAssignmentWithRetry {
         Remove-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId -AppRoleAssignmentId $roleAssignmentToRemove.Id | Out-Null
     }
 
-    $finalRolesAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id} 
+    $finalRolesAssignments = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id}
     $rolesNotAdded = @()
     $rolesNotRemoved = @()
     $finalRoleIds = @($finalRolesAssignments | Select-Object -ExpandProperty AppRoleId)
