@@ -32,8 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ILogger<SearchParameterCacheRefreshBackgroundService> _logger;
         private readonly TimeSpan _refreshInterval;
         private readonly Timer _refreshTimer;
+        private readonly int _consecutiveFailureThreshold;
         private bool _isInitialized;
         private CancellationToken _stoppingToken;
+        private int _consecutiveFailureCount;
 
         public SearchParameterCacheRefreshBackgroundService(
             ISearchParameterStatusManager searchParameterStatusManager,
@@ -51,6 +53,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Get refresh interval from configuration (default 20 seconds, minimum 1 second)
             var refreshIntervalSeconds = Math.Max(1, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds);
             _refreshInterval = TimeSpan.FromSeconds(refreshIntervalSeconds);
+
+            // Get the consecutive-failure threshold from configuration (default 3, minimum 1).
+            // A minimum of 1 preserves immediate failure-metric emission on the first failed run.
+            _consecutiveFailureThreshold = Math.Max(1, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshConsecutiveFailureThreshold);
 
             _logger.LogInformation("SearchParameter cache refresh background service initialized with {RefreshInterval} interval.", _refreshInterval);
 
@@ -115,6 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 if (complete)
                 {
                     _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
+                    Interlocked.Exchange(ref _consecutiveFailureCount, 0);
                     _searchParameterCacheRefresherMetricHandler.EmitSuccess();
                 }
                 else
@@ -144,7 +151,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 else
                 {
                     _logger.LogError(ex, message);
-                    _searchParameterCacheRefresherMetricHandler.EmitFailure(ex.GetType().Name);
+
+                    // Only emit the failure metric once the refresh has failed for multiple consecutive
+                    // runs, so a single transient failure doesn't trigger alerting. The threshold is
+                    // configurable via SearchParameterCacheRefreshConsecutiveFailureThreshold.
+                    if (Interlocked.Increment(ref _consecutiveFailureCount) >= _consecutiveFailureThreshold)
+                    {
+                        _searchParameterCacheRefresherMetricHandler.EmitFailure(ex.GetType().Name);
+                    }
                 }
 
                 // Don't rethrow from timer callback to avoid crashing the timer
