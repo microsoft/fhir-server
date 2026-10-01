@@ -67,6 +67,16 @@ function Get-MgServicePrincipalAppRoleAssignment {
         throw (New-MgStructuredGraphError -Code $script:roleAssignmentStructuredCode -ServicePrincipalId $ServicePrincipalId)
     }
 
+    # Simulates Microsoft Graph delayed visibility: a read that SUCCEEDS but returns an empty
+    # result even though the assignment has already been persisted. The 1-based read index is
+    # matched against $script:roleAssignmentHiddenReads so specific reads (e.g. the first one or
+    # two reconciliation reads after an ambiguous write) can be made stale before the assignment
+    # becomes visible on a later read. This is distinct from the 404 cases above: no error is
+    # thrown, the read just has not caught up yet.
+    if ($read -in $script:roleAssignmentHiddenReads) {
+        return @()
+    }
+
     # Microsoft Graph serves '/servicePrincipals/{id}/appRoleAssignments' as the assignments
     # whose PrincipalId is that service principal. Mirror that here so a read against the wrong
     # principal (e.g. the API/resource principal instead of the client) returns nothing - which
@@ -75,7 +85,53 @@ function Get-MgServicePrincipalAppRoleAssignment {
 }
 
 function New-MgServicePrincipalAppRoleAssignment {
+    # [CmdletBinding()] makes this an advanced function so the caller's common -ErrorAction
+    # governs $ErrorActionPreference inside it - exactly as a real Microsoft Graph SDK cmdlet
+    # behaves. That lets the non-terminating-404 case below reproduce the SDK's habit of emitting
+    # a NON-terminating error (via Write-Error), which is only observed by the caller's try/catch
+    # when the call passes -ErrorAction Stop.
+    [CmdletBinding()]
     param($ServicePrincipalId, $PrincipalId, $ResourceId, $AppRoleId)
+    $write = ++$script:newAssignmentWrites
+
+    # Simulates the Microsoft Graph SDK emitting a NON-terminating error for the transient
+    # write-endpoint 404 (the SDK commonly surfaces Graph failures this way). The 1-based write
+    # index is matched against $script:newAssignmentNonTerminating404Writes. The assignment is NOT
+    # persisted (the real transient case). Because this is Write-Error rather than throw, it only
+    # becomes a terminating, catchable error when the caller passes -ErrorAction Stop; without it
+    # the write silently "succeeds" and the retry is defeated.
+    if ($write -in $script:newAssignmentNonTerminating404Writes) {
+        Write-Error "Graph 404 Request_ResourceNotFound: Resource '$ResourceId' does not exist or one of its queried reference-property objects are not present."
+        return
+    }
+
+    # Simulates Microsoft Graph rejecting a duplicate create with HTTP 400 "Permission being
+    # assigned already exists on the object" - the shape a reissue hits when it races a
+    # delayed-visibility apply. The 1-based write index is matched against
+    # $script:newAssignmentAlreadyExistsWrites. No duplicate is persisted.
+    if ($write -in $script:newAssignmentAlreadyExistsWrites) {
+        throw "Graph 400 Request_BadRequest: Permission being assigned already exists on the object."
+    }
+
+    # Simulates a transient write-endpoint 404: Microsoft Graph answers the CREATE itself with
+    # Request_ResourceNotFound because the resource (API) app role has not yet propagated. The
+    # 1-based index of each write is matched against $script:newAssignment404Writes so a specific
+    # attempt (e.g. only the first) can be made to fail this way. By default such a 404 does NOT
+    # persist the assignment (the real transient case, which must be reissued); setting
+    # $script:newAssignment404Applies emulates the ambiguous "reported 404 but actually applied"
+    # case so the reissue path can be proven not to create a duplicate.
+    if ($write -in $script:newAssignment404Writes) {
+        if ($script:newAssignment404Applies) {
+            $script:assignments += [pscustomobject]@{
+                Id          = 'assignment-id'
+                PrincipalId = $PrincipalId
+                ResourceId  = $ResourceId
+                AppRoleId   = $AppRoleId
+            }
+        }
+        throw "Graph 404 Request_ResourceNotFound: Resource '$ResourceId' does not exist or one of its queried reference-property objects are not present."
+    }
+
     # By default the create succeeds and the assignment becomes visible. Tests can configure
     # two Graph-realistic failure shapes via the script state:
     #   $script:newAssignmentError   - the error the create throws (Graph's known
@@ -115,6 +171,12 @@ function Reset-Counters {
     $script:roleAssignmentStructuredCode = $null
     $script:newAssignmentError = $null
     $script:newAssignmentApplies = $false
+    $script:newAssignmentWrites = 0
+    $script:newAssignment404Writes = @()
+    $script:newAssignment404Applies = $false
+    $script:newAssignmentAlreadyExistsWrites = @()
+    $script:roleAssignmentHiddenReads = @()
+    $script:newAssignmentNonTerminating404Writes = @()
 }
 
 # 1 - Both service principals are queryable immediately: no retries, roles are assigned.
@@ -308,4 +370,128 @@ catch {
     }
 }
 
-Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals, retries the transient Request_ResourceNotFound while reading assignments (initial, catch, and final reads), fails fast on unrelated 404s, confirms a spuriously-reported create against the client principal, rethrows the original error on a real create failure, and preserves the original write error when the verification read itself fails.'
+# 15 - The CREATE itself answers a transient 404 Request_ResourceNotFound (the resource role is
+#      still propagating to the write endpoint) and does NOT persist: the bounded, read-only
+#      reconciliation (3 attempts / 2 backoffs) never sees the assignment, so the write is
+#      reissued and succeeds, assigning the role exactly once (no duplicate).
+Reset-Counters
+$script:newAssignment404Writes = @(1)
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:newAssignmentWrites -ne 2 -or $script:sleeps -ne 2) {
+    throw "A transient write 404 was not reissued exactly once (writes=$script:newAssignmentWrites sleeps=$script:sleeps)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "Reissuing a transient write 404 must assign the role exactly once (assignments=$(@($script:assignments).Count))."
+}
+
+# 16 - The CREATE reports a 404 but Microsoft Graph actually applied the assignment: the
+#      reconciliation against the client principal finds it on the first read, so the write is
+#      NOT reissued and no duplicate assignment is created.
+Reset-Counters
+$script:newAssignment404Writes = @(1)
+$script:newAssignment404Applies = $true
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:newAssignmentWrites -ne 1 -or $script:sleeps -ne 0) {
+    throw "A 404 whose assignment already applied must not reissue the write (writes=$script:newAssignmentWrites sleeps=$script:sleeps)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "Confirming a 404 that actually applied must not create a duplicate assignment (assignments=$(@($script:assignments).Count))."
+}
+
+# 17 - The CREATE answers 404 Request_ResourceNotFound on every attempt and never persists: the
+#      write is reissued up to the bounded limit (each preceded by the 2-backoff reconciliation:
+#      5 attempts x 2 = 10 sleeps) and then the ORIGINAL Graph 404 surfaces - not a generic
+#      message - with no assignment left behind.
+Reset-Counters
+$script:newAssignment404Writes = @(1, 2, 3, 4, 5)
+try {
+    Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+    throw 'A never-clearing write 404 was swallowed.'
+}
+catch {
+    if ($_.Exception.Message -notlike '*Request_ResourceNotFound*' -or $script:newAssignmentWrites -ne 5 -or $script:sleeps -ne 10) {
+        throw
+    }
+    if (@($script:assignments).Count -ne 0) {
+        throw "A never-clearing write 404 must not leave an assignment behind (assignments=$(@($script:assignments).Count))."
+    }
+}
+
+# 18 - The CREATE reports a 404 and Microsoft Graph DID apply the assignment, but the first two
+#      reconciliation reads are stale (empty) before the assignment becomes visible on the third:
+#      the bounded delayed-visibility reconciliation waits it out and confirms the assignment, so
+#      the write is NOT reissued - proving a stale read does not drive a duplicate/second write.
+Reset-Counters
+$script:newAssignment404Writes = @(1)
+$script:newAssignment404Applies = $true
+# Reads: 1 = initial assignments read (empty, role lands in rolesToAdd). The reconciliation after
+# the ambiguous write is reads 2,3,4; hide 2 and 3 so the assignment only surfaces on read 4.
+$script:roleAssignmentHiddenReads = @(2, 3)
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:newAssignmentWrites -ne 1) {
+    throw "A stale reconciliation read must not trigger a second write (writes=$script:newAssignmentWrites)."
+}
+if ($script:sleeps -ne 2) {
+    throw "The delayed-visibility reconciliation did not wait exactly twice before the assignment appeared (sleeps=$script:sleeps)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "A delayed-visibility apply confirmed by reconciliation must not create a duplicate assignment (assignments=$(@($script:assignments).Count))."
+}
+
+# 19 - The first CREATE reports a 404 and actually applied, but every reconciliation read before
+#      the reissue is stale (empty), so the write is reissued - and the reissue races the now-
+#      persisted assignment and reports it already exists. That duplicate report is treated as
+#      confirmation: the assignment is verified and the create is accepted WITHOUT a third write
+#      and WITHOUT a duplicate, instead of falsely failing.
+Reset-Counters
+$script:newAssignment404Writes = @(1)
+$script:newAssignment404Applies = $true
+$script:newAssignmentAlreadyExistsWrites = @(2)
+# Reads: 1 = initial (empty). Reconciliation after write 1 is reads 2,3,4 - all hidden so it
+# exhausts and reissues. The reissue (write 2) reports "already exists"; its reconciliation is
+# read 5, which is visible and confirms the assignment.
+$script:roleAssignmentHiddenReads = @(2, 3, 4)
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:newAssignmentWrites -ne 2) {
+    throw "An 'already exists' reissue must be confirmed, not retried again (writes=$script:newAssignmentWrites)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "A lagging 'already exists' reissue must not create a duplicate assignment (assignments=$(@($script:assignments).Count))."
+}
+
+# 20 - The CREATE reports the assignment already exists but it genuinely cannot be confirmed
+#      (never becomes visible): the reconciliation exhausts and the ORIGINAL Graph error surfaces
+#      rather than being falsely swallowed as a success. No assignment is left behind.
+Reset-Counters
+$script:newAssignmentAlreadyExistsWrites = @(1)
+try {
+    Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+    throw "An unconfirmable 'already exists' error was swallowed."
+}
+catch {
+    if ($_.Exception.Message -notlike '*already exists*' -or $script:newAssignmentWrites -ne 1 -or $script:sleeps -ne 2) {
+        throw
+    }
+    if (@($script:assignments).Count -ne 0) {
+        throw "An unconfirmable 'already exists' error must not leave an assignment behind (assignments=$(@($script:assignments).Count))."
+    }
+}
+
+# 21 - The CREATE surfaces its transient 404 as a NON-terminating error (as the Graph SDK often
+#      does). The production call MUST pass -ErrorAction Stop so this is promoted to a catchable
+#      terminating error; otherwise it would bypass the catch, leave the write falsely "succeeded"
+#      and defeat the retry (the assignment would never be persisted). With the fix, the error is
+#      caught, reconciled (absent), the write is reissued, and the role is assigned exactly once.
+#      RED (without -ErrorAction Stop): writes=1 and assignments=0 - a silent false success.
+#      GREEN (with -ErrorAction Stop): writes=2 and assignments=1.
+Reset-Counters
+$script:newAssignmentNonTerminating404Writes = @(1)
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:newAssignmentWrites -ne 2) {
+    throw "A non-terminating write 404 must be caught (via -ErrorAction Stop) and reissued (writes=$script:newAssignmentWrites)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "A non-terminating write 404 that bypassed the catch would leave the role unassigned (assignments=$(@($script:assignments).Count))."
+}
+
+Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals, retries the transient Request_ResourceNotFound while reading assignments (initial, catch, and final reads), catches non-terminating Graph write errors via -ErrorAction Stop, reconciles delayed write visibility with a bounded read-only backoff before reissuing the CREATE (so a stale read never drives a duplicate), treats a lagging "already exists" reissue as confirmation rather than failure, fails with the original error on a persistent write 404 or an unconfirmable duplicate, fails fast on unrelated 404s, confirms a spuriously-reported create against the client principal, rethrows the original error on a real create failure, and preserves the original write error when the verification read itself fails.'
