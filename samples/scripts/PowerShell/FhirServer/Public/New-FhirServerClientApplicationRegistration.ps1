@@ -106,7 +106,7 @@ function New-FhirServerClientApplicationRegistration {
     $clientAppPassword = Add-MgApplicationPassword -ApplicationId $clientAppReg.Id -PasswordCredential $passwordCredential
 
     # Create Service Principal
-    New-MgServicePrincipal -AppId $clientAppReg.AppId | Out-Null
+    New-FhirServerServicePrincipal -AppId $clientAppReg.AppId
 
     $securityAuthenticationAudience = $apiAppReg.IdentifierUris[0]
     $tenantId = $context.TenantId
