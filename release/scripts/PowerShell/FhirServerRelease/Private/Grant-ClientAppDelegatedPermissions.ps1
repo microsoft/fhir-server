@@ -28,6 +28,46 @@ function Grant-ClientAppDelegatedPermissions {
 
     Write-Host "Granting delegated permissions for app ID $AppId"
 
+    # A task retry can call this function immediately after the resource and client service
+    # principals are created. Microsoft Graph may not have finished propagating a brand new
+    # principal, so Get-MgServicePrincipal returns nothing and the previous code then accessed
+    # .Id on $null, which under Set-StrictMode -Version Latest fails with
+    # "The property 'Id' cannot be found on this object." Retry the lookup (only when it returns
+    # nothing) with bounded backoff, let any genuine Graph error surface immediately via
+    # -ErrorAction Stop, and fail explicitly if the principal never becomes visible.
+    function Resolve-ServicePrincipalId {
+        param(
+            [Parameter(Mandatory = $true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Filter,
+
+            [Parameter(Mandatory = $true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,
+
+            [int]$MaxAttempts = 5
+        )
+
+        for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+            # Do not wrap this in a catch: a real Graph failure must propagate unchanged.
+            $servicePrincipal = Get-MgServicePrincipal -Filter $Filter -ErrorAction Stop
+
+            if ($servicePrincipal) {
+                $servicePrincipal = @($servicePrincipal)[0]
+                if ($servicePrincipal.Id) {
+                    return $servicePrincipal.Id
+                }
+            }
+
+            if ($attempt -lt $MaxAttempts) {
+                Write-Warning "Service principal for $Description not yet visible in Microsoft Graph (attempt $attempt of $MaxAttempts). Retrying after backoff."
+                Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
+            }
+        }
+
+        throw "Unable to resolve the service principal Id for $Description after $MaxAttempts attempts. The principal may not have finished propagating in Microsoft Graph."
+    }
+
     # Get token to talk to graph api using Microsoft Graph context
     $context = Get-MgContext
     if (-not $context) {
@@ -57,14 +97,11 @@ function Grant-ClientAppDelegatedPermissions {
     }
 
     $windowsAadId = "00000002-0000-0000-c000-000000000000"  #ResourceId for Windows Azure Active Directory
-    $windowsAadServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$windowsAadId'"
-    $windowsAadObjectId = $windowsAadServicePrincipal.Id
+    $windowsAadObjectId = Resolve-ServicePrincipalId -Filter "appId eq '$windowsAadId'" -Description "Windows Azure Active Directory ($windowsAadId)"
 
-    $resourceApiServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$ResourceApplicationId'"
-    $resourceApiObjectId = $resourceApiServicePrincipal.Id
+    $resourceApiObjectId = Resolve-ServicePrincipalId -Filter "appId eq '$ResourceApplicationId'" -Description "resource application $ResourceApplicationId"
 
-    $clientServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppId'"
-    $clientObjectId = $clientServicePrincipal.Id
+    $clientObjectId = Resolve-ServicePrincipalId -Filter "appId eq '$AppId'" -Description "client application $AppId"
 
     $header = @{
         'Authorization' = 'Bearer ' + $response.access_token

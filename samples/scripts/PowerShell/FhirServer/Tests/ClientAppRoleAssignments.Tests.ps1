@@ -67,16 +67,34 @@ function Get-MgServicePrincipalAppRoleAssignment {
         throw (New-MgStructuredGraphError -Code $script:roleAssignmentStructuredCode -ServicePrincipalId $ServicePrincipalId)
     }
 
-    $script:assignments
+    # Microsoft Graph serves '/servicePrincipals/{id}/appRoleAssignments' as the assignments
+    # whose PrincipalId is that service principal. Mirror that here so a read against the wrong
+    # principal (e.g. the API/resource principal instead of the client) returns nothing - which
+    # is exactly how the previous catch block masked a successful assignment as a failure.
+    @($script:assignments | Where-Object { $_.PrincipalId -eq $ServicePrincipalId })
 }
 
 function New-MgServicePrincipalAppRoleAssignment {
     param($ServicePrincipalId, $PrincipalId, $ResourceId, $AppRoleId)
-    $script:assignments += [pscustomobject]@{
-        Id          = 'assignment-id'
-        PrincipalId = $PrincipalId
-        ResourceId  = $ResourceId
-        AppRoleId   = $AppRoleId
+    # By default the create succeeds and the assignment becomes visible. Tests can configure
+    # two Graph-realistic failure shapes via the script state:
+    #   $script:newAssignmentError   - the error the create throws (Graph's known
+    #                                  "reports failure" behaviour); $null means success.
+    #   $script:newAssignmentApplies - when the create throws, whether Graph nonetheless
+    #                                  persisted the assignment (the "reports failure but
+    #                                  actually applied" case). When it stays $false the create
+    #                                  throws without applying anything (a genuine failure).
+    if (-not $script:newAssignmentError -or $script:newAssignmentApplies) {
+        $script:assignments += [pscustomobject]@{
+            Id          = 'assignment-id'
+            PrincipalId = $PrincipalId
+            ResourceId  = $ResourceId
+            AppRoleId   = $AppRoleId
+        }
+    }
+
+    if ($script:newAssignmentError) {
+        throw $script:newAssignmentError
     }
 }
 
@@ -95,6 +113,8 @@ function Reset-Counters {
     $script:roleAssignmentOtherErrorReads = @()
     $script:roleAssignmentStructuredReads = @()
     $script:roleAssignmentStructuredCode = $null
+    $script:newAssignmentError = $null
+    $script:newAssignmentApplies = $false
 }
 
 # 1 - Both service principals are queryable immediately: no retries, roles are assigned.
@@ -225,4 +245,67 @@ catch {
     }
 }
 
-Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals, retries the transient Request_ResourceNotFound while reading assignments (initial, catch, and final reads), and fails fast on unrelated 404s.'
+# 12 - New-MgServicePrincipalAppRoleAssignment reports a failure but Microsoft Graph actually
+#      applied the assignment: the catch verifies against the CLIENT service principal's own
+#      assignments, finds the role, and swallows the spurious error instead of masking the
+#      success. No duplicate assignment is created and no retry/sleep is needed.
+Reset-Counters
+$script:newAssignmentError = 'Graph reported a transient write failure for the app role assignment.'
+$script:newAssignmentApplies = $true
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:sleeps -ne 0) {
+    throw "A create that reported failure but actually applied must be confirmed on the first verification read (sleeps=$script:sleeps)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "Verifying a spuriously-reported create failure must not create a duplicate assignment (assignments=$(@($script:assignments).Count))."
+}
+
+# 13 - New-MgServicePrincipalAppRoleAssignment fails for real (the assignment was NOT applied):
+#      the verification read against the client service principal never finds the role, so the
+#      ORIGINAL Graph error surfaces - not the old generic 'Failure adding app role assignment'
+#      message - after the bounded verification retries are exhausted.
+Reset-Counters
+$script:newAssignmentError = 'Graph 403 Authorization_RequestDenied: Insufficient privileges to assign the app role.'
+$script:newAssignmentApplies = $false
+try {
+    Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+    throw 'A real app role assignment failure was swallowed.'
+}
+catch {
+    if ($_.Exception.Message -like '*Failure adding app role assignment*') {
+        throw 'The original Graph error was masked by the generic failure message.'
+    }
+    if ($_.Exception.Message -notlike '*Authorization_RequestDenied*' -or $script:sleeps -ne 4) {
+        throw
+    }
+    if (@($script:assignments).Count -ne 0) {
+        throw "A real create failure must not leave an assignment behind (assignments=$(@($script:assignments).Count))."
+    }
+}
+
+# 14 - The create fails for real AND the verification read ALSO fails (e.g. a 403 on the
+#      probe). The secondary read failure must not replace the saved write error: the ORIGINAL
+#      Graph write error is reported, and the probe failure is surfaced only as a warning.
+Reset-Counters
+$script:newAssignmentError = 'Graph 500 ServiceUnavailable: the app role assignment write failed.'
+$script:newAssignmentApplies = $false
+# Read 1 is the initial assignments read (must succeed so the role lands in rolesToAdd); the
+# verification read inside the catch is read 2 and is forced to fail with a non-404 error.
+$script:roleAssignmentOtherErrorReads = @(2)
+try {
+    Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+    throw 'A real create failure with a failing verification read was swallowed.'
+}
+catch {
+    if ($_.Exception.Message -like '*Authorization_RequestDenied*') {
+        throw 'The verification read failure masked the original Graph write error.'
+    }
+    if ($_.Exception.Message -notlike '*ServiceUnavailable*' -or $_.Exception.Message -notlike '*write failed*') {
+        throw
+    }
+    if (@($script:assignments).Count -ne 0) {
+        throw "A real create failure must not leave an assignment behind (assignments=$(@($script:assignments).Count))."
+    }
+}
+
+Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals, retries the transient Request_ResourceNotFound while reading assignments (initial, catch, and final reads), fails fast on unrelated 404s, confirms a spuriously-reported create against the client principal, rethrows the original error on a real create failure, and preserves the original write error when the verification read itself fails.'

@@ -201,12 +201,52 @@ function Set-FhirServerClientAppRoleAssignments {
             New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role | Out-Null
         }
         catch {
-            #The role may have been assigned. Check:
-            # Read-only verification, so the same transient-404 retry is safe here and never
-            # re-runs the role assignment above.
-            $roleAssigned = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $apiApplication.Id | Where-Object {$_.PrincipalId -eq $ObjectId -and $_.AppRoleId -eq $role}
-            if (!$roleAssigned) {
-                throw "Failure adding app role assignment for service principal."
+            # New-MgServicePrincipalAppRoleAssignment is known to report a failure in some
+            # environments even though Microsoft Graph did apply the assignment. Before treating
+            # this as a real error, verify it against the CLIENT service principal's own
+            # appRoleAssignments collection - that is the relationship this assignment is written
+            # to ('/servicePrincipals/{client}/appRoleAssignments'). Reading the API (resource)
+            # service principal here, as a previous version did, would never surface the
+            # assignment and so masked a genuine success as a failure.
+            #
+            # Graph write propagation can lag the create call, so re-read with a bounded,
+            # targeted retry until the specific assignment becomes visible. This read is
+            # read-only and never re-issues the create above, so it cannot create a duplicate
+            # assignment. If the assignment still cannot be confirmed, the ORIGINAL Graph error
+            # is rethrown (preserving its type, code and message) instead of being masked by a
+            # generic message - so a real permission or other failure stays visible.
+            $originalError = $_
+
+            $roleAssigned = $null
+            for ($verifyAttempt = 1; $verifyAttempt -le 5; $verifyAttempt++) {
+                try {
+                    $roleAssigned = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId |
+                        Where-Object { $_.PrincipalId -eq $ObjectId -and $_.ResourceId -eq $apiApplication.Id -and $_.AppRoleId -eq $role }
+                }
+                catch {
+                    # The verification read itself failed (e.g. a 403, or the transient 404 that
+                    # never cleared). This is only a diagnostic probe, so it must NOT replace the
+                    # original write failure: surface it via Write-Warning and fall through to
+                    # rethrow the preserved original Graph error below.
+                    Write-Warning "Could not verify whether app role '$role' was applied to service principal $ObjectId after the create reported a failure: $($_.Exception.Message)"
+                    $roleAssigned = $null
+                    break
+                }
+
+                if ($roleAssigned) {
+                    break
+                }
+
+                if ($verifyAttempt -eq 5) {
+                    break
+                }
+
+                Write-Warning "Verifying whether app role '$role' was applied to service principal $ObjectId despite the reported failure (attempt $verifyAttempt of 5)."
+                Start-Sleep -Seconds (5 * [math]::Pow(2, $verifyAttempt - 1))
+            }
+
+            if (-not $roleAssigned) {
+                throw $originalError
             }
         }
     }
