@@ -108,8 +108,22 @@ function Add-AadTestAuthEnvironment {
         DefaultVault = $true
     }
 
-    # Register the vault to store the secret values
-    Register-SecretVault @parameters
+    # A task retry can reuse the registration from its previous attempt.
+    $registeredVault = Get-SecretVault -ErrorAction Stop | Where-Object Name -eq $parameters.Name
+    if ($registeredVault) {
+        if ($registeredVault.ModuleName -ne $parameters.ModuleName -or
+            $registeredVault.VaultParameters.AZKVaultName -ne $KeyVaultName -or
+            $registeredVault.VaultParameters.SubscriptionId -ne $parameters.VaultParameters.SubscriptionId) {
+            throw "Registered secret vault '$($parameters.Name)' does not match the intended Azure Key Vault."
+        }
+
+        if (-not $registeredVault.IsDefault) {
+            Set-SecretVaultDefault -Name $parameters.Name -ErrorAction Stop
+        }
+    }
+    else {
+        Register-SecretVault @parameters -ErrorAction Stop
+    }
 
     Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
@@ -153,18 +167,7 @@ function Add-AadTestAuthEnvironment {
     # Connect to Microsoft Graph using the credentials
     Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $ClientSecretCredential
 
-    $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
-
-    if (!$application) {
-        $newApplication = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
-
-        # Change to use applicationId returned
-        $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
-    }
-
-    Write-Host "Setting roles on API Application"
-
-    # 1 - Setting up roles
+    # Set the final roles during registration to avoid immediately removing the default admin role.
     $appRoles = @()
     if ($testAuthEnvironment.users -and $testAuthEnvironment.users.length -gt 0) {
         $userRoles = $testAuthEnvironment.users | Where-Object { $_.roles } | ForEach-Object { $_.roles }
@@ -180,8 +183,24 @@ function Add-AadTestAuthEnvironment {
         }
     }
     
-    if ($appRoles.length -gt 0) {
-        $appRoles = $appRoles | Select-Object -Unique
+    $appRoles = @($appRoles | Select-Object -Unique)
+    $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
+    $createdApplication = $false
+
+    if (!$application) {
+        $registrationParams = @{ FhirServiceAudience = $fhirServiceAudience }
+        if ($appRoles.Length -gt 0) {
+            $registrationParams.AppRoles = $appRoles
+        }
+
+        $newApplication = New-FhirServerApiApplicationRegistration @registrationParams
+        $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
+        $createdApplication = $true
+    }
+
+    Write-Host "Setting roles on API Application"
+
+    if ($appRoles.Length -gt 0 -and -not $createdApplication) {
         Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
     }
 
