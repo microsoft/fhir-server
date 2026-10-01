@@ -40,9 +40,38 @@ function Set-FhirServerClientAppRoleAssignments {
         throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
+    # Both the API and client service principals may have just been created earlier in this
+    # run, so Microsoft Graph eventual consistency can return nothing for an immediate lookup.
+    # Retry the lookup until the service principal propagates before reading its Id; otherwise
+    # StrictMode fails the downstream '.Id' access with
+    # "The property 'Id' cannot be found on this object".
+    function Get-MgServicePrincipalByAppIdWithRetry {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$ApplicationId,
+
+            [Parameter(Mandatory = $true)]
+            [string]$Description
+        )
+
+        for ($attempt = 1; $attempt -le 5; $attempt++) {
+            $servicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$ApplicationId'" -ErrorAction Stop
+            if ($servicePrincipal) {
+                return $servicePrincipal
+            }
+
+            if ($attempt -eq 5) {
+                throw "The $Description service principal for appId '$ApplicationId' was not found on Microsoft Graph."
+            }
+
+            Write-Warning "Waiting for the $Description service principal $ApplicationId to become available before assigning app roles (attempt $attempt of 5)."
+            Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
+        }
+    }
+
     # Get the collection of roles for the user
-    $apiApplication = Get-MgServicePrincipal -Filter "appId eq '$ApiAppId'"
-    $mgClientServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppId'"
+    $apiApplication = Get-MgServicePrincipalByAppIdWithRetry -ApplicationId $ApiAppId -Description 'API'
+    $mgClientServicePrincipal = Get-MgServicePrincipalByAppIdWithRetry -ApplicationId $AppId -Description 'client'
     $ObjectId = $mgClientServicePrincipal.Id
 
     $existingRoleAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id} 
