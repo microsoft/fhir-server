@@ -9,8 +9,6 @@ parameters:
 steps:
 - task: AzurePowerShell@5
   displayName: 'Set Variables (ACA)'
-  # Recover from transient Connect-AzAccount failures before the read-only script runs.
-  retryCountOnTaskFailure: 1
   inputs:
     azureSubscription: $(ConnectedServiceName)
     azurePowerShellVersion: latestVersion

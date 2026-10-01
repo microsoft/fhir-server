@@ -40,195 +40,12 @@ function Set-FhirServerClientAppRoleAssignments {
         throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
-    # Both the API and client service principals may have just been created earlier in this
-    # run, so Microsoft Graph eventual consistency can return nothing for an immediate lookup.
-    # Retry the lookup until the service principal propagates before reading its Id; otherwise
-    # StrictMode fails the downstream '.Id' access with
-    # "The property 'Id' cannot be found on this object".
-    function Get-MgServicePrincipalByAppIdWithRetry {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$ApplicationId,
-
-            [Parameter(Mandatory = $true)]
-            [string]$Description
-        )
-
-        for ($attempt = 1; $attempt -le 5; $attempt++) {
-            $servicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$ApplicationId'" -ErrorAction Stop
-            if ($servicePrincipal) {
-                return $servicePrincipal
-            }
-
-            if ($attempt -eq 5) {
-                throw "The $Description service principal for appId '$ApplicationId' was not found on Microsoft Graph."
-            }
-
-            Write-Warning "Waiting for the $Description service principal $ApplicationId to become available before assigning app roles (attempt $attempt of 5)."
-            Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
-        }
-    }
-
-    # Microsoft Graph answers a read of a freshly created service principal's
-    # appRoleAssignedTo relationship with HTTP 404 'Request_ResourceNotFound' until that
-    # relationship propagates. This classifier recognizes ONLY that specific error so the
-    # read can be retried. It trusts the structured Graph error code when the SDK exposes it
-    # (an unrelated error that merely shares HTTP 404 carries a different code and must fail
-    # fast); otherwise it falls back to the fully-qualified error id, and finally the error
-    # text. Every other failure surfaces immediately.
-    function Test-MgResourceNotFoundError {
-        param(
-            [Parameter(Mandatory = $true)]
-            $ErrorRecord
-        )
-
-        $notFoundCode = 'Request_ResourceNotFound'
-
-        # Prefer the structured error code from the Graph response body
-        # ({ "error": { "code": ... } }). When present it is authoritative: a 404 carrying a
-        # different code is deliberately NOT retried.
-        $structuredCode = $null
-        $errorDetails = $ErrorRecord.PSObject.Properties['ErrorDetails']
-        if ($errorDetails -and $errorDetails.Value) {
-            $detailsMessage = $errorDetails.Value.PSObject.Properties['Message']
-            if ($detailsMessage -and $detailsMessage.Value) {
-                try {
-                    $parsedBody = $detailsMessage.Value | ConvertFrom-Json -ErrorAction Stop
-                    $errorNode = $parsedBody.PSObject.Properties['error']
-                    if ($errorNode -and $errorNode.Value) {
-                        $codeNode = $errorNode.Value.PSObject.Properties['code']
-                        if ($codeNode -and $codeNode.Value) {
-                            $structuredCode = [string]$codeNode.Value
-                        }
-                    }
-                }
-                catch {
-                    # Body was not JSON; fall through to the id / text heuristics below.
-                }
-            }
-        }
-
-        if ($structuredCode) {
-            return ($structuredCode -eq $notFoundCode)
-        }
-
-        # Fall back to the fully-qualified error id, which Graph seeds with the error code
-        # (e.g. 'Request_ResourceNotFound,Microsoft.Graph.PowerShell.Cmdlets...').
-        $fqeidProperty = $ErrorRecord.PSObject.Properties['FullyQualifiedErrorId']
-        if ($fqeidProperty -and $fqeidProperty.Value) {
-            $fqeidCode = ("$($fqeidProperty.Value)" -split ',', 2)[0].Trim()
-            if ($fqeidCode -eq $notFoundCode) {
-                return $true
-            }
-        }
-
-        # Last resort: match the error-code token in the human-readable message / record text.
-        $messageParts = New-Object System.Collections.ArrayList
-        $exception = $ErrorRecord.Exception
-        if ($exception -and $exception.Message) {
-            [void]$messageParts.Add($exception.Message)
-        }
-        [void]$messageParts.Add("$ErrorRecord")
-
-        return ($messageParts -join ' ') -match [regex]::Escape($notFoundCode)
-    }
-
-    # Read the app role assignments for a service principal, retrying only the transient Graph
-    # 404 recognized above. This read-only helper wraps the read alone, so retrying it never
-    # re-runs role creation or removal (no duplicate assignments). An empty collection is a
-    # legitimate "no assignments yet" answer and is returned as-is rather than retried; non-404
-    # failures surface immediately; and once the bounded retries are exhausted the original 404
-    # is propagated.
-    function Get-MgServicePrincipalAppRoleAssignmentWithRetry {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string]$ServicePrincipalId
-        )
-
-        for ($attempt = 1; $attempt -le 5; $attempt++) {
-            try {
-                return @(Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ServicePrincipalId -ErrorAction Stop)
-            }
-            catch {
-                if (-not (Test-MgResourceNotFoundError -ErrorRecord $_)) {
-                    throw
-                }
-
-                if ($attempt -eq 5) {
-                    throw
-                }
-
-                Write-Warning "Waiting for the app role assignments of service principal $ServicePrincipalId to become readable on Microsoft Graph (attempt $attempt of 5)."
-                Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
-            }
-        }
-    }
-
-    # Graph can report a failed write before its applied assignment becomes visible.
-    # Reconcile read-only against the client principal before considering another write.
-    function Confirm-MgClientAppRoleAssignmentWithRetry {
-        param(
-                [Parameter(Mandatory = $true)]
-                [string]$ServicePrincipalId,
-
-                [Parameter(Mandatory = $true)]
-                [string]$ResourceId,
-
-                [Parameter(Mandatory = $true)]
-                [string]$AppRoleId,
-
-                [int]$MaxAttempts = 3
-        )
-
-        for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-                $assignment = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $ServicePrincipalId |
-                    Where-Object { $_.PrincipalId -eq $ServicePrincipalId -and $_.ResourceId -eq $ResourceId -and $_.AppRoleId -eq $AppRoleId }
-
-                if ($assignment) {
-                    return $true
-                }
-
-                if ($attempt -eq $MaxAttempts) {
-                    return $false
-                }
-
-                Write-Warning "Reconciling whether app role '$AppRoleId' on service principal $ServicePrincipalId has become visible on Microsoft Graph before reissuing the assignment (attempt $attempt of $MaxAttempts)."
-                Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
-        }
-    }
-
-    # Graph uses a generic HTTP 400 code for duplicate assignments; inspect its message.
-    function Test-MgAssignmentAlreadyExistsError {
-        param(
-                [Parameter(Mandatory = $true)]
-                $ErrorRecord
-        )
-
-        $messageParts = New-Object System.Collections.ArrayList
-
-        $errorDetails = $ErrorRecord.PSObject.Properties['ErrorDetails']
-        if ($errorDetails -and $errorDetails.Value) {
-                $detailsMessage = $errorDetails.Value.PSObject.Properties['Message']
-                if ($detailsMessage -and $detailsMessage.Value) {
-                    [void]$messageParts.Add([string]$detailsMessage.Value)
-                }
-        }
-
-        $exception = $ErrorRecord.Exception
-        if ($exception -and $exception.Message) {
-                [void]$messageParts.Add($exception.Message)
-        }
-        [void]$messageParts.Add("$ErrorRecord")
-
-        return ($messageParts -join ' ') -match 'already exists'
-    }
-
     # Get the collection of roles for the user
-    $apiApplication = Get-MgServicePrincipalByAppIdWithRetry -ApplicationId $ApiAppId -Description 'API'
-    $mgClientServicePrincipal = Get-MgServicePrincipalByAppIdWithRetry -ApplicationId $AppId -Description 'client'
+    $apiApplication = Get-MgServicePrincipal -Filter "appId eq '$ApiAppId'"
+    $mgClientServicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppId'"
     $ObjectId = $mgClientServicePrincipal.Id
 
-    $existingRoleAssignments = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id}
+    $existingRoleAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id} 
 
     $expectedRoles = New-Object System.Collections.ArrayList
     $rolesToAdd = New-Object System.Collections.ArrayList
@@ -254,81 +71,17 @@ function Set-FhirServerClientAppRoleAssignments {
         }
     }
 
-    # Reconcile ambiguous writes against the client principal before retrying to avoid
-    # duplicating an assignment that Graph has applied but not yet made visible.
     foreach ($role in $rolesToAdd) {
-        for ($writeAttempt = 1; $writeAttempt -le 5; $writeAttempt++) {
-            $writeError = $null
-            try {
-                # Graph cmdlets may emit non-terminating errors, so make them catchable.
-                New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role -ErrorAction Stop | Out-Null
+        # This is known to report failure in certain scenarios, but will actually apply the permissions
+        try {
+            New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId -PrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role | Out-Null
+        }
+        catch {
+            #The role may have been assigned. Check:
+            $roleAssigned = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $apiApplication.Id | Where-Object {$_.PrincipalId -eq $ObjectId -and $_.AppRoleId -eq $role}
+            if (!$roleAssigned) {
+                throw "Failure adding app role assignment for service principal."
             }
-            catch {
-                $writeError = $_
-            }
-
-            if (-not $writeError) {
-                break
-            }
-
-            if (Test-MgAssignmentAlreadyExistsError -ErrorRecord $writeError) {
-                # A duplicate report is success only if the client's assignment becomes visible.
-                $confirmedExisting = $false
-                try {
-                    $confirmedExisting = Confirm-MgClientAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role
-                }
-                catch {
-                    # A failed read must not mask the write error.
-                    Write-Warning "Could not verify whether app role '$role' already exists on service principal $ObjectId after Microsoft Graph reported a duplicate assignment: $($_.Exception.Message)"
-                    throw $writeError
-                }
-
-                if ($confirmedExisting) {
-                    break
-                }
-
-                throw $writeError
-            }
-
-            if (Test-MgResourceNotFoundError -ErrorRecord $writeError) {
-                # Reconcile an ambiguous 404 before another write; preserve it if reads fail.
-                $alreadyAssigned = $false
-                try {
-                    $alreadyAssigned = Confirm-MgClientAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role
-                }
-                catch {
-                    Write-Warning "Could not verify whether app role '$role' was already applied to service principal $ObjectId after Microsoft Graph returned Request_ResourceNotFound on the write: $($_.Exception.Message)"
-                    throw $writeError
-                }
-
-                if ($alreadyAssigned) {
-                    break
-                }
-
-                if ($writeAttempt -eq 5) {
-                    throw $writeError
-                }
-
-                Write-Warning "Microsoft Graph returned Request_ResourceNotFound writing app role '$role' to service principal $ObjectId; the assignment is still not visible after reconciliation, so the resource role may still be propagating to the write endpoint. Reissuing the assignment (attempt $writeAttempt of 5)."
-                continue
-            }
-
-            # Non-404 errors are never reissued. Confirm against the client principal
-            # because Graph can report a failed write even when the assignment applied.
-            $roleAssigned = $false
-            try {
-                $roleAssigned = Confirm-MgClientAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId -ResourceId $apiApplication.Id -AppRoleId $role -MaxAttempts 5
-            }
-            catch {
-                Write-Warning "Could not verify whether app role '$role' was applied to service principal $ObjectId after the create reported a failure: $($_.Exception.Message)"
-                throw $writeError
-            }
-
-            if (-not $roleAssigned) {
-                throw $writeError
-            }
-
-            break
         }
     }
 
@@ -337,7 +90,7 @@ function Set-FhirServerClientAppRoleAssignments {
         Remove-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId -AppRoleAssignmentId $roleAssignmentToRemove.Id | Out-Null
     }
 
-    $finalRolesAssignments = Get-MgServicePrincipalAppRoleAssignmentWithRetry -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id}
+    $finalRolesAssignments = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $ObjectId | Where-Object {$_.ResourceId -eq $apiApplication.Id} 
     $rolesNotAdded = @()
     $rolesNotRemoved = @()
     $finalRoleIds = @($finalRolesAssignments | Select-Object -ExpandProperty AppRoleId)

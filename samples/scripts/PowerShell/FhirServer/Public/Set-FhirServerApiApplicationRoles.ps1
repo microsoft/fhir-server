@@ -40,7 +40,6 @@ function Set-FhirServerApiApplicationRoles {
 
     $appRolesToDisable = $false
     $appRolesToEnable = $false
-    $rolesToDisable = @()
     $desiredAppRoles = @()
 
     foreach ($role in $AppRoles) {
@@ -74,7 +73,6 @@ function Set-FhirServerApiApplicationRoles {
                 }
                 "=>" {
                     ($mgApplication.AppRoles | Where-Object Id -eq $diff.Id).IsEnabled = $false
-                    $rolesToDisable += $diff.Id
                     $appRolesToDisable = $true
                 }
             }
@@ -84,38 +82,11 @@ function Set-FhirServerApiApplicationRoles {
     if ($appRolesToEnable -or $appRolesToDisable) {
         if ($appRolesToDisable) {
             Write-Host "Disabling old appRoles"
-            Update-MgApplication -ApplicationId $mgApplication.Id -AppRoles $mgApplication.AppRoles -ErrorAction Stop | Out-Null
-
-            for ($attempt = 1; $attempt -le 5; $attempt++) {
-                $currentRoles = (Get-MgApplication -ApplicationId $mgApplication.Id -ErrorAction Stop).AppRoles
-                $enabledOldRoles = @($currentRoles | Where-Object { $_.Id -in $rolesToDisable -and $_.IsEnabled })
-                if ($enabledOldRoles.Count -eq 0) {
-                    break
-                }
-
-                if ($attempt -eq 5) {
-                    throw "App roles on application $ApiAppId did not become disabled."
-                }
-
-                Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
-            }
+            Update-MgApplication -ApplicationId $mgApplication.Id -AppRoles $mgApplication.AppRoles | Out-Null
         }
 
+        # Update app roles 
         Write-Host "Updating appRoles"
-        for ($attempt = 1; $attempt -le 5; $attempt++) {
-            try {
-                Update-MgApplication -ApplicationId $mgApplication.Id -AppRoles $desiredAppRoles -ErrorAction Stop | Out-Null
-                break
-            }
-            catch {
-                if ($attempt -eq 5 -or
-                    ($_.FullyQualifiedErrorId -notlike 'CannotDeleteOrUpdateEnabledEntitlement*' -and
-                     $_.Exception.Message -notlike '*CannotDeleteOrUpdateEnabledEntitlement*')) {
-                    throw
-                }
-
-                Start-Sleep -Seconds (5 * [math]::Pow(2, $attempt - 1))
-            }
-        }
+        Update-MgApplication -ApplicationId $mgApplication.Id -AppRoles $desiredAppRoles | Out-Null
     }
 }
