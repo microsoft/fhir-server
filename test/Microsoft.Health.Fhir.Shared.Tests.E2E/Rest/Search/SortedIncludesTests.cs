@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// </summary>
         /// <param name="sort">The value of the _sort parameter.</param>
         /// <returns>A task executing the test.</returns>
-        [SkippableTheory]
+        [Theory]
         [InlineData("-date")]
         [InlineData("date")]
         public async Task GivenADateSortedSearchWithIncludes_WhenPagingThroughTheIncludes_ThenEachPageReturnsExactlyTheIncludedResourcesOfItsMatches(string sort)
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// </summary>
         /// <param name="sort">The value of the _sort parameter, or null for no sort.</param>
         /// <returns>A task executing the test.</returns>
-        [SkippableTheory]
+        [Theory]
         [InlineData(null)]
         [InlineData("_lastUpdated")]
         [InlineData("-_lastUpdated")]
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// </summary>
         /// <param name="sort">The value of the _sort parameter.</param>
         /// <returns>A task executing the test.</returns>
-        [SkippableTheory]
+        [Theory]
         [InlineData("-date")]
         [InlineData("date")]
         public async Task GivenADateSortedSearchWithReverseIncludes_WhenPagingThroughTheIncludes_ThenEachPageReturnsExactlyTheIncludedResourcesOfItsMatches(string sort)
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// </summary>
         /// <param name="sort">The value of the _sort parameter.</param>
         /// <returns>A task executing the test.</returns>
-        [SkippableTheory]
+        [Theory]
         [InlineData("-date")]
         [InlineData("date")]
         public async Task GivenADateSortedSearchWhereSomeMatchesHaveNoSortValue_WhenPagingThroughTheIncludes_ThenEachPageReturnsExactlyTheIncludedResourcesOfItsMatches(string sort)
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// keeps it in the middle of a page for a descending one.
         /// </param>
         /// <returns>A task executing the test.</returns>
-        [SkippableTheory]
+        [Theory]
         [InlineData("date", true, 3)]
         [InlineData("date", true, 4)]
         [InlineData("-date", true, 3)]
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         private void SkipIfIncludesOperationIsNotSupported()
         {
-            Skip.IfNot(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
         }
 
         /// <summary>
