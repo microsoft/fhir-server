@@ -22,8 +22,23 @@ function Get-MgServicePrincipal {
     [pscustomobject]@{ Id = 'client-object' }
 }
 
+# Simulates Microsoft Graph eventual consistency for the appRoleAssignedTo relationship of
+# a freshly created service principal: the first $script:roleAssignmentOtherErrorMisses reads
+# fail with a non-404 error (which must surface immediately), the next
+# $script:roleAssignment404Misses reads fail with the transient 404 Request_ResourceNotFound
+# (which must be retried), and every read after that returns the current assignments.
 function Get-MgServicePrincipalAppRoleAssignment {
-    param($ServicePrincipalId)
+    param($ServicePrincipalId, $ErrorAction)
+    $script:roleAssignmentReads++
+
+    if ($script:roleAssignmentReads -le $script:roleAssignmentOtherErrorMisses) {
+        throw "Graph 403 Authorization_RequestDenied: Insufficient privileges to complete the operation."
+    }
+
+    if ($script:roleAssignmentReads -le ($script:roleAssignmentOtherErrorMisses + $script:roleAssignment404Misses)) {
+        throw "Graph 404 Request_ResourceNotFound: Resource '$ServicePrincipalId' does not exist or one of its queried reference-property objects are not present."
+    }
+
     $script:assignments
 }
 
@@ -47,6 +62,9 @@ function Reset-Counters {
     $script:apiMisses = 0
     $script:clientMisses = 0
     $script:assignments = @()
+    $script:roleAssignmentReads = 0
+    $script:roleAssignment404Misses = 0
+    $script:roleAssignmentOtherErrorMisses = 0
 }
 
 # 1 - Both service principals are queryable immediately: no retries, roles are assigned.
@@ -88,4 +106,53 @@ catch {
     }
 }
 
-Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals.'
+# 5 - The appRoleAssignedTo read answers immediately with no assignments (an empty result is
+#     a valid answer, not an error): the requested role is assigned without any 404 retry.
+Reset-Counters
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:sleeps -ne 0) {
+    throw "An empty appRoleAssignedTo result must not trigger a 404 retry (sleeps=$script:sleeps)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw 'The requested app role was not assigned when the initial assignments read was empty.'
+}
+
+# 6 - The appRoleAssignedTo relationship propagates after two transient 404s: the read is
+#     retried exactly twice and the role is still assigned exactly once (no duplicate creation).
+Reset-Counters
+$script:roleAssignment404Misses = 2
+Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+if ($script:sleeps -ne 2) {
+    throw "A transient 404 on the assignments read was not retried exactly twice (sleeps=$script:sleeps)."
+}
+if (@($script:assignments).Count -ne 1 -or $script:assignments[0].AppRoleId -ne 'role-guid') {
+    throw "A 404 retry must not create duplicate app role assignments (assignments=$(@($script:assignments).Count))."
+}
+
+# 7 - A non-404 error on the assignments read is not retried and surfaces immediately.
+Reset-Counters
+$script:roleAssignmentOtherErrorMisses = 1
+try {
+    Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+    throw 'A non-404 error on the assignments read was swallowed.'
+}
+catch {
+    if ($_.Exception.Message -notlike '*Authorization_RequestDenied*' -or $script:roleAssignmentReads -ne 1 -or $script:sleeps -ne 0) {
+        throw
+    }
+}
+
+# 8 - A 404 that never clears fails after bounded retries and propagates the original error.
+Reset-Counters
+$script:roleAssignment404Misses = 10
+try {
+    Set-FhirServerClientAppRoleAssignments -ApiAppId 'api-app' -AppId 'client-app' -AppRoles @('globalAdmin')
+    throw 'A never-propagating 404 on the assignments read was swallowed.'
+}
+catch {
+    if ($_.Exception.Message -notlike '*Request_ResourceNotFound*' -or $script:roleAssignmentReads -ne 5 -or $script:sleeps -ne 4) {
+        throw
+    }
+}
+
+Write-Host 'Client app role assignment retries Graph propagation for the API and client service principals, and retries the transient 404 while reading existing assignments.'
