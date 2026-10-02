@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         public const string EventualConsistencyParameterName = "eventualConsistency";
         public const string ProcessingUnitBytesToReadParameterName = "processingUnitBytesToRead";
         public const string ErrorContainerNameParameterName = "errorContainerName";
+        public const string InMemoryTestProcessingJobsParameterName = "inMemoryTestProcessingJobs";
         public const string DefaultStorageDetailType = "azure-blob";
 
         public static Parameters ToParameters(this ImportRequest importRequest)
@@ -108,6 +109,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (importRequest.ProcessingUnitBytesToRead > 0)
             {
                 parameters.Add(ProcessingUnitBytesToReadParameterName, new Integer(importRequest.ProcessingUnitBytesToRead));
+            }
+
+            if (importRequest.InMemoryTestProcessingJobs > 0)
+            {
+                parameters.Add(InMemoryTestProcessingJobsParameterName, new Integer(importRequest.InMemoryTestProcessingJobs));
             }
 
             return parameters;
@@ -196,6 +202,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (parameters.TryGetIntValue(ProcessingUnitBytesToReadParameterName, out int bytesToRead))
             {
                 importRequest.ProcessingUnitBytesToRead = bytesToRead;
+            }
+
+            if (parameters.TryGetIntValue(InMemoryTestProcessingJobsParameterName, out int inMemoryTestProcessingJobs))
+            {
+                importRequest.InMemoryTestProcessingJobs = inMemoryTestProcessingJobs;
             }
 
             return importRequest;

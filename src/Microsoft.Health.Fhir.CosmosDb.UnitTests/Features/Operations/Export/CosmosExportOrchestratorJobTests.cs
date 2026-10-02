@@ -54,8 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             var orchestratorJobInfo = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService.CreateMockScopeFactory(), _logger);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
 
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
@@ -97,15 +96,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
 
-        [Fact]
-        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobShouldBeCreatedPerResourceType()
+        [Theory]
+        [InlineData("Patient,Observation", "Observation", "Patient")]
+        [InlineData("Patient, ServiceRequest", "Patient", "ServiceRequest")]
+        [InlineData(" Patient , ServiceRequest ", "Patient", "ServiceRequest")]
+        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobShouldBeCreatedPerResourceType(
+            string typeFilter,
+            string firstExpectedResourceType,
+            string secondExpectedResourceType)
         {
             int numExpectedJobsPerResourceType = 3;
             int numExpectedResourceTypes = 2;
             int numExpectedJobs = numExpectedJobsPerResourceType * numExpectedResourceTypes;
             int numExpectedEnqueueCalls = numExpectedJobsPerResourceType * numExpectedResourceTypes;
 
-            var initialJobList = CreateOrchestratorJobList(_orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation");
+            var initialJobList = CreateOrchestratorJobList(_orchestratorJobId, isParallel: true, typeFilter: typeFilter);
             SetupMockQueue(_orchestratorJobId, initialJobList.ToList());
             var orchestratorJobInfo = initialJobList.First();
 
@@ -115,6 +120,44 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
+
+            var queuedResourceTypes = _enqueuedJobs
+                .Where(job => job.Id != _orchestratorJobId)
+                .Select(job => JsonConvert.DeserializeObject<ExportJobRecord>(job.Definition).ResourceType)
+                .Distinct()
+                .OrderBy(resourceType => resourceType);
+
+            Assert.Equal(new[] { firstExpectedResourceType, secondExpectedResourceType }, queuedResourceTypes);
+        }
+
+        [Theory]
+        [InlineData(ExportJobType.All, false, false)]
+        [InlineData(ExportJobType.Patient, true, false)]
+        [InlineData(ExportJobType.Group, true, false)]
+        [InlineData(ExportJobType.All, true, true)]
+        public async Task GivenAnExportJobThatInheritsWhitespacePaddedTypeRestrictions_WhenRun_ThenQueuedJobsUseNormalizedResourceTypes(
+            ExportJobType exportJobType,
+            bool isParallel,
+            bool hasFilter)
+        {
+            var initialJobList = CreateOrchestratorJobList(
+                _orchestratorJobId,
+                isParallel: isParallel,
+                typeFilter: " Patient , ServiceRequest ",
+                exportJobType: exportJobType,
+                hasFilter: hasFilter);
+            SetupMockQueue(_orchestratorJobId, initialJobList.ToList());
+            var orchestratorJobInfo = initialJobList.First();
+
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService.CreateMockScopeFactory(), _logger);
+
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
+
+            var queuedResourceTypes = _enqueuedJobs
+                .Where(job => job.Id != _orchestratorJobId)
+                .Select(job => JsonConvert.DeserializeObject<ExportJobRecord>(job.Definition).ResourceType);
+
+            Assert.Equal(new[] { "Patient,ServiceRequest" }, queuedResourceTypes.Distinct());
         }
 
         [Fact]
@@ -153,8 +196,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
 
             // Queue the job initially to get partial job list.
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService.CreateMockScopeFactory(), _logger);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
             var jobsInGroup = await _mockQueueClient.GetJobByGroupIdAsync(0, _orchestratorJobId, true, CancellationToken.None);
 
             // Pull first 5 jobs from the queue and inject them into a new mock queue to simluate a stopped job.
@@ -164,42 +206,53 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(_orchestratorJobId, initialJobList);
 
             // Run the job again - it should skip adding existing jobs but add non-existing jobs.
-            result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
-            jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
+            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
             CheckJobsQueued(numExpectedEnqueueCalls - numJobsBeforeStop, numExpectedJobs);
         }
 
-        [Fact]
-        public async Task GivenAnExportJobWithInvalidResourceType_WhenRun_ThenJobExecutionExceptionIsThrown()
+        [Theory]
+        [InlineData("Patient,InvalidType", "InvalidType")]
+        [InlineData("Patient,,Observation", "<empty>")]
+        [InlineData("Patient, ,Observation", "<empty>")]
+        [InlineData(" ", "<empty>")]
+        public async Task GivenAnExportJobWithInvalidResourceType_WhenRun_ThenJobExecutionExceptionIsThrown(
+            string typeFilter,
+            string invalidResourceType)
         {
             _mockSearchService.IsValidResourceType("InvalidType").Returns(false);
 
-            var initialJobList = CreateOrchestratorJobList(_orchestratorJobId, isParallel: true, typeFilter: "Patient,InvalidType");
+            var initialJobList = CreateOrchestratorJobList(_orchestratorJobId, isParallel: true, typeFilter: typeFilter);
             SetupMockQueue(_orchestratorJobId, initialJobList.ToList());
             var orchestratorJobInfo = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService.CreateMockScopeFactory(), _logger);
             var ex = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
+            var failedRecord = Assert.IsType<ExportJobRecord>(ex.Error);
 
-            Assert.Contains("InvalidType", ex.Message);
+            Assert.Contains(invalidResourceType, ex.Message);
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, failedRecord.FailureDetails.FailureStatusCode);
+            CheckJobsQueued(0, 0);
         }
 
         private List<JobInfo> CreateOrchestratorJobList(
             long orchestratorJobId,
             bool isParallel = false,
             string typeFilter = null,
-            ExportJobType exportJobType = ExportJobType.All)
+            ExportJobType exportJobType = ExportJobType.All,
+            bool hasFilter = false)
         {
             var jobInfoArray = new List<JobInfo>();
+            List<ExportJobFilter> filters = hasFilter ? [new(KnownResourceTypes.Patient, [])] : null;
 
             var orchestratorRecord = new ExportJobRecord(
                             requestUri: new Uri("https://localhost/ExportJob/"),
                             exportType: exportJobType,
                             exportFormat: ExportFormatTags.ResourceName,
                             resourceType: typeFilter,
-                            filters: null,
+                            filters: filters,
                             hash: "hash",
                             rollingFileSizeInMB: 0,
                             groupId: $"{orchestratorJobId}",
