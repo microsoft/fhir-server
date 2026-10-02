@@ -164,6 +164,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// to those without a patient reference, or (for Patient compartments) those whose patient reference
         /// matches the compartment. When false, all Device resources are treated as universal resources.
         /// Only effective when the Device resource type has a "patient" search parameter (STU3/R4/R4B).
+        /// When the restriction is enabled but the Device "patient" search parameter is unavailable, the
+        /// "no patient reference" condition cannot be evaluated safely and the restriction fails closed:
+        /// no Device is visible within a SMART compartment until that search parameter is enabled and its
+        /// index has been rebuilt.
         /// </summary>
         public bool EnableSmartCompartmentDeviceRestriction { get; set; } = true;
 

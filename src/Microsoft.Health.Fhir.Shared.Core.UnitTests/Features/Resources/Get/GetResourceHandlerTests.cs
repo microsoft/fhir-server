@@ -235,4 +235,154 @@ public class GetResourceHandlerTests
         await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             getResourceHandler.HandleAsync(request, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task GivenASmartGetResourceRequest_WhenSearchReturnsADifferentResource_ThenResourceNotFoundExceptionIsThrown()
+    {
+        // A SMART read is answered by an authorization-filtered search. If the _id constraint is dropped from
+        // that search (for example because the _id search parameter is unavailable), the search still returns
+        // resources the caller may see. Returning one of those for GET /Patient/requested-id would answer a read
+        // with the wrong resource, so the handler must reject anything that is not the requested key.
+        var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
+
+        searchService
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateSearchResult("some-other-patient"));
+
+        var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id"), bundleResourceContext: null);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GivenASmartGetResourceRequest_WhenSearchReturnsTheRequestedResourceAmongOthers_ThenThatResourceIsReturned()
+    {
+        var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
+
+        searchService
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateSearchResult("some-other-patient", "requested-id"));
+
+        var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id"), bundleResourceContext: null);
+
+        GetResourceResponse result = await getResourceHandler.HandleAsync(request, CancellationToken.None);
+
+        Assert.Equal("requested-id", result.Resource.Id);
+    }
+
+    [Fact]
+    public async Task GivenASmartGetResourceRequest_WhenSearchReturnsNoResults_ThenResourceNotFoundExceptionIsThrown()
+    {
+        var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
+
+        searchService
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateSearchResult());
+
+        var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id"), bundleResourceContext: null);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GivenASmartVersionedReadOfAHistoricalVersion_WhenSearchReturnsTheCurrentVersion_ThenResourceNotFoundExceptionIsThrown()
+    {
+        // The authorization-filtered search only returns current versions. Answering GET
+        // /Patient/requested-id/_history/1 with the current version would return the wrong version.
+        var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
+
+        searchService
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateVersionedSearchResult(("requested-id", "2")));
+
+        var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id", "1"), bundleResourceContext: null);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GivenASmartVersionedReadOfTheCurrentVersion_WhenSearchReturnsTheCurrentVersion_ThenThatVersionIsReturned()
+    {
+        var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
+
+        searchService
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateVersionedSearchResult(("requested-id", "2")));
+
+        var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id", "2"), bundleResourceContext: null);
+
+        GetResourceResponse result = await getResourceHandler.HandleAsync(request, CancellationToken.None);
+
+        Assert.Equal("requested-id", result.Resource.Id);
+        Assert.Equal("2", result.Resource.VersionId);
+    }
+
+    private GetResourceHandler CreateSmartHandler(out ISearchService searchService)
+    {
+        var authService = Substitute.For<IAuthorizationService<DataActions>>();
+        authService
+            .CheckAccess(DataActions.Read | DataActions.ReadById, CancellationToken.None)
+            .Returns(DataActions.Read);
+
+        var accessControlContext = new AccessControlContext { ApplyFineGrainedAccessControl = true };
+        var requestContext = Substitute.For<IFhirRequestContext>();
+        requestContext.AccessControlContext.Returns(accessControlContext);
+
+        var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        contextAccessor.RequestContext.Returns(requestContext);
+
+        searchService = Substitute.For<ISearchService>();
+
+        return new GetResourceHandler(
+            _fhirDataStore,
+            _conformanceProvider,
+            _resourceWrapperFactory,
+            _resourceIdProvider,
+            _dataResourceFilter,
+            authService,
+            contextAccessor,
+            searchService);
+    }
+
+    private static SearchResult CreateSearchResult(params string[] resourceIds)
+    {
+        return new SearchResult(
+            Array.ConvertAll(resourceIds, id => new SearchResultEntry(CreateWrapper(id))),
+            continuationToken: null,
+            sortOrder: null,
+            unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
+    }
+
+    private static SearchResult CreateVersionedSearchResult(params (string Id, string VersionId)[] resources)
+    {
+        return new SearchResult(
+            Array.ConvertAll(resources, r => new SearchResultEntry(CreateWrapper(r.Id, r.VersionId))),
+            continuationToken: null,
+            sortOrder: null,
+            unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
+    }
+
+    private static ResourceWrapper CreateWrapper(string id, string versionId = null)
+    {
+        var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+        patient.Id = id;
+
+        if (versionId != null)
+        {
+            patient.Meta ??= new Meta();
+            patient.Meta.VersionId = versionId;
+        }
+
+        return new ResourceWrapper(
+            patient.ToResourceElement(),
+            new RawResource(patient.ToJson(), FhirResourceFormat.Json, false),
+            new ResourceRequest(System.Net.Http.HttpMethod.Get),
+            false,
+            null,
+            null,
+            null);
+    }
 }
