@@ -4,9 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -93,6 +97,42 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Second expression should be TOP
             Assert.Equal(SearchParamTableExpressionKind.Top, result.SearchParamTableExpressions[1].Kind);
             Assert.Null(result.SearchParamTableExpressions[1].Predicate);
+        }
+
+        [Fact]
+        public void GivenPreparedVectorQuery_WhenVisited_ThenDoesNotLimitStructuredCandidates()
+        {
+            // Arrange
+            var searchParamExpression = new SearchParameterExpression(
+                TestSearchParam,
+                Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false));
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var searchOptions = new SqlSearchOptions(new SearchOptions
+            {
+                CountOnly = false,
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            })
+            {
+                PreparedVectorQuery = new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 1,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray()),
+            };
+
+            // Act
+            Expression result = TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
+
+            // Assert
+            Assert.Same(sqlRoot, result);
+            Assert.Single(((SqlRootExpression)result).SearchParamTableExpressions);
         }
 
         [Fact]
