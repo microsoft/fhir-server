@@ -30,6 +30,8 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -369,6 +371,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             ResourceNotFoundException exception = Assert.Throws<ResourceNotFoundException>(() => model.GetResourceTypeId("patient"));
 
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenNoVectorIndexer_WhenGeneratingVectorSearchParameters_ThenNoRowsAreReturned()
+        {
+            var generator = new VectorSearchParamListRowGenerator();
+
+            var rows = generator.GenerateRows(Array.Empty<MergeResourceWrapper>());
+
+            Assert.Empty(rows);
         }
 
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
