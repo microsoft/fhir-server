@@ -476,18 +476,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 _searchParameterCacheRefresherMetricHandler,
                 mockLogger);
 
+            // Two consecutive failures, which is below the configured threshold of 5.
+            const int totalCalls = 2;
+            var callCount = 0;
+            var finalCallCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
-                .Returns<Task<bool>>(_ => throw new InvalidOperationException("Transient failure"));
+                .Returns<Task<bool>>(_ =>
+                {
+                    var currentCall = Interlocked.Increment(ref callCount);
+                    if (currentCall >= totalCalls)
+                    {
+                        finalCallCompleted.TrySetResult(true);
+                    }
+
+                    throw new InvalidOperationException("Transient failure");
+                });
 
             await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Act - allow two refresh ticks to fire, which is below the configured threshold of 5
+            // Act - wait deterministically for the second call instead of relying on wall-clock timing.
             var executeTask = service.StartAsync(cancellationTokenSource.Token);
-            await Task.Delay(2200);
+            await finalCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(10));
             cancellationTokenSource.Cancel();
             await executeTask;
 
-            // Assert
+            // Assert - two consecutive failures never reach the threshold of 5.
             _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
         }
 
@@ -512,19 +525,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 _searchParameterCacheRefresherMetricHandler,
                 mockLogger);
 
+            // Two consecutive failures, which exactly reaches the configured threshold of 2.
+            const int totalCalls = 2;
+            var callCount = 0;
+            var finalCallCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
-                .Returns<Task<bool>>(_ => throw new InvalidOperationException("Persistent failure"));
+                .Returns<Task<bool>>(_ =>
+                {
+                    var currentCall = Interlocked.Increment(ref callCount);
+                    if (currentCall >= totalCalls)
+                    {
+                        finalCallCompleted.TrySetResult(true);
+                    }
+
+                    throw new InvalidOperationException("Persistent failure");
+                });
 
             await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Act - allow at least two refresh ticks to fire, reaching the configured threshold of 2
+            // Act - wait deterministically for the second call instead of relying on wall-clock timing.
             var executeTask = service.StartAsync(cancellationTokenSource.Token);
-            await Task.Delay(2200);
+            await finalCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(10));
             cancellationTokenSource.Cancel();
             await executeTask;
 
-            // Assert
-            _searchParameterCacheRefresherMetricHandler.Received().EmitFailure(nameof(InvalidOperationException));
+            // Assert - the second failure reaches the threshold of 2, so the metric must be emitted.
+            _searchParameterCacheRefresherMetricHandler.Received(1).EmitFailure(nameof(InvalidOperationException));
         }
 
         [Fact]
