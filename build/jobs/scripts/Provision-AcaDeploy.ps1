@@ -27,6 +27,8 @@ param(
 
     [Parameter(Mandatory = $false)] [string] $SqlServerName = '',
     [Parameter(Mandatory = $false)] [string] $SqlElasticPoolName = '',
+    [Parameter(Mandatory = $false)] [string] $SqlDatabaseName = '',
+    [Parameter(Mandatory = $false)] [ValidateSet('', 'Firely', 'Ignixa')] [string] $FhirSdkProviderDefault = '',
     [Parameter(Mandatory = $false)] [string] $SchemaAutomaticUpdatesEnabled = 'auto',
     [Parameter(Mandatory = $false)] [string] $ReindexEnabled = 'true',
 
@@ -74,6 +76,20 @@ $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultipli
 $additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"] = $ReindexJobsPollingIntervalSec
 $additionalProperties["FhirServer__Operations__Import__InMemoryTestEnabled"] = $importInMemoryTestEnabledBool.ToString().ToLowerInvariant()
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
+
+$fhirSdkProviderSettingName = "FhirServer__CoreFeatures__FhirSdkProvider__Default"
+if ($DataStore -eq 'sql') {
+    $configuredProvider = [string]$additionalProperties[$fhirSdkProviderSettingName]
+    if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -notin @('Firely', 'Ignixa')) {
+        throw "Configured FHIR SDK provider '$configuredProvider' is unsupported."
+    }
+    if (-not [string]::IsNullOrWhiteSpace($FhirSdkProviderDefault)) {
+        if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -ne $FhirSdkProviderDefault) {
+            throw "Deployment FHIR SDK provider '$FhirSdkProviderDefault' conflicts with configured provider '$configuredProvider'."
+        }
+        $additionalProperties[$fhirSdkProviderSettingName] = $FhirSdkProviderDefault
+    }
+}
 
 $staticEnvNames = @(
     "ASPNETCORE_FORWARDEDHEADERS_ENABLED",
@@ -147,7 +163,9 @@ $resourceGroupName = $ResourceGroup
 # --- Data-store-specific pre-deploy setup ---
 if ($DataStore -eq 'sql') {
     $sqlServerName = $SqlServerName.ToLowerInvariant()
-    $sqlDatabaseName = "FHIR$Version"
+    if ([string]::IsNullOrWhiteSpace($SqlDatabaseName)) {
+        $SqlDatabaseName = "FHIR$Version"
+    }
     $sqlElasticPoolName = $SqlElasticPoolName
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
     if ($null -eq $existingDb) {
@@ -279,6 +297,7 @@ $templateParameters = @{
 
 if ($DataStore -eq 'sql') {
     $templateParameters["sqlServerName"] = $sqlServerName
+    $templateParameters["sqlDatabaseName"] = $sqlDatabaseName
     $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = $SchemaAutomaticUpdatesEnabled
 } else {
     $templateParameters["cosmosDbAccountName"] = $cosmosDbAccountName
