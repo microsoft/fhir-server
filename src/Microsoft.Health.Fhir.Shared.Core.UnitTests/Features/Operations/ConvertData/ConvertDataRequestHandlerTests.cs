@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
     [Trait(Traits.Category, Categories.Operations)]
     public class ConvertDataRequestHandlerTests
     {
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Fact]
         public async Task GivenAHl7v2ConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();

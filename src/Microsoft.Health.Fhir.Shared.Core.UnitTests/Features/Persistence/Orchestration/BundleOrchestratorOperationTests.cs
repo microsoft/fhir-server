@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,8 +91,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
-            List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
-            Parallel.For(0, numberOfResources, async (i, task) =>
+            ConcurrentBag<Task> tasksWaitingForMergeAsync = new ConcurrentBag<Task>();
+            await Parallel.ForAsync(0, numberOfResources, async (i, _) =>
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
                 ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
@@ -212,8 +213,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
-            List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
-            Parallel.For(0, numberOfResources, async (i, task) =>
+            ConcurrentBag<Task> tasksWaitingForMergeAsync = new ConcurrentBag<Task>();
+            await Parallel.ForAsync(0, numberOfResources, async (i, _) =>
             {
                 Task appendTask;
                 if (i % 2 == 0)

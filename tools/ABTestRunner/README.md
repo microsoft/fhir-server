@@ -42,7 +42,7 @@ Both services are deployed as Azure Container Apps with **authorization disabled
 | `-ResourceGroupName` | No | auto-generated | Override the resource group name |
 | `-ContainerRegistry` | No | `healthplatformregistry.azurecr.io` | ACR for baseline image |
 | `-BaselineTag` | No | `master` | Docker tag for the baseline image |
-| `-CategoryFilter` | No | `''` | xUnit test category filter |
+| `-CategoryFilter` | No | `''` | Extra trait predicates joined with `&` (e.g. `Category!=Search&Category!=Batch`) |
 | `-SkipCleanup` | No | `$false` | Keep Azure resources after run |
 | `-TestDllPath` | No | auto-built | Path to pre-built E2E test DLL |
 

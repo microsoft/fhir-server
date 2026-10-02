@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
