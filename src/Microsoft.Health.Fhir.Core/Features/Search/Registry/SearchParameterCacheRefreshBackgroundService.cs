@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _consecutiveFailureThreshold = Math.Max(1, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshConsecutiveFailureThreshold);
 
             _logger.LogInformation("SearchParameter cache refresh background service initialized with {RefreshInterval} interval.", _refreshInterval);
+            _logger.LogInformation("SearchParameter cache refresh background service consecutive-failure threshold set to {ConsecutiveFailureThreshold}.", _consecutiveFailureThreshold);
 
             // Create timer but don't start it yet - wait for SearchParametersInitializedNotification
             _refreshTimer = new Timer(OnRefreshTimer, null, Timeout.InfiniteTimeSpan, _refreshInterval);

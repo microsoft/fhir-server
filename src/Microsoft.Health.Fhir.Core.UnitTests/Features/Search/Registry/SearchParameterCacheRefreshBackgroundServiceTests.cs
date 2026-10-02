@@ -164,6 +164,72 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
+        public void Constructor_WithZeroConsecutiveFailureThreshold_ShouldUseDefaultThreshold()
+        {
+            // Arrange
+            var config = new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = 0,
+            };
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(config);
+
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Act
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            // Assert
+            Assert.NotNull(service);
+
+            // Verify that the constructor logged the clamped default threshold (1) by checking the Log method was called
+            mockLogger.Received(1).Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service consecutive-failure threshold set to 1.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
+        public void Constructor_WithNegativeConsecutiveFailureThreshold_ShouldUseDefaultThreshold()
+        {
+            // Arrange - Test with negative value
+            var config = new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = -5,
+            };
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(config);
+
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Act
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            // Assert
+            Assert.NotNull(service);
+
+            // Verify that the constructor logged the clamped default threshold (1) by checking the Log method was called
+            mockLogger.Received(1).Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service consecutive-failure threshold set to 1.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
         public void Constructor_WithNullConfiguration_ShouldThrow()
         {
             // Act & Assert - Should throw ArgumentNullException when configuration is null
