@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly JobMonitorWatchdog _jobMonitorWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly WatchdogConfiguration _watchdogConfiguration;
+        private readonly Guid _guid = Guid.NewGuid();
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
@@ -67,27 +68,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             var tasks = new List<Task>
             {
-                _defragWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
-                _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _defragWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token),
+                _cleanupEventLogWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token),
+                _transactionWatchdog.Value.ExecuteAsync(_guid, continuationTokenSource.Token),
+                _invisibleHistoryCleanupWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token),
             };
 
             // Only add GeoReplicationLagWatchdog if the feature is enabled
             if (_coreFeatureConfiguration.EnableGeoRedundancy)
             {
-                tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(continuationTokenSource.Token));
+                tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token));
             }
 
             // Only add JobMonitorWatchdog if the feature is enabled (enabled by default)
             if (_coreFeatureConfiguration.EnableJobMonitor)
             {
-                tasks.Add(_jobMonitorWatchdog.ExecuteAsync(continuationTokenSource.Token));
+                tasks.Add(_jobMonitorWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token));
             }
 
             if (_watchdogConfiguration.ExpiredResource.Enabled)
             {
-                tasks.Add(_expiredResourceCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token));
+                tasks.Add(_expiredResourceCleanupWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token));
             }
 
             await Task.WhenAny(tasks);

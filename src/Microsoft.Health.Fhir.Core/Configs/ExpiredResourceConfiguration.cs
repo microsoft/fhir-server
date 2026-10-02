@@ -16,5 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether the expired resource cleanup watchdog is enabled.
         /// </summary>
         public bool Enabled { get; set; } = false;
+
+        public int ExecutionIntervalInMinutes { get; set; } = 4 * 60;
     }
 }

@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
             var container = record.StorageAccountContainerName;
+            var requestedResourceType = string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType;
+            var normalizedResourceType = requestedResourceType is null ? null : string.Join(",", requestedResourceType.Split(',').Select(type => type.Trim()));
 
             if (record.Id != record.StorageAccountContainerName)
             {
@@ -54,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         requestUri: record.RequestUri,
                         exportType: record.ExportType,
                         exportFormat: format,
-                        resourceType: string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
+                        resourceType: normalizedResourceType,
                         filters: record.Filters,
                         hash: record.Hash,
                         rollingFileSizeInMB: record.RollingFileSizeInMB,

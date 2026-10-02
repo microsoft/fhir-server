@@ -37,7 +37,6 @@ using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 #pragma warning disable SA1116 // Split parameters should start on line after declaration
 
@@ -279,7 +278,7 @@ COMMIT TRANSACTION
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            Task wsTask = wd.ExecuteAsync(cts.Token);
+            Task wsTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
 
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
@@ -327,7 +326,7 @@ END
 
             var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
-            Task wdTask = wd.ExecuteAsync(cts.Token);
+            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
@@ -410,7 +409,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(cts.Token);
+            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
@@ -447,7 +446,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(cts.Token);
+            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
@@ -541,7 +540,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(cts.Token);
+            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
 
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 30)
@@ -802,7 +801,7 @@ RAISERROR('Test',18,127)
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(30));
-            Task wdTask = wd.ExecuteAsync(cts.Token);
+            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!isPublished() && (DateTime.UtcNow - startTime).TotalSeconds < 20)
