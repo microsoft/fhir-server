@@ -18,6 +18,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         where TRow : struct
     {
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
+
+        // Generated structs have no custom hashing. Full-field comparers avoid quadratic chains
+        // when many distinct search rows share the resource type at the start of the struct.
         private readonly IEqualityComparer<TRow> _rowComparer;
         private readonly bool _isConvertSearchValueOverridden;
         private bool _isInitialized;
