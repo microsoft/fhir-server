@@ -7,7 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -380,6 +383,85 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => SqlRetryService.GetInstance(null));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(30000)]
+        public void Constructor_WithOutOfRangeMaxPoolSize_ShouldThrowArgumentOutOfRangeException(int maxPoolSize)
+        {
+            // Arrange
+            var configuration = Options.Create(new SqlServerDataStoreConfiguration { MaxPoolSize = maxPoolSize });
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() => new SqlRetryService(
+                _sqlConnectionBuilder,
+                configuration,
+                Options.Create(new SqlRetryServiceOptions()),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration));
+        }
+
+        [Fact]
+        public async Task ExecuteSql_WithMaxPoolSizeConfigured_ShouldApplyMaxPoolSizeToConnection()
+        {
+            // Arrange
+            var configuration = Options.Create(new SqlServerDataStoreConfiguration { MaxPoolSize = 250 });
+            using var connection = new SqlConnection("Data Source=localhost;Encrypt=True;Initial Catalog=fhir;Application Name=test");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(false, null).Returns(Task.FromResult(connection));
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                configuration,
+                Options.Create(new SqlRetryServiceOptions { MaxRetries = 1 }),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // Act: the canceled token stops the connection from opening, after the pool size has been applied.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ExecuteSql(
+                (_, _, _) => Task.CompletedTask,
+                NullLogger.Instance,
+                cancellationTokenSource.Token));
+
+            // Assert
+            var builder = new SqlConnectionStringBuilder(connection.ConnectionString);
+            Assert.Equal(250, builder.MaxPoolSize);
+            Assert.Equal("fhir", builder.InitialCatalog);
+            Assert.Equal("test", builder.ApplicationName);
+        }
+
+        [Fact]
+        public void ApplyMaxPoolSize_WithValue_ShouldSetMaxPoolSizeAndPreserveOtherSettings()
+        {
+            // Arrange
+            using var connection = new SqlConnection("Data Source=localhost;Encrypt=True;Initial Catalog=fhir;ApplicationIntent=ReadOnly;Application Name=MergeResources;Max Pool Size=100");
+
+            // Act
+            SqlRetryService.ApplyMaxPoolSize(connection, 400);
+
+            // Assert
+            var builder = new SqlConnectionStringBuilder(connection.ConnectionString);
+            Assert.Equal(400, builder.MaxPoolSize);
+            Assert.Equal("localhost", builder.DataSource);
+            Assert.Equal("fhir", builder.InitialCatalog);
+            Assert.Equal(ApplicationIntent.ReadOnly, builder.ApplicationIntent);
+            Assert.Equal("MergeResources", builder.ApplicationName);
+        }
+
+        [Fact]
+        public void ApplyMaxPoolSize_WithoutValue_ShouldLeaveConnectionStringUnchanged()
+        {
+            // Arrange
+            const string connectionString = "Data Source=localhost;Encrypt=True;Initial Catalog=fhir";
+            using var connection = new SqlConnection(connectionString);
+
+            // Act
+            SqlRetryService.ApplyMaxPoolSize(connection, null);
+
+            // Assert
+            Assert.Equal(connectionString, connection.ConnectionString);
         }
 
         private static T GetPrivateFieldValue<T>(object obj, string fieldName)
