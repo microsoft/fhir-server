@@ -107,7 +107,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             CompiledExpression expression = _expressions.GetOrAdd(searchParameter.Expression, s => _compiler.Compile(s));
 
-            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
+            // ToScopedNode() is what Hl7.FhirPath's own Select()/Scalar() extension methods always apply
+            // before evaluating - it's what lets resolve() find a contained resource or a sibling Bundle
+            // entry from inside the instance, rather than only through the external IReferenceToElementResolver.
+            // Invoking the compiled delegate directly bypasses it unless applied explicitly; the wrap is
+            // idempotent (ToScopedNode() no-ops on a node that's already a ScopedNode), so this is safe to
+            // apply even where the input already went through it upstream. See PR description for why this
+            // was silently lost.
+            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource.ToScopedNode(), context);
 
             foreach (var rootObject in rootObjects)
             {
@@ -208,7 +215,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 CompiledExpression expression = _expressions.GetOrAdd(fhirPathExpression, s => _compiler.Compile(s));
 
-                extractedValues = expression.Invoke(element, context);
+                // See the matching comment in ProcessCompositeSearchParameter above.
+                extractedValues = expression.Invoke(element.ToScopedNode(), context);
             }
             catch (Exception ex)
             {
