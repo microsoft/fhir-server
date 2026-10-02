@@ -43,5 +43,10 @@ namespace Microsoft.Health.Fhir.Core.Registration
         /// Search Service's support for surrogate ID ranging.
         /// </summary>
         bool IsSurrogateIdRangingSupported { get; }
+
+        /// <summary>
+        /// Supports bundle extended operations. If true, the FHIR service will process bundles larger than 500 resources.
+        /// </summary>
+        bool IsBundleExtendedSupported { get; }
     }
 }

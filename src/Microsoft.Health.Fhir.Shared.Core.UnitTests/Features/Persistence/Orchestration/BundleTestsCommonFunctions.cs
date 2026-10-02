@@ -33,9 +33,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             ResourceDeserializer = Deserializers.ResourceDeserializer;
         }
 
-        public static IBundleOrchestrator GetBundleOrchestrator(bool isBundleOrchestratorEnabled = true)
+        public static IBundleOrchestrator GetBundleOrchestrator()
         {
-            return new BundleOrchestrator(GetBundleConfiguration(isBundleOrchestratorEnabled), NullLogger<BundleOrchestrator>.Instance);
+            return new BundleOrchestrator(GetBundleConfiguration(), NullLogger<BundleOrchestrator>.Instance);
         }
 
         public static IFhirDataStore GetSubstituteForIFhirDataStore()
@@ -52,9 +52,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             return dataStore;
         }
 
-        public static IOptions<BundleConfiguration> GetBundleConfiguration(bool isBundleOrchestratorEnabled = true)
+        public static IOptions<BundleConfiguration> GetBundleConfiguration()
         {
-            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = isBundleOrchestratorEnabled };
+            var bundleConfiguration = new BundleConfiguration();
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
 
             bundleOptions.Value.Returns(bundleConfiguration);

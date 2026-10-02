@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -90,6 +91,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private IFhirRequestContext CreateRequestContextForBundleHandlerProcessing(BundleRequestOptions options)
         {
             IRouter router = Substitute.For<IRouter>();
+
+            var fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
@@ -152,6 +155,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var metricHandler = Substitute.For<IBundleMetricHandler>();
 
             var bundleHandler = new BundleHandler(
+                fhirRuntimeConfiguration,
                 httpContextAccessor,
                 fhirRequestContextAccessor,
                 fhirJsonSerializer,
