@@ -82,6 +82,68 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(UnavailableParameterCode, exception.Message, StringComparison.Ordinal);
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenAnUnenforceableScopeAndAnUnrestrictedScopeForTheSameType_WhenCreated_ThenTheUnrestrictedScopeStillAuthorizes(bool unenforceableScopeFirst)
+        {
+            // Scopes are alternatives. The unrestricted scope already grants every Observation, so withdrawing the
+            // unenforceable one loses nothing and the request must not be denied — regardless of scope order.
+            var unenforceable = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B")));
+            var unrestricted = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient");
+
+            SearchOptionsFactory factory = unenforceableScopeFirst
+                ? CreateFactory(unenforceable, unrestricted)
+                : CreateFactory(unrestricted, unenforceable);
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain($"{UnavailableParameterCode}=", expression, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAnUnenforceableScopeAndAnEnforceableScopeForTheSameType_WhenCreated_ThenOnlyTheEnforceableScopeIsApplied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", expression, StringComparison.Ordinal);
+            Assert.DoesNotContain($"{UnavailableParameterCode}=", expression, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAnUnenforceableScopeOnlyForAnUnrequestedType_WhenCreated_ThenTheRequestIsNotDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient"));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            Assert.NotNull(options.Expression);
+        }
+
+        [Fact]
+        public void GivenASystemLevelSearchAndATypeWhoseOnlyScopeIsUnenforceable_WhenCreated_ThenRequestIsDenied()
+        {
+            // A system-level search requests every scoped type, so Observation is requested and has nothing left
+            // that authorizes it. Returning the Condition results alone would be a silently partial answer.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))),
+                new ScopeRestriction("Condition", DataActions.Read, "patient"));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(resourceType: null, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(UnavailableParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
         [Fact]
         public void GivenResourceSpecificScopeWithAvailableParameter_WhenCreated_ThenScopePredicateIsApplied()
         {

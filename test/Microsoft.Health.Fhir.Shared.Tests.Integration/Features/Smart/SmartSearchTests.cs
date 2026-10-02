@@ -1356,6 +1356,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             return (compartmentDefinitionManager, membership);
         }
 
+        private static void SetSearchParameterStatus(SearchParameterInfo parameter, SearchParameterStatus status)
+        {
+            // Mirrors SearchParameterStatusManager.EvaluateSearchParamStatus.
+            parameter.SearchParameterStatus = status;
+            parameter.IsSearchable = status == SearchParameterStatus.Enabled;
+            parameter.IsSupported = status == SearchParameterStatus.Enabled || status == SearchParameterStatus.Supported;
+        }
+
+        private async Task<SearchResult> SearchDevicesAsPatientAAsync()
+        {
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            return await _searchService.Value.SearchAsync(
+                KnownResourceTypes.Device,
+                new List<Tuple<string, string>> { new Tuple<string, string>("_count", "100") },
+                CancellationToken.None);
+        }
+
         private void AssertMaterializedMembershipCoversResolvableTypes(
             CompartmentDefinitionManager compartmentDefinitionManager,
             IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> membership,
@@ -1858,6 +1880,75 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // Devices assigned to any patient are hidden in non-Patient compartments.
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenDevicePatientSearchParameterIsNotEnabled_WhenPatientSearchesDevices_ThenNoDeviceIsVisible()
+        {
+            // Drives stored Devices through the Device.patient status lifecycle and exercises the formal compartment
+            // leg and the conditional Device rules together. Device has no membership parameter in the Patient
+            // compartment definition, so the conditional rules are its only route into the compartment; once
+            // Device.patient is not searchable they fail closed and no Device is visible. Supported is the
+            // important case: the parameter is still IsSupported (indexed, and resolved by the formal compartment
+            // leg) but its index is incomplete.
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            const string unindexedDeviceId = "smart-device-B3-unindexed";
+
+            Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(KnownResourceTypes.Device, "patient", out SearchParameterInfo devicePatient));
+            (bool isSearchable, bool isSupported, SearchParameterStatus status) original =
+                (devicePatient.IsSearchable, devicePatient.IsSupported, devicePatient.SearchParameterStatus);
+
+            try
+            {
+                // A Device assigned to Patient B, written while Device.patient is not indexed, has no index row:
+                // it is exactly the Device that would be mistaken for an unassigned one.
+                SetSearchParameterStatus(devicePatient, SearchParameterStatus.Disabled);
+                await _smartFixture.UpsertResource(new Device
+                {
+                    Id = unindexedDeviceId,
+                    Patient = new ResourceReference("Patient/smart-patient-B"),
+                });
+
+                foreach (SearchParameterStatus notEnabled in new[]
+                {
+                    SearchParameterStatus.Supported,
+                    SearchParameterStatus.PendingDisable,
+                    SearchParameterStatus.Disabled,
+                    SearchParameterStatus.PendingDelete,
+                })
+                {
+                    SetSearchParameterStatus(devicePatient, notEnabled);
+
+                    SearchResult results = await SearchDevicesAsPatientAAsync();
+
+                    Assert.True(results.Results.Count() == 0, $"Expected no Device while Device.patient is {notEnabled}, got: {string.Join(", ", results.Results.Select(r => r.Resource.ResourceId))}");
+                }
+
+                // Control: once the (still incomplete) index is trusted as Enabled — as an instance that has not yet
+                // observed a status change would — the unindexed Device assigned to Patient B is indistinguishable
+                // from an unassigned one. This proves the assertions above are not vacuous.
+                SetSearchParameterStatus(devicePatient, SearchParameterStatus.Enabled);
+
+                SearchResult trustedResults = await SearchDevicesAsPatientAAsync();
+
+                Assert.Contains(trustedResults.Results, r => r.Resource.ResourceId == "smart-device-A1");
+                Assert.Contains(trustedResults.Results, r => r.Resource.ResourceId == "smart-device-B1");
+                Assert.DoesNotContain(trustedResults.Results, r => r.Resource.ResourceId == "smart-device-B2");
+                Assert.Contains(trustedResults.Results, r => r.Resource.ResourceId == unindexedDeviceId);
+            }
+            finally
+            {
+                devicePatient.IsSearchable = original.isSearchable;
+                devicePatient.IsSupported = original.isSupported;
+                devicePatient.SearchParameterStatus = original.status;
+
+                await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Device, unindexedDeviceId), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+            }
         }
 
         [Fact]

@@ -286,6 +286,40 @@ public class GetResourceHandlerTests
             getResourceHandler.HandleAsync(request, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GivenASmartVersionedReadOfAHistoricalVersion_WhenSearchReturnsTheCurrentVersion_ThenResourceNotFoundExceptionIsThrown()
+    {
+        // The authorization-filtered search only returns current versions. Answering GET
+        // /Patient/requested-id/_history/1 with the current version would return the wrong version.
+        var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
+
+        searchService
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateVersionedSearchResult(("requested-id", "2")));
+
+        var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id", "1"), bundleResourceContext: null);
+
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+            getResourceHandler.HandleAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GivenASmartVersionedReadOfTheCurrentVersion_WhenSearchReturnsTheCurrentVersion_ThenThatVersionIsReturned()
+    {
+        var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
+
+        searchService
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateVersionedSearchResult(("requested-id", "2")));
+
+        var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id", "2"), bundleResourceContext: null);
+
+        GetResourceResponse result = await getResourceHandler.HandleAsync(request, CancellationToken.None);
+
+        Assert.Equal("requested-id", result.Resource.Id);
+        Assert.Equal("2", result.Resource.VersionId);
+    }
+
     private GetResourceHandler CreateSmartHandler(out ISearchService searchService)
     {
         var authService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -322,10 +356,25 @@ public class GetResourceHandlerTests
             unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
     }
 
-    private static ResourceWrapper CreateWrapper(string id)
+    private static SearchResult CreateVersionedSearchResult(params (string Id, string VersionId)[] resources)
+    {
+        return new SearchResult(
+            Array.ConvertAll(resources, r => new SearchResultEntry(CreateWrapper(r.Id, r.VersionId))),
+            continuationToken: null,
+            sortOrder: null,
+            unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
+    }
+
+    private static ResourceWrapper CreateWrapper(string id, string versionId = null)
     {
         var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
         patient.Id = id;
+
+        if (versionId != null)
+        {
+            patient.Meta ??= new Meta();
+            patient.Meta.VersionId = versionId;
+        }
 
         return new ResourceWrapper(
             patient.ToResourceElement(),

@@ -71,12 +71,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 // allowed to see whenever the _id constraint did not make it into the query (for example because
                 // the _id search parameter is unavailable). Match the requested key explicitly instead, and fall
                 // through to the not-found handling below when it is absent.
+                //
+                // The search only covers current versions, so a vread can be answered only when the requested
+                // version is the current one. A historical version is not searchable, so its compartment
+                // membership cannot be proven, and serving it on the strength of the current version could
+                // disclose content from a version that belonged to another compartment. It is reported as not
+                // found rather than silently answered with a different version.
                 currentDoc = results.Results?
                     .Select(searchResultEntry => searchResultEntry.Resource)
                     .FirstOrDefault(resource =>
                         resource != null &&
                         string.Equals(resource.ResourceId, key.Id, StringComparison.Ordinal) &&
-                        string.Equals(resource.ResourceTypeName, key.ResourceType, StringComparison.Ordinal));
+                        string.Equals(resource.ResourceTypeName, key.ResourceType, StringComparison.Ordinal) &&
+                        (string.IsNullOrEmpty(key.VersionId) || string.Equals(resource.Version, key.VersionId, StringComparison.Ordinal)));
             }
             else
             {
