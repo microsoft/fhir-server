@@ -482,33 +482,100 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 _searchParameterCacheRefresherMetricHandler,
                 mockLogger);
 
-            // Fail once, then succeed on every call afterward - the single leading failure should
-            // never reach the threshold of 2 because the subsequent success resets the counter.
+            // Sequence: fail, succeed (should reset the counter), fail again. With a threshold of 2,
+            // the second failure alone must NOT reach the threshold - it only would if the
+            // intervening success had failed to reset the counter back to zero. This makes the test
+            // meaningful: removing the reset would cause call 3 to hit the threshold and emit,
+            // which the assertion below would catch.
             var callCount = 0;
+            var thirdCallCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
                 .Returns(_ =>
                 {
-                    callCount++;
-                    if (callCount == 1)
+                    var currentCall = Interlocked.Increment(ref callCount);
+                    try
                     {
-                        throw new InvalidOperationException("Transient failure");
-                    }
+                        if (currentCall == 1 || currentCall == 3)
+                        {
+                            throw new InvalidOperationException("Transient failure");
+                        }
 
-                    return Task.FromResult(true);
+                        return Task.FromResult(true);
+                    }
+                    finally
+                    {
+                        if (currentCall >= 3)
+                        {
+                            thirdCallCompleted.TrySetResult(true);
+                        }
+                    }
                 });
 
             await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Act - allow several refresh ticks to fire so the counter would reach the threshold
-            // if it were not reset by the intervening success.
+            // Act - wait deterministically for the third call (fail, succeed, fail) instead of
+            // relying on wall-clock timing, which can be flaky under test-host load.
             var executeTask = service.StartAsync(cancellationTokenSource.Token);
-            await Task.Delay(3200);
+            await thirdCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(10));
             cancellationTokenSource.Cancel();
             await executeTask;
 
-            // Assert
+            // Assert - the second failure (call 3) never reaches the threshold of 2, which only
+            // happens if the intervening success (call 2) actually reset the counter to zero.
             _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
             _searchParameterCacheRefresherMetricHandler.Received().EmitSuccess();
+        }
+
+        [Fact]
+        public async Task OnRefreshTimer_WhenFailuresExceedThreshold_ShouldContinueEmittingFailureMetric()
+        {
+            // Arrange
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+                SearchParameterCacheRefreshMaxInitialDelaySeconds = 0,
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = 2,
+            });
+
+            using var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            // Persistent failures with a threshold of 2: call 1 is below threshold (no emit), and
+            // calls 2, 3, and 4 each meet or exceed the threshold - the metric must be emitted on
+            // every one of them, not just once when the threshold is first crossed.
+            const int totalCalls = 4;
+            var callCount = 0;
+            var finalCallCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
+                .Returns<Task<bool>>(_ =>
+                {
+                    var currentCall = Interlocked.Increment(ref callCount);
+                    if (currentCall >= totalCalls)
+                    {
+                        finalCallCompleted.TrySetResult(true);
+                    }
+
+                    throw new InvalidOperationException("Persistent failure");
+                });
+
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
+
+            // Act - wait deterministically for the fourth call instead of relying on wall-clock timing.
+            var executeTask = service.StartAsync(cancellationTokenSource.Token);
+            await finalCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            cancellationTokenSource.Cancel();
+            await executeTask;
+
+            // Assert - calls 2, 3, and 4 each reach/exceed the threshold of 2, so the failure
+            // metric must fire on every one of them (3 total), not just once.
+            _searchParameterCacheRefresherMetricHandler.Received(totalCalls - 1).EmitFailure(nameof(InvalidOperationException));
         }
 
         [Fact]
