@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly IVectorSearchQueryProcessor _vectorSearchQueryProcessor;
         private readonly SqlServerSearchService _searchService;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
 
         public SqlServerSearchServiceTests()
         {
@@ -124,8 +125,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
+                Options.Create(_coreFeatureConfiguration),
                 NullLogger<SqlServerSearchService>.Instance,
                 _vectorSearchQueryProcessor);
+        }
+
+        [Theory]
+        [InlineData(3, 4)]
+        [InlineData(1000, 1001)]
+        [InlineData(1000, int.MaxValue)]
+        public async Task GivenIncludesReplayExceedingConfiguredPageLimit_WhenSearched_ThenRejectedBeforeSql(int configuredLimit, int replaySize)
+        {
+            // Arrange
+            _coreFeatureConfiguration.MaxItemCountPerSearch = configuredLimit;
+            var options = new SearchOptions
+            {
+                MaxItemCount = 1,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                IncludesContinuationToken = new IncludesContinuationToken(
+                    new object[] { (short)10, 100L, 300L, null, null, false, null, null, replaySize }).ToJson(),
+            };
+
+            // Act and Assert
+            await Assert.ThrowsAsync<BadRequestException>(() => _searchService.SearchAsync(options, CancellationToken.None));
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
         }
 
         [Fact]
@@ -171,6 +195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -220,6 +245,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -269,6 +295,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -342,6 +369,54 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             // Assert
             Assert.Same(expectedException, exception);
+            await _vectorSearchQueryProcessor.Received(1).PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(false, "not-json")]
+        [InlineData(true, "not-json")]
+        [InlineData(false, "[123]")]
+        [InlineData(true, "[123]")]
+        [InlineData(false, "[\"NaN\",10,123]")]
+        [InlineData(true, "[\"NaN\",10,123]")]
+        public async Task GivenInvalidSemanticContinuation_WhenSearchingMatchesOrReplayingIncludes_ThenRejectedBeforeSql(
+            bool includesReplay,
+            string continuationToken)
+        {
+            // Arrange
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var searchOptions = new SearchOptions
+            {
+                MaxItemCount = 1,
+                Expression = new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"),
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+                ContinuationToken = includesReplay ? null : continuationToken,
+                IncludesContinuationToken = includesReplay
+                    ? new IncludesContinuationToken(
+                        new object[] { (short)10, 100L, 300L, null, null, false, null, continuationToken, 1 }).ToJson()
+                    : null,
+            };
+            _vectorSearchQueryProcessor
+                .PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>())
+                .Returns(new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 3,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                    minimumScore: 0.65m));
+
+            // Act
+            BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(
+                () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(Microsoft.Health.Fhir.SqlServer.Resources.InvalidContinuationToken, exception.Message);
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
             await _vectorSearchQueryProcessor.Received(1).PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>());
         }
 
