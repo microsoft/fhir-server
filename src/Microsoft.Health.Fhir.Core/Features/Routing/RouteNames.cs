@@ -25,6 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         internal const string HistoryTypeId = nameof(HistoryTypeId);
 
+        internal const string DeleteSearch = nameof(DeleteSearch);
+
+        internal const string DeleteSearchType = nameof(DeleteSearchType);
+
         internal const string SearchCompartmentByResourceType = nameof(SearchCompartmentByResourceType);
 
         internal const string AadSmartOnFhirProxyAuthorize = nameof(AadSmartOnFhirProxyAuthorize);
@@ -80,6 +84,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         internal const string BulkDeleteDefinition = nameof(BulkDeleteDefinition);
 
         internal const string BulkDeleteSoftDeletedDefinition = nameof(BulkDeleteSoftDeletedDefinition);
+
+        internal const string DeleteSearchOperationDefinition = nameof(DeleteSearchOperationDefinition);
 
         internal const string Includes = nameof(Includes);
 
