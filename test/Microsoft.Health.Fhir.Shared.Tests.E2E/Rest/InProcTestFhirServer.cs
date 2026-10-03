@@ -61,14 +61,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
+            configuration["FhirServer:Operations:Reindex:JobsPollingIntervalSec"] = "1";
 
             // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
+            configuration["FhirServer:Operations:Import:InMemoryTestEnabled"] = "true";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
-
-            // Enable rebuild indexes for testing
-            configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
-            configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";
 
             // Validate operation settings
             var validateConfiguration = new ValidateOperationConfiguration();

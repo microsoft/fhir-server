@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static async Task<ResourceElement> CreateReindexJobAsync(
             this IMediator mediator,
-            uint? maxResourcesPerQuery,
-            uint? maxResourcesPerWrite,
+            int? maxResourcesPerQuery,
+            int? maxResourcesPerWrite,
             int? queryDelay,
             ushort? targetDataStoreResourcePercentage,
             string targetResourceTypesString,

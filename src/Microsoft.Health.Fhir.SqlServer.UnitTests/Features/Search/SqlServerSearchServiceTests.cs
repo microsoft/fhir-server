@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly SqlServerSearchService _searchService;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
 
         public SqlServerSearchServiceTests()
         {
@@ -116,7 +117,30 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _compressedRawResourceConverter,
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
+                Options.Create(_coreFeatureConfiguration),
                 NullLogger<SqlServerSearchService>.Instance);
+        }
+
+        [Theory]
+        [InlineData(3, 4)]
+        [InlineData(1000, 1001)]
+        [InlineData(1000, int.MaxValue)]
+        public async Task GivenIncludesReplayExceedingConfiguredPageLimit_WhenSearched_ThenRejectedBeforeSql(int configuredLimit, int replaySize)
+        {
+            // Arrange
+            _coreFeatureConfiguration.MaxItemCountPerSearch = configuredLimit;
+            var options = new SearchOptions
+            {
+                MaxItemCount = 1,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                IncludesContinuationToken = new IncludesContinuationToken(
+                    new object[] { (short)10, 100L, 300L, null, null, false, null, null, replaySize }).ToJson(),
+            };
+
+            // Act and Assert
+            await Assert.ThrowsAsync<BadRequestException>(() => _searchService.SearchAsync(options, CancellationToken.None));
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
         }
 
         [Fact]
@@ -162,6 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -211,6 +236,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -260,6 +286,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _compressedRawResourceConverter,
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
+                    Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
+using System.Threading.Tasks;
 using Azure.Identity;
 using Medino;
 using Microsoft.AspNetCore.Components.Forms;
@@ -105,7 +106,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
 
-            _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
+            // SupportsIncludes matches the production SQL configuration and enables the $includes continuation
+            // path (IncludesContinuationToken); without it, include-paging tests can never receive a token.
+            _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration { SupportsIncludes = true });
         }
 
         public string TestConnectionString { get; private set; }
@@ -141,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _mediator = Substitute.For<IMediator>();
 
@@ -258,10 +261,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
 
             // Create operation data store with real SqlQueueClient for reindex tests
-            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
 
             // Create operation data store with TestQueueClient for export tests
-            _testSqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, _testQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+            _testSqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(_testQueueClient, NullLoggerFactory.Instance);
 
             // Use the real SqlQueueClient for IFhirOperationDataStore
             _fhirOperationDataStore = _sqlServerFhirOperationDataStore;
@@ -317,6 +320,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
+                _options,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
@@ -335,7 +339,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterStatusManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }

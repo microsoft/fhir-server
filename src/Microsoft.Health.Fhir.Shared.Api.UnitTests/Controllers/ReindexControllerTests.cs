@@ -128,7 +128,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _mediator.ClearReceivedCalls();
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
+
+            // Verify required status field
             Assert.Equal(OperationStatus.Queued.ToString(), parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Status).First().Value.ToString());
+
+            // Verify required metadata fields
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "id" && x.Value is FhirString);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "lastModified" && x.Value is FhirDateTime);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "queuedTime" && x.Value is FhirDateTime);
+
+            // Verify required count fields
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "totalResourcesToReindex" && x.Value is FhirDecimal);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "resourcesSuccessfullyReindexed" && x.Value is FhirDecimal);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "progress" && x.Value is FhirDecimal);
+
+            // Verify configuration fields
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "maximumNumberOfResourcesPerQuery" && x.Value is FhirDecimal);
+            Assert.Contains(parametersResource.Parameter, x => x.Name == "maximumNumberOfResourcesPerWrite" && x.Value is FhirDecimal);
+
+            // Verify excluded fields
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.Resources);
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.SearchParams);
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetResourceTypes);
@@ -185,7 +203,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     {
                         var wrapper = new ReindexJobWrapper(
                             new ReindexJobRecord(
-                                new List<string>(),
                                 5),
                             etag);
                         return new GetReindexResponse(HttpStatusCode.OK, wrapper);
@@ -231,7 +248,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     {
                         var wrapper = new ReindexJobWrapper(
                             new ReindexJobRecord(
-                                new List<string>(),
                                 5),
                             etag);
                         return new CancelReindexResponse(HttpStatusCode.OK, wrapper);
@@ -286,7 +302,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord(new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -295,7 +311,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static GetReindexResponse GetReindexJobResponse()
         {
-            var jobRecord = new ReindexJobRecord(new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));

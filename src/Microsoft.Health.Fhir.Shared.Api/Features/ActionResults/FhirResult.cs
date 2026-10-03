@@ -8,6 +8,7 @@ using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -23,7 +24,8 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirResult" /> class.
         /// </summary>
-        public FhirResult()
+        public FhirResult(ILogger logger)
+            : base(logger)
         {
         }
 
@@ -31,14 +33,16 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// Initializes a new instance of the <see cref="FhirResult" /> class.
         /// </summary>
         /// <param name="resource">The resource.</param>
-        public FhirResult(IResourceElement resource)
-            : base(resource)
+        /// <param name="logger">The logger.</param>
+        public FhirResult(IResourceElement resource, ILogger logger)
+            : base(resource, logger)
         {
         }
 
         /// <summary>
         /// Creates a FHIR result with the specified parameters
         /// </summary>
+        /// <param name="logger">The logger.</param>
         /// <param name="resource">The resource.</param>
         /// <param name="statusCode">The status code.</param>
         /// <param name="setETagheader">The value indicating whether to add the ETag header.</param>
@@ -48,6 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <param name="returnPreference">The return preference.</param>
         /// <param name="operationOutcomeMessage">The operation outcome message.</param>
         public static FhirResult Create(
+            ILogger logger,
             IResourceElement resource,
             HttpStatusCode statusCode = HttpStatusCode.OK,
             bool setETagheader = false,
@@ -58,8 +63,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             string operationOutcomeMessage = null)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            var result = new FhirResult(resource)
+            var result = new FhirResult(resource, logger)
             {
                 StatusCode = statusCode,
             };
@@ -83,7 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             {
                 if (returnPreference == ReturnPreference.Minimal)
                 {
-                    var minimalResult = new FhirResult(null)
+                    var minimalResult = new FhirResult(null, logger)
                     {
                         StatusCode = statusCode,
                     };
@@ -109,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                             },
                         });
 
-                    var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement())
+                    var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement(), logger)
                     {
                         StatusCode = statusCode,
                     };
@@ -129,9 +135,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Creates a Gone response
         /// </summary>
-        public static FhirResult Gone()
+        public static FhirResult Gone(ILogger logger)
         {
-            return new FhirResult
+            return new FhirResult(logger)
             {
                 StatusCode = HttpStatusCode.Gone,
             };
@@ -140,9 +146,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Returns a NotFound response
         /// </summary>
-        public static FhirResult NotFound()
+        public static FhirResult NotFound(ILogger logger)
         {
-            return new FhirResult
+            return new FhirResult(logger)
             {
                 StatusCode = HttpStatusCode.NotFound,
             };
@@ -151,9 +157,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Returns a NoContent response
         /// </summary>
-        public static FhirResult NoContent()
+        public static FhirResult NoContent(ILogger logger)
         {
-            return new FhirResult
+            return new FhirResult(logger)
             {
                 StatusCode = HttpStatusCode.NoContent,
             };

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -204,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             (_fixture as IDisposable)?.Dispose();
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {
@@ -354,7 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 deletionServiceDataStoreFactory,
                 SearchService.CreateMockScopeProvider(),
                 _resourceIdProvider,
-                new FhirRequestContextAccessor(),
+                FhirRequestContextAccessor,
                 auditLogger,
                 new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration),
                 _fhirRuntimeConfiguration,
@@ -403,7 +404,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Mediator = new Mediator(services);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {

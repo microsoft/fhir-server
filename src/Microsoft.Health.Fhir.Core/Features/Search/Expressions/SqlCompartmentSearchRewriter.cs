@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -42,44 +43,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                 }
 
-                var compartmentResourceTypesToSearch = new HashSet<string>();
                 var searchParameterInfoList = new Dictionary<string, (SearchParameterInfo searchParameterInfo, HashSet<string> ResourceTypes)>();
 
-                if (CompartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
-                {
-                    if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
-                    {
-                        resourceTypes = resourceTypes.Where(x => expression.FilteredResourceTypes.Contains(x)).ToHashSet();
-                    }
+                IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> materializedParameters =
+                    GetMaterializedCompartmentSearchParameters(compartmentType, expression.FilteredResourceTypes);
 
-                    foreach (var resourceFilter in resourceTypes)
-                    {
-                        compartmentResourceTypesToSearch.Add(resourceFilter);
-                    }
-                }
-
-                foreach (var compartmentResourceType in compartmentResourceTypesToSearch)
+                foreach ((string compartmentResourceType, IReadOnlyCollection<SearchParameterInfo> searchParameters) in materializedParameters)
                 {
-                    if (CompartmentDefinitionManager.Value.TryGetSearchParams(compartmentResourceType, parsedCompartmentType, out HashSet<string> compartmentSearchParameters))
+                    foreach (SearchParameterInfo searchParameter in searchParameters)
                     {
-                        foreach (var compartmentSearchParameter in compartmentSearchParameters)
+                        string searchParamUrl = searchParameter.Url.ToString();
+                        if (searchParameterInfoList.TryGetValue(searchParamUrl, out var existing))
                         {
-                            if (SearchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
-                            {
-                                // Use the URL string as the key.
-                                string searchParamUrl = sp.Url.ToString();
-
-                                if (searchParameterInfoList.TryGetValue(searchParamUrl, out var info))
-                                {
-                                    // Add the compartment resource type if the key exists.
-                                    info.ResourceTypes.Add(compartmentResourceType);
-                                }
-                                else
-                                {
-                                    // Otherwise, add a new dictionary entry.
-                                    searchParameterInfoList[searchParamUrl] = (sp, new HashSet<string> { compartmentResourceType });
-                                }
-                            }
+                            existing.ResourceTypes.Add(compartmentResourceType);
+                        }
+                        else
+                        {
+                            searchParameterInfoList[searchParamUrl] = (searchParameter, new HashSet<string> { compartmentResourceType });
                         }
                     }
                 }
@@ -122,6 +102,69 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
             }
+        }
+
+        /// <summary>
+        /// Gets the supported, materialized reference parameters that formally establish compartment membership.
+        /// </summary>
+        /// <remarks>
+        /// Membership is deliberately limited to the parameters nominated by the FHIR
+        /// <c>CompartmentDefinition</c>. It is not "every reference parameter that can target the compartment
+        /// type" — for example <c>Observation.focus</c> may point at a Patient but is not a Patient compartment
+        /// membership parameter, and treating it as one would widen the compartment beyond the specification.
+        /// Every parameter returned here must be materialized as <c>ReferenceSearchParam</c> rows by the search
+        /// indexer, otherwise the membership seek matches nothing and in-compartment resources are silently
+        /// dropped. <c>SmartCompartmentMembershipMaterializationTests</c> guards that invariant.
+        /// </remarks>
+        /// <param name="compartmentType">The compartment resource type.</param>
+        /// <param name="filteredResourceTypes">Optional resource types to include.</param>
+        /// <returns>Materialized membership parameters grouped by resource type.</returns>
+        public IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> GetMaterializedCompartmentSearchParameters(
+            string compartmentType,
+            IEnumerable<string> filteredResourceTypes)
+        {
+            if (!Enum.TryParse(compartmentType, out ValueSets.CompartmentType parsedCompartmentType))
+            {
+                throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+            }
+
+            if (!CompartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
+            {
+                return new Dictionary<string, IReadOnlyCollection<SearchParameterInfo>>();
+            }
+
+            HashSet<string> filters = filteredResourceTypes?.ToHashSet(StringComparer.Ordinal);
+            bool filterByResourceType = filters?.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)) == true;
+            var result = new Dictionary<string, IReadOnlyCollection<SearchParameterInfo>>(StringComparer.Ordinal);
+
+            foreach (string resourceType in resourceTypes.Where(resourceType => !filterByResourceType || filters.Contains(resourceType)))
+            {
+                if (!CompartmentDefinitionManager.Value.TryGetSearchParams(resourceType, parsedCompartmentType, out HashSet<string> parameterCodes))
+                {
+                    continue;
+                }
+
+                var parameters = new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal);
+                foreach (string parameterCode in parameterCodes)
+                {
+                    if (!SearchParameterDefinitionManager.Value.TryGetSearchParameter(resourceType, parameterCode, out SearchParameterInfo parameter))
+                    {
+                        continue;
+                    }
+
+                    if (parameter.Type == SearchParamType.Reference && parameter.IsSupported)
+                    {
+                        parameters[parameter.Url.AbsoluteUri] = parameter;
+                    }
+                }
+
+                if (parameters.Count > 0)
+                {
+                    result[resourceType] = parameters.Values.ToArray();
+                }
+            }
+
+            return result;
         }
     }
 }

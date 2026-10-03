@@ -67,6 +67,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _fhirDataStore = Substitute.For<IFhirDataStore>();
 
+            var defaultContextProperties = new Dictionary<string, object>();
+            var defaultContext = Substitute.For<IFhirRequestContext>();
+            defaultContext.Properties.Returns(defaultContextProperties);
+            _requestContextAccessor.RequestContext.Returns(defaultContext);
+
             _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
 
             // Default: no active resource owns any URL (tests that need a conflict override this).
@@ -93,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenACreateResourceRequest_WhenCreatingASearchParameterResource_ThenValidateSearchParameterIsCalled()
         {
-            var searchParameter = new SearchParameter() { Id = "Id" };
+            var searchParameter = new SearchParameter() { Id = "Id", Url = "http://test" };
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
             var request = new CreateResourceRequest(resource, bundleResourceContext: null);
@@ -124,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().ValidateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
-            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
+            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatuses(Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -173,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
-            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
+            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatuses(Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -275,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var newWrapper = CreateResourceWrapper(newResource, false);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(oldWrapper);
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new List<ResourceSearchParameterStatus>());
 
             var contextProperties = new Dictionary<string, object>();
@@ -344,6 +349,207 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
             await Assert.ThrowsAsync<BadRequestException>(() => behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenACreateResourceRequest_WhenUrlIsOwnedByABuiltInSearchParameterPendingDelete_ThenMethodNotAllowedThrownAndNoStatusQueued()
+        {
+            const string builtInUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
+
+            var searchParameter = new SearchParameter() { Id = "CustomId", Url = builtInUrl };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var request = new CreateResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            // PendingDelete is the status the upstream validator lets through for POST, so pin that branch.
+            var builtIn = new SearchParameterInfo("patient", "patient", Microsoft.Health.Fhir.ValueSets.SearchParamType.Reference, new System.Uri(builtInUrl))
+            {
+                IsSystemDefined = true,
+                SearchParameterStatus = SearchParameterStatus.PendingDelete,
+            };
+
+            _searchParameterDefinitionManager.TryGetSearchParameter(builtInUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = builtIn;
+                    return true;
+                });
+
+            var contextProperties = new Dictionary<string, object>();
+            var fhirContext = Substitute.For<IFhirRequestContext>();
+            fhirContext.Properties.Returns(contextProperties);
+            _requestContextAccessor.RequestContext.Returns(fhirContext);
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+            var nextInvoked = false;
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+
+            await Assert.ThrowsAsync<MethodNotAllowedException>(() => behavior.HandleAsync(
+                request,
+                async () =>
+                {
+                    nextInvoked = true;
+                    return await Task.Run(() => response);
+                },
+                CancellationToken.None));
+
+            Assert.False(nextInvoked);
+            Assert.False(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus));
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenUrlIsOwnedByADisabledBuiltInSearchParameter_ThenMethodNotAllowedThrownAndNoStatusQueued()
+        {
+            const string builtInUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
+
+            var searchParameter = new SearchParameter() { Id = "CustomId", Url = builtInUrl };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "CustomId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("not found"));
+
+            // A built-in can legitimately be moved to PendingDisable via $status by any caller holding
+            // DataActions.SearchParameter, so ownership of the canonical must not depend on its status.
+            var builtIn = new SearchParameterInfo("patient", "patient", Microsoft.Health.Fhir.ValueSets.SearchParamType.Reference, new System.Uri(builtInUrl))
+            {
+                IsSystemDefined = true,
+                SearchParameterStatus = SearchParameterStatus.PendingDisable,
+            };
+
+            _searchParameterDefinitionManager.TryGetSearchParameter(builtInUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = builtIn;
+                    return true;
+                });
+
+            var contextProperties = new Dictionary<string, object>();
+            var fhirContext = Substitute.For<IFhirRequestContext>();
+            fhirContext.Properties.Returns(contextProperties);
+            _requestContextAccessor.RequestContext.Returns(fhirContext);
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
+            var nextInvoked = false;
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+
+            await Assert.ThrowsAsync<MethodNotAllowedException>(() => behavior.HandleAsync(
+                request,
+                async () =>
+                {
+                    nextInvoked = true;
+                    return await Task.Run(() => response);
+                },
+                CancellationToken.None));
+
+            Assert.False(nextInvoked);
+            Assert.False(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus));
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenUrlIsOwnedByABuiltInSearchParameter_ThenMethodNotAllowedThrownAndNoStatusQueued()
+        {
+            const string builtInUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
+
+            var searchParameter = new SearchParameter() { Id = "CustomId", Url = builtInUrl };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "CustomId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("not found"));
+
+            var builtIn = new SearchParameterInfo("patient", "patient", Microsoft.Health.Fhir.ValueSets.SearchParamType.Reference, new System.Uri(builtInUrl))
+            {
+                IsSystemDefined = true,
+            };
+
+            _searchParameterDefinitionManager.TryGetSearchParameter(builtInUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = builtIn;
+                    return true;
+                });
+
+            var contextProperties = new Dictionary<string, object>();
+            var fhirContext = Substitute.For<IFhirRequestContext>();
+            fhirContext.Properties.Returns(contextProperties);
+            _requestContextAccessor.RequestContext.Returns(fhirContext);
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
+            var nextInvoked = false;
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+
+            await Assert.ThrowsAsync<MethodNotAllowedException>(() => behavior.HandleAsync(
+                request,
+                async () =>
+                {
+                    nextInvoked = true;
+                    return await Task.Run(() => response);
+                },
+                CancellationToken.None));
+
+            Assert.False(nextInvoked);
+            Assert.False(contextProperties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus));
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenUrlIsRegisteredButNotBuiltIn_ThenStatusIsQueuedAsSupported()
+        {
+            const string customUrl = "http://example.com/custom-param";
+
+            var searchParameter = new SearchParameter() { Id = "CustomId", Url = customUrl };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "CustomId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("not found"));
+
+            var custom = new SearchParameterInfo("custom-param", "custom-param", Microsoft.Health.Fhir.ValueSets.SearchParamType.String, new System.Uri(customUrl))
+            {
+                IsSystemDefined = false,
+            };
+
+            _searchParameterDefinitionManager.TryGetSearchParameter(customUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = custom;
+                    return true;
+                });
+
+            var contextProperties = new Dictionary<string, object>();
+            var fhirContext = Substitute.For<IFhirRequestContext>();
+            fhirContext.Properties.Returns(contextProperties);
+            _requestContextAccessor.RequestContext.Returns(fhirContext);
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
+            var nextInvoked = false;
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _requestContextAccessor, _modelInfoProvider);
+
+            await behavior.HandleAsync(
+                request,
+                async () =>
+                {
+                    nextInvoked = true;
+                    return await Task.Run(() => response);
+                },
+                CancellationToken.None);
+
+            Assert.True(nextInvoked);
+
+            var pendingStatus = Assert.IsType<ResourceSearchParameterStatus>(contextProperties[SearchParameterRequestContextPropertyNames.PendingStatus]);
+            Assert.Equal(customUrl, pendingStatus.Uri.OriginalString);
+            Assert.Equal(SearchParameterStatus.Supported, pendingStatus.Status);
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

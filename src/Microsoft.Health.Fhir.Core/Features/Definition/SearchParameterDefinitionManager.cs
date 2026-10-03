@@ -451,8 +451,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return searchParameter != null;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
-        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        public ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
         {
             return GetDerivedResourceTypes(_modelInfoProvider, resourceTypes);
         }

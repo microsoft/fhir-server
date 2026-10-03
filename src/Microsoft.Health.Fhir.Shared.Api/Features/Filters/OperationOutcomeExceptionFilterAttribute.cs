@@ -71,7 +71,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             LastUpdated = Clock.UtcNow,
                         },
                     },
-                    HttpStatusCode.BadRequest);
+                    HttpStatusCode.BadRequest,
+                    _logger);
 
                 switch (fhirException)
                 {
@@ -239,8 +240,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = CreateOperationOutcomeResult(formatException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
                 context.ExceptionHandled = true;
             }
-            else if (context.Exception is System.OperationCanceledException)
+            else if (context.Exception is System.OperationCanceledException operationCanceledException)
             {
+                // Distinguishes a client/upstream disconnect from cancellation by another token (e.g. a server-side timeout).
+                bool clientDisconnected = context.HttpContext?.RequestAborted.IsCancellationRequested == true;
+                _logger.LogWarning(operationCanceledException, "Request was canceled. ClientDisconnected: {ClientDisconnected}", clientDisconnected);
+
                 context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
                 context.ExceptionHandled = true;
             }
@@ -304,7 +309,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         LastUpdated = Clock.UtcNow,
                     },
                 },
-                httpStatusCode);
+                httpStatusCode,
+                _logger);
         }
     }
 }

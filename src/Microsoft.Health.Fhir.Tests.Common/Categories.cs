@@ -90,6 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// </summary>
         public const string ReindexOperation = nameof(ReindexOperation);
 
+        public const string Logging = nameof(Logging);
+
         public const string MemberMatch = nameof(MemberMatch);
 
         public const string Operations = nameof(Operations);
@@ -112,6 +114,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// Set of tests validating serialization and deserialization logic.
         /// </summary>
         public const string Serialization = nameof(Serialization);
+
+        public const string ServiceRuntimeState = nameof(ServiceRuntimeState);
 
         public const string SmartOnFhir = nameof(SmartOnFhir);
 

@@ -11,6 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Medino;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
@@ -43,17 +44,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private readonly OperationsConfiguration _operationConfiguration;
+        private readonly ILogger<BulkUpdateController> _logger;
 
         public BulkUpdateController(
             IMediator mediator,
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationConfiguration,
-            IFhirRuntimeConfiguration fhirRuntimeConfiguration)
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration,
+            ILogger<BulkUpdateController> logger)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             _operationConfiguration = EnsureArg.IsNotNull(operationConfiguration.Value, nameof(operationConfiguration));
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         [HttpPatch]
@@ -83,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfOperationIsSupported();
             var result = await _mediator.GetBulkUpdateStatusAsync(idParameter, HttpContext.RequestAborted);
-            var actionResult = JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode);
+            var actionResult = JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode, _logger);
             if (result.HttpStatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 actionResult.Headers[KnownHeaders.Progress] = Resources.InProgress;
@@ -99,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfOperationIsSupported();
             var result = await _mediator.CancelBulkUpdateAsync(idParameter, HttpContext.RequestAborted);
-            return new JobResult(result.StatusCode);
+            return new JobResult(result.StatusCode, _logger);
         }
 
         private async Task<IActionResult> SendUpdateRequest(string typeParameter, Parameters parameters, bool? isParallel, uint maxCount = 0, bool metaHistory = true)
@@ -108,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             CreateBulkUpdateResponse result = await _mediator.BulkUpdateAsync(typeParameter, searchParameters, parameters, isParallel ?? true, maxCount, metaHistory, HttpContext.RequestAborted);
 
-            var response = JobResult.Accepted();
+            var response = JobResult.Accepted(_logger);
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkUpdate, result.Id.ToString());
             return response;
         }

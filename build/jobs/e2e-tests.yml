@@ -5,7 +5,7 @@ parameters:
   type: string
 - name: appServiceType
   type: string
-- name: testFilter
+- name: categoryFilter
   type: string
   default: ''
 - name: testRunTitleSuffix
@@ -65,18 +65,28 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $filter = "${{ parameters.testFilter }}"
+        $filter = "${{ parameters.categoryFilter }}"
         if ([string]::IsNullOrWhiteSpace($filter)) {
-          throw "testFilter is required and must not be empty."
+          throw "categoryFilter is required and must not be empty."
         }
 
-        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
+        $query = "/[(DataStore=${{ parameters.appServiceType }})&($filter)]"
+        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--report-trx')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
+        $testExitCode = $LASTEXITCODE
 
-        if ($LASTEXITCODE -ne 0) {
-          throw "E2E tests failed with exit code $LASTEXITCODE"
+        Get-ChildItem -Path $env:platformOptions__resultDirectory -Recurse -Filter '*.trx' -ErrorAction SilentlyContinue | ForEach-Object {
+          [xml] $trx = Get-Content -Raw $_.FullName
+          $trx.SelectNodes("//*[local-name()='UnitTestResult'][contains(@testName, 'GivenIncrementalLoad_WithInMemorySource')]/*[local-name()='Output']/*[local-name()='StdOut']") | ForEach-Object {
+            Write-Host "In-memory import execution stats:"
+            Write-Host $_.InnerText
+          }
+        }
+
+        if ($testExitCode -ne 0) {
+          throw "E2E tests failed with exit code $testExitCode"
         }
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)

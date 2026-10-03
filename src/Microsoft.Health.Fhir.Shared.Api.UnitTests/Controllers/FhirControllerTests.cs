@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
@@ -94,7 +95,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _urlResolver,
                 _configuration,
                 _authorizationService,
-                _searchParameterOperations);
+                _searchParameterOperations,
+                NullLogger<FhirController>.Instance);
             _fhirController.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),
@@ -1259,10 +1261,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GivenCreateRequest_WhenHttpBundleInnerRequestExecutionContextIsSpecified_ThenBundleResourceContextShouldBeAddedToRequest(
-            bool addHttpBundleInnerRequestExecutionContextHeader)
+        [Trait(Traits.Category, Categories.Bundle)]
+        [InlineData(true, null)]
+        [InlineData(false, null)]
+        [InlineData(true, "not-json")]
+        [InlineData(false, "not-json")]
+        [InlineData(true, "{\"HttpVerb\":\"PUT\"}")]
+        [InlineData(false, "{\"HttpVerb\":\"PUT\"}")]
+        public async Task GivenCreateRequest_WhenBundleResourceContextIsSpecified_ThenOnlyFhirRequestContextPropertiesAreUsed(
+            bool addBundleResourceContextProperty,
+            string headerValue)
         {
             var resource = new Patient()
             {
@@ -1279,16 +1287,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null,
                 null);
             var httpContext = new DefaultHttpContext();
+            httpContext.Request.Method = "POST";
+            var fhirRequestContext = new FhirRequestContext(
+                httpContext.Request.Method,
+                "https://localhost/Patient",
+                "https://localhost/",
+                Guid.NewGuid().ToString(),
+                httpContext.Request.Headers,
+                httpContext.Response.Headers)
+            {
+                ExecutingBatchOrTransaction = addBundleResourceContextProperty,
+            };
+            _requestContextAccessor.RequestContext = fhirRequestContext;
             var bundleResourceContext = new BundleResourceContext(
                 Bundle.BundleType.Batch,
                 BundleProcessingLogic.Parallel,
-                Bundle.HTTPVerb.HEAD,
+                Bundle.HTTPVerb.POST,
                 Guid.NewGuid().ToString(),
                 Guid.NewGuid());
-            if (addHttpBundleInnerRequestExecutionContextHeader)
+            if (addBundleResourceContextProperty)
             {
-                httpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext] =
-                    JsonConvert.SerializeObject(bundleResourceContext);
+                fhirRequestContext.Properties.Add(
+                    BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext,
+                    bundleResourceContext);
+            }
+
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext] = headerValue;
             }
 
             _fhirController.ControllerContext.HttpContext = httpContext;
@@ -1310,14 +1336,83 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(resource.TypeName, request.Resource.InstanceType);
             Assert.Equal(resource.Id, request.Resource.Id);
             Assert.Equal(resource.VersionId, request.Resource.VersionId);
-            if (addHttpBundleInnerRequestExecutionContextHeader)
+            if (addBundleResourceContextProperty)
             {
-                Assert.NotNull(request.BundleResourceContext);
-                Assert.Equal(bundleResourceContext.BundleType, request.BundleResourceContext.BundleType);
-                Assert.Equal(bundleResourceContext.ProcessingLogic, request.BundleResourceContext.ProcessingLogic);
-                Assert.Equal(bundleResourceContext.HttpVerb, request.BundleResourceContext.HttpVerb);
-                Assert.Equal(bundleResourceContext.PersistedId, request.BundleResourceContext.PersistedId);
-                Assert.Equal(bundleResourceContext.BundleOperationId, request.BundleResourceContext.BundleOperationId);
+                Assert.Same(bundleResourceContext, request.BundleResourceContext);
+            }
+            else
+            {
+                Assert.Null(request.BundleResourceContext);
+            }
+        }
+
+        [Theory]
+        [Trait(Traits.Category, Categories.Bundle)]
+        [InlineData(false, null)]
+        [InlineData(false, "not-json")]
+        [InlineData(false, "{\"HttpVerb\":\"POST\"}")]
+        [InlineData(true, null)]
+        [InlineData(true, "not-json")]
+        [InlineData(true, "{\"HttpVerb\":\"POST\"}")]
+        public async Task GivenUpdateRequest_WhenBundleResourceContextIsSpecified_ThenOnlyFhirRequestContextPropertiesAreUsed(
+            bool addBundleResourceContextProperty,
+            string headerValue)
+        {
+            var resource = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Method = "PUT";
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            var requestContext = new FhirRequestContext(
+                "PUT",
+                "https://localhost/Patient/" + resource.Id,
+                "https://localhost/",
+                Guid.NewGuid().ToString(),
+                httpContext.Request.Headers,
+                httpContext.Response.Headers);
+            _requestContextAccessor.RequestContext = requestContext;
+            var bundleResourceContext = new BundleResourceContext(
+                Bundle.BundleType.Batch,
+                BundleProcessingLogic.Parallel,
+                Bundle.HTTPVerb.PUT,
+                resource.Id,
+                Guid.NewGuid());
+            if (addBundleResourceContextProperty)
+            {
+                requestContext.Properties.Add(
+                    BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext,
+                    bundleResourceContext);
+            }
+
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext] = headerValue;
+            }
+
+            var request = default(UpsertResourceRequest);
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Do<UpsertResourceRequest>(value => request = value),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
+
+            await _fhirController.Update(resource, null, false);
+
+            Assert.NotNull(request);
+            Assert.Equal(resource.Id, request.Resource.Id);
+            if (addBundleResourceContextProperty)
+            {
+                Assert.Same(bundleResourceContext, request.BundleResourceContext);
             }
             else
             {

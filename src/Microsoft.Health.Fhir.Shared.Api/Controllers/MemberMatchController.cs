@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var response = await _mediator.SendAsync<MemberMatchResponse>(new MemberMatchRequest(coverage, patient), HttpContext.RequestAborted);
             var parameters = new Parameters();
             parameters.Add(Patient, response.Patient.ToPoco<Patient>());
-            return MemberMatchResult.Ok(parameters);
+            return MemberMatchResult.Ok(parameters, _logger);
         }
 
         private void ValidateParams(Parameters inputParams, out ResourceElement coverage, out ResourceElement patient)

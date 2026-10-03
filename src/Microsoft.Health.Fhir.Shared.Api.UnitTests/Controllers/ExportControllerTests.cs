@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -419,7 +420,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenASystemLevelExport_WhenRequestSentToMediator_CorrectIsParallelValueInRequest(bool isApiForFhir, bool expectedIsParallel, bool? inputIsParallelValue)
         {
             // Get export controller with specific runtime configuration (if needed).
-            IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? Substitute.For<AzureApiForFhirRuntimeConfiguration>() : Substitute.For<IFhirRuntimeConfiguration>();
+            IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? new AzureApiForFhirRuntimeConfiguration(runtimeState: FhirRuntimeState.Active) : new AzureHealthDataServicesRuntimeConfiguration();
             var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig, fhirConfig);
 
             // Setup additional dependencies needed for test execution.
@@ -628,7 +629,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 optionsOperationConfiguration,
                 optionsArtifactStoreConfiguration,
                 optionsFeatures,
-                fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>());
+                fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>(),
+                NullLogger<ExportController>.Instance);
         }
 
         // Configures mocks so the controller can dispatch through MediatR without throwing.

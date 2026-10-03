@@ -14,11 +14,12 @@ using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -27,19 +28,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Collection(Categories.IndexAndReindex)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         private const int MaxAllowedUrlLength = 128;
         private const string UrlLengthValidationMessage = "exceeds the maximum length limit of 128";
+        private const string BuiltInSearchParameterUrl = "http://hl7.org/fhir/SearchParameter/clinical-patient";
+
+        private readonly bool _isSql;
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
         {
+            _isSql = fixture.DataStore == DataStore.SqlServer;
         }
 
-        [RetryTheory]
+        [Theory]
         [InlineData("SearchParameterBadSyntax", "The search parameter definition contains one or more invalid entries.")]
 #if Stu3 || R4 || R4B
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
@@ -69,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchParameterWithUrlLongerThan128_WhenCreating_ThenValidationErrorReturned()
         {
-            SearchParameter searchParam = CreateCustomSearchParameter(MaxAllowedUrlLength + 1);
+            SearchParameter searchParam = CreateCustomSearchParameter(CreateSearchParameterUrl(MaxAllowedUrlLength + 1));
 
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(searchParam));
 
@@ -79,7 +85,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPostingAnotherWithSameUrl_ThenBadRequestReturned()
         {
-            SearchParameter sp1 = CreateCustomSearchParameter(repeatChar: 'a');
+            string sharedUrl = CreateSearchParameterUrl();
+            SearchParameter sp1 = CreateCustomSearchParameter(sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(sp1);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -87,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 // Different auto-generated ID, same URL — must be rejected.
-                SearchParameter sp2 = CreateCustomSearchParameter(repeatChar: 'a');
+                SearchParameter sp2 = CreateCustomSearchParameter(sharedUrl);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(sp2));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
@@ -101,7 +108,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenPuttingNewResourceIdWithSameUrl_ThenBadRequestReturned()
         {
-            SearchParameter sp1 = CreateCustomSearchParameter(repeatChar: 'b');
+            string sharedUrl = CreateSearchParameterUrl();
+            SearchParameter sp1 = CreateCustomSearchParameter(sharedUrl);
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(sp1);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -109,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 // Different resource ID, same URL — must be rejected.
-                SearchParameter sp2 = CreateCustomSearchParameter(repeatChar: 'b');
+                SearchParameter sp2 = CreateCustomSearchParameter(sharedUrl);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(sp2));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
@@ -123,14 +131,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnExistingSearchParameter_WhenUpdatingWithUrlLongerThan128_ThenValidationErrorReturned()
         {
-            SearchParameter searchParam = CreateCustomSearchParameter(repeatChar: 'c');
+            SearchParameter searchParam = CreateCustomSearchParameter();
 
             using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(searchParam);
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
             try
             {
-                searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
+                searchParam.Url = CreateSearchParameterUrl(MaxAllowedUrlLength + 1);
 
                 using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
 
@@ -142,27 +150,76 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength, char repeatChar = 'a')
+        [Fact]
+        public async Task GivenAnExistingSearchParameter_WhenPatchingItsUrlToABuiltInCanonical_ThenMethodNotAllowedReturned()
+        {
+            SearchParameter searchParam = CreateCustomSearchParameter();
+
+            using FhirResponse<SearchParameter> createResponse = await Client.CreateAsync(searchParam);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            try
+            {
+                // $status is SQL only.
+                string statusBefore = _isSql ? await GetBuiltInSearchParameterStatusAsync() : null;
+
+                string patchDocument = $"[{{\"op\":\"replace\",\"path\":\"/url\",\"value\":\"{BuiltInSearchParameterUrl}\"}}]";
+
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
+                    () => Client.JsonPatchAsync(createResponse.Resource, patchDocument));
+
+                Assert.Equal(HttpStatusCode.MethodNotAllowed, exception.StatusCode);
+
+                // The rejected PATCH must leave the persisted resource untouched.
+                using FhirResponse<SearchParameter> readResponse = await Client.ReadAsync<SearchParameter>($"SearchParameter/{createResponse.Resource.Id}");
+                Assert.Equal(searchParam.Url, readResponse.Resource.Url);
+
+                if (_isSql)
+                {
+                    // ... and must leave the built-in parameter's registry status untouched.
+                    Assert.Equal(statusBefore, await GetBuiltInSearchParameterStatusAsync());
+                }
+            }
+            finally
+            {
+                await Client.DeleteAsync(createResponse.Resource);
+            }
+        }
+
+        // Reads the built-in parameter's $status. Assert.Single fails if the built-in is absent from the
+        // response, so a status assertion built on this can never pass vacuously.
+        private async Task<string> GetBuiltInSearchParameterStatusAsync()
+        {
+            using FhirResponse<Parameters> statusResponse = await Client.ReadAsync<Parameters>($"SearchParameter/$status?url={BuiltInSearchParameterUrl}");
+            Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+
+            Parameters.ParameterComponent builtInState = Assert.Single(
+                statusResponse.Resource.Parameter,
+                p => p.Part.Any(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value?.ToString() == BuiltInSearchParameterUrl));
+
+            return Assert.Single(builtInState.Part, pt => pt.Name == SearchParameterStateProperties.Status).Value.ToString();
+        }
+
+        // Builds a unique (per call) SearchParameter URL of exactly the requested length.
+        private static string CreateSearchParameterUrl(int length = MaxAllowedUrlLength)
+        {
+            string prefix = $"http://my.org/{Guid.NewGuid():N}/";
+            return prefix + new string('a', length - prefix.Length);
+        }
+
+        private static SearchParameter CreateCustomSearchParameter(string url = null)
         {
             string suffix = Guid.NewGuid().ToString("N");
-            const string prefix = "http://example.org/fhir/SearchParameter/";
-
 #if R5
-            var baseResourceTypes = new List<VersionIndependentResourceTypesAll?>
-            {
-                VersionIndependentResourceTypesAll.Person,
-            };
+            var baseResourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
 #else
-            var baseResourceTypes = new List<ResourceType?>
-            {
-                ResourceType.Person,
-            };
+            var baseResourceTypes = new List<ResourceType?> { ResourceType.Person };
 #endif
 
             return new SearchParameter
             {
                 Id = $"custom-search-param-{suffix[..8]}",
-                Url = prefix + new string(repeatChar, urlLength - prefix.Length),
+                Url = url ?? CreateSearchParameterUrl(),
                 Name = $"CustomSearchParam{suffix[..8]}",
                 Status = PublicationStatus.Draft,
                 Description = new Markdown("Custom search parameter used for E2E URL validation tests."),

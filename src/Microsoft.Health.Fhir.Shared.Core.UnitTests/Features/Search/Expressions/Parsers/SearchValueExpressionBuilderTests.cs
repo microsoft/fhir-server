@@ -397,6 +397,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             }
         }
 
+        [Fact]
+        public void GivenAnExtremeFutureDateWithApComparator_WhenBuilt_ThenFutureBoundIsClamped()
+        {
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Parse("2018-01-01T00:00Z"))))
+            {
+                Validate(
+                    CreateSearchParameter(SearchParamType.Date),
+                    null,
+                    "ap9500-01-01",
+                    e => ValidateMultiaryExpression(
+                        e,
+                        MultiaryOperator.And,
+                        e1 =>
+                        {
+                            var approximateEnd = Assert.IsType<BinaryExpression>(e1);
+                            Assert.Equal(FieldName.DateTimeStart, approximateEnd.FieldName);
+                            Assert.Equal(BinaryOperator.LessThanOrEqual, approximateEnd.BinaryOperator);
+                        },
+                        e2 => ValidateDateTimeBinaryOperatorExpression(e2, FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, DateTimeOffset.MaxValue)));
+            }
+        }
+
         [Theory]
         [MemberData(nameof(GetAllModifiersExceptMissing))]
         public void GivenADateWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifier modifier)

@@ -10,7 +10,7 @@ parameters:
   default: ''
 - name: mainCategoryFilter
   type: string
-  default: 'Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex'
+  default: '(Category!=ExportLongRunning)&(Category!=RequiresIsolation)&(Category!=IndexAndReindex)'
 - name: runReindexJob
   type: boolean
   default: true
@@ -27,19 +27,18 @@ parameters:
   type: object
   default:
     - name: General
-      testFilter: 'Category!=SmartOnFhir&Category!=IndexAndReindex&Category!=Search&Category!=SearchParameterStatus&FullyQualifiedName!~CosmosDb'
+      filterArguments: ['--filter-not-trait', 'Category=SmartOnFhir', 'Category=IndexAndReindex', 'Category=Search', 'Category=SearchParameterStatus', 'DataStore=CosmosDb', '--filter-not-class', '*CosmosDb*']
     - name: SmartSearch
-      testFilter: 'Category=SmartOnFhir'
+      filterArguments: ['--filter-trait', 'Category=SmartOnFhir']
     - name: Search
-      testFilter: '(Category=Search|Category=SearchParameterStatus)&FullyQualifiedName!~SqlServer'
+      filterArguments: ['--filter-trait', 'Category=Search', 'Category=SearchParameterStatus', '--filter-not-trait', 'Category=SmartOnFhir']
     - name: Reindex
-      testFilter: 'Category=IndexAndReindex&FullyQualifiedName!~SqlServer'
-    # CosmosSpecific is the catch-all for Cosmos-named classes and Cosmos data-store variants.
-    # FullyQualifiedName~CosmosDb matches both Cosmos-only test classes and the "(CosmosDb)" suffix
-    # on every DataStore.All test, so the categorized shards above must be excluded here to avoid
-    # running those tests twice (mirrors the SqlSpecific exclusions).
+      filterArguments: ['--filter-trait', 'Category=IndexAndReindex']
+    - name: CosmosVariants
+      filterArguments: ['--filter-trait', 'DataStore=CosmosDb', '--filter-not-trait', 'Category=IndexAndReindex', 'Category=Search', 'Category=SearchParameterStatus', 'Category=SmartOnFhir']
+    # CosmosVariants owns fixture variants; CosmosSpecific owns Cosmos-named classes without that trait.
     - name: CosmosSpecific
-      testFilter: 'FullyQualifiedName~CosmosDb&Category!=IndexAndReindex&Category!=Search&Category!=SearchParameterStatus&Category!=SmartOnFhir'
+      filterArguments: ['--filter-class', '*CosmosDb*', '--filter-not-trait', 'DataStore=CosmosDb', 'Category=IndexAndReindex', 'Category=Search', 'Category=SearchParameterStatus', 'Category=SmartOnFhir']
 - name: runShardedE2eJobs
   type: boolean
   default: false
@@ -48,15 +47,13 @@ parameters:
   # mainCategoryFilter default is inlined here because ADO does not allow ${{ parameters.x }} in object parameter defaults.
   default:
     - name: General
-      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category!=BulkDelete&Category!=CustomSearch&Category!=History&Category!=Import&Category!=Search&Category!=Sort&Category!=CompartmentSearch&Category!=ConditionalOperations&Category!=Patch&Category!=Bundle&Category!=BundleTransaction'
+      categoryFilter: '(Category!=ExportLongRunning)&(Category!=RequiresIsolation)&(Category!=IndexAndReindex)&(Category!=BulkDelete)&(Category!=CustomSearch)&(Category!=History)&(Category!=Import)&(Category!=Search)&(Category!=Sort)&(Category!=CompartmentSearch)&(Category!=ConditionalOperations)&(Category!=Patch)&(Category!=Bundle)&(Category!=BundleTransaction)'
     - name: Search
-      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=Search|Category=Sort|Category=CompartmentSearch)&Category!=CustomSearch&Category!=BundleTransaction'
+      categoryFilter: '(Category!=ExportLongRunning)&(Category!=RequiresIsolation)&(Category!=IndexAndReindex)&((Category=Search)|(Category=Sort)|(Category=CompartmentSearch))&(Category!=CustomSearch)&(Category!=BundleTransaction)'
     - name: Mutation
-      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&(Category=ConditionalOperations|Category=Patch|Category=Bundle|Category=BundleTransaction)'
-    - name: CustomSearch
-      testFilter: 'FullyQualifiedName~CosmosDb&FullyQualifiedName~CustomSearchParamTests&Category=Search&Category=IndexAndReindex'
+      categoryFilter: '(Category!=ExportLongRunning)&(Category!=RequiresIsolation)&(Category!=IndexAndReindex)&((Category=ConditionalOperations)|(Category=Patch)|(Category=Bundle)|(Category=BundleTransaction))'
     - name: History
-      testFilter: 'FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=RequiresIsolation&Category!=IndexAndReindex&Category=History'
+      categoryFilter: '(Category!=ExportLongRunning)&(Category!=RequiresIsolation)&(Category!=IndexAndReindex)&(Category=History)'
 
 jobs:
 
@@ -87,7 +84,7 @@ jobs:
         dataStore: 'Cosmos'
         keyVaultName: '${{ parameters.keyVaultName }}'
         containerAppName: '${{ parameters.containerAppName }}'
-        testFilter: 'FullyQualifiedName!~SqlServer'
+        filterArguments: []
         testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
         artifactSuffix: 'Cosmos_${{ parameters.version }}'
         parallelizeTestCollections: ${{ parameters.integrationParallelizeTestCollections }}
@@ -122,7 +119,7 @@ jobs:
           dataStore: 'Cosmos'
           keyVaultName: '${{ parameters.keyVaultName }}'
           containerAppName: '${{ parameters.containerAppName }}'
-          testFilter: 'FullyQualifiedName!~SqlServer&${{ shard.testFilter }}'
+          filterArguments: ${{ shard.filterArguments }}
           testRunTitle: '${{ parameters.version }} Cosmos Integration Tests ${{ shard.name }}'
           artifactSuffix: 'Cosmos_${{ parameters.version }}_${{ shard.name }}'
           parallelizeTestCollections: ${{ parameters.integrationParallelizeTestCollections }}
@@ -144,7 +141,7 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
-        testFilter: 'FullyQualifiedName~CosmosDb&${{ parameters.mainCategoryFilter }}'
+        categoryFilter: '${{ parameters.mainCategoryFilter }}'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
 - ${{ if eq(parameters.runShardedE2eJobs, true) }}:
@@ -165,7 +162,7 @@ jobs:
           version: ${{ parameters.version }}
           containerAppName: '${{ parameters.containerAppName }}'
           appServiceType: 'CosmosDb'
-          testFilter: '${{ shard.testFilter }}'
+          categoryFilter: '${{ shard.categoryFilter }}'
           testRunTitleSuffix: ' ${{ shard.name }}'
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
@@ -192,7 +189,7 @@ jobs:
           version: ${{ parameters.version }}
           containerAppName: '${{ parameters.isolationContainerAppName }}'
           appServiceType: 'CosmosDb'
-          testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
+          categoryFilter: '(Category=RequiresIsolation)&(Category!=ExportLongRunning)'
           testRunTitleSuffix: ' RequiresIsolation'
           parallelizeTestCollections: false
   - ${{ else }}:
@@ -215,7 +212,7 @@ jobs:
           version: ${{ parameters.version }}
           containerAppName: '${{ parameters.containerAppName }}'
           appServiceType: 'CosmosDb'
-          testFilter: 'FullyQualifiedName~CosmosDb&Category=RequiresIsolation&Category!=ExportLongRunning'
+          categoryFilter: '(Category=RequiresIsolation)&(Category!=ExportLongRunning)'
           testRunTitleSuffix: ' RequiresIsolation'
           parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}
 
@@ -236,6 +233,6 @@ jobs:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'CosmosDb'
-        testFilter: 'FullyQualifiedName~CosmosDb&Category=IndexAndReindex'
+        categoryFilter: 'Category=IndexAndReindex'
         testRunTitleSuffix: ' Reindex'
         parallelizeTestCollections: ${{ parameters.e2eParallelizeTestCollections }}

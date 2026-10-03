@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public Container Container => _container;
 
-        public virtual async Task InitializeAsync()
+        public virtual async ValueTask InitializeAsync()
         {
             var fhirStoredProcs = typeof(DataPlaneCollectionSetup).Assembly
                 .GetTypes()
@@ -331,6 +331,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDbPhysicalPartitionInfo,
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
+                ModelInfoProvider.Instance,
                 NullLogger<FhirCosmosSearchService>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
@@ -350,7 +351,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container, queueClient);
         }
 
-        public virtual async Task DisposeAsync()
+        public virtual async ValueTask DisposeAsync()
         {
             if (_container != null)
             {

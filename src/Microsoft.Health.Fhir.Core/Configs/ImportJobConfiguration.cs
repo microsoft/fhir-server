@@ -10,8 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class ImportJobConfiguration : HostingBackgroundServiceQueueItem
     {
         private const int DefaultTransactionSize = 1000;
-        private const int DefaultSqlIndexRebuildThreads = 3;
-        private const int DefaultInfinitySqlTimeoutSec = 0;
         private const int DefaultPollingPeriodSec = 60;
 
         public ImportJobConfiguration()
@@ -24,7 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool InitialImportMode { get; set; }
 
-        public int InfinitySqlTimeoutSec { get; set; } = DefaultInfinitySqlTimeoutSec;
+        /// <summary>
+        /// Enables the in-memory import test source.
+        /// </summary>
+        public bool InMemoryTestEnabled { get; set; }
 
         /// <summary>
         /// Max batch size for import resource operation
@@ -32,18 +33,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int TransactionSize { get; set; } = DefaultTransactionSize;
 
         /// <summary>
-        /// Concurrent count for rebuild index operation.
-        /// </summary>
-        public int SqlIndexRebuildThreads { get; set; } = DefaultSqlIndexRebuildThreads;
-
-        /// <summary>
         /// How often polling for new import jobs happens.
         /// </summary>
         public int PollingFrequencyInSeconds { get; set; } = DefaultPollingPeriodSec; // FYI By definition, frequency cannot be measured in time units.
-
-        /// <summary>
-        /// Disable optional index during import data.
-        /// </summary>
-        public bool DisableOptionalIndexesForImport { get; set; }
     }
 }

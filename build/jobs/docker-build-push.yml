@@ -15,7 +15,15 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
+      - DiskSizeGiB -equals 250
+      - StorageAccountType -equals StandardSSD_LRS
   steps:
+  - task: Bash@3
+    displayName: 'Configure Docker storage'
+    inputs:
+      targetType: 'filePath'
+      filePath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Configure-DockerStorage.sh'
+
   - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:

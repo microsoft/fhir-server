@@ -9,7 +9,14 @@ namespace Microsoft.Health.Fhir.Core.Registration
 {
     public class AzureApiForFhirRuntimeConfiguration : IFhirRuntimeConfiguration
     {
+        public AzureApiForFhirRuntimeConfiguration(FhirRuntimeState runtimeState = FhirRuntimeState.Active)
+        {
+            RuntimeState = runtimeState;
+        }
+
         public string DataStore => KnownDataStores.CosmosDb;
+
+        public FhirRuntimeState RuntimeState { get; }
 
         public bool IsSelectiveSearchParameterSupported => false;
 

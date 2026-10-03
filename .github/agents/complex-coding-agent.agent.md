@@ -1,7 +1,8 @@
 ---
 name: Complex Coding Agent
 description: 'Premium coding expert for high-complexity tasks requiring deep architectural thinking, multi-file debugging, and sophisticated solutions.'
-model: Claude Opus 4.8 (copilot)
+model: Claude Opus 5 (copilot)
+reasoning_effort: high
 tools:
   - read
   - edit

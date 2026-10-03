@@ -17,10 +17,8 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
 using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -193,6 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // and must NOT fan out a stat for every base resource type of the parameter.
             const string resourceType = "Patient";
             var query = new[] { Tuple.Create("gender:missing", "true") };
+
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
             var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;

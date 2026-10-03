@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -81,7 +82,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             _controller = new BulkDeleteController(
                 _mediator,
-                urlResolver);
+                urlResolver,
+                NullLogger<BulkDeleteController>.Instance);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
                     httpContext,

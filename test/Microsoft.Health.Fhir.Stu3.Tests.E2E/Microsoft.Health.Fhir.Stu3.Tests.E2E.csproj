@@ -16,19 +16,15 @@
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportUsingAcrTests.cs" Link="Rest\Export\AnonymizedExportUsingAcrTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportTests.cs" Link="Rest\Export\AnonymizedExportTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\ContainerRegistryTemplateUploader.cs" Link="Rest\ContainerRegistryTemplateUploader.cs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Containers.ContainerRegistry" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.Azure.ContainerRegistry" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
   </ItemGroup>

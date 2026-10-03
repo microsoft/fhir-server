@@ -5,8 +5,9 @@ parameters:
   type: string  # 'Sql' or 'Cosmos'
 - name: keyVaultName
   type: string
-- name: testFilter
-  type: string
+- name: filterArguments
+  type: object
+  default: []
 - name: testRunTitle
   type: string
 - name: artifactSuffix
@@ -115,8 +116,12 @@ steps:
         throw "Could not find $testName.dll under $testRoot"
       }
 
-      $testArgs = @(
-        '--filter', '${{ parameters.testFilter }}',
+      $testArgs = @('${{ convertToJson(parameters.filterArguments) }}' | ConvertFrom-Json)
+      $otherDataStore = if ('${{ parameters.dataStore }}' -eq 'Sql') { 'CosmosDb' } else { 'SqlServer' }
+      # xUnit 3.2.2 class query segments drop trait predicates. Keep both native exclusions.
+      $testArgs += @(
+        '--filter-not-trait', "DataStore=$otherDataStore",
+        '--filter-not-class', "*$otherDataStore*",
         '--retry-failed-tests', '3',
         '--coverage',
         '--coverage-output-format', 'cobertura',

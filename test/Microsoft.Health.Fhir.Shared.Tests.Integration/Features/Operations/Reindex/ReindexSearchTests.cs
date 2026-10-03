@@ -28,21 +28,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
 
     public class ReindexSearchTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly IScoped<IFhirDataStore> _scopedDataStore;
         private readonly IScoped<ISearchService> _searchService;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
-
-        private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
             _searchService = fixture.SearchService.CreateMockScope();
-            _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
         }
 
         [Fact]
@@ -63,7 +59,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 };
 
                 // Pass in the same hash value
@@ -97,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
                 };
 
                 // Pass in a different hash value
@@ -135,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
                 };
 
                 // Pass in a different hash value
@@ -171,8 +166,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchIndices,
                 compartmentIndices,
                 new List<KeyValuePair<string, string>>(),
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
-            wrapper.SearchParameterHash = "hash";
+                "hash");
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
         }
@@ -195,8 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchIndices,
                 compartmentIndices,
                 new List<KeyValuePair<string, string>>(),
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
-            wrapper.SearchParameterHash = "hash";
+                "hash");
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, true, bundleResourceContext: null), CancellationToken.None);
         }

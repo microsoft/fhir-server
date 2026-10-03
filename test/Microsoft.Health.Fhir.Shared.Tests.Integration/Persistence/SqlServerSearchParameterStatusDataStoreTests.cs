@@ -603,7 +603,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             };
 
             // Create a reindex job using OperationDataStore
-            var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord(new List<string>());
+            var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord();
             var reindexJobWrapper = await _fixture.OperationDataStore.CreateReindexJobAsync(reindexJobRecord, CancellationToken.None);
             var jobId = long.Parse(reindexJobWrapper.JobRecord.Id);
 
@@ -647,7 +647,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             };
 
             // Start a reindex job using OperationDataStore
-            var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord(new List<string>());
+            var reindexJobRecord = new Core.Features.Operations.Reindex.Models.ReindexJobRecord();
             var reindexJobWrapper = await _fixture.OperationDataStore.CreateReindexJobAsync(reindexJobRecord, CancellationToken.None);
             var jobId = long.Parse(reindexJobWrapper.JobRecord.Id);
             var jobInfo = await _fixture.QueueClient.DequeueAsync((byte)QueueType.Reindex, "test", 0, CancellationToken.None, jobId);

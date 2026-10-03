@@ -53,7 +53,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                  ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
-                                 : record.ResourceType.Split(',');
+                                 : record.ResourceType.Split(',').Select(type => type.Trim()).ToArray();
+
+                // Validate the resource types to ensure they are valid and supported.
+                ValidateResourceTypes(searchService.Value, resourceTypes, record);
 
                 var physicalPartitionFeedRanges = await searchService.Value.GetFeedRanges(cancellationToken);
 
