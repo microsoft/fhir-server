@@ -48,46 +48,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         }
 
         [Theory]
-        [InlineData(65)]
-        [InlineData(128)]
-        public void GivenAnIdLongerThanTheDefaultLimit_WhenValidatedWithTheDefaultMaxLength_ThenValidationFails(int idLength)
+        [InlineData(64, 65, false)]
+        [InlineData(64, 128, false)]
+        [InlineData(128, 65, true)]
+        [InlineData(128, 128, true)]
+        [InlineData(128, 129, false)]
+        public void GivenAnId_WhenValidated_ThenTheConfiguredLengthLimitIsApplied(int maxLength, int length, bool expectedValid)
         {
             // Arrange
-            var observation = Samples.GetDefaultObservation().UpdateId(new string('a', idLength));
+            var observation = Samples.GetDefaultObservation().UpdateId(new string('a', length));
 
             // Act
-            bool isValid = GetValidationFailures(observation, maxLength: 64);
+            bool isValid = GetValidationFailures(observation, maxLength);
 
             // Assert
-            Assert.False(isValid);
-        }
-
-        [Theory]
-        [InlineData(65)]
-        [InlineData(128)]
-        public void GivenAnIdWithinAConfiguredMaxLength_WhenValidated_ThenValidationSucceeds(int idLength)
-        {
-            // Arrange
-            var observation = Samples.GetDefaultObservation().UpdateId(new string('a', idLength));
-
-            // Act
-            bool isValid = GetValidationFailures(observation, maxLength: 128);
-
-            // Assert
-            Assert.True(isValid);
-        }
-
-        [Fact]
-        public void GivenAnIdLongerThanTheConfiguredMaxLength_WhenValidated_ThenValidationFails()
-        {
-            // Arrange
-            var observation = Samples.GetDefaultObservation().UpdateId(new string('a', 129));
-
-            // Act
-            bool isValid = GetValidationFailures(observation, maxLength: 128);
-
-            // Assert
-            Assert.False(isValid);
+            Assert.Equal(expectedValid, isValid);
         }
 
         [Theory]

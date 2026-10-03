@@ -38,40 +38,25 @@ owns agreement between configuration and physical SQL widths. Changing
 the setting requires restarting the server instances; it is not a
 runtime database-capacity negotiation.
 
-At the default 64, behavior, generated SQL, `SqlParameter` sizes, and TVP
-metadata are identical to before. This includes the pre-existing quirk:
-`_id` and SMART compartment-root search values longer than the configured
-maximum are sized to that maximum, and SqlClient truncates them, producing
-prefix matching. At 64 this affects over-64 values; with a raised setting
-it affects values longer than N. **That search behavior is out of scope
-and is not repaired here.**
+### Application contract
 
-### Application surfaces
+Use the configured N for resource-ID request validation and messages,
+both import parsers, reference-ID parsing/index rows, scalar ID parameters,
+and all bindings of the five active TVPs listed below. Preserve the ID
+alphabet, null-valid and `$` trailing-newline semantics, import's required-ID
+check, and relative/absolute/external reference semantics. Unrelated element
+IDs and the `_history` version bound retain their existing limits.
 
-Every resource-ID width below uses the same configured N. Unrelated
-element IDs and version IDs retain their existing contracts.
+At 64, behavior, generated SQL, parameter sizes, and TVP metadata are
+unchanged. SqlClient truncation/prefix matching for `_id` and SMART
+compartment-root search values above N is intentionally not repaired.
+Five client TVP subclasses widen only ID metadata, preserving row/column
+order, collation, other metadata, and SQL type names; widening server types
+alone would leave silent client-side truncation.
 
-| Surface | Required behavior |
-| --- | --- |
-| `IdValidator<T>` | Use `^[A-Za-z0-9\-\.]{1,N}$`. Preserve the alphabet, null-valid behavior, and the existing .NET `$` trailing-newline quirk. |
-| Request validation | The validator is used by `ResourceElementValidator` for Create, Upsert, and MemberMatch, by `$validate`'s `ValidateResourceOperationValidator`, and by Get/Delete validators. |
-| Error messages | Format `Resources.IdRequirements` with N, including its use in `ValidateIdSegmentAttribute`. |
-| `$import` | `ImportResourceIdValidator` uses N through both Firely and Ignixa import parsers; retain the required-ID check. |
-| Reference parsing | `ReferenceSearchValueParser` changes the resource-ID capture to `{1,N}`. The `_history` version capture stays bounded at 64. Otherwise accepted long references would silently index as 64-character prefixes. Preserve relative/absolute and external-reference semantics. |
-| Reference row generation | `ReferenceSearchParamListRowGenerator` truncates at N rather than the generated 64-wide column metadata. |
-| Scalar query parameters | `HashingSqlQueryParameterManager` centrally sizes parameters for `ResourceId`, `ReferenceResourceId`, and `ReferenceResourceId1` to N. Sizes and generated SQL are identical at 64. |
-| SQL TVPs | Five hand-written subclasses of the generated definitions override `Columns`, widening only the ID column to N: ResourceList, ReferenceSearchParamList, ReferenceTokenCompositeSearchParamList, ResourceKeyList, and ResourceDateKeyList. At 64 their metadata is unchanged. |
-| Hard delete | For an ID longer than 64, send the full ID with sufficient client parameter size and additionally send `@ExpectedResourceIdLength int` to `dbo.HardDeleteResource`. IDs of length 64 or less send exactly today's parameters. |
-
-The generated TVP definitions hard-code `varchar(64)` `SqlMetaData`.
-SqlClient silently truncates over-width values client-side when filling
-`SqlDataRecord`; changing server types alone does not fix that. The five
-small subclasses leave generated code, row shapes, column order,
-non-ID metadata, and SQL type names unchanged. All bindings for these
-five TVPs must use the corresponding definition, including reads,
-writes, import, and reindex.
-
-For long hard deletes, an unpatched procedure rejects the extra argument
+Hard deletes of IDs longer than 64 send the full ID and
+`@ExpectedResourceIdLength int`; short IDs send exactly today's parameters.
+An unpatched procedure rejects the extra argument
 with "too many arguments" instead of deleting a truncated-prefix ID.
 The operator-patched procedure must widen `@ResourceId` to `varchar(N)`,
 declare `@ExpectedResourceIdLength int = NULL`, and, when it is supplied,
@@ -290,14 +275,6 @@ accepting longer IDs.
 
 ## Verification expectations
 
-Application implementation should cover absent/default configuration,
-64 and 256, invalid values below/above the range, and overrides through
-`configureAction`. At 64, assert unchanged SQL, scalar parameter sizes,
-TVP metadata, validation messages, and existing over-limit search behavior.
-For raised N, cover 1, 64, 65, the observed 88, N, and N+1 characters,
-the unchanged alphabet/null/newline behavior, both import parsers,
-relative/absolute/versioned references, and profile-validation boundaries.
-
 Database acceptance requires exact ID/reference round trips across CRUD,
 history, bundles, `$import`, reindex, reference/chained/compartment search,
 `_include`, change feed, and snapshot `$export`. Verify all five TVPs,
@@ -306,14 +283,6 @@ HardDelete failure modes without mutation. Exercise partial script
 recovery, partition maintenance, and re-application after a representative
 schema upgrade on a database containing IDs longer than 64. Never hash,
 rewrite, case-fold, or substitute the original resource ID.
-
-## Consequences
-
-The application has one startup-validated setting and no SQL
-initialization lifecycle for this feature. Operators acquire explicit
-responsibility for SQL capacity and upgrade drift. Long IDs and their
-references remain non-conformant and may be rejected by downstream
-systems; profile validation intentionally continues to report that.
 
 ## References
 

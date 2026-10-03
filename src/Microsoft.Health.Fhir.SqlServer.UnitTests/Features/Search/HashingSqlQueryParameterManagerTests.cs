@@ -171,21 +171,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenANonResourceIdVarCharColumn_WhenAddedWithAConfiguredMaxResourceIdLength_ThenTheParameterKeepsTheSchemaWidth()
-        {
-            // Arrange
-            using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ExtendedMaxResourceIdLength);
-
-            // Act
-            var parameter = (SqlParameter)parameters.AddParameter(VLatest.Resource.SearchParamHash, "abc", includeInHash: false);
-
-            // Assert
-            Assert.Equal(SqlDbType.VarChar, parameter.SqlDbType);
-            Assert.Equal(DefaultMaxResourceIdLength, parameter.Size);
-        }
-
-        [Fact]
         public void GivenAResourceIdAndANarrowVarCharColumnWithTheSameValue_WhenAdded_ThenDistinctParametersAreCreated()
         {
             // Arrange - the inner manager de-duplicates on (type, length, value), so widening has to happen
@@ -201,6 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             // Assert
             Assert.NotSame(searchParamHashParameter, resourceIdParameter);
+            Assert.Equal(SqlDbType.VarChar, searchParamHashParameter.SqlDbType);
             Assert.Equal(DefaultMaxResourceIdLength, searchParamHashParameter.Size);
             Assert.Equal(ExtendedMaxResourceIdLength, resourceIdParameter.Size);
             Assert.Equal(2, command.Parameters.Count);

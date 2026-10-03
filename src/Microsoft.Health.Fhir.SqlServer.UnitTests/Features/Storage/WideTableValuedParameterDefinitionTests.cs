@@ -32,120 +32,104 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         private const int DefaultMaxResourceIdLength = 64;
         private const int ExtendedMaxResourceIdLength = 128;
 
-        [Fact]
-        public void GivenTheResourceListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened()
+        [Theory]
+        [InlineData(DefaultMaxResourceIdLength)]
+        [InlineData(ExtendedMaxResourceIdLength)]
+        public void GivenTheResourceListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened(int maxResourceIdLength)
         {
             AssertResourceIdWidening<ResourceListRow>(
-                maxResourceIdLength => new WideResourceListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
+                new WideResourceListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
                 new ResourceListTableValuedParameterDefinition(ParameterName),
                 resourceId => new ResourceListRow(1, 2L, resourceId, 1, true, false, false, true, new MemoryStream(new byte[] { 1, 2, 3 }), false, "PUT", "hash"),
-                "ResourceId");
+                "ResourceId",
+                maxResourceIdLength);
         }
 
-        [Fact]
-        public void GivenTheReferenceSearchParamListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened()
+        [Theory]
+        [InlineData(DefaultMaxResourceIdLength)]
+        [InlineData(ExtendedMaxResourceIdLength)]
+        public void GivenTheReferenceSearchParamListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened(int maxResourceIdLength)
         {
             AssertResourceIdWidening<ReferenceSearchParamListRow>(
-                maxResourceIdLength => new WideReferenceSearchParamListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
+                new WideReferenceSearchParamListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
                 new ReferenceSearchParamListTableValuedParameterDefinition(ParameterName),
                 resourceId => new ReferenceSearchParamListRow(1, 2L, 3, null, null, resourceId, null),
-                "ReferenceResourceId");
+                "ReferenceResourceId",
+                maxResourceIdLength);
         }
 
-        [Fact]
-        public void GivenTheReferenceTokenCompositeSearchParamListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened()
+        [Theory]
+        [InlineData(DefaultMaxResourceIdLength)]
+        [InlineData(ExtendedMaxResourceIdLength)]
+        public void GivenTheReferenceTokenCompositeSearchParamListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened(int maxResourceIdLength)
         {
             AssertResourceIdWidening<ReferenceTokenCompositeSearchParamListRow>(
-                maxResourceIdLength => new WideReferenceTokenCompositeSearchParamListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
+                new WideReferenceTokenCompositeSearchParamListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
                 new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition(ParameterName),
                 resourceId => new ReferenceTokenCompositeSearchParamListRow(1, 2L, 3, null, null, resourceId, null, null, "code", null),
-                "ReferenceResourceId1");
+                "ReferenceResourceId1",
+                maxResourceIdLength);
         }
 
-        [Fact]
-        public void GivenTheResourceKeyListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened()
+        [Theory]
+        [InlineData(DefaultMaxResourceIdLength)]
+        [InlineData(ExtendedMaxResourceIdLength)]
+        public void GivenTheResourceKeyListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened(int maxResourceIdLength)
         {
             AssertResourceIdWidening<ResourceKeyListRow>(
-                maxResourceIdLength => new WideResourceKeyListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
+                new WideResourceKeyListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
                 new ResourceKeyListTableValuedParameterDefinition(ParameterName),
                 resourceId => new ResourceKeyListRow(1, resourceId, 1),
-                "ResourceId");
+                "ResourceId",
+                maxResourceIdLength);
         }
 
-        [Fact]
-        public void GivenTheResourceDateKeyListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened()
+        [Theory]
+        [InlineData(DefaultMaxResourceIdLength)]
+        [InlineData(ExtendedMaxResourceIdLength)]
+        public void GivenTheResourceDateKeyListDefinition_WhenTheMaxResourceIdLengthChanges_ThenOnlyTheResourceIdColumnIsWidened(int maxResourceIdLength)
         {
             AssertResourceIdWidening<ResourceDateKeyListRow>(
-                maxResourceIdLength => new WideResourceDateKeyListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
+                new WideResourceDateKeyListTableValuedParameterDefinition(ParameterName, maxResourceIdLength),
                 new ResourceDateKeyListTableValuedParameterDefinition(ParameterName),
                 resourceId => new ResourceDateKeyListRow(1, resourceId, 2L),
-                "ResourceId");
+                "ResourceId",
+                maxResourceIdLength);
         }
 
         private static void AssertResourceIdWidening<TRow>(
-            Func<int, TableValuedParameterDefinition<TRow>> wideDefinitionFactory,
+            TableValuedParameterDefinition<TRow> wideDefinition,
             TableValuedParameterDefinition<TRow> generatedDefinition,
             Func<string, TRow> rowFactory,
-            params string[] resourceIdColumnNames)
+            string resourceIdColumnName,
+            int maxResourceIdLength)
             where TRow : struct
         {
             // Arrange
-            string defaultLengthId = new string('a', DefaultMaxResourceIdLength);
-            string extendedLengthId = new string('b', ExtendedMaxResourceIdLength);
+            string resourceId = new string('a', maxResourceIdLength);
 
             // Act
-            SqlDataRecord generatedRecord = GetSingleRecord(generatedDefinition, rowFactory(defaultLengthId));
-            SqlDataRecord defaultRecord = GetSingleRecord(wideDefinitionFactory(DefaultMaxResourceIdLength), rowFactory(defaultLengthId));
-            SqlDataRecord extendedRecord = GetSingleRecord(wideDefinitionFactory(ExtendedMaxResourceIdLength), rowFactory(extendedLengthId));
+            SqlDataRecord generatedRecord = GetSingleRecord(generatedDefinition, rowFactory(new string('a', DefaultMaxResourceIdLength)));
+            SqlDataRecord actualRecord = GetSingleRecord(wideDefinition, rowFactory(resourceId));
 
-            // Assert - at the default length the table type is bit-for-bit the generated one.
-            Assert.Equal(generatedRecord.FieldCount, defaultRecord.FieldCount);
+            // Assert
+            Assert.Equal(generatedRecord.FieldCount, actualRecord.FieldCount);
 
             for (int i = 0; i < generatedRecord.FieldCount; i++)
             {
                 SqlMetaData expected = generatedRecord.GetSqlMetaData(i);
-                SqlMetaData actual = defaultRecord.GetSqlMetaData(i);
+                SqlMetaData actual = actualRecord.GetSqlMetaData(i);
 
                 Assert.Equal(expected.Name, actual.Name);
                 Assert.Equal(expected.SqlDbType, actual.SqlDbType);
-                Assert.Equal(expected.MaxLength, actual.MaxLength);
+                Assert.Equal(expected.Name == resourceIdColumnName ? maxResourceIdLength : expected.MaxLength, actual.MaxLength);
                 Assert.Equal(expected.Precision, actual.Precision);
                 Assert.Equal(expected.Scale, actual.Scale);
                 Assert.Equal(expected.LocaleId, actual.LocaleId);
                 Assert.Equal(expected.CompareOptions, actual.CompareOptions);
             }
 
-            // Assert - at an extended length only the resource id columns change, and the full id is carried.
-            Assert.Equal(generatedRecord.FieldCount, extendedRecord.FieldCount);
-
-            var widenedColumns = new List<string>();
-
-            for (int i = 0; i < generatedRecord.FieldCount; i++)
-            {
-                SqlMetaData expected = generatedRecord.GetSqlMetaData(i);
-                SqlMetaData actual = extendedRecord.GetSqlMetaData(i);
-
-                Assert.Equal(expected.Name, actual.Name);
-                Assert.Equal(expected.SqlDbType, actual.SqlDbType);
-
-                if (resourceIdColumnNames.Contains(actual.Name, StringComparer.Ordinal))
-                {
-                    Assert.Equal((long)ExtendedMaxResourceIdLength, actual.MaxLength);
-                    Assert.Equal(extendedLengthId, extendedRecord.GetString(i));
-                    widenedColumns.Add(actual.Name);
-                }
-                else
-                {
-                    Assert.Equal(expected.MaxLength, actual.MaxLength);
-                }
-            }
-
-            Assert.Equal(resourceIdColumnNames.Length, widenedColumns.Count);
-
-            foreach (string resourceIdColumnName in resourceIdColumnNames)
-            {
-                Assert.Contains(resourceIdColumnName, widenedColumns, StringComparer.Ordinal);
-            }
+            Assert.Equal(resourceId, actualRecord.GetString(actualRecord.GetOrdinal(resourceIdColumnName)));
         }
 
         private static SqlDataRecord GetSingleRecord<TRow>(TableValuedParameterDefinition<TRow> definition, TRow row)

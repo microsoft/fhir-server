@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -43,23 +42,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             // Arrange
             string resourceId = new string('a', idLength);
 
-            // Act
-            Exception exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, 128));
-
-            // Assert
-            Assert.Null(exception);
-        }
-
-        [Theory]
-        [InlineData(65)]
-        [InlineData(128)]
-        public void GivenAnIdLongerThanTheDefaultMaxLength_WhenValidatedWithTheDefaultMaxLength_ThenBadRequestExceptionIsThrown(int idLength)
-        {
-            // Arrange
-            string resourceId = new string('a', idLength);
-
             // Act & Assert
-            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId, 64));
+            ImportResourceIdValidator.Validate(resourceId, 128);
         }
 
         [Fact]
@@ -80,11 +64,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             // Arrange
             string resourceId = new string('a', maxLength) + "\n";
 
-            // Act
-            Exception exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, maxLength));
-
-            // Assert
-            Assert.Null(exception);
+            // Act & Assert
+            ImportResourceIdValidator.Validate(resourceId, maxLength);
         }
 
         [Theory]

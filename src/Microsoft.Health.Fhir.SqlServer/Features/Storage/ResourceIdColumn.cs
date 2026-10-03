@@ -27,68 +27,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
     }
 
-    internal sealed class WideResourceListTableValuedParameterDefinition : ResourceListTableValuedParameterDefinition
+    internal sealed class WideResourceListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength) : ResourceListTableValuedParameterDefinition(parameterName)
     {
-        private readonly int _maxResourceIdLength;
-
-        internal WideResourceListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength)
-            : base(parameterName)
-        {
-            _maxResourceIdLength = maxResourceIdLength;
-        }
-
-        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, _maxResourceIdLength));
+        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, maxResourceIdLength));
     }
 
-    internal sealed class WideReferenceSearchParamListTableValuedParameterDefinition : ReferenceSearchParamListTableValuedParameterDefinition
+    internal sealed class WideReferenceSearchParamListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength) : ReferenceSearchParamListTableValuedParameterDefinition(parameterName)
     {
-        private readonly int _maxResourceIdLength;
-
-        internal WideReferenceSearchParamListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength)
-            : base(parameterName)
-        {
-            _maxResourceIdLength = maxResourceIdLength;
-        }
-
-        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, _maxResourceIdLength));
+        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, maxResourceIdLength));
     }
 
-    internal sealed class WideReferenceTokenCompositeSearchParamListTableValuedParameterDefinition : ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition
+    internal sealed class WideReferenceTokenCompositeSearchParamListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength) : ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition(parameterName)
     {
-        private readonly int _maxResourceIdLength;
-
-        internal WideReferenceTokenCompositeSearchParamListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength)
-            : base(parameterName)
-        {
-            _maxResourceIdLength = maxResourceIdLength;
-        }
-
-        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, _maxResourceIdLength));
+        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, maxResourceIdLength));
     }
 
-    internal sealed class WideResourceKeyListTableValuedParameterDefinition : ResourceKeyListTableValuedParameterDefinition
+    internal sealed class WideResourceKeyListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength) : ResourceKeyListTableValuedParameterDefinition(parameterName)
     {
-        private readonly int _maxResourceIdLength;
-
-        internal WideResourceKeyListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength)
-            : base(parameterName)
-        {
-            _maxResourceIdLength = maxResourceIdLength;
-        }
-
-        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, _maxResourceIdLength));
+        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, maxResourceIdLength));
     }
 
-    internal sealed class WideResourceDateKeyListTableValuedParameterDefinition : ResourceDateKeyListTableValuedParameterDefinition
+    internal sealed class WideResourceDateKeyListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength) : ResourceDateKeyListTableValuedParameterDefinition(parameterName)
     {
-        private readonly int _maxResourceIdLength;
-
-        internal WideResourceDateKeyListTableValuedParameterDefinition(string parameterName, int maxResourceIdLength)
-            : base(parameterName)
-        {
-            _maxResourceIdLength = maxResourceIdLength;
-        }
-
-        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, _maxResourceIdLength));
+        protected override IEnumerable<Column> Columns => base.Columns.Select(column => ResourceIdColumn.Widen(column, maxResourceIdLength));
     }
 }
