@@ -9,7 +9,9 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -26,23 +28,28 @@ namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
     {
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
+        private readonly int _maxResourceIdLength;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FirelyImportResourceParser"/> class.
         /// </summary>
         /// <param name="parser">The Firely JSON parser used to deserialize raw resource content.</param>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
-        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        /// <param name="coreFeatureConfiguration">The core feature configuration supplying the maximum resource id length.</param>
+        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
+
+            _maxResourceIdLength = coreFeatureConfiguration.Value.MaxResourceIdLength;
         }
 
         /// <inheritdoc />
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
-            ImportResourceIdValidator.Validate(resource?.Id);
+            ImportResourceIdValidator.Validate(resource?.Id, _maxResourceIdLength);
             CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)

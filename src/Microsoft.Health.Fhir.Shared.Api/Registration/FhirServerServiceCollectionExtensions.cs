@@ -83,6 +83,15 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
+            const int MinResourceIdLength = 64;
+            const int MaxResourceIdLength = 256;
+            int configuredMaxResourceIdLength = fhirServerConfiguration.CoreFeatures.MaxResourceIdLength;
+            if (configuredMaxResourceIdLength < MinResourceIdLength || configuredMaxResourceIdLength > MaxResourceIdLength)
+            {
+                throw new InvalidOperationException(
+                    FormattableString.Invariant($"FhirServer:CoreFeatures:MaxResourceIdLength must be between {MinResourceIdLength} and {MaxResourceIdLength} inclusive, but was {configuredMaxResourceIdLength}."));
+            }
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));

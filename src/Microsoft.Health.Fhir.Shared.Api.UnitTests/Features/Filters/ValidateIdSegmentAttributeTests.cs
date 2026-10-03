@@ -5,13 +5,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -94,10 +98,41 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             filter.OnActionExecuting(context);
         }
 
-        private static ActionExecutingContext CreateContext(Resource type, string id)
+        [Fact]
+        public void GivenAConfiguredMaxResourceIdLength_WhenPuttingAPatientObjectWithNullResourceId_ThenTheConfiguredLimitIsReportedInTheIssue()
         {
+            // Arrange
+            var filter = new ValidateIdSegmentAttribute();
+
+            var patient = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+            };
+
+            var context = CreateContext(patient, id: null, maxResourceIdLength: 128);
+
+            // Act
+            var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+
+            // Assert
+            var issue = Assert.Single(exception.Issues);
+            Assert.Equal(
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, 128),
+                issue.Diagnostics);
+        }
+
+        private static ActionExecutingContext CreateContext(Resource type, string id, int maxResourceIdLength = 64)
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<IOptions<CoreFeatureConfiguration>>(Options.Create(new CoreFeatureConfiguration { MaxResourceIdLength = maxResourceIdLength }));
+
+            var httpContext = new DefaultHttpContext
+            {
+                RequestServices = services.BuildServiceProvider(),
+            };
+
             return new ActionExecutingContext(
-                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
+                new ActionContext(httpContext, new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", type } },
                 FilterTestsHelper.CreateMockFhirController());

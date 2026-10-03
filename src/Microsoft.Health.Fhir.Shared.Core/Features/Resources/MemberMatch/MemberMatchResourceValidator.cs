@@ -30,10 +30,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch
                 config.Value.ProfileValidationOnCreate);
 
             RuleFor(x => x.Coverage)
-                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
+                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, config.Value.MaxResourceIdLength));
 
             RuleFor(x => x.Patient)
-                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
+                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, config.Value.MaxResourceIdLength));
         }
     }
 }

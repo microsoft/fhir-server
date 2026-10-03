@@ -13,6 +13,8 @@ using Hl7.FhirPath;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -73,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var requestContextAccessor = new FhirRequestContextAccessor();
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(new Uri("https://localhost/"));
-            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfig);
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfig, Options.Create(new CoreFeatureConfiguration()));
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 

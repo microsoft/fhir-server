@@ -7,7 +7,9 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -20,26 +22,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     {
         private const string ResourceTypeCapture = "resourceType";
         private const string ResourceIdCapture = "resourceId";
+        private const int HistoryVersionMaxLength = 64;
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
         private static readonly string ResourceTypesPattern = string.Join('|', ModelInfoProvider.GetResourceTypeNames());
-        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,64}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
-        private static readonly Regex ReferenceRegex = new Regex(
-            ReferenceCaptureRegexPattern,
-            RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
-
+        private readonly Regex _referenceRegex;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFhirServerInstanceConfiguration _instanceConfiguration;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ReferenceSearchValueParser"/> class.
+        /// </summary>
+        /// <param name="fhirRequestContextAccessor">The current request context accessor.</param>
+        /// <param name="instanceConfiguration">The server instance configuration.</param>
+        /// <param name="coreFeatureConfiguration">The core feature configuration.</param>
         public ReferenceSearchValueParser(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            IFhirServerInstanceConfiguration instanceConfiguration)
+            IFhirServerInstanceConfiguration instanceConfiguration,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(instanceConfiguration, nameof(instanceConfiguration));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _instanceConfiguration = instanceConfiguration;
+
+            int maxResourceIdLength = coreFeatureConfiguration.Value.MaxResourceIdLength;
+            string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(\/_history\/[A-Za-z0-9\-\.]{{1,{HistoryVersionMaxLength}}})?";
+
+            _referenceRegex = new Regex(
+                referenceCaptureRegexPattern,
+                RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
         }
 
         /// <inheritdoc />
@@ -47,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            Match match = ReferenceRegex.Match(s);
+            Match match = _referenceRegex.Match(s);
 
             if (match.Success)
             {

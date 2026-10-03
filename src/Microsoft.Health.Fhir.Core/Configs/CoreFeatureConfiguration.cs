@@ -61,6 +61,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int DefaultIncludeCountPerSearch { get; set; } = 1000;
 
         /// <summary>
+        /// Gets or sets the maximum number of characters allowed in a FHIR resource id.
+        /// </summary>
+        /// <remarks>
+        /// Set through <c>FhirServer:CoreFeatures:MaxResourceIdLength</c> or the environment variable
+        /// <c>FhirServer__CoreFeatures__MaxResourceIdLength</c>. Defaults to 64; allowed values are
+        /// 64 through 256 inclusive and must match the database resource ID column widths.
+        /// </remarks>
+        public int MaxResourceIdLength { get; set; } = 64;
+
+        /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
         /// </summary>
         public bool ProfileValidationOnCreate { get; set; } = false;
