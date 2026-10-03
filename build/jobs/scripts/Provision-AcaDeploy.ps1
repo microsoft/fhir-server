@@ -26,6 +26,7 @@ param(
     [Parameter(Mandatory = $true)] [string] $TenantIdGuid,
 
     [Parameter(Mandatory = $false)] [string] $SqlServerName = '',
+    [Parameter(Mandatory = $false)] [string] $SqlDatabaseName = '',
     [Parameter(Mandatory = $false)] [string] $SqlElasticPoolName = '',
     [Parameter(Mandatory = $false)] [string] $SchemaAutomaticUpdatesEnabled = 'auto',
     [Parameter(Mandatory = $false)] [string] $ReindexEnabled = 'true',
@@ -147,7 +148,7 @@ $resourceGroupName = $ResourceGroup
 # --- Data-store-specific pre-deploy setup ---
 if ($DataStore -eq 'sql') {
     $sqlServerName = $SqlServerName.ToLowerInvariant()
-    $sqlDatabaseName = "FHIR$Version"
+    $sqlDatabaseName = if ([string]::IsNullOrWhiteSpace($SqlDatabaseName)) { "FHIR$Version" } else { $SqlDatabaseName }
     $sqlElasticPoolName = $SqlElasticPoolName
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
     if ($null -eq $existingDb) {
@@ -279,6 +280,7 @@ $templateParameters = @{
 
 if ($DataStore -eq 'sql') {
     $templateParameters["sqlServerName"] = $sqlServerName
+    $templateParameters["sqlDatabaseName"] = $sqlDatabaseName
     $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = $SchemaAutomaticUpdatesEnabled
 } else {
     $templateParameters["cosmosDbAccountName"] = $cosmosDbAccountName
