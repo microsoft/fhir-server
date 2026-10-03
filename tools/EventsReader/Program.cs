@@ -7,6 +7,8 @@ using System.Configuration;
 using System.Diagnostics;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 
@@ -23,7 +25,7 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
         {
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
-            _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
+            _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlStoreClient>.Instance, null, Options.Create(new CoreFeatureConfiguration()));
 
             ExecuteAsync().Wait();
         }

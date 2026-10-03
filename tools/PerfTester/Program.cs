@@ -19,6 +19,8 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Store.Utils;
@@ -65,7 +67,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             Console.WriteLine("!!!See App.config for the details!!!");
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
-            _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
+            _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlStoreClient>.Instance, null, Options.Create(new CoreFeatureConfiguration()));
 
             _httpClient.Timeout = TimeSpan.FromMinutes(10);
 

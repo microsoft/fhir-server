@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -139,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null, Options.Create(new CoreFeatureConfiguration()));
             var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
                 PeriodSec = 1,
@@ -195,7 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null, Options.Create(new CoreFeatureConfiguration()));
             var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
                 PeriodSec = 1,

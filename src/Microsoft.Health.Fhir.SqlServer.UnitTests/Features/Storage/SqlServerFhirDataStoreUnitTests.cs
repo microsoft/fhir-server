@@ -416,9 +416,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 .GetField("_highestInitializedVersion", BindingFlags.NonPublic | BindingFlags.Instance)
                 .SetValue(model, schemaInfo.Current);
 
-            var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
-
             CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
+
+            var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo, Options.Create(coreFeatureConfiguration));
+
             BundleConfiguration bundleConfiguration = new BundleConfiguration();
 
             var sqlConnection = new SqlConnection();

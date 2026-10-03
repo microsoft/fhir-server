@@ -15,7 +15,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -34,13 +36,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger _logger;
         private readonly SchemaInformation _schemaInformation;
+        private readonly int _maxResourceIdLength;
         private const string _invisibleResource = " ";
+        private const int DefaultMaxResourceIdLength = 64;
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SqlStoreClient"/> class.
+        /// </summary>
+        /// <param name="sqlRetryService">The SQL retry service.</param>
+        /// <param name="logger">The logger.</param>
+        /// <param name="schemaInformation">The schema information.</param>
+        /// <param name="coreFeatures">The core feature configuration.</param>
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation, IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = schemaInformation;
+            _maxResourceIdLength = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures)).MaxResourceIdLength;
         }
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
@@ -50,6 +62,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@ResourceId", resourceId);
             cmd.Parameters.AddWithValue("@KeepCurrentVersion", keepCurrentVersion);
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", isResourceChangeCaptureEnabled);
+
+            if (resourceId.Length > DefaultMaxResourceIdLength)
+            {
+                // An unpatched procedure rejects this extra parameter instead of silently deleting the 64-character prefix.
+                cmd.Parameters.AddWithValue("@ExpectedResourceIdLength", resourceId.Length);
+            }
+
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
@@ -72,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceKeyListRow(_.ResourceTypeId, _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
-            new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
+            new WideResourceKeyListTableValuedParameterDefinition("@ResourceKeys", _maxResourceIdLength).AddParameter(cmd.Parameters, tvpRows);
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
             while (true)
@@ -105,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceDateKeyListRow(_.ResourceTypeId, _.Id, _.ResourceSurrogateId));
-            new ResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys").AddParameter(cmd.Parameters, tvpRows);
+            new WideResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys", _maxResourceIdLength).AddParameter(cmd.Parameters, tvpRows);
             var table = VLatest.Resource;
             var resources = await cmd.ExecuteReaderAsync(
                 _sqlRetryService,

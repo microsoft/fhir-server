@@ -13,6 +13,7 @@ using System.Security.Cryptography;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -28,11 +29,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly HashSet<SqlParameter> _setToHash = new();
         private readonly HashSet<SqlParameter> _smartScopeParameters = new();
         private readonly HashSet<short> _searchParamIds = new();
+        private readonly int _maxResourceIdLength;
 
-        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="HashingSqlQueryParameterManager"/> class.
+        /// </summary>
+        /// <param name="inner">The parameter manager to wrap.</param>
+        /// <param name="maxResourceIdLength">The configured maximum FHIR resource id length. Resource id columns are widened to this length before parameters are created.</param>
+        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, int maxResourceIdLength = 64)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
+            _maxResourceIdLength = maxResourceIdLength;
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;
@@ -83,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return value;
             }
 
-            SqlParameter parameter = _inner.AddParameter(column, value);
+            SqlParameter parameter = _inner.AddParameter(ResourceIdColumn.Widen(column, _maxResourceIdLength), value);
             if (includeInHash
                 && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name)
             {
