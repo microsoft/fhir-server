@@ -824,6 +824,73 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenABundle_When429RetryWritesResponseBodies_ThenOnlyTheRetryResponseBodyIsUsed(BundleProcessingLogic processingLogic)
+        {
+            if (processingLogic == BundleProcessingLogic.Parallel)
+            {
+                _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+                _bundleConfiguration.SupportsBundleOrchestrator = true;
+            }
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                },
+            };
+
+            int callCount = 0;
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(info =>
+                {
+                    info.Arg<RouteContext>().Handler = async context =>
+                    {
+                        callCount++;
+                        context.Response.StatusCode = callCount == 1 ? StatusCodes.Status429TooManyRequests : StatusCodes.Status200OK;
+
+                        if (callCount == 1)
+                        {
+                            var outcome = new OperationOutcome
+                            {
+                                Issue = new List<OperationOutcome.IssueComponent>
+                                {
+                                    new OperationOutcome.IssueComponent
+                                    {
+                                        Severity = OperationOutcome.IssueSeverity.Error,
+                                        Code = OperationOutcome.IssueType.Throttled,
+                                        Diagnostics = "Initial request was throttled.",
+                                    },
+                                },
+                            };
+
+                            await context.Response.WriteAsync(outcome.ToJson());
+                        }
+                        else
+                        {
+                            await context.Response.WriteAsync(new Patient { Id = "retry-result" }.ToJson());
+                        }
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
+
+            Assert.Equal(2, callCount);
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Single(bundleResource.Entry);
+            Assert.Equal("200", bundleResource.Entry[0].Response.Status);
+            Assert.Null(bundleResource.Entry[0].Response.Outcome);
+            var patient = Assert.IsType<Patient>(bundleResource.Entry[0].Resource);
+            Assert.Equal("retry-result", patient.Id);
+            Assert.Equal(processingLogic, bundleResponse.Info.ProcessingLogic);
+        }
+
+        [Theory]
         [InlineData(BundleType.Batch)]
         [InlineData(BundleType.Transaction)]
         public async Task GivenABundle_WhenOneRequestProducesA429_ThenCancelledTheRequestDuringDelay(BundleType bundleType)
