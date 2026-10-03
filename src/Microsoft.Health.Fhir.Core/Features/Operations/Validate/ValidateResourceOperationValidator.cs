@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Operation
         {
             var attributeValidator = new ResourceContentValidator(modelAttributeValidator);
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceElementValidator(attributeValidator, narrativeHtmlSanitizer, config.Value.MaxResourceIdLength));
+                .SetValidator(new ResourceElementValidator(attributeValidator, narrativeHtmlSanitizer, config));
         }
     }
 }

@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 using System.Globalization;
 using FluentValidation;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Models;
@@ -17,9 +19,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// </summary>
         /// <param name="contentValidator">The resource content validator.</param>
         /// <param name="narrativeHtmlSanitizer">The narrative HTML sanitizer.</param>
-        /// <param name="maxResourceIdLength">The maximum resource ID length.</param>
-        public ResourceElementValidator(IValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer, int maxResourceIdLength)
+        /// <param name="config">The core feature configuration.</param>
+        public ResourceElementValidator(IValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer, IOptions<CoreFeatureConfiguration> config)
         {
+            int maxResourceIdLength = config.Value.MaxResourceIdLength;
+
             RuleFor(x => x.Id)
                 .SetValidator(new IdValidator<ResourceElement>(maxResourceIdLength))
                 .WithMessage(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, maxResourceIdLength));

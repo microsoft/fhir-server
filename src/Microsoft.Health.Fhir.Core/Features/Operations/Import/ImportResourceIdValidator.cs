@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public static void Validate(string resourceId, int maxLength)
         {
             if (string.IsNullOrWhiteSpace(resourceId) ||
-                !Regex.IsMatch(resourceId, $"^[A-Za-z0-9\\-\\.]{{1,{maxLength}}}$", RegexOptions.Compiled))
+                !Regex.IsMatch(resourceId, $"^[A-Za-z0-9\\-\\.]{{1,{maxLength}}}$"))
             {
                 throw new BadRequestException(
                     $"Invalid resource id: '{resourceId ?? "null or empty"}'. " + string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, maxLength));

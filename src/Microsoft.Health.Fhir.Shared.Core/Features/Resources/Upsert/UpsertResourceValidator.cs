@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
               config.Value.ProfileValidationOnUpdate);
 
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, config.Value.MaxResourceIdLength));
+                .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, config));
         }
     }
 }
