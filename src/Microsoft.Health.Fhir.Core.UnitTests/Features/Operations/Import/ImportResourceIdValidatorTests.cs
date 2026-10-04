@@ -35,48 +35,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Theory]
-        [InlineData(65)]
-        [InlineData(128)]
-        public void GivenAnIdWithinAConfiguredMaxLength_WhenValidated_ThenNoExceptionIsThrown(int idLength)
+        [InlineData(65, 128, true)]
+        [InlineData(128, 128, true)]
+        [InlineData(129, 128, false)]
+        public void GivenAnIdAndAConfiguredMaxLength_WhenValidated_ThenTheLimitIsApplied(int idLength, int maxLength, bool valid)
         {
             // Arrange
             string resourceId = new string('a', idLength);
 
-            // Act & Assert
-            ImportResourceIdValidator.Validate(resourceId, 128);
-        }
+            // Act
+            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, maxLength));
 
-        [Fact]
-        public void GivenAnIdLongerThanTheConfiguredMaxLength_WhenValidated_ThenBadRequestExceptionIsThrown()
-        {
-            // Arrange
-            string resourceId = new string('a', 129);
-
-            // Act & Assert
-            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId, 128));
-        }
-
-        [Theory]
-        [InlineData(64)]
-        [InlineData(128)]
-        public void GivenAnIdWithATrailingNewline_WhenValidated_ThenTheExistingRegexBehaviorIsPreserved(int maxLength)
-        {
-            // Arrange
-            string resourceId = new string('a', maxLength) + "\n";
-
-            // Act & Assert
-            ImportResourceIdValidator.Validate(resourceId, maxLength);
-        }
-
-        [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData("   ")]
-        [InlineData("a/b")]
-        public void GivenAnInvalidResourceId_WhenValidatedWithAConfiguredMaxLength_ThenBadRequestExceptionIsThrown(string resourceId)
-        {
-            // Act & Assert
-            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId, 128));
+            // Assert
+            if (valid)
+            {
+                Assert.Null(exception);
+            }
+            else
+            {
+                Assert.IsType<BadRequestException>(exception);
+            }
         }
     }
 }

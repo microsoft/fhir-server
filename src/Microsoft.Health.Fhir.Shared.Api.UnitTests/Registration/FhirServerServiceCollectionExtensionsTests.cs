@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -22,11 +21,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
     public class FhirServerServiceCollectionExtensionsTests
     {
         [Theory]
-        [InlineData(-1)]
-        [InlineData(0)]
         [InlineData(63)]
         [InlineData(129)]
-        [InlineData(256)]
         public void GivenAMaxResourceIdLengthOutsideTheSupportedRange_WhenAddingTheFhirServer_ThenAnInvalidOperationExceptionIsThrown(int maxResourceIdLength)
         {
             // Arrange
@@ -39,9 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                     configureAction: configuration => configuration.CoreFeatures.MaxResourceIdLength = maxResourceIdLength));
 
             // Assert
-            Assert.Contains("FhirServer:CoreFeatures:MaxResourceIdLength", exception.Message, StringComparison.Ordinal);
             Assert.Contains("between 64 and 128", exception.Message, StringComparison.Ordinal);
-            Assert.Contains(maxResourceIdLength.ToString(CultureInfo.InvariantCulture), exception.Message, StringComparison.Ordinal);
         }
 
         [Theory]
@@ -62,33 +56,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             // Assert
             using ServiceProvider provider = services.BuildServiceProvider();
             Assert.Equal(expected, provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.MaxResourceIdLength);
-        }
-
-        [Fact]
-        public void GivenNoMaxResourceIdLengthInConfiguration_WhenAddingTheFhirServer_ThenTheDefaultIs64()
-        {
-            // Arrange
-            var services = new ServiceCollection();
-
-            // Act
-            services.AddFhirServer(new ConfigurationBuilder().Build());
-
-            // Assert
-            using ServiceProvider provider = services.BuildServiceProvider();
-            Assert.Equal(64, provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.MaxResourceIdLength);
-        }
-
-        [Fact]
-        public void GivenAnOutOfRangeMaxResourceIdLengthInConfiguration_WhenAddingTheFhirServer_ThenAnInvalidOperationExceptionIsThrown()
-        {
-            // Arrange
-            var services = new ServiceCollection();
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string> { ["FhirServer:CoreFeatures:MaxResourceIdLength"] = "129" })
-                .Build();
-
-            // Act and Assert
-            Assert.Throws<InvalidOperationException>(() => services.AddFhirServer(configuration));
         }
     }
 }

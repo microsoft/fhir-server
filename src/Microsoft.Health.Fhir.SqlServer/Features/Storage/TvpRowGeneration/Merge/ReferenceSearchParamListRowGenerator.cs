@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 searchValue.ResourceType == null ? null : Model.GetResourceTypeId(searchValue.ResourceType),
-                searchValue.ResourceId[..Math.Min(searchValue.ResourceId.Length, _maxLength)], // Truncate to fit the column size. TODO: We should separate string references (ref resource type is null) from references to resources. This should be a long term fix.
+                searchValue.ResourceId[..Math.Min(searchValue.ResourceId.Length, _maxLength)], // Truncate to MaxResourceIdLength. TODO: We should separate string references (ref resource type is null) from references to resources. This should be a long term fix.
                 ReferenceResourceVersion: null);
 
             return results == null || results.Add(row);

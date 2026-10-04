@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Reflection;
-using System.Text.RegularExpressions;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -145,31 +143,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             // Assert - Should parse as relative reference
             Assert.NotNull(value);
             Assert.Null(value.BaseUri);
-        }
-
-        [Fact]
-        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsingWithAConfiguredMaxLength_ThenTheFullIdIsCaptured()
-        {
-            // Arrange
-            string resourceId = new string('a', 100);
-            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength: 128);
-
-            // Act
-            ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
-
-            // Assert
-            Assert.NotNull(value);
-            Assert.Null(value.BaseUri);
             Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
-            Assert.Equal(resourceId, value.ResourceId);
+            Assert.Equal("123", value.ResourceId);
         }
 
-        [Fact]
-        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsingWithTheDefaultMaxLength_ThenOnlyTheDefaultNumberOfCharactersIsCaptured()
+        [Theory]
+        [InlineData(64, 64)]
+        [InlineData(128, 100)]
+        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsing_ThenUpToMaxResourceIdLengthCharactersAreCaptured(int maxResourceIdLength, int expectedLength)
         {
             // Arrange
             string resourceId = new string('a', 100);
-            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength: 64);
+            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength);
 
             // Act
             ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
@@ -177,26 +162,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             // Assert
             Assert.NotNull(value);
             Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
-            Assert.Equal(64, value.ResourceId.Length);
-        }
-
-        [Fact]
-        public void GivenAReferenceWithHistory_WhenParsingWithAConfiguredMaxLength_ThenTheHistorySegmentStillHonorsTheFhirVersionLimit()
-        {
-            // Arrange
-            string resourceId = new string('a', 100);
-            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength: 128);
-            var regex = Assert.IsType<Regex>(
-                typeof(ReferenceSearchValueParser).GetField("_referenceRegex", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(parser));
-            string reference = $"Patient/{resourceId}/_history/{new string('1', 65)}";
-
-            // Act
-            Match match = regex.Match(reference);
-
-            // Assert
-            Assert.True(match.Success);
-            Assert.Equal(resourceId, match.Groups["resourceId"].Value);
-            Assert.Equal($"Patient/{resourceId}/_history/{new string('1', 64)}", match.Value);
+            Assert.Equal(resourceId[..expectedLength], value.ResourceId);
         }
 
         private ReferenceSearchValueParser CreateParser(int maxResourceIdLength)

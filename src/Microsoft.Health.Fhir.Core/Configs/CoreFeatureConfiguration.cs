@@ -76,8 +76,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <remarks>
         /// Set through <c>FhirServer:CoreFeatures:MaxResourceIdLength</c> or the environment variable
         /// <c>FhirServer__CoreFeatures__MaxResourceIdLength</c>. Defaults to 64; allowed values are
-        /// 64 through 128 inclusive. This setting controls validation only. SQL Server requires schema
-        /// version 118 or later for values above 64.
+        /// 64 through 128 inclusive. Besides validation, it sizes SQL ResourceId parameters and stored reference IDs.
+        /// SQL Server requires schema version 118 or later for values above 64.
         /// </remarks>
         public int MaxResourceIdLength { get; set; } = DefaultMaxResourceIdLength;
 

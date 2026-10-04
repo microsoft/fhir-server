@@ -29,15 +29,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId))
-            {
-                ValidateId(context, (string)resourceId);
-            }
-        }
-
-        private static void ValidateId(ActionExecutingContext context, string resourceId)
-        {
-            if (string.IsNullOrWhiteSpace(resourceId))
+            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId)
+                && string.IsNullOrWhiteSpace((string)resourceId))
             {
                 int maxResourceIdLength = context.HttpContext.RequestServices
                     .GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.MaxResourceIdLength;

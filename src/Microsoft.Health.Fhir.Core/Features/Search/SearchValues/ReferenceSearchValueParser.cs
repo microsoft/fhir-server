@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     {
         private const string ResourceTypeCapture = "resourceType";
         private const string ResourceIdCapture = "resourceId";
-        private const int HistoryVersionMaxLength = 64;
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
         private static readonly string ResourceTypesPattern = string.Join('|', ModelInfoProvider.GetResourceTypeNames());
 
@@ -49,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             _instanceConfiguration = instanceConfiguration;
 
             int maxResourceIdLength = coreFeatureConfiguration.Value.MaxResourceIdLength;
-            string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(\/_history\/[A-Za-z0-9\-\.]{{1,{HistoryVersionMaxLength}}})?";
+            string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
             _referenceRegex = new Regex(
                 referenceCaptureRegexPattern,

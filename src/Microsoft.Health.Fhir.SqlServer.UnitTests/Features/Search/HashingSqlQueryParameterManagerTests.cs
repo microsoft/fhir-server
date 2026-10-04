@@ -30,6 +30,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             true, 1, 1L, DateTime.UtcNow, DateTimeOffset.UtcNow, 9M, 99.9, (short)6, (byte)9, Guid.Parse("0fd465f0-095b-425c-a3e8-acc879d20835"), "Hello",
         };
 
+        public static readonly TheoryData<Column, int> ResourceIdColumns = new()
+        {
+            { VLatest.Resource.ResourceId, DefaultMaxResourceIdLength },
+            { VLatest.ReferenceSearchParam.ReferenceResourceId, DefaultMaxResourceIdLength },
+            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, DefaultMaxResourceIdLength },
+            { VLatest.Resource.ResourceId, ExtendedMaxResourceIdLength },
+            { VLatest.ReferenceSearchParam.ReferenceResourceId, ExtendedMaxResourceIdLength },
+            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, ExtendedMaxResourceIdLength },
+        };
+
         [Fact]
         public void GivenParametersThatShouldNotBeHashed_WhenAdded_ResultsInNoChangeToHash()
         {
@@ -133,40 +143,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Theory]
-        [InlineData("ResourceId")]
-        [InlineData("ReferenceResourceId")]
-        [InlineData("ReferenceResourceId1")]
-        public void GivenAResourceIdColumn_WhenAddedWithTheDefaultMaxResourceIdLength_ThenTheParameterIsSizedToTheSetting(string columnName)
+        [MemberData(nameof(ResourceIdColumns))]
+        public void GivenAResourceIdColumn_WhenAdded_ThenTheParameterIsSizedToMaxResourceIdLength(Column column, int maxResourceIdLength)
         {
             // Arrange
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), maxResourceIdLength);
+            var value = new string('a', maxResourceIdLength);
 
             // Act
-            var parameter = (SqlParameter)parameters.AddParameter(GetResourceIdColumn(columnName), "abc", includeInHash: false);
+            var parameter = (SqlParameter)parameters.AddParameter(column, value, includeInHash: false);
 
             // Assert
             Assert.Equal(SqlDbType.VarChar, parameter.SqlDbType);
-            Assert.Equal(DefaultMaxResourceIdLength, parameter.Size);
-        }
-
-        [Theory]
-        [InlineData("ResourceId")]
-        [InlineData("ReferenceResourceId")]
-        [InlineData("ReferenceResourceId1")]
-        public void GivenAResourceIdColumn_WhenAddedWithAConfiguredMaxResourceIdLength_ThenTheParameterIsWidened(string columnName)
-        {
-            // Arrange
-            using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ExtendedMaxResourceIdLength);
-            var value = new string('a', ExtendedMaxResourceIdLength);
-
-            // Act
-            var parameter = (SqlParameter)parameters.AddParameter(GetResourceIdColumn(columnName), value, includeInHash: false);
-
-            // Assert
-            Assert.Equal(SqlDbType.VarChar, parameter.SqlDbType);
-            Assert.Equal(ExtendedMaxResourceIdLength, parameter.Size);
+            Assert.Equal(maxResourceIdLength, parameter.Size);
             Assert.Equal(value, parameter.Value);
         }
 
@@ -191,14 +181,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(ExtendedMaxResourceIdLength, resourceIdParameter.Size);
             Assert.Equal(2, command.Parameters.Count);
         }
-
-        private static Column GetResourceIdColumn(string columnName) => columnName switch
-        {
-            "ResourceId" => VLatest.Resource.ResourceId,
-            "ReferenceResourceId" => VLatest.ReferenceSearchParam.ReferenceResourceId,
-            "ReferenceResourceId1" => VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1,
-            _ => throw new ArgumentOutOfRangeException(nameof(columnName)),
-        };
 
         private static string GetHash(HashingSqlQueryParameterManager parameterManager)
         {
