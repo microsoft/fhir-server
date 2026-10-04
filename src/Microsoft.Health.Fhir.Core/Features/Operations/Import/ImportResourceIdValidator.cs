@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public static class ImportResourceIdValidator
     {
         private static readonly Regex ResourceIdValidationRegex = new Regex(
-            "^[A-Za-z0-9\\-\\.]{1,64}$",
+            "^[A-Za-z0-9\\-\\.]{1,64}\\z",
             RegexOptions.Compiled);
 
         /// <summary>

@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [InlineData(null)]
         [InlineData("")]
         [InlineData("a/b")]
+        [InlineData("abc\n")]
         [InlineData("01234567890123456789012345678901234567890123456789012345678901234")] // 65 chars
         public void GivenAnInvalidResourceId_WhenValidated_ThenBadRequestExceptionIsThrown(string resourceId)
         {
