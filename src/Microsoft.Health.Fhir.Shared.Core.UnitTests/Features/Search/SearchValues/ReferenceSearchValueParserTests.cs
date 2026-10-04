@@ -4,8 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -40,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(BaseUri);
 
-            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig);
+            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig, Options.Create(new CoreFeatureConfiguration()));
         }
 
         [Fact]
@@ -86,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, Options.Create(new CoreFeatureConfiguration()));
 
             // Act - Use an internal reference that matches the instance configuration base URI
             ReferenceSearchValue value = parser.Parse("https://localhost/stu3/Observation/abc");
@@ -109,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, Options.Create(new CoreFeatureConfiguration()));
 
             // Act - Use an external reference that does NOT match the instance configuration base URI
             ReferenceSearchValue value = parser.Parse("https://external-server.com/fhir/Observation/xyz");
@@ -133,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, Options.Create(new CoreFeatureConfiguration()));
 
             // Act - Use a relative reference
             ReferenceSearchValue value = parser.Parse("Patient/123");
@@ -141,8 +145,69 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             // Assert - Should parse as relative reference
             Assert.NotNull(value);
             Assert.Null(value.BaseUri);
+        }
+
+        [Fact]
+        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsingWithAConfiguredMaxLength_ThenTheFullIdIsCaptured()
+        {
+            // Arrange
+            string resourceId = new string('a', 100);
+            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength: 128);
+
+            // Act
+            ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
+
+            // Assert
+            Assert.NotNull(value);
+            Assert.Null(value.BaseUri);
             Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
-            Assert.Equal("123", value.ResourceId);
+            Assert.Equal(resourceId, value.ResourceId);
+        }
+
+        [Fact]
+        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsingWithTheDefaultMaxLength_ThenOnlyTheDefaultNumberOfCharactersIsCaptured()
+        {
+            // Arrange
+            string resourceId = new string('a', 100);
+            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength: 64);
+
+            // Act
+            ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
+
+            // Assert
+            Assert.NotNull(value);
+            Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
+            Assert.Equal(64, value.ResourceId.Length);
+        }
+
+        [Fact]
+        public void GivenAReferenceWithHistory_WhenParsingWithAConfiguredMaxLength_ThenTheHistorySegmentStillHonorsTheFhirVersionLimit()
+        {
+            // Arrange
+            string resourceId = new string('a', 100);
+            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength: 128);
+            var regex = Assert.IsType<Regex>(
+                typeof(ReferenceSearchValueParser).GetField("_referenceRegex", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(parser));
+            string reference = $"Patient/{resourceId}/_history/{new string('1', 65)}";
+
+            // Act
+            Match match = regex.Match(reference);
+
+            // Assert
+            Assert.True(match.Success);
+            Assert.Equal(resourceId, match.Groups["resourceId"].Value);
+            Assert.Equal($"Patient/{resourceId}/_history/{new string('1', 64)}", match.Value);
+        }
+
+        private ReferenceSearchValueParser CreateParser(int maxResourceIdLength)
+        {
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(BaseUri);
+
+            return new ReferenceSearchValueParser(
+                _fhirRequestContextAccessor,
+                instanceConfig,
+                Options.Create(new CoreFeatureConfiguration { MaxResourceIdLength = maxResourceIdLength }));
         }
     }
 }

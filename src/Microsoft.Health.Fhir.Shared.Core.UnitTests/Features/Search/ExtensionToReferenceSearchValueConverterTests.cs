@@ -8,7 +8,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -37,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(new Uri("https://test:12345"));
 
-            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig);
+            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig, Options.Create(new CoreFeatureConfiguration()));
         }
 
         private async Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync()

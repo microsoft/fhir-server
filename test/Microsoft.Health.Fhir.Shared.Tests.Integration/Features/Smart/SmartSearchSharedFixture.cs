@@ -13,7 +13,9 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -69,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // way that never happens in production.
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
             var referenceToElementResolver = new LightweightReferenceToElementResolver(
-                Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor()),
+                Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor(), Options.Create(new CoreFeatureConfiguration())),
                 ModelInfoProvider.Instance);
 
             _searchIndexer = new TypedElementSearchIndexer(
@@ -126,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 .GetTypes()
                 .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
-            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration());
+            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration(), Options.Create(new CoreFeatureConfiguration()));
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 
