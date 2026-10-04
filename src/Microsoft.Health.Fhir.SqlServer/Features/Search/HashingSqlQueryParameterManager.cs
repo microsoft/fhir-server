@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -28,11 +29,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly HashSet<SqlParameter> _setToHash = new();
         private readonly HashSet<SqlParameter> _smartScopeParameters = new();
         private readonly HashSet<short> _searchParamIds = new();
+        private readonly int _maxResourceIdLength;
 
-        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="HashingSqlQueryParameterManager"/> class.
+        /// </summary>
+        /// <param name="inner">The parameter manager to wrap.</param>
+        /// <param name="maxResourceIdLength">
+        /// The configured maximum FHIR resource id length. Parameters bound to resource id columns are sized to this length,
+        /// so the generated parameter declarations follow the setting rather than the column width.
+        /// </param>
+        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, int maxResourceIdLength = CoreFeatureConfiguration.DefaultMaxResourceIdLength)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
+            _maxResourceIdLength = maxResourceIdLength;
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;
@@ -83,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return value;
             }
 
-            SqlParameter parameter = _inner.AddParameter(column, value);
+            SqlParameter parameter = _inner.AddParameter(SizeResourceIdColumn(column), value);
             if (includeInHash
                 && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name)
             {
@@ -161,6 +172,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public void AppendSmartScopeParameterNames(IndentedStringBuilder stringBuilder)
         {
             AppendHashParameterNames(stringBuilder, _smartScopeParameters);
+        }
+
+        // Sizing must happen before the inner manager creates the parameter, because it reuses parameters by (type, size, value).
+        private Column SizeResourceIdColumn(Column column)
+        {
+            if (column is VarCharColumn stringColumn
+                && column.Metadata.Name is "ResourceId" or "ReferenceResourceId" or "ReferenceResourceId1"
+                && column.Metadata.MaxLength != _maxResourceIdLength)
+            {
+                return new VarCharColumn(column.Metadata.Name, _maxResourceIdLength, stringColumn.Collation);
+            }
+
+            return column;
         }
 
         private void AppendHash(IndentedStringBuilder stringBuilder, HashSet<SqlParameter> parameters)

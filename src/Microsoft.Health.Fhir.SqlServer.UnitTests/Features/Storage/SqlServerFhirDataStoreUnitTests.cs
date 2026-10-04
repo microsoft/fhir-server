@@ -371,7 +371,61 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
+        [Theory]
+        [InlineData(SchemaVersionConstants.Min)]
+        [InlineData(SchemaVersionConstants.ResourceIdLength128 - 1)]
+        public async Task GivenMaxResourceIdLengthAbove64AndSchemaBelow118_WhenHardDeleting_ThenItFailsBeforeCallingSql(int currentSchemaVersion)
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, maxResourceIdLength: 128, currentSchemaVersion: currentSchemaVersion);
+
+            // Act
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => dataStore.HardDeleteAsync(new ResourceKey("Patient", new string('a', 100)), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None));
+
+            // Assert
+            Assert.Contains("MaxResourceIdLength is 128", exception.Message, StringComparison.Ordinal);
+            Assert.Contains($"schema version {SchemaVersionConstants.ResourceIdLength128}", exception.Message, StringComparison.Ordinal);
+            Assert.Empty(sqlRetryService.ReceivedCalls());
+        }
+
+        [Fact]
+        public async Task GivenMaxResourceIdLengthAbove64AndSchemaBelow118_WhenMerging_ThenItFailsBeforeCallingSql()
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, maxResourceIdLength: 128, currentSchemaVersion: SchemaVersionConstants.ResourceIdLength128 - 1);
+
+            // Act
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => dataStore.MergeAsync(CreateResourceWrapperOperations(), MergeOptions.Default, CancellationToken.None));
+
+            // Assert
+            Assert.All(sqlRetryService.ReceivedCalls(), call => Assert.Equal(nameof(ISqlRetryService.TryLogEvent), call.GetMethodInfo().Name));
+        }
+
+        [Theory]
+        [InlineData(64, 117)]
+        [InlineData(128, 118)]
+        public async Task GivenASupportedSchemaForTheMaxResourceIdLength_WhenHardDeleting_ThenTheDeleteReachesSql(int maxResourceIdLength, int currentSchemaVersion)
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, maxResourceIdLength: maxResourceIdLength, currentSchemaVersion: currentSchemaVersion);
+
+            // Act
+            await dataStore.HardDeleteAsync(new ResourceKey("Patient", "123"), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+
+            // Assert
+            Assert.NotEmpty(sqlRetryService.ReceivedCalls());
+        }
+
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(
+            ISqlRetryService sqlRetryService,
+            SqlTransactionHandler sqlTransactionHandler = null,
+            int maxResourceIdLength = CoreFeatureConfiguration.DefaultMaxResourceIdLength,
+            int? currentSchemaVersion = SchemaVersionConstants.Max)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -379,7 +433,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
-                Current = SchemaVersionConstants.Max,
+                Current = currentSchemaVersion,
             };
 
             var searchService = Substitute.For<ISearchService>();
@@ -418,7 +472,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
 
-            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
+            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration { MaxResourceIdLength = maxResourceIdLength };
             BundleConfiguration bundleConfiguration = new BundleConfiguration();
 
             var sqlConnection = new SqlConnection();
