@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features
         [InlineData("connection is broken and recovery is not possible")]
         [InlineData("availability replica was triggered and ghost records are being deleted")]
         [InlineData("the definition of object 'SomeProc' has changed since it was compiled")]
+        [InlineData("The definition for user-defined data type 'dbo.ResourceList' has changed.")]
         [InlineData("object accessed by the statement has been modified by a ddl statement")]
         [InlineData("the database has reached its size quota")]
         [InlineData("connections to this database are no longer allowed")]

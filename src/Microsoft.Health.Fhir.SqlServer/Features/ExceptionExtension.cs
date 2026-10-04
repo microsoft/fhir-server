@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("is not currently available", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("availability replica", StringComparison.OrdinalIgnoreCase) && str.Contains("ghost records are being deleted", StringComparison.OrdinalIgnoreCase))
                     || (str.Contains("the definition of object", StringComparison.OrdinalIgnoreCase) && str.Contains("has changed since it was compiled", StringComparison.OrdinalIgnoreCase))
+                    || (str.Contains("the definition for user-defined data type", StringComparison.OrdinalIgnoreCase) && str.Contains("has changed", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("object accessed by the statement has been modified by a ddl statement", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("is full due to", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("has reached its size quota", StringComparison.OrdinalIgnoreCase)
@@ -111,6 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
             ////Database 'VS_TLN_Prod_004_v0' on server 'tln-sql' is not currently available.  Please retry the connection later.
             ////The transaction was terminated because of the availability replica config/state change or because ghost records are being deleted on the primary and the secondary availability replica
             ////The definition of object 'SelectPrimitivesByPrimitiveIds' has changed since it was compiled. - this happens on store setup
+            ////Error 2766: The definition for user-defined data type 'dbo.ResourceList' has changed. - this happens when a schema upgrade recreates a table type
             ////Error 3961: Snapshot isolation transaction failed in database 'VS_Prod_007_v5' because the object accessed by the statement has been modified by a DDL statement in another concurrent transaction since the start of this transaction.It is disallowed because the metadata is not versioned.A concurrent update to metadata can lead to inconsistency if mixed with snapshot isolation.
             ////The transaction log for database '7bc46349-b716-46df-b0f4-f1c1a39163b9' is full due to 'AVAILABILITY_REPLICA'
             ////The database 'VS_SG_009_v0' has reached its size quota.Partition or delete data, drop indexes, or consult the documentation for possible resolutions.
