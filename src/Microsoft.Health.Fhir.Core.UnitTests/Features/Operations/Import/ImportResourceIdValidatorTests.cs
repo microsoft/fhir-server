@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [InlineData("0123456789012345678901234567890123456789012345678901234567890123")] // 64 chars
         public void GivenAValidResourceId_WhenValidated_ThenNoExceptionIsThrown(string resourceId)
         {
-            ImportResourceIdValidator.Validate(resourceId);
+            ImportResourceIdValidator.Validate(resourceId, 64);
         }
 
         [Theory]
@@ -31,7 +31,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [InlineData("01234567890123456789012345678901234567890123456789012345678901234")] // 65 chars
         public void GivenAnInvalidResourceId_WhenValidated_ThenBadRequestExceptionIsThrown(string resourceId)
         {
-            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId));
+            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId, 64));
+        }
+
+        [Theory]
+        [InlineData(65)]
+        [InlineData(128)]
+        public void GivenAnIdWithinAConfiguredMaxLength_WhenValidated_ThenNoExceptionIsThrown(int idLength)
+        {
+            // Arrange
+            string resourceId = new string('a', idLength);
+
+            // Act & Assert
+            ImportResourceIdValidator.Validate(resourceId, 128);
+        }
+
+        [Fact]
+        public void GivenAnIdLongerThanTheConfiguredMaxLength_WhenValidated_ThenBadRequestExceptionIsThrown()
+        {
+            // Arrange
+            string resourceId = new string('a', 129);
+
+            // Act & Assert
+            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId, 128));
+        }
+
+        [Theory]
+        [InlineData(64)]
+        [InlineData(128)]
+        public void GivenAnIdWithATrailingNewline_WhenValidated_ThenTheExistingRegexBehaviorIsPreserved(int maxLength)
+        {
+            // Arrange
+            string resourceId = new string('a', maxLength) + "\n";
+
+            // Act & Assert
+            ImportResourceIdValidator.Validate(resourceId, maxLength);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData("a/b")]
+        public void GivenAnInvalidResourceId_WhenValidatedWithAConfiguredMaxLength_ThenBadRequestExceptionIsThrown(string resourceId)
+        {
+            // Act & Assert
+            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId, 128));
         }
     }
 }

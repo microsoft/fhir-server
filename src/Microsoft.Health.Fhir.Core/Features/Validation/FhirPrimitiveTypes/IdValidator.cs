@@ -15,8 +15,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
     /// <seealso cref="FluentValidation.Validators.RegularExpressionValidator" />
     public class IdValidator<T> : RegularExpressionValidator<T>
     {
-        public IdValidator()
-            : base("^[A-Za-z0-9\\-\\.]{1,64}$", RegexOptions.Singleline | RegexOptions.Compiled)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IdValidator{T}"/> class.
+        /// </summary>
+        /// <param name="maxLength">The maximum number of characters allowed in a resource id.</param>
+        public IdValidator(int maxLength)
+            : base($"^[A-Za-z0-9\\-\\.]{{1,{maxLength}}}$", RegexOptions.Singleline | RegexOptions.Compiled)
         {
         }
     }

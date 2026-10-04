@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
                 config.Value.ProfileValidationOnCreate);
 
             RuleFor(x => x.Resource)
-                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
+                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, config));
         }
     }
 }

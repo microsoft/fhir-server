@@ -6,9 +6,11 @@
 using System;
 using System.Text.Json.Nodes;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -52,10 +54,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 Substitute.For<ISearchParameterDefinitionManager>(),
                 Deserializers.ResourceDeserializer);
 
-            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), wrapperFactory);
+            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), wrapperFactory, Options.Create(new CoreFeatureConfiguration()));
             _ignixaParser = new IgnixaImportResourceParser(
                 wrapperFactory,
-                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()));
+                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()),
+                Options.Create(new CoreFeatureConfiguration()));
         }
 
         [Fact]

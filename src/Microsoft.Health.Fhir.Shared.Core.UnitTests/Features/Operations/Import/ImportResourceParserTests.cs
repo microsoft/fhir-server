@@ -6,9 +6,11 @@
 using System;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -53,7 +55,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                                     Substitute.For<ISearchParameterDefinitionManager>(),
                                     Deserializers.ResourceDeserializer);
 
-            _importResourceParser = new(_jsonParser, _wrapperFactory);
+            _importResourceParser = new(_jsonParser, _wrapperFactory, Options.Create(new CoreFeatureConfiguration()));
         }
 
         [Fact]
