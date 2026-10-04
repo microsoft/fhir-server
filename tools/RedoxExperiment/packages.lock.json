@@ -1,0 +1,57 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "Hl7.Fhir.R4": {
+        "type": "Direct",
+        "requested": "[5.11.4, )",
+        "resolved": "5.11.4",
+        "contentHash": "eVE9GBTxcl3Ia+xTLjbsixy48NbxWneTKCF/QjHZhwLhvZtHmeBSa/B6OUUOxZEtI/alRGOtzT3vHF2sj0idAg==",
+        "dependencies": {
+          "Hl7.Fhir.Conformance": "5.11.4"
+        }
+      },
+      "Newtonsoft.Json": {
+        "type": "Direct",
+        "requested": "[13.0.4, )",
+        "resolved": "13.0.4",
+        "contentHash": "pdgNNMai3zv51W5aq268sujXUyx7SNdE2bj1wZcWjAQrKMFZV260lbqYop1d2GM67JI1huLRwxo9ZqnfF/lC6A=="
+      },
+      "xunit.v3.assert": {
+        "type": "Direct",
+        "requested": "[3.2.2, )",
+        "resolved": "3.2.2",
+        "contentHash": "BPciBghgEEaJN/JG00QfCYDfEfnLgQhfnYEy+j1izoeHVNYd5+3Wm8GJ6JgYysOhpBPYGE+sbf75JtrRc7jrdA=="
+      },
+      "Fhir.Metrics": {
+        "type": "Transitive",
+        "resolved": "1.3.0",
+        "contentHash": "h4Krc9jt1sY7KIgijwAGkrsPRXa/EHjpL/Gx7sAbjprM6duxtKFI85jzRsHHDqzkWNa7JU14/DELV/vIPp5RqA=="
+      },
+      "Hl7.Fhir.Conformance": {
+        "type": "Transitive",
+        "resolved": "5.11.4",
+        "contentHash": "v2J8tAX34ljUsB4txXDtXfpLhr1Mb9obRUEK9hTRTVvtxuCneGs6xdIFW1dr54/N7xjv+vk7i6n9BAIBuVY4ZA==",
+        "dependencies": {
+          "Hl7.Fhir.Base": "5.11.4"
+        }
+      },
+      "System.ComponentModel.Annotations": {
+        "type": "Transitive",
+        "resolved": "5.0.0",
+        "contentHash": "dMkqfy2el8A8/I76n2Hi1oBFEbG1SfxD2l5nhwXV3XjlnOmwxJlQbYpJH4W51odnU9sARCSAgv7S3CyAFMkpYg=="
+      },
+      "Hl7.Fhir.Base": {
+        "type": "CentralTransitive",
+        "requested": "[5.11.4, )",
+        "resolved": "5.11.4",
+        "contentHash": "olX8fKRABT/nn3UOW6da6fzH/mHxwX6hIyI3PNGw6r9hFHlv5uYkbipfiRVeZy9UQUpvAOde60xhlUROSzZwSA==",
+        "dependencies": {
+          "Fhir.Metrics": "1.3.0",
+          "Newtonsoft.Json": "13.0.3",
+          "System.ComponentModel.Annotations": "5.0.0"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "cpu": {
+    "Name": "AMD EPYC 7763 64-Core Processor                ",
+    "NumberOfCores": 8,
+    "NumberOfLogicalProcessors": 16
+  },
+  "os": {
+    "Caption": "Microsoft Windows 11 Enterprise",
+    "Version": "10.0.26200",
+    "BuildNumber": "26200"
+  },
+  "physicalMemoryBytes": 68665831424,
+  "dotnetSdk": "10.0.400",
+  "dedicatedHost": false,
+  "cpuAffinitySet": false,
+  "operatingSystemCpuQuotaSet": false,
+  "otherHostWorkloadsControlled": false,
+  "baselineWebBuild": "Canceled without a result before measurements",
+  "sqlOrHttpRuns": "Not run",
+  "measurementProcess": "Fresh Release processes, DOTNET_PROCESSOR_COUNT=2, server GC, default tiered compilation"
+}

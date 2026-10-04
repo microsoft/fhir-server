@@ -1,0 +1,372 @@
+{
+  "scope": "In-process components only. No SQL, HTTP, search indexing, blob I/O, or import job execution.",
+  "method": "Paired geometric mean ratios. Percentile bootstrap of five independent pairs, 20000 resamples, seed 239717. Positive changes are worse.",
+  "workloads": {
+    "parse": {
+      "cpuUsPerResource": {
+        "baselineMedian": 270.3125,
+        "redoxMedian": 305.46875,
+        "geometricMeanChangePercent": 8.15250990114411,
+        "bootstrap95ChangePercent": [
+          -2.9916229267656913,
+          23.470153440254915
+        ],
+        "pairRatios": [
+          0.9280958721704394,
+          1.3526011560693643,
+          1.0165289256198347,
+          1.1706586826347305,
+          0.9905362776025236
+        ],
+        "aaChangePercent": [
+          -14.968152866242034,
+          50.556792873051215
+        ]
+      },
+      "elapsedUsPerResource": {
+        "baselineMedian": 252.88755,
+        "redoxMedian": 359.21241000000003,
+        "geometricMeanChangePercent": 20.736801875570542,
+        "bootstrap95ChangePercent": [
+          -2.79431843336283,
+          46.85554680836581
+        ],
+        "pairRatios": [
+          0.8367964628383218,
+          1.554439394110149,
+          1.331698677462822,
+          1.4569649645290774,
+          1.0165988938708181
+        ],
+        "aaChangePercent": [
+          31.58158709380501,
+          56.42069677418995
+        ]
+      },
+      "allocatedBytesPerResource": {
+        "baselineMedian": 161624.4348,
+        "redoxMedian": 166043.6608,
+        "geometricMeanChangePercent": 2.713887320747177,
+        "bootstrap95ChangePercent": [
+          2.6604648566929567,
+          2.7664048157040266
+        ],
+        "pairRatios": [
+          1.026697558793578,
+          1.027934231637604,
+          1.0276229428620005,
+          1.0262344834433488,
+          1.0272060665325589
+        ],
+        "aaChangePercent": [
+          0.013564312749236862,
+          0.21492466335928384
+        ]
+      },
+      "endWorkingSetBytes": {
+        "baselineMedian": 77885440.0,
+        "redoxMedian": 80621568.0,
+        "geometricMeanChangePercent": 2.682110141379579,
+        "bootstrap95ChangePercent": [
+          -0.9042777639227451,
+          6.458537213725846
+        ],
+        "pairRatios": [
+          0.963686040735221,
+          1.0921920622904726,
+          1.033317812613172,
+          1.0139358108108107,
+          1.0351301603996845
+        ],
+        "aaChangePercent": [
+          1.1655130293159566,
+          0.9447599380485228
+        ]
+      },
+      "processPeakWorkingSetBytes": {
+        "baselineMedian": 88662016.0,
+        "redoxMedian": 89690112.0,
+        "geometricMeanChangePercent": 0.7205089710219603,
+        "bootstrap95ChangePercent": [
+          0.06752738634228095,
+          1.2539298337549853
+        ],
+        "pairRatios": [
+          0.9945000450815977,
+          1.013234001203091,
+          1.0142289568511502,
+          1.0073892763127512,
+          1.0067964307180175
+        ],
+        "aaChangePercent": [
+          -0.424628450106157,
+          0.4205564285054031
+        ]
+      },
+      "endPrivateBytes": {
+        "baselineMedian": 39636992.0,
+        "redoxMedian": 40935424.0,
+        "geometricMeanChangePercent": 3.616439131097371,
+        "bootstrap95ChangePercent": [
+          -3.666126993387797,
+          11.916761454124213
+        ],
+        "pairRatios": [
+          0.9158593966233047,
+          1.1791793976429508,
+          1.0466295486180155,
+          1.0231587732109326,
+          1.0327580861837347
+        ],
+        "aaChangePercent": [
+          2.5115919629057126,
+          1.4180147793089626
+        ]
+      }
+    },
+    "roundtrip": {
+      "cpuUsPerResource": {
+        "baselineMedian": 453.125,
+        "redoxMedian": 470.3125,
+        "geometricMeanChangePercent": 6.262941299017921,
+        "bootstrap95ChangePercent": [
+          -1.8290194875006938,
+          14.223848280264061
+        ],
+        "pairRatios": [
+          1.125233644859813,
+          0.9859594383775351,
+          0.9367088607594937,
+          1.106896551724138,
+          1.1778656126482214
+        ],
+        "aaChangePercent": [
+          -5.485893416927901,
+          -4.433497536945808
+        ]
+      },
+      "elapsedUsPerResource": {
+        "baselineMedian": 450.04514000000006,
+        "redoxMedian": 492.13968000000006,
+        "geometricMeanChangePercent": 4.7304744238454655,
+        "bootstrap95ChangePercent": [
+          -4.002535056237699,
+          11.737673710246632
+        ],
+        "pairRatios": [
+          1.0935340397187714,
+          0.9031540900809748,
+          1.012001036295079,
+          1.1554290349412806,
+          1.0910557964510321
+        ],
+        "aaChangePercent": [
+          -9.39559290261146,
+          -11.015177829579025
+        ]
+      },
+      "allocatedBytesPerResource": {
+        "baselineMedian": 292402.7588,
+        "redoxMedian": 296755.2704,
+        "geometricMeanChangePercent": 1.4600465797417694,
+        "bootstrap95ChangePercent": [
+          1.4307797208999329,
+          1.4893280389570718
+        ],
+        "pairRatios": [
+          1.014394121373112,
+          1.0145699059159201,
+          1.0150919000918341,
+          1.0148475058344075,
+          1.0140991901371377
+        ],
+        "aaChangePercent": [
+          -0.020174481841694902,
+          -0.1240385667720112
+        ]
+      },
+      "endWorkingSetBytes": {
+        "baselineMedian": 90767360.0,
+        "redoxMedian": 89022464.0,
+        "geometricMeanChangePercent": 1.2764846847190592,
+        "bootstrap95ChangePercent": [
+          -4.147737679048702,
+          6.777724471958235
+        ],
+        "pairRatios": [
+          0.9802346570397112,
+          0.9268529554584382,
+          0.990994623655914,
+          1.081831757093081,
+          1.0938837629601446
+        ],
+        "aaChangePercent": [
+          5.577178659578497,
+          -4.948463011949289
+        ]
+      },
+      "processPeakWorkingSetBytes": {
+        "baselineMedian": 96538624.0,
+        "redoxMedian": 97280000.0,
+        "geometricMeanChangePercent": 2.818457953093012,
+        "bootstrap95ChangePercent": [
+          -1.5075336519968396,
+          9.434655151591187
+        ],
+        "pairRatios": [
+          1.0250288301371033,
+          0.994431185361973,
+          0.9688013811246301,
+          1.0038185752471467,
+          1.159190031152648
+        ],
+        "aaChangePercent": [
+          -2.9180040852057165,
+          -5.533322443645872
+        ]
+      },
+      "endPrivateBytes": {
+        "baselineMedian": 49176576.0,
+        "redoxMedian": 46960640.0,
+        "geometricMeanChangePercent": 1.5284298200147761,
+        "bootstrap95ChangePercent": [
+          -8.878021217949817,
+          12.469930238195449
+        ],
+        "pairRatios": [
+          0.9501082791937364,
+          0.855531557475402,
+          0.9787601877006669,
+          1.156328794755421,
+          1.1726585545722714
+        ],
+        "aaChangePercent": [
+          10.864785635764008,
+          -9.348177105464439
+        ]
+      }
+    },
+    "metadata": {
+      "cpuUsPerResource": {
+        "baselineMedian": 6.0625,
+        "redoxMedian": 6.984375,
+        "geometricMeanChangePercent": 15.728861843158892,
+        "bootstrap95ChangePercent": [
+          12.769190578366096,
+          18.9815634890834
+        ],
+        "pairRatios": [
+          1.216710182767624,
+          1.1186868686868687,
+          1.152061855670103,
+          1.1770833333333333,
+          1.1246819338422391
+        ],
+        "aaChangePercent": [
+          -0.5115089514066473,
+          3.3591731266149782
+        ]
+      },
+      "elapsedUsPerResource": {
+        "baselineMedian": 6.238478100000001,
+        "redoxMedian": 7.0416876,
+        "geometricMeanChangePercent": 13.038841991291171,
+        "bootstrap95ChangePercent": [
+          9.624747177495752,
+          16.650297184668595
+        ],
+        "pairRatios": [
+          1.1117968203092237,
+          1.125853515459163,
+          1.0711455497198707,
+          1.1879839203673181,
+          1.1587030041272037
+        ],
+        "aaChangePercent": [
+          3.295067588277978,
+          2.7308990913722964
+        ]
+      },
+      "allocatedBytesPerResource": {
+        "baselineMedian": 8282.698056,
+        "redoxMedian": 4482.152352,
+        "geometricMeanChangePercent": -45.88529202567892,
+        "bootstrap95ChangePercent": [
+          -45.885358360956864,
+          -45.88521652166456
+        ],
+        "pairRatios": [
+          0.5411465458051506,
+          0.5411463539828639,
+          0.5411477473462856,
+          0.5411464140906503,
+          0.541148337494136
+        ],
+        "aaChangePercent": [
+          0.0,
+          -6.751420307260503e-05
+        ]
+      },
+      "endWorkingSetBytes": {
+        "baselineMedian": 63889408.0,
+        "redoxMedian": 64184320.0,
+        "geometricMeanChangePercent": 1.2350148560226426,
+        "bootstrap95ChangePercent": [
+          -2.5846319356272685,
+          5.312318124616633
+        ],
+        "pairRatios": [
+          1.0237208390511665,
+          0.9748537283704718,
+          1.0930278361344539,
+          1.017566354660854,
+          0.9579410685902923
+        ],
+        "aaChangePercent": [
+          -0.6764235641372518,
+          0.3272412941466962
+        ]
+      },
+      "processPeakWorkingSetBytes": {
+        "baselineMedian": 78761984.0,
+        "redoxMedian": 84439040.0,
+        "geometricMeanChangePercent": 7.181071249119353,
+        "bootstrap95ChangePercent": [
+          7.0688877737097755,
+          7.2835159846448505
+        ],
+        "pairRatios": [
+          1.0719454422406163,
+          1.0734589754269055,
+          1.0720786312340735,
+          1.071721630745261,
+          1.0698519864970137
+        ],
+        "aaChangePercent": [
+          -0.3424302168724691,
+          -0.12493492972410758
+        ]
+      },
+      "endPrivateBytes": {
+        "baselineMedian": 33964032.0,
+        "redoxMedian": 32878592.0,
+        "geometricMeanChangePercent": 0.6839179449822819,
+        "bootstrap95ChangePercent": [
+          -7.958895297070967,
+          11.436404151968226
+        ],
+        "pairRatios": [
+          1.0471648811079175,
+          0.9212553167030694,
+          1.2233342112193837,
+          0.9875783888084901,
+          0.8877460738774607
+        ],
+        "aaChangePercent": [
+          -1.9897160742231135,
+          0.28293345405161485
+        ]
+      }
+    }
+  }
+}

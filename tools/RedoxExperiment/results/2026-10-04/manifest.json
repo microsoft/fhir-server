@@ -1,0 +1,381 @@
+{
+  "utc": "2026-10-04T16:34:43.0082746Z",
+  "baselineCommit": "87c599ab28f6146a5544146cca2c3543b37e2a3e",
+  "branchCommit": "b18405a6cc81f280be0f36a929cb06fbf2843084",
+  "redoxRevision": "47a9b74442e8fc3456163fd8a02db9245a111bed",
+  "redoxAssemblySha256": "54256A53AF5AA2DD1BD7CF6D5CD6867C016CF09C3A9C4E49D6F159DF0AC10E06",
+  "experimentAssemblySha256": "3DB3B40904BE598B7DF0CB92C508D9F72B9136683380936C5814D54E8111BD2F",
+  "compressedCorpusSha256": "41AE68A482072C2E5F6A110BC15E3F4E87FB2667095C02D7436E4820F188643E",
+  "processorCount": 2,
+  "warmupSeconds": 3,
+  "integrationReady": false,
+  "scope": "In-process components only. No SQL, HTTP, search indexing, blob I/O, or import job execution.",
+  "sourceHashes": [
+    {
+      "sha256": "4EEA0FA1F785B9B5350CEAB9413F4C85DEBD0B10EFED519A01D2D1BB4EF1CA66",
+      "name": "Directory.Build.props"
+    },
+    {
+      "sha256": "02720F7388C049D0A418F6AEF5384F75E6E5EA79818C72723B6B66F501F93D52",
+      "name": "Invoke-Experiment.ps1"
+    },
+    {
+      "sha256": "B42AE3179D87BAB11829909281124AD55FFB01CA1626CEC146EB16D1DED97ECC",
+      "name": "MetadataRewrite.cs"
+    },
+    {
+      "sha256": "B4A042549B490104ADD799EF3547D1879826ADB62583D4848BD57DC72472FF64",
+      "name": "packages.lock.json"
+    },
+    {
+      "sha256": "180157FE12B0C95E52F53ED260A404714A3C3AA385D2ECC04B171BEDF77CD88F",
+      "name": "Program.cs"
+    },
+    {
+      "sha256": "C55B29045BBC4BE469E2E833B16D6CEBC6918EA4DF3D41A1FE7445773C223C89",
+      "name": "RedoxExperiment.csproj"
+    },
+    {
+      "sha256": "CDA794B625ED34117E5396E7FE3D4758A4ECA959F25DD1D68F4E0EE16F7A19CA",
+      "name": "RedoxJsonReader.cs"
+    }
+  ],
+  "schedule": [
+    {
+      "Phase": "AA",
+      "Pair": 1,
+      "Label": "A",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 1,
+      "Label": "A2",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 2,
+      "Label": "A",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 2,
+      "Label": "A2",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 1,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 1,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 2,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 2,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 3,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 3,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 4,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 4,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 5,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 5,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "parse",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 1,
+      "Label": "A",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 1,
+      "Label": "A2",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 2,
+      "Label": "A",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 2,
+      "Label": "A2",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 1,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 1,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 2,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 2,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 3,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 3,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 4,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 4,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 5,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AB",
+      "Pair": 5,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "roundtrip",
+      "Passes": 20
+    },
+    {
+      "Phase": "AA",
+      "Pair": 1,
+      "Label": "A",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AA",
+      "Pair": 1,
+      "Label": "A2",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AA",
+      "Pair": 2,
+      "Label": "A",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AA",
+      "Pair": 2,
+      "Label": "A2",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 1,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 1,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 2,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 2,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 3,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 3,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 4,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 4,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 5,
+      "Label": "baseline",
+      "Variant": "baseline",
+      "Workload": "metadata",
+      "Passes": 1000
+    },
+    {
+      "Phase": "AB",
+      "Pair": 5,
+      "Label": "redox",
+      "Variant": "redox",
+      "Workload": "metadata",
+      "Passes": 1000
+    }
+  ]
+}

@@ -2,8 +2,10 @@
 
 ## Status and objective
 
-Experiment design approved on October 4, 2026. Implementation, deployment, and
-measurement runs are not started or authorized by this document.
+Experiment design approved on October 4, 2026. A subsequent user request
+authorized execution. The [screening results](redox-performance-results.md)
+record the measured components and the unrun application workloads.
+This document does not authorize provisioning or deployment.
 
 Determine whether REDox reduces application CPU or resident memory for the same
 correct FHIR work. Scope is FHIR R4 with SQL Server, incremental `$import`, and
@@ -284,8 +286,8 @@ Exclude initial-load performance runs, Cosmos DB, other FHIR versions, XML,
 changes to NDJSON reading, and completion of the Ignixa migration. Keep existing
 correctness coverage for shared code that a candidate changes.
 
-No performance scripts, dependencies, server changes, or benchmark results are
-part of this design-only commit.
+The original design-only commit, `b18405a6c`, contains no performance scripts,
+dependencies, server changes, or benchmark results.
 
 ## Design principles
 

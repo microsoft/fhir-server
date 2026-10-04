@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Hl7.Fhir.R4" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="xunit.v3.assert" />
+    <Reference Include="REDox">
+      <HintPath>$(RedoxAssembly)</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Target Name="RequireRedoxAssembly" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(RedoxAssembly)')" Text="Supply -p:RedoxAssembly with the path to the Release REDox.dll built from v1.0.0." />
+  </Target>
+</Project>
