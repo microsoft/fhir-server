@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -82,6 +83,13 @@ namespace Microsoft.Extensions.DependencyInjection
             string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
+
+            int configuredMaxResourceIdLength = fhirServerConfiguration.CoreFeatures.MaxResourceIdLength;
+            if (configuredMaxResourceIdLength < CoreFeatureConfiguration.DefaultMaxResourceIdLength || configuredMaxResourceIdLength > CoreFeatureConfiguration.MaxSupportedResourceIdLength)
+            {
+                throw new InvalidOperationException(
+                    FormattableString.Invariant($"FhirServer:CoreFeatures:MaxResourceIdLength must be between {CoreFeatureConfiguration.DefaultMaxResourceIdLength} and {CoreFeatureConfiguration.MaxSupportedResourceIdLength} inclusive, but was {configuredMaxResourceIdLength}."));
+            }
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));

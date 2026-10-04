@@ -12,6 +12,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public class CoreFeatureConfiguration
     {
+        /// <summary>
+        /// The default and minimum value of <see cref="MaxResourceIdLength"/>. This is the FHIR specification limit.
+        /// </summary>
+        public const int DefaultMaxResourceIdLength = 64;
+
+        /// <summary>
+        /// The largest supported value of <see cref="MaxResourceIdLength"/>. This is the SQL Server resource id column width from schema version 118.
+        /// </summary>
+        public const int MaxSupportedResourceIdLength = 128;
+
         private VersioningConfiguration _versioning = new VersioningConfiguration();
 
         /// <summary>
@@ -59,6 +69,17 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the default value for included search results.
         /// </summary>
         public int DefaultIncludeCountPerSearch { get; set; } = 1000;
+
+        /// <summary>
+        /// Gets or sets the maximum number of characters allowed in a FHIR resource id.
+        /// </summary>
+        /// <remarks>
+        /// Set through <c>FhirServer:CoreFeatures:MaxResourceIdLength</c> or the environment variable
+        /// <c>FhirServer__CoreFeatures__MaxResourceIdLength</c>. Defaults to 64; allowed values are
+        /// 64 through 128 inclusive. This setting controls validation only. SQL Server requires schema
+        /// version 118 or later for values above 64.
+        /// </remarks>
+        public int MaxResourceIdLength { get; set; } = DefaultMaxResourceIdLength;
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
