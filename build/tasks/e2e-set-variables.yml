@@ -68,6 +68,47 @@ steps:
             return $null
         }
 
+        $fhirSdkProviderSeams = @('', 'Default', 'FhirPath', 'Import')
+
+        function Assert-FhirSdkProviderConfiguration {
+            param(
+                [Parameter(Mandatory = $true)]
+                [AllowEmptyCollection()]
+                [array]$EnvSettings,
+                [Parameter(Mandatory = $true)]
+                [hashtable]$SecretValues,
+                [Parameter(Mandatory = $true)]
+                [string]$ExpectedProvider,
+                [Parameter(Mandatory = $true)]
+                [string]$ContainerAppName
+            )
+
+            # Configuration keys are case-insensitive, so match names the same way the app does.
+            $envPrefix = 'FhirServer__CoreFeatures__FhirSdkProvider'
+            $envProviderSettings = @($EnvSettings | Where-Object { $_.name -ieq $envPrefix -or $_.name -ilike "${envPrefix}__*" })
+
+            $duplicate = $envProviderSettings | Group-Object { $_.name.ToUpperInvariant() } | Where-Object Count -gt 1 | Select-Object -First 1
+            if ($duplicate) {
+                throw "Container App '$ContainerAppName' defines '$($duplicate.Group[0].name)' more than once."
+            }
+
+            if (-not ($envProviderSettings | Where-Object { $_.name -ieq "${envPrefix}__Default" })) {
+                throw "Container App '$ContainerAppName' must define FhirSdkProvider__Default='$ExpectedProvider'."
+            }
+
+            # The legacy scalar, Default, and every per-seam override can each decide the effective provider.
+            # Requiring all of them to match means no precedence order can select a different provider.
+            $settings = @($envProviderSettings | ForEach-Object { [pscustomobject]@{ Name = $_.name; Value = [string]$_.value; Source = 'environment' } })
+            $settings += @($SecretValues.GetEnumerator() | ForEach-Object { [pscustomobject]@{ Name = $_.Key; Value = [string]$_.Value; Source = 'Key Vault' } })
+            $conflicts = @($settings | Where-Object { $_.Value.Trim() -ine $ExpectedProvider })
+            if ($conflicts.Count -gt 0) {
+                $details = ($conflicts | ForEach-Object { "$($_.Name)='$($_.Value)' ($($_.Source))" }) -join ', '
+                throw "Container App '$ContainerAppName' must resolve every FHIR SDK provider setting to '$ExpectedProvider'. Conflicting settings: $details."
+            }
+
+            return $ExpectedProvider
+        }
+
         function Set-TestEnvironmentUrlVariables {
             param(
                 [Parameter(Mandatory = $true)]
@@ -116,10 +157,35 @@ steps:
 
         $expectedFhirSdkProviderDefault = '${{ parameters.expectedFhirSdkProviderDefault }}'
         if ($expectedFhirSdkProviderDefault) {
-            $providerSettings = @($envSettings | Where-Object { $_.name -eq 'FhirServer__CoreFeatures__FhirSdkProvider__Default' })
-            if ($providerSettings.Count -ne 1 -or $providerSettings[0].value -ne $expectedFhirSdkProviderDefault) {
-                throw "Container App '$containerAppName' must define FhirSdkProvider__Default='$expectedFhirSdkProviderDefault' exactly once."
+            # The app reads environment variables, then Key Vault secrets (Program.cs), so a Key Vault value
+            # wins. Read every setting that can change the effective FHIRPath provider from both sources.
+            $providerSecretValues = @{}
+            $providerVaultEndpoint = Get-ContainerEnvValue -EnvSettings $envSettings -Name 'KeyVault__Endpoint'
+            if ($providerVaultEndpoint) {
+                $providerVaultName = ([uri]$providerVaultEndpoint).Host.Split('.')[0]
+                foreach ($seam in $fhirSdkProviderSeams) {
+                    $secretName = if ($seam) { "FhirServer--CoreFeatures--FhirSdkProvider--$seam" } else { 'FhirServer--CoreFeatures--FhirSdkProvider' }
+                    try {
+                        $secretValue = Get-AzKeyVaultSecret -VaultName $providerVaultName -Name $secretName -AsPlainText -ErrorAction Stop
+                    }
+                    catch {
+                        if ($_.Exception.Message -notmatch 'NotFound|not found|SecretNotFound') {
+                            throw "Could not read '$secretName' from Key Vault '$providerVaultName' to verify the FHIR SDK provider: $($_.Exception.Message)"
+                        }
+                        $secretValue = $null
+                    }
+                    if ($null -ne $secretValue) {
+                        $providerSecretValues[$secretName] = [string]$secretValue
+                    }
+                }
             }
+
+            $effectiveFhirPathProvider = Assert-FhirSdkProviderConfiguration `
+                -EnvSettings $envSettings `
+                -SecretValues $providerSecretValues `
+                -ExpectedProvider $expectedFhirSdkProviderDefault `
+                -ContainerAppName $containerAppName
+            Write-Host "Container App '$containerAppName' effective FHIRPath provider: $effectiveFhirPathProvider"
         }
 
         $expectedSqlDatabaseName = '${{ parameters.expectedSqlDatabaseName }}'
