@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -43,11 +42,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Assert
             Assert.Equal("Patient____?subject.name:exact_______", result);
-            Assert.DoesNotContain("*/", result, StringComparison.Ordinal);
-            Assert.DoesNotContain("--", result, StringComparison.Ordinal);
-            Assert.DoesNotContain('\r', result);
-            Assert.DoesNotContain('\n', result);
-            Assert.DoesNotContain('\u0001', result);
         }
 
         [Theory]

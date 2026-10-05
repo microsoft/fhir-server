@@ -315,8 +315,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             string expectedQueryText)
         {
             // Arrange
-            string hashedQueryText = null;
-            _queryHashCalculator.CalculateHash(Arg.Do<string>(value => hashedQueryText = value)).Returns("query-hash");
+            _queryHashCalculator.CalculateHash(queryText).Returns("query-hash");
 
             // Act
             string result = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
@@ -326,7 +325,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 out string queryHash);
 
             // Assert
-            Assert.Equal(queryText, hashedQueryText);
+            _queryHashCalculator.Received(1).CalculateHash(queryText);
             Assert.Equal("query-hash", queryHash);
             Assert.Equal(expectedQueryText, result);
         }

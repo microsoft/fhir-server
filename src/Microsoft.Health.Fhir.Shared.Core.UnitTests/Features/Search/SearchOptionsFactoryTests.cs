@@ -816,8 +816,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Assert
             Assert.Equal("Patient?_count&name&name", options.NormalizedQueryShape);
-            Assert.DoesNotContain("Alice", options.NormalizedQueryShape, StringComparison.Ordinal);
-            Assert.DoesNotContain("Bob", options.NormalizedQueryShape, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -832,7 +830,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Assert
             Assert.Equal("Patient/$compartment/Observation", options.NormalizedQueryShape);
-            Assert.DoesNotContain("recognizable-patient-id", options.NormalizedQueryShape, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -865,7 +862,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Assert
             Assert.Equal("Patient?_unsupported", options.NormalizedQueryShape);
-            Assert.DoesNotContain(unsupportedName, options.NormalizedQueryShape, StringComparison.Ordinal);
         }
 
         [Theory]
