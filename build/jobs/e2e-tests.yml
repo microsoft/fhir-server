@@ -11,7 +11,7 @@ parameters:
 - name: testRunTitleSuffix
   type: string
   default: ''
-- name: expectedFhirSdkProviderDefault
+- name: expectedFhirSdkProviderSystemDefault
   type: string
   default: ''
 - name: expectedKeyVaultName
@@ -31,7 +31,7 @@ steps:
       containerAppName: ${{ parameters.containerAppName }}
       version: ${{ parameters.version }}
       appServiceType: ${{ parameters.appServiceType }}
-      expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+      expectedFhirSdkProviderSystemDefault: '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
       expectedKeyVaultName: '${{ parameters.expectedKeyVaultName }}'
       expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
 

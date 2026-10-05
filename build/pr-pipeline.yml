@@ -368,7 +368,7 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       sqlElasticPoolName: $(SqlVNextElasticPoolName)
       sqlDatabaseName: FHIRStu3VNext
-      fhirSdkProviderDefault: Ignixa
+      fhirSdkProviderSystemDefault: Ignixa
       reindexEnabled: true
 
 - stage: deployR4
@@ -436,7 +436,7 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       sqlElasticPoolName: $(SqlVNextElasticPoolName)
       sqlDatabaseName: FHIRR4VNext
-      fhirSdkProviderDefault: Ignixa
+      fhirSdkProviderSystemDefault: Ignixa
       reindexEnabled: true
 
 - stage: deployR5Sql
@@ -513,7 +513,7 @@ stages:
       runIntegrationTests: false
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
-      expectedFhirSdkProviderDefault: Ignixa
+      expectedFhirSdkProviderSystemDefault: Ignixa
       expectedSqlDatabaseName: FHIRStu3VNext
 
 - stage: testR4Cosmos
@@ -568,7 +568,7 @@ stages:
       runIntegrationTests: false
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
-      expectedFhirSdkProviderDefault: Ignixa
+      expectedFhirSdkProviderSystemDefault: Ignixa
       expectedSqlDatabaseName: FHIRR4VNext
 
 - stage: testR5Sql

@@ -228,7 +228,7 @@ stages:
       runIntegrationTests: false
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
-      expectedFhirSdkProviderDefault: Ignixa
+      expectedFhirSdkProviderSystemDefault: Ignixa
       expectedSqlDatabaseName: FHIRStu3VNext
 
 # *********************** R4 ***********************
@@ -316,7 +316,7 @@ stages:
       runIntegrationTests: false
       runBulkUpdateJob: false
       testRunTitleSuffix: ' vNext SDK'
-      expectedFhirSdkProviderDefault: Ignixa
+      expectedFhirSdkProviderSystemDefault: Ignixa
       expectedSqlDatabaseName: FHIRR4VNext
 
 # *********************** R5 ***********************

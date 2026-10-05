@@ -5,7 +5,7 @@ parameters:
   type: string
 - name: appServiceType
   type: string
-- name: expectedFhirSdkProviderDefault
+- name: expectedFhirSdkProviderSystemDefault
   type: string
   default: ''
 - name: expectedKeyVaultName
@@ -68,7 +68,7 @@ steps:
             return $null
         }
 
-        $fhirSdkProviderSeams = @('', 'Default', 'FhirPath', 'Import')
+        $fhirSdkProviderSeams = @('', 'SystemDefault', 'FhirPath', 'Import')
 
         function Assert-FhirSdkProviderConfiguration {
             param(
@@ -92,11 +92,23 @@ steps:
                 throw "Container App '$ContainerAppName' defines '$($duplicate.Group[0].name)' more than once."
             }
 
-            if (-not ($envProviderSettings | Where-Object { $_.name -ieq "${envPrefix}__Default" })) {
-                throw "Container App '$ContainerAppName' must define FhirSdkProvider__Default='$ExpectedProvider'."
+            # The app refuses to start with the old single-value form, so report it here with a clear cause.
+            $legacySettings = @($envProviderSettings | Where-Object { $_.name -ieq $envPrefix } | ForEach-Object { "$($_.name) (environment)" })
+            $legacySettings += @($SecretValues.Keys | Where-Object { $_ -ieq 'FhirServer--CoreFeatures--FhirSdkProvider' } | ForEach-Object { "$_ (Key Vault)" })
+            if ($legacySettings.Count -gt 0) {
+                throw "Container App '$ContainerAppName' sets the unsupported single-value FhirSdkProvider setting: $($legacySettings -join ', '). Use FhirSdkProvider__SystemDefault."
             }
 
-            # The legacy scalar, Default, and every per-seam override can each decide the effective provider.
+            $unknownSettings = @($envProviderSettings | Where-Object { $_.name -ilike "${envPrefix}__*" -and $_.name.Substring($envPrefix.Length + 2) -notin $fhirSdkProviderSeams.Where({ $_ }) })
+            if ($unknownSettings.Count -gt 0) {
+                throw "Container App '$ContainerAppName' sets unsupported FhirSdkProvider settings: $(($unknownSettings | ForEach-Object name) -join ', ')."
+            }
+
+            if (-not ($envProviderSettings | Where-Object { $_.name -ieq "${envPrefix}__SystemDefault" })) {
+                throw "Container App '$ContainerAppName' must define FhirSdkProvider__SystemDefault='$ExpectedProvider'."
+            }
+
+            # SystemDefault and every per-seam override can each decide a seam's provider.
             # Requiring all of them to match means no precedence order can select a different provider.
             $settings = @($envProviderSettings | ForEach-Object { [pscustomobject]@{ Name = $_.name; Value = [string]$_.value; Source = 'environment' } })
             $settings += @($SecretValues.GetEnumerator() | ForEach-Object { [pscustomobject]@{ Name = $_.Key; Value = [string]$_.Value; Source = 'Key Vault' } })
@@ -155,8 +167,8 @@ steps:
             throw "Container App '$containerAppName' has no environment variables configured."
         }
 
-        $expectedFhirSdkProviderDefault = '${{ parameters.expectedFhirSdkProviderDefault }}'
-        if ($expectedFhirSdkProviderDefault) {
+        $expectedFhirSdkProviderSystemDefault = '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
+        if ($expectedFhirSdkProviderSystemDefault) {
             # The app reads environment variables, then Key Vault secrets (Program.cs), so a Key Vault value
             # wins. Read every setting that can change the effective FHIRPath provider from both sources.
             $providerSecretValues = @{}
@@ -183,7 +195,7 @@ steps:
             $effectiveFhirPathProvider = Assert-FhirSdkProviderConfiguration `
                 -EnvSettings $envSettings `
                 -SecretValues $providerSecretValues `
-                -ExpectedProvider $expectedFhirSdkProviderDefault `
+                -ExpectedProvider $expectedFhirSdkProviderSystemDefault `
                 -ContainerAppName $containerAppName
             Write-Host "Container App '$containerAppName' effective FHIRPath provider: $effectiveFhirPathProvider"
         }
