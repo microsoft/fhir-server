@@ -115,6 +115,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 return;
             }
 
+            await RefreshAsync();
+        }
+
+        internal async Task RefreshAsync()
+        {
             try
             {
                 _logger.LogInformation("Performing incremental SearchParameter cache refresh...");
