@@ -57,7 +57,7 @@ SELECT @EmbeddingModelId;";
         private readonly string _connectionString;
         private readonly VectorSearchConfiguration _configuration;
         private readonly SemaphoreSlim _initializationLock = new SemaphoreSlim(1, 1);
-        private short? _embeddingModelId;
+        private int _embeddingModelId = -1;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SqlEmbeddingModelRegistry"/> class.
@@ -73,17 +73,19 @@ SELECT @EmbeddingModelId;";
         /// <inheritdoc />
         public async Task<short> GetEmbeddingModelIdAsync(CancellationToken cancellationToken)
         {
-            if (_embeddingModelId.HasValue)
+            int embeddingModelId = Volatile.Read(ref _embeddingModelId);
+            if (embeddingModelId != -1)
             {
-                return _embeddingModelId.Value;
+                return (short)embeddingModelId;
             }
 
             await _initializationLock.WaitAsync(cancellationToken);
             try
             {
-                if (_embeddingModelId.HasValue)
+                embeddingModelId = Volatile.Read(ref _embeddingModelId);
+                if (embeddingModelId != -1)
                 {
-                    return _embeddingModelId.Value;
+                    return (short)embeddingModelId;
                 }
 
                 await using var connection = new SqlConnection(_connectionString);
@@ -97,8 +99,9 @@ SELECT @EmbeddingModelId;";
                 command.Parameters.Add("@DistanceMetric", SqlDbType.VarChar, 16).Value = _configuration.Query.DistanceMetric;
 
                 object result = await command.ExecuteScalarAsync(cancellationToken);
-                _embeddingModelId = Convert.ToInt16(result, CultureInfo.InvariantCulture);
-                return _embeddingModelId.Value;
+                short resolvedModelId = Convert.ToInt16(result, CultureInfo.InvariantCulture);
+                Volatile.Write(ref _embeddingModelId, resolvedModelId);
+                return resolvedModelId;
             }
             finally
             {

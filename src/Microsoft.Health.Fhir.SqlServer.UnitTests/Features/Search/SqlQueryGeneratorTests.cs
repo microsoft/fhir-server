@@ -296,7 +296,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         if (hasContinuation)
         {
             SqlParameter distanceParameter = Assert.Single(
-                _sqlParameters.Cast<SqlParameter>(), parameter => parameter.Value is double value && value == 0.125);
+                _sqlParameters.Cast<SqlParameter>(), parameter => parameter.Value is double value && Math.Abs(value - 0.125) < 1e-12);
             SqlParameter resourceTypeParameter = Assert.Single(
                 _sqlParameters.Cast<SqlParameter>(), parameter => parameter.Value is short value && value == 103);
             SqlParameter surrogateIdParameter = Assert.Single(

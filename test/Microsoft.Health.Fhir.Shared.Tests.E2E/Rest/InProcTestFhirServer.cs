@@ -42,14 +42,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             : base(new Uri("http://localhost/"))
         {
             var projectDir = GetProjectPath("src", startupType);
-            var testConfigPath = Path.Combine(AppContext.BaseDirectory, "testconfiguration.json");
+            var testConfigPath = Path.Join(AppContext.BaseDirectory, "testconfiguration.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true";
-            configuration["TestAuthEnvironment:FilePath"] = Path.Combine(AppContext.BaseDirectory, "testauthenvironment.json");
+            configuration["TestAuthEnvironment:FilePath"] = Path.Join(AppContext.BaseDirectory, "testauthenvironment.json");
             configuration["FhirServer:Security:Enabled"] = "true";
             configuration["DevelopmentIdentityProvider:Enabled"] = "true";
 

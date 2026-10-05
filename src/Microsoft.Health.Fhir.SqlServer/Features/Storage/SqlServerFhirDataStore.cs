@@ -9,6 +9,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -279,7 +280,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var heartbeatCancellationSource = new CancellationTokenSource();
             Task heartbeatTask = RunTransactionHeartbeatAsync(transactionId, mergeCancellationSource, heartbeatCancellationSource.Token);
             CancellationToken mergeCancellationToken = mergeCancellationSource.Token;
-            Exception mergeException = null;
+            bool propagateHeartbeatFailure = false;
 
             try
             {
@@ -310,19 +311,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // Check for any validation errors
                     if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
                     {
-                        if (weakETag != null)
+                        // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
+                        if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                         {
-                            // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
-                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
-                            {
-                                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
-                                continue;
-                            }
-
-                            _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
                             continue;
                         }
+
+                        _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
+                        continue;
                     }
 
                     // There is no previous version of this resource, check validations and then simply call SP to create new version
@@ -338,11 +336,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (eTag.HasValue)
                         {
                             // You can't update a resource with a specified version if the resource does not exist
-                            if (weakETag != null)
-                            {
-                                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
-                                continue;
-                            }
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
+                            continue;
                         }
 
                         if (!resourceExt.AllowCreate)
@@ -460,7 +455,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Instead, the errors should be reported and ensure the operation is atomic.
                 if (isBundleTransaction && results.Where(r => !r.Value.IsOperationSuccessful).Any())
                 {
-                    return new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
+                    var outcome = new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
+                    propagateHeartbeatFailure = true;
+                    return outcome;
                 }
 
                 // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
@@ -534,33 +531,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 // If this is not an atomic operations, even if there are unsuccessful results, the operation state will be set as 'Completed'.
                 // For atomic operations, reaching this level means that all results are successful.
-                return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
+                var completedOutcome = new MergeOutcome(MergeOutcomeFinalState.Completed, results);
+                propagateHeartbeatFailure = true;
+                return completedOutcome;
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && mergeCancellationSource.IsCancellationRequested)
+            catch (OperationCanceledException) when (propagateHeartbeatFailure = !cancellationToken.IsCancellationRequested && mergeCancellationSource.IsCancellationRequested)
             {
                 await heartbeatTask;
                 throw;
             }
-            catch (Exception exception)
-            {
-                mergeException = exception;
-                throw;
-            }
             finally
             {
-                await heartbeatCancellationSource.CancelAsync();
-                try
-                {
-                    await heartbeatTask;
-                }
-                catch (OperationCanceledException) when (heartbeatCancellationSource.IsCancellationRequested)
-                {
-                }
-                catch (Exception exception) when (mergeException != null)
-                {
-                    _logger.LogWarning(exception, "Transaction heartbeat failed while the owning merge was already failing.");
-                }
+                await StopTransactionHeartbeatAsync(heartbeatTask, heartbeatCancellationSource, propagateHeartbeatFailure, _logger);
             }
+        }
+
+        internal static async Task StopTransactionHeartbeatAsync(
+            Task heartbeatTask,
+            CancellationTokenSource heartbeatCancellationSource,
+            bool propagateHeartbeatFailure,
+            ILogger logger)
+        {
+            await heartbeatCancellationSource.CancelAsync();
+            await heartbeatTask.ConfigureAwait(ConfigureAwaitOptions.ContinueOnCapturedContext | ConfigureAwaitOptions.SuppressThrowing);
+            if (!heartbeatTask.IsFaulted)
+            {
+                return;
+            }
+
+            // Match await's first-exception behavior without flattening an explicitly thrown AggregateException.
+            Exception exception = heartbeatTask.Exception.InnerExceptions[0];
+            if (exception is OperationCanceledException)
+            {
+                return;
+            }
+
+            if (propagateHeartbeatFailure)
+            {
+                ExceptionDispatchInfo.Capture(exception).Throw();
+            }
+
+            logger.LogWarning(exception, "Transaction heartbeat failed while the owning merge was already failing.");
         }
 
         private async Task RunTransactionHeartbeatAsync(long transactionId, CancellationTokenSource mergeCancellationSource, CancellationToken cancellationToken)
@@ -578,6 +589,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                return;
             }
             catch
             {

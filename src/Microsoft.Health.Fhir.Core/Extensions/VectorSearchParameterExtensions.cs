@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 else if (string.Equals(url, VectorSearchParameterConfig.DistanceMetricExtensionUrl, StringComparison.Ordinal))
                 {
                     string distanceMetric = value?.ToString();
-                    if (!string.Equals(distanceMetric, VectorSearchConfiguration.SupportedDistanceMetric, StringComparison.OrdinalIgnoreCase))
+                    if (distanceMetric is null || !string.Equals(distanceMetric, VectorSearchConfiguration.SupportedDistanceMetric, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new InvalidDefinitionException($"Vector SearchParameter distanceMetric must be '{VectorSearchConfiguration.SupportedDistanceMetric}'.");
                     }
