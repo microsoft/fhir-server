@@ -40,9 +40,7 @@ namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
-            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
-
-            _maxResourceIdLength = coreFeatureConfiguration.Value.MaxResourceIdLength;
+            _maxResourceIdLength = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).MaxResourceIdLength;
         }
 
         /// <inheritdoc />

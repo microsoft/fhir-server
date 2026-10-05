@@ -42,12 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(instanceConfiguration, nameof(instanceConfiguration));
-            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _instanceConfiguration = instanceConfiguration;
 
-            int maxResourceIdLength = coreFeatureConfiguration.Value.MaxResourceIdLength;
+            int maxResourceIdLength = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).MaxResourceIdLength;
             string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
             _referenceRegex = new Regex(

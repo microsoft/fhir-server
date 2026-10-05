@@ -46,11 +46,10 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         {
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
             EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
-            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
 
             _resourceFactory = resourceFactory;
             _schemaContext = schemaContext;
-            _maxResourceIdLength = coreFeatureConfiguration.Value.MaxResourceIdLength;
+            _maxResourceIdLength = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).MaxResourceIdLength;
         }
 
         /// <inheritdoc />
