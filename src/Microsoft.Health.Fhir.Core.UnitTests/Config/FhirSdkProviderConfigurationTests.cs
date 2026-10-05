@@ -17,93 +17,130 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
     [Trait(Traits.Category, Categories.Operations)]
     public class FhirSdkProviderConfigurationTests
     {
+        private const string Section = "FhirServer:CoreFeatures:FhirSdkProvider";
+
         [Fact]
         public void GivenDefaultConfiguration_WhenProviderRead_ThenFirelyIsSelected()
         {
             var configuration = new CoreFeatureConfiguration();
+
+            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.SystemDefault);
             Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveImport);
             Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveFhirPath);
         }
 
         [Fact]
-        public void GivenIgnixaConfigured_WhenProviderRead_ThenIgnixaIsSelected()
+        public void GivenSystemDefault_WhenBound_ThenEverySeamUsesIt()
         {
-            var configuration = new CoreFeatureConfiguration
+            FhirSdkProviderConfiguration configuration = Bind(new Dictionary<string, string>
             {
-                FhirSdkProvider = new FhirSdkProviderConfiguration
-                {
-                    Default = FhirSdkProvider.Ignixa,
-                },
-            };
-            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider.EffectiveImport);
-            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider.EffectiveFhirPath);
+                [$"{Section}:SystemDefault"] = "Ignixa",
+            });
+
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.EffectiveImport);
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.EffectiveFhirPath);
         }
 
         [Fact]
-        public void GivenSeamOverrides_WhenProvidersRead_ThenSelectionsAreIndependent()
+        public void GivenSeamOverride_WhenBound_ThenOnlyThatSeamChanges()
         {
-            var configuration = new CoreFeatureConfiguration
+            FhirSdkProviderConfiguration configuration = Bind(new Dictionary<string, string>
             {
-                FhirSdkProvider = new FhirSdkProviderConfiguration
-                {
-                    Default = FhirSdkProvider.Firely,
-                    Import = FhirSdkProvider.Ignixa,
-                },
-            };
+                [$"{Section}:SystemDefault"] = "Ignixa",
+                [$"{Section}:FhirPath"] = "Firely",
+            });
 
-            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider.EffectiveImport);
-            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveFhirPath);
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.EffectiveImport);
+            Assert.Equal(FhirSdkProvider.Firely, configuration.EffectiveFhirPath);
         }
 
         [Theory]
-        [InlineData("Ignixa", FhirSdkProvider.Ignixa)]
-        [InlineData("ignixa", FhirSdkProvider.Ignixa)]
-        [InlineData("Firely", FhirSdkProvider.Firely)]
-        public void GivenLegacyScalarSetting_WhenBound_ThenItSelectsTheDefaultProvider(string value, FhirSdkProvider expected)
+        [InlineData("Ignixa", "FhirPath", "Firely")]
+        [InlineData("Firely", "FhirPath", "Ignixa")]
+        [InlineData("Ignixa", "Import", "Firely")]
+        [InlineData("Firely", "Import", "Ignixa")]
+        public void GivenSystemDefaultAndOverrideFromSeparateSources_WhenBound_ThenOverrideWins(
+            string systemDefault,
+            string seam,
+            string seamProvider)
         {
-            CoreFeatureConfiguration configuration = Bind(new Dictionary<string, string>
-            {
-                ["CoreFeatures:FhirSdkProvider"] = value,
-            });
+            FhirSdkProviderConfiguration configuration = Bind(
+                new Dictionary<string, string> { [$"{Section}:SystemDefault"] = systemDefault },
+                new Dictionary<string, string> { [$"{Section}:{seam}"] = seamProvider });
 
-            Assert.Equal(expected, configuration.FhirSdkProvider.Default);
-            Assert.Null(configuration.FhirSdkProvider.Import);
-            Assert.Null(configuration.FhirSdkProvider.FhirPath);
-            Assert.Equal(expected, configuration.FhirSdkProvider.EffectiveImport);
-            Assert.Equal(expected, configuration.FhirSdkProvider.EffectiveFhirPath);
+            FhirSdkProvider expectedDefault = Enum.Parse<FhirSdkProvider>(systemDefault);
+            FhirSdkProvider expectedSeam = Enum.Parse<FhirSdkProvider>(seamProvider);
+            Assert.Equal(seam == "FhirPath" ? expectedSeam : expectedDefault, configuration.EffectiveFhirPath);
+            Assert.Equal(seam == "Import" ? expectedSeam : expectedDefault, configuration.EffectiveImport);
         }
 
         [Fact]
-        public void GivenPerSeamSettings_WhenBound_ThenOverridesApply()
+        public void GivenCaseInsensitiveKeysAndValues_WhenBound_ThenTheyApply()
         {
-            CoreFeatureConfiguration configuration = Bind(new Dictionary<string, string>
+            FhirSdkProviderConfiguration configuration = Bind(new Dictionary<string, string>
             {
-                ["CoreFeatures:FhirSdkProvider:Default"] = "Ignixa",
-                ["CoreFeatures:FhirSdkProvider:FhirPath"] = "Firely",
+                [$"{Section}:systemdefault"] = "ignixa",
+                [$"{Section}:FHIRPATH"] = "FIRELY",
             });
 
-            Assert.Equal(FhirSdkProvider.Ignixa, configuration.FhirSdkProvider.EffectiveImport);
-            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveFhirPath);
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.EffectiveImport);
+            Assert.Equal(FhirSdkProvider.Firely, configuration.EffectiveFhirPath);
+        }
+
+        [Fact]
+        public void GivenSingleProviderValue_WhenValidated_ThenStartupFails()
+        {
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => Bind(
+                new Dictionary<string, string> { [Section] = "Ignixa" }));
+
+            Assert.Contains($"{Section}:SystemDefault", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenSingleProviderValueAndOverrideFromSeparateSources_WhenValidated_ThenStartupFails()
+        {
+            Assert.Throws<InvalidOperationException>(() => Bind(
+                new Dictionary<string, string> { [$"{Section}:FhirPath"] = "Firely" },
+                new Dictionary<string, string> { [Section] = "Ignixa" }));
         }
 
         [Theory]
-        [InlineData("Bogus")]
-        [InlineData("1")]
-        [InlineData("")]
-        public void GivenInvalidLegacyScalarSetting_WhenBound_ThenBindingFails(string value)
+        [InlineData("Default")]
+        [InlineData("FhirPth")]
+        public void GivenUnknownSetting_WhenValidated_ThenStartupFails(string key)
         {
-            Assert.Throws<InvalidOperationException>(() => Bind(new Dictionary<string, string>
-            {
-                ["CoreFeatures:FhirSdkProvider"] = value,
-            }));
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => Bind(
+                new Dictionary<string, string> { [$"{Section}:{key}"] = "Ignixa" }));
+
+            Assert.Contains(key, exception.Message, StringComparison.Ordinal);
         }
 
-        private static CoreFeatureConfiguration Bind(IDictionary<string, string> settings)
+        [Theory]
+        [InlineData("SystemDefault", "Bogus")]
+        [InlineData("SystemDefault", "1")]
+        [InlineData("FhirPath", "5")]
+        [InlineData("Import", "")]
+        public void GivenInvalidProviderValue_WhenValidated_ThenStartupFails(string key, string value)
         {
-            IConfiguration root = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+            Assert.Throws<InvalidOperationException>(() => Bind(
+                new Dictionary<string, string> { [$"{Section}:{key}"] = value }));
+        }
+
+        // Mirrors AddFhirServer: validate the provider section, then bind the configuration.
+        private static FhirSdkProviderConfiguration Bind(params IDictionary<string, string>[] sources)
+        {
+            var builder = new ConfigurationBuilder();
+            foreach (IDictionary<string, string> source in sources)
+            {
+                builder.AddInMemoryCollection(source);
+            }
+
+            IConfigurationRoot root = builder.Build();
+            FhirSdkProviderConfiguration.Validate(root.GetSection(Section));
+
             var configuration = new CoreFeatureConfiguration();
-            root.GetSection("CoreFeatures").Bind(configuration);
-            return configuration;
+            root.GetSection("FhirServer:CoreFeatures").Bind(configuration);
+            return configuration.FhirSdkProvider;
         }
     }
 }

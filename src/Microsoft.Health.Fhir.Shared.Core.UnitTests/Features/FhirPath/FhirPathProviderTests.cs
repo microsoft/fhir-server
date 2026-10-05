@@ -269,6 +269,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             }
         }
 
+        [Theory]
+        [InlineData("root", "patient-1", "patient-1", "Patient")]
+        [InlineData("child", "patient-1", "patient-1", "Patient")]
+        [InlineData("contained", "org-contained", "patient-1", "Organization")]
+        [InlineData("childOfContained", "org-contained", "patient-1", "Organization")]
+        public void GivenScopedInput_WhenCallerContextIsEmpty_ThenEitherProviderDerivesResourceAndRootResource(
+            string inputKind,
+            string expectedResourceId,
+            string expectedRootResourceId,
+            string expectedResourceType)
+        {
+            IFhirPathProvider[] providers =
+            [
+                new FirelyFhirPathProvider(),
+                CreateIgnixaProvider(),
+            ];
+
+            foreach (IFhirPathProvider provider in providers)
+            {
+                ITypedElement input = SelectScopedInput(CreatePatientWithContainedOrganization(), inputKind);
+                EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+                Assert.Null(context.Resource);
+                Assert.Null(context.RootResource);
+
+                string[] resourceIds = Normalize(provider.Compile("%resource.id").Select(input, context));
+                string[] rootResourceIds = Normalize(provider.Compile("%rootResource.id").Select(input, context));
+
+                string providerName = provider.GetType().Name;
+                Assert.True(
+                    resourceIds.SequenceEqual([$"System.String|{expectedResourceId}"]),
+                    $"{providerName} %resource.id for '{inputKind}' was [{string.Join(", ", resourceIds)}].");
+                Assert.True(
+                    rootResourceIds.SequenceEqual([$"System.String|{expectedRootResourceId}"]),
+                    $"{providerName} %rootResource.id for '{inputKind}' was [{string.Join(", ", rootResourceIds)}].");
+                Assert.Equal(expectedResourceType, context.Resource?.InstanceType);
+                Assert.Equal(expectedResourceId, context.Resource?.Children("id").Single().Value);
+                Assert.Equal("Patient", context.RootResource?.InstanceType);
+                Assert.Equal(expectedRootResourceId, context.RootResource?.Children("id").Single().Value);
+            }
+        }
+
         [Fact]
         public async Task GivenVersionedResourceCorpus_WhenGeneratedAndResolverExpressionsAreEvaluated_ThenResultsMatch()
         {
@@ -516,6 +557,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
         private static IFhirPathProvider CreateIgnixaProvider()
             => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+
+        private static ScopedNode CreatePatientWithContainedOrganization()
+            => new Patient
+            {
+                Id = "patient-1",
+                Name = [new HumanName { Family = "Root" }],
+                Contained = [new Organization { Id = "org-contained", Name = "Contained" }],
+                ManagingOrganization = new ResourceReference("#org-contained"),
+            }.ToTypedElement().ToScopedNode();
+
+        private static ITypedElement SelectScopedInput(ScopedNode patient, string inputKind)
+            => inputKind switch
+            {
+                "root" => patient,
+                "child" => patient.Children("name").Single(),
+                "contained" => patient.Children("contained").Single(),
+                "childOfContained" => patient.Children("contained").Single().Children("name").Single(),
+                _ => throw new ArgumentOutOfRangeException(nameof(inputKind), inputKind, null),
+            };
 
         private static ResourceElement[] GetResourceCorpus()
             =>

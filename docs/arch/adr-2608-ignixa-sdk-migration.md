@@ -23,6 +23,8 @@ FHIR behavior and persisted data must remain compatible throughout the migration
 
 We will adopt Ignixa incrementally through narrow, capability-specific seams. Each seam selects exactly one implementation at startup, defaults to Firely until Ignixa is approved for that capability, and supports rollback through configuration without rewriting persisted data. Production requests will not silently fall back from Ignixa to Firely; failures must remain observable.
 
+Selection is configured under `FhirServer:CoreFeatures:FhirSdkProvider`: `SystemDefault` applies to every seam, and a seam-specific key (for example `Import` or `FhirPath`) overrides it for that seam only. Startup fails on a single-value `FhirSdkProvider` setting, an unknown key, or an unrecognized provider name, so a mistyped rollback setting cannot be silently ignored.
+
 We will not introduce a single facade for the entire FHIR SDK. Existing focused contracts will be reused, and new abstractions will be limited to capabilities that do not already have an appropriate boundary. A seam must include every path that produces or regenerates the same persisted or externally visible representation; for example, indexing and reindexing cannot select different providers.
 
 A seam may be enabled only after production-shaped tests demonstrate semantic parity, compatibility with supported FHIR versions, and acceptable performance. Firely will be removed only after all supported runtime behavior has migrated and the compatibility layer is no longer required.
