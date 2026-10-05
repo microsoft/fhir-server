@@ -87,19 +87,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             foreach (var searchParameterRow in resourceAndSearchParameters)
             {
-                foreach (SearchParameterInfo parameterInfo in searchParameterRow.parameters)
+                foreach (SearchParameterInfo parameterInfo in searchParameterRow.parameters.Where(p => p.Code != "_type" && p.VectorConfig == null))
                 {
-                    if (parameterInfo.Code != "_type" && parameterInfo.VectorConfig == null)
+                    var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
+                    if (converters.All(x => x.hasConverter == false))
                     {
-                        var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
-                        if (converters.All(x => x.hasConverter == false))
-                        {
-                            unsupported.Unsupported.Add(parameterInfo.Url);
-                        }
-                        else if (converters.Any(x => x.hasConverter == false))
-                        {
-                            unsupported.PartialSupport.Add(parameterInfo.Url);
-                        }
+                        unsupported.Unsupported.Add(parameterInfo.Url);
+                    }
+                    else if (converters.Any(x => x.hasConverter == false))
+                    {
+                        unsupported.PartialSupport.Add(parameterInfo.Url);
                     }
                 }
             }
