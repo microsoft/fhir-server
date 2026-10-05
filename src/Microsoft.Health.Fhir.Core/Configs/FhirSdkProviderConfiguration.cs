@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Globalization;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 
@@ -68,10 +67,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
                         $"'{setting.Path}' is not a supported setting. Supported settings: {string.Join(", ", KnownKeys)}.");
                 }
 
-                if (setting.Value is null
-                    || int.TryParse(setting.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
-                    || !Enum.TryParse(setting.Value, ignoreCase: true, out FhirSdkProvider provider)
-                    || !Enum.IsDefined(provider))
+                // Match a single provider name exactly: Enum.TryParse would also accept numbers and
+                // comma-separated names ("Firely, Ignixa" parses as Ignixa).
+                if (!Enum.GetNames<FhirSdkProvider>().Contains(setting.Value?.Trim(), StringComparer.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(
                         $"'{setting.Path}' has unsupported value '{setting.Value}'. Expected one of: {string.Join(", ", Enum.GetNames<FhirSdkProvider>())}.");
