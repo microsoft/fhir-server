@@ -19,6 +19,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private const int DefaultChannelMaxCapacity = 500;
 
+        // SearchParameter cannot be registered by import. The remaining types are profile resources whose
+        // create/update requires the editProfileDefinitions data action, which the import data action does not grant;
+        // import runs as a background job with no caller principal, so that role cannot be checked at write time.
+        private static readonly HashSet<string> ResourceTypesNotSupportedByImport = new(StringComparer.Ordinal)
+        {
+            "SearchParameter",
+            "StructureDefinition",
+            "ValueSet",
+            "CodeSystem",
+        };
+
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IImportResourceParser _importResourceParser;
         private IImportErrorSerializer _importErrorSerializer;
@@ -152,16 +163,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new FormatException("Resource type not match.");
                 }
 
-                if (importResource.ResourceWrapper != null && importResource.ResourceWrapper.ResourceTypeName.Equals("SearchParameter", StringComparison.Ordinal))
+                if (importResource.ResourceWrapper != null && ResourceTypesNotSupportedByImport.Contains(importResource.ResourceWrapper.ResourceTypeName))
                 {
-                    throw new ArgumentException("SearchParameter resources cannot be processed by import.");
-                }
-
-                // Writing a StructureDefinition requires the editProfileDefinitions data action, which the import data
-                // action does not grant. Import runs as a background job with no caller principal, so it cannot be checked here.
-                if (importResource.ResourceWrapper != null && importResource.ResourceWrapper.ResourceTypeName.Equals("StructureDefinition", StringComparison.Ordinal))
-                {
-                    throw new ArgumentException("StructureDefinition resources cannot be processed by import.");
+                    throw new ArgumentException($"{importResource.ResourceWrapper.ResourceTypeName} resources cannot be processed by import.");
                 }
             }
             catch (Exception ex)

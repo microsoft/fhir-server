@@ -43,9 +43,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData(":below", "urn")]
         public async Task GivenAUriSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.ValueSet, $"url{modifier}={HttpUtility.UrlEncode(queryValue)}&_tag={_fixture.FixtureTag}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.ConceptMap, $"url{modifier}={HttpUtility.UrlEncode(queryValue)}&_tag={_fixture.FixtureTag}");
 
-            ValueSet[] expected = expectedIndices.Select(i => _fixture.ValueSets[i]).ToArray();
+            ConceptMap[] expected = expectedIndices.Select(i => _fixture.ConceptMaps[i]).ToArray();
 
             ImportTestHelper.VerifyBundle(bundle, expected);
         }

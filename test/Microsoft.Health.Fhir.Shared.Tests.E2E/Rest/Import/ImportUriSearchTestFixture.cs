@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
         }
 
-        public IReadOnlyList<ValueSet> ValueSets { get; private set; }
+        public IReadOnlyList<ConceptMap> ConceptMaps { get; private set; }
 
         public string FixtureTag { get; set; }
 
@@ -26,19 +26,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             FixtureTag = Guid.NewGuid().ToString();
 
-            ValueSets = await ImportTestHelper.ImportToServerAsync<ValueSet>(
+            // ValueSet, CodeSystem, and StructureDefinition cannot be imported, so ConceptMap provides the uri search param here.
+            ConceptMaps = await ImportTestHelper.ImportToServerAsync<ConceptMap>(
                 TestFhirClient,
                 StorageAccount,
-                vs => AddValueSet(vs, "http://somewhere.com/test/system"),
-                vs => AddValueSet(vs, "urn://localhost/test"),
-                vs => AddValueSet(vs, "http://example.org/rdf#54135-9"),
-                vs => AddValueSet(vs, "http://example.org/rdf#54135-9-9"));
+                cm => AddConceptMap(cm, "http://somewhere.com/test/system"),
+                cm => AddConceptMap(cm, "urn://localhost/test"),
+                cm => AddConceptMap(cm, "http://example.org/rdf#54135-9"),
+                cm => AddConceptMap(cm, "http://example.org/rdf#54135-9-9"));
 
-            void AddValueSet(ValueSet vs, string url)
+            void AddConceptMap(ConceptMap conceptMap, string url)
             {
-                vs.Status = PublicationStatus.Active;
-                vs.Url = url;
-                vs.AddTestTag(FixtureTag);
+                conceptMap.Status = PublicationStatus.Active;
+                conceptMap.Url = url;
+                conceptMap.AddTestTag(FixtureTag);
             }
         }
     }

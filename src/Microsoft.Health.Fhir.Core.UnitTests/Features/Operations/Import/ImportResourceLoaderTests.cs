@@ -136,16 +136,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(1, errorCount);
         }
 
-        [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesWithSearchParameterResourceType_ThenResourcesWithSearchParameterTypeShouldBeSkipped()
+        [Theory]
+        [InlineData("SearchParameter")]
+        [InlineData("StructureDefinition")]
+        [InlineData("ValueSet")]
+        [InlineData("CodeSystem")]
+        public async Task GivenResourceLoader_WhenLoadResourcesWithUnsupportedResourceType_ThenThoseResourcesShouldBeSkipped(string resourceTypeName)
         {
-            await VerifyResourceTypeIsSkippedAsync("SearchParameter", "SearchParameter resources cannot be processed by import.");
-        }
-
-        [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesWithStructureDefinitionResourceType_ThenResourcesWithStructureDefinitionTypeShouldBeSkipped()
-        {
-            await VerifyResourceTypeIsSkippedAsync("StructureDefinition", "StructureDefinition resources cannot be processed by import.");
+            await VerifyResourceTypeIsSkippedAsync(resourceTypeName, $"{resourceTypeName} resources cannot be processed by import.");
         }
 
         private static async Task VerifyResourceTypeIsSkippedAsync(string resourceTypeName, string errorMessage)
