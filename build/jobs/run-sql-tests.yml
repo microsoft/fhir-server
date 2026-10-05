@@ -22,7 +22,7 @@ parameters:
 - name: testRunTitleSuffix
   type: string
   default: ''
-- name: expectedFhirSdkProviderDefault
+- name: expectedFhirSdkProviderSystemDefault
   type: string
   default: ''
 - name: expectedSqlDatabaseName
@@ -138,7 +138,7 @@ jobs:
       appServiceType: 'SqlServer'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
       testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }}'
-      expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+      expectedFhirSdkProviderSystemDefault: '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
       expectedKeyVaultName: '${{ parameters.keyVaultName }}'
       expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
 
@@ -161,7 +161,7 @@ jobs:
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=IndexAndReindex'
         testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} Reindex'
-        expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+        expectedFhirSdkProviderSystemDefault: '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
         expectedKeyVaultName: '${{ parameters.keyVaultName }}'
         expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
 
@@ -184,6 +184,6 @@ jobs:
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=BulkUpdate'
         testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} BulkUpdate'
-        expectedFhirSdkProviderDefault: '${{ parameters.expectedFhirSdkProviderDefault }}'
+        expectedFhirSdkProviderSystemDefault: '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
         expectedKeyVaultName: '${{ parameters.keyVaultName }}'
         expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'

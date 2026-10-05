@@ -37,8 +37,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "FHIR SDK providers configured: Default={DefaultProvider}; Import={ImportProvider}; FHIRPath={FhirPathProvider}. FHIRPath Patch remains Firely-backed.",
-                _configuration.Default,
+                "FHIR SDK providers configured: SystemDefault={SystemDefaultProvider}; Import={ImportProvider}; FHIRPath={FhirPathProvider}. FHIRPath Patch remains Firely-backed.",
+                _configuration.SystemDefault,
                 _configuration.EffectiveImport,
                 _configuration.EffectiveFhirPath);
             return Task.CompletedTask;

@@ -28,7 +28,7 @@ param(
     [Parameter(Mandatory = $false)] [string] $SqlServerName = '',
     [Parameter(Mandatory = $false)] [string] $SqlElasticPoolName = '',
     [Parameter(Mandatory = $false)] [string] $SqlDatabaseName = '',
-    [Parameter(Mandatory = $false)] [ValidateSet('', 'Firely', 'Ignixa')] [string] $FhirSdkProviderDefault = '',
+    [Parameter(Mandatory = $false)] [ValidateSet('', 'Firely', 'Ignixa')] [string] $FhirSdkProviderSystemDefault = '',
     [Parameter(Mandatory = $false)] [string] $SchemaAutomaticUpdatesEnabled = 'auto',
     [Parameter(Mandatory = $false)] [string] $ReindexEnabled = 'true',
 
@@ -77,17 +77,17 @@ $additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"]
 $additionalProperties["FhirServer__Operations__Import__InMemoryTestEnabled"] = $importInMemoryTestEnabledBool.ToString().ToLowerInvariant()
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
-$fhirSdkProviderSettingName = "FhirServer__CoreFeatures__FhirSdkProvider__Default"
+$fhirSdkProviderSettingName = "FhirServer__CoreFeatures__FhirSdkProvider__SystemDefault"
 if ($DataStore -eq 'sql') {
     $configuredProvider = [string]$additionalProperties[$fhirSdkProviderSettingName]
     if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -notin @('Firely', 'Ignixa')) {
         throw "Configured FHIR SDK provider '$configuredProvider' is unsupported."
     }
-    if (-not [string]::IsNullOrWhiteSpace($FhirSdkProviderDefault)) {
-        if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -ne $FhirSdkProviderDefault) {
-            throw "Deployment FHIR SDK provider '$FhirSdkProviderDefault' conflicts with configured provider '$configuredProvider'."
+    if (-not [string]::IsNullOrWhiteSpace($FhirSdkProviderSystemDefault)) {
+        if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -ne $FhirSdkProviderSystemDefault) {
+            throw "Deployment FHIR SDK provider '$FhirSdkProviderSystemDefault' conflicts with configured provider '$configuredProvider'."
         }
-        $additionalProperties[$fhirSdkProviderSettingName] = $FhirSdkProviderDefault
+        $additionalProperties[$fhirSdkProviderSettingName] = $FhirSdkProviderSystemDefault
     }
 }
 

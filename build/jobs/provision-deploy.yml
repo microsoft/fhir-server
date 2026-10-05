@@ -34,7 +34,7 @@ parameters:
 - name: sqlDatabaseName
   type: string
   default: ''
-- name: fhirSdkProviderDefault
+- name: fhirSdkProviderSystemDefault
   type: string
   default: ''
 - name: keyVaultName
@@ -78,7 +78,7 @@ jobs:
         -SqlServerName "${{ parameters.sqlServerName }}"
         -SqlElasticPoolName "${{ parameters.sqlElasticPoolName }}"
         -SqlDatabaseName "${{ parameters.sqlDatabaseName }}"
-        -FhirSdkProviderDefault "${{ parameters.fhirSdkProviderDefault }}"
+        -FhirSdkProviderSystemDefault "${{ parameters.fhirSdkProviderSystemDefault }}"
         -SchemaAutomaticUpdatesEnabled "${{ parameters.schemaAutomaticUpdatesEnabled }}"
         -ReindexEnabled "${{ parameters.reindexEnabled }}"
         -ImportInMemoryTestEnabled "$(importInMemoryTestEnabled)"
