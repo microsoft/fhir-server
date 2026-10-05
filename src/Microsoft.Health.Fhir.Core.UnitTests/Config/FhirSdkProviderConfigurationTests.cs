@@ -120,6 +120,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
         [InlineData("SystemDefault", "1")]
         [InlineData("FhirPath", "5")]
         [InlineData("Import", "")]
+        [InlineData("SystemDefault", "Firely, Ignixa")]
+        [InlineData("FhirPath", "Firely,Ignixa")]
+        [InlineData("Import", "Ignixa, Firely")]
         public void GivenInvalidProviderValue_WhenValidated_ThenStartupFails(string key, string value)
         {
             Assert.Throws<InvalidOperationException>(() => Bind(
