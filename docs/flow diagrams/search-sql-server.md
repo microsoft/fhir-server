@@ -37,8 +37,8 @@ already supplied to the search pipeline. Ordinary searches use `Patient?...`, hi
 `Patient/_history?...`, and compartment searches omit the compartment ID and use
 `Patient/$compartment/Observation?...`. Names are sorted using ordinal ordering and repeated names are retained,
 so changing parameter values or query-string order does not change the annotation. Parameter values and
-compartment IDs are never included. Unsafe comment/control characters are replaced, and output longer than 256
-characters is truncated to 255 characters plus `~`.
+compartment IDs are never included. Unsafe comment/control characters are replaced, and output longer than 1024
+characters is truncated to 1023 characters plus `~`.
 
 This SQL generation path is used by ordinary, compartment, and history searches, including the internal
 search phases used by Patient `$everything`. The annotation describes the generated target-resource query

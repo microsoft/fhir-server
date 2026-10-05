@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     internal static class FhirQueryNormalizer
     {
-        internal const int MaximumLength = 256;
+        internal const int MaximumLength = 1024;
 
         internal static string Normalize(
             string resourceType,

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -49,20 +50,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.DoesNotContain('\u0001', result);
         }
 
-        [Fact]
-        public void GivenNormalizedQueryExceedsMaximumLength_WhenNormalized_ThenOutputIsDeterministicallyTruncated()
+        [Theory]
+        [InlineData(1023, false)]
+        [InlineData(1024, false)]
+        [InlineData(1025, true)]
+        public void GivenNormalizedQueryNearMaximumLength_WhenNormalized_ThenOutputIsBoundedAndDeterministic(int queryLength, bool shouldTruncate)
         {
             // Arrange
-            string[] parameterNames = [new string('a', FhirQueryNormalizer.MaximumLength)];
+            string[] parameterNames = [new string('a', queryLength - "Patient?".Length)];
+            string normalizedQuery = $"Patient?{parameterNames[0]}";
+            string expected = shouldTruncate ? $"{normalizedQuery[..1023]}~" : normalizedQuery;
 
             // Act
             string firstResult = FhirQueryNormalizer.Normalize("Patient", parameterNames);
             string secondResult = FhirQueryNormalizer.Normalize("Patient", parameterNames);
 
             // Assert
-            Assert.Equal(FhirQueryNormalizer.MaximumLength, firstResult.Length);
-            Assert.EndsWith("~", firstResult, StringComparison.Ordinal);
+            Assert.Equal(expected, firstResult);
             Assert.Equal(firstResult, secondResult);
+        }
+
+        [Fact]
+        public void GivenManyRepeatedSecurityParameters_WhenNormalized_ThenFullShapeIsPreserved()
+        {
+            // Arrange
+            string[] parameterNames = ["patient", "date", "category", "_total", .. Enumerable.Repeat("_security:not", 47)];
+            string expected = $"Observation?{string.Concat(Enumerable.Repeat("_security:not&", 47))}_total&category&date&patient";
+
+            // Act
+            string result = FhirQueryNormalizer.Normalize("Observation", parameterNames);
+
+            // Assert
+            Assert.Equal(698, result.Length);
+            Assert.Equal(expected, result);
         }
 
         [Fact]
