@@ -159,6 +159,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenARelatedIncludesLink_WhenSummaryCountIsSpecified_ThenBundleTotalCountsIncludedResources()
+        {
+            await AssertRelatedIncludesSummaryCount(removeIncludesCount: false);
+        }
+
+        [Fact]
+        public async Task GivenARelatedIncludesLinkWithoutIncludesCount_WhenSummaryCountIsSpecified_ThenBundleTotalCountsIncludedResources()
+        {
+            await AssertRelatedIncludesSummaryCount(removeIncludesCount: true);
+        }
+
+        private async Task AssertRelatedIncludesSummaryCount(bool removeIncludesCount)
+        {
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+
+            const int includesCount = 1;
+            var query = TagQuery($"_include=Patient:general-practitioner&_includesCount={includesCount}");
+            var initialResponse = await Client.SearchAsync(ResourceType.Patient, query);
+            var patientResources = initialResponse.Resource.Entry
+                .Where(x => x.Search.Mode == SearchEntryMode.Match)
+                .Select(x => x.Resource)
+                .ToList();
+            var expectedIncludedResources = _fixture.RelatedResourcesFor(
+                    patientResources,
+                    new[] { KnownResourceTypes.Practitioner })
+                .Values
+                .SelectMany(x => x)
+                .ToList();
+            var initialIncludedResources = initialResponse.Resource.Entry
+                .Where(x => x.Search.Mode == SearchEntryMode.Include)
+                .Select(x => x.Resource)
+                .ToList();
+            var expectedIncludedResourceCount = expectedIncludedResources.Count(
+                expectedResource => !initialIncludedResources.Any(initialResource => initialResource.IsExactly(expectedResource)));
+            var relatedLink = initialResponse.Resource.Link?
+                .Where(x => x.Relation.Equals("related", StringComparison.Ordinal))
+                .Select(x => x.Url)
+                .FirstOrDefault();
+
+            Assert.NotNull(relatedLink);
+
+            if (removeIncludesCount)
+            {
+                relatedLink = RemoveQueryParameter(relatedLink!, KnownQueryParameterNames.IncludesCount);
+            }
+
+            var summaryCountResponse = await Client.SearchAsync($"{relatedLink!}&_summary=count");
+            var expectedTotal = removeIncludesCount
+                ? expectedIncludedResourceCount
+                : Math.Min(expectedIncludedResourceCount, includesCount + 1);
+
+            Assert.Equal(HttpStatusCode.OK, summaryCountResponse.StatusCode);
+            Assert.Equal(expectedTotal, summaryCountResponse.Resource.Total);
+        }
+
+        [Fact]
         public async Task GivenIterativeIncludes_WhenThereAreMultiplePagesOfIncludedResources_ThenWarningIsReturned()
         {
             Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
@@ -191,6 +247,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains(relatedResources, resource => resource.TypeName.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase));
             Assert.Equal(10, matchedResources.Count);
             Assert.NotNull(operationOutcome);
+        }
+
+        private static string RemoveQueryParameter(string url, string parameterName)
+        {
+            var uri = new Uri(url);
+            var queryParameters = uri.Query.TrimStart('?')
+                .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Where(queryParameter => !queryParameter.StartsWith($"{parameterName}=", StringComparison.OrdinalIgnoreCase));
+
+            return $"{uri.GetLeftPart(UriPartial.Path)}?{string.Join("&", queryParameters)}";
         }
 
         private void ValidateRelatedResources(

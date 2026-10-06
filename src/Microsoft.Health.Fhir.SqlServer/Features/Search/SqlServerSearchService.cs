@@ -2003,9 +2003,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
-            if (clonedSearchOptions.CountOnly)
+            if (clonedSearchOptions.CountOnly && !sqlSearchOptions.IsIncludesOperation)
             {
-                // if we're only returning a count, discard any _include parameters since included resources are not counted.
+                // For regular search, count-only strips include/revinclude clauses because the count applies to the base match set.
+                // For $includes operations, we intentionally keep the include clauses so the count applies to the included resources.
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 

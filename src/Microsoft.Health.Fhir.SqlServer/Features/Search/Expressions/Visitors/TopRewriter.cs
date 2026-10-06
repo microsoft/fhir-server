@@ -17,7 +17,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {
-            if (context.CountOnly || expression.SearchParamTableExpressions.Count == 0)
+            // For $includes operations with count-only, we still need the main CTE to count included resources.
+            // For regular searches, count-only doesn't need Top since we're only counting the base match set.
+            bool isIncludesCountOnly = context.CountOnly && context.IsIncludesOperation;
+
+            if ((context.CountOnly && !isIncludesCountOnly) || expression.SearchParamTableExpressions.Count == 0)
             {
                 return expression;
             }

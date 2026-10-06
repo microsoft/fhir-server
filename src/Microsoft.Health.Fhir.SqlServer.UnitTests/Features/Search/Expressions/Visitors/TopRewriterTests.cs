@@ -7,6 +7,7 @@ using System;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -42,12 +43,43 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var searchOptions = new SearchOptions { CountOnly = true };
 
+            Assert.False(searchOptions.IsIncludesOperation);
+
             // Act
             var result = TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
 
             // Assert - Should return unchanged for count-only queries
             Assert.Same(sqlRoot, result);
             Assert.Single(((SqlRootExpression)result).SearchParamTableExpressions);
+        }
+
+        [Fact]
+        public void GivenCountOnlyIncludesQuery_WhenVisited_ThenAddsTopExpression()
+        {
+            // Arrange
+            var stringExpression = Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(TestSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+
+            var searchOptions = new SearchOptions
+            {
+                CountOnly = true,
+                IncludesContinuationToken = new IncludesContinuationToken(
+                    new object[] { (short)10, 100L, 300L, null, null, false, null, null, 1 }).ToJson(),
+            };
+
+            Assert.True(searchOptions.CountOnly);
+            Assert.True(searchOptions.IsIncludesOperation);
+
+            // Act
+            var result = (SqlRootExpression)TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
+
+            // Assert - Count-only include replay still requires TOP for included resource counting
+            Assert.NotSame(sqlRoot, result);
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            Assert.Same(searchParamExpression, result.SearchParamTableExpressions[0].Predicate);
+            Assert.Equal(SearchParamTableExpressionKind.Top, result.SearchParamTableExpressions[1].Kind);
         }
 
         [Fact]
