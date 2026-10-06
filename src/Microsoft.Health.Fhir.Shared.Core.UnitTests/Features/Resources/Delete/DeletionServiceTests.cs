@@ -302,6 +302,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
 
             // Act & Assert
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Page 1 had already been queued (and was legitimately authorized) before page 2 was denied, so it
+            // must still have been deleted; page 2's protected resource must never have been deleted.
+            await fhirDataStore.Received(1).HardDeleteAsync(Arg.Is<ResourceKey>(k => k.ResourceType == "Provenance"), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(Arg.Is<ResourceKey>(k => k.ResourceType == "StructureDefinition"), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
 
         private static SearchResultEntry CreateSearchResultEntry(string resourceType, string resourceId, SearchEntryMode searchEntryMode)
