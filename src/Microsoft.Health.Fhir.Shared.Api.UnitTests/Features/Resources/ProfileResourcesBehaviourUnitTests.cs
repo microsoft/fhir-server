@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Resources;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -147,6 +148,96 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                         x,
                         default);
                 });
+        }
+
+        [Fact]
+        public async Task GivenConditionalDeleteResourceRequest_WhenHandling_ThenRequestShouldBeHandledSuccessfully()
+        {
+            await Run<DeleteResourceResponse>(
+                x =>
+                {
+                    return _profileResourcesBehaviour.HandleAsync(
+                        new ConditionalDeleteResourceRequest(
+                            KnownResourceTypes.ValueSet,
+                            new List<Tuple<string, string>>(),
+                            DeleteOperation.SoftDelete,
+                            maxDeleteCount: 1),
+                        x,
+                        default);
+                });
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.SoftDelete, 1)]
+        [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.HardDelete, 100)]
+        [InlineData(KnownResourceTypes.CodeSystem, DeleteOperation.SoftDelete, 100)]
+        [InlineData(KnownResourceTypes.StructureDefinition, DeleteOperation.HardDelete, 1)]
+        public async Task GivenCallerWithoutEditProfileDefinitions_WhenConditionallyDeletingAProfileResource_ThenAccessIsDeniedBeforeTheRequestIsHandled(
+            string resourceType,
+            DeleteOperation deleteOperation,
+            int maxDeleteCount)
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<DeleteResourceResponse>>();
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _profileResourcesBehaviour.HandleAsync(
+                new ConditionalDeleteResourceRequest(
+                    resourceType,
+                    new List<Tuple<string, string>>(),
+                    deleteOperation,
+                    maxDeleteCount: maxDeleteCount),
+                requestHandlerDelegate,
+                default));
+
+            // The handler - and with it the conditional search and every delete - is never reached.
+            await requestHandlerDelegate.DidNotReceive().Invoke();
+            _profilesResolver.DidNotReceive().Refresh();
+        }
+
+        [Fact]
+        public async Task GivenCallerWithoutEditProfileDefinitions_WhenConditionallyDeletingAProfileResourceInsideABundle_ThenAccessIsDenied()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            var bundleResourceContext = new BundleResourceContext(
+                bundleType: Hl7.Fhir.Model.Bundle.BundleType.Batch,
+                processingLogic: BundleProcessingLogic.Parallel,
+                httpVerb: Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE,
+                persistedId: null,
+                bundleOperationId: Guid.NewGuid());
+
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<DeleteResourceResponse>>();
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _profileResourcesBehaviour.HandleAsync(
+                new ConditionalDeleteResourceRequest(
+                    KnownResourceTypes.ValueSet,
+                    new List<Tuple<string, string>>(),
+                    DeleteOperation.SoftDelete,
+                    maxDeleteCount: 100,
+                    bundleResourceContext: bundleResourceContext),
+                requestHandlerDelegate,
+                default));
+
+            await requestHandlerDelegate.DidNotReceive().Invoke();
+        }
+
+        [Fact]
+        public async Task GivenCallerWithEditProfileDefinitions_WhenConditionallyDeletingAnOrdinaryResource_ThenRequestIsBypassed()
+        {
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<DeleteResourceResponse>>();
+
+            await _profileResourcesBehaviour.HandleAsync(
+                new ConditionalDeleteResourceRequest(
+                    KnownResourceTypes.Patient,
+                    new List<Tuple<string, string>>(),
+                    DeleteOperation.SoftDelete,
+                    maxDeleteCount: 1),
+                requestHandlerDelegate,
+                default);
+
+            await requestHandlerDelegate.Received(1).Invoke();
+            _profilesResolver.DidNotReceive().Refresh();
         }
 
         [Fact]
