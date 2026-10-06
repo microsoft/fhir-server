@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         public Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken);
 
-        public Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null);
+        public Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null, Action<string, long> onProfileResourceSkipped = null);
     }
 }
