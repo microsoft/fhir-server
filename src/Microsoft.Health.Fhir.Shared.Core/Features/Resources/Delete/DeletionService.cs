@@ -356,10 +356,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     await Task.WhenAll(deleteTasks);
                 }
-                catch
+                catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
                 {
-                    // Prior-page delete tasks may fault or report cancellation as a side effect of the cancellation
-                    // above; the authorization exception being propagated is what should surface to the caller.
+                    // Prior-page delete tasks may fault as a side effect of the cancellation above; log them for
+                    // visibility, but the authorization exception being propagated below is what should surface to
+                    // the caller.
+                    foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException))
+                    {
+                        _logger.LogError(coreException, "Error deleting a prior page while propagating an authorization denial.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error deleting a prior page while propagating an authorization denial.");
                 }
 
                 throw;
