@@ -551,7 +551,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = _queryHashCalculator.CalculateHash(queryText);
+                            queryText = queryGenerator.CalculateHashThenAddNormalizedQueryShape(queryText, clonedSearchOptions.NormalizedQueryShape, _queryHashCalculator, out var queryHash);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
@@ -1176,7 +1176,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         /// <summary>
         /// Extracts the parameter hash value from a query text that contains a
-        /// <c>/* HASH {base64hash} params=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>.
+        /// <c>/* HASH {base64hash} params=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>,
+        /// optionally annotated with a <c>fhir=...</c> query shape.
         /// Returns <c>null</c> if no hash comment is found.
         /// </summary>
         internal static string ExtractParameterHash(string queryText)
@@ -2053,7 +2054,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = _queryHashCalculator.CalculateHash(queryText);
+                            queryText = queryGenerator.CalculateHashThenAddNormalizedQueryShape(queryText, clonedSearchOptions.NormalizedQueryShape, _queryHashCalculator, out var queryHash);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
