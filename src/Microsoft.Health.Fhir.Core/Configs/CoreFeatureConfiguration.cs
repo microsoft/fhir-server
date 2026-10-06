@@ -147,6 +147,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int SearchParameterCacheRefreshMaxInitialDelaySeconds { get; set; } = 15;
 
         /// <summary>
+        /// Gets or sets the number of consecutive failed refresh attempts the SearchParameter cache background
+        /// service will tolerate before emitting a failure metric. This prevents transient, single-run failures
+        /// (e.g. momentary database blips) from triggering alerts when a subsequent refresh is likely to succeed.
+        /// Default is 3 consecutive failures. Minimum is 1, which preserves immediate emission on the first failure.
+        /// </summary>
+        public int SearchParameterCacheRefreshConsecutiveFailureThreshold { get; set; } = 3;
+
+        /// <summary>
         /// Gets or sets the refresh interval in seconds for the SystemConformanceProvider cache background service.
         /// </summary>
         public int SystemConformanceProviderRefreshIntervalSeconds { get; set; } = 60;
