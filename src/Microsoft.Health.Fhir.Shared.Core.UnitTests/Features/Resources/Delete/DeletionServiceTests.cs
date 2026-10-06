@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Audit;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -25,6 +26,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -52,6 +55,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
+        private readonly ISupportedProfilesStore _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
+        private readonly IAuthorizationService<DataActions> _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
         private readonly ILogger<DeletionService> _logger = Substitute.For<ILogger<DeletionService>>();
         private readonly DeletionService _service;
 
@@ -69,6 +74,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 new Dictionary<string, StringValues>());
             _contextAccessor.RequestContext.Returns(dummyRequestContext);
 
+            _supportedProfiles.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
+
             _service = new DeletionService(
                 _resourceWrapperFactory,
                 _conformanceProvider,
@@ -81,6 +89,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 _fhirRuntimeConfiguration,
                 _searchParameterOperations,
                 _resourceDeserializer,
+                _supportedProfiles,
+                _authorizationService,
                 _logger);
         }
 
@@ -155,6 +165,109 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
+        }
+
+        [Fact]
+        public async Task GivenConditionalDeleteOfOrdinaryType_WhenIncludeResultIsAProfileResourceAndCallerLacksEditProfileDefinitions_ThenThrowsAndDeletesNothing()
+        {
+            // Arrange: deleting an ordinary "Provenance" type, but _include pulls in a protected
+            // StructureDefinition as part of the same page of results.
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Provenance:target") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var entries = new List<SearchResultEntry>
+            {
+                CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match),
+                CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Include),
+            };
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Caller has normal delete rights but not EditProfileDefinitions.
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenConditionalDeleteOfOrdinaryType_WhenIncludeResultIsAProfileResourceAndCallerHasEditProfileDefinitions_ThenDeletesSucceed()
+        {
+            // Arrange: same scenario as above, but the caller has EditProfileDefinitions.
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Provenance:target") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var entries = new List<SearchResultEntry>
+            {
+                CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match),
+                CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Include),
+            };
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Default constructor setup grants whatever DataActions are requested, including EditProfileDefinitions.
+
+            // Act
+            var result = await _service.DeleteMultipleAsync(request, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(2, result.Values.Sum());
+            await fhirDataStore.Received(2).HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        private static SearchResultEntry CreateSearchResultEntry(string resourceType, string resourceId, SearchEntryMode searchEntryMode)
+        {
+            var rawJson = $"{{\"resourceType\":\"{resourceType}\",\"id\":\"{resourceId}\"}}";
+            var resourceElement = new FhirJsonParser().Parse(rawJson).ToResourceElement();
+            var rawResource = new RawResource(rawJson, FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = Substitute.For<ResourceRequest>();
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+            return new SearchResultEntry(wrapper, searchEntryMode);
         }
 
         [Fact]

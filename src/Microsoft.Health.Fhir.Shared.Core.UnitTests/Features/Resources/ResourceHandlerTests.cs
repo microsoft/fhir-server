@@ -37,6 +37,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceDeserializer _deserializer;
         private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly ISupportedProfilesStore _supportedProfiles = CreateSupportedProfilesStore();
         private IAuthorizationService<DataActions> _authorizationService;
 
         public ResourceHandlerTests()
@@ -146,6 +148,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Substitute.For<IFhirRuntimeConfiguration>(),
                 Substitute.For<ISearchParameterOperations>(),
                 _deserializer,
+                _supportedProfiles,
+                _authorizationService,
                 logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
@@ -475,6 +479,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 null,
                 null,
                 0);
+        }
+
+        private static ISupportedProfilesStore CreateSupportedProfilesStore()
+        {
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
+            supportedProfiles.GetProfilesTypes().Returns(new HashSet<string>() { KnownResourceTypes.ValueSet, KnownResourceTypes.StructureDefinition, "CodeSystem" });
+            return supportedProfiles;
         }
 
         private ResourceWrapper CreateMockResourceWrapper(ResourceElement resource, bool isDeleted)
