@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         // A given search parameter can have multiple values. We want to keep track of which
         // of these values are the min and max for each parameter and mark the corresponding
         // SearchValue object appropriately.
-        private static void ExtractMinAndMaxValues(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        internal static void ExtractMinAndMaxValues(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
             var minValues = new Dictionary<Uri, ISupportSortSearchValue>();
             var maxValues = new Dictionary<Uri, ISupportSortSearchValue>();

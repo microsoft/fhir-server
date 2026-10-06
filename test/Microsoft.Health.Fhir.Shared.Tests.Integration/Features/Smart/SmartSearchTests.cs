@@ -1146,11 +1146,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // includes after the sorted filtered-data split, so the include compartment predicate must hold
             // there too: the subject include resolves to the compartment root (allowed) while the focus include
             // of smart-leak-child-obs-with-outside-focus points at the Parent (denied).
-            // NOTE: this test sorts by _lastUpdated. Sorting by a search parameter value (e.g. _sort=date)
-            // combined with a SMART compartment returns an empty result set even WITHOUT includes — a
-            // pre-existing defect on main in the sort-value/union interplay, unrelated to include
-            // authorization. Extend this test to _sort=<param> once that defect is fixed.
-            // Tracked by https://github.com/microsoft/fhir-server/issues/5672.
             var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
@@ -1159,7 +1154,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_tag", "testTag|smart-leak"));
-            query.Add(new Tuple<string, string>("_sort", "-_lastUpdated"));
+            query.Add(new Tuple<string, string>("_sort", "-date"));
             query.Add(new Tuple<string, string>("_include", "Observation:subject"));
             query.Add(new Tuple<string, string>("_include", "Observation:focus"));
 
@@ -1174,6 +1169,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // The Observation whose subject is the Parent must not be a match, and the Parent must not be included.
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == "smart-leak-focus-obs");
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-parent");
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenPatientScopeReadAll_WhenSortedBySearchParameter_ThenCompartmentMatchesAreReturnedInOrder()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child); the search sorts by an indexed
+            // search parameter, which takes the sort-value path rather than _lastUpdated.
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>
+            {
+                new("_tag", "testTag|smart-leak"),
+                new("_sort", "date"),
+            };
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            var matches = results.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Match)
+                .ToList();
+
+            // Assert ─ every in-compartment Observation is returned, ordered by effective date ascending.
+            Assert.Equal(
+                [
+                    "smart-leak-child-obs",
+                    "smart-leak-child-obs-with-outside-focus",
+                    "smart-leak-child-obs-outside-device",
+                ],
+                matches.Select(result => result.Resource.ResourceId));
         }
 
         [Fact]
