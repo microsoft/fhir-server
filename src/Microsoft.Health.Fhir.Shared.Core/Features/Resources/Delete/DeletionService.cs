@@ -352,24 +352,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // to settle before propagating the denial, so no delete task is left running in the background.
                 await cancellationTokenSource.CancelAsync();
 
-                try
-                {
-                    await Task.WhenAll(deleteTasks);
-                }
-                catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
-                {
-                    // Prior-page delete tasks may fault as a side effect of the cancellation above; log them for
-                    // visibility, but the authorization exception being propagated below is what should surface to
-                    // the caller.
-                    foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException))
-                    {
-                        _logger.LogError(coreException, "Error deleting a prior page while propagating an authorization denial.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error deleting a prior page while propagating an authorization denial.");
-                }
+                // ContinueWith (rather than awaiting the tasks directly) waits for the prior-page tasks to settle
+                // regardless of their outcome, without observing or rethrowing any fault or cancellation of its own -
+                // the authorization exception below is what must surface to the caller.
+                await Task.WhenAll(deleteTasks).ContinueWith(_ => { }, TaskScheduler.Default);
 
                 throw;
             }
