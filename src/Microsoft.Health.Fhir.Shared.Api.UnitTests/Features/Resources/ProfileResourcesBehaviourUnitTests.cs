@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
         [Theory]
         [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.SoftDelete, 1)]
         [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.HardDelete, 100)]
-        [InlineData(KnownResourceTypes.CodeSystem, DeleteOperation.SoftDelete, 100)]
+        [InlineData("CodeSystem", DeleteOperation.SoftDelete, 100)]
         [InlineData(KnownResourceTypes.StructureDefinition, DeleteOperation.HardDelete, 1)]
         public async Task GivenCallerWithoutEditProfileDefinitions_WhenConditionallyDeletingAProfileResource_ThenAccessIsDeniedBeforeTheRequestIsHandled(
             string resourceType,
