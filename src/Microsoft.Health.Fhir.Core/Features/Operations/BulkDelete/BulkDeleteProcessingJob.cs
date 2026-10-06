@@ -81,12 +81,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
-                // Accumulate counts here rather than writing directly to result.Issues from the callback, so that
-                // multiple pages/recursive calls reporting the same resource type collapse into a single message.
-                var skippedCounts = new Dictionary<string, long>();
                 void OnProfileResourceSkipped(string resourceType, long count)
                 {
-                    skippedCounts[resourceType] = skippedCounts.TryGetValue(resourceType, out long existing)
+                    result.ResourcesIgnored[resourceType] = result.ResourcesIgnored.TryGetValue(resourceType, out long existing)
                         ? existing + count
                         : count;
                 }
@@ -145,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     }
                 }
 
-                foreach (var (resourceType, count) in skippedCounts)
+                foreach (var (resourceType, count) in result.ResourcesIgnored)
                 {
                     result.Issues.Add($"Skipped {count} {resourceType} resource(s): profile defining resources (CodeSystem, ValueSet, StructureDefinition) are not supported for bulk delete and have not been deleted.");
                 }
