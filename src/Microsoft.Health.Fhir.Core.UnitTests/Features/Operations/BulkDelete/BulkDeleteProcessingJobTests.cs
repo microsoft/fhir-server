@@ -75,6 +75,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Fact]
+        public async Task GivenProcessingJob_WhenProfileResourcesAreSkipped_ThenResourcesAreIgnored()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "StructureDefinition", new List<Tuple<string, string>>(), new List<string>(), "https:\\test.com", "https:\\test.com", "test");
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
+                .Returns(callInfo =>
+                {
+                    callInfo.ArgAt<Action<string, long>>(3)("StructureDefinition", 2);
+                    return new Dictionary<string, long>();
+                });
+
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            Assert.Empty(result.ResourcesDeleted);
+            Assert.Equal(2, result.ResourcesIgnored["StructureDefinition"]);
+            Assert.Contains("Skipped 2 StructureDefinition resource(s)", Assert.Single(result.Issues));
+        }
+
+        [Fact]
         public async Task GivenProcessingJob_WhenJobIsRunWithMultipleResourceTypes_ThenFollowupJobIsCreated()
         {
             _deleter.ClearReceivedCalls();
