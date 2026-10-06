@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
         }
 
         [Fact]
-        public async Task GivenConditionalDeleteResourceRequest_WhenHandling_ThenRequestShouldBeHandledSuccessfully()
+        public async Task GivenCallerWithEditProfileDefinitions_WhenConditionallyDeletingAProfileResource_ThenRequestShouldBeHandledSuccessfully()
         {
             await Run<DeleteResourceResponse>(
                 x =>
