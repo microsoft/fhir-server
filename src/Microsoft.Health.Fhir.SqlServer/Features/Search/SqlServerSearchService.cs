@@ -1233,7 +1233,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         /// <summary>
         /// Extracts the parameter hash value from a query text that contains a
-        /// <c>/* HASH {base64hash} params=... fhir=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>.
+        /// <c>/* HASH {base64hash} params=... */</c> comment embedded by <see cref="Expressions.Visitors.QueryGenerators.SqlQueryGenerator"/>,
+        /// optionally annotated with a <c>fhir=...</c> query shape.
         /// Returns <c>null</c> if no hash comment is found.
         /// </summary>
         internal static string ExtractParameterHash(string queryText)
@@ -1290,7 +1291,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     StringComparison.Ordinal);
             }
 
-            return $"/* fhir={normalizedQueryShape} */\n{queryText}";
+            return queryText;
         }
 
         /// <summary>

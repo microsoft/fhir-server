@@ -177,12 +177,14 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.Equal(queryHashCalculator.CalculateHash(sqlWithoutAnnotation), queryHash);
     }
 
-    [Fact]
-    public void GivenQueryPlanReuse_WhenNormalizedQueryShapesDiffer_ThenStandaloneCommentsDistinguishSqlText()
+    [Theory]
+    [InlineData("")]
+    [InlineData("SET STATISTICS IO ON;\r\nSET STATISTICS TIME ON;\r\nDECLARE @preamble int = 1;\r\n")]
+    public void GivenQueryPlanReuse_WhenNormalizedQueryShapesDiffer_ThenSqlTextAndHashAreUnchanged(string preamble)
     {
         // Arrange
         const string rawValue = "Alice-Recognizable-Value";
-        string sqlWithoutHashComment = GenerateSqlWithHashedParameter(rawValue, reuseQueryPlans: true);
+        string sqlWithoutHashComment = preamble + GenerateSqlWithHashedParameter(rawValue, reuseQueryPlans: true);
         var queryHashCalculator = new SqlQueryHashCalculator();
 
         // Act
@@ -199,9 +201,9 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Assert
         Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, sqlWithoutHashComment, StringComparison.Ordinal);
-        Assert.StartsWith("/* fhir=Patient?name */\n", patientSql, StringComparison.Ordinal);
-        Assert.StartsWith("/* fhir=Observation?code */\n", observationSql, StringComparison.Ordinal);
-        Assert.NotEqual(patientSql, observationSql);
+        Assert.Equal(sqlWithoutHashComment, patientSql);
+        Assert.Equal(sqlWithoutHashComment, observationSql);
+        Assert.Equal(queryHashCalculator.CalculateHash(sqlWithoutHashComment), patientQueryHash);
         Assert.Equal(patientQueryHash, observationQueryHash);
         Assert.DoesNotContain(rawValue, patientSql, StringComparison.Ordinal);
         Assert.DoesNotContain(rawValue, observationSql, StringComparison.Ordinal);
