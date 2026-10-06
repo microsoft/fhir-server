@@ -259,6 +259,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             await fhirDataStore.Received(2).HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenConditionalDeleteSpanningMultiplePages_WhenALaterPageContainsAProfileResourceAndCallerLacksEditProfileDefinitions_ThenThrowsUnauthorizedFhirActionExceptionDirectly()
+        {
+            // Arrange: page 1 is entirely ordinary resources (legitimately deletable); page 2, reached only
+            // through pagination (no _include involved), contains a protected StructureDefinition. The
+            // resulting exception must be a clean UnauthorizedFhirActionException, not wrapped in
+            // IncompleteOperationException like other mid-loop failures, so it maps to a 403.
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: true);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var firstPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match) };
+            var secondPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Match) };
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(firstPageEntries, "page-2-token", null, Array.Empty<Tuple<string, string>>())),
+                Task.FromResult(new SearchResult(secondPageEntries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Caller has normal delete rights but not EditProfileDefinitions. Page 1 never calls this (no
+            // protected type present), so it has no bearing on page 1's legitimate deletion below.
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+        }
+
         private static SearchResultEntry CreateSearchResultEntry(string resourceType, string resourceId, SearchEntryMode searchEntryMode)
         {
             var rawJson = $"{{\"resourceType\":\"{resourceType}\",\"id\":\"{resourceId}\"}}";
