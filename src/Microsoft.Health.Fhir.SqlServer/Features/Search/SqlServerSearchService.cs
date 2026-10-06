@@ -259,12 +259,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     var finalResults = new List<SearchResultEntry>();
                     finalResults.AddRange(includesSearchResult.Results);
                     finalResults.AddRange(secondPhaseIncludesSearchResult.Results);
+                    int? totalCount = includesSearchResult.TotalCount.HasValue || secondPhaseIncludesSearchResult.TotalCount.HasValue
+                        ? (includesSearchResult.TotalCount ?? 0) + (secondPhaseIncludesSearchResult.TotalCount ?? 0)
+                        : null;
+
                     includesSearchResult = new SearchResult(
                         finalResults,
                         secondPhaseIncludesSearchResult.ContinuationToken,
                         secondPhaseIncludesSearchResult.SortOrder,
                         secondPhaseIncludesSearchResult.UnsupportedSearchParameters,
-                        includesContinuationToken: secondPhaseIncludesSearchResult.IncludesContinuationToken);
+                        includesContinuationToken: secondPhaseIncludesSearchResult.IncludesContinuationToken)
+                    {
+                        TotalCount = totalCount,
+                    };
                 }
                 else if (includesSearchResult.Results.Count() >= sqlSearchOptions.IncludeCount
                     && includesSearchResult.IncludesContinuationToken != null

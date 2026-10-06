@@ -1229,6 +1229,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(24 - includesCount, includedCount);
         }
 
+        [Theory]
+        [InlineData(1, "birthdate")]
+        [InlineData(11, "-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResources_WhenSecondPhaseIncludesAreCounted_ThenTheTotalIsPreserved(int includesCount, string sort)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_revinclude=Encounter:subject&_count=12&_includesCount={includesCount}");
+            var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
+
+            Assert.NotNull(relatedLink);
+
+            var summaryCountResponse = await Client.SearchAsync($"{relatedLink!.Url}&_summary=count");
+            Assert.Equal(24 - includesCount, summaryCountResponse.Resource.Total);
+            Assert.Empty(summaryCountResponse.Resource.Entry);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
