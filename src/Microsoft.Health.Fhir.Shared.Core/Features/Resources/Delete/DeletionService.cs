@@ -59,6 +59,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private bool _disposed;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         private const int MaxParallelThreads = 64;
+        private static readonly HashSet<string> ProfileResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "CodeSystem",
+            "ValueSet",
+            "StructureDefinition",
+        };
 
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
@@ -156,12 +162,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
-        public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null)
+        public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null, Action<string, long> onProfileResourceSkipped = null)
         {
-            return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, excludedResourceTypes, null, cancellationToken);
+            return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, excludedResourceTypes, null, onProfileResourceSkipped, cancellationToken);
         }
 
-        private async Task<IDictionary<string, long>> DeleteMultipleAsyncInternal(ConditionalDeleteResourceRequest request, int parallelThreads, IList<string> excludedResourceTypes, string continuationToken, CancellationToken cancellationToken)
+        private async Task<IDictionary<string, long>> DeleteMultipleAsyncInternal(ConditionalDeleteResourceRequest request, int parallelThreads, IList<string> excludedResourceTypes, string continuationToken, Action<string, long> onProfileResourceSkipped, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -194,6 +200,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     .ToList();
             }
 
+            results = FilterProfileResourcesForBulkDelete(results, onProfileResourceSkipped);
+
             Dictionary<string, long> resourceTypesDeleted = new Dictionary<string, long>();
             long numQueuedForDeletion = 0;
 
@@ -218,7 +226,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                     };
                     clonedRequest.ConditionalParameters = cloneList;
-                    var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads, excludedResourceTypes, ict, cancellationToken);
+                    var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads, excludedResourceTypes, ict, onProfileResourceSkipped, cancellationToken);
 
                     if (subresult != null)
                     {
@@ -288,6 +296,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 .ToList();
                         }
 
+                        results = FilterProfileResourcesForBulkDelete(results, onProfileResourceSkipped);
+
                         // If the next page of results has more than one page of included results, delete all pages of included results before deleting the primary results.
                         if (!request.IsIncludesRequest && AreIncludeResultsTruncated(ict))
                         {
@@ -306,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                     Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                                 };
                                 clonedRequest.ConditionalParameters = cloneList;
-                                var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, excludedResourceTypes, ict, cancellationToken);
+                                var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, excludedResourceTypes, ict, onProfileResourceSkipped, cancellationToken);
 
                                 resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subresult) });
                             }
@@ -385,6 +395,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return resourceTypesDeleted;
+        }
+
+        private static IReadOnlyCollection<SearchResultEntry> FilterProfileResourcesForBulkDelete(
+            IReadOnlyCollection<SearchResultEntry> resultsToDelete,
+            Action<string, long> onProfileResourceSkipped)
+        {
+            if (onProfileResourceSkipped == null)
+            {
+                return resultsToDelete;
+            }
+
+            foreach (IGrouping<string, SearchResultEntry> skipped in resultsToDelete
+                .Where(entry => ProfileResourceTypes.Contains(entry.Resource.ResourceTypeName))
+                .GroupBy(entry => entry.Resource.ResourceTypeName, StringComparer.OrdinalIgnoreCase))
+            {
+                onProfileResourceSkipped(skipped.Key, skipped.LongCount());
+            }
+
+            return resultsToDelete
+                .Where(entry => !ProfileResourceTypes.Contains(entry.Resource.ResourceTypeName))
+                .ToList();
         }
 
         private async Task<Dictionary<string, long>> SoftDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)

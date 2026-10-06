@@ -81,6 +81,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
+                // Accumulate counts here rather than writing directly to result.Issues from the callback, so that
+                // multiple pages/recursive calls reporting the same resource type collapse into a single message.
+                var skippedCounts = new Dictionary<string, long>();
+                void OnProfileResourceSkipped(string resourceType, long count)
+                {
+                    skippedCounts[resourceType] = skippedCounts.TryGetValue(resourceType, out long existing)
+                        ? existing + count
+                        : count;
+                }
+
                 try
                 {
                     resourcesDeleted = await deleter.Value.DeleteMultipleAsync(
@@ -94,7 +104,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             allowPartialSuccess: false, // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                             removeReferences: definition.RemoveReferences),
                         cancellationToken,
-                        definition.ExcludedResourceTypes);
+                        definition.ExcludedResourceTypes,
+                        OnProfileResourceSkipped);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
@@ -132,6 +143,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     {
                         result.ResourcesDeleted[key] += value;
                     }
+                }
+
+                foreach (var (resourceType, count) in skippedCounts)
+                {
+                    result.Issues.Add($"Skipped {count} {resourceType} resource(s): profile defining resources (CodeSystem, ValueSet, StructureDefinition) are not supported for bulk delete and have not been deleted.");
                 }
 
                 await _mediator.PublishAsync(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
