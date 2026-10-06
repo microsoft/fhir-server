@@ -14,19 +14,34 @@ sequenceDiagram
     SearchInternalAsync->>SqlServerSearchService: SearchResult
 ```
 
-Generated SQL includes a value-free FHIR query shape only when the generator emits its existing parameter hash
-comment with SQL query-plan reuse disabled. The shape is added to the same comment:
+Generated SQL includes a value-free FHIR query shape. When the generator emits its existing parameter hash
+comment with SQL query-plan reuse disabled, the shape is added without changing that comment's location:
 
 ```sql
 /* HASH <parameter-hash> params=@p0,@p1 fhir=Patient?birthdate&name */
 ```
 
-When no parameter hash comment is emitted, including when query-plan reuse is enabled, the SQL is left
-unchanged. Different query shapes therefore do not introduce additional SQL text variants on this path.
-No standalone shape comment is prepended: Query Store omits leading batch comments, even though they change
-the plan cache key and would prevent the slow-query text lookup from matching the saved statement text.
-The existing hash comments are embedded within statements and retained by Query Store.
-The internal custom-query hash continues to be calculated from the unannotated SQL on both paths.
+When no parameter hash comment is emitted, including when query-plan reuse is enabled or there are no
+parameters to hash, the generator inserts only a shape comment at the equivalent in-statement location:
+
+```sql
+WITH cte0 AS (...)
+/* fhir=Patient?birthdate&name */
+SELECT ... FROM cte0
+```
+
+For shape-only queries without a CTE, the comment follows `SELECT`, including count queries. Include queries
+annotate both the filtering `INSERT ... SELECT` statement and the subsequent resource-selection statement.
+No standalone shape comment is prepended to the batch or appended after a statement: Query Store retains
+the in-statement shape-only comments, so the existing slow-query text lookup can match those statements.
+
+The generator records insertion positions without changing the SQL. After SQL simplification, the internal
+custom-query hash is calculated from exactly the unannotated SQL, then the shape annotations are inserted.
+Parameter-value hashing and custom-query lookup are unchanged.
+
+With query-plan reuse enabled, identical SQL and normalized shapes remain identical across parameter-value
+and input-name-order changes. Different shapes produce different SQL text and may use separate plan-cache
+entries even with reuse enabled. The shape-only comment does not add a parameter-value hash.
 
 The shape is created by `SearchOptionsFactory` from the search scope and the parsed query parameter names
 already supplied to the search pipeline. Ordinary searches use `Patient?...`, history searches use

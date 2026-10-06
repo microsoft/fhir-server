@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -158,11 +159,11 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Arrange
         const string rawValue = "Alice-Recognizable-Value";
         const string normalizedQuery = "Patient?birthdate&name";
-        string sqlWithoutAnnotation = GenerateSqlWithHashedParameter(rawValue);
+        var (generator, sqlWithoutAnnotation) = GenerateSqlWithHashedParameter(rawValue);
         var queryHashCalculator = new SqlQueryHashCalculator();
 
         // Act
-        string sqlWithAnnotation = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+        string sqlWithAnnotation = generator.CalculateHashThenAddNormalizedQueryShape(
             sqlWithoutAnnotation,
             normalizedQuery,
             queryHashCalculator,
@@ -180,20 +181,20 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     [Theory]
     [InlineData("")]
     [InlineData("SET STATISTICS IO ON;\r\nSET STATISTICS TIME ON;\r\nDECLARE @preamble int = 1;\r\n")]
-    public void GivenQueryPlanReuse_WhenNormalizedQueryShapesDiffer_ThenSqlTextAndHashAreUnchanged(string preamble)
+    public void GivenQueryPlanReuse_WhenNormalizedQueryShapesDiffer_ThenShapesAreInsideStatementsWithoutChangingHash(string preamble)
     {
         // Arrange
         const string rawValue = "Alice-Recognizable-Value";
-        string sqlWithoutHashComment = preamble + GenerateSqlWithHashedParameter(rawValue, reuseQueryPlans: true);
+        var (generator, sqlWithoutHashComment) = GenerateSqlWithHashedParameter(rawValue, reuseQueryPlans: true, preamble: preamble);
         var queryHashCalculator = new SqlQueryHashCalculator();
 
         // Act
-        string patientSql = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+        string patientSql = generator.CalculateHashThenAddNormalizedQueryShape(
             sqlWithoutHashComment,
             "Patient?name",
             queryHashCalculator,
             out string patientQueryHash);
-        string observationSql = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
+        string observationSql = generator.CalculateHashThenAddNormalizedQueryShape(
             sqlWithoutHashComment,
             "Observation?code",
             queryHashCalculator,
@@ -201,12 +202,154 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Assert
         Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, sqlWithoutHashComment, StringComparison.Ordinal);
-        Assert.Equal(sqlWithoutHashComment, patientSql);
-        Assert.Equal(sqlWithoutHashComment, observationSql);
+        Assert.Contains("/* fhir=Patient?name */", patientSql, StringComparison.Ordinal);
+        Assert.Contains("/* fhir=Observation?code */", observationSql, StringComparison.Ordinal);
+        Assert.True(patientSql.IndexOf("/* fhir=", StringComparison.Ordinal) > patientSql.IndexOf(";WITH", StringComparison.Ordinal));
+        Assert.True(patientSql.IndexOf("/* fhir=", StringComparison.Ordinal) < patientSql.IndexOf("SELECT * FROM (", StringComparison.Ordinal));
+        Assert.Equal(sqlWithoutHashComment, patientSql.Replace("/* fhir=Patient?name */ ", string.Empty, StringComparison.Ordinal));
+        Assert.Equal(sqlWithoutHashComment, observationSql.Replace("/* fhir=Observation?code */ ", string.Empty, StringComparison.Ordinal));
         Assert.Equal(queryHashCalculator.CalculateHash(sqlWithoutHashComment), patientQueryHash);
         Assert.Equal(patientQueryHash, observationQueryHash);
         Assert.DoesNotContain(rawValue, patientSql, StringComparison.Ordinal);
         Assert.DoesNotContain(rawValue, observationSql, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void GivenNoParametersToHash_WhenShapeAdded_ThenSelectAndCountShapesAreInsideStatements(bool withCtes, bool countOnly)
+    {
+        // Arrange
+        var (generator, queryText) = GenerateSqlWithHashedParameter(null, withCtes: withCtes, countOnly: countOnly);
+        var calculator = Substitute.For<ISqlQueryHashCalculator>();
+        calculator.CalculateHash(queryText).Returns("original-hash");
+
+        // Act
+        string annotated = generator.CalculateHashThenAddNormalizedQueryShape(queryText, "Patient", calculator, out string hash);
+
+        // Assert
+        calculator.Received(1).CalculateHash(queryText);
+        Assert.Equal("original-hash", hash);
+        Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, annotated, StringComparison.Ordinal);
+        Assert.Contains("/* fhir=Patient */", annotated, StringComparison.Ordinal);
+        Assert.Equal(queryText, annotated.Replace("/* fhir=Patient */ ", string.Empty, StringComparison.Ordinal));
+        if (withCtes)
+        {
+            Assert.True(annotated.IndexOf("/* fhir=", StringComparison.Ordinal) > annotated.IndexOf(";WITH", StringComparison.Ordinal));
+        }
+        else
+        {
+            Assert.StartsWith("SELECT /* fhir=Patient */ ", annotated.TrimStart(), StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(false, "")]
+    [InlineData(true, null)]
+    [InlineData(true, "")]
+    public void GivenEmptyShape_WhenSqlGenerated_ThenSqlAndHashAreUnchanged(bool reuseQueryPlans, string shape)
+    {
+        // Arrange
+        var (generator, queryText) = GenerateSqlWithHashedParameter("value", reuseQueryPlans);
+        var calculator = new SqlQueryHashCalculator();
+
+        // Act
+        string annotated = generator.CalculateHashThenAddNormalizedQueryShape(queryText, shape, calculator, out string hash);
+
+        // Assert
+        Assert.Equal(queryText, annotated);
+        Assert.Equal(calculator.CalculateHash(queryText), hash);
+    }
+
+    [Fact]
+    public void GivenSameShapeWithDifferentValuesAndNameOrder_WhenPlansReused_ThenSqlAndHashAreIdentical()
+    {
+        // Arrange
+        var (firstGenerator, firstSql) = GenerateSqlWithHashedParameter("Alice", reuseQueryPlans: true);
+        var (secondGenerator, secondSql) = GenerateSqlWithHashedParameter("Bob", reuseQueryPlans: true);
+        string firstShape = FhirQueryNormalizer.Normalize("Patient", ["name", "birthdate"]);
+        string secondShape = FhirQueryNormalizer.Normalize("Patient", ["birthdate", "name"]);
+        var calculator = new SqlQueryHashCalculator();
+
+        // Act
+        string first = firstGenerator.CalculateHashThenAddNormalizedQueryShape(firstSql, firstShape, calculator, out string firstHash);
+        string second = secondGenerator.CalculateHashThenAddNormalizedQueryShape(secondSql, secondShape, calculator, out string secondHash);
+
+        // Assert
+        Assert.Contains("/* fhir=Patient?birthdate&name */", first, StringComparison.Ordinal);
+        Assert.Equal(first, second);
+        Assert.Equal(firstHash, secondHash);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public void GivenIncludesAndUnions_WhenShapeAdded_ThenBothStatementsAreAnnotated(
+        bool reuseQueryPlans,
+        bool withUnion,
+        bool smartScopes)
+    {
+        // Arrange
+        const string shape = "Observation?_include&subject";
+        var referenceParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var include = new IncludeExpression(["Observation"], referenceParameter, "Observation", "Patient", null, false, false, false);
+        var tables = new List<SearchParamTableExpression>();
+        if (withUnion)
+        {
+            var union = Expression.Union(
+                UnionOperator.All,
+                [
+                    Expression.SearchParameter(referenceParameter, Expression.StringEquals(FieldName.ReferenceResourceId, null, "patient-a", false)),
+                    Expression.SearchParameter(referenceParameter, Expression.StringEquals(FieldName.ReferenceResourceId, null, "patient-b", false)),
+                ]);
+            union.IsSmartV2UnionExpressionForScopesSearchParameters = smartScopes;
+            tables.Add(new SearchParamTableExpression(ReferenceQueryGenerator.Instance, Expression.And(union), SearchParamTableExpressionKind.Normal));
+        }
+        else
+        {
+            tables.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All));
+        }
+
+        tables.Add(new SearchParamTableExpression(IncludeQueryGenerator.Instance, include, SearchParamTableExpressionKind.Include));
+        tables.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit));
+        tables.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll));
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(referenceParameter.Url).Returns((short)40);
+        using Data.SqlClient.SqlCommand command = new();
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        parameters.AddParameter("filter-value", includeInHash: true);
+        var generator = new SqlQueryGenerator(_strBuilder, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, reuseQueryPlans, false);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest });
+        SqlCommandSimplifier.RemoveRedundantParameters(_strBuilder, command.Parameters, NullLogger.Instance);
+        string queryText = _strBuilder.ToString();
+        var calculator = new SqlQueryHashCalculator();
+
+        // Act
+        string annotated = generator.CalculateHashThenAddNormalizedQueryShape(queryText, shape, calculator, out string hash);
+
+        // Assert
+        var fragments = SqlServerSearchService.SplitIntoSearchFragments(annotated);
+        Assert.Equal(2, fragments.Count);
+        Assert.All(fragments, fragment => Assert.Contains($"fhir={shape}", fragment, StringComparison.Ordinal));
+        Assert.Equal(reuseQueryPlans ? 0 : smartScopes ? 2 : 1, annotated.Split(SqlQueryGenerator.ParametersHashStart).Length - 1);
+        Assert.Equal(
+            queryText,
+            annotated.Replace($"/* fhir={shape} */ ", string.Empty, StringComparison.Ordinal).Replace($" fhir={shape}", string.Empty, StringComparison.Ordinal));
+        Assert.Equal(calculator.CalculateHash(queryText), hash);
     }
 
     [Fact]
@@ -276,12 +419,21 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
 
-    private string GenerateSqlWithHashedParameter(string parameterValue, bool reuseQueryPlans = false)
+    private (SqlQueryGenerator Generator, string Sql) GenerateSqlWithHashedParameter(
+        string parameterValue,
+        bool reuseQueryPlans = false,
+        string preamble = "",
+        bool withCtes = true,
+        bool countOnly = false)
     {
-        var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+        var stringBuilder = new IndentedStringBuilder(new StringBuilder(preamble));
         using Data.SqlClient.SqlCommand command = new();
         var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
-        parameters.AddParameter(parameterValue, includeInHash: true);
+        if (parameterValue != null)
+        {
+            parameters.AddParameter(parameterValue, includeInHash: true);
+        }
+
         var queryGenerator = new SqlQueryGenerator(
             stringBuilder,
             parameters,
@@ -291,17 +443,19 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             reuseQueryPlans,
             isAsyncOperation: false);
         var sqlExpression = new SqlRootExpression(
-            [new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All)],
+            withCtes ? [new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All)] : [],
             new List<SearchParameterExpressionBase>());
         var searchOptions = new SearchOptions
         {
             Sort = [],
             ResourceVersionTypes = ResourceVersionType.Latest,
+            CountOnly = countOnly,
         };
 
         queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, command.Parameters, NullLogger.Instance);
 
-        return stringBuilder.ToString();
+        return (queryGenerator, stringBuilder.ToString());
     }
 
     [Theory]

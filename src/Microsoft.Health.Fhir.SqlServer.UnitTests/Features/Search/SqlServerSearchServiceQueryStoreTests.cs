@@ -40,25 +40,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData("Patient?name")]
         [InlineData("Observation?code")]
-        public void GivenSqlWithoutHash_WhenQueryShapeProcessed_ThenQueryStoreTextMatchIsPreserved(string normalizedQueryShape)
+        public void GivenShapeOnlyStatement_WhenQueryStoreTextNormalized_ThenShapeIsPreserved(string normalizedQueryShape)
         {
             // Arrange
-            const string queryBody = "SELECT ResourceId FROM dbo.Resource WHERE ResourceTypeId = @p0";
-            const string queryText = "SET STATISTICS IO ON;\r\nSET STATISTICS TIME ON;\r\nDECLARE @p0 smallint = 79;\r\n" + queryBody;
+            string queryBody = $"SELECT /* fhir={normalizedQueryShape} */ ResourceId FROM dbo.Resource WHERE ResourceTypeId = @p0";
+            string queryText = "SET STATISTICS IO ON;\r\nSET STATISTICS TIME ON;\r\nDECLARE @p0 smallint = 79;\r\n" + queryBody;
 
             // Act
-            string sql = SqlServerSearchService.CalculateHashThenAddNormalizedQueryShape(
-                queryText,
-                normalizedQueryShape,
-                new SqlQueryHashCalculator(),
-                out _);
-            string fragment = Assert.Single(SqlServerSearchService.SplitIntoSearchFragments(InvokeStripQueryPreambleLines(sql)));
+            string fragment = Assert.Single(SqlServerSearchService.SplitIntoSearchFragments(InvokeStripQueryPreambleLines(queryText)));
             string normalizedText = SqlServerSearchService.StripAllWhitespace(fragment);
 
             // Assert
             Assert.Null(SqlServerSearchService.ExtractParameterHash(fragment));
             Assert.Equal(queryBody, fragment);
-            Assert.Equal("SELECTResourceIdFROMdbo.ResourceWHEREResourceTypeId=@p0", normalizedText);
+            Assert.Equal($"SELECT/*fhir={normalizedQueryShape}*/ResourceIdFROMdbo.ResourceWHEREResourceTypeId=@p0", normalizedText);
         }
 
         [Theory]
