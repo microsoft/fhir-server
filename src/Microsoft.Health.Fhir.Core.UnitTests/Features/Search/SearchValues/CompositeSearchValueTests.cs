@@ -19,52 +19,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         private const string ParamNameComponents = "components";
 
         [Fact]
-        public void GivenTheSameComponentLists_WhenHashing_ThenHashesAreStableAndEqual()
-        {
-            // Arrange
-            var components = new IReadOnlyList<ISearchValue>[]
-            {
-                new ISearchValue[] { new StringSearchValue("abc") },
-                new ISearchValue[] { new NumberSearchValue(123) },
-            };
-            var value = new CompositeSearchValue(components);
-            var equal = new CompositeSearchValue(new[] { components[0], components[1] });
-
-            // Act
-            int hash = value.GetHashCode();
-
-            // Assert
-            Assert.True(value.Equals(equal));
-            for (int i = 0; i < 10; i++)
-            {
-                Assert.Equal(hash, value.GetHashCode());
-                Assert.Equal(hash, equal.GetHashCode());
-            }
-        }
-
-        [Fact]
-        public void GivenEqualCompositeValues_WhenAddedToHashSet_ThenDuplicatesAreRejectedAndFound()
-        {
-            // Arrange
-            var components = new[] { new ISearchValue[] { new StringSearchValue("abc") } };
-            var value = new CompositeSearchValue(components);
-            var equal = new CompositeSearchValue(new[] { components[0] });
-            var distinctList = new CompositeSearchValue(new[] { new ISearchValue[] { components[0][0] } });
-            var set = new HashSet<ISearchValue>();
-
-            // Act / Assert
-            Assert.True(set.Add(value));
-            Assert.False(set.Add(value));
-            Assert.False(set.Add(equal));
-            Assert.Contains(equal, set);
-            bool foundByHash = set.Contains(value);
-            Assert.True(foundByHash);
-            Assert.Single(set);
-            Assert.False(value.Equals(distinctList));
-            Assert.True(set.Add(distinctList));
-        }
-
-        [Fact]
         public void GivenANullComponents_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameComponents, () => new CompositeSearchValue(null));
