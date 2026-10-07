@@ -14,12 +14,11 @@ using Ignixa.Serialization;
 using Ignixa.Serialization.Extensions;
 using Ignixa.Serialization.Models;
 using Ignixa.Serialization.SourceNodes;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
@@ -34,22 +33,22 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IgnixaSchemaContext _schemaContext;
-        private readonly bool _useLongResourceIds;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaImportResourceParser"/> class.
         /// </summary>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
         /// <param name="schemaContext">The Ignixa generated schema for the current FHIR version.</param>
-        /// <param name="coreFeatureConfiguration">The core feature configuration controlling long resource ids.</param>
-        public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext, IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
+        /// <param name="resourceIdPolicy">The resource id policy. Defaults to <see cref="ResourceIdPolicy.Standard"/>.</param>
+        public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext, ResourceIdPolicy resourceIdPolicy = null)
         {
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
             EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
 
             _resourceFactory = resourceFactory;
             _schemaContext = schemaContext;
-            _useLongResourceIds = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).UseLongResourceIds;
+            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
         }
 
         /// <inheritdoc />
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
             }
 
-            ImportResourceIdValidator.Validate(resource.Id, _useLongResourceIds);
+            ImportResourceIdValidator.Validate(resource.Id, _resourceIdPolicy);
             CheckConditionalReferenceInResource(resource, importMode);
 
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdatedOffset == null;

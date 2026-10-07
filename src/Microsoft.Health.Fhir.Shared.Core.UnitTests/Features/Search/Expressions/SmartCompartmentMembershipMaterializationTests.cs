@@ -14,8 +14,6 @@ using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -23,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -144,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 .Returns(definitionManager.GetSearchParameters(resource.TypeName).ToList());
 
             var resolver = new LightweightReferenceToElementResolver(
-                Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor(), Options.Create(new CoreFeatureConfiguration())),
+                Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor(), ResourceIdPolicy.Standard),
                 ModelInfoProvider.Instance);
 
             var indexer = new TypedElementSearchIndexer(

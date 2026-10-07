@@ -14,15 +14,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
     /// <typeparam name="T">The type of the element.</typeparam>
     public class IdValidator<T> : PropertyValidator<T, string>
     {
-        private readonly bool _useLongResourceIds;
+        private readonly ResourceIdPolicy _policy;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IdValidator{T}"/> class.
         /// </summary>
-        /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
-        public IdValidator(bool useLongResourceIds = false)
+        /// <param name="policy">The resource id policy. Defaults to <see cref="ResourceIdPolicy.Standard"/>.</param>
+        public IdValidator(ResourceIdPolicy policy = null)
         {
-            _useLongResourceIds = useLongResourceIds;
+            _policy = policy ?? ResourceIdPolicy.Standard;
         }
 
         /// <inheritdoc />
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
 
         /// <inheritdoc />
         public override bool IsValid(ValidationContext<T> context, string value)
-            => value == null || ResourceIdValidation.IsValid(value, _useLongResourceIds);
+            => value == null || _policy.IsValid(value);
 
         /// <inheritdoc />
         protected override string GetDefaultMessageTemplate(string errorCode)

@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -54,11 +55,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly IMediator _mediator;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlServerFhirModel> _logger;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<Uri, short> _searchParamUriToId;
@@ -78,8 +79,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
             ISqlRetryService sqlRetryService,
-            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            ILogger<SqlServerFhirModel> logger)
+            ILogger<SqlServerFhirModel> logger,
+            ResourceIdPolicy resourceIdPolicy = null)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -87,7 +88,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
@@ -97,8 +97,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _mediator = mediator;
             _sqlRetryService = sqlRetryService;
-            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _logger = logger;
+            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
         }
 
         public (short lowestId, short highestId) ResourceTypeIdRange
@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         // and silently truncate, so a long id could address another resource. Fail instead of serving requests.
         private void ThrowIfLongResourceIdsAreNotSupportedBySchema()
         {
-            if (_coreFeatureConfiguration.UseLongResourceIds
+            if (_resourceIdPolicy.UseLongResourceIds
                 && _schemaInformation.Current < SchemaVersionConstants.ResourceIdLength128)
             {
                 throw new InvalidOperationException(string.Format(

@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         public void GivenAReferenceWithA100CharacterId_WhenGeneratingARow_ThenTheIdIsTruncatedToTheSelectedLength(bool useLongResourceIds, int expectedLength)
         {
             // Arrange
-            ReferenceSearchParamListRowGenerator generator = CreateGenerator(useLongResourceIds);
+            ReferenceSearchParamListRowGenerator generator = CreateGenerator(ResourceIdPolicy.From(useLongResourceIds));
             string resourceId = new string('a', 100);
             var searchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, resourceType: null, resourceId: resourceId);
 
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId);
         }
 
-        private static ReferenceSearchParamListRowGenerator CreateGenerator(bool useLongResourceIds)
+        private static ReferenceSearchParamListRowGenerator CreateGenerator(ResourceIdPolicy policy)
         {
             var model = new SqlServerFhirModel(
                 new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max),
@@ -61,13 +62,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
-                Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds }),
-                NullLogger<SqlServerFhirModel>.Instance);
+                NullLogger<SqlServerFhirModel>.Instance,
+                policy);
 
             return new ReferenceSearchParamListRowGenerator(
                 model,
                 new SearchParameterToSearchValueTypeMap(),
-                Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds }));
+                policy);
         }
     }
 }

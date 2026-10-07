@@ -7,9 +7,7 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,37 +23,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         private const string ResourceIdCapture = "resourceId";
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
         private static readonly string ResourceTypesPattern = string.Join('|', ModelInfoProvider.GetResourceTypeNames());
+        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]+)(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
-        private readonly Regex _referenceRegex;
+        private static readonly Regex ReferenceRegex = new Regex(
+            ReferenceCaptureRegexPattern,
+            RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
+
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFhirServerInstanceConfiguration _instanceConfiguration;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ReferenceSearchValueParser"/> class.
-        /// </summary>
-        /// <param name="fhirRequestContextAccessor">The current request context accessor.</param>
-        /// <param name="instanceConfiguration">The server instance configuration.</param>
-        /// <param name="coreFeatureConfiguration">The core feature configuration.</param>
         public ReferenceSearchValueParser(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IFhirServerInstanceConfiguration instanceConfiguration,
-            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
+            ResourceIdPolicy resourceIdPolicy = null)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(instanceConfiguration, nameof(instanceConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _instanceConfiguration = instanceConfiguration;
-
-            int maxResourceIdLength = ResourceIdValidation.GetMaxLength(EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).UseLongResourceIds);
-
-            // Same pattern as before long ids: a 1-64 (or 1-128) character id is captured and anything longer is cut off at the limit.
-            string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
-
-            // The parser is registered as a singleton; compile the selected pattern once and reuse it in Parse.
-            _referenceRegex = new Regex(
-                referenceCaptureRegexPattern,
-                RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
+            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
         }
 
         /// <inheritdoc />
@@ -63,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            Match match = _referenceRegex.Match(s);
+            Match match = ReferenceRegex.Match(s);
 
             if (match.Success)
             {
@@ -72,6 +60,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 ModelInfoProvider.EnsureValidResourceType(resourceTypeInString, nameof(s));
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
+
+                // Ids longer than the limit are cut off at the limit, as when the limit was fixed at 64.
+                if (resourceId.Length > _resourceIdPolicy.MaxLength)
+                {
+                    resourceId = resourceId[.._resourceIdPolicy.MaxLength];
+                }
 
                 int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
 

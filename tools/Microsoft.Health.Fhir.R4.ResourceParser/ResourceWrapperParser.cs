@@ -7,11 +7,9 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -35,9 +33,9 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         {
             var fhirRequestContextAccessor = new ExecutableRequestContextAccessor();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration);
             var modelInfoProvider = new VersionSpecificModelInfoProvider();
             ModelInfoProvider.SetProvider(modelInfoProvider);
-            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration, Options.Create(new CoreFeatureConfiguration()));
 
             var searchParameterDefinitionManager = new MinimalSearchParameterDefinitionManager(modelInfoProvider);
 
@@ -96,7 +94,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         {
             var fhirTypedElementConverters = new List<ITypedElementToSearchValueConverter>();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration, Options.Create(new CoreFeatureConfiguration()));
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration);
 
             fhirTypedElementConverters.Add(new AddressToStringSearchValueConverter());
             fhirTypedElementConverters.Add(new BooleanToTokenSearchValueConverter());

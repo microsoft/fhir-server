@@ -37,7 +37,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalUpdateTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\ResourceIdLengthTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\EverythingOperationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\EverythingOperationTests.cs" />

@@ -13,9 +13,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -24,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -71,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // way that never happens in production.
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
             var referenceToElementResolver = new LightweightReferenceToElementResolver(
-                Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor(), Options.Create(new CoreFeatureConfiguration())),
+                Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor(), ResourceIdPolicy.Standard),
                 ModelInfoProvider.Instance);
 
             _searchIndexer = new TypedElementSearchIndexer(
@@ -128,7 +127,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 .GetTypes()
                 .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
-            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration(), Options.Create(new CoreFeatureConfiguration()));
+            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration());
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 

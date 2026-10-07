@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             var number = new NumberSearchParamListRowGenerator(model, map);
             var quantity = new QuantitySearchParamListRowGenerator(model, map);
             var date = new DateTimeSearchParamListRowGenerator(model, map);
-            var reference = new ReferenceSearchParamListRowGenerator(model, map, Options.Create(new CoreFeatureConfiguration()));
+            var reference = new ReferenceSearchParamListRowGenerator(model, map);
             date.GenerateRows(Array.Empty<MergeResourceWrapper>()).ToArray();
 
             // Act / Assert
@@ -250,7 +250,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
-                Options.Create(new CoreFeatureConfiguration()),
                 NullLogger<SqlServerFhirModel>.Instance);
             SetModelField(model, "_highestInitializedVersion", schema.Current);
             SetModelField(model, "_resourceTypeToId", new Dictionary<string, short> { ["Patient"] = 1 });

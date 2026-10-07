@@ -26,24 +26,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     public class HashingSqlQueryParameterManager
     {
         private readonly SqlQueryParameterManager _inner;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
         private readonly HashSet<SqlParameter> _setToHash = new();
         private readonly HashSet<SqlParameter> _smartScopeParameters = new();
         private readonly HashSet<short> _searchParamIds = new();
-        private readonly int _maxResourceIdLength;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="HashingSqlQueryParameterManager"/> class.
-        /// </summary>
-        /// <param name="inner">The parameter manager to wrap.</param>
-        /// <param name="useLongResourceIds">
-        /// Whether resource ids up to 128 characters are allowed. Parameters bound to resource id columns are sized to the selected limit,
-        /// so the generated parameter declarations follow the setting rather than the column width.
-        /// </param>
-        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, bool useLongResourceIds = false)
+        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, ResourceIdPolicy resourceIdPolicy = null)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
-            _maxResourceIdLength = ResourceIdValidation.GetMaxLength(useLongResourceIds);
+            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;
@@ -179,9 +171,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             if (column is VarCharColumn stringColumn
                 && column.Metadata.Name is "ResourceId" or "ReferenceResourceId" or "ReferenceResourceId1"
-                && column.Metadata.MaxLength != _maxResourceIdLength)
+                && column.Metadata.MaxLength != _resourceIdPolicy.MaxLength)
             {
-                return new VarCharColumn(column.Metadata.Name, _maxResourceIdLength, stringColumn.Collation);
+                return new VarCharColumn(column.Metadata.Name, _resourceIdPolicy.MaxLength, stringColumn.Collation);
             }
 
             return column;

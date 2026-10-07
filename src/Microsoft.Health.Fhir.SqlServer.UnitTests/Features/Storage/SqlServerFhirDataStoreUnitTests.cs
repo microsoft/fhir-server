@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -441,7 +442,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
-            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds };
+            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
 
             var model = new SqlServerFhirModel(
                 schemaInfo,
@@ -451,8 +452,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
-                Options.Create(coreFeatureConfiguration),
-                NullLogger<SqlServerFhirModel>.Instance);
+                NullLogger<SqlServerFhirModel>.Instance,
+                ResourceIdPolicy.From(useLongResourceIds));
 
             typeof(SqlServerFhirModel)
                 .GetField("_resourceTypeToId", BindingFlags.NonPublic | BindingFlags.Instance)

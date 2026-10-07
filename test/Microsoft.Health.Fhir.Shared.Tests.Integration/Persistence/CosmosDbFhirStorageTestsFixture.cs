@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<CosmosFhirOperationDataStore>.Instance,
                 NullLoggerFactory.Instance);
 
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, new FhirServerInstanceConfiguration(), Options.Create(new CoreFeatureConfiguration())));
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, new FhirServerInstanceConfiguration()));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
             ISortingValidator sortingValidator = Substitute.For<ISortingValidator>();
             sortingValidator.ValidateSorting(Arg.Is<IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)>>(x => x[0].searchParameter.Name == KnownQueryParameterNames.LastUpdated), out Arg.Any<IReadOnlyList<string>>()).Returns(true);

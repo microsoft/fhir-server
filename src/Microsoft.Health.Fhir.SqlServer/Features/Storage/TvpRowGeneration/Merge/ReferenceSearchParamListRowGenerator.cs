@@ -6,9 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using EnsureThat;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -28,18 +25,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 left.ReferenceResourceVersion == right.ReferenceResourceVersion,
             row => HashCode.Combine(row.ResourceTypeId, row.ResourceSurrogateId, row.SearchParamId, row.BaseUri, row.ReferenceResourceTypeId, row.ReferenceResourceId, row.ReferenceResourceVersion));
 
-        private readonly int _maxLength;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ReferenceSearchParamListRowGenerator"/> class.
-        /// </summary>
-        /// <param name="model">The SQL Server FHIR model.</param>
-        /// <param name="searchParameterTypeMap">The search parameter type map.</param>
-        /// <param name="config">The core feature configuration.</param>
-        public ReferenceSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap, IOptions<CoreFeatureConfiguration> config)
+        public ReferenceSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap, ResourceIdPolicy resourceIdPolicy = null)
             : base(model, searchParameterTypeMap, RowComparer)
         {
-            _maxLength = ResourceIdValidation.GetMaxLength(EnsureArg.IsNotNull(config, nameof(config)).Value.UseLongResourceIds);
+            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
         }
 
         internal override bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, ReferenceSearchValue searchValue, HashSet<ReferenceSearchParamListRow> results, out ReferenceSearchParamListRow row)
@@ -50,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 searchValue.ResourceType == null ? null : Model.GetResourceTypeId(searchValue.ResourceType),
-                searchValue.ResourceId[..Math.Min(searchValue.ResourceId.Length, _maxLength)], // Truncate to MaxResourceIdLength. TODO: We should separate string references (ref resource type is null) from references to resources. This should be a long term fix.
+                searchValue.ResourceId[..Math.Min(searchValue.ResourceId.Length, _resourceIdPolicy.MaxLength)], // Truncate to fit the column size. TODO: We should separate string references (ref resource type is null) from references to resources. This should be a long term fix.
                 ReferenceResourceVersion: null);
 
             return results == null || results.Add(row);

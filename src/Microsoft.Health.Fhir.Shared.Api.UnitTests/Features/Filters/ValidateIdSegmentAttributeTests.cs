@@ -5,7 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +13,10 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -98,41 +97,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             filter.OnActionExecuting(context);
         }
 
-        [Fact]
-        public void GivenLongResourceIdsAreEnabled_WhenPuttingAPatientObjectWithNullResourceId_ThenTheSelectedLimitIsReportedInTheIssue()
+        [Theory]
+        [InlineData(false, "64")]
+        [InlineData(true, "128")]
+        public void GivenARegisteredResourceIdPolicy_WhenTheIdIsEmpty_ThenTheMessageStatesThePolicyLimit(bool useLongResourceIds, string expectedLimit)
         {
             // Arrange
             var filter = new ValidateIdSegmentAttribute();
-
-            var patient = new Patient
-            {
-                Id = Guid.NewGuid().ToString(),
-            };
-
-            var context = CreateContext(patient, id: null, useLongResourceIds: true);
+            var context = CreateContext(new Patient(), " ");
+            context.HttpContext.RequestServices = new ServiceCollection()
+                .AddSingleton(ResourceIdPolicy.From(useLongResourceIds))
+                .BuildServiceProvider();
 
             // Act
             var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
 
             // Assert
-            var issue = Assert.Single(exception.Issues);
-            Assert.Equal(
-                string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, 128),
-                issue.Diagnostics);
+            Assert.Contains(expectedLimit, exception.Issues.Single().Diagnostics, StringComparison.Ordinal);
         }
 
-        private static ActionExecutingContext CreateContext(Resource type, string id, bool useLongResourceIds = false)
+        private static ActionExecutingContext CreateContext(Resource type, string id)
         {
-            var services = new ServiceCollection();
-            services.AddSingleton<IOptions<CoreFeatureConfiguration>>(Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds }));
-
-            var httpContext = new DefaultHttpContext
-            {
-                RequestServices = services.BuildServiceProvider(),
-            };
-
             return new ActionExecutingContext(
-                new ActionContext(httpContext, new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
+                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", type } },
                 FilterTestsHelper.CreateMockFhirController());

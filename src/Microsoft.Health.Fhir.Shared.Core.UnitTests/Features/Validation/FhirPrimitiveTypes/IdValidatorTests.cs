@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
             var observation = Samples.GetDefaultObservation().UpdateId(new string('a', length));
 
             // Act
-            bool isValid = GetValidationFailures(observation, useLongResourceIds);
+            bool isValid = GetValidationFailures(observation, ResourceIdPolicy.From(useLongResourceIds));
 
             // Assert
             Assert.Equal(expectedValid, isValid);
@@ -79,15 +79,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
             var observation = Samples.GetDefaultObservation().UpdateId(id);
 
             // Act
-            bool isValid = GetValidationFailures(observation, useLongResourceIds: true);
+            bool isValid = GetValidationFailures(observation, ResourceIdPolicy.Extended);
 
             // Assert
             Assert.False(isValid);
         }
 
-        private static bool GetValidationFailures(ResourceElement defaultObservation, bool useLongResourceIds = false)
+        private static bool GetValidationFailures(ResourceElement defaultObservation, ResourceIdPolicy policy = null)
         {
-            var validator = new IdValidator<ResourceElement>(useLongResourceIds);
+            var validator = new IdValidator<ResourceElement>(policy);
             var validationContext = new ValidationContext<ResourceElement>(defaultObservation);
             return validator.IsValid(validationContext, defaultObservation.Id);
         }

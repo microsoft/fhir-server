@@ -9,6 +9,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.MemberMatch;
 
@@ -21,7 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch
             INarrativeHtmlSanitizer narrativeHtmlSanitizer,
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            IOptions<CoreFeatureConfiguration> config)
+            IOptions<CoreFeatureConfiguration> config,
+            ResourceIdPolicy resourceIdPolicy = null)
         {
             var contentValidator = new ResourceProfileValidator(
                 modelAttributeValidator,
@@ -30,10 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch
                 config.Value.ProfileValidationOnCreate);
 
             RuleFor(x => x.Coverage)
-                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, config));
+                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, resourceIdPolicy));
 
             RuleFor(x => x.Patient)
-                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, config));
+                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, resourceIdPolicy));
         }
     }
 }

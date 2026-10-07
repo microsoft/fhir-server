@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -42,8 +43,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [InlineData("01234567890123456789012345678901234567890123456789012345678901234", false)] // 65 chars
         public void GivenAnInvalidResourceId_WhenValidated_ThenBadRequestExceptionIsThrown(string resourceId, bool useLongResourceIds)
         {
+            // Arrange
+            var policy = ResourceIdPolicy.From(useLongResourceIds);
+
             // Act
-            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, useLongResourceIds));
+            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, policy));
 
             // Assert
             Assert.IsType<BadRequestException>(exception);
@@ -60,10 +64,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         public void GivenAnIdAndTheLongResourceIdsFlag_WhenValidated_ThenTheSelectedLimitIsApplied(int idLength, bool useLongResourceIds, bool valid)
         {
             // Arrange
+            var policy = ResourceIdPolicy.From(useLongResourceIds);
             string resourceId = new string('a', idLength);
 
             // Act
-            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, useLongResourceIds));
+            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, policy));
 
             // Assert
             if (valid)

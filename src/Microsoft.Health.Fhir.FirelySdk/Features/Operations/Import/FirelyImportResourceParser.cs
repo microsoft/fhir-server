@@ -9,13 +9,12 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
@@ -28,26 +27,26 @@ namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
     {
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
-        private readonly bool _useLongResourceIds;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FirelyImportResourceParser"/> class.
         /// </summary>
         /// <param name="parser">The Firely JSON parser used to deserialize raw resource content.</param>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
-        /// <param name="coreFeatureConfiguration">The core feature configuration controlling long resource ids.</param>
-        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
+        /// <param name="resourceIdPolicy">The resource id policy. Defaults to <see cref="ResourceIdPolicy.Standard"/>.</param>
+        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, ResourceIdPolicy resourceIdPolicy = null)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
-            _useLongResourceIds = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).UseLongResourceIds;
+            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
         }
 
         /// <inheritdoc />
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
-            ImportResourceIdValidator.Validate(resource?.Id, _useLongResourceIds);
+            ImportResourceIdValidator.Validate(resource?.Id, _resourceIdPolicy);
             CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)

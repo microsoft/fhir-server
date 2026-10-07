@@ -7,6 +7,7 @@ using System;
 using System.Data;
 using System.Text;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -148,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             // Arrange
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), useLongResourceIds);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.From(useLongResourceIds));
             var value = new string('a', expectedLength);
 
             // Act
@@ -168,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             // these two columns onto a single parameter and silently narrow or widen the other one.
             const string value = "abc";
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), useLongResourceIds: true);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Extended);
 
             // Act
             var searchParamHashParameter = (SqlParameter)parameters.AddParameter(VLatest.Resource.SearchParamHash, value, includeInHash: false);
