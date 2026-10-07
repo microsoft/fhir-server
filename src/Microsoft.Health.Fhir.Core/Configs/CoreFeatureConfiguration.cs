@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets the resource id length used for SQL parameter sizing, indexed references and validation messages.
         /// </summary>
-        public int MaxResourceIdLength => UseLongResourceIds ? MaxSupportedResourceIdLength : DefaultMaxResourceIdLength;
+        public int MaxResourceIdLength => GetMaxResourceIdLength(UseLongResourceIds);
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
@@ -237,5 +237,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating the runtime state of the FHIR server.
         /// </summary>
         public string RuntimeState { get; set; }
+
+        /// <summary>
+        /// Gets the fixed resource id length for the selected mode.
+        /// </summary>
+        /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed instead of 64.</param>
+        /// <returns>The maximum resource id length, either 64 or 128.</returns>
+        public static int GetMaxResourceIdLength(bool useLongResourceIds) =>
+            useLongResourceIds ? MaxSupportedResourceIdLength : DefaultMaxResourceIdLength;
     }
 }

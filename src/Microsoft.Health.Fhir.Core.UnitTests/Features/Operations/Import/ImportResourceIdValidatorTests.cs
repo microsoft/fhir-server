@@ -25,17 +25,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData("a/b")]
-        [InlineData("abc\n")]
-        [InlineData("abc\r\n")]
-        [InlineData("a_b")]
-        [InlineData("a b")]
-        [InlineData("01234567890123456789012345678901234567890123456789012345678901234")] // 65 chars
-        public void GivenAnInvalidResourceId_WhenValidated_ThenBadRequestExceptionIsThrown(string resourceId)
+        [InlineData(null, false)]
+        [InlineData(null, true)]
+        [InlineData("", false)]
+        [InlineData("", true)]
+        [InlineData("a/b", false)]
+        [InlineData("a/b", true)]
+        [InlineData("abc\n", false)]
+        [InlineData("abc\n", true)]
+        [InlineData("abc\r\n", false)]
+        [InlineData("abc\r\n", true)]
+        [InlineData("a_b", false)]
+        [InlineData("a_b", true)]
+        [InlineData("a b", false)]
+        [InlineData("a b", true)]
+        [InlineData("01234567890123456789012345678901234567890123456789012345678901234", false)] // 65 chars
+        public void GivenAnInvalidResourceId_WhenValidated_ThenBadRequestExceptionIsThrown(string resourceId, bool useLongResourceIds)
         {
-            Assert.Throws<BadRequestException>(() => ImportResourceIdValidator.Validate(resourceId));
+            // Act
+            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, useLongResourceIds));
+
+            // Assert
+            Assert.IsType<BadRequestException>(exception);
         }
 
         [Theory]
@@ -64,25 +75,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 var badRequest = Assert.IsType<BadRequestException>(exception);
                 Assert.Contains(useLongResourceIds ? "128" : "64", badRequest.Message, System.StringComparison.Ordinal);
             }
-        }
-
-        [Theory]
-        [InlineData("abc\n")]
-        [InlineData("abc\r\n")]
-        [InlineData("a_b")]
-        [InlineData("a/b")]
-        [InlineData("")]
-        [InlineData(null)]
-        public void GivenAnInvalidLongResourceId_WhenValidated_ThenBadRequestExceptionIsThrown(string resourceId)
-        {
-            // Arrange
-            const bool useLongResourceIds = true;
-
-            // Act
-            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, useLongResourceIds));
-
-            // Assert
-            Assert.IsType<BadRequestException>(exception);
         }
     }
 }

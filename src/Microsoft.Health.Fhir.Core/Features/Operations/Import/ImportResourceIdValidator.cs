@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             if (string.IsNullOrWhiteSpace(resourceId) ||
                 !ResourceIdValidation.GetRegex(useLongResourceIds).IsMatch(resourceId))
             {
-                int maxLength = useLongResourceIds ? CoreFeatureConfiguration.MaxSupportedResourceIdLength : CoreFeatureConfiguration.DefaultMaxResourceIdLength;
+                int maxLength = CoreFeatureConfiguration.GetMaxResourceIdLength(useLongResourceIds);
                 throw new BadRequestException(
                     $"Invalid resource id: '{resourceId ?? "null or empty"}'. " + string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, maxLength));
             }

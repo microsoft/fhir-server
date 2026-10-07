@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
-            _maxResourceIdLength = useLongResourceIds ? CoreFeatureConfiguration.MaxSupportedResourceIdLength : CoreFeatureConfiguration.DefaultMaxResourceIdLength;
+            _maxResourceIdLength = CoreFeatureConfiguration.GetMaxResourceIdLength(useLongResourceIds);
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;
