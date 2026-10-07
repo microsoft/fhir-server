@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
     public class IdValidator<T> : RegularExpressionValidator<T>
     {
         public IdValidator()
-            : base("^[A-Za-z0-9\\-\\.]{1,64}$", RegexOptions.Singleline | RegexOptions.Compiled)
+            : base("^[A-Za-z0-9\\-\\.]{1,64}\\z", RegexOptions.Singleline | RegexOptions.Compiled)
         {
         }
     }

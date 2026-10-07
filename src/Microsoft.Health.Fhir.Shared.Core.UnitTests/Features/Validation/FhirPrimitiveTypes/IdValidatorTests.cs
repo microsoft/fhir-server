@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         [InlineData("1+1")]
         [InlineData("1_1")]
         [InlineData("11|")]
+        [InlineData("abc\n")]
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
         public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string id)
         {
