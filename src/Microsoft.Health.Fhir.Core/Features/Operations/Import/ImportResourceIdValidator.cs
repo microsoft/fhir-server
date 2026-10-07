@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public static void Validate(string resourceId, bool useLongResourceIds = false)
         {
             if (string.IsNullOrWhiteSpace(resourceId) ||
-                !ResourceIdValidation.GetRegex(useLongResourceIds).IsMatch(resourceId))
+                !ResourceIdValidation.IsValid(resourceId, useLongResourceIds))
             {
                 int maxLength = ResourceIdValidation.GetMaxLength(useLongResourceIds);
                 throw new BadRequestException(

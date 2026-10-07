@@ -67,8 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Set through <c>FhirServer:CoreFeatures:UseLongResourceIds</c> or the environment variable
         /// <c>FhirServer__CoreFeatures__UseLongResourceIds</c>. Defaults to false.
         /// SQL Server requires schema version 118 or later; data access fails until the schema is upgraded.
-        /// Do not disable after storing long ids. After enabling on an existing deployment, run a reindex so
-        /// reference search parameters indexed with the 64 character limit are rebuilt with the full ids.
+        /// Do not disable after storing long ids.
         /// </remarks>
         public bool UseLongResourceIds { get; set; }
 

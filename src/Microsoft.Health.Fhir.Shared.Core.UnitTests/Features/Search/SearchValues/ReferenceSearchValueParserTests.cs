@@ -165,20 +165,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Theory]
-        [InlineData(false, 65)]
-        [InlineData(true, 129)]
-        public void GivenARelativeReferenceWithAnIdOverTheLimit_WhenParsing_ThenItIsNotParsedAsAResourceReferenceWithATruncatedId(bool useLongResourceIds, int length)
+        [InlineData(false, 65, 64)]
+        [InlineData(false, 100, 64)]
+        [InlineData(true, 129, 128)]
+        [InlineData(true, 200, 128)]
+        public void GivenARelativeReferenceWithAnIdOverTheLimit_WhenParsing_ThenTheIdIsCutOffAtTheLimit(bool useLongResourceIds, int length, int expectedLength)
         {
             // Arrange
-            string reference = $"Patient/{new string('a', length)}";
             ReferenceSearchValueParser parser = CreateParser(useLongResourceIds);
 
             // Act
-            ReferenceSearchValue value = parser.Parse(reference);
+            ReferenceSearchValue value = parser.Parse($"Patient/{new string('a', length)}");
 
             // Assert
-            Assert.Null(value.ResourceType);
-            Assert.Equal(reference, value.ResourceId);
+            Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
+            Assert.Equal(new string('a', expectedLength), value.ResourceId);
         }
 
         private ReferenceSearchValueParser CreateParser(bool useLongResourceIds)

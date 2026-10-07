@@ -3,12 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Text.RegularExpressions;
+using System;
+using System.Buffers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
 {
     /// <summary>
-    /// Provides reusable whole-string resource id validation for standard and long ids.
+    /// Provides reusable whole-string resource id validation: a length check followed by a character scan.
     /// </summary>
     public static class ResourceIdValidation
     {
@@ -22,8 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// </summary>
         public const int LongMaxLength = 128;
 
-        private static readonly Regex StandardIdRegex = new Regex($@"\A[A-Za-z0-9.-]{{1,{StandardMaxLength}}}\z", RegexOptions.Compiled);
-        private static readonly Regex LongIdRegex = new Regex($@"\A[A-Za-z0-9.-]{{1,{LongMaxLength}}}\z", RegexOptions.Compiled);
+        private static readonly SearchValues<char> IdCharacters = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-");
 
         /// <summary>
         /// Gets the maximum resource id length for the selected mode.
@@ -33,10 +33,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         public static int GetMaxLength(bool useLongResourceIds) => useLongResourceIds ? LongMaxLength : StandardMaxLength;
 
         /// <summary>
-        /// Gets the compiled resource id expression for the selected mode.
+        /// Determines whether a resource id is 1 to the mode's maximum length of letters, digits, dots and hyphens.
         /// </summary>
+        /// <param name="resourceId">The resource id to validate.</param>
         /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
-        /// <returns>The shared compiled expression.</returns>
-        public static Regex GetRegex(bool useLongResourceIds) => useLongResourceIds ? LongIdRegex : StandardIdRegex;
+        /// <returns>True when the id is valid.</returns>
+        public static bool IsValid(ReadOnlySpan<char> resourceId, bool useLongResourceIds)
+            => resourceId.Length > 0 && resourceId.Length <= GetMaxLength(useLongResourceIds) && !resourceId.ContainsAnyExcept(IdCharacters);
     }
 }

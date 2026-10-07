@@ -35,9 +35,9 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         {
             var fhirRequestContextAccessor = new ExecutableRequestContextAccessor();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration, Options.Create(new CoreFeatureConfiguration()));
             var modelInfoProvider = new VersionSpecificModelInfoProvider();
             ModelInfoProvider.SetProvider(modelInfoProvider);
+            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration, Options.Create(new CoreFeatureConfiguration()));
 
             var searchParameterDefinitionManager = new MinimalSearchParameterDefinitionManager(modelInfoProvider);
 
