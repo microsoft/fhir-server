@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                       ? 1
                                       : ((definition.MaximumNumberOfResourcesPerQuery - 1) / 1000) + 1);
 
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, definition.MetaHistory, cancellationToken);
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, definition.MetaHistory, cancellationToken, definition.AllowProfileResourceModification);
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {

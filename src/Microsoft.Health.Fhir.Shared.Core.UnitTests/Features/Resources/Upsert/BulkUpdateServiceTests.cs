@@ -148,6 +148,54 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task UpdateMultipleAsync_WhenProfileResourceReturned_RespectsProfileModificationPermission(bool allowProfileResourceModification)
+        {
+            // Arrange
+            const string resourceType = "CodeSystem";
+            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"CodeSystem\"},{\"name\":\"name\",\"valueString\":\"status\"},{\"name\":\"value\",\"valueCode\":\"active\"}]}]}";
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                conditionalParameters,
+                CancellationToken.None,
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                patchParameters,
+                false,
+                0,
+                false,
+                conditionalParameters,
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None,
+                allowProfileResourceModification);
+
+            // Assert
+            if (allowProfileResourceModification)
+            {
+                Assert.Equal(1, result.ResourcesUpdated[resourceType]);
+                Assert.Empty(result.ResourcesIgnored);
+            }
+            else
+            {
+                Assert.Empty(result.ResourcesUpdated);
+                Assert.Equal(1, result.ResourcesIgnored[resourceType]);
+            }
+        }
+
+        [Theory]
         [InlineData(0)]
         [InlineData(1)]
         [InlineData(5)]
@@ -1081,6 +1129,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                                 break;
                             case "Organization":
                                 resource = Samples.GetDefaultOrganization().ToPoco<Organization>();
+                                break;
+                            case "CodeSystem":
+                                resource = new CodeSystem
+                                {
+                                    Status = PublicationStatus.Draft,
+                                    Content = CodeSystemContentMode.NotPresent,
+                                };
                                 break;
                             default:
                                 throw new ArgumentException($"Unsupported resource type: {resourceType}");

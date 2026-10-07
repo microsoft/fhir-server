@@ -99,6 +99,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Fact]
+        public async Task GivenProfileModificationAllowed_WhenProcessingJobRuns_ThenProfileResourcesAreDeleted()
+        {
+            var definition = new BulkDeleteDefinition(
+                JobType.BulkDeleteProcessing,
+                DeleteOperation.HardDelete,
+                "StructureDefinition",
+                new List<Tuple<string, string>>(),
+                new List<string>(),
+                "https:\\test.com",
+                "https:\\test.com",
+                "test",
+                allowProfileResourceModification: true);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(
+                    Arg.Any<ConditionalDeleteResourceRequest>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<IList<string>>(),
+                    null)
+                .Returns(new Dictionary<string, long> { ["StructureDefinition"] = 2 });
+
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            Assert.Equal(2, result.ResourcesDeleted["StructureDefinition"]);
+            Assert.Empty(result.ResourcesIgnored);
+        }
+
+        [Fact]
         public async Task GivenProcessingJob_WhenJobIsRunWithMultipleResourceTypes_ThenFollowupJobIsCreated()
         {
             _deleter.ClearReceivedCalls();

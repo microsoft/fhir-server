@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             removeReferences: definition.RemoveReferences),
                         cancellationToken,
                         definition.ExcludedResourceTypes,
-                        OnProfileResourceSkipped);
+                        definition.AllowProfileResourceModification ? null : OnProfileResourceSkipped);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {

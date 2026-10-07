@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
             // Check access - Only super writer can perform bulk update
             await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
+            bool allowProfileResourceModification = await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, false, cancellationToken);
 
             if (_coreFeatures.EnableSmartBulkUpdateRestriction &&
                 _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
@@ -81,8 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 throw new UnauthorizedFhirActionException();
             }
 
-            // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition
-            if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))
+            if (string.Equals(request.ResourceType, "SearchParameter", StringComparison.OrdinalIgnoreCase))
             {
                 throw new BadRequestException($"Bulk update is not supported for resource type {request.ResourceType}.");
             }
@@ -134,7 +134,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 parametersString,
                 request.IsParallel,
                 maximumNumberOfResourcesPerQuery: request.MaxCount,
-                metaHistory: request.MetaHistory);
+                metaHistory: request.MetaHistory,
+                allowProfileResourceModification: allowProfileResourceModification);
 
             IReadOnlyList<JobInfo> jobInfo;
             try
