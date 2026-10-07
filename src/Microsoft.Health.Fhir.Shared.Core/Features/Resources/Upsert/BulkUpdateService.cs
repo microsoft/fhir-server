@@ -381,8 +381,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     : group.Value;
             }
 
-            // Add excluded resource types to resourcesIgnored and remove it from resourcesPerPage
-            foreach (var kvp in resourcesPerPage.Where(kvp => !allowProfileResourceModification && OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(kvp.Key)))
+            // Add excluded resource types to resourcesIgnored and remove them from resourcesPerPage.
+            foreach (var kvp in resourcesPerPage.Where(kvp =>
+                OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(
+                    excludedType => string.Equals(kvp.Key, excludedType, StringComparison.OrdinalIgnoreCase))
+                || (!allowProfileResourceModification && OperationsConstants.ProtectedProfileResourceTypes.Contains(kvp.Key))))
             {
                 resourcesIgnored[kvp.Key] = resourcesIgnored.TryGetValue(kvp.Key, out var existing)
                     ? existing + kvp.Value

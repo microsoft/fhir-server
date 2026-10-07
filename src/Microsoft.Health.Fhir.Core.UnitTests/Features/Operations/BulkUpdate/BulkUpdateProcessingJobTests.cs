@@ -120,6 +120,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 true);
         }
 
+        [Fact]
+        public async Task GivenProfileModificationNotAllowed_WhenProfileResourcesAreIgnored_ThenMissingPermissionIsReported()
+        {
+            var definition = new BulkUpdateDefinition(
+                JobType.BulkUpdateProcessing,
+                "StructureDefinition",
+                null,
+                "test",
+                "test",
+                "test",
+                null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            var updateResult = new BulkUpdateResult();
+            updateResult.ResourcesIgnored["StructureDefinition"] = 2;
+            _updater.UpdateMultipleAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<uint>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    Arg.Any<BundleResourceContext>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>(),
+                    false)
+                .Returns(updateResult);
+
+            var result = JsonConvert.DeserializeObject<BulkUpdateResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            Assert.Contains("EditProfileDefinitions", Assert.Single(result.Issues));
+        }
+
         [Theory]
         [InlineData(10, 1)]
         [InlineData(100, 1)]

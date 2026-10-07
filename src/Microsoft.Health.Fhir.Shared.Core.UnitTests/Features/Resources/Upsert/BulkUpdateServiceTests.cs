@@ -195,6 +195,43 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             }
         }
 
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenSearchParameterReturnedAndProfileModificationAllowed_SearchParameterIsIgnored()
+        {
+            // Arrange
+            const string resourceType = "SearchParameter";
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                conditionalParameters,
+                CancellationToken.None,
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                fhirPatchParameters,
+                false,
+                0,
+                false,
+                conditionalParameters,
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None,
+                allowProfileResourceModification: true);
+
+            // Assert
+            Assert.Empty(result.ResourcesUpdated);
+            Assert.Equal(1, result.ResourcesIgnored[resourceType]);
+        }
+
         [Theory]
         [InlineData(0)]
         [InlineData(1)]
@@ -1136,6 +1173,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                                     Status = PublicationStatus.Draft,
                                     Content = CodeSystemContentMode.NotPresent,
                                 };
+                                break;
+                            case "SearchParameter":
+                                resource = new SearchParameter();
                                 break;
                             default:
                                 throw new ArgumentException($"Unsupported resource type: {resourceType}");
