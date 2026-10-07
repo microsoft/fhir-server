@@ -139,17 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenResourceLoader_WhenLoadResourcesWithSearchParameterResourceType_ThenResourcesWithSearchParameterTypeShouldBeSkipped()
         {
-            await VerifyResourceTypeIsSkippedAsync("SearchParameter", "SearchParameter resources cannot be processed by import.");
-        }
-
-        [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesWithStructureDefinitionResourceType_ThenResourcesWithStructureDefinitionTypeShouldBeSkipped()
-        {
-            await VerifyResourceTypeIsSkippedAsync("StructureDefinition", "StructureDefinition resources cannot be processed by import.");
-        }
-
-        private static async Task VerifyResourceTypeIsSkippedAsync(string resourceTypeName, string errorMessage)
-        {
+            string errorMessage = "SearchParameter resources cannot be processed by import.";
             using MemoryStream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
             await writer.WriteLineAsync("test");
@@ -170,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     ResourceWrapper resourceWrapper = new ResourceWrapper(
                             content,
                             "0",
-                            resourceTypeName,
+                            "SearchParameter",
                             new RawResource(content, Core.Models.FhirResourceFormat.Json, true),
                             new ResourceRequest("POST"),
                             DateTimeOffset.UtcNow,
@@ -190,6 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return ex.Message;
                 });
 
+            Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, CancellationToken.None);

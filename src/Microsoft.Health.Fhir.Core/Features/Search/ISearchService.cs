@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -28,6 +29,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceVersionTypes">Which version types (latest, soft-deleted, history) to include in search.</param>
         /// <param name="onlyIds">Whether to return only the resource ids, not the full resource</param>
         /// <param name="isIncludesOperation">Whether the search is to query remaining include resources.</param>
+        /// <param name="scopeDataActions">
+        /// The data actions that may authorize the search. Only SMART scopes granting one of these actions are applied.
+        /// Defaults to search (<see cref="DataActions.Read"/> | <see cref="DataActions.Search"/>); direct reads by id pass
+        /// <see cref="DataActions.Read"/> | <see cref="DataActions.ReadById"/>.
+        /// </param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
         Task<SearchResult> SearchAsync(
             string resourceType,
@@ -36,7 +42,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             bool onlyIds = false,
-            bool isIncludesOperation = false);
+            bool isIncludesOperation = false,
+            DataActions scopeDataActions = DataActions.Read | DataActions.Search);
 
         /// <summary>
         /// Searches the resources using the <paramref name="searchOptions"/>.

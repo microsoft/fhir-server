@@ -246,7 +246,7 @@ public class GetResourceHandlerTests
         var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
 
         searchService
-            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<DataActions>())
             .Returns(CreateSearchResult("some-other-patient"));
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id"), bundleResourceContext: null);
@@ -261,7 +261,7 @@ public class GetResourceHandlerTests
         var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
 
         searchService
-            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<DataActions>())
             .Returns(CreateSearchResult("some-other-patient", "requested-id"));
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id"), bundleResourceContext: null);
@@ -277,7 +277,7 @@ public class GetResourceHandlerTests
         var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
 
         searchService
-            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<DataActions>())
             .Returns(CreateSearchResult());
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id"), bundleResourceContext: null);
@@ -294,7 +294,7 @@ public class GetResourceHandlerTests
         var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
 
         searchService
-            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<DataActions>())
             .Returns(CreateVersionedSearchResult(("requested-id", "2")));
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id", "1"), bundleResourceContext: null);
@@ -309,7 +309,7 @@ public class GetResourceHandlerTests
         var getResourceHandler = CreateSmartHandler(out ISearchService searchService);
 
         searchService
-            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            .SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<DataActions>())
             .Returns(CreateVersionedSearchResult(("requested-id", "2")));
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "requested-id", "2"), bundleResourceContext: null);
