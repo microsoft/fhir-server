@@ -30,14 +30,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             true, 1, 1L, DateTime.UtcNow, DateTimeOffset.UtcNow, 9M, 99.9, (short)6, (byte)9, Guid.Parse("0fd465f0-095b-425c-a3e8-acc879d20835"), "Hello",
         };
 
-        public static readonly TheoryData<Column, int> ResourceIdColumns = new()
+        public static readonly TheoryData<Column, bool, int> ResourceIdColumns = new()
         {
-            { VLatest.Resource.ResourceId, DefaultMaxResourceIdLength },
-            { VLatest.ReferenceSearchParam.ReferenceResourceId, DefaultMaxResourceIdLength },
-            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, DefaultMaxResourceIdLength },
-            { VLatest.Resource.ResourceId, ExtendedMaxResourceIdLength },
-            { VLatest.ReferenceSearchParam.ReferenceResourceId, ExtendedMaxResourceIdLength },
-            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, ExtendedMaxResourceIdLength },
+            { VLatest.Resource.ResourceId, false, DefaultMaxResourceIdLength },
+            { VLatest.ReferenceSearchParam.ReferenceResourceId, false, DefaultMaxResourceIdLength },
+            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, false, DefaultMaxResourceIdLength },
+            { VLatest.Resource.ResourceId, true, ExtendedMaxResourceIdLength },
+            { VLatest.ReferenceSearchParam.ReferenceResourceId, true, ExtendedMaxResourceIdLength },
+            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, true, ExtendedMaxResourceIdLength },
         };
 
         [Fact]
@@ -144,19 +144,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         [Theory]
         [MemberData(nameof(ResourceIdColumns))]
-        public void GivenAResourceIdColumn_WhenAdded_ThenTheParameterIsSizedToMaxResourceIdLength(Column column, int maxResourceIdLength)
+        public void GivenAResourceIdColumn_WhenAdded_ThenTheParameterIsSizedToTheSelectedLimit(Column column, bool useLongResourceIds, int expectedLength)
         {
             // Arrange
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), maxResourceIdLength);
-            var value = new string('a', maxResourceIdLength);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), useLongResourceIds);
+            var value = new string('a', expectedLength);
 
             // Act
             var parameter = (SqlParameter)parameters.AddParameter(column, value, includeInHash: false);
 
             // Assert
             Assert.Equal(SqlDbType.VarChar, parameter.SqlDbType);
-            Assert.Equal(maxResourceIdLength, parameter.Size);
+            Assert.Equal(expectedLength, parameter.Size);
             Assert.Equal(value, parameter.Value);
         }
 
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             // these two columns onto a single parameter and silently narrow or widen the other one.
             const string value = "abc";
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ExtendedMaxResourceIdLength);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), useLongResourceIds: true);
 
             // Act
             var searchParamHashParameter = (SqlParameter)parameters.AddParameter(VLatest.Resource.SearchParamHash, value, includeInHash: false);

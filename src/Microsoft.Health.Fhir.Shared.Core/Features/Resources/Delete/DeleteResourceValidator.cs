@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             int maxResourceIdLength = config.Value.MaxResourceIdLength;
 
             RuleFor(x => x.ResourceKey.Id)
-                .SetValidator(new IdValidator<DeleteResourceRequest>(maxResourceIdLength))
+                .SetValidator(new IdValidator<DeleteResourceRequest>(config.Value.UseLongResourceIds))
                 .WithMessage(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, maxResourceIdLength));
         }
     }

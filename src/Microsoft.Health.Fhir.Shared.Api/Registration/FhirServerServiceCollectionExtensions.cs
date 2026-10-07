@@ -80,16 +80,15 @@ namespace Microsoft.Extensions.DependencyInjection
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
+            if (configurationRoot?.GetSection("FhirServer:CoreFeatures:MaxResourceIdLength").Exists() == true)
+            {
+                throw new InvalidOperationException(
+                    "FhirServer:CoreFeatures:MaxResourceIdLength is no longer supported. Use FhirServer:CoreFeatures:UseLongResourceIds (false for 64 characters, true for 128 characters).");
+            }
+
             string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
-
-            int configuredMaxResourceIdLength = fhirServerConfiguration.CoreFeatures.MaxResourceIdLength;
-            if (configuredMaxResourceIdLength < CoreFeatureConfiguration.DefaultMaxResourceIdLength || configuredMaxResourceIdLength > CoreFeatureConfiguration.MaxSupportedResourceIdLength)
-            {
-                throw new InvalidOperationException(
-                    FormattableString.Invariant($"FhirServer:CoreFeatures:MaxResourceIdLength must be between {CoreFeatureConfiguration.DefaultMaxResourceIdLength} and {CoreFeatureConfiguration.MaxSupportedResourceIdLength} inclusive, but was {configuredMaxResourceIdLength}."));
-            }
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));

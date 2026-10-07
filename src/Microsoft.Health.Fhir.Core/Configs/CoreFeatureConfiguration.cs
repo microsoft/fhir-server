@@ -13,12 +13,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class CoreFeatureConfiguration
     {
         /// <summary>
-        /// The default and minimum value of <see cref="MaxResourceIdLength"/>. This is the FHIR specification limit.
+        /// The FHIR specification limit used when <see cref="UseLongResourceIds"/> is disabled.
         /// </summary>
         public const int DefaultMaxResourceIdLength = 64;
 
         /// <summary>
-        /// The largest supported value of <see cref="MaxResourceIdLength"/>. This is the SQL Server resource id column width from schema version 118.
+        /// The limit used when <see cref="UseLongResourceIds"/> is enabled. This is the SQL Server resource id column width from schema version 118.
         /// </summary>
         public const int MaxSupportedResourceIdLength = 128;
 
@@ -71,15 +71,20 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int DefaultIncludeCountPerSearch { get; set; } = 1000;
 
         /// <summary>
-        /// Gets or sets the maximum number of characters allowed in a FHIR resource id.
+        /// Gets or sets a value indicating whether resource ids up to 128 characters are allowed instead of the FHIR limit of 64.
         /// </summary>
         /// <remarks>
-        /// Set through <c>FhirServer:CoreFeatures:MaxResourceIdLength</c> or the environment variable
-        /// <c>FhirServer__CoreFeatures__MaxResourceIdLength</c>. Defaults to 64; allowed values are
-        /// 64 through 128 inclusive. Besides validation, it sizes SQL ResourceId parameters and stored reference IDs.
-        /// SQL Server requires schema version 118 or later for values above 64.
+        /// Set through <c>FhirServer:CoreFeatures:UseLongResourceIds</c> or the environment variable
+        /// <c>FhirServer__CoreFeatures__UseLongResourceIds</c>. Defaults to false.
+        /// SQL Server requires schema version 118 or later. Do not disable after storing long ids,
+        /// or enable on an existing deployment without addressing previously truncated indexed references.
         /// </remarks>
-        public int MaxResourceIdLength { get; set; } = DefaultMaxResourceIdLength;
+        public bool UseLongResourceIds { get; set; }
+
+        /// <summary>
+        /// Gets the resource id length used for SQL parameter sizing, indexed references and validation messages.
+        /// </summary>
+        public int MaxResourceIdLength => UseLongResourceIds ? MaxSupportedResourceIdLength : DefaultMaxResourceIdLength;
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.

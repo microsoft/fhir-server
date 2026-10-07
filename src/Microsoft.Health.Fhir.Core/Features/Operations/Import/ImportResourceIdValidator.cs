@@ -4,8 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Globalization;
-using System.Text.RegularExpressions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -18,13 +19,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Validates that a resource id conforms to the FHIR id requirements.
         /// </summary>
         /// <param name="resourceId">The resource id to validate.</param>
-        /// <param name="maxLength">The maximum number of characters allowed in a resource id.</param>
+        /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
         /// <exception cref="BadRequestException">Thrown when <paramref name="resourceId"/> is null, empty, whitespace-only, or does not match the FHIR id format.</exception>
-        public static void Validate(string resourceId, int maxLength)
+        public static void Validate(string resourceId, bool useLongResourceIds = false)
         {
             if (string.IsNullOrWhiteSpace(resourceId) ||
-                !Regex.IsMatch(resourceId, $"^[A-Za-z0-9\\-\\.]{{1,{maxLength}}}$"))
+                !ResourceIdValidation.GetRegex(useLongResourceIds).IsMatch(resourceId))
             {
+                int maxLength = useLongResourceIds ? CoreFeatureConfiguration.MaxSupportedResourceIdLength : CoreFeatureConfiguration.DefaultMaxResourceIdLength;
                 throw new BadRequestException(
                     $"Invalid resource id: '{resourceId ?? "null or empty"}'. " + string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, maxLength));
             }

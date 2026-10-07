@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         [InlineData("1+1")]
         [InlineData("1_1")]
         [InlineData("11|")]
+        [InlineData("abc\n")]
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
         public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string id)
         {
@@ -48,26 +49,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         }
 
         [Theory]
-        [InlineData(64, 65, false)]
-        [InlineData(64, 128, false)]
-        [InlineData(128, 65, true)]
-        [InlineData(128, 128, true)]
-        [InlineData(128, 129, false)]
-        public void GivenAnId_WhenValidated_ThenTheConfiguredLengthLimitIsApplied(int maxLength, int length, bool expectedValid)
+        [InlineData(false, 64, true)]
+        [InlineData(false, 65, false)]
+        [InlineData(false, 128, false)]
+        [InlineData(true, 64, true)]
+        [InlineData(true, 65, true)]
+        [InlineData(true, 128, true)]
+        [InlineData(true, 129, false)]
+        public void GivenAnId_WhenValidated_ThenTheSelectedLengthLimitIsApplied(bool useLongResourceIds, int length, bool expectedValid)
         {
             // Arrange
             var observation = Samples.GetDefaultObservation().UpdateId(new string('a', length));
 
             // Act
-            bool isValid = GetValidationFailures(observation, maxLength);
+            bool isValid = GetValidationFailures(observation, useLongResourceIds);
 
             // Assert
             Assert.Equal(expectedValid, isValid);
         }
 
-        private static bool GetValidationFailures(ResourceElement defaultObservation, int maxLength = 64)
+        [Theory]
+        [InlineData("abc\n")]
+        [InlineData("abc\r\n")]
+        [InlineData("a_b")]
+        [InlineData("a/b")]
+        public void GivenAnInvalidLongId_WhenProcessingAResource_ThenValidationFails(string id)
         {
-            var validator = new IdValidator<ResourceElement>(maxLength);
+            // Arrange
+            var observation = Samples.GetDefaultObservation().UpdateId(id);
+
+            // Act
+            bool isValid = GetValidationFailures(observation, useLongResourceIds: true);
+
+            // Assert
+            Assert.False(isValid);
+        }
+
+        private static bool GetValidationFailures(ResourceElement defaultObservation, bool useLongResourceIds = false)
+        {
+            var validator = new IdValidator<ResourceElement>(useLongResourceIds);
             var validationContext = new ValidationContext<ResourceElement>(defaultObservation);
             return validator.IsValid(validationContext, defaultObservation.Id);
         }

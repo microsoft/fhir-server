@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenAConfiguredMaxResourceIdLength_WhenPuttingAPatientObjectWithNullResourceId_ThenTheConfiguredLimitIsReportedInTheIssue()
+        public void GivenLongResourceIdsAreEnabled_WhenPuttingAPatientObjectWithNullResourceId_ThenTheSelectedLimitIsReportedInTheIssue()
         {
             // Arrange
             var filter = new ValidateIdSegmentAttribute();
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 Id = Guid.NewGuid().ToString(),
             };
 
-            var context = CreateContext(patient, id: null, maxResourceIdLength: 128);
+            var context = CreateContext(patient, id: null, useLongResourceIds: true);
 
             // Act
             var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
@@ -121,10 +121,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 issue.Diagnostics);
         }
 
-        private static ActionExecutingContext CreateContext(Resource type, string id, int maxResourceIdLength = 64)
+        private static ActionExecutingContext CreateContext(Resource type, string id, bool useLongResourceIds = false)
         {
             var services = new ServiceCollection();
-            services.AddSingleton<IOptions<CoreFeatureConfiguration>>(Options.Create(new CoreFeatureConfiguration { MaxResourceIdLength = maxResourceIdLength }));
+            services.AddSingleton<IOptions<CoreFeatureConfiguration>>(Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds }));
 
             var httpContext = new DefaultHttpContext
             {

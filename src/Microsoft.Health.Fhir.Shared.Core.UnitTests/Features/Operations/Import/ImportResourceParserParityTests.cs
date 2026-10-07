@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     {
         private readonly IImportResourceParser _firelyParser;
         private readonly IImportResourceParser _ignixaParser;
+        private readonly ResourceWrapperFactory _wrapperFactory;
 
         public ImportResourceParserParityTests()
         {
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             requestContextAccessor.RequestContext.Method.Returns("PUT");
             requestContextAccessor.RequestContext.Uri.Returns(new Uri("https://unittest/Patient/123"));
 
-            var wrapperFactory = new ResourceWrapperFactory(
+            _wrapperFactory = new ResourceWrapperFactory(
                 new RawResourceFactory(new FhirJsonSerializer()),
                 requestContextAccessor,
                 Substitute.For<ISearchIndexer>(),
@@ -54,9 +55,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 Substitute.For<ISearchParameterDefinitionManager>(),
                 Deserializers.ResourceDeserializer);
 
-            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), wrapperFactory, Options.Create(new CoreFeatureConfiguration()));
+            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, Options.Create(new CoreFeatureConfiguration()));
             _ignixaParser = new IgnixaImportResourceParser(
-                wrapperFactory,
+                _wrapperFactory,
                 new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()),
                 Options.Create(new CoreFeatureConfiguration()));
         }
@@ -119,6 +120,44 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             {
                 Assert.IsType<BadRequestException>(firely);
                 Assert.IsType<BadRequestException>(ignixa);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, 64, true)]
+        [InlineData(false, 65, false)]
+        [InlineData(false, 128, false)]
+        [InlineData(true, 64, true)]
+        [InlineData(true, 65, true)]
+        [InlineData(true, 128, true)]
+        [InlineData(true, 129, false)]
+        public void GivenTheLongResourceIdsFlag_WhenParsed_ThenBothProvidersApplyTheSelectedLimit(bool useLongResourceIds, int length, bool valid)
+        {
+            // Arrange
+            var configuration = Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds });
+            var firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, configuration);
+            var ignixaParser = new IgnixaImportResourceParser(
+                _wrapperFactory,
+                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()),
+                configuration);
+            string id = new string('a', length);
+            string json = $$"""{"resourceType":"Patient","id":"{{id}}"}""";
+
+            // Act
+            if (valid)
+            {
+                ImportResource firely = firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+                ImportResource ignixa = ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+                // Assert
+                Assert.Equal(id, firely.ResourceWrapper.ResourceId);
+                Assert.Equal(id, ignixa.ResourceWrapper.ResourceId);
+            }
+            else
+            {
+                // Assert
+                Assert.Throws<BadRequestException>(() => firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad));
+                Assert.Throws<BadRequestException>(() => ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad));
             }
         }
 

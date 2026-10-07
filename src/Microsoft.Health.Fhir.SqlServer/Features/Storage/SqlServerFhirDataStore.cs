@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return MergeOutcome.Empty;
             }
 
-            EnsureSchemaSupportsMaxResourceIdLength();
+            EnsureSchemaSupportsLongResourceIds();
 
             var singleTransaction = enlistInTransaction || !eventualConsistency;
 
@@ -968,7 +968,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            EnsureSchemaSupportsMaxResourceIdLength();
+            EnsureSchemaSupportsLongResourceIds();
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
         }
 
@@ -979,7 +979,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            EnsureSchemaSupportsMaxResourceIdLength();
+            EnsureSchemaSupportsLongResourceIds();
 
             int? failedResourceCount;
             try
@@ -1227,18 +1227,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Before schema 118 the scalar <c>@ResourceId</c> parameters truncate silently, so a long id could address another resource.
         /// An unknown schema version is left to <see cref="SqlServerFhirModel"/>, which reports the store as temporarily unavailable.
         /// </summary>
-        internal void EnsureSchemaSupportsMaxResourceIdLength()
+        internal void EnsureSchemaSupportsLongResourceIds()
         {
-            if (_coreFeatures.MaxResourceIdLength > CoreFeatureConfiguration.DefaultMaxResourceIdLength
+            if (_coreFeatures.UseLongResourceIds
                 && _schemaInformation.Current < SchemaVersionConstants.ResourceIdLength128)
             {
                 throw new InvalidOperationException(string.Format(
                     CultureInfo.InvariantCulture,
-                    "CoreFeatures:MaxResourceIdLength is {0}, which requires SQL schema version {1} or later. The current schema version is {2}. Upgrade the schema or set MaxResourceIdLength to {3}.",
-                    _coreFeatures.MaxResourceIdLength,
+                    "CoreFeatures:UseLongResourceIds is enabled, which requires SQL schema version {0} or later. The current schema version is {1}. Upgrade the schema or set UseLongResourceIds to false.",
                     SchemaVersionConstants.ResourceIdLength128,
-                    _schemaInformation.Current.Value,
-                    CoreFeatureConfiguration.DefaultMaxResourceIdLength));
+                    _schemaInformation.Current.Value));
             }
         }
     }

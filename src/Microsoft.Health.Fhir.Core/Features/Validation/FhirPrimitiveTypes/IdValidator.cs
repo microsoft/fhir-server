@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Text.RegularExpressions;
 using FluentValidation.Validators;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
@@ -18,9 +17,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// <summary>
         /// Initializes a new instance of the <see cref="IdValidator{T}"/> class.
         /// </summary>
-        /// <param name="maxLength">The maximum number of characters allowed in a resource id.</param>
-        public IdValidator(int maxLength)
-            : base($"^[A-Za-z0-9\\-\\.]{{1,{maxLength}}}$", RegexOptions.Singleline | RegexOptions.Compiled)
+        /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
+        public IdValidator(bool useLongResourceIds = false)
+            : base(ResourceIdValidation.GetRegex(useLongResourceIds))
         {
         }
     }

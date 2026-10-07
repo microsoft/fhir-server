@@ -35,15 +35,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Initializes a new instance of the <see cref="HashingSqlQueryParameterManager"/> class.
         /// </summary>
         /// <param name="inner">The parameter manager to wrap.</param>
-        /// <param name="maxResourceIdLength">
-        /// The configured maximum FHIR resource id length. Parameters bound to resource id columns are sized to this length,
+        /// <param name="useLongResourceIds">
+        /// Whether resource ids up to 128 characters are allowed. Parameters bound to resource id columns are sized to the selected limit,
         /// so the generated parameter declarations follow the setting rather than the column width.
         /// </param>
-        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, int maxResourceIdLength = CoreFeatureConfiguration.DefaultMaxResourceIdLength)
+        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, bool useLongResourceIds = false)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
-            _maxResourceIdLength = maxResourceIdLength;
+            _maxResourceIdLength = useLongResourceIds ? CoreFeatureConfiguration.MaxSupportedResourceIdLength : CoreFeatureConfiguration.DefaultMaxResourceIdLength;
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;

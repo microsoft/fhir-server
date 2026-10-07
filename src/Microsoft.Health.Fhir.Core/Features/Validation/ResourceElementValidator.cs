@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             int maxResourceIdLength = config.Value.MaxResourceIdLength;
 
             RuleFor(x => x.Id)
-                .SetValidator(new IdValidator<ResourceElement>(maxResourceIdLength))
+                .SetValidator(new IdValidator<ResourceElement>(config.Value.UseLongResourceIds))
                 .WithMessage(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, maxResourceIdLength));
             RuleFor(x => x)
                 .SetValidator(contentValidator);

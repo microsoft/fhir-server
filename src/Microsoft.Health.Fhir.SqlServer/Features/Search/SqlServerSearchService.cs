@@ -537,7 +537,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
-                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters), _coreFeatureConfiguration.MaxResourceIdLength),
+                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters), _coreFeatureConfiguration.UseLongResourceIds),
                                 _model,
                                 _schemaInformation,
                                 _queryGeneratorFactory,
@@ -2041,7 +2041,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
-                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters), _coreFeatureConfiguration.MaxResourceIdLength),
+                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters), _coreFeatureConfiguration.UseLongResourceIds),
                                 _model,
                                 _schemaInformation,
                                 _queryGeneratorFactory,

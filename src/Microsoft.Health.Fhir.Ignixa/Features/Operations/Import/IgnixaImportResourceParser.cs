@@ -34,14 +34,14 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IgnixaSchemaContext _schemaContext;
-        private readonly int _maxResourceIdLength;
+        private readonly bool _useLongResourceIds;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaImportResourceParser"/> class.
         /// </summary>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
         /// <param name="schemaContext">The Ignixa generated schema for the current FHIR version.</param>
-        /// <param name="coreFeatureConfiguration">The core feature configuration supplying the maximum resource id length.</param>
+        /// <param name="coreFeatureConfiguration">The core feature configuration controlling long resource ids.</param>
         public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext, IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
             _resourceFactory = resourceFactory;
             _schemaContext = schemaContext;
-            _maxResourceIdLength = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).MaxResourceIdLength;
+            _useLongResourceIds = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).UseLongResourceIds;
         }
 
         /// <inheritdoc />
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
             }
 
-            ImportResourceIdValidator.Validate(resource.Id, _maxResourceIdLength);
+            ImportResourceIdValidator.Validate(resource.Id, _useLongResourceIds);
             CheckConditionalReferenceInResource(resource, importMode);
 
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdatedOffset == null;

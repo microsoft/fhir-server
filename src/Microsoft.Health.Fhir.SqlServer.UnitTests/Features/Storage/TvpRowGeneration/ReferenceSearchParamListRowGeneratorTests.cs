@@ -34,12 +34,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
     public class ReferenceSearchParamListRowGeneratorTests
     {
         [Theory]
-        [InlineData(64, 64)]
-        [InlineData(128, 100)]
-        public void GivenAReferenceWithA100CharacterId_WhenGeneratingARow_ThenTheIdIsTruncatedToTheConfiguredLength(int maxResourceIdLength, int expectedLength)
+        [InlineData(false, 64)]
+        [InlineData(true, 100)]
+        public void GivenAReferenceWithA100CharacterId_WhenGeneratingARow_ThenTheIdIsTruncatedToTheSelectedLength(bool useLongResourceIds, int expectedLength)
         {
             // Arrange
-            ReferenceSearchParamListRowGenerator generator = CreateGenerator(maxResourceIdLength);
+            ReferenceSearchParamListRowGenerator generator = CreateGenerator(useLongResourceIds);
             string resourceId = new string('a', 100);
             var searchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, resourceType: null, resourceId: resourceId);
 
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId);
         }
 
-        private static ReferenceSearchParamListRowGenerator CreateGenerator(int maxResourceIdLength)
+        private static ReferenceSearchParamListRowGenerator CreateGenerator(bool useLongResourceIds)
         {
             var model = new SqlServerFhirModel(
                 new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max),
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             return new ReferenceSearchParamListRowGenerator(
                 model,
                 new SearchParameterToSearchValueTypeMap(),
-                Options.Create(new CoreFeatureConfiguration { MaxResourceIdLength = maxResourceIdLength }));
+                Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds }));
         }
     }
 }

@@ -148,13 +148,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Theory]
-        [InlineData(64, 64)]
-        [InlineData(128, 100)]
-        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsing_ThenUpToMaxResourceIdLengthCharactersAreCaptured(int maxResourceIdLength, int expectedLength)
+        [InlineData(false, 64)]
+        [InlineData(true, 100)]
+        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsing_ThenTheSelectedLengthIsCaptured(bool useLongResourceIds, int expectedLength)
         {
             // Arrange
             string resourceId = new string('a', 100);
-            ReferenceSearchValueParser parser = CreateParser(maxResourceIdLength);
+            ReferenceSearchValueParser parser = CreateParser(useLongResourceIds);
 
             // Act
             ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(resourceId[..expectedLength], value.ResourceId);
         }
 
-        private ReferenceSearchValueParser CreateParser(int maxResourceIdLength)
+        private ReferenceSearchValueParser CreateParser(bool useLongResourceIds)
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(BaseUri);
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             return new ReferenceSearchValueParser(
                 _fhirRequestContextAccessor,
                 instanceConfig,
-                Options.Create(new CoreFeatureConfiguration { MaxResourceIdLength = maxResourceIdLength }));
+                Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds }));
         }
     }
 }
