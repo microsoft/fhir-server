@@ -104,7 +104,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     baseDefinition.BaseUrl,
                     baseDefinition.ParentRequestId,
                     baseDefinition.VersionType,
-                    baseDefinition.RemoveReferences);
+                    baseDefinition.RemoveReferences,
+                    baseDefinition.AllowProfileResourceModification);
             }
 
             return null;

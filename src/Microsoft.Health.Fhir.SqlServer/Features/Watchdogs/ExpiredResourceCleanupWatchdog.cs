@@ -112,7 +112,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         baseUrl: $"./ExpiredResourceCleanupWatchdog",
                         parentRequestId: Guid.NewGuid().ToString(),
                         versionType: ResourceVersionType.Latest,
-                        removeReferences: false);
+                        removeReferences: false,
+                        allowProfileResourceModification: true);
 
                     var jobs = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definition);
 

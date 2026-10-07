@@ -84,6 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
                 Assert.Equal(searchParams?.Count ?? 0, definition.SearchParameters.Count);
+                Assert.False(definition.AllowProfileResourceModification);
                 return new List<JobInfo>()
                 {
                     new JobInfo()
@@ -260,11 +261,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
-        [Theory]
-        [InlineData("SearchParameter")]
-        [InlineData("StructureDefinition")]
-        public async Task GivenBulkUpdateRequest_WhenResourceTypeIsExcluded_ThenBadRequestIsReturned(string resourceType)
+        [Fact]
+        public async Task GivenBulkUpdateRequest_WhenResourceTypeIsSearchParameter_ThenBadRequestIsReturned()
         {
+            const string resourceType = "SearchParameter";
             var searchParams = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("param", "value"),
@@ -276,6 +276,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var ex = await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
             Assert.Equal($"Bulk update is not supported for resource type {resourceType}.", ex.Message);
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateRequestAndEditProfileDefinitionsAccess_WhenJobCreated_ThenProfileModificationIsAllowed()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>())
+                .Returns(DataActions.BulkOperator | DataActions.EditProfileDefinitions);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(callInfo.ArgAt<string[]>(1)[0]);
+                    Assert.True(definition.AllowProfileResourceModification);
+                    return new List<JobInfo> { new() { Id = 1 } };
+                });
+
+            var request = new CreateBulkUpdateRequest("StructureDefinition", new List<Tuple<string, string>>(), GenerateParameters("replace"), false);
+
+            CreateBulkUpdateResponse response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
         }
 
         [Fact]
