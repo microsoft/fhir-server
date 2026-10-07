@@ -57,6 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
             ContainsIterativeInclude = other.ContainsIterativeInclude;
+            NormalizedQueryShape = other.NormalizedQueryShape;
         }
 
         /// <summary>
@@ -191,6 +192,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets or sets a value indicating whether the search contains iterative includes.
         /// </summary>
         public bool ContainsIterativeInclude { get; set; }
+
+        internal string NormalizedQueryShape { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance
