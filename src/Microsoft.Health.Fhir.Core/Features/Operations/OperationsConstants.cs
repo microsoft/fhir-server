@@ -61,10 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ExpiredResourceCleanup = "expired-resource-cleanup";
 
-        public const string SearchParameterResourceType = "SearchParameter";
-
         public static readonly ReadOnlyCollection<string> ProtectedProfileResourceTypes = new ReadOnlyCollection<string>(new[] { "StructureDefinition", "ValueSet", "CodeSystem" });
 
-        public static readonly ReadOnlyCollection<string> ExcludedResourceTypesForBulkUpdate = new ReadOnlyCollection<string>(new[] { SearchParameterResourceType });
+        public static readonly ReadOnlyCollection<string> ExcludedResourceTypesForBulkUpdate = new ReadOnlyCollection<string>(new[] { "SearchParameter" });
     }
 }
