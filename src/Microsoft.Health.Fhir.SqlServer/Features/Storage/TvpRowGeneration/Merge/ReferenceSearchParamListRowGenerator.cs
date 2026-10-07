@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         public ReferenceSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap, IOptions<CoreFeatureConfiguration> config)
             : base(model, searchParameterTypeMap, RowComparer)
         {
-            _maxLength = EnsureArg.IsNotNull(config, nameof(config)).Value.UseLongResourceIds ? ResourceIdValidation.LongMaxLength : ResourceIdValidation.StandardMaxLength;
+            _maxLength = ResourceIdValidation.GetMaxLength(EnsureArg.IsNotNull(config, nameof(config)).Value.UseLongResourceIds);
         }
 
         internal override bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, ReferenceSearchValue searchValue, HashSet<ReferenceSearchParamListRow> results, out ReferenceSearchParamListRow row)
