@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             // whole reference, so an overlong id can match only its first maxResourceIdLength characters.
             string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
+            // The parser is registered as a singleton; compile the selected pattern once and reuse it in Parse.
             _referenceRegex = new Regex(
                 referenceCaptureRegexPattern,
                 RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
