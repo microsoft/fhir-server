@@ -30,7 +30,6 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -79,12 +78,6 @@ namespace Microsoft.Extensions.DependencyInjection
             mvcBuilderAction?.Invoke(builder);
 
             var fhirServerConfiguration = new FhirServerConfiguration();
-
-            if (configurationRoot?.GetSection("FhirServer:CoreFeatures:MaxResourceIdLength").Exists() == true)
-            {
-                throw new InvalidOperationException(
-                    "FhirServer:CoreFeatures:MaxResourceIdLength is no longer supported. Use FhirServer:CoreFeatures:UseLongResourceIds (false for 64 characters, true for 128 characters).");
-            }
 
             string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
