@@ -1356,28 +1356,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             return (compartmentDefinitionManager, membership);
         }
 
-        private static void SetSearchParameterStatus(SearchParameterInfo parameter, SearchParameterStatus status)
-        {
-            // Mirrors SearchParameterStatusManager.EvaluateSearchParamStatus.
-            parameter.SearchParameterStatus = status;
-            parameter.IsSearchable = status == SearchParameterStatus.Enabled;
-            parameter.IsSupported = status == SearchParameterStatus.Enabled || status == SearchParameterStatus.Supported;
-        }
-
-        private async Task<SearchResult> SearchDevicesAsPatientAAsync()
-        {
-            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
-
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            return await _searchService.Value.SearchAsync(
-                KnownResourceTypes.Device,
-                new List<Tuple<string, string>> { new Tuple<string, string>("_count", "100") },
-                CancellationToken.None);
-        }
-
         private void AssertMaterializedMembershipCoversResolvableTypes(
             CompartmentDefinitionManager compartmentDefinitionManager,
             IReadOnlyDictionary<string, IReadOnlyCollection<SearchParameterInfo>> membership,
@@ -1882,6 +1860,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
         }
 
+#if R4 || R4B
+        // Device.patient exists only in STU3/R4/R4B (removed in R5), and the SMART Device restriction is exercised
+        // here on R4/R4B only, so this test and its helpers are compiled for those versions only.
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenDevicePatientSearchParameterIsNotEnabled_WhenPatientSearchesDevices_ThenNoDeviceIsVisible()
@@ -1892,11 +1873,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // Device.patient is not searchable they fail closed and no Device is visible. Supported is the
             // important case: the parameter is still IsSupported (indexed, and resolved by the formal compartment
             // leg) but its index is incomplete.
-            Assert.SkipWhen(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
             const string unindexedDeviceId = "smart-device-B3-unindexed";
 
             Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(KnownResourceTypes.Device, "patient", out SearchParameterInfo devicePatient));
@@ -1950,6 +1926,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Device, unindexedDeviceId), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
             }
         }
+
+        private static void SetSearchParameterStatus(SearchParameterInfo parameter, SearchParameterStatus status)
+        {
+            // Mirrors SearchParameterStatusManager.EvaluateSearchParamStatus.
+            parameter.SearchParameterStatus = status;
+            parameter.IsSearchable = status == SearchParameterStatus.Enabled;
+            parameter.IsSupported = status == SearchParameterStatus.Enabled || status == SearchParameterStatus.Supported;
+        }
+
+        private async Task<SearchResult> SearchDevicesAsPatientAAsync()
+        {
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            return await _searchService.Value.SearchAsync(
+                KnownResourceTypes.Device,
+                new List<Tuple<string, string>> { new Tuple<string, string>("_count", "100") },
+                CancellationToken.None);
+        }
+#endif
 
         [Fact]
         public async Task GivenFhirUserClaimPatient_WhenRevIncludingAllResourcesAndADeviceReferencesThePatient_ThenTheAssignedDeviceIsRevIncluded()
