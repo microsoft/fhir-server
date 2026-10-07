@@ -1171,7 +1171,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                                 resource = new CodeSystem
                                 {
                                     Status = PublicationStatus.Draft,
-                                    Content = CodeSystemContentMode.NotPresent,
                                 };
                                 break;
                             case "SearchParameter":
