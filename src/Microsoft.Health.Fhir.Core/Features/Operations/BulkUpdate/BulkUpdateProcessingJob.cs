@@ -134,6 +134,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     exception = ex;
                 }
 
+                if (!definition.AllowProfileResourceModification)
+                {
+                    foreach (var (resourceType, count) in result.ResourcesIgnored.Where(resource => OperationsConstants.ProtectedProfileResourceTypes.Contains(resource.Key)))
+                    {
+                        result.Issues.Add($"Skipped {count} {resourceType} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not updated.");
+                    }
+                }
+
                 if (result.ResourcesUpdated.Any())
                 {
                     await _mediator.PublishAsync(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);

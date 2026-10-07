@@ -105,10 +105,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
-                    if (!definition.AllowProfileResourceModification)
-                    {
-                        resourceTypes = resourceTypes.Where(x => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(x)).ToList();
-                    }
+                    resourceTypes = resourceTypes
+                        .Where(resourceType => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(
+                            excludedType => string.Equals(resourceType, excludedType, StringComparison.OrdinalIgnoreCase)))
+                        .ToList();
 
                     var globalStartId = new PartialDateTime(DateTime.MinValue).ToDateTimeOffset().ToId();
                     var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1;

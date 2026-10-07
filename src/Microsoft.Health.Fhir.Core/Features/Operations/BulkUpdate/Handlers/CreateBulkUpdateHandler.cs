@@ -82,7 +82,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (string.Equals(request.ResourceType, "SearchParameter", StringComparison.OrdinalIgnoreCase))
+            if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(
+                excludedType => string.Equals(request.ResourceType, excludedType, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new BadRequestException($"Bulk update is not supported for resource type {request.ResourceType}.");
             }

@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 foreach (var (resourceType, count) in result.ResourcesIgnored)
                 {
-                    result.Issues.Add($"Skipped {count} {resourceType} resource(s): profile defining resources (CodeSystem, ValueSet, StructureDefinition) are not supported for bulk delete and have not been deleted.");
+                    result.Issues.Add($"Skipped {count} {resourceType} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not deleted.");
                 }
 
                 await _mediator.PublishAsync(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);

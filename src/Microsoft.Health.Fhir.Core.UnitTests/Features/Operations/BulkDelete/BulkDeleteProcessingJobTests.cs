@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             Assert.Empty(result.ResourcesDeleted);
             Assert.Equal(2, result.ResourcesIgnored["StructureDefinition"]);
             Assert.Contains("Skipped 2 StructureDefinition resource(s)", Assert.Single(result.Issues));
+            Assert.Contains("EditProfileDefinitions", Assert.Single(result.Issues));
         }
 
         [Fact]

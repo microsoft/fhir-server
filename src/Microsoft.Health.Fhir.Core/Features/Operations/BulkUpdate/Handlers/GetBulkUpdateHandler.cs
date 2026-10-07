@@ -133,6 +133,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     UpdateResources(result.ResourcesUpdated, resourcesUpdated);
                     UpdateResources(result.ResourcesIgnored, resourcesIgnored);
                     UpdateResources(result.ResourcesPatchFailed, resourcesPatchFailed);
+
+                    if (job.Status == JobStatus.Completed)
+                    {
+                        foreach (string issue in result.Issues)
+                        {
+                            issues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                detailsText: issue));
+                        }
+                    }
                 }
             }
 
