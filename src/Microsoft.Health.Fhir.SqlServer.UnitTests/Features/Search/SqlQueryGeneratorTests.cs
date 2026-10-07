@@ -379,6 +379,62 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
+    public void GivenCountOnlyIncludesOperation_WhenSqlGenerated_ThenIncludeExpansionIsNotLimited()
+    {
+        // Arrange
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var includeExpression = new IncludeExpression(
+            ["Observation"],
+            includeParameter,
+            "Observation",
+            "Patient",
+            null,
+            false,
+            false,
+            false);
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+            ],
+            []);
+        SearchOptions searchOptions = new()
+        {
+            CountOnly = true,
+            IncludeCount = 1,
+            IncludesContinuationToken = new IncludesContinuationToken(
+                new object[] { (short)10, 100L, 300L, null, null, false, null, null, 1 }).ToJson(),
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        Assert.Single(Regex.Matches(generatedSql, "TOP \\("));
+        Assert.Contains("SELECT count_big(DISTINCT Sid1)", generatedSql);
+        Assert.DoesNotContain("count_big(*) over()", generatedSql);
+        Assert.DoesNotContain("ORDER BY T1 ASC, Sid1 ASC", generatedSql);
+    }
+
+    [Fact]
     public void GivenObservationCompartmentDefinition_WhenMembershipCreated_ThenFocusIsNotAMembershipParameter()
     {
         // Arrange

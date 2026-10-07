@@ -206,12 +206,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             var summaryCountResponse = await Client.SearchAsync($"{relatedLink!}&_summary=count");
-            var expectedTotal = removeIncludesCount
-                ? expectedIncludedResourceCount
-                : Math.Min(expectedIncludedResourceCount, includesCount + 1);
-
             Assert.Equal(HttpStatusCode.OK, summaryCountResponse.StatusCode);
-            Assert.Equal(expectedTotal, summaryCountResponse.Resource.Total);
+            Assert.Equal(expectedIncludedResourceCount, summaryCountResponse.Resource.Total);
         }
 
         [Fact]

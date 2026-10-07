@@ -989,8 +989,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("SELECT DISTINCT ");
 
-            // Adding 1 to the include count for detecting a case of truncated "include" resources.
-            StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
+            if (!context.CountOnly)
+            {
+                // Add one include to detect truncated include resources.
+                StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
+            }
 
             var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
 
@@ -1232,7 +1235,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (context.IsIncludesOperation)
             {
-                StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
+                if (!context.CountOnly)
+                {
+                    StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
+                }
+
                 _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
             }
 
@@ -1474,13 +1481,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindIncludeLimit(SearchOptions context)
         {
-            StringBuilder.Append("SELECT DISTINCT TOP (")
-                .Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false))
-                .Append(") T1, Sid1, IsMatch, ");
+            StringBuilder.Append("SELECT DISTINCT ");
+            if (!context.CountOnly)
+            {
+                StringBuilder.Append("TOP (")
+                    .Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false))
+                    .Append(") ");
+            }
 
-            StringBuilder.Append("CASE WHEN count_big(*) over() > ")
-                .Append(Parameters.AddParameter(context.IncludeCount, true))
-                .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
+            StringBuilder.Append("T1, Sid1, IsMatch, ");
+
+            if (context.CountOnly)
+            {
+                StringBuilder.AppendLine("0 AS IsPartial ");
+            }
+            else
+            {
+                StringBuilder.Append("CASE WHEN count_big(*) over() > ")
+                    .Append(Parameters.AddParameter(context.IncludeCount, true))
+                    .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
+            }
 
             StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
             if (!context.IsIncludesOperation)
@@ -1488,7 +1508,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // the 'original' include cte is not in the union, but this new layer is instead
                 _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
             }
-            else
+            else if (!context.CountOnly)
             {
                 StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
             }
