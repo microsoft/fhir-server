@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             // Assert
             using ServiceProvider provider = services.BuildServiceProvider();
-            Assert.Equal(expected, provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.MaxResourceIdLength);
+            Assert.Equal(expected == 128, provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.UseLongResourceIds);
         }
 
         [Theory]

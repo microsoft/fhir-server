@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         /// <param name="config">The core feature configuration.</param>
         public DeleteResourceValidator(IOptions<CoreFeatureConfiguration> config)
         {
-            int maxResourceIdLength = config.Value.MaxResourceIdLength;
+            int maxResourceIdLength = ResourceIdValidation.GetMaxLength(config.Value.UseLongResourceIds);
 
             RuleFor(x => x.ResourceKey.Id)
                 .SetValidator(new IdValidator<DeleteResourceRequest>(config.Value.UseLongResourceIds))

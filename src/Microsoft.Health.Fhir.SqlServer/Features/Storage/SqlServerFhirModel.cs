@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly IMediator _mediator;
         private readonly ISqlRetryService _sqlRetryService;
@@ -76,6 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
             ISqlRetryService sqlRetryService,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -84,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
@@ -93,6 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _mediator = mediator;
             _sqlRetryService = sqlRetryService;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _logger = logger;
         }
 
@@ -496,6 +501,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void ThrowIfNotInitialized()
         {
             ThrowIfCurrentSchemaVersionIsNull();
+            ThrowIfLongResourceIdsAreNotSupportedBySchema();
 
             if (_highestInitializedVersion < _schemaInformation.MinimumSupportedVersion)
             {
@@ -506,6 +512,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (_highestInitializedVersion < _schemaInformation.Current)
             {
                 _logger.LogWarning($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
+            }
+        }
+
+        // Every data access goes through the model. Before schema 118 the resource id columns, parameters and table types are 64 wide
+        // and silently truncate, so a long id could address another resource. Fail instead of serving requests.
+        private void ThrowIfLongResourceIdsAreNotSupportedBySchema()
+        {
+            if (_coreFeatureConfiguration.UseLongResourceIds
+                && _schemaInformation.Current < SchemaVersionConstants.ResourceIdLength128)
+            {
+                throw new InvalidOperationException(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "CoreFeatures:UseLongResourceIds is enabled, which requires SQL schema version {0} or later. The current schema version is {1}. Upgrade the schema or set UseLongResourceIds to false.",
+                    SchemaVersionConstants.ResourceIdLength128,
+                    _schemaInformation.Current.Value));
             }
         }
 

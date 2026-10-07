@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
+                Options.Create(new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds }),
                 NullLogger<SqlServerFhirModel>.Instance);
 
             return new ReferenceSearchParamListRowGenerator(

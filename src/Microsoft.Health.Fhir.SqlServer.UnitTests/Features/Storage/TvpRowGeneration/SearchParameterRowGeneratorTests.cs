@@ -250,6 +250,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
+                Options.Create(new CoreFeatureConfiguration()),
                 NullLogger<SqlServerFhirModel>.Instance);
             SetModelField(model, "_highestInitializedVersion", schema.Current);
             SetModelField(model, "_resourceTypeToId", new Dictionary<string, short> { ["Patient"] = 1 });

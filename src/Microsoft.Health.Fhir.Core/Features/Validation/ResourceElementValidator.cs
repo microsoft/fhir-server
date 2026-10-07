@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// <param name="config">The core feature configuration.</param>
         public ResourceElementValidator(IValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer, IOptions<CoreFeatureConfiguration> config)
         {
-            int maxResourceIdLength = config.Value.MaxResourceIdLength;
+            int maxResourceIdLength = ResourceIdValidation.GetMaxLength(config.Value.UseLongResourceIds);
 
             RuleFor(x => x.Id)
                 .SetValidator(new IdValidator<ResourceElement>(config.Value.UseLongResourceIds))

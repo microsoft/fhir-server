@@ -374,34 +374,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Theory]
         [InlineData(SchemaVersionConstants.Min)]
         [InlineData(SchemaVersionConstants.ResourceIdLength128 - 1)]
-        public async Task GivenLongResourceIdsAreEnabledAndSchemaBelow118_WhenHardDeleting_ThenItFailsBeforeCallingSql(int currentSchemaVersion)
+        public async Task GivenLongResourceIdsAreEnabledAndSchemaBelow118_WhenAccessingData_ThenItFailsBeforeCallingSql(int currentSchemaVersion)
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, useLongResourceIds: true, currentSchemaVersion: currentSchemaVersion);
+            var key = new ResourceKey("Patient", new string('a', 100));
 
             // Act
-            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => dataStore.HardDeleteAsync(new ResourceKey("Patient", new string('a', 100)), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None));
-
-            // Assert
-            Assert.Contains("UseLongResourceIds is enabled", exception.Message, StringComparison.Ordinal);
-            Assert.Contains($"schema version {SchemaVersionConstants.ResourceIdLength128}", exception.Message, StringComparison.Ordinal);
-            Assert.Empty(sqlRetryService.ReceivedCalls());
-        }
-
-        [Fact]
-        public async Task GivenLongResourceIdsAreEnabledAndSchemaBelow118_WhenMerging_ThenItFailsBeforeCallingSql()
-        {
-            // Arrange
-            var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, useLongResourceIds: true, currentSchemaVersion: SchemaVersionConstants.ResourceIdLength128 - 1);
-
-            // Act
+            InvalidOperationException hardDeleteException = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => dataStore.HardDeleteAsync(key, keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => dataStore.GetAsync(key, CancellationToken.None));
             await Assert.ThrowsAsync<InvalidOperationException>(
                 () => dataStore.MergeAsync(CreateResourceWrapperOperations(), MergeOptions.Default, CancellationToken.None));
 
             // Assert
+            Assert.Contains("UseLongResourceIds is enabled", hardDeleteException.Message, StringComparison.Ordinal);
+            Assert.Contains($"schema version {SchemaVersionConstants.ResourceIdLength128}", hardDeleteException.Message, StringComparison.Ordinal);
             Assert.All(sqlRetryService.ReceivedCalls(), call => Assert.Equal(nameof(ISqlRetryService.TryLogEvent), call.GetMethodInfo().Name));
         }
 
@@ -452,6 +441,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
+            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds };
 
             var model = new SqlServerFhirModel(
                 schemaInfo,
@@ -461,6 +451,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
+                Options.Create(coreFeatureConfiguration),
                 NullLogger<SqlServerFhirModel>.Instance);
 
             typeof(SqlServerFhirModel)
@@ -473,7 +464,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
 
-            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration { UseLongResourceIds = useLongResourceIds };
             BundleConfiguration bundleConfiguration = new BundleConfiguration();
 
             var sqlConnection = new SqlConnection();

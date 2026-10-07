@@ -33,7 +33,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
@@ -261,8 +260,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 return MergeOutcome.Empty;
             }
-
-            EnsureSchemaSupportsLongResourceIds();
 
             var singleTransaction = enlistInTransaction || !eventualConsistency;
 
@@ -968,7 +965,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            EnsureSchemaSupportsLongResourceIds();
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
         }
 
@@ -978,8 +974,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 return;
             }
-
-            EnsureSchemaSupportsLongResourceIds();
 
             int? failedResourceCount;
             try
@@ -1220,24 +1214,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
-        }
-
-        /// <summary>
-        /// Refuses writes when ids longer than 64 characters are allowed but the database still has the 64-wide schema.
-        /// Before schema 118 the scalar <c>@ResourceId</c> parameters truncate silently, so a long id could address another resource.
-        /// An unknown schema version is left to <see cref="SqlServerFhirModel"/>, which reports the store as temporarily unavailable.
-        /// </summary>
-        internal void EnsureSchemaSupportsLongResourceIds()
-        {
-            if (_coreFeatures.UseLongResourceIds
-                && _schemaInformation.Current < SchemaVersionConstants.ResourceIdLength128)
-            {
-                throw new InvalidOperationException(string.Format(
-                    CultureInfo.InvariantCulture,
-                    "CoreFeatures:UseLongResourceIds is enabled, which requires SQL schema version {0} or later. The current schema version is {1}. Upgrade the schema or set UseLongResourceIds to false.",
-                    SchemaVersionConstants.ResourceIdLength128,
-                    _schemaInformation.Current.Value));
-            }
         }
     }
 }

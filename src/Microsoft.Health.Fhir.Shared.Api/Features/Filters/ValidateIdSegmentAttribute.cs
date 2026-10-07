@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -32,8 +33,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId)
                 && string.IsNullOrWhiteSpace((string)resourceId))
             {
-                int maxResourceIdLength = context.HttpContext.RequestServices
-                    .GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.MaxResourceIdLength;
+                int maxResourceIdLength = ResourceIdValidation.GetMaxLength(context.HttpContext.RequestServices
+                    .GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.UseLongResourceIds);
 
                 throw new ResourceNotValidException(new List<ValidationFailure>
                 {

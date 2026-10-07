@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
-using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
-            _maxResourceIdLength = CoreFeatureConfiguration.GetMaxResourceIdLength(useLongResourceIds);
+            _maxResourceIdLength = ResourceIdValidation.GetMaxLength(useLongResourceIds);
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;

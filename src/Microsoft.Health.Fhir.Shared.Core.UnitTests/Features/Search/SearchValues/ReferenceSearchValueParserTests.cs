@@ -149,20 +149,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
         [Theory]
         [InlineData(false, 64)]
-        [InlineData(true, 100)]
-        public void GivenARelativeReferenceWithAnIdLongerThanTheDefaultLimit_WhenParsing_ThenTheSelectedLengthIsCaptured(bool useLongResourceIds, int expectedLength)
+        [InlineData(true, 128)]
+        public void GivenARelativeReferenceWithAnIdAtTheLimit_WhenParsing_ThenTheWholeIdIsCaptured(bool useLongResourceIds, int length)
         {
             // Arrange
-            string resourceId = new string('a', 100);
+            string resourceId = new string('a', length);
             ReferenceSearchValueParser parser = CreateParser(useLongResourceIds);
 
             // Act
             ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
 
             // Assert
-            Assert.NotNull(value);
             Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
-            Assert.Equal(resourceId[..expectedLength], value.ResourceId);
+            Assert.Equal(resourceId, value.ResourceId);
+        }
+
+        [Theory]
+        [InlineData(false, 65)]
+        [InlineData(true, 129)]
+        public void GivenARelativeReferenceWithAnIdOverTheLimit_WhenParsing_ThenItIsNotParsedAsAResourceReferenceWithATruncatedId(bool useLongResourceIds, int length)
+        {
+            // Arrange
+            string reference = $"Patient/{new string('a', length)}";
+            ReferenceSearchValueParser parser = CreateParser(useLongResourceIds);
+
+            // Act
+            ReferenceSearchValue value = parser.Parse(reference);
+
+            // Assert
+            Assert.Null(value.ResourceType);
+            Assert.Equal(reference, value.ResourceId);
         }
 
         private ReferenceSearchValueParser CreateParser(bool useLongResourceIds)

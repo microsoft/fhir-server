@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
@@ -46,12 +47,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _instanceConfiguration = instanceConfiguration;
 
-            int maxResourceIdLength = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).MaxResourceIdLength;
+            int maxResourceIdLength = ResourceIdValidation.GetMaxLength(EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration)).UseLongResourceIds);
+
             // Extracts a known resource type and a 1-64/128 character id (letters, digits, hyphen or period),
             // optionally followed by /_history/{versionId} (1-64 characters); the version is not captured.
-            // Unanchored to allow an absolute URL prefix: this extracts a match rather than validating the
-            // whole reference, so an overlong id can match only its first maxResourceIdLength characters.
-            string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
+            // Unanchored to allow an absolute URL prefix: this extracts a match rather than validating the whole reference.
+            // The lookahead rejects an over-limit id instead of capturing its first maxResourceIdLength characters as a different, valid id.
+            string referenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,{maxResourceIdLength}}})(?![A-Za-z0-9\-\.])(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
             // The parser is registered as a singleton; compile the selected pattern once and reuse it in Parse.
             _referenceRegex = new Regex(

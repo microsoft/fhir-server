@@ -12,16 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public class CoreFeatureConfiguration
     {
-        /// <summary>
-        /// The FHIR specification limit used when <see cref="UseLongResourceIds"/> is disabled.
-        /// </summary>
-        public const int DefaultMaxResourceIdLength = 64;
-
-        /// <summary>
-        /// The limit used when <see cref="UseLongResourceIds"/> is enabled. This is the SQL Server resource id column width from schema version 118.
-        /// </summary>
-        public const int MaxSupportedResourceIdLength = 128;
-
         private VersioningConfiguration _versioning = new VersioningConfiguration();
 
         /// <summary>
@@ -76,15 +66,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <remarks>
         /// Set through <c>FhirServer:CoreFeatures:UseLongResourceIds</c> or the environment variable
         /// <c>FhirServer__CoreFeatures__UseLongResourceIds</c>. Defaults to false.
-        /// SQL Server requires schema version 118 or later. Do not disable after storing long ids,
-        /// or enable on an existing deployment without addressing previously truncated indexed references.
+        /// SQL Server requires schema version 118 or later; data access fails until the schema is upgraded.
+        /// Do not disable after storing long ids. After enabling on an existing deployment, run a reindex so
+        /// reference search parameters indexed with the 64 character limit are rebuilt with the full ids.
         /// </remarks>
         public bool UseLongResourceIds { get; set; }
-
-        /// <summary>
-        /// Gets the resource id length used for SQL parameter sizing, indexed references and validation messages.
-        /// </summary>
-        public int MaxResourceIdLength => GetMaxResourceIdLength(UseLongResourceIds);
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
@@ -237,13 +223,5 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating the runtime state of the FHIR server.
         /// </summary>
         public string RuntimeState { get; set; }
-
-        /// <summary>
-        /// Gets the fixed resource id length for the selected mode.
-        /// </summary>
-        /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed instead of 64.</param>
-        /// <returns>The maximum resource id length, either 64 or 128.</returns>
-        public static int GetMaxResourceIdLength(bool useLongResourceIds) =>
-            useLongResourceIds ? MaxSupportedResourceIdLength : DefaultMaxResourceIdLength;
     }
 }

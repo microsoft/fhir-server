@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         /// <param name="config">The core feature configuration.</param>
         public GetResourceValidator(IOptions<CoreFeatureConfiguration> config)
         {
-            int maxResourceIdLength = config.Value.MaxResourceIdLength;
+            int maxResourceIdLength = ResourceIdValidation.GetMaxLength(config.Value.UseLongResourceIds);
 
             RuleFor(x => x.ResourceKey.Id)
                 .SetValidator(new IdValidator<GetResourceRequest>(config.Value.UseLongResourceIds))

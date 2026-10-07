@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         public ReferenceSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap, IOptions<CoreFeatureConfiguration> config)
             : base(model, searchParameterTypeMap, RowComparer)
         {
-            _maxLength = EnsureArg.IsNotNull(config, nameof(config)).Value.MaxResourceIdLength;
+            _maxLength = EnsureArg.IsNotNull(config, nameof(config)).Value.UseLongResourceIds ? ResourceIdValidation.LongMaxLength : ResourceIdValidation.StandardMaxLength;
         }
 
         internal override bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, ReferenceSearchValue searchValue, HashSet<ReferenceSearchParamListRow> results, out ReferenceSearchParamListRow row)
