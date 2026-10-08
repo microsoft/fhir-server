@@ -10,7 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
 {
     /// <summary>
     /// The resource id length limit and the validation of ids against it.
-    /// The limit is a property of the database schema, so one immutable instance is registered per server.
     /// </summary>
     public sealed class ResourceIdPolicy
     {
