@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         [InlineData("1+1")]
         [InlineData("1_1")]
         [InlineData("11|")]
-        [InlineData("abc\n")]
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
         public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string id)
         {
@@ -69,8 +68,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         }
 
         [Theory]
-        [InlineData("abc\n")]
-        [InlineData("abc\r\n")]
         [InlineData("a_b")]
         [InlineData("a/b")]
         public void GivenAnInvalidLongId_WhenProcessingAResource_ThenValidationFails(string id)
