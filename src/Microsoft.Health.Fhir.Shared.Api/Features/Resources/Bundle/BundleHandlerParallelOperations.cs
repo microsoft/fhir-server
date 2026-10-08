@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -186,34 +187,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     ResourceExecutionContext resourceContext = resources[i];
                     requestsPerResource.Add(handleRequestFunctionAsync(resourceContext, requestCancellationToken.Token));
 
-                    // 25 - 05 - Best.
-                    // 25 - 10 - Good.
-                    // 40 - 05 - Good+.
-                    const int groupSize = 25;
-                    const int delayInMilliseconds = 5;
-
-                    // Throttling logic to avoid overwhelming the server with too many requests at the same time.
-                    if (_runtimeConfiguration.IsBundleExtendedSupported && _isBundleExtendedOperation)
+                    if (_isBundleExpandedOperation && _bundleType == BundleType.Transaction)
                     {
-                        // Logic 1 - If the bundle has more than 100 resources, we will throttle the requests to avoid overwhelming the server if there are other extended bundles running at the same time.
-                        if (resources.Count >= 100)
+                        // Scenario 1: If the bundle is expanded and a transaction, then a delay is added between the operations to minimize the number of running tasks.
+
+                        if (i % _bundleConfiguration.BundleExpandedGroupSize == 0)
                         {
-                            if (i % groupSize == 0)
-                            {
-                                await Task.Delay(delayInMilliseconds, CancellationToken.None);
-                            }
+                            await Task.Delay(_bundleConfiguration.BundleExpandedGroupDelayInMilliseconds, CancellationToken.None);
                         }
                     }
-                    else
+                    else if (!_isBundleExpandedOperation && resourceContext.IsConditionalOperation && _runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
                     {
-                        // Logic 2 - If the bundle, no matter the size, has conditional operations, we will throttle the requests to avoid overwhelming the server.
-                        if (resourceContext.IsConditionalOperation)
+                        // Scenario 2: If the bundle is not expanded and the operation is conditional, then a delay is added to minimize the number of requests consuming internal resources.
+                        // This delay helps with parallel attempts to retrieve SQL Connections from SQL Pools.
+
+                        conditionalOperationsCounter++;
+                        if (conditionalOperationsCounter % _bundleConfiguration.BundleExpandedGroupSize == 0)
                         {
-                            conditionalOperationsCounter++;
-                            if (conditionalOperationsCounter % groupSize == 0)
-                            {
-                                await Task.Delay(delayInMilliseconds, CancellationToken.None);
-                            }
+                            await Task.Delay(_bundleConfiguration.BundleExpandedGroupDelayInMilliseconds, CancellationToken.None);
                         }
                     }
                 }

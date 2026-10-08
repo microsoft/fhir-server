@@ -45,8 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Registration
         bool IsSurrogateIdRangingSupported { get; }
 
         /// <summary>
-        /// Supports bundle extended operations. If true, the FHIR service will process bundles larger than 500 resources.
+        /// Supports bundle expanded operations. If true, the FHIR service will process bundles larger than 500 resources.
         /// </summary>
-        bool IsBundleExtendedSupported { get; }
+        bool IsBundleExpandedSupported { get; }
     }
 }
