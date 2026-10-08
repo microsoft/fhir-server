@@ -61,6 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int DefaultIncludeCountPerSearch { get; set; } = 1000;
 
         /// <summary>
+        /// Gets or sets a value indicating whether resource ids up to 128 characters are allowed instead of the FHIR limit of 64.
+        /// </summary>
+        public bool UseLongResourceIds { get; set; }
+
+        /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
         /// </summary>
         public bool ProfileValidationOnCreate { get; set; } = false;
