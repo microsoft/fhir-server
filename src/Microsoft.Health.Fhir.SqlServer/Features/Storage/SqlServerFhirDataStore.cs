@@ -587,8 +587,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await Task.Delay(MergeResourcesTransactionHeartbeatPeriod, cancellationToken);
                 }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
             {
+                // SqlClient can report cancellation of an in-flight heartbeat as SqlException.
                 return;
             }
             catch

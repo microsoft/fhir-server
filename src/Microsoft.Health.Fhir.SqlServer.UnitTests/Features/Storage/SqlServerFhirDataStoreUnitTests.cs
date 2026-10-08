@@ -520,6 +520,108 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenInFlightHeartbeatSqlFailure_WhenMerging_ThenOnlyRequestedShutdownIsSilent(bool failDuringShutdown)
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var heartbeatStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var heartbeatStopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            SqlException heartbeatException = SqlExceptionFactory.GetSqlException(0, "Operation cancelled by user.");
+            CancellationToken mergeToken = default;
+            bool mergeCompleted = false;
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(Array.Empty<ResourceWrapper>());
+            sqlRetryService.ExecuteSql(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>())
+                .Returns(async call =>
+                {
+                    SqlCommand command = call.Arg<SqlCommand>();
+                    CancellationToken cancellationToken = call.Arg<CancellationToken>();
+                    switch (command.CommandText)
+                    {
+                        case "dbo.MergeResourcesBeginTransaction":
+                            command.Parameters["@TransactionId"].Value = 41L;
+                            command.Parameters["@SequenceRangeFirstValue"].Value = 0;
+                            break;
+                        case "dbo.MergeResourcesCommitTransaction":
+                            cancellationToken.ThrowIfCancellationRequested();
+                            break;
+                        case "dbo.MergeResourcesPutTransactionHeartbeat":
+                            using (cancellationToken.Register(() => heartbeatStopped.TrySetResult()))
+                            {
+                                heartbeatStarted.TrySetResult();
+                                if (failDuringShutdown)
+                                {
+                                    await heartbeatStopped.Task;
+                                }
+
+                                throw heartbeatException;
+                            }
+
+                        case "dbo.MergeResources":
+                            mergeToken = cancellationToken;
+                            await heartbeatStarted.Task.WaitAsync(TimeSpan.FromSeconds(20));
+                            if (!failDuringShutdown)
+                            {
+                                await Task.Delay(Timeout.Infinite, cancellationToken);
+                            }
+
+                            mergeCompleted = true;
+                            break;
+                        default:
+                            throw new InvalidOperationException($"Unexpected SQL command: {command.CommandText}");
+                    }
+                });
+            SqlServerFhirDataStore dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(GetModel(dataStore), new Dictionary<Uri, short>
+                {
+                    { SearchParameterNames.IdUri, 1 },
+                    { SearchParameterNames.LastUpdatedUri, 2 },
+                });
+            ResourceWrapper resource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2023-01-01T00:00:00Z\"}}");
+            var operation = new ResourceWrapperOperation(resource, true, false, null, false, false, null);
+
+            // Act
+            Task<MergeOutcome> merge = dataStore.MergeAsync(new[] { operation }, MergeOptions.Default, CancellationToken.None);
+
+            // Assert
+            if (failDuringShutdown)
+            {
+                MergeOutcome outcome = await merge.WaitAsync(TimeSpan.FromSeconds(30));
+                Assert.Equal(MergeOutcomeFinalState.Completed, outcome.State);
+                Assert.True(Assert.Single(outcome.Results).Value.IsOperationSuccessful);
+                Assert.True(mergeCompleted);
+                Assert.True(heartbeatStopped.Task.IsCompleted);
+                Assert.False(mergeToken.IsCancellationRequested);
+            }
+            else
+            {
+                SqlException actual = await Assert.ThrowsAsync<SqlException>(() => merge.WaitAsync(TimeSpan.FromSeconds(30)));
+                Assert.Same(heartbeatException, actual);
+                Assert.False(mergeCompleted);
+                Assert.True(mergeToken.IsCancellationRequested);
+            }
+        }
+
+        [Theory]
         [InlineData(false, false)]
         [InlineData(false, true)]
         [InlineData(true, false)]
