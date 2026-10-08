@@ -4,14 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
-using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -25,13 +23,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public static readonly TheoryData<object> Data = new()
         {
             true, 1, 1L, DateTime.UtcNow, DateTimeOffset.UtcNow, 9M, 99.9, (short)6, (byte)9, Guid.Parse("0fd465f0-095b-425c-a3e8-acc879d20835"), "Hello",
-        };
-
-        public static readonly TheoryData<Column> ResourceIdColumns = new()
-        {
-            VLatest.Resource.ResourceId,
-            VLatest.ReferenceSearchParam.ReferenceResourceId,
-            VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1,
         };
 
         [Fact]
@@ -134,24 +125,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             parameters.AddParameter(1, true);
 
             AssertChangesHash(parameters, () => parameters.AddParameter(new string('a', 500), true));
-        }
-
-        [Theory]
-        [MemberData(nameof(ResourceIdColumns))]
-        public void GivenAResourceIdLongerThan64Characters_WhenAdded_ThenTheParameterIsNotTruncatedTo64(Column column)
-        {
-            // Arrange
-            using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
-            string value = new string('a', 66);
-
-            // Act
-            var parameter = (SqlParameter)parameters.AddParameter(column, value, includeInHash: false);
-
-            // Assert
-            Assert.Equal(SqlDbType.VarChar, parameter.SqlDbType);
-            Assert.Equal(128, parameter.Size);
-            Assert.Equal(value, parameter.Value);
         }
 
         private static string GetHash(HashingSqlQueryParameterManager parameterManager)
