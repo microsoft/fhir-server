@@ -343,22 +343,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                 }
             }
-            catch (UnauthorizedFhirActionException)
-            {
-                // Unlike other mid-loop failures below, an authorization denial must not be wrapped in
-                // IncompleteOperationException - it needs to surface as a clean, direct exception so it maps to a 403,
-                // matching the behavior of the authorization check that runs before the first page is fetched.
-                // Cancel further work and wait for already-queued (and already-authorized) deletes from prior pages
-                // to settle before propagating the denial, so no delete task is left running in the background.
-                await cancellationTokenSource.CancelAsync();
-
-                // ContinueWith (rather than awaiting the tasks directly) waits for the prior-page tasks to settle
-                // regardless of their outcome, without observing or rethrowing any fault or cancellation of its own -
-                // the authorization exception below is what must surface to the caller.
-                await Task.WhenAll(deleteTasks).ContinueWith(_ => { }, TaskScheduler.Default);
-
-                throw;
-            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting");

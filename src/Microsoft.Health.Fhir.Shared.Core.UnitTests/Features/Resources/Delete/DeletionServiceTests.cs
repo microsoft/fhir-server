@@ -261,12 +261,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         }
 
         [Fact]
-        public async Task GivenConditionalDeleteSpanningMultiplePages_WhenALaterPageContainsAProfileResourceAndCallerLacksEditProfileDefinitions_ThenThrowsUnauthorizedFhirActionExceptionDirectly()
+        public async Task GivenConditionalDeleteSpanningMultiplePages_WhenALaterPageContainsAProfileResourceAndCallerLacksEditProfileDefinitions_ThenReturnsIncompleteOperationException()
         {
             // Arrange: page 1 is entirely ordinary resources (legitimately deletable); page 2, reached only
-            // through pagination (no _include involved), contains a protected StructureDefinition. The
-            // resulting exception must be a clean UnauthorizedFhirActionException, not wrapped in
-            // IncompleteOperationException like other mid-loop failures, so it maps to a 403.
+            // through pagination (no _include involved), contains a protected StructureDefinition.
             var request = new ConditionalDeleteResourceRequest(
                 "Provenance",
                 new List<Tuple<string, string>> { Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z") },
@@ -301,8 +299,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             // protected type present), so it has no bearing on page 1's legitimate deletion below.
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
 
-            // Act & Assert
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            var aggregateException = Assert.IsType<AggregateException>(exception.InnerException);
+            Assert.Contains(aggregateException.InnerExceptions, ex => ex is UnauthorizedFhirActionException);
+            Assert.True(exception.PartialResults.TryGetValue("Provenance", out long deletedProvenanceCount));
+            Assert.Equal(1, deletedProvenanceCount);
 
             // Page 1 had already been queued (and was legitimately authorized) before page 2 was denied, so it
             // must still have been deleted; page 2's protected resource must never have been deleted.
