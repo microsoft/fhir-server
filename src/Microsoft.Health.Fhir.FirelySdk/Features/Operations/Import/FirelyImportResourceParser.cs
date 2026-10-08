@@ -34,12 +34,12 @@ namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
         /// </summary>
         /// <param name="parser">The Firely JSON parser used to deserialize raw resource content.</param>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
-        /// <param name="resourceIdPolicy">The resource id policy. Defaults to <see cref="ResourceIdPolicy.Standard"/>.</param>
-        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, ResourceIdPolicy resourceIdPolicy = null)
+        /// <param name="resourceIdPolicy">The resource id policy.</param>
+        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, ResourceIdPolicy resourceIdPolicy)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
-            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         /// <inheritdoc />

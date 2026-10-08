@@ -36,14 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public ReferenceSearchValueParser(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IFhirServerInstanceConfiguration instanceConfiguration,
-            ResourceIdPolicy resourceIdPolicy = null)
+            ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(instanceConfiguration, nameof(instanceConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _instanceConfiguration = instanceConfiguration;
-            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         /// <inheritdoc />

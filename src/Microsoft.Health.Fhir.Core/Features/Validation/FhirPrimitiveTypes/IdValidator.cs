@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using FluentValidation;
 using FluentValidation.Validators;
 
@@ -19,10 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// <summary>
         /// Initializes a new instance of the <see cref="IdValidator{T}"/> class.
         /// </summary>
-        /// <param name="policy">The resource id policy. Defaults to <see cref="ResourceIdPolicy.Standard"/>.</param>
-        public IdValidator(ResourceIdPolicy policy = null)
+        /// <param name="policy">The resource id policy.</param>
+        public IdValidator(ResourceIdPolicy policy)
         {
-            _policy = policy ?? ResourceIdPolicy.Standard;
+            _policy = EnsureArg.IsNotNull(policy, nameof(policy));
         }
 
         /// <inheritdoc />

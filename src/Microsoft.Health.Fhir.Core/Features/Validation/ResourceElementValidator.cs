@@ -12,10 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ResourceElementValidator : AbstractValidator<ResourceElement>
     {
-        public ResourceElementValidator(IValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer, ResourceIdPolicy resourceIdPolicy = null)
+        public ResourceElementValidator(IValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer, ResourceIdPolicy resourceIdPolicy)
         {
-            resourceIdPolicy ??= ResourceIdPolicy.Standard;
-
             RuleFor(x => x.Id)
                 .SetValidator(new IdValidator<ResourceElement>(resourceIdPolicy))
                 .WithMessage(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, resourceIdPolicy.MaxLength));

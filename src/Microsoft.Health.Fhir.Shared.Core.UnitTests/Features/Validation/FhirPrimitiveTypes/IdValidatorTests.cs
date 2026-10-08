@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         {
             var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
-            var result = GetValidationFailures(defaultObservation);
+            var result = GetValidationFailures(defaultObservation, ResourceIdPolicy.Standard);
 
             Assert.False(result);
         }
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         {
             var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
-            var result = GetValidationFailures(defaultObservation);
+            var result = GetValidationFailures(defaultObservation, ResourceIdPolicy.Standard);
 
             Assert.True(result);
         }
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
             Assert.False(isValid);
         }
 
-        private static bool GetValidationFailures(ResourceElement defaultObservation, ResourceIdPolicy policy = null)
+        private static bool GetValidationFailures(ResourceElement defaultObservation, ResourceIdPolicy policy)
         {
             var validator = new IdValidator<ResourceElement>(policy);
             var validationContext = new ValidationContext<ResourceElement>(defaultObservation);

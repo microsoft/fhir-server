@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<CoreFeatureConfiguration> config,
-            ResourceIdPolicy resourceIdPolicy = null)
+            ResourceIdPolicy resourceIdPolicy)
         {
             var contentValidator = new ResourceProfileValidator(
                 modelAttributeValidator,

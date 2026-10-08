@@ -59,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly IMediator _mediator;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlServerFhirModel> _logger;
-        private readonly ResourceIdPolicy _resourceIdPolicy;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<Uri, short> _searchParamUriToId;
@@ -80,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IMediator mediator,
             ISqlRetryService sqlRetryService,
             ILogger<SqlServerFhirModel> logger,
-            ResourceIdPolicy resourceIdPolicy = null)
+            ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -98,8 +97,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _mediator = mediator;
             _sqlRetryService = sqlRetryService;
             _logger = logger;
-            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
+            ResourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
+
+        /// <summary>
+        /// Gets the resource id policy that the database schema must support.
+        /// </summary>
+        public ResourceIdPolicy ResourceIdPolicy { get; }
 
         public (short lowestId, short highestId) ResourceTypeIdRange
         {
@@ -519,7 +523,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         // and silently truncate, so a long id could address another resource. Fail instead of serving requests.
         private void ThrowIfLongResourceIdsAreNotSupportedBySchema()
         {
-            if (_resourceIdPolicy.UseLongResourceIds
+            if (ResourceIdPolicy.UseLongResourceIds
                 && _schemaInformation.Current < SchemaVersionConstants.ResourceIdLength128)
             {
                 throw new InvalidOperationException(string.Format(

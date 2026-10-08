@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private static ActionExecutingContext CreateContext(Resource type, string id)
         {
             return new ActionExecutingContext(
-                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
+                new ActionContext(new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(ResourceIdPolicy.Standard).BuildServiceProvider() }, new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", type } },
                 FilterTestsHelper.CreateMockFhirController());

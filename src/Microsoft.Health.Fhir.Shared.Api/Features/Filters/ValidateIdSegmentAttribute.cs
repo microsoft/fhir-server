@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                 {
-                    new ValidationFailure("ResourceKey.Id", string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, (context.HttpContext?.RequestServices?.GetService<ResourceIdPolicy>() ?? ResourceIdPolicy.Standard).MaxLength)),
+                    new ValidationFailure("ResourceKey.Id", string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, context.HttpContext.RequestServices.GetRequiredService<ResourceIdPolicy>().MaxLength)),
                 });
             }
         }

@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IQueryPlanReuseChecker queryPlanReuseChecker,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SqlServerSearchService> logger,
-            ResourceIdPolicy resourceIdPolicy = null)
+            ResourceIdPolicy resourceIdPolicy)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _fhirDataStore = fhirDataStore;
             _model = model;
-            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
             _queryGeneratorFactory = queryGeneratorFactory;

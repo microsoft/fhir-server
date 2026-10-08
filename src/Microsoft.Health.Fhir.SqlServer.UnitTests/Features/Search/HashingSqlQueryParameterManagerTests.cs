@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenParametersThatShouldNotBeHashed_WhenAdded_ResultsInNoChangeToHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
 
             AssertDoesNotChangeHash(parameters, () =>
             {
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenParameterThatShouldBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
 
             AssertChangesHash(parameters, () =>
             {
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAParameterThatShouldBeHashed_WhenAdded_ChangesHash(object value)
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
 
             AssertChangesHash(parameters, () => parameters.AddParameter(value, true));
         }
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAParameterThatShouldAndThenShouldNotBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
 
             AssertChangesHash(parameters, () =>
             {
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAParameterThatShouldNotAndThenShouldBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
 
             AssertChangesHash(parameters, () =>
             {
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenALargeNumberOfParameters_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
 
             for (int i = 0; i < 100; i++)
             {
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenALargeStringParameter_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
 
             parameters.AddParameter(1, true);
 

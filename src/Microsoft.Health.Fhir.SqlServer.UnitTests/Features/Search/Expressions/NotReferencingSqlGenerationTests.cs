@@ -6,6 +6,7 @@
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
             using var sqlCommand = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters));
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters), ResourceIdPolicy.Standard);
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
             var context = new SearchParameterQueryGeneratorContext(stringBuilder, parameters, model, schemaInformation, isAsyncOperation: false, tableAlias: null);
 

@@ -18,12 +18,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Validates that a resource id conforms to the FHIR id requirements.
         /// </summary>
         /// <param name="resourceId">The resource id to validate.</param>
-        /// <param name="policy">The resource id policy. Defaults to <see cref="ResourceIdPolicy.Standard"/>.</param>
+        /// <param name="policy">The resource id policy.</param>
         /// <exception cref="BadRequestException">Thrown when <paramref name="resourceId"/> is null, empty, whitespace-only, or does not match the FHIR id format.</exception>
-        public static void Validate(string resourceId, ResourceIdPolicy policy = null)
+        public static void Validate(string resourceId, ResourceIdPolicy policy)
         {
-            policy ??= ResourceIdPolicy.Standard;
-
             if (string.IsNullOrWhiteSpace(resourceId) || !policy.IsValid(resourceId))
             {
                 throw new BadRequestException(

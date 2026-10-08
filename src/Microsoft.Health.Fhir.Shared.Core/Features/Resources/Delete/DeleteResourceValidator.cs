@@ -13,10 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class DeleteResourceValidator : AbstractValidator<DeleteResourceRequest>
     {
-        public DeleteResourceValidator(ResourceIdPolicy resourceIdPolicy = null)
+        public DeleteResourceValidator(ResourceIdPolicy resourceIdPolicy)
         {
-            resourceIdPolicy ??= ResourceIdPolicy.Standard;
-
             RuleFor(x => x.ResourceKey.Id)
                 .SetValidator(new IdValidator<DeleteResourceRequest>(resourceIdPolicy))
                 .WithMessage(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, resourceIdPolicy.MaxLength));

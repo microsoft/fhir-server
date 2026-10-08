@@ -31,11 +31,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly HashSet<SqlParameter> _smartScopeParameters = new();
         private readonly HashSet<short> _searchParamIds = new();
 
-        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, ResourceIdPolicy resourceIdPolicy = null)
+        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
-            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;

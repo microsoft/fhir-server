@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<CoreFeatureConfiguration> config,
-            ResourceIdPolicy resourceIdPolicy = null)
+            ResourceIdPolicy resourceIdPolicy)
         {
             var contentValidator = new ResourceProfileValidator(
                 modelAttributeValidator,

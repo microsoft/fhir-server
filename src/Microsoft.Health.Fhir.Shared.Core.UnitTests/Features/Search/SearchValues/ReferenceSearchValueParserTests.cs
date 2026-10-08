@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             instanceConfig.BaseUri.Returns(BaseUri);
 
             _instanceConfig = instanceConfig;
-            _referenceSearchValueParser = CreateParser(null);
+            _referenceSearchValueParser = CreateParser(ResourceIdPolicy.Standard);
         }
 
         [Fact]
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, ResourceIdPolicy.Standard);
 
             // Act - Use an internal reference that matches the instance configuration base URI
             ReferenceSearchValue value = parser.Parse("https://localhost/stu3/Observation/abc");
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, ResourceIdPolicy.Standard);
 
             // Act - Use an external reference that does NOT match the instance configuration base URI
             ReferenceSearchValue value = parser.Parse("https://external-server.com/fhir/Observation/xyz");
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, ResourceIdPolicy.Standard);
 
             // Act - Use a relative reference
             ReferenceSearchValue value = parser.Parse("Patient/123");

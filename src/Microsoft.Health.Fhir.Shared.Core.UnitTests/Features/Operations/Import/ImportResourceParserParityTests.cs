@@ -56,10 +56,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 Substitute.For<ISearchParameterDefinitionManager>(),
                 Deserializers.ResourceDeserializer);
 
-            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory);
+            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, ResourceIdPolicy.Standard);
             _ignixaParser = new IgnixaImportResourceParser(
                 _wrapperFactory,
-                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()));
+                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()),
+                ResourceIdPolicy.Standard);
         }
 
         [Fact]

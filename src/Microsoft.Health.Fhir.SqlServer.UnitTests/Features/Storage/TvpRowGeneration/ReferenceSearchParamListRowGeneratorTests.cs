@@ -67,8 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
 
             return new ReferenceSearchParamListRowGenerator(
                 model,
-                new SearchParameterToSearchValueTypeMap(),
-                policy);
+                new SearchParameterToSearchValueTypeMap());
         }
     }
 }

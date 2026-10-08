@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [InlineData("0123456789012345678901234567890123456789012345678901234567890123")] // 64 chars
         public void GivenAValidResourceId_WhenValidated_ThenNoExceptionIsThrown(string resourceId)
         {
-            ImportResourceIdValidator.Validate(resourceId);
+            ImportResourceIdValidator.Validate(resourceId, ResourceIdPolicy.Standard);
         }
 
         [Theory]

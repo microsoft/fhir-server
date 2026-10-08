@@ -40,15 +40,15 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// </summary>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
         /// <param name="schemaContext">The Ignixa generated schema for the current FHIR version.</param>
-        /// <param name="resourceIdPolicy">The resource id policy. Defaults to <see cref="ResourceIdPolicy.Standard"/>.</param>
-        public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext, ResourceIdPolicy resourceIdPolicy = null)
+        /// <param name="resourceIdPolicy">The resource id policy.</param>
+        public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext, ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
             EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
 
             _resourceFactory = resourceFactory;
             _schemaContext = schemaContext;
-            _resourceIdPolicy = resourceIdPolicy ?? ResourceIdPolicy.Standard;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         /// <inheritdoc />

@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -250,7 +251,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
-                NullLogger<SqlServerFhirModel>.Instance);
+                NullLogger<SqlServerFhirModel>.Instance,
+                ResourceIdPolicy.Standard);
             SetModelField(model, "_highestInitializedVersion", schema.Current);
             SetModelField(model, "_resourceTypeToId", new Dictionary<string, short> { ["Patient"] = 1 });
             SetModelField(model, "_searchParamUriToId", new Dictionary<Uri, short>

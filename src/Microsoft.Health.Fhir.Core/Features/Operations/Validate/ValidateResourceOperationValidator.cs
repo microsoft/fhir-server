@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
     public class ValidateResourceOperationValidator : AbstractValidator<ValidateOperationRequest>
     {
-        public ValidateResourceOperationValidator(IModelAttributeValidator modelAttributeValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer, ResourceIdPolicy resourceIdPolicy = null)
+        public ValidateResourceOperationValidator(IModelAttributeValidator modelAttributeValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer, ResourceIdPolicy resourceIdPolicy)
         {
             var attributeValidator = new ResourceContentValidator(modelAttributeValidator);
             RuleFor(x => x.Resource)
