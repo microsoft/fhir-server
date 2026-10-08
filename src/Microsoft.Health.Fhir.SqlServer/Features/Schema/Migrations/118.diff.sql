@@ -5,17 +5,21 @@
 **************************************************************/
 SET XACT_ABORT ON
 GO
+
 -- Latin1_General_100_CS_AS and NOT NULL are repeated because ALTER COLUMN would otherwise reset them.
 -- The two ResourceChangeData tables are widened in one transaction because partition switching between them requires identical columns.
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.Resource') AND name = 'ResourceId' AND max_length = 64)
   ALTER TABLE dbo.Resource ALTER COLUMN ResourceId varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 GO
+
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ReferenceSearchParam') AND name = 'ReferenceResourceId' AND max_length = 64)
   ALTER TABLE dbo.ReferenceSearchParam ALTER COLUMN ReferenceResourceId varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 GO
+
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ReferenceTokenCompositeSearchParam') AND name = 'ReferenceResourceId1' AND max_length = 64)
   ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ALTER COLUMN ReferenceResourceId1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 GO
+
 BEGIN TRANSACTION
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ResourceChangeData') AND name = 'ResourceId' AND max_length = 64)
   ALTER TABLE dbo.ResourceChangeData ALTER COLUMN ResourceId varchar(128) NOT NULL
@@ -23,14 +27,17 @@ IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ResourceCh
   ALTER TABLE dbo.ResourceChangeDataStaging ALTER COLUMN ResourceId varchar(128) NOT NULL
 COMMIT TRANSACTION
 GO
+
 -- Non schema bound view keeps the old column metadata until refreshed.
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.CurrentResource') AND name = 'ResourceId' AND max_length = 64)
   EXECUTE sp_refreshview 'dbo.CurrentResource'
 GO
+
 -- Table types cannot be altered, so the dependent procedures and the types are dropped and recreated in one transaction.
 -- The schema runner executes GO batches in order on one connection and stops at the first error.
 BEGIN TRANSACTION
 GO
+
 IF object_id('dbo.MergeResourcesAndSearchParams') IS NOT NULL DROP PROCEDURE dbo.MergeResourcesAndSearchParams
 IF object_id('dbo.MergeResources') IS NOT NULL DROP PROCEDURE dbo.MergeResources
 IF object_id('dbo.UpdateResourceSearchParams') IS NOT NULL DROP PROCEDURE dbo.UpdateResourceSearchParams
@@ -43,6 +50,8 @@ IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceDateKeyList') DROP TYPE
 IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceSearchParamList') DROP TYPE dbo.ReferenceSearchParamList
 IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceTokenCompositeSearchParamList') DROP TYPE dbo.ReferenceTokenCompositeSearchParamList
 GO
+
+-- Resource versions with raw resource and history flags, passed to the merge and reindex procedures.
 CREATE TYPE dbo.ResourceList AS TABLE
 (
     ResourceTypeId       smallint            NOT NULL
@@ -62,6 +71,8 @@ CREATE TYPE dbo.ResourceList AS TABLE
    ,UNIQUE (ResourceTypeId, ResourceId, Version)
 )
 GO
+
+-- Resource type, id and optional version to read with GetResources.
 CREATE TYPE dbo.ResourceKeyList AS TABLE
 (
     ResourceTypeId       smallint            NOT NULL
@@ -71,6 +82,8 @@ CREATE TYPE dbo.ResourceKeyList AS TABLE
     UNIQUE (ResourceTypeId, ResourceId, Version)
 )
 GO
+
+-- Resource type, id and surrogate id that GetResourceVersions uses to find version gaps and lastUpdated duplicates.
 CREATE TYPE dbo.ResourceDateKeyList AS TABLE
 (
     ResourceTypeId       smallint            NOT NULL
@@ -80,6 +93,8 @@ CREATE TYPE dbo.ResourceDateKeyList AS TABLE
     PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId)
 )
 GO
+
+-- Reference search index rows, passed to the merge and reindex procedures.
 CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
 (
     ResourceTypeId           smallint NOT NULL
@@ -93,6 +108,8 @@ CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
    UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
 )
 GO
+
+-- Reference and token composite search index rows, passed to the merge and reindex procedures.
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE
 (
     ResourceTypeId            smallint NOT NULL
@@ -107,6 +124,8 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE
    ,CodeOverflow2             varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 )
 GO
+
+-- Procedures that take the table types above, restored with the same definitions as Sql/Sprocs.
 CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
 AS
 set nocount on
@@ -117,6 +136,7 @@ INSERT INTO dbo.ResourceChangeData
     FROM @Resources
     WHERE IsHistory = 0
 GO
+
 CREATE PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
 AS
 -- This stored procedure allows to identifiy if version gap is available and checks dups on lastUpdated
@@ -155,6 +175,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+
 CREATE PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
 AS
 set nocount on
@@ -237,6 +258,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY
@@ -1251,6 +1273,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+
 CREATE PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
@@ -1673,6 +1696,7 @@ BEGIN CATCH
     THROW;
 END CATCH
 GO
+
 CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
     ,@ReindexId bigint = NULL
@@ -1745,10 +1769,14 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+
 COMMIT TRANSACTION
 GO
+
+-- Procedures with varchar(64) resource id parameters or variables.
 --DROP PROCEDURE dbo.HardDeleteResource
 GO
+
 CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint
   ,@ResourceId varchar(128)
@@ -1820,8 +1848,10 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+
 --DROP PROCEDURE dbo.CaptureResourceChanges
 GO
+
 CREATE OR ALTER PROCEDURE dbo.CaptureResourceChanges
     @isDeleted bit,
     @version int,
@@ -1851,8 +1881,10 @@ BEGIN
     VALUES                             (@resourceId, @resourceTypeId, @version, @changeType);
 END
 GO
+
 --DROP PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
 GO
+
 CREATE OR ALTER PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
 AS
 set nocount on
