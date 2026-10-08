@@ -18,68 +18,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
     public class IdValidatorTests
     {
         [Theory]
-        [InlineData("1+1")]
-        [InlineData("1_1")]
-        [InlineData("11|")]
-        [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
-        public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string id)
+        [InlineData("1+1", false)]
+        [InlineData("1+1", true)]
+        [InlineData("1_1", false)]
+        [InlineData("1_1", true)]
+        [InlineData("11|", false)]
+        [InlineData("11|", true)]
+        [InlineData("a/b", false)]
+        [InlineData("a/b", true)]
+        [InlineData("00000000000000000000000000000000000000000000000000000000000000000", false)] // 65 chars
+        [InlineData("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", false)] // 128 chars
+        [InlineData("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", true)] // 129 chars
+        public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string id, bool useLongResourceIds)
         {
             var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
-            var result = GetValidationFailures(defaultObservation, ResourceIdPolicy.Standard);
+            var result = GetValidationFailures(defaultObservation, ResourceIdPolicy.From(useLongResourceIds));
 
             Assert.False(result);
         }
 
         [Theory]
-        [InlineData("1.1")]
-        [InlineData("id1")]
-        [InlineData("example")]
-        [InlineData("a94060e6-038e-411b-a64b-38c2c3ff0fb7")]
-        [InlineData("AF30C45C-94AC-4DE3-89D8-9A20BB2A973F")]
-        [InlineData("0000000000000000000000000000000000000000000000000000000000000064")]
-        public void GivenAValidId_WhenProcessingAResource_ThenAValidationMessageIsNotCreated(string id)
+        [InlineData("1.1", false)]
+        [InlineData("1.1", true)]
+        [InlineData("id1", false)]
+        [InlineData("example", false)]
+        [InlineData("a94060e6-038e-411b-a64b-38c2c3ff0fb7", false)]
+        [InlineData("AF30C45C-94AC-4DE3-89D8-9A20BB2A973F", false)]
+        [InlineData("0000000000000000000000000000000000000000000000000000000000000000", false)] // 64 chars
+        [InlineData("0000000000000000000000000000000000000000000000000000000000000000", true)] // 64 chars
+        [InlineData("00000000000000000000000000000000000000000000000000000000000000000", true)] // 65 chars
+        [InlineData("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", true)] // 128 chars
+        public void GivenAValidId_WhenProcessingAResource_ThenAValidationMessageIsNotCreated(string id, bool useLongResourceIds)
         {
             var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
-            var result = GetValidationFailures(defaultObservation, ResourceIdPolicy.Standard);
+            var result = GetValidationFailures(defaultObservation, ResourceIdPolicy.From(useLongResourceIds));
 
             Assert.True(result);
-        }
-
-        [Theory]
-        [InlineData(false, 64, true)]
-        [InlineData(false, 65, false)]
-        [InlineData(false, 128, false)]
-        [InlineData(true, 64, true)]
-        [InlineData(true, 65, true)]
-        [InlineData(true, 128, true)]
-        [InlineData(true, 129, false)]
-        public void GivenAnId_WhenValidated_ThenTheSelectedLengthLimitIsApplied(bool useLongResourceIds, int length, bool expectedValid)
-        {
-            // Arrange
-            var observation = Samples.GetDefaultObservation().UpdateId(new string('a', length));
-
-            // Act
-            bool isValid = GetValidationFailures(observation, ResourceIdPolicy.From(useLongResourceIds));
-
-            // Assert
-            Assert.Equal(expectedValid, isValid);
-        }
-
-        [Theory]
-        [InlineData("a_b")]
-        [InlineData("a/b")]
-        public void GivenAnInvalidLongId_WhenProcessingAResource_ThenValidationFails(string id)
-        {
-            // Arrange
-            var observation = Samples.GetDefaultObservation().UpdateId(id);
-
-            // Act
-            bool isValid = GetValidationFailures(observation, ResourceIdPolicy.Extended);
-
-            // Assert
-            Assert.False(isValid);
         }
 
         private static bool GetValidationFailures(ResourceElement defaultObservation, ResourceIdPolicy policy)

@@ -17,12 +17,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
     public class ImportResourceIdValidatorTests
     {
         [Theory]
-        [InlineData("abc")]
-        [InlineData("A1-b.c")]
-        [InlineData("0123456789012345678901234567890123456789012345678901234567890123")] // 64 chars
-        public void GivenAValidResourceId_WhenValidated_ThenNoExceptionIsThrown(string resourceId)
+        [InlineData("abc", false)]
+        [InlineData("abc", true)]
+        [InlineData("A1-b.c", false)]
+        [InlineData("A1-b.c", true)]
+        [InlineData("0123456789012345678901234567890123456789012345678901234567890123", false)] // 64 chars
+        [InlineData("0123456789012345678901234567890123456789012345678901234567890123", true)] // 64 chars
+        [InlineData("01234567890123456789012345678901234567890123456789012345678901234", true)] // 65 chars
+        [InlineData("01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567", true)] // 128 chars
+        public void GivenAValidResourceId_WhenValidated_ThenNoExceptionIsThrown(string resourceId, bool useLongResourceIds)
         {
-            ImportResourceIdValidator.Validate(resourceId, ResourceIdPolicy.Standard);
+            ImportResourceIdValidator.Validate(resourceId, ResourceIdPolicy.From(useLongResourceIds));
         }
 
         [Theory]
@@ -37,6 +42,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [InlineData("a b", false)]
         [InlineData("a b", true)]
         [InlineData("01234567890123456789012345678901234567890123456789012345678901234", false)] // 65 chars
+        [InlineData("01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567", false)] // 128 chars
+        [InlineData("012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", true)] // 129 chars
         public void GivenAnInvalidResourceId_WhenValidated_ThenBadRequestExceptionIsThrown(string resourceId, bool useLongResourceIds)
         {
             // Arrange
@@ -46,36 +53,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, policy));
 
             // Assert
-            Assert.IsType<BadRequestException>(exception);
-        }
-
-        [Theory]
-        [InlineData(64, false, true)]
-        [InlineData(65, false, false)]
-        [InlineData(128, false, false)]
-        [InlineData(64, true, true)]
-        [InlineData(65, true, true)]
-        [InlineData(128, true, true)]
-        [InlineData(129, true, false)]
-        public void GivenAnIdAndTheLongResourceIdsFlag_WhenValidated_ThenTheSelectedLimitIsApplied(int idLength, bool useLongResourceIds, bool valid)
-        {
-            // Arrange
-            var policy = ResourceIdPolicy.From(useLongResourceIds);
-            string resourceId = new string('a', idLength);
-
-            // Act
-            var exception = Record.Exception(() => ImportResourceIdValidator.Validate(resourceId, policy));
-
-            // Assert
-            if (valid)
-            {
-                Assert.Null(exception);
-            }
-            else
-            {
-                var badRequest = Assert.IsType<BadRequestException>(exception);
-                Assert.Contains(useLongResourceIds ? "128" : "64", badRequest.Message, System.StringComparison.Ordinal);
-            }
+            var badRequest = Assert.IsType<BadRequestException>(exception);
+            Assert.Contains(useLongResourceIds ? "128" : "64", badRequest.Message, System.StringComparison.Ordinal);
         }
     }
 }
