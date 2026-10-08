@@ -7,7 +7,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -505,7 +504,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void ThrowIfNotInitialized()
         {
             ThrowIfCurrentSchemaVersionIsNull();
-            ThrowIfLongResourceIdsAreNotSupportedBySchema();
 
             if (_highestInitializedVersion < _schemaInformation.MinimumSupportedVersion)
             {
@@ -516,20 +514,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (_highestInitializedVersion < _schemaInformation.Current)
             {
                 _logger.LogWarning($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
-            }
-        }
-
-        // Check to confirm database is ready for long resource ids.
-        private void ThrowIfLongResourceIdsAreNotSupportedBySchema()
-        {
-            if (ResourceIdPolicy.MaxLength > ResourceIdPolicy.StandardMaxLength
-                && _schemaInformation.Current < SchemaVersionConstants.ResourceIdLength128)
-            {
-                throw new InvalidOperationException(string.Format(
-                    CultureInfo.InvariantCulture,
-                    "CoreFeatures:UseLongResourceIds is enabled, which requires SQL schema version {0} or later. The current schema version is {1}. Upgrade the schema or set UseLongResourceIds to false.",
-                    SchemaVersionConstants.ResourceIdLength128,
-                    _schemaInformation.Current.Value));
             }
         }
 

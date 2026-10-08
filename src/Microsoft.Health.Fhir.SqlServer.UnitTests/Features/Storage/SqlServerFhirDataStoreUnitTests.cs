@@ -372,51 +372,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Contains("is not a known resource type", exception.Message, StringComparison.Ordinal);
         }
 
-        [Theory]
-        [InlineData(SchemaVersionConstants.Min)]
-        [InlineData(SchemaVersionConstants.ResourceIdLength128 - 1)]
-        public async Task GivenLongResourceIdsAreEnabledAndSchemaBelow118_WhenAccessingData_ThenItFailsBeforeCallingSql(int currentSchemaVersion)
-        {
-            // Arrange
-            var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, useLongResourceIds: true, currentSchemaVersion: currentSchemaVersion);
-            var key = new ResourceKey("Patient", new string('a', 100));
-
-            // Act
-            InvalidOperationException hardDeleteException = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => dataStore.HardDeleteAsync(key, keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None));
-            await Assert.ThrowsAsync<InvalidOperationException>(() => dataStore.GetAsync(key, CancellationToken.None));
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => dataStore.MergeAsync(CreateResourceWrapperOperations(), MergeOptions.Default, CancellationToken.None));
-
-            // Assert
-            Assert.Contains("UseLongResourceIds is enabled", hardDeleteException.Message, StringComparison.Ordinal);
-            Assert.Contains($"schema version {SchemaVersionConstants.ResourceIdLength128}", hardDeleteException.Message, StringComparison.Ordinal);
-            Assert.All(sqlRetryService.ReceivedCalls(), call => Assert.Equal(nameof(ISqlRetryService.TryLogEvent), call.GetMethodInfo().Name));
-        }
-
-        [Theory]
-        [InlineData(false, 117)]
-        [InlineData(false, 118)]
-        [InlineData(true, 118)]
-        public async Task GivenASupportedSchemaForTheSelectedIdLength_WhenHardDeleting_ThenTheDeleteReachesSql(bool useLongResourceIds, int currentSchemaVersion)
-        {
-            // Arrange
-            var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService, useLongResourceIds: useLongResourceIds, currentSchemaVersion: currentSchemaVersion);
-
-            // Act
-            await dataStore.HardDeleteAsync(new ResourceKey("Patient", "123"), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
-
-            // Assert
-            Assert.NotEmpty(sqlRetryService.ReceivedCalls());
-        }
-
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(
-            ISqlRetryService sqlRetryService,
-            SqlTransactionHandler sqlTransactionHandler = null,
-            bool useLongResourceIds = false,
-            int? currentSchemaVersion = SchemaVersionConstants.Max)
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -424,7 +380,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
-                Current = currentSchemaVersion,
+                Current = SchemaVersionConstants.Max,
             };
 
             var searchService = Substitute.For<ISearchService>();
@@ -442,7 +398,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
-            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
 
             var model = new SqlServerFhirModel(
                 schemaInfo,
@@ -453,7 +408,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<IMediator>(),
                 sqlRetryService,
                 NullLogger<SqlServerFhirModel>.Instance,
-                ResourceIdPolicy.From(useLongResourceIds));
+                ResourceIdPolicy.Standard);
 
             typeof(SqlServerFhirModel)
                 .GetField("_resourceTypeToId", BindingFlags.NonPublic | BindingFlags.Instance)
@@ -465,6 +420,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
 
+            CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
             BundleConfiguration bundleConfiguration = new BundleConfiguration();
 
             var sqlConnection = new SqlConnection();
