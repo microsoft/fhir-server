@@ -11,7 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
     /// <summary>
     /// The resource id length limit and the validation of ids against it.
     /// The limit is a property of the database schema, so one immutable instance is registered per server.
-    /// Consumers that are not constructed with a policy use <see cref="Standard"/>.
     /// </summary>
     public sealed class ResourceIdPolicy
     {
@@ -21,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         public const int StandardMaxLength = 64;
 
         /// <summary>
-        /// The limit when long resource ids are enabled. This is the SQL Server resource id column width from schema version 118.
+        /// The limit when long resource ids are enabled.
         /// </summary>
         public const int LongMaxLength = 128;
 
@@ -46,11 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// Gets the maximum resource id length, either 64 or 128.
         /// </summary>
         public int MaxLength { get; }
-
-        /// <summary>
-        /// Gets a value indicating whether resource ids up to 128 characters are allowed.
-        /// </summary>
-        public bool UseLongResourceIds => MaxLength == LongMaxLength;
 
         /// <summary>
         /// Selects the policy for the <c>UseLongResourceIds</c> setting.

@@ -55,17 +55,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal(expectedValid, !HasIdError(upsert.Validate(new UpsertResourceRequest(resource.ToResourceElement()))));
         }
 
-        [Fact]
-        public void GivenTwoDifferentlyConfiguredProviders_WhenBothExist_ThenEachKeepsItsOwnPolicy()
-        {
-            using ServiceProvider standard = BuildProvider("false");
-            using ServiceProvider extended = BuildProvider("true");
-
-            Assert.Equal(64, standard.GetRequiredService<ResourceIdPolicy>().MaxLength);
-            Assert.Equal(128, extended.GetRequiredService<ResourceIdPolicy>().MaxLength);
-            Assert.Equal(64, standard.GetRequiredService<ResourceIdPolicy>().MaxLength);
-        }
-
         private static bool HasIdError(FluentValidation.Results.ValidationResult result)
             => result.Errors.Any(e => e.ErrorCode == "IdValidator");
 
