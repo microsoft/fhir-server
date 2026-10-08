@@ -4,53 +4,24 @@
     Every step checks the current width, so the script can be rerun after a failure.
 **************************************************************/
 SET XACT_ABORT ON
-DECLARE @Columns TABLE (GroupId tinyint NOT NULL, Tbl varchar(100) NOT NULL, Col varchar(100) NOT NULL)
-INSERT INTO @Columns
-  VALUES (1,'Resource','ResourceId')
-        ,(2,'ReferenceSearchParam','ReferenceResourceId')
-        ,(3,'ReferenceTokenCompositeSearchParam','ReferenceResourceId1')
-        -- partition switch between these two requires identical columns, so they are widened together
-        ,(4,'ResourceChangeData','ResourceId')
-        ,(4,'ResourceChangeDataStaging','ResourceId')
-
-DECLARE @GroupId tinyint = 0
-       ,@Obj sysname
-       ,@Col sysname
-       ,@Collation sysname
-       ,@IsNullable bit
-       ,@Sql nvarchar(max)
-
-WHILE 1 = 1
-BEGIN
-  SET @GroupId = (SELECT min(GroupId) FROM @Columns WHERE GroupId > @GroupId)
-  IF @GroupId IS NULL BREAK
-
-  BEGIN TRANSACTION
-
-  -- Base tables go first. Their schema modification locks stop SwitchPartitionsOut from copying the old width into new
-  -- intermediate tables. Intermediate tables dbo.<Table>_<ResourceTypeId> left by an import in progress are widened next,
-  -- so SwitchPartitionsIn can still switch them back.
-  WHILE 1 = 1
-  BEGIN
-    SET @Obj = NULL
-    SELECT TOP 1 @Obj = O.name, @Col = C.name, @Collation = C.collation_name, @IsNullable = C.is_nullable
-      FROM @Columns G
-           JOIN sys.objects O ON O.schema_id = schema_id('dbo')
-                             AND O.type = 'U'
-                             AND (O.name = G.Tbl COLLATE DATABASE_DEFAULT OR O.name LIKE G.Tbl+'[_][0-9]%' COLLATE DATABASE_DEFAULT AND substring(O.name, len(G.Tbl)+2, 128) NOT LIKE '%[^0-9]%')
-           JOIN sys.columns C ON C.object_id = O.object_id AND C.name = G.Col COLLATE DATABASE_DEFAULT
-      WHERE G.GroupId = @GroupId
-        AND C.system_type_id = type_id('varchar')
-        AND C.max_length = 64
-      ORDER BY CASE WHEN O.name = G.Tbl COLLATE DATABASE_DEFAULT THEN 0 ELSE 1 END, O.name
-    IF @Obj IS NULL BREAK
-
-    SET @Sql = 'ALTER TABLE dbo.'+quotename(@Obj)+' ALTER COLUMN '+quotename(@Col)+' varchar(128) COLLATE '+@Collation+CASE WHEN @IsNullable = 1 THEN ' NULL' ELSE ' NOT NULL' END
-    EXECUTE sp_executesql @Sql
-  END
-
-  COMMIT TRANSACTION
-END
+GO
+-- Latin1_General_100_CS_AS and NOT NULL are repeated because ALTER COLUMN would otherwise reset them.
+-- The two ResourceChangeData tables are widened in one transaction because partition switching between them requires identical columns.
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.Resource') AND name = 'ResourceId' AND max_length = 64)
+  ALTER TABLE dbo.Resource ALTER COLUMN ResourceId varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+GO
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ReferenceSearchParam') AND name = 'ReferenceResourceId' AND max_length = 64)
+  ALTER TABLE dbo.ReferenceSearchParam ALTER COLUMN ReferenceResourceId varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+GO
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ReferenceTokenCompositeSearchParam') AND name = 'ReferenceResourceId1' AND max_length = 64)
+  ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ALTER COLUMN ReferenceResourceId1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+GO
+BEGIN TRANSACTION
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ResourceChangeData') AND name = 'ResourceId' AND max_length = 64)
+  ALTER TABLE dbo.ResourceChangeData ALTER COLUMN ResourceId varchar(128) NOT NULL
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.ResourceChangeDataStaging') AND name = 'ResourceId' AND max_length = 64)
+  ALTER TABLE dbo.ResourceChangeDataStaging ALTER COLUMN ResourceId varchar(128) NOT NULL
+COMMIT TRANSACTION
 GO
 -- Non schema bound view keeps the old column metadata until refreshed.
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.CurrentResource') AND name = 'ResourceId' AND max_length = 64)
