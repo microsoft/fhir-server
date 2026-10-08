@@ -519,8 +519,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        // Every data access goes through the model. Before schema 118 the resource id columns, parameters and table types are 64 wide
-        // and silently truncate, so a long id could address another resource. Fail instead of serving requests.
+        // Check to confirm database is ready for long resource ids.
         private void ThrowIfLongResourceIdsAreNotSupportedBySchema()
         {
             if (ResourceIdPolicy.UseLongResourceIds
