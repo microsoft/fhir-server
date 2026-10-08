@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
@@ -32,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
+        private const DataActions SearchScopeDataActions = DataActions.Read | DataActions.Search;
 
         private readonly IExpressionParser _expressionParser;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -86,9 +88,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false, bool isIncludesOperation = false)
+        public SearchOptions Create(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false,
+            DataActions scopeDataActions = SearchScopeDataActions)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
+            return Create(
+                null,
+                null,
+                resourceType,
+                queryParameters,
+                scopeDataActions,
+                isAsyncOperation,
+                resourceVersionTypes: resourceVersionTypes,
+                onlyIds: onlyIds,
+                isIncludesOperation: isIncludesOperation);
         }
 
         public SearchOptions Create(
@@ -102,7 +120,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool onlyIds = false,
             bool isIncludesOperation = false)
         {
-            var searchOptions = new SearchOptions();
+            return Create(
+                compartmentType,
+                compartmentId,
+                resourceType,
+                queryParameters,
+                SearchScopeDataActions,
+                isAsyncOperation,
+                useSmartCompartmentDefinition,
+                resourceVersionTypes,
+                onlyIds,
+                isIncludesOperation);
+        }
+
+        private SearchOptions Create(
+            string compartmentType,
+            string compartmentId,
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            DataActions scopeDataActions,
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            var searchOptions = new SearchOptions
+            {
+                ScopeDataActions = scopeDataActions,
+            };
 
             if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.StartSurrogateId && _.Item2 != null))
             {
@@ -391,11 +437,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
+            // SMART scopes that grant one of the requested data actions. Scopes granting only other actions
+            // (e.g. read-by-id scopes during a search) do not authorize this request. Empty means nothing is granted.
+            IReadOnlyCollection<ScopeRestriction> grantedScopes =
+                _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions
+                    ?.Where(restriction => restriction.AllowsAny(scopeDataActions))
+                    .ToArray()
+                ?? Array.Empty<ScopeRestriction>();
+
             // Form all the include revinclude expressions before for the Smart queries access control check
             // Collect all the resource types required by the include/revinclude expressions
             var includeRevincludeSearchExpressions = new List<IncludeExpression>();
-            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
-            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false, grantedScopes).Where(e => e != null));
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true, grantedScopes).Where(e => e != null));
             var requiredResourceTypes = includeRevincludeSearchExpressions.SelectMany(x => x.Produces).ToList();
 
             // Add the parsed resource types to the required resource types for access control check
@@ -403,7 +457,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
             requiredResourceTypes.AddRange(parsedResourceTypes);
 
-            CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
+            CheckFineGrainedAccessControl(
+                searchExpressions,
+                searchParams,
+                requiredResourceTypes,
+                grantedScopes);
 
             var validSearchParameters = new List<SearchParameterInfo>();
 
@@ -638,7 +696,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
+            _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression, grantedScopes);
 
             try
             {
@@ -663,7 +721,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return expression?.AcceptVisitor(VectorSearchPresenceVisitor.Instance, context: null) ?? false;
         }
 
-        private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)
+        private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
+            IList<(string query, IncludeModifier modifier)> includes,
+            string[] typesString,
+            bool isReversed,
+            IReadOnlyCollection<ScopeRestriction> grantedScopes)
         {
             return includes.Select(p =>
             {
@@ -684,7 +746,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 IReadOnlyCollection<string> allowedResourceTypesByScope = null;
                 if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                 {
-                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource).ToList();
+                    allowedResourceTypesByScope = grantedScopes.Select(s => s.Resource).ToList();
+
+                    if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                    {
+                        string includeSourceResourceType = p.query?.Split(':')[0];
+                        if (!string.Equals(includeSourceResourceType, "*", StringComparison.Ordinal) &&
+                            !string.Equals(includeSourceResourceType, KnownResourceTypes.All, StringComparison.Ordinal) &&
+                            !allowedResourceTypesByScope.Contains(includeSourceResourceType))
+                        {
+                            return null;
+                        }
+
+                        if (!(includeResourceTypeList.Length == 1 &&
+                              string.Equals(includeResourceTypeList[0], KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            includeResourceTypeList = includeResourceTypeList.Intersect(allowedResourceTypesByScope).ToArray();
+                            if (includeResourceTypeList.Length == 0)
+                            {
+                                return null;
+                            }
+                        }
+                    }
                 }
 
                 var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
@@ -817,7 +900,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger.LogInformation(logOutput);
         }
 
-        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions, SearchParams searchParams, List<string> requiredResourceTypes)
+        private void CheckFineGrainedAccessControl(
+            List<Expression> searchExpressions,
+            SearchParams searchParams,
+            List<string> requiredResourceTypes,
+            IReadOnlyCollection<ScopeRestriction> grantedScopes)
         {
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
@@ -827,7 +914,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var finalSmartSearchExpressions = new List<Expression>();
                 bool isFineGrainedAccessControlWithSearchParameters = false;
 
-                foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
+                foreach (ScopeRestriction restriction in grantedScopes)
                 {
                     if (restriction.Resource == KnownResourceTypes.All)
                     {
