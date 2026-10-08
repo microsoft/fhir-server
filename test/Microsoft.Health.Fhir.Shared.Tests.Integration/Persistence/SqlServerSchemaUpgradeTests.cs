@@ -150,8 +150,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
-                NullLogger<SqlServerFhirModel>.Instance,
-                ResourceIdPolicy.Standard);
+                ResourceIdPolicy.Standard,
+                NullLogger<SqlServerFhirModel>.Instance);
 
             var testHelper = new SqlServerFhirStorageTestHelper(
                 initialConnectionString,

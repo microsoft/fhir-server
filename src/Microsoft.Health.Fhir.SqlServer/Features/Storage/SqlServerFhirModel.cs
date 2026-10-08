@@ -77,8 +77,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
             ISqlRetryService sqlRetryService,
-            ILogger<SqlServerFhirModel> logger,
-            ResourceIdPolicy resourceIdPolicy)
+            ResourceIdPolicy resourceIdPolicy,
+            ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));

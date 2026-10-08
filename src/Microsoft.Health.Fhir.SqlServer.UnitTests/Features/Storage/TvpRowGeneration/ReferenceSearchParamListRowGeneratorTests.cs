@@ -62,8 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
-                NullLogger<SqlServerFhirModel>.Instance,
-                policy);
+                policy,
+                NullLogger<SqlServerFhirModel>.Instance);
 
             return new ReferenceSearchParamListRowGenerator(
                 model,

@@ -251,8 +251,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
-                NullLogger<SqlServerFhirModel>.Instance,
-                ResourceIdPolicy.Standard);
+                ResourceIdPolicy.Standard,
+                NullLogger<SqlServerFhirModel>.Instance);
             SetModelField(model, "_highestInitializedVersion", schema.Current);
             SetModelField(model, "_resourceTypeToId", new Dictionary<string, short> { ["Patient"] = 1 });
             SetModelField(model, "_searchParamUriToId", new Dictionary<Uri, short>

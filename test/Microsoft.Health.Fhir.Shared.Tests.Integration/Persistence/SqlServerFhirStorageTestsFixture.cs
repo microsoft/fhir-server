@@ -191,8 +191,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 SqlRetryService,
-                NullLogger<SqlServerFhirModel>.Instance,
-                ResourceIdPolicy.Standard);
+                ResourceIdPolicy.Standard,
+                NullLogger<SqlServerFhirModel>.Instance);
             SqlServerFhirModel = sqlServerFhirModel;
 
             // Create the real SqlQueueClient to use throughout the fixture

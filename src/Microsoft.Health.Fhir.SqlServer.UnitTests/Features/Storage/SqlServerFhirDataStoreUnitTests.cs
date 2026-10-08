@@ -407,8 +407,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
-                NullLogger<SqlServerFhirModel>.Instance,
-                ResourceIdPolicy.Standard);
+                ResourceIdPolicy.Standard,
+                NullLogger<SqlServerFhirModel>.Instance);
 
             typeof(SqlServerFhirModel)
                 .GetField("_resourceTypeToId", BindingFlags.NonPublic | BindingFlags.Instance)
