@@ -28,6 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public int BundleExpandedGroupSize { get; set; } = 50;
 
-        public int BundleExpandedGroupDelayInMilliseconds { get; set; } = 10;
+        public int BundleExpandedGroupDelayInMilliseconds { get; set; } = 07;
     }
 }

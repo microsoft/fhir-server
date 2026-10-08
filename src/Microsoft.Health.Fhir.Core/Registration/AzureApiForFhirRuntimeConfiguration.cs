@@ -30,6 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Registration
 
         public bool IsSurrogateIdRangingSupported => false;
 
-        public bool IsBundleExtendedSupported => false;
+        public bool IsBundleExpandedSupported => false;
     }
 }
