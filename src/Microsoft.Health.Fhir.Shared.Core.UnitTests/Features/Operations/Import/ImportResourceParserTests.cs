@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                                     Substitute.For<ISearchParameterDefinitionManager>(),
                                     Deserializers.ResourceDeserializer);
 
-            _importResourceParser = new(_jsonParser, _wrapperFactory);
+            _importResourceParser = new(_jsonParser, _wrapperFactory, ResourceIdPolicy.Standard);
         }
 
         [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
