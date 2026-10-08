@@ -1,7 +1,7 @@
 /*************************************************************
     Widens ResourceId columns, table types and procedure parameters from varchar(64) to varchar(128).
     Widening varchar keeps collation and nullability, so it is a metadata only change.
-    Every step checks the current width, so the script can be rerun after a failure.
+    Every step is guarded or converges to the same definitions, so the script can be rerun after a failure.
 **************************************************************/
 SET XACT_ABORT ON
 GO
@@ -27,99 +27,87 @@ GO
 IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.CurrentResource') AND name = 'ResourceId' AND max_length = 64)
   EXECUTE sp_refreshview 'dbo.CurrentResource'
 GO
--- Table types cannot be altered. Dropping the dependent procedures would make concurrent callers fail with
--- "Could not find stored procedure", so the procedures are altered to stubs instead and restored in the same transaction.
--- Concurrent callers wait on the schema modification locks and then run the restored procedures.
-SET XACT_ABORT ON
-IF EXISTS (SELECT *
-             FROM sys.table_types T
-                  JOIN sys.columns C ON C.object_id = T.type_table_object_id
-             WHERE T.schema_id = schema_id('dbo')
-               AND T.name IN ('ResourceList','ResourceKeyList','ResourceDateKeyList','ReferenceSearchParamList','ReferenceTokenCompositeSearchParamList')
-               AND C.name IN ('ResourceId','ReferenceResourceId','ReferenceResourceId1')
-               AND C.max_length = 64
-          )
-BEGIN
-  BEGIN TRANSACTION
+-- Table types cannot be altered, so the dependent procedures and the types are dropped and recreated in one transaction.
+-- The schema runner executes GO batches in order on one connection and stops at the first error.
+BEGIN TRANSACTION
+GO
+IF object_id('dbo.MergeResourcesAndSearchParams') IS NOT NULL DROP PROCEDURE dbo.MergeResourcesAndSearchParams
+IF object_id('dbo.MergeResources') IS NOT NULL DROP PROCEDURE dbo.MergeResources
+IF object_id('dbo.UpdateResourceSearchParams') IS NOT NULL DROP PROCEDURE dbo.UpdateResourceSearchParams
+IF object_id('dbo.GetResources') IS NOT NULL DROP PROCEDURE dbo.GetResources
+IF object_id('dbo.GetResourceVersions') IS NOT NULL DROP PROCEDURE dbo.GetResourceVersions
+IF object_id('dbo.CaptureResourceIdsForChanges') IS NOT NULL DROP PROCEDURE dbo.CaptureResourceIdsForChanges
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceList') DROP TYPE dbo.ResourceList
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceKeyList') DROP TYPE dbo.ResourceKeyList
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceDateKeyList') DROP TYPE dbo.ResourceDateKeyList
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceSearchParamList') DROP TYPE dbo.ReferenceSearchParamList
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceTokenCompositeSearchParamList') DROP TYPE dbo.ReferenceTokenCompositeSearchParamList
+GO
+CREATE TYPE dbo.ResourceList AS TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceSurrogateId  bigint              NOT NULL
+   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version              int                 NOT NULL
+   ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
+   ,IsDeleted            bit                 NOT NULL
+   ,IsHistory            bit                 NOT NULL
+   ,KeepHistory          bit                 NOT NULL
+   ,RawResource          varbinary(max)      NOT NULL
+   ,IsRawResourceMetaSet bit                 NOT NULL
+   ,RequestMethod        varchar(10)         NULL
+   ,SearchParamHash      varchar(64)         NULL
 
-  EXECUTE('ALTER PROCEDURE dbo.MergeResourcesAndSearchParams AS SET NOCOUNT ON')
-  EXECUTE('ALTER PROCEDURE dbo.MergeResources AS SET NOCOUNT ON')
-  EXECUTE('ALTER PROCEDURE dbo.UpdateResourceSearchParams AS SET NOCOUNT ON')
-  EXECUTE('ALTER PROCEDURE dbo.GetResources AS SET NOCOUNT ON')
-  EXECUTE('ALTER PROCEDURE dbo.GetResourceVersions AS SET NOCOUNT ON')
-  EXECUTE('ALTER PROCEDURE dbo.CaptureResourceIdsForChanges AS SET NOCOUNT ON')
+    PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
+   ,UNIQUE (ResourceTypeId, ResourceId, Version)
+)
+GO
+CREATE TYPE dbo.ResourceKeyList AS TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version              int                 NULL
 
-  DROP TYPE dbo.ResourceList
-  DROP TYPE dbo.ResourceKeyList
-  DROP TYPE dbo.ResourceDateKeyList
-  DROP TYPE dbo.ReferenceSearchParamList
-  DROP TYPE dbo.ReferenceTokenCompositeSearchParamList
+    UNIQUE (ResourceTypeId, ResourceId, Version)
+)
+GO
+CREATE TYPE dbo.ResourceDateKeyList AS TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceSurrogateId  bigint              NOT NULL
 
-  CREATE TYPE dbo.ResourceList AS TABLE
-  (
-      ResourceTypeId       smallint            NOT NULL
-     ,ResourceSurrogateId  bigint              NOT NULL
-     ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
-     ,Version              int                 NOT NULL
-     ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
-     ,IsDeleted            bit                 NOT NULL
-     ,IsHistory            bit                 NOT NULL
-     ,KeepHistory          bit                 NOT NULL
-     ,RawResource          varbinary(max)      NOT NULL
-     ,IsRawResourceMetaSet bit                 NOT NULL
-     ,RequestMethod        varchar(10)         NULL
-     ,SearchParamHash      varchar(64)         NULL
+    PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId)
+)
+GO
+CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
+(
+    ResourceTypeId           smallint NOT NULL
+   ,ResourceSurrogateId      bigint   NOT NULL
+   ,SearchParamId            smallint NOT NULL
+   ,BaseUri                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
+   ,ReferenceResourceTypeId  smallint NULL
+   ,ReferenceResourceId      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceVersion int      NULL
 
-      PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
-     ,UNIQUE (ResourceTypeId, ResourceId, Version)
-  )
-
-  CREATE TYPE dbo.ResourceKeyList AS TABLE
-  (
-      ResourceTypeId       smallint            NOT NULL
-     ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
-     ,Version              int                 NULL
-
-      UNIQUE (ResourceTypeId, ResourceId, Version)
-  )
-
-  CREATE TYPE dbo.ResourceDateKeyList AS TABLE
-  (
-      ResourceTypeId       smallint            NOT NULL
-     ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
-     ,ResourceSurrogateId  bigint              NOT NULL
-
-      PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId)
-  )
-
-  CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
-  (
-      ResourceTypeId           smallint NOT NULL
-     ,ResourceSurrogateId      bigint   NOT NULL
-     ,SearchParamId            smallint NOT NULL
-     ,BaseUri                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-     ,ReferenceResourceTypeId  smallint NULL
-     ,ReferenceResourceId      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
-     ,ReferenceResourceVersion int      NULL
-
-     UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId)
-  )
-
-  CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE
-  (
-      ResourceTypeId            smallint NOT NULL
-     ,ResourceSurrogateId       bigint   NOT NULL
-     ,SearchParamId             smallint NOT NULL
-     ,BaseUri1                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-     ,ReferenceResourceTypeId1  smallint NULL
-     ,ReferenceResourceId1      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
-     ,ReferenceResourceVersion1 int      NULL
-     ,SystemId2                 int      NULL
-     ,Code2                     varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
-     ,CodeOverflow2             varchar(max) COLLATE Latin1_General_100_CS_AS NULL
-  )
-
-  EXECUTE('ALTER PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
+)
+GO
+CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE
+(
+    ResourceTypeId            smallint NOT NULL
+   ,ResourceSurrogateId       bigint   NOT NULL
+   ,SearchParamId             smallint NOT NULL
+   ,BaseUri1                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
+   ,ReferenceResourceTypeId1  smallint NULL
+   ,ReferenceResourceId1      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceVersion1 int      NULL
+   ,SystemId2                 int      NULL
+   ,Code2                     varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,CodeOverflow2             varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+)
+GO
+CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
 AS
 set nocount on
 -- This procedure is intended to be called from the MergeResources procedure and relies on its transaction logic
@@ -127,15 +115,15 @@ INSERT INTO dbo.ResourceChangeData
        ( ResourceId, ResourceTypeId, ResourceVersion,                                              ResourceChangeTypeId )
   SELECT ResourceId, ResourceTypeId,         Version, CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
     FROM @Resources
-    WHERE IsHistory = 0')
-
-  EXECUTE('ALTER PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
+    WHERE IsHistory = 0
+GO
+CREATE PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
 AS
 -- This stored procedure allows to identifiy if version gap is available and checks dups on lastUpdated
 set nocount on
 DECLARE @st datetime = getUTCdate()
-       ,@SP varchar(100) = ''GetResourceVersions''
-       ,@Mode varchar(100) = ''Rows=''+convert(varchar,(SELECT count(*) FROM @ResourceDateKeys))
+       ,@SP varchar(100) = 'GetResourceVersions'
+       ,@Mode varchar(100) = 'Rows='+convert(varchar,(SELECT count(*) FROM @ResourceDateKeys))
        ,@DummyTop bigint = 9223372036854775807
 
 BEGIN TRY
@@ -159,19 +147,19 @@ BEGIN TRY
          OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) D -- date
     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
-END CATCH')
-
-  EXECUTE('ALTER PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
+END CATCH
+GO
+CREATE PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
-       ,@SP varchar(100) = ''GetResources''
+       ,@SP varchar(100) = 'GetResources'
        ,@InputRows int
        ,@DummyTop bigint = 9223372036854775807
        ,@NotNullVersionExists bit 
@@ -181,7 +169,7 @@ DECLARE @st datetime = getUTCdate()
 
 SELECT @MinRT = min(ResourceTypeId), @MaxRT = max(ResourceTypeId), @InputRows = count(*), @NotNullVersionExists = max(CASE WHEN Version IS NOT NULL THEN 1 ELSE 0 END), @NullVersionExists = max(CASE WHEN Version IS NULL THEN 1 ELSE 0 END) FROM @ResourceKeys
 
-DECLARE @Mode varchar(100) = ''RT=[''+convert(varchar,@MinRT)+'',''+convert(varchar,@MaxRT)+''] Cnt=''+convert(varchar,@InputRows)+'' NNVE=''+convert(varchar,@NotNullVersionExists)+'' NVE=''+convert(varchar,@NullVersionExists)
+DECLARE @Mode varchar(100) = 'RT=['+convert(varchar,@MinRT)+','+convert(varchar,@MaxRT)+'] Cnt='+convert(varchar,@InputRows)+' NNVE='+convert(varchar,@NotNullVersionExists)+' NVE='+convert(varchar,@NullVersionExists)
 
 BEGIN TRY
   IF @NotNullVersionExists = 1
@@ -241,15 +229,15 @@ BEGIN TRY
       WHERE IsHistory = 0
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
-END CATCH')
-
-  EXECUTE('ALTER PROCEDURE dbo.UpdateResourceSearchParams
+END CATCH
+GO
+CREATE PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
@@ -271,7 +259,7 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = isnull((SELECT ''RT=[''+convert(varchar,min(ResourceTypeId))+'',''+convert(varchar,max(ResourceTypeId))+''] Sur=[''+convert(varchar,min(ResourceSurrogateId))+'',''+convert(varchar,max(ResourceSurrogateId))+''] V=''+convert(varchar,max(Version))+'' Rows=''+convert(varchar,count(*)) FROM @Resources),''Input=Empty'')
+       ,@Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
        ,@Rows int
        ,@ReferenceSearchParamsCurrent dbo.ReferenceSearchParamList
        ,@ReferenceSearchParamsDelete dbo.ReferenceSearchParamList
@@ -1255,15 +1243,15 @@ BEGIN TRY
 
   SET @FailedResources = (SELECT count(*) FROM @Resources) - @Rows
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@Rows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
-END CATCH')
-
-  EXECUTE('ALTER PROCEDURE dbo.MergeResources
+END CATCH
+GO
+CREATE PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
@@ -1297,8 +1285,8 @@ DECLARE @st datetime = getUTCdate()
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
 
-DECLARE @Mode varchar(200) = isnull((SELECT ''RT=[''+convert(varchar,min(ResourceTypeId))+'',''+convert(varchar,max(ResourceTypeId))+''] Sur=[''+convert(varchar,min(ResourceSurrogateId))+'',''+convert(varchar,max(ResourceSurrogateId))+''] V=''+convert(varchar,max(Version))+'' Rows=''+convert(varchar,count(*)) FROM @Resources),''Input=Empty'')
-SET @Mode += '' E=''+convert(varchar,@RaiseExceptionOnConflict)+'' CC=''+convert(varchar,@IsResourceChangeCaptureEnabled)+'' IT=''+convert(varchar,@InitialTranCount)+'' T=''+isnull(convert(varchar,@TransactionId),''NULL'')+'' ST=''+convert(varchar,@SingleTransaction)
+DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
+SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')+' ST='+convert(varchar,@SingleTransaction)
 
 SET @AffectedRows = 0
 
@@ -1322,7 +1310,7 @@ BEGIN TRY
   -- perform retry check in transaction to hold locks
   IF @InitialTranCount = 0
   BEGIN
-    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don''t need them
+    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
                  FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
                  --WHERE B.IsHistory = 0 -- With this clause wrong plans are created on empty/small database. Commented until resource separation is in place.
               )
@@ -1346,7 +1334,7 @@ BEGIN TRY
     END
   END
 
-  SET @Mode += '' R=''+convert(varchar,@IsRetry)
+  SET @Mode += ' R='+convert(varchar,@IsRetry)
 
   IF @SingleTransaction = 1 AND @@trancount = 0 BEGIN TRANSACTION
   
@@ -1362,7 +1350,7 @@ BEGIN TRY
 
     -- Consider surrogate id out of allignment as a conflict
     IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE (PreviousVersion IS NOT NULL AND Version <= PreviousVersion) OR (PreviousSurrogateId IS NOT NULL AND SurrogateId <= PreviousSurrogateId))
-      THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates'', 1
+      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1
 
     INSERT INTO @PreviousSurrogateIds
       SELECT ResourceTypeId, PreviousSurrogateId, KeepHistory
@@ -1376,7 +1364,7 @@ BEGIN TRY
         WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 1)
       SET @AffectedRows += @@rowcount
 
-      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = ''InvisibleHistory.IsEnabled'' AND Number = 0)
+      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
         UPDATE dbo.Resource
           SET IsHistory = 1
              ,RawResource = 0xF -- "invisible" value
@@ -1419,7 +1407,7 @@ BEGIN TRY
       DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
 
-      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Info'',@Start=@st,@Rows=@AffectedRows,@Text=''Old rows''
+      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
     END
 
     INSERT INTO dbo.Resource 
@@ -1664,28 +1652,28 @@ BEGIN TRY
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@AffectedRows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
 END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND error_message() LIKE ''%''''dbo.Resource''''%''
+  IF @RaiseExceptionOnConflict = 1 AND error_message() LIKE '%''dbo.Resource''%'
   BEGIN
     IF error_number() = 2601
-      THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates.'', 1;
+      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates.', 1;
     ELSE IF error_number() = 2627
-      THROW 50424, ''Cannot persit resource due to a conflict with duplicated keys. Check the volume of resource being submited for ingestion.'', 1;
+      THROW 50424, 'Cannot persit resource due to a conflict with duplicated keys. Check the volume of resource being submited for ingestion.', 1;
     ELSE
       THROW;
   END
   ELSE
     THROW;
-END CATCH')
-
-  EXECUTE('ALTER PROCEDURE dbo.MergeResourcesAndSearchParams 
+END CATCH
+GO
+CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
     ,@ReindexId bigint = NULL
     ,@IsResourceChangeCaptureEnabled bit = 0
@@ -1709,7 +1697,7 @@ END CATCH')
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = ''R=''+convert(varchar,(SELECT count(*) FROM @Resources))+'' SP=''+convert(varchar,(SELECT count(*) FROM @SearchParams))
+       ,@Mode varchar(200) = 'R='+convert(varchar,(SELECT count(*) FROM @Resources))+' SP='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
        ,@Rows int = 0
 
@@ -1749,16 +1737,15 @@ BEGIN TRY
 
   COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Action=''Merge'',@Rows=@Rows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION;
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
-END CATCH')
-
-  COMMIT TRANSACTION
-END
+END CATCH
+GO
+COMMIT TRANSACTION
 GO
 --DROP PROCEDURE dbo.HardDeleteResource
 GO
