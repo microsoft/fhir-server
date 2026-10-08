@@ -24,6 +24,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// (for example, an unassigned Device with no <c>Device.patient</c> reference).
         /// </summary>
         HasNoReference,
+
+        /// <summary>
+        /// The resource type is never visible within the compartment. Used to fail closed when the condition
+        /// that would otherwise make the type visible cannot be evaluated safely — for example when the
+        /// reference search parameter is unavailable, so a missing index entry no longer distinguishes an
+        /// unassigned resource from one assigned to a different compartment. A rule with this visibility
+        /// contributes no authorizing predicate, and because the type carries a conditional rule it is also
+        /// excluded from the unconditionally shared types.
+        /// </summary>
+        Never,
     }
 
     /// <summary>
