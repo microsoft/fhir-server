@@ -522,7 +522,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         // Check to confirm database is ready for long resource ids.
         private void ThrowIfLongResourceIdsAreNotSupportedBySchema()
         {
-            if (ResourceIdPolicy.UseLongResourceIds
+            if (ResourceIdPolicy.MaxLength > ResourceIdPolicy.StandardMaxLength
                 && _schemaInformation.Current < SchemaVersionConstants.ResourceIdLength128)
             {
                 throw new InvalidOperationException(string.Format(
