@@ -32,7 +32,6 @@ using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -81,7 +80,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SmartCompartmentSearchRewriter _smartCompartmentSearchRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
-        private readonly ResourceIdPolicy _resourceIdPolicy;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly ISqlRetryService _sqlRetryService;
@@ -168,8 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            ILogger<SqlServerSearchService> logger,
-            ResourceIdPolicy resourceIdPolicy)
+            ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
@@ -189,7 +186,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _fhirDataStore = fhirDataStore;
             _model = model;
-            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
             _queryGeneratorFactory = queryGeneratorFactory;
@@ -541,7 +537,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
-                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters), _resourceIdPolicy),
+                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
                                 _queryGeneratorFactory,
@@ -2045,7 +2041,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
-                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters), _resourceIdPolicy),
+                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
                                 _queryGeneratorFactory,

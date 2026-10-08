@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -119,8 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
-                NullLogger<SqlServerSearchService>.Instance,
-                ResourceIdPolicy.Standard);
+                NullLogger<SqlServerSearchService>.Instance);
         }
 
         [Theory]
@@ -189,8 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    NullLogger<SqlServerSearchService>.Instance,
-                    ResourceIdPolicy.Standard);
+                    NullLogger<SqlServerSearchService>.Instance);
             });
 
             Assert.NotNull(ex);
@@ -240,8 +237,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    NullLogger<SqlServerSearchService>.Instance,
-                    ResourceIdPolicy.Standard);
+                    NullLogger<SqlServerSearchService>.Instance);
             });
 
             Assert.NotNull(ex);
@@ -291,8 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    NullLogger<SqlServerSearchService>.Instance,
-                    ResourceIdPolicy.Standard);
+                    NullLogger<SqlServerSearchService>.Instance);
             });
 
             Assert.NotNull(ex);

@@ -323,8 +323,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
                 _options,
-                NullLogger<SqlServerSearchService>.Instance,
-                ResourceIdPolicy.Standard);
+                NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));

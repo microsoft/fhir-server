@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -60,7 +59,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _schemaInformation.Current = SchemaVersionConstants.Max;
 
         using Data.SqlClient.SqlCommand command = new();
-        HashingSqlQueryParameterManager parameters = new(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+        HashingSqlQueryParameterManager parameters = new(new SqlQueryParameterManager(command.Parameters));
 
         _queryGenerator = new(
             _strBuilder,
@@ -332,7 +331,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         ConfigureResourceTypeIds();
         _fhirModel.GetSearchParamId(referenceParameter.Url).Returns((short)40);
         using Data.SqlClient.SqlCommand command = new();
-        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
         parameters.AddParameter("filter-value", includeInHash: true);
         var generator = new SqlQueryGenerator(_strBuilder, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, reuseQueryPlans, false);
         generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest });
@@ -430,7 +429,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     {
         var stringBuilder = new IndentedStringBuilder(new StringBuilder(preamble));
         using Data.SqlClient.SqlCommand command = new();
-        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
         if (parameterValue != null)
         {
             parameters.AddParameter(parameterValue, includeInHash: true);
@@ -470,7 +469,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         using Data.SqlClient.SqlCommand command = new();
         var generator = new SqlQueryGenerator(
             _strBuilder,
-            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard),
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
             _fhirModel,
             _schemaInformation,
             _queryGeneratorFactory,

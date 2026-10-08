@@ -7,7 +7,6 @@ using System;
 using System.Data;
 using System.Text;
 using Microsoft.Data.SqlClient;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -23,29 +22,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class HashingSqlQueryParameterManagerTests
     {
-        private const int DefaultMaxResourceIdLength = 64;
-        private const int ExtendedMaxResourceIdLength = 128;
-
         public static readonly TheoryData<object> Data = new()
         {
             true, 1, 1L, DateTime.UtcNow, DateTimeOffset.UtcNow, 9M, 99.9, (short)6, (byte)9, Guid.Parse("0fd465f0-095b-425c-a3e8-acc879d20835"), "Hello",
         };
 
-        public static readonly TheoryData<Column, bool, int> ResourceIdColumns = new()
+        public static readonly TheoryData<Column> ResourceIdColumns = new()
         {
-            { VLatest.Resource.ResourceId, false, DefaultMaxResourceIdLength },
-            { VLatest.ReferenceSearchParam.ReferenceResourceId, false, DefaultMaxResourceIdLength },
-            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, false, DefaultMaxResourceIdLength },
-            { VLatest.Resource.ResourceId, true, ExtendedMaxResourceIdLength },
-            { VLatest.ReferenceSearchParam.ReferenceResourceId, true, ExtendedMaxResourceIdLength },
-            { VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1, true, ExtendedMaxResourceIdLength },
+            VLatest.Resource.ResourceId,
+            VLatest.ReferenceSearchParam.ReferenceResourceId,
+            VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1,
         };
 
         [Fact]
         public void GivenParametersThatShouldNotBeHashed_WhenAdded_ResultsInNoChangeToHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
             AssertDoesNotChangeHash(parameters, () =>
             {
@@ -62,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenParameterThatShouldBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
             AssertChangesHash(parameters, () =>
             {
@@ -77,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAParameterThatShouldBeHashed_WhenAdded_ChangesHash(object value)
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
             AssertChangesHash(parameters, () => parameters.AddParameter(value, true));
         }
@@ -86,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAParameterThatShouldAndThenShouldNotBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
             AssertChangesHash(parameters, () =>
             {
@@ -101,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenAParameterThatShouldNotAndThenShouldBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
             AssertChangesHash(parameters, () =>
             {
@@ -116,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenALargeNumberOfParameters_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
             for (int i = 0; i < 100; i++)
             {
@@ -136,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenALargeStringParameter_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Standard);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
             parameters.AddParameter(1, true);
 
@@ -145,42 +138,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         [Theory]
         [MemberData(nameof(ResourceIdColumns))]
-        public void GivenAResourceIdColumn_WhenAdded_ThenTheParameterIsSizedToTheSelectedLimit(Column column, bool useLongResourceIds, int expectedLength)
+        public void GivenAResourceIdLongerThan64Characters_WhenAdded_ThenTheParameterIsNotTruncatedTo64(Column column)
         {
             // Arrange
             using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.From(useLongResourceIds));
-            var value = new string('a', expectedLength);
+            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+            string value = new string('a', 66);
 
             // Act
             var parameter = (SqlParameter)parameters.AddParameter(column, value, includeInHash: false);
 
             // Assert
             Assert.Equal(SqlDbType.VarChar, parameter.SqlDbType);
-            Assert.Equal(expectedLength, parameter.Size);
+            Assert.Equal(128, parameter.Size);
             Assert.Equal(value, parameter.Value);
-        }
-
-        [Fact]
-        public void GivenAResourceIdAndANarrowVarCharColumnWithTheSameValue_WhenAdded_ThenDistinctParametersAreCreated()
-        {
-            // Arrange - the inner manager de-duplicates on (type, length, value), so widening has to happen
-            // before the parameter is created. Resizing an already-created/shared parameter would collapse
-            // these two columns onto a single parameter and silently narrow or widen the other one.
-            const string value = "abc";
-            using var command = new SqlCommand();
-            var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters), ResourceIdPolicy.Extended);
-
-            // Act
-            var searchParamHashParameter = (SqlParameter)parameters.AddParameter(VLatest.Resource.SearchParamHash, value, includeInHash: false);
-            var resourceIdParameter = (SqlParameter)parameters.AddParameter(VLatest.Resource.ResourceId, value, includeInHash: false);
-
-            // Assert
-            Assert.NotSame(searchParamHashParameter, resourceIdParameter);
-            Assert.Equal(SqlDbType.VarChar, searchParamHashParameter.SqlDbType);
-            Assert.Equal(DefaultMaxResourceIdLength, searchParamHashParameter.Size);
-            Assert.Equal(ExtendedMaxResourceIdLength, resourceIdParameter.Size);
-            Assert.Equal(2, command.Parameters.Count);
         }
 
         private static string GetHash(HashingSqlQueryParameterManager parameterManager)

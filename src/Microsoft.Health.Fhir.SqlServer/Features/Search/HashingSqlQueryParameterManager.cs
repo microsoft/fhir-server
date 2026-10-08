@@ -12,7 +12,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -26,16 +25,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     public class HashingSqlQueryParameterManager
     {
         private readonly SqlQueryParameterManager _inner;
-        private readonly ResourceIdPolicy _resourceIdPolicy;
         private readonly HashSet<SqlParameter> _setToHash = new();
         private readonly HashSet<SqlParameter> _smartScopeParameters = new();
         private readonly HashSet<short> _searchParamIds = new();
 
-        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner, ResourceIdPolicy resourceIdPolicy)
+        public HashingSqlQueryParameterManager(SqlQueryParameterManager inner)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             _inner = inner;
-            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         public bool HasParametersToHash => _setToHash.Count > 0;
@@ -86,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return value;
             }
 
-            SqlParameter parameter = _inner.AddParameter(SizeResourceIdColumn(column), value);
+            SqlParameter parameter = _inner.AddParameter(column, value);
             if (includeInHash
                 && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name)
             {
@@ -164,19 +161,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public void AppendSmartScopeParameterNames(IndentedStringBuilder stringBuilder)
         {
             AppendHashParameterNames(stringBuilder, _smartScopeParameters);
-        }
-
-        // Sizing must happen before the inner manager creates the parameter, because it reuses parameters by (type, size, value).
-        private Column SizeResourceIdColumn(Column column)
-        {
-            if (column is VarCharColumn stringColumn
-                && column.Metadata.Name is "ResourceId" or "ReferenceResourceId" or "ReferenceResourceId1"
-                && column.Metadata.MaxLength != _resourceIdPolicy.MaxLength)
-            {
-                return new VarCharColumn(column.Metadata.Name, _resourceIdPolicy.MaxLength, stringColumn.Collation);
-            }
-
-            return column;
         }
 
         private void AppendHash(IndentedStringBuilder stringBuilder, HashSet<SqlParameter> parameters)
