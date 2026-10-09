@@ -1,0 +1,102 @@
+parameters:
+- name: packageDirectory
+  type: string
+  default: ''
+- name: baselineDirectory
+  type: string
+  default: ''
+- name: reportDirectory
+  type: string
+  default: ''
+- name: workDirectory
+  type: string
+  default: ''
+- name: nuGetConfigPath
+  type: string
+  default: ''
+- name: toolVersion
+  type: string
+  default: '1.0.45'
+
+steps:
+- task: PowerShell@2
+  name: ValidateNuGetBinaryClosures
+  displayName: 'Validate NuGet binary closures'
+  inputs:
+    pwsh: true
+    targetType: inline
+    errorActionPreference: stop
+    script: |
+      $workDirectory = '${{ parameters.workDirectory }}'
+      $reportDirectory = '${{ parameters.reportDirectory }}'
+      $toolsDirectory = Join-Path $workDirectory 'tools'
+      $validationWorkDirectory = Join-Path $workDirectory 'validation'
+      $toolConfigPath = Join-Path $workDirectory 'NuGet.Tools.config'
+      $validatorScriptPath = '$(Build.SourcesDirectory)/build/scripts/Validate-NuGetBinaryClosure.ps1'
+
+      New-Item -ItemType Directory -Path $workDirectory -Force | Out-Null
+      New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
+      New-Item -ItemType Directory -Path $toolsDirectory -Force | Out-Null
+      New-Item -ItemType Directory -Path $validationWorkDirectory -Force | Out-Null
+
+      @'
+      <?xml version="1.0" encoding="utf-8"?>
+      <configuration>
+        <packageSources>
+          <clear />
+          <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+        </packageSources>
+      </configuration>
+      '@ | Set-Content -LiteralPath $toolConfigPath -Encoding utf8
+
+      & dotnet tool update checkbinarycompat `
+        --tool-path $toolsDirectory `
+        --version '${{ parameters.toolVersion }}' `
+        --configfile $toolConfigPath
+
+      $toolInstallExitCode = $LASTEXITCODE
+      if ($toolInstallExitCode -ne 0) {
+          throw "dotnet tool update checkbinarycompat failed with exit code $toolInstallExitCode."
+      }
+
+      $toolCandidates = if ($IsWindows) {
+          @(
+              (Join-Path $toolsDirectory 'checkbinarycompat.exe')
+              (Join-Path $toolsDirectory 'checkbinarycompat')
+          )
+      }
+      else {
+          @(
+              (Join-Path $toolsDirectory 'checkbinarycompat')
+              (Join-Path $toolsDirectory 'checkbinarycompat.exe')
+          )
+      }
+
+      $checkBinaryCompatPath = $toolCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+      if ([string]::IsNullOrWhiteSpace($checkBinaryCompatPath)) {
+          throw "Unable to locate checkbinarycompat tool in '$toolsDirectory'. Checked: $($toolCandidates -join ', ')"
+      }
+
+      $requiredPackageIds = @(
+        'Microsoft.Health.Fhir.Stu3.Web'
+        'Microsoft.Health.Fhir.R4.Web'
+        'Microsoft.Health.Fhir.R4B.Web'
+        'Microsoft.Health.Fhir.R5.Web'
+      )
+
+      & $validatorScriptPath `
+        -PackageDirectory '${{ parameters.packageDirectory }}' `
+        -BaselineDirectory '${{ parameters.baselineDirectory }}' `
+        -ReportDirectory $reportDirectory `
+        -WorkDirectory $validationWorkDirectory `
+        -NuGetConfigPath '${{ parameters.nuGetConfigPath }}' `
+        -RequiredPackageIds $requiredPackageIds `
+        -CheckBinaryCompatPath $checkBinaryCompatPath
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish binary closure reports'
+  condition: succeededOrFailed()
+  inputs:
+    pathToPublish: '${{ parameters.reportDirectory }}'
+    artifactName: 'binarycompat'
+    artifactType: 'container'
