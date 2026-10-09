@@ -49,6 +49,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -329,6 +330,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
+            var profilesProvider = Substitute.For<IProvideProfilesForValidation>();
+            profilesProvider.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+
             var searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
 
@@ -361,6 +365,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRuntimeConfiguration,
                 _searchParameterOperations,
                 Deserializer,
+                profilesProvider,
+                DisabledFhirAuthorizationService.Instance,
                 logger);
 
             var collection = new ServiceCollection();
