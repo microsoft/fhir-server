@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -615,6 +615,163 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         string generatedSql = _strBuilder.ToString();
         Assert.DoesNotContain("smartCompartmentMembership", generatedSql);
         Assert.DoesNotContain("smartCompartmentRoot", generatedSql);
+    }
+
+    [Fact]
+    public void GivenCountOnlyIncludesOperation_WhenSqlGenerated_ThenIncludeExpansionIsNotLimited()
+    {
+        // Arrange
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var includeExpression = new IncludeExpression(
+            ["Observation"],
+            includeParameter,
+            "Observation",
+            "Patient",
+            null,
+            false,
+            false,
+            false);
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+            ],
+            []);
+        SearchOptions searchOptions = new()
+        {
+            CountOnly = true,
+            IncludeCount = 1,
+            IncludesContinuationToken = new IncludesContinuationToken(
+                new object[] { (short)10, 100L, 300L, null, null, false, null, null, 1 }).ToJson(),
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        Assert.Single(Regex.Matches(generatedSql, "TOP \\("));
+        Assert.Contains("SELECT count_big(DISTINCT Sid1)", generatedSql);
+        Assert.DoesNotContain("SELECT SELECT", generatedSql);
+        Assert.DoesNotContain("count_big(*) over()", generatedSql);
+        Assert.DoesNotContain("ORDER BY T1 ASC, Sid1 ASC", generatedSql);
+    }
+
+    [Fact]
+    public void GivenCountOnlyIncludesOperationSpanningSortPhases_WhenSqlGenerated_ThenBothPhasesCollectIdentitiesIntoOneBatch()
+    {
+        // Arrange
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+
+        SqlRootExpression BuildExpression()
+        {
+            var includeExpression = new IncludeExpression(
+                ["Observation"],
+                includeParameter,
+                "Observation",
+                "Patient",
+                null,
+                false,
+                false,
+                false);
+
+            return new SqlRootExpression(
+                [
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+                    new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+                ],
+                []);
+        }
+
+        SearchOptions BuildSearchOptions(bool secondPhase) => new()
+        {
+            CountOnly = true,
+            IncludeCount = 1,
+            IncludesContinuationToken = new IncludesContinuationToken(
+                new object[] { (short)10, 100L, 300L, null, null, secondPhase, null, null, 1 }).ToJson(),
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+
+        using Data.SqlClient.SqlCommand command = new();
+        HashingSqlQueryParameterManager parameters = new(new SqlQueryParameterManager(command.Parameters));
+        IndentedStringBuilder batch = new(new StringBuilder());
+        batch.AppendLine("DECLARE @IncludeIds1 AS TABLE (T1 smallint, Sid1 bigint)");
+        batch.AppendLine("DECLARE @IncludeIds2 AS TABLE (T1 smallint, Sid1 bigint)");
+
+        // Act
+        SqlQueryGenerator firstPhase = new(
+            batch, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, null, "@IncludeIds1", "@FilteredData1");
+        firstPhase.VisitSqlRoot(BuildExpression(), BuildSearchOptions(false));
+
+        SqlQueryGenerator secondPhase = new(
+            batch, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, null, "@IncludeIds2", "@FilteredData2");
+        secondPhase.VisitSqlRoot(BuildExpression(), BuildSearchOptions(true));
+
+        batch.AppendLine("SELECT count_big(*) FROM (SELECT T1, Sid1 FROM @IncludeIds1 UNION ALL SELECT T1, Sid1 FROM @IncludeIds2) AS IncludeIdentities");
+
+        // Assert
+        string generatedSql = batch.ToString();
+
+        // Each phase contributes its included resource identities; neither emits its own scalar count.
+        Assert.Contains("INSERT INTO @IncludeIds1 SELECT DISTINCT T1, Sid1", generatedSql);
+        Assert.Contains("INSERT INTO @IncludeIds2 SELECT DISTINCT T1, Sid1", generatedSql);
+        Assert.DoesNotContain("SELECT INSERT INTO", generatedSql);
+        Assert.DoesNotContain("count_big(DISTINCT Sid1)", generatedSql);
+
+        // The phases are summed with UNION ALL: each phase is distinct on its own, but a resource reached by
+        // both phases is counted once per phase because ordinary $includes paging also returns it once per phase.
+        Assert.Contains("SELECT count_big(*) FROM (SELECT T1, Sid1 FROM @IncludeIds1 UNION ALL SELECT T1, Sid1 FROM @IncludeIds2) AS IncludeIdentities", generatedSql);
+
+        // Each phase keeps its own identity table.
+        Assert.Single(Regex.Matches(generatedSql, @"DECLARE @IncludeIds1\b"));
+        Assert.Single(Regex.Matches(generatedSql, @"DECLARE @IncludeIds2\b"));
+        Assert.Single(Regex.Matches(generatedSql, @"DECLARE @FilteredData1\b"));
+        Assert.Single(Regex.Matches(generatedSql, @"DECLARE @FilteredData2\b"));
+        Assert.DoesNotContain("DECLARE @FilteredData ", generatedSql);
+
+        // CTE names are scoped to a statement and numbered from cte0 in each phase, so a phase must
+        // never reference a CTE it did not define itself (e.g. one left over from the other phase).
+        int boundary = generatedSql.IndexOf("DECLARE @FilteredData2", StringComparison.Ordinal);
+        foreach (string phaseSql in new[] { generatedSql[..boundary], generatedSql[boundary..] })
+        {
+            HashSet<string> defined = Regex.Matches(phaseSql, @"\bcte(\d+) AS\b").Select(m => m.Groups[1].Value).ToHashSet();
+            HashSet<string> referenced = Regex.Matches(phaseSql, @"\bcte(\d+)\b").Select(m => m.Groups[1].Value).ToHashSet();
+            Assert.NotEmpty(defined);
+            Assert.Empty(referenced.Except(defined));
+        }
     }
 
     [Fact]

@@ -25,7 +25,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public override Expression VisitSqlRoot(SqlRootExpression expression, SqlSearchOptions context)
         {
             // If we only need the count, we don't want to execute any sort specific queries.
-            if (context.CountOnly)
+            // $includes is the exception: its count is scoped to one phase of the outer match page,
+            // so without the phase filter both phases would select the same matches.
+            if (context.CountOnly && !context.IsIncludesOperation)
             {
                 return expression;
             }

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,12 +8,15 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Web;
 using DotLiquid;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -1227,6 +1230,163 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             Assert.Equal(24 - includesCount, includedCount);
+        }
+
+        [Theory]
+        [InlineData(1, "birthdate")]
+        [InlineData(11, "-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResources_WhenSecondPhaseIncludesAreCounted_ThenTheTotalIsPreserved(int includesCount, string sort)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_revinclude=Encounter:subject&_count=12&_includesCount={includesCount}");
+            var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
+
+            Assert.NotNull(relatedLink);
+
+            var summaryCountResponse = await Client.SearchAsync($"{relatedLink!.Url}&_summary=count");
+            Assert.Equal(24 - includesCount, summaryCountResponse.Resource.Total);
+            Assert.Empty(summaryCountResponse.Resource.Entry);
+        }
+
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenAnIncludedResourceSharedByBothSortPhases_WhenIncludesAreCounted_ThenTheCountMatchesTheEntriesReturned(string sort)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithSharedOrganizationAndObservations(tag);
+
+            // Every patient references the same Organization, so matches in both sort phases reach it.
+            // $includes paging returns that Organization once per phase, so the entries the remaining pages
+            // return are the 12 Observations plus the Organization once per phase.
+            const int totalEntriesAcrossPhases = 14;
+            const int includesCount = 1;
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_include=Patient:organization&_count=12&_includesCount={includesCount}");
+            var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
+
+            Assert.NotNull(relatedLink);
+
+            var summaryCountResponse = await Client.SearchAsync($"{relatedLink!.Url}&_summary=count");
+            Assert.Empty(summaryCountResponse.Resource.Entry);
+
+            // The real contract: the summary total must equal the number of entries the remaining pages return.
+            (int actualEntries, int _) = await CountEntriesAcrossIncludesPagesAsync(relatedLink.Url);
+
+            Assert.Equal(actualEntries, summaryCountResponse.Resource.Total);
+            Assert.Equal(totalEntriesAcrossPhases - includesCount, actualEntries);
+        }
+
+        [Theory]
+        [InlineData("birthdate", 3)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenARelatedIncludesLinkAfterPhaseOneIsExhausted_WhenSummaryCountIsSpecified_ThenTheCountMatchesTheEntriesReturned(string sort, int phaseOneIncludesCount)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithSharedOrganizationAndObservations(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_include=Patient:organization&_count=12&_includesCount={phaseOneIncludesCount}");
+            var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
+
+            Assert.NotNull(relatedLink);
+            Assert.True(IsSecondPhaseOnlyIncludesToken(relatedLink!.Url));
+
+            var summaryCountResponse = await Client.SearchAsync($"{relatedLink.Url}&_summary=count");
+            Assert.Empty(summaryCountResponse.Resource.Entry);
+
+            (int actualEntries, int organizationEntries) = await CountEntriesAcrossIncludesPagesAsync(relatedLink.Url);
+
+            // Once phase one is exhausted the token is phase-two-only, so the count must equal exactly what
+            // phase-two paging returns - including the shared Organization that phase two reaches again.
+            Assert.Equal(actualEntries, summaryCountResponse.Resource.Total);
+            Assert.True(organizationEntries > 0, "Phase two is expected to return the shared Organization again.");
+        }
+
+        /// <summary>
+        /// Pages a related ($includes) link to the end and reports what the client actually receives.
+        /// </summary>
+        /// <param name="relatedLinkUrl">The related link to page.</param>
+        /// <returns>The total number of entries returned and how many of them are Organizations.</returns>
+        private async Task<(int TotalEntries, int OrganizationEntries)> CountEntriesAcrossIncludesPagesAsync(string relatedLinkUrl)
+        {
+            var totalEntries = 0;
+            var organizationEntries = 0;
+            var url = relatedLinkUrl;
+
+            while (!string.IsNullOrEmpty(url))
+            {
+                var includedResults = await Client.SearchAsync(url);
+
+                totalEntries += includedResults.Resource.Entry.Count;
+                organizationEntries += includedResults.Resource.Entry.Count(e => e.Resource is Organization);
+
+                var nextLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
+                url = nextLink?.Url;
+            }
+
+            return (totalEntries, organizationEntries);
+        }
+
+        private async Task<List<Resource>> CreatePatientsWithSharedOrganizationAndObservations(string tag)
+        {
+            Organization[] organizations = await Client.CreateResourcesAsync<Organization>(
+                o =>
+                {
+                    o.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
+                    o.Name = "Shared organization";
+                });
+
+            var sharedOrganization = new ResourceReference($"Organization/{organizations[0].Id}");
+
+            // Two patients are missing a birthdate, so a birthdate sort splits these matches across both phases.
+            Patient[] patients = await CreateResourcesAsync<Patient>(
+                p => SetPatientWithOrganization(p, "Seattle", "Robinson", tag, null, sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Williamas", tag, null, sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "James", tag, "1943-10-23", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Alex", tag, "1943-11-23", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Rock", tag, "1944-06-24", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Mike", tag, "1946-02-24", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Christie", tag, "1947-02-24", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Lone", tag, "1950-05-12", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Sophie", tag, "1953-05-12", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Peter", tag, "1956-06-12", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Cathy", tag, "1960-09-22", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Jones", tag, "1970-05-13", sharedOrganization));
+
+            var allResources = new List<Resource>(organizations);
+            allResources.AddRange(patients);
+
+            foreach (var patient in patients)
+            {
+                allResources.AddRange(await AddObservationToPatient(patient, "2023-01-01", tag));
+            }
+
+            return allResources;
+        }
+
+        private static bool IsSecondPhaseOnlyIncludesToken(string url)
+        {
+            string encodedToken = HttpUtility.ParseQueryString(new Uri(url).Query)[KnownQueryParameterNames.IncludesContinuationToken];
+            Assert.False(string.IsNullOrEmpty(encodedToken));
+
+            string decodedToken = ContinuationTokenEncoder.Decode(encodedToken);
+            using JsonDocument tokenDocument = JsonDocument.Parse(decodedToken);
+            JsonElement token = tokenDocument.RootElement;
+
+            return token.ValueKind == JsonValueKind.Array
+                && token.GetArrayLength() > 5
+                && token[5].ValueKind == JsonValueKind.True
+                && (token.GetArrayLength() <= 6 || token[6].ValueKind == JsonValueKind.Null);
+        }
+
+        private void SetPatientWithOrganization(Patient patient, string city, string family, string tag, string birthDate, ResourceReference organization)
+        {
+            SetPatientInfoInternal(patient, city, family, tag, birthDate);
+            patient.ManagingOrganization = organization;
         }
 
         private async Task<Patient[]> CreatePatients(string tag)

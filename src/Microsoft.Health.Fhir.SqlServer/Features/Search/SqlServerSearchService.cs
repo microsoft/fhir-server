@@ -71,6 +71,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal const string ReferenceResourceTypeFilteredStatsParameterId = "Search.ReferenceResourceTypeFilteredStats.IsEnabled";
         private const string SortValueColumnName = "SortValue";
 
+        /// <summary>
+        /// Table variable collecting included resource identities for a single sort phase of a count-only
+        /// $includes batch. Each phase contributes its own distinct identities.
+        /// </summary>
+        private const string IncludeIdentityTableName = "@IncludeIds";
+
+        /// <summary>
+        /// Base name of the generator's per-phase filtered data table variable. Each phase in a batch
+        /// appends its own suffix, since a batch cannot declare the same variable twice.
+        /// </summary>
+        private const string FilteredDataTableName = "@FilteredData";
+
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
@@ -243,6 +255,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 sqlSearchOptions.SortQuerySecondPhase = includesContinuationToken.SortQuerySecondPhase ?? false;
 
+                if (sqlSearchOptions.CountOnly
+                    && includesContinuationToken.SecondPhaseContinuationToken != null)
+                {
+                    return await SearchIncludesCountAcrossSortPhasesAsync(sqlSearchOptions, includesContinuationToken, cancellationToken);
+                }
+
                 SearchResult includesSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
                 if (includesSearchResult.Results.Count() < sqlSearchOptions.IncludeCount
@@ -259,6 +277,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     var finalResults = new List<SearchResultEntry>();
                     finalResults.AddRange(includesSearchResult.Results);
                     finalResults.AddRange(secondPhaseIncludesSearchResult.Results);
+
                     includesSearchResult = new SearchResult(
                         finalResults,
                         secondPhaseIncludesSearchResult.ContinuationToken,
@@ -1918,7 +1937,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             Expression searchExpression = sqlSearchOptions.Expression;
 
-            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
+            // A count over the whole match set does not need the page cursor. An $includes count does:
+            // it is scoped to the matches of one outer page, which the cursor is the only handle on.
+            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken)
+                && (!sqlSearchOptions.CountOnly || sqlSearchOptions.IsIncludesOperation))
             {
                 var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
                 if (continuationToken == null)
@@ -1965,7 +1987,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             var includesContinuationToken = IncludesContinuationToken.FromString(sqlSearchOptions.IncludesContinuationToken);
             if (includesContinuationToken == null
-                || (!sqlSearchOptions.IsAsyncOperation && includesContinuationToken.MatchPageSize > _coreFeatureConfiguration.MaxItemCountPerSearch))
+                || (!sqlSearchOptions.IsAsyncOperation
+                    && includesContinuationToken.MatchPageSize > _coreFeatureConfiguration.MaxItemCountPerSearch))
             {
                 _logger.LogWarning("Bad Request (InvalidIncludesContinuationToken)");
                 throw new BadRequestException(Resources.InvalidIncludesContinuationToken);
@@ -1974,7 +1997,170 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return includesContinuationToken;
         }
 
-        private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
+        /// <summary>
+        /// Counts the included resources that the remaining $includes pages will return for a sorted search.
+        /// When the outer match page spans both sort phases, both phases are emitted into a single SQL batch and
+        /// each phase contributes its own distinct included resource identities. The phases are combined with
+        /// UNION ALL, without cross-phase deduplication, because ordinary (non-count) $includes paging also returns
+        /// a resource reached by both phases once per phase. No emitted-identity state is required: within a phase
+        /// the token's include cursor already excludes previously emitted resources, and once the first phase is
+        /// exhausted the token becomes second-phase-only so the count matches exactly what that phase will return.
+        /// </summary>
+        /// <param name="sqlSearchOptions">The count-only $includes search options.</param>
+        /// <param name="includesContinuationToken">The current $includes token, optionally carrying the second phase's token.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A count-only search result holding the number of entries the remaining pages will return.</returns>
+        private async Task<SearchResult> SearchIncludesCountAcrossSortPhasesAsync(
+            SqlSearchOptions sqlSearchOptions,
+            IncludesContinuationToken includesContinuationToken,
+            CancellationToken cancellationToken)
+        {
+            var phases = new List<(SqlSearchOptions SearchOptions, SqlRootExpression Expression, string Suffix)>();
+
+            var currentPhaseOptions = sqlSearchOptions.CloneSqlSearchOptions();
+            currentPhaseOptions.SortQuerySecondPhase = includesContinuationToken.SortQuerySecondPhase ?? false;
+            phases.Add(BuildIncludeIdentityPhase(currentPhaseOptions, "1"));
+
+            if (includesContinuationToken.SecondPhaseContinuationToken != null)
+            {
+                var secondPhaseOptions = sqlSearchOptions.CloneSqlSearchOptions();
+                secondPhaseOptions.IncludesContinuationToken = includesContinuationToken.SecondPhaseContinuationToken.ToJson();
+                secondPhaseOptions.SortQuerySecondPhase = true;
+                phases.Add(BuildIncludeIdentityPhase(secondPhaseOptions, "2"));
+            }
+
+            foreach (var phase in phases)
+            {
+                await CreateStats(phase.Expression, cancellationToken);
+            }
+
+            SearchResult searchResult = null;
+
+            await _sqlRetryService.ExecuteSql(
+                async (connection, cancel, sqlException) =>
+                {
+                    using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                    {
+                        sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+
+                        var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+
+                        EnableTimeAndIoMessageLogging(stringBuilder, connection);
+
+                        // Both phases share one parameter manager so their parameter names do not collide.
+                        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters));
+
+                        for (int i = 0; i < phases.Count; i++)
+                        {
+                            var phase = phases[i];
+                            string identityTableName = IncludeIdentityTableName + phase.Suffix;
+                            stringBuilder.Append("DECLARE ").Append(identityTableName).AppendLine(" AS TABLE (T1 smallint, Sid1 bigint)");
+                            AppendIncludeIdentityPhase(stringBuilder, parameters, phase.Expression, phase.SearchOptions, phase.Suffix, sqlException);
+                        }
+
+                        stringBuilder.Append("SELECT count_big(*) FROM (");
+                        for (int i = 0; i < phases.Count; i++)
+                        {
+                            if (i > 0)
+                            {
+                                stringBuilder.AppendLine(" UNION ALL");
+                            }
+
+                            stringBuilder.Append("SELECT T1, Sid1 FROM ").Append(IncludeIdentityTableName).Append(phases[i].Suffix);
+                        }
+
+                        stringBuilder.AppendLine(") AS IncludeIdentities");
+
+                        SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+
+                        // Command text contains no direct user input.
+#pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
+                        sqlCommand.CommandText = stringBuilder.ToString();
+#pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
+
+                        LogSqlCommand(sqlCommand);
+
+                        using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel))
+                        {
+                            await reader.ReadAsync(cancel);
+                            long count = reader.GetInt64(0);
+
+                            if (count > int.MaxValue)
+                            {
+                                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                                    new OperationOutcomeIssue(
+                                        OperationOutcomeConstants.IssueSeverity.Error,
+                                        OperationOutcomeConstants.IssueType.NotSupported,
+                                        string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
+                                _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
+                                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                            }
+
+                            searchResult = new SearchResult((int)count, phases[0].SearchOptions.UnsupportedSearchParams);
+
+                            // call NextResultAsync to get the info messages
+                            await reader.NextResultAsync(cancel);
+                        }
+                    }
+                },
+                _logger,
+                cancellationToken,
+                true); // this enables reads from replicas
+
+            return searchResult;
+        }
+
+        private (SqlSearchOptions SearchOptions, SqlRootExpression Expression, string Suffix) BuildIncludeIdentityPhase(SqlSearchOptions searchOptions, string phaseSuffix)
+        {
+            (SqlSearchOptions clonedSearchOptions, SqlRootExpression expression) = BuildIncludesExpression(searchOptions);
+            return (clonedSearchOptions, expression, phaseSuffix);
+        }
+
+        /// <summary>
+        /// Appends one sort phase's include expansion to a shared batch, writing its included resource
+        /// identities into the batch's identity table variable.
+        /// </summary>
+        /// <param name="stringBuilder">The batch being built.</param>
+        /// <param name="parameters">The parameter manager shared by every phase in the batch.</param>
+        /// <param name="expression">The phase's expression.</param>
+        /// <param name="searchOptions">The options the phase's expression was built against.</param>
+        /// <param name="phaseSuffix">Distinguishes this phase's table variable from the other phases'.</param>
+        /// <param name="sqlException">A previous failure, used to adjust generation.</param>
+        /// <remarks>
+        /// Every phase numbers its CTEs from cte0. The numbering doubles as an index into the phase's own
+        /// expression list, and CTE names are scoped to a single statement, so phases must not share a counter.
+        /// </remarks>
+        private void AppendIncludeIdentityPhase(
+            IndentedStringBuilder stringBuilder,
+            HashingSqlQueryParameterManager parameters,
+            SqlRootExpression expression,
+            SqlSearchOptions searchOptions,
+            string phaseSuffix,
+            SqlException sqlException)
+        {
+            var queryGenerator = new SqlQueryGenerator(
+                stringBuilder,
+                parameters,
+                _model,
+                _schemaInformation,
+                _queryGeneratorFactory,
+                _fhirSqlServerConfiguration.ReuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(searchOptions),
+                searchOptions.IsAsyncOperation,
+                sqlException,
+                IncludeIdentityTableName + phaseSuffix,
+                FilteredDataTableName + phaseSuffix);
+
+            expression.AcceptVisitor(queryGenerator, searchOptions);
+        }
+
+        /// <summary>
+        /// Builds the SQL expression that selects an $includes page: the outer match scope recorded in the
+        /// continuation token, expanded with the include clauses.
+        /// </summary>
+        /// <param name="sqlSearchOptions">The $includes search options.</param>
+        /// <returns>The cloned options the expression was built against, and the expression itself.</returns>
+        private (SqlSearchOptions ClonedSearchOptions, SqlRootExpression Expression) BuildIncludesExpression(SqlSearchOptions sqlSearchOptions)
         {
             var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
             Expression searchExpression;
@@ -2001,20 +2187,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 searchExpression = sqlSearchOptions.Expression == null ? tokenExpression : Expression.And(tokenExpression, sqlSearchOptions.Expression);
             }
 
-            var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
-            if (clonedSearchOptions.CountOnly)
+            if (clonedSearchOptions.CountOnly && !sqlSearchOptions.IsIncludesOperation)
             {
-                // if we're only returning a count, discard any _include parameters since included resources are not counted.
+                // For regular search, count-only strips include/revinclude clauses because the count applies to the base match set.
+                // For $includes operations, we intentionally keep the include clauses so the count applies to the included resources.
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
-            // ! - Trace
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludesOperationRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
-            expression = AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions);
+
+            return (clonedSearchOptions, AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions));
+        }
+
+        private async Task<SearchResult> SearchIncludeImpl(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
+        {
+            var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
+            var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
+            (SqlSearchOptions clonedSearchOptions, SqlRootExpression expression) = BuildIncludesExpression(sqlSearchOptions);
 
             await CreateStats(expression, cancellationToken);
 
