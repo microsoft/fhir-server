@@ -9,6 +9,7 @@
   <ItemGroup>
     <EmbeddedResource Include="TestFiles\ExportJobRecordV1.json" />
     <EmbeddedResource Include="TestFiles\ExportJobRecordV2.json" />
+    <EmbeddedResource Include="..\Microsoft.Health.Fhir.Shared.Web\roles.json" Link="TestFiles\DefaultRoles.json" LogicalName="DefaultRoles.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" />

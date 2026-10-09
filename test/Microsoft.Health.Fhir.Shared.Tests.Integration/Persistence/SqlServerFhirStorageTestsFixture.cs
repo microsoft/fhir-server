@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -190,6 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 SqlRetryService,
+                ResourceIdPolicy.Standard,
                 NullLogger<SqlServerFhirModel>.Instance);
             SqlServerFhirModel = sqlServerFhirModel;
 
@@ -274,7 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfiguration));
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
             var searchOptionsFactory = new SearchOptionsFactory(

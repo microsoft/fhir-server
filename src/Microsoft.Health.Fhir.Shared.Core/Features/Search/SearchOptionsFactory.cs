@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
@@ -32,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
+        private const DataActions SearchScopeDataActions = DataActions.Read | DataActions.Search;
 
         private readonly IExpressionParser _expressionParser;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -86,9 +88,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false, bool isIncludesOperation = false)
+        public SearchOptions Create(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false,
+            DataActions scopeDataActions = SearchScopeDataActions)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
+            return Create(
+                null,
+                null,
+                resourceType,
+                queryParameters,
+                scopeDataActions,
+                isAsyncOperation,
+                resourceVersionTypes: resourceVersionTypes,
+                onlyIds: onlyIds,
+                isIncludesOperation: isIncludesOperation);
         }
 
         public SearchOptions Create(
@@ -102,7 +120,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool onlyIds = false,
             bool isIncludesOperation = false)
         {
-            var searchOptions = new SearchOptions();
+            return Create(
+                compartmentType,
+                compartmentId,
+                resourceType,
+                queryParameters,
+                SearchScopeDataActions,
+                isAsyncOperation,
+                useSmartCompartmentDefinition,
+                resourceVersionTypes,
+                onlyIds,
+                isIncludesOperation);
+        }
+
+        private SearchOptions Create(
+            string compartmentType,
+            string compartmentId,
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            DataActions scopeDataActions,
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
+        {
+            var searchOptions = new SearchOptions
+            {
+                ScopeDataActions = scopeDataActions,
+            };
 
             if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.StartSurrogateId && _.Item2 != null))
             {
@@ -391,11 +437,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
+            // SMART scopes that grant one of the requested data actions. Scopes granting only other actions
+            // (e.g. read-by-id scopes during a search) do not authorize this request. Empty means nothing is granted.
+            IReadOnlyCollection<ScopeRestriction> grantedScopes =
+                _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions
+                    ?.Where(restriction => restriction.AllowsAny(scopeDataActions))
+                    .ToArray()
+                ?? Array.Empty<ScopeRestriction>();
+
             // Form all the include revinclude expressions before for the Smart queries access control check
             // Collect all the resource types required by the include/revinclude expressions
             var includeRevincludeSearchExpressions = new List<IncludeExpression>();
-            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
-            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false, grantedScopes).Where(e => e != null));
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true, grantedScopes).Where(e => e != null));
             var requiredResourceTypes = includeRevincludeSearchExpressions.SelectMany(x => x.Produces).ToList();
 
             // Add the parsed resource types to the required resource types for access control check
@@ -403,7 +457,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
             requiredResourceTypes.AddRange(parsedResourceTypes);
 
-            CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
+            HashSet<Tuple<string, string>> smartScopeInjectedParameters = CheckFineGrainedAccessControl(
+                searchExpressions,
+                searchParams,
+                requiredResourceTypes,
+                grantedScopes);
 
             var validSearchParameters = new List<SearchParameterInfo>();
 
@@ -435,6 +493,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             })
             .Where(item => item != null));
+
+            // A SMART clinical scope constraint that was merged into the user's query above is a mandatory
+            // authorization predicate, not an ordinary search filter. If its search parameter is unavailable the
+            // predicate has just been dropped from the query, which would silently broaden the caller's scope, so
+            // the request must be denied. This is deliberately independent of "Prefer: handling"; leniency may not
+            // relax an authorization check. Unsupported parameters supplied by the caller keep their existing
+            // lenient/strict behavior.
+            EnsureSmartScopeConstraintsAreEnforceable(smartScopeInjectedParameters, unsupportedSearchParameters);
 
             searchOptions.SearchParameters = validSearchParameters;
 
@@ -624,7 +690,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
+            _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression, grantedScopes);
 
             try
             {
@@ -635,10 +701,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _logger.LogWarning("Unable to log search parameters. Error: {Exception}", e.ToString());
             }
 
+            searchOptions.NormalizedQueryShape = FhirQueryNormalizer.Normalize(
+                resourceType,
+                queryParameters?.Select(query => unsupportedSearchParameters.Contains(query) ? "_unsupported" : query.Item1),
+                compartmentType,
+                resourceVersionTypes.HasFlag(ResourceVersionType.History));
+
             return searchOptions;
         }
 
-        private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)
+        private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
+            IList<(string query, IncludeModifier modifier)> includes,
+            string[] typesString,
+            bool isReversed,
+            IReadOnlyCollection<ScopeRestriction> grantedScopes)
         {
             return includes.Select(p =>
             {
@@ -659,7 +735,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 IReadOnlyCollection<string> allowedResourceTypesByScope = null;
                 if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                 {
-                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource).ToList();
+                    allowedResourceTypesByScope = grantedScopes.Select(s => s.Resource).ToList();
+
+                    if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                    {
+                        string includeSourceResourceType = p.query?.Split(':')[0];
+                        if (!string.Equals(includeSourceResourceType, "*", StringComparison.Ordinal) &&
+                            !string.Equals(includeSourceResourceType, KnownResourceTypes.All, StringComparison.Ordinal) &&
+                            !allowedResourceTypesByScope.Contains(includeSourceResourceType))
+                        {
+                            return null;
+                        }
+
+                        if (!(includeResourceTypeList.Length == 1 &&
+                              string.Equals(includeResourceTypeList[0], KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            includeResourceTypeList = includeResourceTypeList.Intersect(allowedResourceTypesByScope).ToArray();
+                            if (includeResourceTypeList.Length == 0)
+                            {
+                                return null;
+                            }
+                        }
+                    }
                 }
 
                 var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
@@ -792,8 +889,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger.LogInformation(logOutput);
         }
 
-        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions, SearchParams searchParams, List<string> requiredResourceTypes)
+        /// <summary>
+        /// Applies the resource-type and search-parameter restrictions carried by the caller's SMART clinical
+        /// scopes. Constraints from a wildcard (all-resource) scope cannot be parsed here because they must be
+        /// parsed against the request's resource types alongside the caller's own query parameters, so they are
+        /// merged into <paramref name="searchParams"/> and returned to the caller for a post-parse enforceability
+        /// check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>). A resource-specific scope whose
+        /// constraint cannot be enforced is withdrawn; the request is denied only when that leaves a requested
+        /// resource type with no enforceable scope.
+        /// </summary>
+        /// <returns>The scope constraints that were merged into <paramref name="searchParams"/>.</returns>
+        private HashSet<Tuple<string, string>> CheckFineGrainedAccessControl(
+            List<Expression> searchExpressions,
+            SearchParams searchParams,
+            List<string> requiredResourceTypes,
+            IReadOnlyCollection<ScopeRestriction> grantedScopes)
         {
+            var injectedScopeParameters = new HashSet<Tuple<string, string>>();
+
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
@@ -801,8 +914,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var clinicalScopeResources = new List<ResourceType>();
                 var finalSmartSearchExpressions = new List<Expression>();
                 bool isFineGrainedAccessControlWithSearchParameters = false;
+                var unenforceableScopeConstraints = new List<(string ResourceType, string Parameter)>();
 
-                foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
+                foreach (ScopeRestriction restriction in grantedScopes)
                 {
                     if (restriction.Resource == KnownResourceTypes.All)
                     {
@@ -826,6 +940,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             foreach (var param in restriction.SearchParameters.Parameters)
                             {
                                searchParams.Add(param.Item1, param.Item2);
+
+                               // Remember the constraint so that, once the query has been parsed, we can verify the
+                               // predicate actually survived parsing instead of being dropped as "unsupported".
+                               injectedScopeParameters.Add(param);
                             }
                         }
 
@@ -863,6 +981,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         isFineGrainedAccessControlWithSearchParameters = true;
                         var andedSmartSmartSearchExpressions = new List<Expression>();
+                        string unenforceableParameter = null;
                         foreach (var param in restriction.SearchParameters.Parameters)
                         {
                             var fineGrainedSmartSearchExpressions = new List<Expression>();
@@ -871,22 +990,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             // We need to parse the search parameters for each resource type since the same search parameter can have different definitions for different resource types
                             var smartSearchParams = new SearchParams();
                             smartSearchParams.Add(param.Item1, param.Item2);
-                            fineGrainedSmartSearchExpressions.AddRange(smartSearchParams.Parameters.Select(
-                                q =>
+                            foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+                            {
+                                try
                                 {
-                                    try
-                                    {
-                                        return _expressionParser.Parse(new[] { clinicalScopeResourceType.ToString() }, q.Item1, q.Item2);
-                                    }
-                                    catch (SearchParameterNotSupportedException)
-                                    {
-                                        return null;
-                                    }
-                                })
-                                .Where(item => item != null));
+                                    fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { clinicalScopeResourceType.ToString() }, q.Item1, q.Item2));
+                                }
+                                catch (SearchParameterNotSupportedException)
+                                {
+                                    unenforceableParameter = q.Item1;
+                                    break;
+                                }
+                            }
+
+                            if (unenforceableParameter != null)
+                            {
+                                break;
+                            }
+
                             var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
                             individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
                             andedSmartSmartSearchExpressions.Add(individualAndExp);
+                        }
+
+                        if (unenforceableParameter != null)
+                        {
+                            // This predicate is the authorization constraint attached to the scope (for example
+                            // patient=<id> on "patient/Observation.rs?patient=<id>"). Dropping only the predicate
+                            // would leave the resource-type leg and widen the scope to every resource of that
+                            // type, so the whole scope is withdrawn instead. Scopes are alternatives (their legs
+                            // are unioned), so withdrawing one only narrows access; other scopes for the same type
+                            // still apply. Whether anything is left to authorize the type is checked below.
+                            unenforceableScopeConstraints.Add((restriction.Resource, unenforceableParameter));
+                            continue;
                         }
 
                         var andExp = Expression.And(andedSmartSmartSearchExpressions.ToArray());
@@ -904,6 +1040,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (!allowAllResourceTypes)
                 {
+                    // A requested resource type whose only scopes were withdrawn above has nothing left that
+                    // authorizes it. Deny explicitly rather than returning a silently empty or partial result, so
+                    // the configuration problem is diagnosable. Not relaxed by "Prefer: handling=lenient".
+                    foreach ((string resourceType, string parameter) in unenforceableScopeConstraints)
+                    {
+                        if (!clinicalScopeResources.Any(r => string.Equals(r.ToString(), resourceType, StringComparison.Ordinal)))
+                        {
+                            throw new InvalidSearchOperationException(
+                                string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, parameter));
+                        }
+                    }
+
                     // We are applying smart scopes only for the resource types that are requested in the search
                     // i.e. if the search is for /Observation, then we should only apply smart scopes for the Observation type
                     // i.e. if the search is for /Observation?_include=Observation:subject, then we should only apply smart scopes for the Observation and Patient type
@@ -952,6 +1100,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         }
                     }
                 }
+            }
+
+            return injectedScopeParameters;
+        }
+
+        /// <summary>
+        /// Denies the request when a SMART clinical scope constraint that was merged into the caller's query was
+        /// dropped during parsing because its search parameter is unavailable (disabled, pending delete, or
+        /// otherwise unsupported). Such a constraint is a mandatory authorization predicate: losing it widens the
+        /// caller's effective scope, so the request fails closed rather than returning a superset of the data the
+        /// scope allows.
+        /// </summary>
+        /// <param name="injectedScopeParameters">Constraints that SMART scopes merged into the query.</param>
+        /// <param name="unsupportedSearchParameters">Query parameters that could not be parsed.</param>
+        private static void EnsureSmartScopeConstraintsAreEnforceable(
+            HashSet<Tuple<string, string>> injectedScopeParameters,
+            List<Tuple<string, string>> unsupportedSearchParameters)
+        {
+            if (injectedScopeParameters.Count == 0 || unsupportedSearchParameters.Count == 0)
+            {
+                return;
+            }
+
+            // Matching on the exact (name, value) pair rather than on the name alone keeps an unrelated but
+            // similarly named parameter supplied by the caller (for example "patient:missing") from being
+            // mistaken for the scope constraint.
+            Tuple<string, string> droppedConstraint = unsupportedSearchParameters.FirstOrDefault(injectedScopeParameters.Contains);
+
+            if (droppedConstraint != null)
+            {
+                throw new InvalidSearchOperationException(
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, droppedConstraint.Item1));
             }
         }
     }

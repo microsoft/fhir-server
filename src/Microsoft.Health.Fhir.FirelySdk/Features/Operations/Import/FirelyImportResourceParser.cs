@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
@@ -26,23 +27,26 @@ namespace Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import
     {
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FirelyImportResourceParser"/> class.
         /// </summary>
         /// <param name="parser">The Firely JSON parser used to deserialize raw resource content.</param>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
-        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        /// <param name="resourceIdPolicy">The resource id policy.</param>
+        public FirelyImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, ResourceIdPolicy resourceIdPolicy)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         /// <inheritdoc />
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
-            ImportResourceIdValidator.Validate(resource?.Id);
+            ImportResourceIdValidator.Validate(resource?.Id, _resourceIdPolicy);
             CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)

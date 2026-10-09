@@ -1860,6 +1860,96 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
         }
 
+#if R4 || R4B
+        // Device.patient exists only in STU3/R4/R4B (removed in R5), and the SMART Device restriction is exercised
+        // here on R4/R4B only, so this test and its helpers are compiled for those versions only.
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenDevicePatientSearchParameterIsNotEnabled_WhenPatientSearchesDevices_ThenNoDeviceIsVisible()
+        {
+            // Drives stored Devices through the Device.patient status lifecycle and exercises the formal compartment
+            // leg and the conditional Device rules together. Device has no membership parameter in the Patient
+            // compartment definition, so the conditional rules are its only route into the compartment; once
+            // Device.patient is not searchable they fail closed and no Device is visible. Supported is the
+            // important case: the parameter is still IsSupported (indexed, and resolved by the formal compartment
+            // leg) but its index is incomplete.
+            const string unindexedDeviceId = "smart-device-B3-unindexed";
+
+            Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(KnownResourceTypes.Device, "patient", out SearchParameterInfo devicePatient));
+            (bool isSearchable, bool isSupported, SearchParameterStatus status) original =
+                (devicePatient.IsSearchable, devicePatient.IsSupported, devicePatient.SearchParameterStatus);
+
+            try
+            {
+                // A Device assigned to Patient B, written while Device.patient is not indexed, has no index row:
+                // it is exactly the Device that would be mistaken for an unassigned one.
+                SetSearchParameterStatus(devicePatient, SearchParameterStatus.Disabled);
+                await _smartFixture.UpsertResource(new Device
+                {
+                    Id = unindexedDeviceId,
+                    Patient = new ResourceReference("Patient/smart-patient-B"),
+                });
+
+                foreach (SearchParameterStatus notEnabled in new[]
+                {
+                    SearchParameterStatus.Supported,
+                    SearchParameterStatus.PendingDisable,
+                    SearchParameterStatus.Disabled,
+                    SearchParameterStatus.PendingDelete,
+                })
+                {
+                    SetSearchParameterStatus(devicePatient, notEnabled);
+
+                    SearchResult results = await SearchDevicesAsPatientAAsync();
+
+                    Assert.True(results.Results.Count() == 0, $"Expected no Device while Device.patient is {notEnabled}, got: {string.Join(", ", results.Results.Select(r => r.Resource.ResourceId))}");
+                }
+
+                // Control: once the (still incomplete) index is trusted as Enabled — as an instance that has not yet
+                // observed a status change would — the unindexed Device assigned to Patient B is indistinguishable
+                // from an unassigned one. This proves the assertions above are not vacuous.
+                SetSearchParameterStatus(devicePatient, SearchParameterStatus.Enabled);
+
+                SearchResult trustedResults = await SearchDevicesAsPatientAAsync();
+
+                Assert.Contains(trustedResults.Results, r => r.Resource.ResourceId == "smart-device-A1");
+                Assert.Contains(trustedResults.Results, r => r.Resource.ResourceId == "smart-device-B1");
+                Assert.DoesNotContain(trustedResults.Results, r => r.Resource.ResourceId == "smart-device-B2");
+                Assert.Contains(trustedResults.Results, r => r.Resource.ResourceId == unindexedDeviceId);
+            }
+            finally
+            {
+                devicePatient.IsSearchable = original.isSearchable;
+                devicePatient.IsSupported = original.isSupported;
+                devicePatient.SearchParameterStatus = original.status;
+
+                await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Device, unindexedDeviceId), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+            }
+        }
+
+        private static void SetSearchParameterStatus(SearchParameterInfo parameter, SearchParameterStatus status)
+        {
+            // Mirrors SearchParameterStatusManager.EvaluateSearchParamStatus.
+            parameter.SearchParameterStatus = status;
+            parameter.IsSearchable = status == SearchParameterStatus.Enabled;
+            parameter.IsSupported = status == SearchParameterStatus.Enabled || status == SearchParameterStatus.Supported;
+        }
+
+        private async Task<SearchResult> SearchDevicesAsPatientAAsync()
+        {
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            return await _searchService.Value.SearchAsync(
+                KnownResourceTypes.Device,
+                new List<Tuple<string, string>> { new Tuple<string, string>("_count", "100") },
+                CancellationToken.None);
+        }
+#endif
+
         [Fact]
         public async Task GivenFhirUserClaimPatient_WhenRevIncludingAllResourcesAndADeviceReferencesThePatient_ThenTheAssignedDeviceIsRevIncluded()
         {
@@ -2768,6 +2858,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 null,
                 CancellationToken.None);
             Assert.Empty(results.Results);
+        }
+
+        [Fact]
+        public async Task GivenSmartV2WildcardReadByIdAndPatientSearchScopes_WhenSearchingAcrossResourceTypes_ThenOnlyPatientsAreReturned()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var wildcardReadByIdScope = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.ReadById, "system");
+            var patientSearchScope = new ScopeRestriction(KnownResourceTypes.Patient, Core.Features.Security.DataActions.Search, "system");
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { wildcardReadByIdScope, patientSearchScope });
+
+            var query = new List<Tuple<string, string>>
+            {
+                new(KnownQueryParameterNames.Type, KnownResourceTypes.Observation),
+            };
+
+            var results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            query = new List<Tuple<string, string>>
+            {
+                new(KnownQueryParameterNames.Type, $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation}"),
+            };
+
+            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.All(results.Results, result => Assert.Equal(KnownResourceTypes.Patient, result.Resource.ResourceTypeName));
+
+            query = new List<Tuple<string, string>>
+            {
+                new(KnownQueryParameterNames.Id, "smart-observation-A1"),
+            };
+
+            results = await _searchService.Value.SearchAsync(
+                KnownResourceTypes.Observation,
+                query,
+                CancellationToken.None,
+                scopeDataActions: Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.ReadById);
+            Assert.Collection(results.Results, result => Assert.Equal("smart-observation-A1", result.Resource.ResourceId));
         }
 
         [Fact]
