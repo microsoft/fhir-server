@@ -620,7 +620,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Id must be any combination of upper or lower case ASCII letters (&apos;A&apos;..&apos;Z&apos;, and &apos;a&apos;..&apos;z&apos;), numerals (&apos;0&apos;..&apos;9&apos;), &apos;-&apos; and &apos;.&apos;, with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.).
+        ///   Looks up a localized string similar to Id must be any combination of upper or lower case ASCII letters (&apos;A&apos;..&apos;Z&apos;, and &apos;a&apos;..&apos;z&apos;), numerals (&apos;0&apos;..&apos;9&apos;), &apos;-&apos; and &apos;.&apos;, with a length limit of {0} characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.).
         /// </summary>
         internal static string IdRequirements {
             get {
@@ -1868,6 +1868,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ServerName {
             get {
                 return ResourceManager.GetString("ServerName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The granted SMART scope restricts access using the search parameter &apos;{0}&apos;, which is not currently available on this server. The request cannot be authorized..
+        /// </summary>
+        internal static string SmartScopeSearchParameterNotEnforceable {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterNotEnforceable", resourceCulture);
             }
         }
         
