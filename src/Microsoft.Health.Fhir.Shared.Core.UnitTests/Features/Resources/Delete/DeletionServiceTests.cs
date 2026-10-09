@@ -285,7 +285,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
 
             var firstPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match) };
             var secondPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Match) };
+            var firstPageDeleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+            int searchCallCount = 0;
             searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
@@ -293,11 +295,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>(),
                 Arg.Any<ResourceVersionType>(),
                 Arg.Any<bool>(),
-                Arg.Any<bool>()).Returns(
-                Task.FromResult(new SearchResult(firstPageEntries, "page-2-token", null, Array.Empty<Tuple<string, string>>())),
-                Task.FromResult(new SearchResult(secondPageEntries, null, null, Array.Empty<Tuple<string, string>>())));
+                Arg.Any<bool>()).Returns(_ =>
+                ++searchCallCount == 1
+                    ? Task.FromResult(new SearchResult(firstPageEntries, "page-2-token", null, Array.Empty<Tuple<string, string>>()))
+                    : GetSecondPageAfterFirstPageIsDeletedAsync());
+
+            async Task<SearchResult> GetSecondPageAfterFirstPageIsDeletedAsync()
+            {
+                await firstPageDeleted.Task;
+                return new SearchResult(secondPageEntries, null, null, Array.Empty<Tuple<string, string>>());
+            }
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "Provenance"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>()).Returns(_ =>
+                {
+                    firstPageDeleted.TrySetResult(true);
+                    return Task.CompletedTask;
+                });
             var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
@@ -349,6 +367,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 sortOrder: null,
                 unsupportedSearchParameters: Array.Empty<Tuple<string, string>>(),
                 includesContinuationToken: "include-page-2");
+            var includedProfileDeleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             int searchCallCount = 0;
             searchService.SearchAsync(
@@ -363,10 +382,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 {
                     1 => Task.FromResult(primaryPage),
                     2 => Task.FromResult(includedPage),
-                    _ => Task.FromException<SearchResult>(new WebException("Include search failed.")),
+                    _ => ThrowAfterIncludedProfileIsDeletedAsync(),
                 });
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "StructureDefinition"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>()).Returns(_ =>
+                {
+                    includedProfileDeleted.TrySetResult(true);
+                    return Task.CompletedTask;
+                });
             _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
 
             // Act
@@ -381,6 +409,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>());
             _profilesProvider.Received(1).Refresh();
+
+            async Task<SearchResult> ThrowAfterIncludedProfileIsDeletedAsync()
+            {
+                await includedProfileDeleted.Task;
+                throw new WebException("Include search failed.");
+            }
         }
 
         private static SearchResultEntry CreateSearchResultEntry(string resourceType, string resourceId, SearchEntryMode searchEntryMode)
