@@ -780,6 +780,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        public void GivenCountOnlySearchWithSortValue_WhenCreated_ThenSortIsKeptOnlyForIncludesOperation(bool isIncludesOperation, bool expectSort)
+        {
+            _sortingValidator.ValidateSorting(default, out var errors).ReturnsForAnyArgs(true);
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.Summary, "count"),
+                    Tuple.Create(KnownQueryParameterNames.Sort, SearchParameterNames.LastUpdated),
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode("123")),
+                },
+                isIncludesOperation: isIncludesOperation);
+
+            Assert.True(options.CountOnly);
+            Assert.Equal(expectSort, options.Sort.Count == 1);
+        }
+
+        [Theory]
         [InlineData(100, 100)]
         [InlineData(null, 1000)]
         [InlineData(int.MaxValue, 1000)]

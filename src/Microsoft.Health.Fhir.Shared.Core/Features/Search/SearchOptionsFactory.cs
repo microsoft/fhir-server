@@ -534,8 +534,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             invalidSearchParameters.AddRange(unsupportedSearchParameters);
             searchOptions.UnsupportedSearchParams = invalidSearchParameters;
 
-            // Sort is not needed for summary count
-            if (searchParams.Sort?.Count > 0 && searchParams.Summary != SummaryType.Count)
+            // Sort is not needed for summary count. The $includes operation is the exception: its count is scoped
+            // to a sort phase of the outer match page, which can only be replayed with the sort.
+            if (searchParams.Sort?.Count > 0 && (searchParams.Summary != SummaryType.Count || isIncludesOperation))
             {
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
                 bool sortingsValid = true;

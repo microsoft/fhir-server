@@ -1248,6 +1248,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Empty(summaryCountResponse.Resource.Entry);
         }
 
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenAnIncludedResourceSharedByBothSortPhases_WhenIncludesAreCounted_ThenItIsCountedOnce(string sort)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithSharedOrganizationAndObservations(tag);
+
+            // Every patient references the same Organization, so matches in both sort phases reach it.
+            // Distinct includes are the 12 Observations plus that one Organization.
+            const int totalDistinctIncludes = 13;
+            const int includesCount = 1;
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_include=Patient:organization&_count=12&_includesCount={includesCount}");
+            var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
+
+            Assert.NotNull(relatedLink);
+
+            var summaryCountResponse = await Client.SearchAsync($"{relatedLink!.Url}&_summary=count");
+
+            // Summing each phase's count would report 14, counting the shared Organization twice.
+            Assert.Equal(totalDistinctIncludes - includesCount, summaryCountResponse.Resource.Total);
+            Assert.Empty(summaryCountResponse.Resource.Entry);
+        }
+
+        private async Task<List<Resource>> CreatePatientsWithSharedOrganizationAndObservations(string tag)
+        {
+            Organization[] organizations = await Client.CreateResourcesAsync<Organization>(
+                o =>
+                {
+                    o.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
+                    o.Name = "Shared organization";
+                });
+
+            var sharedOrganization = new ResourceReference($"Organization/{organizations[0].Id}");
+
+            // Two patients are missing a birthdate, so a birthdate sort splits these matches across both phases.
+            Patient[] patients = await CreateResourcesAsync<Patient>(
+                p => SetPatientWithOrganization(p, "Seattle", "Robinson", tag, null, sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Williamas", tag, null, sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "James", tag, "1943-10-23", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Alex", tag, "1943-11-23", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Rock", tag, "1944-06-24", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Mike", tag, "1946-02-24", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Christie", tag, "1947-02-24", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Lone", tag, "1950-05-12", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Sophie", tag, "1953-05-12", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Peter", tag, "1956-06-12", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Portland", "Cathy", tag, "1960-09-22", sharedOrganization),
+                p => SetPatientWithOrganization(p, "Seattle", "Jones", tag, "1970-05-13", sharedOrganization));
+
+            var allResources = new List<Resource>(organizations);
+            allResources.AddRange(patients);
+
+            foreach (var patient in patients)
+            {
+                allResources.AddRange(await AddObservationToPatient(patient, "2023-01-01", tag));
+            }
+
+            return allResources;
+        }
+
+        private void SetPatientWithOrganization(Patient patient, string city, string family, string tag, string birthDate, ResourceReference organization)
+        {
+            SetPatientInfoInternal(patient, city, family, tag, birthDate);
+            patient.ManagingOrganization = organization;
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.

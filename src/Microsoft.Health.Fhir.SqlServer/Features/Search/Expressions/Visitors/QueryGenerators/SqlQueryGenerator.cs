@@ -47,6 +47,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private List<string> _includeFromCteIds;
 
         private int _tableExpressionCounter = -1;
+        private readonly string _includeIdentityTableName;
+        private readonly string _filteredDataTableName;
         private int _smartv2ScopeUnionCTE = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
@@ -73,13 +75,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             bool reuseQueryPlans,
             bool isAsyncOperation,
-            SqlException sqlException = null)
+            SqlException sqlException = null,
+            string includeIdentityTableName = null,
+            string filteredDataTableName = "@FilteredData")
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(schemaInfo, nameof(schemaInfo));
             EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
+            EnsureArg.IsNotNullOrWhiteSpace(filteredDataTableName, nameof(filteredDataTableName));
 
             StringBuilder = sb;
             Parameters = parameters;
@@ -88,6 +93,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _queryGeneratorFactory = queryGeneratorFactory;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
+            _includeIdentityTableName = includeIdentityTableName;
+            _filteredDataTableName = filteredDataTableName;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -138,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 // If include, split SQL into 2 parts: 1st filter and preserve data in filtered data table variable, and 2nd - use persisted data
-                StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                StringBuilder.Append("DECLARE ").Append(_filteredDataTableName).Append(" AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
                 var isSortValueNeeded = IsSortValueNeeded(context);
                 if (isSortValueNeeded)
                 {
@@ -204,7 +211,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
                             AddParametersHash(); // hash is required in upper SQL
-                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
+                            sb.AppendLine($"INSERT INTO {_filteredDataTableName} SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
 
                             if (_smartV2UnionVisited)
@@ -219,12 +226,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 AppendSmartNewSetOfUnionAllTableExpressions(context, smartV2UnionExpression, smartV2QueryGenerator, true);
                                 _tableExpressionCounter = saveTableExpressionCounter;
                                 sb.AppendLine();
-                                sb.AppendLine($",cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
+                                sb.AppendLine($",cte{_tableExpressionCounter} AS (SELECT * FROM {_filteredDataTableName})");
                                 sb.Append(","); // add comma back
                             }
                             else
                             {
-                                sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
+                                sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM {_filteredDataTableName})");
                                 sb.Append(","); // add comma back
                             }
 
@@ -257,7 +264,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // The last CTE has all the surrogate IDs that match the results.
                     // We just need to count those and don't need to join with the Resource table
                     selectingFromResourceTable = false;
-                    StringBuilder.AppendLine("SELECT count_big(DISTINCT Sid1)");
+
+                    if (_includeIdentityTableName != null)
+                    {
+                        // Collecting identities instead of a scalar lets a caller union several
+                        // phases of a sorted search and count each included resource once.
+                        StringBuilder.Append("INSERT INTO ").Append(_includeIdentityTableName).AppendLine(" SELECT DISTINCT T1, Sid1");
+                    }
+                    else
+                    {
+                        StringBuilder.AppendLine("SELECT count_big(DISTINCT Sid1)");
+                    }
                 }
                 else
                 {
