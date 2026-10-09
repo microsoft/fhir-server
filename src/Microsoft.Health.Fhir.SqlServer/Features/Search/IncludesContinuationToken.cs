@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,7 +12,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     public class IncludesContinuationToken
     {
         private static readonly JsonSerializerOptions Options = new JsonSerializerOptions() { Converters = { new ContinuationTokenConverter() } };
-
         private readonly object[] _tokens;
 
         public IncludesContinuationToken(object[] tokens)
@@ -184,29 +183,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         if (_tokens.Length > 5)
                         {
-                            if (_tokens.Length == 6
-                                && bool.TryParse(_tokens[5]?.ToString(), out var sortQuerySecondPhase))
+                            if (bool.TryParse(_tokens[5]?.ToString(), out var sortQuerySecondPhase))
                             {
                                 SortQuerySecondPhase = sortQuerySecondPhase;
-                            }
-                            else if ((_tokens.Length == 7 || _tokens.Length == 9)
-                                && bool.TryParse(_tokens[5]?.ToString(), out sortQuerySecondPhase))
-                            {
-                                SortQuerySecondPhase = sortQuerySecondPhase;
-                                SecondPhaseContinuationToken = FromString((string)_tokens[6]);
 
-                                if (_tokens.Length == 9)
+                                if (_tokens.Length > 6)
                                 {
-                                    if ((_tokens[7] == null || _tokens[7] is string)
-                                        && int.TryParse(_tokens[8]?.ToString(), out var pageSize)
-                                        && pageSize > 0)
-                                    {
-                                        MatchContinuationToken = (string)_tokens[7];
-                                        MatchPageSize = pageSize;
-                                    }
-                                    else
+                                    if (_tokens.Length != 7 && _tokens.Length != 9)
                                     {
                                         initialized = false;
+                                    }
+
+                                    if (_tokens[6] != null)
+                                    {
+                                        SecondPhaseContinuationToken = FromString((string)_tokens[6]);
+                                        if (SecondPhaseContinuationToken == null)
+                                        {
+                                            initialized = false;
+                                        }
+                                    }
+
+                                    if (initialized && _tokens.Length > 8)
+                                    {
+                                        if ((_tokens[7] == null || _tokens[7] is string)
+                                            && int.TryParse(_tokens[8]?.ToString(), out var pageSize)
+                                            && pageSize > 0)
+                                        {
+                                            MatchContinuationToken = (string)_tokens[7];
+                                            MatchPageSize = pageSize;
+                                        }
+                                        else
+                                        {
+                                            initialized = false;
+                                        }
                                     }
                                 }
                             }

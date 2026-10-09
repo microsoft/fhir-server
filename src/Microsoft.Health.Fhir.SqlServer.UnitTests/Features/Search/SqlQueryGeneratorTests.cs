@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -728,30 +728,36 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         using Data.SqlClient.SqlCommand command = new();
         HashingSqlQueryParameterManager parameters = new(new SqlQueryParameterManager(command.Parameters));
         IndentedStringBuilder batch = new(new StringBuilder());
-        batch.AppendLine("DECLARE @IncludeIds AS TABLE (T1 smallint, Sid1 bigint)");
+        batch.AppendLine("DECLARE @IncludeIds1 AS TABLE (T1 smallint, Sid1 bigint)");
+        batch.AppendLine("DECLARE @IncludeIds2 AS TABLE (T1 smallint, Sid1 bigint)");
 
         // Act
         SqlQueryGenerator firstPhase = new(
-            batch, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, null, "@IncludeIds", "@FilteredData1");
+            batch, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, null, "@IncludeIds1", "@FilteredData1");
         firstPhase.VisitSqlRoot(BuildExpression(), BuildSearchOptions(false));
 
         SqlQueryGenerator secondPhase = new(
-            batch, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, null, "@IncludeIds", "@FilteredData2");
+            batch, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, null, "@IncludeIds2", "@FilteredData2");
         secondPhase.VisitSqlRoot(BuildExpression(), BuildSearchOptions(true));
 
-        batch.AppendLine("SELECT count_big(*) FROM (SELECT DISTINCT T1, Sid1 FROM @IncludeIds) AS IncludeIdentities");
+        batch.AppendLine("SELECT count_big(*) FROM (SELECT T1, Sid1 FROM @IncludeIds1 UNION ALL SELECT T1, Sid1 FROM @IncludeIds2) AS IncludeIdentities");
 
         // Assert
         string generatedSql = batch.ToString();
 
         // Each phase contributes its included resource identities; neither emits its own scalar count.
-        Assert.Equal(2, Regex.Matches(generatedSql, @"INSERT INTO @IncludeIds SELECT DISTINCT T1, Sid1").Count);
+        Assert.Contains("INSERT INTO @IncludeIds1 SELECT DISTINCT T1, Sid1", generatedSql);
+        Assert.Contains("INSERT INTO @IncludeIds2 SELECT DISTINCT T1, Sid1", generatedSql);
         Assert.DoesNotContain("SELECT INSERT INTO", generatedSql);
         Assert.DoesNotContain("count_big(DISTINCT Sid1)", generatedSql);
-        Assert.Contains("SELECT count_big(*) FROM (SELECT DISTINCT T1, Sid1 FROM @IncludeIds)", generatedSql);
 
-        // A batch cannot declare the same table variable twice.
-        Assert.Single(Regex.Matches(generatedSql, @"DECLARE @IncludeIds\b"));
+        // The phases are summed with UNION ALL: each phase is distinct on its own, but a resource reached by
+        // both phases is counted once per phase because ordinary $includes paging also returns it once per phase.
+        Assert.Contains("SELECT count_big(*) FROM (SELECT T1, Sid1 FROM @IncludeIds1 UNION ALL SELECT T1, Sid1 FROM @IncludeIds2) AS IncludeIdentities", generatedSql);
+
+        // Each phase keeps its own identity table.
+        Assert.Single(Regex.Matches(generatedSql, @"DECLARE @IncludeIds1\b"));
+        Assert.Single(Regex.Matches(generatedSql, @"DECLARE @IncludeIds2\b"));
         Assert.Single(Regex.Matches(generatedSql, @"DECLARE @FilteredData1\b"));
         Assert.Single(Regex.Matches(generatedSql, @"DECLARE @FilteredData2\b"));
         Assert.DoesNotContain("DECLARE @FilteredData ", generatedSql);
