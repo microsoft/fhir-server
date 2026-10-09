@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceDeserializer _deserializer;
         private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
-        private readonly ISupportedProfilesStore _supportedProfiles = CreateSupportedProfilesStore();
+        private readonly IProvideProfilesForValidation _profilesProvider = CreateProfilesProvider();
         private IAuthorizationService<DataActions> _authorizationService;
 
         public ResourceHandlerTests()
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Substitute.For<IFhirRuntimeConfiguration>(),
                 Substitute.For<ISearchParameterOperations>(),
                 _deserializer,
-                _supportedProfiles,
+                _profilesProvider,
                 _authorizationService,
                 logger);
 
@@ -481,11 +481,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 0);
         }
 
-        private static ISupportedProfilesStore CreateSupportedProfilesStore()
+        private static IProvideProfilesForValidation CreateProfilesProvider()
         {
-            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
-            supportedProfiles.GetProfilesTypes().Returns(new HashSet<string>() { KnownResourceTypes.ValueSet, KnownResourceTypes.StructureDefinition, "CodeSystem" });
-            return supportedProfiles;
+            var profilesProvider = Substitute.For<IProvideProfilesForValidation>();
+            profilesProvider.GetProfilesTypes().Returns(new HashSet<string>() { KnownResourceTypes.ValueSet, KnownResourceTypes.StructureDefinition, "CodeSystem" });
+            return profilesProvider;
         }
 
         private ResourceWrapper CreateMockResourceWrapper(ResourceElement resource, bool isDeleted)

@@ -330,8 +330,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
-            supportedProfiles.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+            var profilesProvider = Substitute.For<IProvideProfilesForValidation>();
+            profilesProvider.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
 
             var searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
@@ -365,7 +365,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRuntimeConfiguration,
                 _searchParameterOperations,
                 Deserializer,
-                supportedProfiles,
+                profilesProvider,
                 DisabledFhirAuthorizationService.Instance,
                 logger);
 

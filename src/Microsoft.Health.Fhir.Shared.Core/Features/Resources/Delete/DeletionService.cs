@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IResourceDeserializer _resourceDeserializer;
-        private readonly ISupportedProfilesStore _supportedProfiles;
+        private readonly IProvideProfilesForValidation _profilesProvider;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ILogger<DeletionService> _logger;
         private readonly SemaphoreSlim _searchParamDeleteSemaphore;
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ISearchParameterOperations searchParameterOperations,
             IResourceDeserializer resourceDeserializer,
-            ISupportedProfilesStore supportedProfiles,
+            IProvideProfilesForValidation profilesProvider,
             IAuthorizationService<DataActions> authorizationService,
             ILogger<DeletionService> logger)
         {
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
-            _supportedProfiles = EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
+            _profilesProvider = EnsureArg.IsNotNull(profilesProvider, nameof(profilesProvider));
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _searchParamDeleteSemaphore = new SemaphoreSlim(1, 1);
 
@@ -400,9 +400,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                 });
                 var aggregateException = new AggregateException(exceptions);
+                RefreshProfilesIfNeeded(request, resourceTypesDeleted, operationCompletedSuccessfully: false);
                 throw new IncompleteOperationException<IDictionary<string, long>>(aggregateException, resourceTypesDeleted);
             }
 
+            RefreshProfilesIfNeeded(request, resourceTypesDeleted, operationCompletedSuccessfully: true);
             return resourceTypesDeleted;
         }
 
@@ -424,7 +426,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return;
             }
 
-            IReadOnlySet<string> profileTypes = _supportedProfiles.GetProfilesTypes();
+            IReadOnlySet<string> profileTypes = _profilesProvider.GetProfilesTypes();
             if (profileTypes == null || profileTypes.Count == 0)
             {
                 return;
@@ -433,6 +435,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             if (resultsToDelete.Any(entry => profileTypes.Contains(entry.Resource.ResourceTypeName)))
             {
                 await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, true, cancellationToken);
+            }
+        }
+
+        private void RefreshProfilesIfNeeded(
+            ConditionalDeleteResourceRequest request,
+            IReadOnlyDictionary<string, long> resourceTypesDeleted,
+            bool operationCompletedSuccessfully)
+        {
+            if (request.IsIncludesRequest)
+            {
+                return;
+            }
+
+            IReadOnlySet<string> profileTypes = _profilesProvider.GetProfilesTypes();
+            if (profileTypes == null ||
+                !resourceTypesDeleted.Any(result => result.Value > 0 && profileTypes.Contains(result.Key)))
+            {
+                return;
+            }
+
+            bool pipelineWillRefresh =
+                profileTypes.Contains(request.ResourceType) &&
+                (request.IsBundleInnerRequest || operationCompletedSuccessfully) &&
+                _contextAccessor.RequestContext != null &&
+                !_contextAccessor.RequestContext.IsBackgroundTask;
+
+            if (!pipelineWillRefresh)
+            {
+                _profilesProvider.Refresh();
             }
         }
 

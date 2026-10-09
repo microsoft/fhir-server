@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
-        private readonly ISupportedProfilesStore _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
+        private readonly IProvideProfilesForValidation _profilesProvider = Substitute.For<IProvideProfilesForValidation>();
         private readonly IAuthorizationService<DataActions> _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
         private readonly ILogger<DeletionService> _logger = Substitute.For<ILogger<DeletionService>>();
         private readonly DeletionService _service;
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 new Dictionary<string, StringValues>());
             _contextAccessor.RequestContext.Returns(dummyRequestContext);
 
-            _supportedProfiles.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+            _profilesProvider.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
 
             _service = new DeletionService(
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 _fhirRuntimeConfiguration,
                 _searchParameterOperations,
                 _resourceDeserializer,
-                _supportedProfiles,
+                _profilesProvider,
                 _authorizationService,
                 _logger);
         }
@@ -258,6 +258,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             // Assert
             Assert.Equal(2, result.Values.Sum());
             await fhirDataStore.Received(2).HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            _profilesProvider.Received(1).Refresh();
         }
 
         [Fact]
