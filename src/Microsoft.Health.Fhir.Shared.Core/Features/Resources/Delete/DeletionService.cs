@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (!request.DeleteAll || !IsIncludeEnabled())
                     {
                         var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
-                        throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+                        throw new IncompleteOperationException<IDictionary<string, long>>(innerException, resourceTypesDeleted);
                     }
 
                     ConditionalDeleteResourceRequest clonedRequest = request.Clone();
@@ -240,10 +240,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         resourceTypesDeleted = new Dictionary<string, long>(subresult);
                     }
                 }
-                catch (IncompleteOperationException<Dictionary<string, long>> ex)
+                catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     _logger.LogError(ex, "Error with include delete");
-                    throw new IncompleteOperationException<Dictionary<string, long>>(ex, ex.PartialResults);
+                    RefreshProfilesIfNeeded(request, ex.PartialResults, operationCompletedSuccessfully: false);
+                    throw new IncompleteOperationException<IDictionary<string, long>>(ex, ex.PartialResults);
                 }
             }
 
@@ -329,9 +330,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                                 resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subresult) });
                             }
-                            catch (IncompleteOperationException<Dictionary<string, long>> ex)
+                            catch (IncompleteOperationException<IDictionary<string, long>> ex)
                             {
-                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { ex.PartialResults });
+                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { new Dictionary<string, long>(ex.PartialResults) });
                                 _logger.LogError(ex, "Error with include delete");
                                 throw;
                             }
@@ -440,7 +441,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private void RefreshProfilesIfNeeded(
             ConditionalDeleteResourceRequest request,
-            IReadOnlyDictionary<string, long> resourceTypesDeleted,
+            IEnumerable<KeyValuePair<string, long>> resourceTypesDeleted,
             bool operationCompletedSuccessfully)
         {
             if (request.IsIncludesRequest)
