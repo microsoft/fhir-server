@@ -17,11 +17,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -151,7 +153,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync().GetAwaiter().GetResult(),
                 resolver,
                 ModelInfoProvider.Instance,
-                NullLogger<TypedElementSearchIndexer>.Instance);
+                new FirelyFhirPathProvider(),
+                NullLogger<TypedElementSearchIndexer>.Instance,
+                Substitute.For<IFailureMetricHandler>());
 
             return indexer.Extract(resource.ToResourceElement())
                 .Where(entry => entry.Value is ReferenceSearchValue reference
