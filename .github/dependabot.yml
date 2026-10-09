@@ -1,8 +1,16 @@
 # Configuration based on https://help.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates
 
 version: 2
+registries:
+  # Declaring the public feed here allows Dependabot's proxy to reach it; nuget.config alone does not.
+  microsoft-health-oss:
+    type: nuget-feed
+    url: https://microsofthealthoss.pkgs.visualstudio.com/FhirServer/_packaging/Public/nuget/v3/index.json
+
 updates:
   - package-ecosystem: "nuget"
+    registries:
+      - microsoft-health-oss
     # Points at a project that exists only for discovery. Dependabot re-runs a full discovery pass
     # before every group below; against "/" that walked all 78 projects each time, cost ~4 minutes
     # per group and pushed the job past GitHub's fixed 55 minute limit, so later groups never ran.
