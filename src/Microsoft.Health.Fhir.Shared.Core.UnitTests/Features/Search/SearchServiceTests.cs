@@ -168,6 +168,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Same(expectedSearchResult, singlePatientSummaryCount);
         }
 
+        [Fact]
+        public async Task GivenADeletedResourceSearch_WhenSearched_ThenOnlySoftDeletedResourcesAreRequested()
+        {
+            const string resourceType = "Observation";
+            var since = PartialDateTime.Parse("2025-01-01");
+            var before = PartialDateTime.Parse("2025-02-01");
+            var expectedSearchOptions = new SearchOptions();
+
+            _searchOptionsFactory.Create(
+                resourceType,
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(parameters =>
+                    parameters.Contains(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}")) &&
+                    parameters.Contains(Tuple.Create(SearchParameterNames.LastUpdated, $"lt{before}")) &&
+                    parameters.Contains(Tuple.Create(KnownQueryParameterNames.Count, "25")) &&
+                    parameters.Contains(Tuple.Create(KnownQueryParameterNames.ContinuationToken, "token")) &&
+                    parameters.Contains(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"))),
+                resourceVersionTypes: ResourceVersionType.SoftDeleted)
+                .Returns(expectedSearchOptions);
+
+            SearchResult expectedSearchResult = SearchResult.Empty(_unsupportedQueryParameters);
+            _searchService.SearchImplementation = options =>
+            {
+                Assert.Same(expectedSearchOptions, options);
+                return expectedSearchResult;
+            };
+
+            SearchResult actual = await _searchService.SearchDeletedAsync(
+                resourceType,
+                since,
+                before,
+                25,
+                "token",
+                $"-{KnownQueryParameterNames.LastUpdated}",
+                CancellationToken.None);
+
+            Assert.Same(expectedSearchResult, actual);
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]

@@ -134,6 +134,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchExpressionTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactorySmartScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactoryTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchDeletedResourcesHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchServiceTests.cs" />

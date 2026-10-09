@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -269,6 +270,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await _mediator.DidNotReceive().SendAsync<OperationDefinitionResponse>(
                 Arg.Any<OperationDefinitionRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenConfiguration_WhenDeleteSearchIsEnabled_ThenOperationDefinitionShouldBeReturned()
+        {
+            await _controller.DeleteSearchOperationDefinition();
+
+            await _mediator.Received(1).SendAsync<OperationDefinitionResponse>(
+                Arg.Is<OperationDefinitionRequest>(request => request.OperationName == OperationsConstants.DeleteSearch),
                 Arg.Any<CancellationToken>());
         }
 
