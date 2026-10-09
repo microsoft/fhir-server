@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -402,22 +403,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
-        public void GivenEvaluatedVectorResourceAndSchema118_WhenCheckingVectorReindex_ThenVectorTvpsAreEnabled()
+        public void GivenEvaluatedVectorResourceAndSchema119_WhenCheckingVectorReindex_ThenVectorTvpsAreEnabled()
         {
             // Arrange
             ResourceWrapper resource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
             resource.UpdateVectorSearchIndices(Array.Empty<VectorSearchIndexEntry>());
 
             // Act
-            bool schema117Result = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, currentSchemaVersion: 117);
             bool schema118Result = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, currentSchemaVersion: 118);
+            bool schema119Result = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, currentSchemaVersion: 119);
             bool unevaluatedResult = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(
                 new[] { CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"456\"}") },
-                currentSchemaVersion: 118);
+                currentSchemaVersion: 119);
 
             // Assert
-            Assert.False(schema117Result);
-            Assert.True(schema118Result);
+            Assert.False(schema118Result);
+            Assert.True(schema119Result);
             Assert.False(unevaluatedResult);
         }
 
@@ -773,6 +774,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
+                ResourceIdPolicy.Standard,
                 NullLogger<SqlServerFhirModel>.Instance);
 
             typeof(SqlServerFhirModel)

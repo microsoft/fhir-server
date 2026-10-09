@@ -1,13 +1,13 @@
 # Azure SQL vector index compatibility
 
-Documentation and execution assessed on **2026-09-21**. This assessment accompanies schema V118 and distinguishes
+Documentation and execution assessed on **2026-09-21**. This assessment accompanies schema V119 and distinguishes
 native vector storage from future approximate nearest-neighbor indexing. The current MVP uses exact
 cosine ranking and does not install or enable a DiskANN index.
 
 ## Minimum engine requirement
 
-Schema V118 requires an engine that provides the native `vector` type: **Azure SQL Database, or
-SQL Server 2025 or later**. The V118 migration probes `sys.types` and raises error 50419 before any
+Schema V119 requires an engine that provides the native `vector` type: **Azure SQL Database, or
+SQL Server 2025 or later**. The V119 migration probes `sys.types` and raises error 50419 before any
 vector DDL when the type is absent. A fresh install is guarded by the vector DDL itself, which fails
 inside the initialization transaction on an engine without the type.
 
@@ -19,7 +19,7 @@ This applies to development environments as well as deployments:
 | Integration tests | `SqlServerFhirStorageTestsFixture` defaults to `server=(local)`; that instance must be SQL Server 2025 or later. |
 | CI | Already satisfied — the SQL test jobs target Azure SQL Database. |
 
-SQL Server 2019 and 2022 deployments cannot upgrade to V118 and remain at V117. See
+SQL Server 2019 and 2022 deployments cannot upgrade to V119 and remain at V118. See
 [ADR-2608](arch/adr-2608-sql-semantic-search.md) for the alternatives considered and rejected.
 
 ## General Purpose and Hyperscale
@@ -43,7 +43,7 @@ Sources:
 - [CREATE VECTOR INDEX: applicability and current limitations](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-vector-index-transact-sql?view=azuresqldb-current#limitations-and-considerations).
 - [Hyperscale FAQ: vector data](https://learn.microsoft.com/en-us/azure/azure-sql/database/service-tier-hyperscale-frequently-asked-questions-faq?view=azuresql#does-azure-sql-database-hyperscale-support-vector-data).
 
-## V118 table assessment
+## V119 table assessment
 
 The schema stores `Embedding vector(1536) NOT NULL` on a nonpartitioned base table with the clustered
 primary key `(ResourceTypeId, ResourceSurrogateId, SearchParamId, EmbeddingModelId, ChunkOrdinal)`, PAGE compression,
@@ -72,9 +72,11 @@ application database was modified. The database, server and dedicated resource g
 after validation.
 
 The vector schema was numbered V117 at execution. It was renumbered to V118 afterwards, when V117
-was assigned to the unrelated `GetMostRecentJob` migration. The vector migration's only change was
-the version in its engine-guard message; the renumbered V116 → V117 → V118 upgrade chain was
-validated locally on SQL Server 2025.
+was assigned to the unrelated `GetMostRecentJob` migration, and then to V119, when V118 was assigned
+to the configurable resource ID length migration. Besides the version in its engine-guard message,
+the vector migration's only change carries V118's widening of `HardDeleteResource`'s `@ResourceId`
+to `varchar(128)`; it does not touch the vector objects. The renumbered V116 → V117 → V118 → V119
+upgrade chain was validated locally on SQL Server 2025.
 
 | Property | Observed value |
 |---|---|
@@ -125,7 +127,7 @@ for the MVP's transactional write contract.
 Before enabling approximate search, execute the following against isolated, explicitly selected
 General Purpose and Hyperscale databases:
 
-1. Apply the actual V118 schema, retaining its composite key, PAGE compression and binary payload.
+1. Apply the actual V119 schema, retaining its composite key, PAGE compression and binary payload.
    Populate at least 100 distinct, non-null vectors; index creation has a minimum row requirement.
 2. Create the cosine DiskANN index and record the service tier, compute model, region, database
    version and vector index version. Creation on one tier does not certify the other.
@@ -142,7 +144,7 @@ argument is not supported by version 3 indexes. Adding an index alone does not c
 `VECTOR_DISTANCE` query into approximate search or establish an acceptable recall contract.
 
 Index creation belongs to a separate populated-database enablement operation, not the empty-table
-V118 migration. Current limitations also prohibit `TRUNCATE TABLE` while a vector index exists and
+V119 migration. Current limitations also prohibit `TRUNCATE TABLE` while a vector index exists and
 deployment of vector indexes through DacPac/BACPAC; operational import/export and rebuild procedures
 must account for those restrictions. This document does not authorize changes to shared databases.
 

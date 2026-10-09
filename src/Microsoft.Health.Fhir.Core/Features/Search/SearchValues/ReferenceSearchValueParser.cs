@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         private const string ResourceIdCapture = "resourceId";
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
         private static readonly string ResourceTypesPattern = string.Join('|', ModelInfoProvider.GetResourceTypeNames());
-        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,64}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
+        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]+)(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
 
         private static readonly Regex ReferenceRegex = new Regex(
             ReferenceCaptureRegexPattern,
@@ -30,16 +31,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFhirServerInstanceConfiguration _instanceConfiguration;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         public ReferenceSearchValueParser(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            IFhirServerInstanceConfiguration instanceConfiguration)
+            IFhirServerInstanceConfiguration instanceConfiguration,
+            ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(instanceConfiguration, nameof(instanceConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _instanceConfiguration = instanceConfiguration;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         /// <inheritdoc />
@@ -56,6 +60,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 ModelInfoProvider.EnsureValidResourceType(resourceTypeInString, nameof(s));
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
+
+                // Ids longer than the limit are cut off at the limit, as when the limit was fixed at 64.
+                if (resourceId.Length > _resourceIdPolicy.MaxLength)
+                {
+                    resourceId = resourceId[.._resourceIdPolicy.MaxLength];
+                }
 
                 int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
 

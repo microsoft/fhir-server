@@ -3,8 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Text.RegularExpressions;
+using System.Globalization;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -13,20 +14,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// </summary>
     public static class ImportResourceIdValidator
     {
-        private static readonly Regex ResourceIdValidationRegex = new Regex(
-            "^[A-Za-z0-9\\-\\.]{1,64}$",
-            RegexOptions.Compiled);
-
         /// <summary>
         /// Validates that a resource id conforms to the FHIR id requirements.
         /// </summary>
         /// <param name="resourceId">The resource id to validate.</param>
+        /// <param name="policy">The resource id policy.</param>
         /// <exception cref="BadRequestException">Thrown when <paramref name="resourceId"/> is null, empty, whitespace-only, or does not match the FHIR id format.</exception>
-        public static void Validate(string resourceId)
+        public static void Validate(string resourceId, ResourceIdPolicy policy)
         {
-            if (string.IsNullOrWhiteSpace(resourceId) || !ResourceIdValidationRegex.IsMatch(resourceId))
+            if (string.IsNullOrWhiteSpace(resourceId) || !policy.IsValid(resourceId))
             {
-                throw new BadRequestException($"Invalid resource id: '{resourceId ?? "null or empty"}'. " + Core.Resources.IdRequirements);
+                throw new BadRequestException(
+                    $"Invalid resource id: '{resourceId ?? "null or empty"}'. " + string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, policy.MaxLength));
             }
         }
     }

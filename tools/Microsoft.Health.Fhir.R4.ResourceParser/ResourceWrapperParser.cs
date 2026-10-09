@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.R4.ResourceParser.Code;
 
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         {
             var fhirRequestContextAccessor = new ExecutableRequestContextAccessor();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration);
+            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard);
             var modelInfoProvider = new VersionSpecificModelInfoProvider();
             ModelInfoProvider.SetProvider(modelInfoProvider);
 
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         {
             var fhirTypedElementConverters = new List<ITypedElementToSearchValueConverter>();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration);
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard);
 
             fhirTypedElementConverters.Add(new AddressToStringSearchValueConverter());
             fhirTypedElementConverters.Add(new BooleanToTokenSearchValueConverter());
