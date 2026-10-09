@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
 
                 // Parallel Resource Handling Function.
-                Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
+                Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunctionAsync = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
@@ -179,10 +180,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                 };
 
-                List<Task> requestsPerResource = new List<Task>();
-                foreach (ResourceExecutionContext resourceContext in resources)
+                int conditionalOperationsCounter = 0;
+                List<Task> requestsPerResource = new List<Task>(resources.Count);
+                for (int i = 0; i < resources.Count; i++)
                 {
-                    requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
+                    ResourceExecutionContext resourceContext = resources[i];
+                    requestsPerResource.Add(handleRequestFunctionAsync(resourceContext, requestCancellationToken.Token));
+
+                    if (_isBundleExpandedOperation && _bundleType == BundleType.Transaction)
+                    {
+                        // Scenario 1: If the bundle is expanded and a transaction, then a delay is added between the operations to minimize the number of running tasks.
+
+                        if (i % _bundleConfiguration.BundleExpandedGroupSize == 0)
+                        {
+                            await Task.Delay(_bundleConfiguration.BundleExpandedGroupDelayInMilliseconds, CancellationToken.None);
+                        }
+                    }
+                    else if (!_isBundleExpandedOperation && resourceContext.IsConditionalOperation && _runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
+                    {
+                        // Scenario 2: If the bundle is not expanded and the operation is conditional, then a delay is added to minimize the number of requests consuming internal resources.
+                        // This delay helps with parallel attempts to retrieve SQL Connections from SQL Pools.
+
+                        conditionalOperationsCounter++;
+                        if (conditionalOperationsCounter % _bundleConfiguration.BundleExpandedGroupSize == 0)
+                        {
+                            await Task.Delay(_bundleConfiguration.BundleExpandedGroupDelayInMilliseconds, CancellationToken.None);
+                        }
+                    }
                 }
 
                 Task parallelRequests = null;
@@ -506,15 +530,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return httpStatusCode;
         }
 
-        private struct ResourceExecutionContext
+        private sealed class ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId, bool isConditionalOperation)
             {
                 HttpVerb = httpVerb;
                 ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
                 Context = context;
                 Index = index;
                 PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
+                IsConditionalOperation = isConditionalOperation;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
@@ -526,6 +551,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public int Index { get; private set; }
 
             public string PersistedId { get; private set; }
+
+            public bool IsConditionalOperation { get; private set; }
         }
 
         private sealed class BundleExecutionContext
