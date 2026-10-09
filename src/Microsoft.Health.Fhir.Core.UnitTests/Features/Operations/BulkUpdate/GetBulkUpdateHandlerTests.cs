@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             patientResult1.ResourcesUpdated.Add(KnownResourceTypes.Patient, 15);
             patientResult1.ResourcesIgnored.Add(KnownResourceTypes.Practitioner, 1);
             patientResult1.ResourcesIgnored.Add(KnownResourceTypes.Device, 3);
+            patientResult1.Issues.Add("Skipped protected resources because the submitting caller did not have EditProfileDefinitions permission.");
 
             var patientResult2 = new BulkUpdateResult();
             patientResult2.ResourcesUpdated.Add(KnownResourceTypes.Patient, 7);
@@ -103,6 +104,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 { _resourceUpdatedCountLabel, resourcesUpdated },
                 { _resourceIgnoredCountLabel, resourcesIgnored },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: patientResult1.Issues.Single()),
             };
 
             await RunGetBulkUpdateTest(
@@ -130,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                         },
                         5),
                 },
-                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
         }
 
         [Fact]

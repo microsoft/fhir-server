@@ -95,6 +95,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSystemBulkUpdate_WhenCreatingProcessingJobs_ThenSearchParameterIsExcludedAndProfileResourcesAreIncluded(bool allowProfileResourceModification)
+        {
+            SetupMockQueue(1);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(new List<string> { "SearchParameter", "StructureDefinition" });
+
+            var definition = new BulkUpdateDefinition(
+                JobType.BulkUpdateOrchestrator,
+                null,
+                new List<Tuple<string, string>>(),
+                "test",
+                "test",
+                "test",
+                null,
+                isParallel: true,
+                allowProfileResourceModification: allowProfileResourceModification);
+            var jobInfo = new JobInfo
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.UtcNow,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            BulkUpdateDefinition[] queuedDefinitions = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .SelectMany(call => call.GetArguments().OfType<string[]>().Single())
+                .Select(JsonConvert.DeserializeObject<BulkUpdateDefinition>)
+                .ToArray();
+
+            Assert.NotEmpty(queuedDefinitions);
+            Assert.All(queuedDefinitions, queued => Assert.Equal("StructureDefinition", queued.Type));
+        }
+
         [Fact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenOrAreAllowedAndIsParallelIsTrueAndExistingEnqueuedJobs_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges()
         {

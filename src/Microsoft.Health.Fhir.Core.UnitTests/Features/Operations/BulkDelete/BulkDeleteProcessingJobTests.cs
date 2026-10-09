@@ -64,14 +64,66 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var substituteResults = new Dictionary<string, long>();
             substituteResults.Add("Patient", 3);
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
-            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>());
+            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>());
+        }
+
+        [Fact]
+        public async Task GivenProcessingJob_WhenProfileResourcesAreSkipped_ThenResourcesAreIgnored()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "StructureDefinition", new List<Tuple<string, string>>(), new List<string>(), "https:\\test.com", "https:\\test.com", "test");
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
+                .Returns(callInfo =>
+                {
+                    callInfo.ArgAt<Action<string, long>>(3)("StructureDefinition", 2);
+                    return new Dictionary<string, long>();
+                });
+
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            Assert.Empty(result.ResourcesDeleted);
+            Assert.Equal(2, result.ResourcesIgnored["StructureDefinition"]);
+            Assert.Contains("Skipped 2 StructureDefinition resource(s)", Assert.Single(result.Issues));
+            Assert.Contains("EditProfileDefinitions", Assert.Single(result.Issues));
+        }
+
+        [Fact]
+        public async Task GivenProfileModificationAllowed_WhenProcessingJobRuns_ThenProfileResourcesAreDeleted()
+        {
+            var definition = new BulkDeleteDefinition(
+                JobType.BulkDeleteProcessing,
+                DeleteOperation.HardDelete,
+                "StructureDefinition",
+                new List<Tuple<string, string>>(),
+                new List<string>(),
+                "https:\\test.com",
+                "https:\\test.com",
+                "test",
+                allowProfileResourceModification: true);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(
+                    Arg.Any<ConditionalDeleteResourceRequest>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<IList<string>>(),
+                    null)
+                .Returns(new Dictionary<string, long> { ["StructureDefinition"] = 2 });
+
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            Assert.Equal(2, result.ResourcesDeleted["StructureDefinition"]);
+            Assert.Empty(result.ResourcesIgnored);
         }
 
         [Fact]
@@ -89,14 +141,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var substituteResults = new Dictionary<string, long>();
             substituteResults.Add("Patient", 3);
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
                 .Returns(args => substituteResults);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
-            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>());
+            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>());
 
             // Checks that one processing job was queued
             var calls = _queueClient.ReceivedCalls();
@@ -115,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
 
             // Simulate the database layer throwing JobConflictException when trying to delete SearchParameter during active reindex
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
 
             await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
@@ -127,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
 
             // SearchParameter processed first - database layer throws conflict due to active reindex
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
 
             // The conflict should propagate through the workflow, preventing any deletions
             await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -141,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             // Patient processed first and succeeds (reindex hasn't started yet)
             var patientResults = new Dictionary<string, long> { { "Patient", 5 } };
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns(Task.FromResult<IDictionary<string, long>>(patientResults));
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>()).Returns(Task.FromResult<IDictionary<string, long>>(patientResults));
 
             // Execute the first job - should succeed and enqueue follow-up job for SearchParameter
             var result = await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -157,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             // Now simulate the follow-up job running, but reindex has started between the two jobs
             _deleter.ClearReceivedCalls();
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
 
             var followUpJobInfo = new JobInfo() { Id = 2, Definition = definitions[0] };
             await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(followUpJobInfo, CancellationToken.None));
