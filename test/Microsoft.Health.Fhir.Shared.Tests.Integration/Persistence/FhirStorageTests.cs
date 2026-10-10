@@ -1134,7 +1134,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         {
             var searchParam = new SearchParameter
             {
-                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}-Integration-FhirStorageTests",
+                // GUID suffix keeps the URL unique per call so leftover (lazy-deleted) resources from prior runs/tests don't trigger the duplicate-URL rejection.
+                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}-Integration-FhirStorageTests-{Guid.NewGuid():N}",
                 Type = type,
 #if Stu3 || R4 || R4B
                 Base = new List<ResourceType?>() { ResourceType.Patient },
