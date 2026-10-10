@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Azure.Identity;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -20,6 +21,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -40,6 +42,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
     public class SqlChainedSearchGenerationTests
     {
         private readonly ITestOutputHelper _output;
+
+        static SqlChainedSearchGenerationTests()
+        {
+            ConfigureWorkloadIdentityAuthentication();
+        }
 
         public SqlChainedSearchGenerationTests(ITestOutputHelper output)
         {
@@ -130,6 +137,22 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             }
 
             return ids;
+        }
+
+        private static void ConfigureWorkloadIdentityAuthentication()
+        {
+            string clientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+            string tenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
+
+            if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
+            {
+                var credential = new AzurePipelinesCredential(tenantId, clientId, serviceConnectionId, systemAccessToken);
+                SqlAuthenticationProvider.SetProvider(
+                    SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity,
+                    new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(credential));
+            }
         }
 
         private static async Task<long[]> ReadCountsAsync(SqlCommand command)
