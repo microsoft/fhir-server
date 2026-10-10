@@ -87,6 +87,13 @@ Reverse chain restarts use the same distinct source-key intersection. Joins with
 target history/deletion predicates, terminal reference type predicates (including nullable types),
 and final resource deduplication are unchanged. No resource type or search parameter IDs are special-cased.
 
+The optimization is enabled by default. For a customer rollback, set
+`FhirSqlServer:EnableChainSourceDeduplication` to `false` (environment variable
+`FhirSqlServer__EnableChainSourceDeduplication=false`). This restores the original predecessor joins
+in both SQL search generation paths, including optimizer retries, without changing search predicates.
+Apply it through the deployment's usual configuration/restart process. The flag is deployment-wide,
+not a request header or per-search setting.
+
 `SqlChainedSearchGenerationTests` executes the generated reference/token/date/reference shape on
 connection-local SQL tables, compares result IDs with the original join shape, and measures rows at
 each traversal. Its 128 matching reference rows reproduce over two million rows at the third

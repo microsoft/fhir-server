@@ -64,6 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
+        private readonly bool _enableChainSourceDeduplication;
         private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
 
         public SqlQueryGenerator(
@@ -74,7 +75,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             bool reuseQueryPlans,
             bool isAsyncOperation,
-            SqlException sqlException = null)
+            SqlException sqlException = null,
+            bool enableChainSourceDeduplication = true)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -89,6 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _queryGeneratorFactory = queryGeneratorFactory;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
+            _enableChainSourceDeduplication = enableChainSourceDeduplication;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -1953,7 +1956,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
                 sb.Append(_joinShift).Append("JOIN ");
-                if (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1)
+                if (_enableChainSourceDeduplication && searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1)
                 {
                     // Independent chains intersect on source existence, not on the preceding chain's target.
                     // Project unique source keys so its matching references cannot multiply the new traversal.

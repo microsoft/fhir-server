@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -24,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -421,11 +423,38 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
+    [InlineData(null, true)]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    public void GivenChainSourceDeduplicationConfiguration_WhenBound_ThenDefaultAndRollbackAreSupported(string value, bool expected)
+    {
+        // Arrange
+        var settings = new Dictionary<string, string>();
+        if (value != null)
+        {
+            settings["FhirSqlServer:EnableChainSourceDeduplication"] = value;
+        }
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        var options = new FhirSqlServerConfiguration();
+
+        // Act
+        configuration.GetSection("FhirSqlServer").Bind(options);
+
+        // Assert
+        Assert.Equal(expected, options.EnableChainSourceDeduplication);
+    }
+
+    [Theory]
     [InlineData(1, false)]
     [InlineData(1, true)]
     [InlineData(5, false)]
     [InlineData(5, true)]
-    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed)
+    [InlineData(1, false, false)]
+    [InlineData(1, true, false)]
+    [InlineData(5, false, false)]
+    [InlineData(5, true, false)]
+    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool enabled = true)
     {
         // Arrange
         var reference = new SearchParameterInfo(
@@ -453,7 +482,17 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         }
 
         // Act
-        _queryGenerator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false,
+            enableChainSourceDeduplication: enabled);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
         {
             Sort = [],
             CountOnly = true,
@@ -471,8 +510,16 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         {
             for (int i = 0; i < chainCount; i++)
             {
-                Assert.Contains($"JOIN (SELECT DISTINCT T1, Sid1 FROM cte{i}) predecessor ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
-                Assert.DoesNotContain($"JOIN cte{i} ON {alias}.ResourceTypeId = T1", sql);
+                if (enabled)
+                {
+                    Assert.Contains($"JOIN (SELECT DISTINCT T1, Sid1 FROM cte{i}) predecessor ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+                    Assert.DoesNotContain($"JOIN cte{i} ON {alias}.ResourceTypeId = T1", sql);
+                }
+                else
+                {
+                    Assert.Contains($"JOIN cte{i} ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+                    Assert.DoesNotContain(") predecessor", sql);
+                }
             }
         }
     }

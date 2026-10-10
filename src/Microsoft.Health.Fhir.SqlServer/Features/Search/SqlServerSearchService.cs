@@ -543,7 +543,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _queryGeneratorFactory,
                                 reuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
-                                sqlException);
+                                sqlException,
+                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
@@ -2047,7 +2048,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _queryGeneratorFactory,
                                 _fhirSqlServerConfiguration.ReuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
-                                sqlException);
+                                sqlException,
+                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 

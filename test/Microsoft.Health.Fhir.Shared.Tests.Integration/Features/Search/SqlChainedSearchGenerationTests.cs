@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -81,8 +80,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
 
             // Act
             var improvedIds = await ReadIdsAsync(command);
-            command.CommandText = RestoreMultiplyingJoins(improvedSql);
-            var originalIds = await ReadIdsAsync(command);
+            using var legacyCommand = CreateSearchCommand(connection, bindTarget: scenario.StartsWith("bound-", StringComparison.Ordinal), enableChainSourceDeduplication: false);
+            var originalIds = await ReadIdsAsync(legacyCommand);
 
             // Assert
             Assert.Equal(expectedCount, improvedIds.Count);
@@ -107,8 +106,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             // Act
             command.CommandText = countsSql;
             var improved = await ReadCountsAsync(command);
-            command.CommandText = RestoreMultiplyingJoins(countsSql);
-            var original = await ReadCountsAsync(command);
+            using var legacyCommand = CreateSearchCommand(connection, enableChainSourceDeduplication: false);
+            string legacySql = legacyCommand.CommandText;
+            legacyCommand.CommandText = legacySql[..legacySql.IndexOf(SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal)]
+                + "SELECT (SELECT count_big(*) FROM cte3), (SELECT count_big(*) FROM cte5), (SELECT count_big(*) FROM cte7)";
+            var original = await ReadCountsAsync(legacyCommand);
 
             // Assert
             Assert.All(improved, rows => Assert.Equal(130L, rows));
@@ -116,9 +118,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             _output.WriteLine($"Traversal rows before: {string.Join(", ", original)}; after: {string.Join(", ", improved)}");
             _output.WriteLine(sql);
         }
-
-        private static string RestoreMultiplyingJoins(string sql) =>
-            Regex.Replace(sql, @"JOIN \(SELECT DISTINCT T1, Sid1 FROM (cte\d+)\) predecessor", "JOIN $1");
 
         private static async Task<List<string>> ReadIdsAsync(SqlCommand command)
         {
@@ -139,7 +138,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             return [reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2)];
         }
 
-        private static SqlCommand CreateSearchCommand(SqlConnection connection, bool bindTarget = false)
+        private static SqlCommand CreateSearchCommand(SqlConnection connection, bool bindTarget = false, bool enableChainSourceDeduplication = true)
         {
             var model = Substitute.For<ISqlServerFhirModel>();
             model.TryGetSystemId("urn:visit", out Arg.Any<int>()).Returns(call =>
@@ -207,7 +206,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             var command = connection.CreateCommand();
             var builder = new IndentedStringBuilder(new StringBuilder());
             var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
-            var generator = new SqlQueryGenerator(builder, new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)), model, schema, factory, false, false);
+            var generator = new SqlQueryGenerator(
+                builder,
+                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+                model,
+                schema,
+                factory,
+                false,
+                false,
+                enableChainSourceDeduplication: enableChainSourceDeduplication);
             generator.VisitSqlRoot(root, new SearchOptions
             {
                 Sort = [(new SearchParameterInfo("_lastUpdated", "_lastUpdated"), SortOrder.Ascending)],
