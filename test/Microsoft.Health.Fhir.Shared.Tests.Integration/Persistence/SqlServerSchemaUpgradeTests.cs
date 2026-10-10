@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -150,6 +151,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
+                ResourceIdPolicy.Standard,
                 NullLogger<SqlServerFhirModel>.Instance);
 
             var testHelper = new SqlServerFhirStorageTestHelper(

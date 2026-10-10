@@ -5,11 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using EnsureThat;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -25,19 +28,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId))
-            {
-                ValidateId((string)resourceId);
-            }
-        }
-
-        private static void ValidateId(string resourceId)
-        {
-            if (string.IsNullOrWhiteSpace(resourceId))
+            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId)
+                && string.IsNullOrWhiteSpace((string)resourceId))
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                 {
-                    new ValidationFailure("ResourceKey.Id", string.Format(Core.Resources.IdRequirements)),
+                    new ValidationFailure("ResourceKey.Id", string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, context.HttpContext.RequestServices.GetRequiredService<ResourceIdPolicy>().MaxLength)),
                 });
             }
         }

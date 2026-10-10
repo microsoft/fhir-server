@@ -4,7 +4,7 @@ CREATE TYPE dbo.ResourceList AS TABLE
 (
     ResourceTypeId       smallint            NOT NULL
    ,ResourceSurrogateId  bigint              NOT NULL
-   ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
    ,Version              int                 NOT NULL
    ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
    ,IsDeleted            bit                 NOT NULL
