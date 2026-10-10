@@ -15,6 +15,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
     {
         public bool ReuseQueryPlans { get; set; } = false;
 
+        /// <summary>
+        /// Gets or sets whether independent SQL search chains intersect distinct predecessor source keys.
+        /// Enabled by default. Set <c>FhirSqlServer:EnableChainSourceDeduplication=false</c>
+        /// (or environment variable <c>FhirSqlServer__EnableChainSourceDeduplication=false</c>)
+        /// to restore the legacy joins for customer rollback scenarios.
+        /// </summary>
+        public bool EnableChainSourceDeduplication { get; set; } = true;
+
         public bool EnableQueryPlanReuseChecker { get; set; } = false;
 
         public double QueryPlanReuseCheckerSkewThreshold { get; set; } = 30.0;
