@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Trait("DataStore", "SqlServer")]
     public class SqlChainedSearchGenerationTests
     {
         private readonly ITestOutputHelper _output;
