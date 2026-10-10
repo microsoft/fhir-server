@@ -1952,8 +1952,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // To simplify query plan generation, if we are intersecting with the Reference search param table, we will use an inner join
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
-                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex - 0))
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                sb.Append(_joinShift).Append("JOIN ");
+                if (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1)
+                {
+                    // Independent chains intersect on source existence, not on the preceding chain's target.
+                    // Project unique source keys so its matching references cannot multiply the new traversal.
+                    sb.Append("(SELECT DISTINCT T1, Sid1 FROM ").Append(TableExpressionName(predecessorIndex)).Append(") predecessor");
+                }
+                else
+                {
+                    sb.Append(TableExpressionName(predecessorIndex));
+                }
+
+                sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .AppendLine();
             }
