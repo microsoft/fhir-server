@@ -24,7 +24,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private const string AdvancedVisibilityTemplate = "TransactionWatchdog advanced visibility on {Transactions} transactions.";
         private const string FoundTemplate = "TransactionWatchdog found {Transactions} timed out transactions.";
 
-        public TransactionWatchdog(SqlServerFhirDataStore store, IResourceWrapperFactory factory, ISqlRetryService sqlRetryService, ILogger<TransactionWatchdog> logger)
+        public TransactionWatchdog(
+            SqlServerFhirDataStore store,
+            IResourceWrapperFactory factory,
+            ISqlRetryService sqlRetryService,
+            ILogger<TransactionWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _store = EnsureArg.IsNotNull(store, nameof(store));
@@ -78,10 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     return;
                 }
 
-                foreach (var resource in resources)
-                {
-                    _factory.Update(resource);
-                }
+                await _factory.UpdateAsync(resources, cancellationToken);
 
                 await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(x => new MergeResourceWrapper(x, true, true)).ToList(), false, 0, null, cancellationToken);
                 await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, null, cancellationToken);

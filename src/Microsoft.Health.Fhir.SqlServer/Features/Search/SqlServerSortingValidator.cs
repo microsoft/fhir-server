@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
+                case { Count: 1 } when sorting[0].searchParameter.Name == SearchParameterNames.Score:
                 case { Count: 1 } when _schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion &&
                                         SupportedSortParamTypes.Contains(sorting[0].searchParameter.Type):
                     errorMessages = Array.Empty<string>();

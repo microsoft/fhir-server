@@ -67,6 +67,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        internal bool TryGetSemanticSearchContinuationToken(out SemanticSearchContinuationToken continuationToken)
+        {
+            continuationToken = null;
+
+            if (_tokens.Length != 3 ||
+                _tokens[0] is not string distanceText ||
+                !double.TryParse(distanceText, NumberStyles.Float, CultureInfo.InvariantCulture, out double distance) ||
+                _tokens[2] is not long resourceSurrogateId)
+            {
+                return false;
+            }
+
+            short resourceTypeId = _tokens[1] switch
+            {
+                short value => value,
+                long value when value >= short.MinValue && value <= short.MaxValue => (short)value,
+                _ => default,
+            };
+
+            return SemanticSearchContinuationToken.TryCreate(distance, resourceTypeId, resourceSurrogateId, out continuationToken);
+        }
+
         public string ToJson()
         {
             return JsonSerializer.Serialize(_tokens);

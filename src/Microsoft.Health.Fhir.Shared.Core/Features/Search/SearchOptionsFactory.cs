@@ -609,6 +609,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // Only parameters that are valid for searching can also be used as sort parameter values. Therefore first check if the sort parameter values are valid as search parameters.
                 foreach ((string, Hl7.Fhir.Rest.SortOrder) sorting in searchParams.Sort)
                 {
+                    if (string.Equals(sorting.Item1, SearchParameterNames.Score, StringComparison.Ordinal))
+                    {
+                        if (sorting.Item2 == Hl7.Fhir.Rest.SortOrder.Ascending && ContainsVectorSearch(searchOptions.Expression))
+                        {
+                            sortings.Add((SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending));
+                        }
+                        else
+                        {
+                            sortingsValid = false;
+                            otherSearchErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sorting.Item1));
+                        }
+
+                        continue;
+                    }
+
                     try
                     {
                         SearchParameterInfo searchParameterInfo = resourceTypesString.Select(t => _searchParameterDefinitionManager.GetSearchParameter(t, sorting.Item1)).Distinct().First();
@@ -707,6 +722,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 resourceVersionTypes.HasFlag(ResourceVersionType.History));
 
             return searchOptions;
+        }
+
+        private static bool ContainsVectorSearch(Expression expression)
+        {
+            return expression?.AcceptVisitor(VectorSearchPresenceVisitor.Instance, context: null) ?? false;
         }
 
         private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
@@ -1132,6 +1152,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 throw new InvalidSearchOperationException(
                     string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, droppedConstraint.Item1));
             }
+        }
+
+        private sealed class VectorSearchPresenceVisitor : DefaultExpressionVisitor<object, bool>
+        {
+            public static readonly VectorSearchPresenceVisitor Instance = new VectorSearchPresenceVisitor();
+
+            private VectorSearchPresenceVisitor()
+                : base((found, current) => found || current)
+            {
+            }
+
+            public override bool VisitVectorSearch(VectorSearchExpression expression, object context) => true;
         }
     }
 }

@@ -123,7 +123,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(hash1, hash2);
         }
 
-        private SearchParameterInfo GenerateSearchParameterInfo(Uri uri, string resourceType, SortParameterStatus sortParameterStatus = SortParameterStatus.Disabled, SearchParameterStatus searchParameterStatus = SearchParameterStatus.Enabled)
+        [Fact]
+        public void GivenDifferentVectorConfiguration_WhenCalculateSearchParameterHash_ThenHashIsDifferent()
+        {
+            // Arrange
+            var firstConfig = new VectorSearchParameterConfig { MaxInputTokens = 1000 };
+            var secondConfig = new VectorSearchParameterConfig { MaxInputTokens = 2000 };
+            SearchParameterInfo first = GenerateSearchParameterInfo(_paramUri1, "Observation", vectorConfig: firstConfig);
+            SearchParameterInfo second = GenerateSearchParameterInfo(_paramUri1, "Observation", vectorConfig: secondConfig);
+
+            // Act
+            string firstHash = new[] { first }.CalculateSearchParameterHash();
+            string secondHash = new[] { second }.CalculateSearchParameterHash();
+
+            // Assert
+            Assert.NotEqual(firstHash, secondHash);
+        }
+
+        private SearchParameterInfo GenerateSearchParameterInfo(
+            Uri uri,
+            string resourceType,
+            SortParameterStatus sortParameterStatus = SortParameterStatus.Disabled,
+            SearchParameterStatus searchParameterStatus = SearchParameterStatus.Enabled,
+            VectorSearchParameterConfig vectorConfig = null)
         {
             return new SearchParameterInfo(
                 name: uri.Segments.LastOrDefault(),
@@ -133,7 +155,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 components: null,
                 expression: "expression",
                 targetResourceTypes: null,
-                baseResourceTypes: new List<string> { resourceType })
+                baseResourceTypes: new List<string> { resourceType },
+                vectorConfig: vectorConfig)
             {
                 SearchParameterStatus = searchParameterStatus,
                 SortStatus = sortParameterStatus,
