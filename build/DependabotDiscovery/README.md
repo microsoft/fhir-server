@@ -16,6 +16,13 @@ longer the thing to fix.
 
 Versions still come from `Directory.Packages.props`, and that is still the file Dependabot edits.
 
+## If Dependabot reports a feed authentication failure
+
+Check the job's proxy logs for `egress not allowlisted`. Dependabot's proxy blocks feeds declared
+only in `nuget.config`, even when they allow anonymous access. The Microsoft Health OSS feed must
+also be declared under the top-level `registries` in `.github/dependabot.yml` and referenced by the
+NuGet update entry. Keep that URL aligned with `nuget.config`; this public feed needs no credentials.
+
 ## If the PR build fails on this project
 
 The build checks four things: that this project's package list matches `Directory.Packages.props`,
