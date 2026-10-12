@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(bundle.Entry);
         }
 
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -738,13 +738,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithAnInvalidReference_WhenSubmittingATransaction_ThenReturnsHttp400(FhirBundleProcessingLogic processingLogic)
         {
-            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3 || ModelInfoProvider.Version == FhirSpecification.R5, "Some of the entities in 'Bundle-TransactionWithInvalidProcessingRecord' are not supported in this FHIR version. Test is focused on the overall handling logic.");
+            Assert.SkipWhen(ModelInfoProvider.Version == FhirSpecification.Stu3 || ModelInfoProvider.Version == FhirSpecification.R5, "Some of the entities in 'Bundle-TransactionWithInvalidProcessingRecord' are not supported in this FHIR version. Test is focused on the overall handling logic.");
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidProcessingRecord");
 

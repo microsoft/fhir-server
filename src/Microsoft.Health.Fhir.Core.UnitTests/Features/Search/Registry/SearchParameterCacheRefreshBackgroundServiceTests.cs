@@ -164,6 +164,72 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
+        public void Constructor_WithZeroConsecutiveFailureThreshold_ShouldUseDefaultThreshold()
+        {
+            // Arrange
+            var config = new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = 0,
+            };
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(config);
+
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Act
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            // Assert
+            Assert.NotNull(service);
+
+            // Verify that the constructor logged the clamped default threshold (1) by checking the Log method was called
+            mockLogger.Received(1).Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service consecutive-failure threshold set to 1.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
+        public void Constructor_WithNegativeConsecutiveFailureThreshold_ShouldUseDefaultThreshold()
+        {
+            // Arrange - Test with negative value
+            var config = new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = -5,
+            };
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(config);
+
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+
+            // Act
+            var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            // Assert
+            Assert.NotNull(service);
+
+            // Verify that the constructor logged the clamped default threshold (1) by checking the Log method was called
+            mockLogger.Received(1).Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service consecutive-failure threshold set to 1.")),
+                null,
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Fact]
         public void Constructor_WithNullConfiguration_ShouldThrow()
         {
             // Act & Assert - Should throw ArgumentNullException when configuration is null
@@ -387,6 +453,141 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterCacheRefresherMetricHandler.Received().EmitSuccess();
 
             _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task RefreshAsync_WhenConsecutiveFailuresBelowThreshold_ShouldNotEmitFailureMetric()
+        {
+            // Arrange
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+                SearchParameterCacheRefreshMaxInitialDelaySeconds = 0,
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = 5,
+            });
+
+            using var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
+                .Returns(Task.FromException<bool>(new InvalidOperationException("Transient failure")));
+
+            // Act & Assert
+            for (var i = 0; i < 4; i++)
+            {
+                await service.RefreshAsync();
+                _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
+            }
+        }
+
+        [Fact]
+        public async Task RefreshAsync_WhenConsecutiveFailuresReachThreshold_ShouldEmitFailureMetric()
+        {
+            // Arrange
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+                SearchParameterCacheRefreshMaxInitialDelaySeconds = 0,
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = 2,
+            });
+
+            using var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
+                .Returns(Task.FromException<bool>(new InvalidOperationException("Persistent failure")));
+
+            // Act & Assert
+            await service.RefreshAsync();
+            _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
+
+            await service.RefreshAsync();
+            _searchParameterCacheRefresherMetricHandler.Received(1).EmitFailure(nameof(InvalidOperationException));
+        }
+
+        [Fact]
+        public async Task RefreshAsync_WhenSuccessFollowsFailures_ShouldResetConsecutiveFailureCount()
+        {
+            // Arrange
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+                SearchParameterCacheRefreshMaxInitialDelaySeconds = 0,
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = 2,
+            });
+
+            using var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            var failureTask = Task.FromException<bool>(new InvalidOperationException("Transient failure"));
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
+                .Returns(failureTask, Task.FromResult(true), failureTask);
+
+            // Act & Assert
+            await service.RefreshAsync();
+            _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
+            _searchParameterCacheRefresherMetricHandler.Received(0).EmitSuccess();
+
+            await service.RefreshAsync();
+            _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
+            _searchParameterCacheRefresherMetricHandler.Received(1).EmitSuccess();
+
+            // The second failure alone must NOT reach the threshold of 2 - it only would if the
+            // intervening success had failed to reset the counter back to zero.
+            await service.RefreshAsync();
+            _searchParameterCacheRefresherMetricHandler.Received(0).EmitFailure(Arg.Any<string>());
+            _searchParameterCacheRefresherMetricHandler.Received(1).EmitSuccess();
+        }
+
+        [Fact]
+        public async Task RefreshAsync_WhenFailuresExceedThreshold_ShouldContinueEmittingFailureMetric()
+        {
+            // Arrange
+            var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+                SearchParameterCacheRefreshMaxInitialDelaySeconds = 0,
+                SearchParameterCacheRefreshConsecutiveFailureThreshold = 2,
+            });
+
+            using var service = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                _searchParameterOperations,
+                options,
+                _searchParameterCacheRefresherMetricHandler,
+                mockLogger);
+
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true)
+                .Returns(Task.FromException<bool>(new InvalidOperationException("Persistent failure")));
+
+            // Act & Assert - with a threshold of 2, call 1 is below threshold (no emit), and calls
+            // 2, 3, and 4 each meet or exceed the threshold - the metric must be emitted on every
+            // one of them, not just once when the threshold is first crossed.
+            for (var i = 0; i < 4; i++)
+            {
+                await service.RefreshAsync();
+                _searchParameterCacheRefresherMetricHandler.Received(i).EmitFailure(nameof(InvalidOperationException));
+            }
         }
 
         [Fact]

@@ -61,6 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int DefaultIncludeCountPerSearch { get; set; } = 1000;
 
         /// <summary>
+        /// Gets or sets a value indicating whether resource ids up to 128 characters are allowed instead of the FHIR limit of 64.
+        /// </summary>
+        public bool UseLongResourceIds { get; set; }
+
+        /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
         /// </summary>
         public bool ProfileValidationOnCreate { get; set; } = false;
@@ -142,6 +147,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int SearchParameterCacheRefreshMaxInitialDelaySeconds { get; set; } = 15;
 
         /// <summary>
+        /// Gets or sets the number of consecutive failed refresh attempts the SearchParameter cache background
+        /// service will tolerate before emitting a failure metric. This prevents transient, single-run failures
+        /// (e.g. momentary database blips) from triggering alerts when a subsequent refresh is likely to succeed.
+        /// Default is 3 consecutive failures. Minimum is 1, which preserves immediate emission on the first failure.
+        /// </summary>
+        public int SearchParameterCacheRefreshConsecutiveFailureThreshold { get; set; } = 3;
+
+        /// <summary>
         /// Gets or sets the refresh interval in seconds for the SystemConformanceProvider cache background service.
         /// </summary>
         public int SystemConformanceProviderRefreshIntervalSeconds { get; set; } = 60;
@@ -164,6 +177,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// to those without a patient reference, or (for Patient compartments) those whose patient reference
         /// matches the compartment. When false, all Device resources are treated as universal resources.
         /// Only effective when the Device resource type has a "patient" search parameter (STU3/R4/R4B).
+        /// When the restriction is enabled but the Device "patient" search parameter is unavailable, the
+        /// "no patient reference" condition cannot be evaluated safely and the restriction fails closed:
+        /// no Device is visible within a SMART compartment until that search parameter is enabled and its
+        /// index has been rebuilt.
         /// </summary>
         public bool EnableSmartCompartmentDeviceRestriction { get; set; } = true;
 

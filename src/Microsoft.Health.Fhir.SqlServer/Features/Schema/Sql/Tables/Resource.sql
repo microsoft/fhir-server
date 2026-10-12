@@ -4,7 +4,7 @@
 CREATE TABLE dbo.CurrentResource -- This is replaced by view CurrentResource
 (
     ResourceTypeId              smallint                NOT NULL,
-    ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ResourceId                  varchar(128)            COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version                     int                     NOT NULL,
     IsHistory                   bit                     NOT NULL,
     ResourceSurrogateId         bigint                  NOT NULL,
@@ -22,7 +22,7 @@ GO
 CREATE TABLE dbo.Resource
 (
     ResourceTypeId              smallint                NOT NULL,
-    ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ResourceId                  varchar(128)            COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version                     int                     NOT NULL,
     IsHistory                   bit                     NOT NULL,
     ResourceSurrogateId         bigint                  NOT NULL,

@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -177,7 +178,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 null,
                 cancellationToken);
 
-            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(results, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, smartV2ScopeExpressions, cancellationToken);
+            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(
+                results,
+                includeExpressions,
+                revIncludeExpressions,
+                searchOptions.IncludeCount,
+                smartV2ScopeExpressions,
+                searchOptions.ScopeDataActions,
+                cancellationToken);
 
             SearchResult searchResult = CreateSearchResult(
                 searchOptions,
@@ -219,14 +227,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             bool onlyIds = false,
-            bool isIncludesOperation = false)
+            bool isIncludesOperation = false,
+            DataActions scopeDataActions = DataActions.Read | DataActions.Search)
         {
             if (isIncludesOperation)
             {
                 throw new SearchOperationNotSupportedException(Fhir.Core.Resources.UnsupportedIncludesOperation);
             }
 
-            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation, scopeDataActions);
         }
 
         public override bool IsValidResourceType(string resourceType)
@@ -618,6 +627,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             IReadOnlyCollection<IncludeExpression> revIncludeExpressions,
             int maxIncludeCount,
             IReadOnlyList<UnionExpression> smartV2ScopeExpressions,
+            DataActions scopeDataActions,
             CancellationToken cancellationToken)
         {
             if (matches.Count == 0 || (includeExpressions.Count == 0 && revIncludeExpressions.Count == 0))
@@ -650,7 +660,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     foreach (var resourceTypeGroup in referencesToInclude.GroupBy(r => r.ResourceType))
                     {
                         string resourceType = resourceTypeGroup.Key;
-                        Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, resourceType, out bool hasNoAccess);
+                        Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, resourceType, scopeDataActions, out bool hasNoAccess);
 
                         // Skip this resource type if no scope allows access
                         if (hasNoAccess)
@@ -778,7 +788,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // Specific resource type(s) - check scope for each type
                         foreach (string targetResourceType in targetResourceTypes)
                         {
-                            Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, targetResourceType, out bool hasNoAccess);
+                            Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, targetResourceType, scopeDataActions, out bool hasNoAccess);
 
                             // Skip this revinclude if no scope allows access to this resource type
                             if (hasNoAccess)
@@ -971,7 +981,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         /// Returns a special "no access" expression if no scope allows access to this resource type (caller should skip the query).
         /// Returns the filter expression if granular scopes exist for this resource type.
         /// </summary>
-        private Expression GetSmartScopeFilterForResourceType(IReadOnlyList<UnionExpression> smartV2ScopeExpressions, string resourceType, out bool hasNoAccess)
+        private Expression GetSmartScopeFilterForResourceType(
+            IReadOnlyList<UnionExpression> smartV2ScopeExpressions,
+            string resourceType,
+            DataActions scopeDataActions,
+            out bool hasNoAccess)
         {
             hasNoAccess = false;
 
@@ -986,7 +1000,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return null;
             }
 
-            var scopeRestrictions = _requestContextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions;
+            var scopeRestrictions = _requestContextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions
+                ?.Where(scope => scope.AllowsAny(scopeDataActions))
+                .ToList();
             if (scopeRestrictions == null || !scopeRestrictions.Any())
             {
                 return null;
