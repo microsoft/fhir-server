@@ -939,4 +939,10 @@
   <data name="FhirPackageSearchParameterIneligibleComponent" xml:space="preserve">
     <value>Component {0} references &apos;{1}&apos;, whose status is &apos;{2}&apos;. A component outside the package must reference a SearchParameter whose status is Enabled or Supported.</value>
   </data>
+  <data name="FhirPackageSearchParameterModelInvalid" xml:space="preserve">
+    <value>The resource is not valid: {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterInvalidComponentDefinition" xml:space="preserve">
+    <value>Component {0} has the definition &apos;{1}&apos;, which is not an absolute URI.</value>
+  </data>
 </root>

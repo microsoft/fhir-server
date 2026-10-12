@@ -20,12 +20,14 @@ using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 #if !Stu3 && !R4 && !R4B
 using Microsoft.Health.Fhir.R5.Core.Extensions;
 #endif
 using Task = System.Threading.Tasks.Task;
+using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
 namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 {
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
+        private readonly IModelAttributeValidator _modelAttributeValidator;
         private readonly ISearchParameterPackageWriter _writer;
         private readonly ILogger<SearchParameterPackageHandler> _logger;
 
@@ -62,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         /// <param name="searchParameterComparer">The comparer used for code-conflict rules.</param>
         /// <param name="searchParameterSupportResolver">Decides whether the server can index a SearchParameter.</param>
         /// <param name="dataStoreSearchParameterValidator">Applies data-store-specific SearchParameter rules.</param>
+        /// <param name="modelAttributeValidator">Validates each resource against the FHIR model, including cardinality.</param>
         /// <param name="writer">Writes the validated set.</param>
         /// <param name="logger">The logger.</param>
         public SearchParameterPackageHandler(
@@ -71,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
+            IModelAttributeValidator modelAttributeValidator,
             ISearchParameterPackageWriter writer,
             ILogger<SearchParameterPackageHandler> logger)
         {
@@ -80,6 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             _searchParameterComparer = EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
             _searchParameterSupportResolver = EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             _dataStoreSearchParameterValidator = EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
+            _modelAttributeValidator = EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
             _writer = EnsureArg.IsNotNull(writer, nameof(writer));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
@@ -124,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 _writer);
         }
 
-        private static List<Candidate> ParseAndCheckStructure(IReadOnlyList<FhirPackageEntry> entries, List<OperationOutcomeIssue> issues)
+        private List<Candidate> ParseAndCheckStructure(IReadOnlyList<FhirPackageEntry> entries, List<OperationOutcomeIssue> issues)
         {
             var candidates = new List<Candidate>();
 
@@ -135,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 {
                     searchParameter = Parser.Parse<SearchParameter>(entry.Json);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (FormatException ex)
                 {
                     issues.Add(Error(
                         OperationOutcomeConstants.IssueType.Invalid,
@@ -175,12 +181,25 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                     AddIssue(issues, candidate, OperationOutcomeConstants.IssueType.Required, MissingElement("expression"));
                 }
 
-                if (searchParameter.Type == SearchParamType.Composite &&
-                    (searchParameter.Component == null ||
-                     searchParameter.Component.Count == 0 ||
-                     searchParameter.Component.Any(c => c.GetComponentDefinitionUri() == null || string.IsNullOrWhiteSpace(c.Expression))))
+                CheckComponentStructure(candidate, issues);
+
+                // Model (cardinality) validation catches required elements the indexing checks above don't cover,
+                // such as name and status. It runs only when those checks pass, so one problem isn't reported twice.
+                if (issues.Count == issueCount)
                 {
-                    AddIssue(issues, candidate, OperationOutcomeConstants.IssueType.Required, Core.Resources.FhirPackageSearchParameterMissingComponent);
+                    var validationResults = new List<ValidationResult>();
+                    if (!_modelAttributeValidator.TryValidate(candidate.Resource, validationResults, recurse: true))
+                    {
+                        foreach (ValidationResult result in validationResults)
+                        {
+                            string members = string.Join(", ", result.MemberNames);
+                            AddIssue(
+                                issues,
+                                candidate,
+                                OperationOutcomeConstants.IssueType.Invalid,
+                                string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterModelInvalid, string.IsNullOrEmpty(members) ? result.ErrorMessage : $"{members}: {result.ErrorMessage}"));
+                        }
+                    }
                 }
 
                 if (issues.Count == issueCount)
@@ -195,7 +214,49 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterMissingElement, element);
         }
 
-        private static void CheckDuplicatesWithinPackage(List<Candidate> candidates, List<OperationOutcomeIssue> issues)
+        /// <summary>
+        /// Establishes the component contract before anything constructs a <see cref="Uri"/> from a component definition:
+        /// a composite has at least one component, and every component has an absolute definition URI and an expression.
+        /// </summary>
+        private static void CheckComponentStructure(Candidate candidate, List<OperationOutcomeIssue> issues)
+        {
+            List<SearchParameter.ComponentComponent> components = candidate.SearchParameter.Component;
+
+            if (candidate.SearchParameter.Type == SearchParamType.Composite && (components == null || components.Count == 0))
+            {
+                AddIssue(issues, candidate, OperationOutcomeConstants.IssueType.Required, Core.Resources.FhirPackageSearchParameterMissingComponent);
+                return;
+            }
+
+            for (int i = 0; i < (components?.Count ?? 0); i++)
+            {
+                string definition = GetComponentDefinitionText(components[i]);
+
+                if (string.IsNullOrWhiteSpace(definition) || string.IsNullOrWhiteSpace(components[i].Expression))
+                {
+                    AddIssue(issues, candidate, OperationOutcomeConstants.IssueType.Required, Core.Resources.FhirPackageSearchParameterMissingComponent);
+                }
+                else if (!Uri.TryCreate(definition, UriKind.Absolute, out _))
+                {
+                    AddIssue(
+                        issues,
+                        candidate,
+                        OperationOutcomeConstants.IssueType.Invalid,
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterInvalidComponentDefinition, i, definition));
+                }
+            }
+        }
+
+        private static string GetComponentDefinitionText(SearchParameter.ComponentComponent component)
+        {
+#if Stu3
+            return component.Definition?.Reference;
+#else
+            return component.Definition;
+#endif
+        }
+
+        private void CheckDuplicatesWithinPackage(List<Candidate> candidates, List<OperationOutcomeIssue> issues)
         {
             foreach (IGrouping<string, Candidate> group in candidates.GroupBy(x => x.Url, StringComparer.Ordinal).Where(g => g.Count() > 1))
             {
@@ -205,22 +266,70 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 }
             }
 
-            var codesByBase = candidates
-                .SelectMany(c => c.BaseTypes.Select(b => (Base: b, c.SearchParameter.Code, Candidate: c)))
-                .GroupBy(x => (x.Base, x.Code))
-                .Where(g => g.Count() > 1);
-
-            foreach (var group in codesByBase)
+            // Compare codes on effective resource types, so Resource or DomainResource members collide with
+            // members on the concrete types that inherit them, exactly as they would at search time.
+            var effectiveBaseCache = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal);
+            var membersByTypeAndCode = new Dictionary<(string Type, string Code), List<Candidate>>();
+            foreach (Candidate candidate in candidates)
             {
-                foreach (var item in group)
+                foreach (string baseType in candidate.BaseTypes)
                 {
-                    AddIssue(
-                        issues,
-                        item.Candidate,
-                        OperationOutcomeConstants.IssueType.Duplicate,
-                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterDuplicateCode, group.Key.Code, group.Key.Base));
+                    if (!effectiveBaseCache.TryGetValue(baseType, out IReadOnlyCollection<string> effectiveTypes))
+                    {
+                        effectiveTypes = GetEffectiveBaseTypes(baseType);
+                        effectiveBaseCache.Add(baseType, effectiveTypes);
+                    }
+
+                    foreach (string effectiveType in effectiveTypes)
+                    {
+                        if (!membersByTypeAndCode.TryGetValue((effectiveType, candidate.SearchParameter.Code), out List<Candidate> members))
+                        {
+                            members = new List<Candidate>();
+                            membersByTypeAndCode.Add((effectiveType, candidate.SearchParameter.Code), members);
+                        }
+
+                        if (!members.Contains(candidate))
+                        {
+                            members.Add(candidate);
+                        }
+                    }
                 }
             }
+
+            var reported = new HashSet<(Candidate, string)>();
+            foreach (KeyValuePair<(string Type, string Code), List<Candidate>> collision in membersByTypeAndCode
+                .Where(x => x.Value.Count > 1)
+                .OrderBy(x => x.Key.Type, StringComparer.Ordinal))
+            {
+                foreach (Candidate candidate in collision.Value)
+                {
+                    if (reported.Add((candidate, collision.Key.Code)))
+                    {
+                        AddIssue(
+                            issues,
+                            candidate,
+                            OperationOutcomeConstants.IssueType.Duplicate,
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterDuplicateCode, collision.Key.Code, collision.Key.Type));
+                    }
+                }
+            }
+        }
+
+        private IReadOnlyCollection<string> GetEffectiveBaseTypes(string baseType)
+        {
+            if (string.Equals(baseType, KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase))
+            {
+                return _modelInfoProvider.GetResourceTypeNames();
+            }
+
+            if (string.Equals(baseType, KnownResourceTypes.DomainResource, StringComparison.Ordinal))
+            {
+                return _modelInfoProvider.GetResourceTypeNames()
+                    .Where(x => _modelInfoProvider.GetFhirTypeNameForType(_modelInfoProvider.GetTypeForFhirType(x).BaseType) == KnownResourceTypes.DomainResource)
+                    .ToList();
+            }
+
+            return new[] { baseType };
         }
 
         private void CheckAgainstExistingDefinitions(List<Candidate> candidates, List<OperationOutcomeIssue> issues)
@@ -271,8 +380,9 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 {
                     support = _searchParameterSupportResolver.IsSearchParameterSupported(candidate.Info);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception ex) when (ex is FormatException or NotSupportedException)
                 {
+                    // FHIRPath syntax errors in the expression or a component expression, or no resolvable target types.
                     AddIssue(
                         issues,
                         candidate,

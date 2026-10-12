@@ -77,7 +77,7 @@ The Ignixa-backed implementation in `Microsoft.Health.Fhir.Ignixa` has two input
 | Source is on the allow-list | `NpmPackageAcquirer`, from the deployment-owned `NpmPackageSourcePolicy` (AB#206133) |
 | SHA-512 integrity of the compressed bytes | `NpmPackageAcquirer`; `AcquiredNpmPackage` has an internal constructor, so it can only come from the acquirer. The adapter also checks `AcquiredNpmPackage.Integrity` equals the descriptor's integrity when one is supplied. |
 | Name and version identity | `NpmPackageAcquirer` (metadata and manifest identity); the adapter re-checks the manifest against the descriptor |
-| Configured limits | The policy's `ExtractionLimits` are built from the same `PackageReaderOptions`; the adapter re-asserts the compressed, expanded, entry-count and ratio limits from `Statistics` |
+| Configured limits | The policy's `ExtractionLimits` are built from the same `PackageReaderOptions`. The adapter re-asserts the compressed, expanded, entry-count and ratio limits from `Statistics`. Statistics can't prove the per-entry and JSON-depth limits, so the adapter also checks that the policy's `MaxEntryBytes` and `MaxJsonDepth` are no larger than the configured values, and rejects the package if they are. |
 
 Strict extraction alone is never treated as proof of integrity, identity or the configured limits. Parity tests run the same archives through both inputs and require identical `FhirPackage` results or identical rejections.
 
@@ -121,9 +121,13 @@ The handler registry is built from DI. This release registers only `SearchParame
 
 It validates the complete set as one unit and collects every failure into one `OperationOutcome`:
 
-- **Parsing:** each entry is parsed with a strict `FhirJsonParser` into a `SearchParameter` and passes model validation.
-- **Per parameter:** the URL is present, absolute and at most 128 characters; code, base and type are present; the expression parses.
-- **Within the package:** URLs are unique, and no code is repeated on the same base.
+- **Parsing:** each entry is parsed with a strict `FhirJsonParser` into a `SearchParameter`. Only `FormatException`, which is what the parser throws for malformed JSON and unknown elements, is treated as invalid content.
+- **Per parameter:**
+  - the URL is present, absolute and at most 128 characters;
+  - code, base, type and expression are present;
+  - every component has an expression and a `definition` that is an absolute URI. This is checked on the raw text before anything constructs a `Uri` from it, so malformed definitions become issues instead of exceptions.
+  - If those pass, `IModelAttributeValidator` validates the resource recursively. That covers FHIR-model requirements the indexing checks don't, such as `name`, `status` and `description`.
+- **Within the package:** URLs are unique, and no code is used by two members on the same *effective* resource type. `Resource` and `DomainResource` bases are expanded to the concrete types that inherit them, using the same model rules as existing validation, so a `Resource`-based member collides with a `Patient`-based one regardless of entry order.
 - **Against the server's reference set**, refreshed first with `GetAndApplySearchParameterUpdates`:
   - no URL collides with a system-defined parameter;
   - code conflicts per base type follow the same `SearchParameterComparer` rules as `SearchParameterValidator`, including `Resource`/`DomainResource` expansion.
@@ -196,8 +200,8 @@ xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory wit
 | 3 | Integrity mismatch; malformed or non-SHA-512 integrity; compressed cap; expanded cap; ratio just below, at and above the limit; entry-count cap; `../x`, `/abs`, `C:\x`, backslash paths; symlink and hardlink entries. Stream and acquired-package inputs give identical results. |
 | 4 | Core dependency mismatch or missing; `package.json` missing or invalid; name or version differs from the descriptor |
 | 5 | One invalid SearchParameter among valid ones: writer never called, all issues reported; cancellation after validation: writer never called |
-| 6 | Composite resolves to same-package parameters regardless of entry order, and to existing `Enabled` or `Supported` definitions. Rejected: an unresolvable component, an existing definition in any other status, a composite component, or a component without an expression. |
-| 7 | Duplicate URL or code within the package; collision with a system-defined URL; code collisions inherited through `Resource` and `DomainResource`; support-resolver and data-store rejections (writer never called); the reference-set token reaches the writer |
+| 6 | Composite resolves to same-package parameters regardless of entry order, and to existing `Enabled` or `Supported` definitions; a component's own expression is parsed (tested with the real `SearchParameterSupportResolver`). Rejected: an unresolvable component, an existing definition in any other status, a composite component, a component without an expression, and a component whose definition is missing or isn't an absolute URI, including STU3's reference form. |
+| 7 | Duplicate URL or code within the package, including two members colliding through `Resource` or `DomainResource` in either entry order, with acceptance for unrelated concrete bases; missing `name`, `status` or `description` through model validation; collision with a system-defined URL; code collisions with existing definitions through `Resource` and `DomainResource`; support-resolver and data-store rejections (writer never called); the reference-set token reaches the writer |
 
 ## Delivery
 

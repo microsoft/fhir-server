@@ -2311,5 +2311,23 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("FhirPackageSearchParameterIneligibleComponent", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The resource is not valid: {0}.
+        /// </summary>
+        internal static string FhirPackageSearchParameterModelInvalid {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterModelInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Component {0} has the definition &apos;{1}&apos;, which is not an absolute URI..
+        /// </summary>
+        internal static string FhirPackageSearchParameterInvalidComponentDefinition {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterInvalidComponentDefinition", resourceCulture);
+            }
+        }
     }
 }

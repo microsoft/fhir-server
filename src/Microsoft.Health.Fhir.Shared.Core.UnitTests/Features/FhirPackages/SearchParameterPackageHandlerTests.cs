@@ -15,7 +15,9 @@ using Microsoft.Health.Fhir.Core.Features.FhirPackages;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -158,6 +160,169 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Assert
             Assert.Contains(exception.Issues, i => i.Code == "Required" && i.Diagnostics.Contains($"'{element}'", StringComparison.Ordinal));
+        }
+
+        [Theory]
+        [InlineData("name")]
+        [InlineData("status")]
+        [InlineData("description")]
+        public async Task GivenAMissingElementRequiredByTheFhirModel_WhenValidating_ThenModelValidationRejectsIt(string element)
+        {
+            // Arrange
+            JsonObject json = SearchParameterNode(UrlA, "a");
+            json.Remove(element);
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", json.ToJsonString()),
+                Entry("package/SearchParameter-b.json", SearchParameterJson(UrlB, "b")),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains("package/SearchParameter-a.json", issue.Diagnostics, StringComparison.Ordinal);
+            Assert.Contains(element, issue.Diagnostics, StringComparison.OrdinalIgnoreCase);
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
+        }
+
+        [Theory]
+        [InlineData("not-a-uri")]
+        [InlineData("SearchParameter/relative")]
+        public async Task GivenACompositeComponentWithAMalformedDefinition_WhenValidating_ThenItIsRejectedWithoutThrowing(string definition)
+        {
+            // Arrange
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a")),
+                Entry("package/SearchParameter-ab.json", CompositeJson(CompositeUrl, "a-bad", UrlA, definition)),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains("package/SearchParameter-ab.json", issue.Diagnostics, StringComparison.Ordinal);
+            Assert.Contains(definition, issue.Diagnostics, StringComparison.Ordinal);
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenTwoPackageMembersWhoseCodesCollideThroughResource_WhenValidating_ThenBothAreRejected(bool reverseOrder)
+        {
+            // Arrange
+            ConfigureResourceHierarchy();
+            JsonObject onResource = SearchParameterNode(UrlA, "shared", expression: "Resource.id");
+            onResource["base"] = new JsonArray("Resource");
+            var entries = new List<FhirPackageEntry>
+            {
+                Entry("package/SearchParameter-a.json", onResource.ToJsonString()),
+                Entry("package/SearchParameter-b.json", SearchParameterJson(UrlB, "shared", type: "string", expression: "Patient.name")),
+            };
+
+            if (reverseOrder)
+            {
+                entries.Reverse();
+            }
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(2, exception.Issues.Count);
+            Assert.All(exception.Issues, i => Assert.Equal("Duplicate", i.Code));
+            Assert.Contains(exception.Issues, i => i.Diagnostics.Contains("package/SearchParameter-a.json", StringComparison.Ordinal));
+            Assert.Contains(exception.Issues, i => i.Diagnostics.Contains("package/SearchParameter-b.json", StringComparison.Ordinal));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenTwoPackageMembersWhoseCodesCollideThroughDomainResource_WhenValidating_ThenBothAreRejected(bool reverseOrder)
+        {
+            // Arrange
+            ConfigureResourceHierarchy();
+            JsonObject onDomainResource = SearchParameterNode(UrlA, "shared", expression: "DomainResource.text");
+            onDomainResource["base"] = new JsonArray("DomainResource");
+            var entries = new List<FhirPackageEntry>
+            {
+                Entry("package/SearchParameter-a.json", onDomainResource.ToJsonString()),
+                Entry("package/SearchParameter-b.json", SearchParameterJson(UrlB, "shared", type: "string", expression: "Patient.name")),
+            };
+
+            if (reverseOrder)
+            {
+                entries.Reverse();
+            }
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(2, exception.Issues.Count);
+            Assert.All(exception.Issues, i => Assert.Equal("Duplicate", i.Code));
+        }
+
+        [Fact]
+        public async Task GivenTwoPackageMembersWithTheSameCodeOnUnrelatedBases_WhenValidating_ThenBothAreAccepted()
+        {
+            // Arrange
+            ConfigureResourceHierarchy();
+            JsonObject onObservation = SearchParameterNode(UrlB, "shared", expression: "Observation.code");
+            onObservation["base"] = new JsonArray("Observation");
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "shared")),
+                Entry("package/SearchParameter-b.json", onObservation.ToJsonString()),
+            };
+
+            // Act
+            IFhirPackageInstallPlan plan = await CreateHandler().ValidateAsync(entries, _package, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(new[] { UrlA, UrlB }, plan.CanonicalUrls);
+        }
+
+        [Theory]
+        [InlineData("gender", true)]
+        [InlineData("gender.(", false)]
+        public async Task GivenACompositeComponentExpression_WhenValidatingWithTheRealSupportResolver_ThenTheComponentExpressionItselfIsParsed(string componentExpression, bool valid)
+        {
+            // Arrange
+            var supportResolver = new SearchParameterSupportResolver(await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync());
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a", expression: "Patient.identifier")),
+                Entry("package/SearchParameter-b.json", SearchParameterJson(UrlB, "b", expression: "Patient.gender")),
+                Entry("package/SearchParameter-ab.json", CompositeJsonWithExpressions(CompositeUrl, "a-b", (UrlA, "identifier"), (UrlB, componentExpression))),
+            };
+            SearchParameterPackageHandler handler = CreateHandler(supportResolver);
+
+            // Act and assert
+            if (valid)
+            {
+                IFhirPackageInstallPlan plan = await handler.ValidateAsync(entries, _package, CancellationToken.None);
+                Assert.Contains(CompositeUrl, plan.CanonicalUrls);
+            }
+            else
+            {
+                FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                    () => handler.ValidateAsync(entries, _package, CancellationToken.None));
+                OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+                Assert.Equal("Invalid", issue.Code);
+                Assert.Contains("package/SearchParameter-ab.json", issue.Diagnostics, StringComparison.Ordinal);
+                await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
+            }
         }
 
         [Theory]
@@ -554,16 +719,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.Contains("bad expression", issue.Diagnostics, StringComparison.Ordinal);
         }
 
-        private SearchParameterPackageHandler CreateHandler() =>
+        private SearchParameterPackageHandler CreateHandler(ISearchParameterSupportResolver supportResolver = null) =>
             new SearchParameterPackageHandler(
                 _definitionManager,
                 _searchParameterOperations,
                 _modelInfoProvider,
                 _comparer,
-                _supportResolver,
+                supportResolver ?? _supportResolver,
                 _dataStoreValidator,
+                new ModelAttributeValidator(),
                 _writer,
                 NullLogger<SearchParameterPackageHandler>.Instance);
+
+        private void ConfigureResourceHierarchy()
+        {
+            _modelInfoProvider.GetResourceTypeNames().Returns(new[] { "Patient", "Observation" });
+            _modelInfoProvider.GetTypeForFhirType("Patient").Returns(typeof(Hl7.Fhir.Model.Patient));
+            _modelInfoProvider.GetTypeForFhirType("Observation").Returns(typeof(Hl7.Fhir.Model.Observation));
+            _modelInfoProvider.GetFhirTypeNameForType(typeof(Hl7.Fhir.Model.DomainResource)).Returns(KnownResourceTypes.DomainResource);
+        }
 
         private static FhirPackageEntry Entry(string path, string json) => new FhirPackageEntry(path, KnownResourceTypes.SearchParameter, json);
 
@@ -596,18 +770,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             return json;
         }
 
-        private static string CompositeJson(string url, string code, params string[] componentUrls)
+        private static string CompositeJson(string url, string code, params string[] componentUrls) =>
+            CompositeJsonWithExpressions(url, code, componentUrls.Select(x => (x, "Patient")).ToArray());
+
+        private static string CompositeJsonWithExpressions(string url, string code, params (string Definition, string Expression)[] componentDefinitions)
         {
             JsonObject json = SearchParameterNode(url, code, "composite", "Patient");
             var components = new JsonArray();
-            foreach (string componentUrl in componentUrls)
+            foreach ((string componentUrl, string componentExpression) in componentDefinitions)
             {
 #if Stu3
                 JsonNode definition = new JsonObject { ["reference"] = componentUrl };
 #else
                 JsonNode definition = componentUrl;
 #endif
-                components.Add(new JsonObject { ["definition"] = definition, ["expression"] = "Patient" });
+                components.Add(new JsonObject { ["definition"] = definition, ["expression"] = componentExpression });
             }
 
             json["component"] = components;
