@@ -220,15 +220,16 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         /// </summary>
         private static void CheckComponentStructure(Candidate candidate, List<OperationOutcomeIssue> issues)
         {
+            // Firely list properties are never null; an absent element is an empty list.
             List<SearchParameter.ComponentComponent> components = candidate.SearchParameter.Component;
 
-            if (candidate.SearchParameter.Type == SearchParamType.Composite && (components == null || components.Count == 0))
+            if (candidate.SearchParameter.Type == SearchParamType.Composite && components.Count == 0)
             {
                 AddIssue(issues, candidate, OperationOutcomeConstants.IssueType.Required, Core.Resources.FhirPackageSearchParameterMissingComponent);
                 return;
             }
 
-            for (int i = 0; i < (components?.Count ?? 0); i++)
+            for (int i = 0; i < components.Count; i++)
             {
                 string definition = GetComponentDefinitionText(components[i]);
 

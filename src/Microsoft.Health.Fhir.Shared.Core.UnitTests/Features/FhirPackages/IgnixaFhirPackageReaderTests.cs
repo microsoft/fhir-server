@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             byte[] tarball = NewPackage().File("package/SearchParameter-a.json", SearchParameterJson()).Build();
 
             // Act
-            FhirPackage package = await CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None);
+            FhirPackage package = await ReadAsync(tarball, Descriptor(tarball));
 
             // Assert
             Assert.Equal(PackageId, package.PackageId);
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                 .Build();
 
             // Act
-            FhirPackage package = await CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None);
+            FhirPackage package = await ReadAsync(tarball, Descriptor(tarball));
 
             // Assert
             Assert.Equal(
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                 .Build();
 
             // Act
-            FhirPackage package = await CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None);
+            FhirPackage package = await ReadAsync(tarball, Descriptor(tarball));
 
             // Assert
             Assert.Equal(new[] { "example.other@2.1.0" }, package.IgnoredDependencies);
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), new FhirPackageDescriptor(PackageId, PackageVersion, Integrity(other)), CancellationToken.None));
+                () => ReadAsync(tarball, new FhirPackageDescriptor(PackageId, PackageVersion, Integrity(other))));
 
             // Assert
             Assert.Equal("Security", Assert.Single(exception.Issues).Code);
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), new FhirPackageDescriptor(PackageId, PackageVersion, integrity), CancellationToken.None));
+                () => ReadAsync(tarball, new FhirPackageDescriptor(PackageId, PackageVersion, integrity)));
 
             // Assert
             Assert.Equal("Security", Assert.Single(exception.Issues).Code);
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball), options));
 
             // Assert
             Assert.Equal("TooCostly", Assert.Single(exception.Issues).Code);
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball), options));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball), options));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball), options));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball), options));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -237,11 +237,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             int smallestPassingRatio = checked((int)((expanded + tarball.Length - 1) / tarball.Length));
 
             // Act
-            FhirPackage accepted = await CreateReader(new FhirPackageReaderOptions { MaxExpansionRatio = smallestPassingRatio })
-                .ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None);
+            FhirPackage accepted = await ReadAsync(tarball, Descriptor(tarball), new FhirPackageReaderOptions { MaxExpansionRatio = smallestPassingRatio });
             FhirPackageException rejected = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader(new FhirPackageReaderOptions { MaxExpansionRatio = smallestPassingRatio - 1 })
-                    .ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball), new FhirPackageReaderOptions { MaxExpansionRatio = smallestPassingRatio - 1 }));
 
             // Assert
             Assert.True(smallestPassingRatio > 2, $"The fixture should be highly compressible, but its ratio is only {smallestPassingRatio}.");
@@ -273,7 +271,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             Assert.Equal("Security", Assert.Single(exception.Issues).Code);
@@ -292,7 +290,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             Assert.Equal("Security", Assert.Single(exception.Issues).Code);
@@ -306,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -324,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), new FhirPackageDescriptor(expectedId, expectedVersion, Integrity(tarball)), CancellationToken.None));
+                () => ReadAsync(tarball, new FhirPackageDescriptor(expectedId, expectedVersion, Integrity(tarball))));
 
             // Assert
             Assert.Equal("Invalid", Assert.Single(exception.Issues).Code);
@@ -338,7 +336,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -361,7 +359,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -386,7 +384,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             Assert.Equal("NotSupported", Assert.Single(exception.Issues).Code);
@@ -403,7 +401,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             Assert.Equal("NotSupported", Assert.Single(exception.Issues).Code);
@@ -419,7 +417,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -439,7 +437,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             var options = new FhirPackageReaderOptions { MaxJsonDepth = 128 };
 
             // Act
-            FhirPackage package = await CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None);
+            FhirPackage package = await ReadAsync(tarball, Descriptor(tarball), options);
 
             // Assert
             Assert.Single(package.ResourceEntries);
@@ -456,7 +454,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball), options));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -474,7 +472,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -492,7 +490,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -508,7 +506,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(notAnArchive), Descriptor(notAnArchive), CancellationToken.None));
+                () => ReadAsync(notAnArchive, Descriptor(notAnArchive)));
 
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
@@ -529,7 +527,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+                () => ReadAsync(tarball, Descriptor(tarball)));
 
             // Assert
             Assert.Equal("Invalid", Assert.Single(exception.Issues).Code);
@@ -543,7 +541,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             var descriptor = new FhirPackageDescriptor("example.fhir.searchparameters", "1.0.0", Integrity(tarball));
 
             // Act
-            FhirPackage package = await CreateReader().ReadAsync(new MemoryStream(tarball), descriptor, CancellationToken.None);
+            FhirPackage package = await ReadAsync(tarball, descriptor);
 
             // Assert
             Assert.Equal(
@@ -555,6 +553,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
         private IgnixaFhirPackageReader CreateReader(FhirPackageReaderOptions options = null) =>
             new IgnixaFhirPackageReader(_modelInfoProvider, Options.Create(options ?? new FhirPackageReaderOptions()), NullLoggerFactory.Instance);
+
+        private async Task<FhirPackage> ReadAsync(byte[] tarball, FhirPackageDescriptor descriptor, FhirPackageReaderOptions options = null)
+        {
+            using var stream = new MemoryStream(tarball);
+            return await CreateReader(options).ReadAsync(stream, descriptor, CancellationToken.None);
+        }
 
         private TarballBuilder NewPackage(Action<JsonObject> customizeManifest = null)
         {

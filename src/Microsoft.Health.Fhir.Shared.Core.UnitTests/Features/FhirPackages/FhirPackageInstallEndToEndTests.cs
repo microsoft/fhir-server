@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             var descriptor = new FhirPackageDescriptor(PackageId, PackageVersion, Integrity(tarball));
 
             // Act
-            FhirPackage package = await CreateReader().ReadAsync(new MemoryStream(tarball), descriptor, CancellationToken.None);
+            FhirPackage package = await ReadAsync(tarball, descriptor);
             FhirPackageInstallResult result = await CreateInstaller().InstallAsync(package, CancellationToken.None);
 
             // Assert
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
-                () => CreateReader().ReadAsync(new MemoryStream(tampered), descriptor, CancellationToken.None));
+                () => ReadAsync(tampered, descriptor));
 
             // Assert
             Assert.Equal("Security", Assert.Single(exception.Issues).Code);
@@ -91,6 +91,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
         private static IgnixaFhirPackageReader CreateReader() =>
             new IgnixaFhirPackageReader(new VersionSpecificModelInfoProvider(), Options.Create(new FhirPackageReaderOptions()), NullLoggerFactory.Instance);
+
+        private static async Task<FhirPackage> ReadAsync(byte[] tarball, FhirPackageDescriptor descriptor)
+        {
+            using var stream = new MemoryStream(tarball);
+            return await CreateReader().ReadAsync(stream, descriptor, CancellationToken.None);
+        }
 
         private FhirPackageInstaller CreateInstaller()
         {

@@ -641,6 +641,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         }
 
         [Fact]
+        public async Task GivenACompositeWithNoComponents_WhenValidating_ThenItIsRejected()
+        {
+            // Arrange
+            JsonObject composite = SearchParameterNode(CompositeUrl, "a-b", "composite", "Patient");
+            var entries = new[] { Entry("package/SearchParameter-ab.json", composite.ToJsonString()) };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Required", issue.Code);
+        }
+
+        [Fact]
         public async Task GivenACompositeComponentWithoutAnExpression_WhenValidating_ThenItIsRejected()
         {
             // Arrange

@@ -50,7 +50,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
         public IgnixaFhirPackageReader(IModelInfoProvider modelInfoProvider, IOptions<FhirPackageReaderOptions> options, ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-            EnsureArg.IsNotNull(options?.Value, nameof(options));
+            EnsureArg.IsNotNull(options, nameof(options));
+            EnsureArg.IsNotNull(options.Value, nameof(options));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _modelInfoProvider = modelInfoProvider;
