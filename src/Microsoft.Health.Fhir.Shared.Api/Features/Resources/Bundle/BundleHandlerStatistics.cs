@@ -82,6 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             int failedRequests = _entries.Count(e => e.HttpStatusCode >= 500);
             int customerFailedRequests = _entries.Count(e => e.HttpStatusCode >= 400 && e.HttpStatusCode < 500);
             int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 300);
+            int conditionalOperations = _entries.Count(e => e.IsConditionalOperation);
 
             JObject serializableEntity = JObject.FromObject(new
             {
@@ -100,6 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 statistics = finalStatistics,
                 resourceTypes = resourceTypesStatistics,
                 throttlingDelays = ThrottlingDelays,
+                conditionalOperations = conditionalOperations,
                 references = new
                 {
                     identifiers = GeneratedIdentifiers,
