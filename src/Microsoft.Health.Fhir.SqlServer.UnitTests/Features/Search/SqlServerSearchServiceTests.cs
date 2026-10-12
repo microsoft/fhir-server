@@ -143,6 +143,49 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Empty(_sqlRetryService.ReceivedCalls());
         }
 
+        [Theory]
+        [InlineData("[10,100,300,null,null,false,null,null,3]")]
+        [InlineData("[10,100,300,10,250,true,null,null,3]")]
+        public async Task GivenIncludesCountWithoutIncludeExpressions_WhenSearched_ThenZeroIsReturnedWithoutSql(string includesToken)
+        {
+            // Arrange
+            var options = new SearchOptions
+            {
+                CountOnly = true,
+                MaxItemCount = 1,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                IncludesContinuationToken = includesToken,
+            };
+
+            // Act
+            SearchResult result = await _searchService.SearchAsync(options, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(0, result.TotalCount);
+            Assert.Empty(result.Results);
+            Assert.Null(result.IncludesContinuationToken);
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
+        }
+
+        [Fact]
+        public async Task GivenIncludesCountWithInvalidIncludesToken_WhenSearched_ThenRejectedBeforeSql()
+        {
+            // Arrange
+            var options = new SearchOptions
+            {
+                CountOnly = true,
+                MaxItemCount = 1,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                IncludesContinuationToken = "not-a-token",
+            };
+
+            // Act and Assert
+            await Assert.ThrowsAsync<BadRequestException>(() => _searchService.SearchAsync(options, CancellationToken.None));
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
+        }
+
         [Fact]
         public void Constructor_WithNullSearchOptionsFactory_ThrowsArgumentNullException()
         {

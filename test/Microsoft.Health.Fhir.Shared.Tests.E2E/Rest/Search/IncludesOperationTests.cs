@@ -193,6 +193,65 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(operationOutcome);
         }
 
+        /// <summary>
+        /// $includes with _summary=count returns the number of distinct included resources of the whole original search,
+        /// independent of the match page, the include cursor, _count and _includesCount.
+        /// </summary>
+        /// <param name="query">The request query string.</param>
+        /// <returns>A task executing the test</returns>
+        [Theory]
+        [InlineData("_revinclude=Observation:subject&_count=2&_includesCount=2")]
+        [InlineData("_include=Patient:organization&_revinclude=MedicationDispense:subject&_revinclude=DiagnosticReport:subject&_count=4&_includesCount=2")]
+        [InlineData("_include=*:*&_revinclude=*:*&_count=2&_includesCount=10")]
+        public async Task GivenAnIncludesRequest_WhenSummaryCountIsRequested_ThenTotalIsTheNumberOfDistinctIncludedResources(string query)
+        {
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+
+            // Arrange: walk every page of the normal results to independently compute the expected count.
+            var matches = new HashSet<string>(StringComparer.Ordinal);
+            var included = new HashSet<string>(StringComparer.Ordinal);
+            var includesUrls = new List<string>();
+            var searchUrl = $"{Server.BaseAddress}{KnownResourceTypes.Patient}?{TagQuery(query)}";
+            while (!string.IsNullOrEmpty(searchUrl))
+            {
+                var response = await Client.SearchAsync(searchUrl);
+                searchUrl = response.Resource.NextLink?.AbsoluteUri;
+
+                foreach (var entry in response.Resource.Entry.Where(x => x.Resource is not OperationOutcome))
+                {
+                    (entry.Search?.Mode == SearchEntryMode.Include ? included : matches).Add($"{entry.Resource.TypeName}/{entry.Resource.Id}");
+                }
+
+                var includesUrl = response.Resource.Link?.FirstOrDefault(x => x.Relation.Equals("related", StringComparison.Ordinal))?.Url;
+                while (!string.IsNullOrEmpty(includesUrl))
+                {
+                    includesUrls.Add(includesUrl);
+                    var includesResponse = await Client.SearchAsync(includesUrl);
+                    foreach (var entry in includesResponse.Resource.Entry.Where(x => x.Resource is not OperationOutcome))
+                    {
+                        included.Add($"{entry.Resource.TypeName}/{entry.Resource.Id}");
+                    }
+
+                    includesUrl = includesResponse.Resource.NextLink?.AbsoluteUri;
+                }
+            }
+
+            // Matches are not counted, even if they are also referenced by other matches.
+            var expectedTotal = included.Except(matches).Count();
+            Assert.NotEmpty(includesUrls);
+            Assert.True(expectedTotal > 0, "The test data must produce included resources.");
+
+            // Act and Assert: the total is the same from every $includes page (first page, later include pages and later match pages).
+            foreach (var includesUrl in includesUrls)
+            {
+                var countResponse = await Client.SearchAsync($"{includesUrl}&_summary=count");
+
+                Assert.Equal(HttpStatusCode.OK, countResponse.StatusCode);
+                Assert.Empty(countResponse.Resource.Entry);
+                Assert.Equal(expectedTotal, countResponse.Resource.Total);
+            }
+        }
+
         private void ValidateRelatedResources(
             FhirResponse<Bundle> response,
             IList<Resource> patientResources,

@@ -239,6 +239,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (sqlSearchOptions.IsIncludesOperation)
             {
+                if (sqlSearchOptions.CountOnly)
+                {
+                    // The $includes count covers the whole original search in a single statement. It does not depend on the
+                    // page or sort phase recorded in the includes continuation token, so no further phases are run.
+                    return await RunSearch(sqlSearchOptions, cancellationToken);
+                }
+
                 var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
 
                 sqlSearchOptions.SortQuerySecondPhase = includesContinuationToken.SortQuerySecondPhase ?? false;
@@ -1978,7 +1985,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
             Expression searchExpression;
-            if (includesContinuationToken.MatchPageSize.HasValue)
+            if (sqlSearchOptions.CountOnly)
+            {
+                // The count covers the whole original search, so the match scope is not constrained by the token's match page.
+                searchExpression = sqlSearchOptions.Expression;
+            }
+            else if (includesContinuationToken.MatchPageSize.HasValue)
             {
                 sqlSearchOptions = sqlSearchOptions.CloneSqlSearchOptions();
                 sqlSearchOptions.ContinuationToken = includesContinuationToken.MatchContinuationToken;
@@ -2004,17 +2016,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
-            if (clonedSearchOptions.CountOnly)
-            {
-                // if we're only returning a count, discard any _include parameters since included resources are not counted.
-                searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
-            }
+            // The include expressions are what an $includes count counts, so RemoveIncludesRewriter is intentionally not applied here.
 
             // ! - Trace
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludesOperationRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
             expression = AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions);
+
+            if (clonedSearchOptions.CountOnly && expression.SearchParamTableExpressions.All(e => e.Kind != SearchParamTableExpressionKind.Include))
+            {
+                // Nothing to include, so nothing to count. Primary matches are never counted by $includes.
+                return new SearchResult(0, clonedSearchOptions.UnsupportedSearchParams);
+            }
 
             await CreateStats(expression, cancellationToken);
 
