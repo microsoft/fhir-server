@@ -61,7 +61,7 @@ The server is migrating to the Ignixa SDK (ADR-2607). `Ignixa.PackageManagement`
 
 `Firely.Fhir.Packages` was considered and rejected: it extracts to disk, does no SRI verification, has no size, entry-count or path limits, and goes against the migration direction.
 
-**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `PackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/Packages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/Packages/`. It is registered unconditionally, not behind `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 gets a note saying so. The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
+**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `PackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/FhirPackages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/FhirPackages/`. It is registered unconditionally, not behind `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 gets a note saying so. The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
 
 ### Reader: `FhirPackageReader`
 
