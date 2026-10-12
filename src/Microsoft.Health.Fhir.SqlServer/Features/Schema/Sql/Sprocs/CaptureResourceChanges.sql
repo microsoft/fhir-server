@@ -24,7 +24,7 @@
 CREATE PROCEDURE dbo.CaptureResourceChanges
     @isDeleted bit,
     @version int,
-    @resourceId varchar(64),
+    @resourceId varchar(128),
     @resourceTypeId smallint
 AS
 BEGIN

@@ -14,7 +14,7 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
        ,@DummyTop bigint = 9223372036854775807
 
 BEGIN TRY
-  DECLARE @ResourceIds TABLE (ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
+  DECLARE @ResourceIds TABLE (ResourceId varchar(128) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
   DECLARE @SurrogateIds TABLE (MaxSurrogateId bigint PRIMARY KEY)
 
   IF @GlobalEndId IS NOT NULL AND @IncludeHistory = 0 -- snapshot view

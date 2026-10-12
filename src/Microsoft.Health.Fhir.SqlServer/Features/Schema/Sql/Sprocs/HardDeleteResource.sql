@@ -1,6 +1,6 @@
 ﻿CREATE PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint
-  ,@ResourceId varchar(64)
+  ,@ResourceId varchar(128)
   ,@KeepCurrentVersion bit
   ,@IsResourceChangeCaptureEnabled bit
 AS
