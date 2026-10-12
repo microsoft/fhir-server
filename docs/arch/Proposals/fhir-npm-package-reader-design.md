@@ -61,7 +61,7 @@ The server is migrating to the Ignixa SDK (ADR-2607). `Ignixa.PackageManagement`
 
 `Firely.Fhir.Packages` was considered and rejected: it extracts to disk, does no SRI verification, has no size, entry-count or path limits, and goes against the migration direction.
 
-**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `FhirPackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/FhirPackages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/FhirPackages/`. It is registered unconditionally, not behind `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 now has a section saying so ("New capabilities built on Ignixa"). The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
+**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `FhirPackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/FhirPackages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/FhirPackages/`. When it is registered for DI, which lands with the writer in AB#206132, it will be registered unconditionally, not behind `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 now has a section saying so ("New capabilities built on Ignixa"). The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
 
 ### Reader: `FhirPackageReader`
 
@@ -182,7 +182,7 @@ Messages go in `Resources.resx`.
 | 5 | Composite components | **Decided by the owner (2026-10-12):** a component may resolve to a parameter in the same package, or to any existing definition (core or custom) whose status is `Enabled` or `Supported`. Definitions in any other state are rejected, and the error names the state. The work item's AC6 and ADR-2608 are updated to match. Tradeoff accepted: the same package can validate differently on different services, and in this release the package doesn't record a dependency on a definition it doesn't own, so retiring that definition isn't blocked. On an empty store the only existing definitions are system-defined, so bootstrap installs behave as core-or-same-package. Dependency tracking belongs with the existing-service design. |
 | 6 | SearchParameter `status` | Not an install filter. `draft`, `active`, `retired` and `unknown` all install. |
 | 7 | Limits | Configurable `FhirPackageReaderOptions` with the defaults above. |
-| 8 | SDK | Ignixa.PackageManagement strict extraction, registered unconditionally. Firely.Fhir.Packages rejected. |
+| 8 | SDK | Ignixa.PackageManagement strict extraction. The reader will be registered unconditionally, not behind `FhirSdkProvider`, once DI registration lands (decision 10). Firely.Fhir.Packages rejected. |
 | 9 | Empty packages | A package with no installable resources at its root is rejected as `invalid`; it almost certainly means a packaging mistake. |
 | 10 | DI registration | Deferred to the PR that provides `ISearchParameterPackageWriter` (AB#206132). Registering the handler earlier would leave a service whose dependency can't be resolved. |
 

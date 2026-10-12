@@ -11,6 +11,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -426,6 +427,114 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.Contains("9.9.9", issue.Diagnostics, StringComparison.Ordinal);
         }
 
+        [Theory]
+        [InlineData(80)]
+        [InlineData(127)]
+        public async Task GivenAManifestDeeperThanTheDefaultJsonDepthButWithinTheConfiguredLimit_WhenRead_ThenItIsAccepted(int nestedArrayDepth)
+        {
+            // Arrange: the manifest object adds one level, so 127 nested arrays reach exactly the configured 128.
+            byte[] tarball = NewPackage(manifest => manifest["metadata"] = NestedArrays(nestedArrayDepth))
+                .File("package/SearchParameter-a.json", SearchParameterJson())
+                .Build();
+            var options = new FhirPackageReaderOptions { MaxJsonDepth = 128 };
+
+            // Act
+            FhirPackage package = await CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None);
+
+            // Assert
+            Assert.Single(package.ResourceEntries);
+        }
+
+        [Fact]
+        public async Task GivenAManifestDeeperThanTheConfiguredJsonDepth_WhenRead_ThenItIsRejectedAsTooCostly()
+        {
+            // Arrange
+            byte[] tarball = NewPackage(manifest => manifest["metadata"] = NestedArrays(80))
+                .File("package/SearchParameter-a.json", SearchParameterJson())
+                .Build();
+            var options = new FhirPackageReaderOptions { MaxJsonDepth = 70 };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateReader(options).ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("TooCostly", issue.Code);
+            Assert.Contains("JsonDepthLimit", issue.Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenDependenciesThatAreNotAnObject_WhenRead_ThenItIsRejectedAsInvalid()
+        {
+            // Arrange
+            byte[] tarball = NewPackage(manifest => manifest["dependencies"] = new JsonArray("hl7.fhir.r4.core"))
+                .File("package/SearchParameter-a.json", SearchParameterJson())
+                .Build();
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains("'dependencies'", issue.Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenADependencyVersionThatIsNotAString_WhenRead_ThenItIsRejectedAsInvalid()
+        {
+            // Arrange
+            byte[] tarball = NewPackage(manifest => manifest["dependencies"]["example.other"] = 2)
+                .File("package/SearchParameter-a.json", SearchParameterJson())
+                .Build();
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains("'example.other'", issue.Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenBytesWithMatchingIntegrityThatAreNotAGzipArchive_WhenRead_ThenItIsRejectedAsInvalid()
+        {
+            // Arrange
+            byte[] notAnArchive = Encoding.UTF8.GetBytes("this is not a gzip-compressed tar archive");
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateReader().ReadAsync(new MemoryStream(notAnArchive), Descriptor(notAnArchive), CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains("InvalidArchive", issue.Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData("{ not json")]
+        [InlineData("{\"version\":\"1.0.0\"}")]
+        public async Task GivenAMalformedManifestWithMatchingIntegrity_WhenRead_ThenItIsRejectedAsInvalid(string manifestJson)
+        {
+            // Arrange
+            byte[] tarball = new TarballBuilder()
+                .File("package/package.json", manifestJson)
+                .File("package/SearchParameter-a.json", SearchParameterJson())
+                .Build();
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateReader().ReadAsync(new MemoryStream(tarball), Descriptor(tarball), CancellationToken.None));
+
+            // Assert
+            Assert.Equal("Invalid", Assert.Single(exception.Issues).Code);
+        }
+
         [Fact]
         public async Task GivenAPackageBuiltWithNpmPack_WhenRead_ThenItPassesStrictExtraction()
         {
@@ -458,7 +567,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             };
 
             customizeManifest?.Invoke(manifest);
-            return new TarballBuilder().File("package/package.json", manifest.ToJsonString());
+            return new TarballBuilder().File("package/package.json", manifest.ToJsonString(new JsonSerializerOptions { MaxDepth = 256 }));
         }
 
         private static string SearchParameterJson(string description = "Test search parameter.") =>
@@ -476,6 +585,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             }.ToJsonString();
 
         private static FhirPackageDescriptor Descriptor(byte[] tarball) => new FhirPackageDescriptor(PackageId, PackageVersion, Integrity(tarball));
+
+        private static JsonNode NestedArrays(int depth)
+        {
+            JsonNode node = new JsonArray();
+            for (int i = 1; i < depth; i++)
+            {
+                node = new JsonArray(node);
+            }
+
+            return node;
+        }
 
         private static string Integrity(byte[] tarball) => "sha512-" + Convert.ToBase64String(SHA512.HashData(tarball));
 

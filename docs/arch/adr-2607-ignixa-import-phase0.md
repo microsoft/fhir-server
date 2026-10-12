@@ -74,7 +74,7 @@ The provider setting and the one-seam-per-PR rules above govern *migrating* an e
 - its Core contract is SDK-neutral, so no Ignixa type crosses it and both provider settings resolve it;
 - its Ignixa code lives in `Microsoft.Health.Fhir.Ignixa`.
 
-The first case is FHIR NPM package reading (`IgnixaFhirPackageReader`, built on `Ignixa.PackageManagement` strict extraction; see `docs/arch/Proposals/fhir-npm-package-reader-design.md`). It doesn't change which seams `FhirSdkProvider` controls, so the startup log's "migrated seams" list is unaffected.
+The first case is FHIR NPM package reading (`IgnixaFhirPackageReader`, built on `Ignixa.PackageManagement` strict extraction; see `docs/arch/Proposals/fhir-npm-package-reader-design.md`). Its DI registration lands with the package writer. It doesn't change which seams `FhirSdkProvider` controls, so the startup log's "migrated seams" list is unaffected.
 
 ## Status
 

@@ -27,8 +27,9 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
     /// Reads FHIR NPM packages with Ignixa's strict, in-memory extraction.
     /// </summary>
     /// <remarks>
-    /// Package reading has no Firely equivalent, so this is registered regardless of <c>CoreFeatures.FhirSdkProvider</c>
-    /// (see ADR-2607). No Ignixa type crosses the <see cref="IFhirPackageReader"/> seam.
+    /// Package reading has no Firely equivalent, so this is meant to be registered regardless of <c>CoreFeatures.FhirSdkProvider</c>
+    /// (see ADR-2607). It isn't registered for DI yet; that lands with the writer (AB#206132). No Ignixa type crosses the
+    /// <see cref="IFhirPackageReader"/> seam.
     /// </remarks>
     public sealed partial class IgnixaFhirPackageReader : IFhirPackageReader
     {
@@ -256,11 +257,12 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
             return new FhirPackageException(issueType, string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageArchiveRejected, detail));
         }
 
-        private static Dictionary<string, string> ReadDependencies(string manifestJson)
+        private static Dictionary<string, string> ReadDependencies(string manifestJson, int maxJsonDepth)
         {
             var dependencies = new Dictionary<string, string>(StringComparer.Ordinal);
 
-            using JsonDocument document = JsonDocument.Parse(manifestJson);
+            // Use the same depth limit strict extraction already enforced; the default (64) would reject manifests it accepted.
+            using JsonDocument document = JsonDocument.Parse(manifestJson, new JsonDocumentOptions { MaxDepth = maxJsonDepth });
             if (!document.RootElement.TryGetProperty("dependencies", out JsonElement element))
             {
                 return dependencies;
@@ -317,7 +319,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
                 }
             }
 
-            Dictionary<string, string> dependencies = ReadDependencies(manifest.Json);
+            Dictionary<string, string> dependencies = ReadDependencies(manifest.Json, _options.MaxJsonDepth);
 
             if (!dependencies.TryGetValue(corePackage, out string coreVersion))
             {
