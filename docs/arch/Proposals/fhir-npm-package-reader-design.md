@@ -1,6 +1,6 @@
 # Design: FHIR NPM Package Reader and SearchParameter Installation Handler
 
-**Status**: Proposed (working design for a draft PR; no code yet)
+**Status**: Proposed (working design for a draft PR; handler, installer and validator refactor implemented, reader pending)
 **Work item**: AB#206131
 **Parent feature**: install SearchParameter resources from FHIR NPM packages when a new service is provisioned
 
@@ -82,7 +82,7 @@ Checks run in this order. Each failure produces an actionable `OperationOutcome`
 5. Classification:
    - Top-level `package/*.json` entries with a `resourceType` go to handlers.
    - Everything else is ignored and reported: sub-folders (`example/`, `other/`, …), metadata JSON (`.index.json`, null `ResourceType`) and resource types without a handler.
-   - Non-JSON files are reported as a count.
+   - Metadata JSON such as `.index.json` is expected package content and isn't reported. Non-JSON files are dropped by Ignixa and aren't reported either, because its statistics don't separate them from directories.
 
 `PackageReaderOptions` defaults (configurable; the section name will be agreed with AB#206133):
 
@@ -117,9 +117,9 @@ It validates the complete set as one unit and collects every failure into one `O
   - no URL collides with a system-defined parameter;
   - code conflicts per base type follow the same `SearchParameterComparer` rules as `SearchParameterValidator`, including `Resource`/`DomainResource` expansion.
 - **Composites:** each `component.definition` must resolve to a core parameter, a parameter in the same package, or an existing parameter in the reference set (decision 5).
-- **Data-store support:** `SearchParameterInfo`s are built for the set, with an overlay so same-package composite components resolve, and run through `ISearchParameterSupportResolver.IsSearchParameterSupported`. Unsupported or partially supported parameters are rejected.
+- **Data-store support:** `SearchParameterInfo`s are built for the set, with an overlay so same-package composite components resolve, and run through `ISearchParameterSupportResolver.IsSearchParameterSupported`. Unsupported or partially supported parameters are rejected, and the data store's own rules (`IDataStoreSearchParameterValidator`) run last. Rejecting partial support is stricter than the single-resource create path, which accepts it: a provisioned parameter that silently misses some target types is worse than a failed install.
 
-Reuse: the code-conflict and comparison logic in `SearchParameterValidator` moves into an internal helper that takes a lookup abstraction. The per-request validator and the set validator then share the rules. The per-request validator keeps its `DataActions.Reindex` authorization check, which the package path must not hit because there is no user context.
+Reuse: the code-conflict and comparison logic in `SearchParameterValidator` moves unchanged into the internal static `SearchParameterConflictRules`, which takes its dependencies as arguments. The per-request validator and the package handler then share the rules. No lookup abstraction is needed: package members are checked against each other separately (duplicate URL and code), and against the current definitions through the existing definition manager. The per-request validator keeps its `DataActions.Reindex` authorization check, which the package path must not hit because there is no user context.
 
 ### Installer and result
 
@@ -157,6 +157,8 @@ Messages go in `Resources.resx`.
 | 6 | SearchParameter `status` | Not an install filter. `draft`, `active`, `retired` and `unknown` all install. |
 | 7 | Limits | Configurable `PackageReaderOptions` with the defaults above. |
 | 8 | SDK | Ignixa.PackageManagement strict extraction, registered unconditionally. Firely.Fhir.Packages rejected. |
+| 9 | Empty packages | A package with no installable resources at its root is rejected as `invalid`; it almost certainly means a packaging mistake. |
+| 10 | DI registration | Deferred to the PR that provides `ISearchParameterPackageWriter` (AB#206132). Registering the handler earlier would leave a service whose dependency can't be resolved. |
 
 ## Tests
 
@@ -178,7 +180,18 @@ xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory wit
 1. Reader on Ignixa (both entry points, ratio, manifest and core-dependency checks, classification, error mapping), `PackageReaderOptions`, tests, and the ADR-2607 note.
 2. Handler contracts, SearchParameter set validator, `SearchParameterValidator` refactor, installer and result, tests.
 
-Everything is DI-registered with no entry point, so it does nothing until AB#206132 and AB#206133 land.
+Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#206133 land.
+
+### Implementation status
+
+| Piece | Status |
+|---|---|
+| Ignixa 0.6.82 and Polly 8.6.6 bump | Done; `$import` tests pass on all four FHIR versions |
+| Contracts: `FhirPackage`, `IFhirPackageResourceHandler`, `IFhirPackageInstallPlan`, `ISearchParameterPackageWriter`, `FhirPackageException` | Done |
+| `FhirPackageInstaller` and `FhirPackageInstallResult` | Done, with unit tests |
+| `SearchParameterConflictRules` extracted from `SearchParameterValidator` | Done; existing validator tests pass |
+| `SearchParameterPackageHandler` | Done, with unit tests on STU3, R4, R4B and R5 |
+| Ignixa-backed reader | Not started |
 
 ## Consequences
 
