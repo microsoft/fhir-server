@@ -1319,7 +1319,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
             _bundleConfiguration.IsConditionalOperationThrottlingEnabled = isThrottlingEnabled;
             _bundleConfiguration.ConditionalOperationGroupSize = 2;
-            _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds = isThrottlingEnabled ? 50 : 5000;
+            _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds = isThrottlingEnabled ? 100 : 5000;
             var dispatchTimes = new List<long>();
             var stopwatch = Stopwatch.StartNew();
             var bundle = new Hl7.Fhir.Model.Bundle
