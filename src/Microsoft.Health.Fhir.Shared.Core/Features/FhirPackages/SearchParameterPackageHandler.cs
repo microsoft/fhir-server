@@ -86,8 +86,10 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             EnsureArg.IsNotNull(entries, nameof(entries));
             EnsureArg.IsNotNull(package, nameof(package));
 
-            // Validate against the latest definitions, including ones added on other instances.
+            // Validate against the latest definitions, including ones added on other instances. The writer uses the
+            // resulting reference-set version to detect changes made between validation and persistence.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+            DateTimeOffset referenceSetLastUpdated = _searchParameterOperations.SearchParamLastUpdated;
 
             var issues = new List<OperationOutcomeIssue>();
             List<Candidate> candidates = ParseAndCheckStructure(entries, issues);
@@ -111,6 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 package,
                 candidates.Select(x => x.Resource).ToList(),
                 candidates.Select(x => x.Url).ToList(),
+                referenceSetLastUpdated,
                 _writer);
         }
 
@@ -373,12 +376,19 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         {
             private readonly FhirPackage _package;
             private readonly IReadOnlyList<ResourceElement> _searchParameters;
+            private readonly DateTimeOffset _referenceSetLastUpdated;
             private readonly ISearchParameterPackageWriter _writer;
 
-            public SearchParameterPackageInstallPlan(FhirPackage package, IReadOnlyList<ResourceElement> searchParameters, IReadOnlyList<string> canonicalUrls, ISearchParameterPackageWriter writer)
+            public SearchParameterPackageInstallPlan(
+                FhirPackage package,
+                IReadOnlyList<ResourceElement> searchParameters,
+                IReadOnlyList<string> canonicalUrls,
+                DateTimeOffset referenceSetLastUpdated,
+                ISearchParameterPackageWriter writer)
             {
                 _package = package;
                 _searchParameters = searchParameters;
+                _referenceSetLastUpdated = referenceSetLastUpdated;
                 _writer = writer;
                 CanonicalUrls = canonicalUrls;
             }
@@ -387,7 +397,8 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 
             public IReadOnlyList<string> CanonicalUrls { get; }
 
-            public Task ApplyAsync(CancellationToken cancellationToken) => _writer.WriteAsync(_package, _searchParameters, cancellationToken);
+            public Task ApplyAsync(CancellationToken cancellationToken) =>
+                _writer.WriteAsync(_package, _searchParameters, _referenceSetLastUpdated, cancellationToken);
         }
     }
 }

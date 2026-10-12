@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         string ResourceType { get; }
 
         /// <summary>
-        /// Gets the canonical URLs of the resources the plan installs.
+        /// Gets the canonical URLs the plan will install. They are planned, not installed, until <see cref="ApplyAsync"/> succeeds.
         /// </summary>
         IReadOnlyList<string> CanonicalUrls { get; }
 

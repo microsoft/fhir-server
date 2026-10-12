@@ -111,7 +111,9 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 throw new FhirPackageException(issues);
             }
 
-            // Phase 2: write.
+            // Phase 2: write. Nothing has been written yet, so cancellation is still clean here.
+            cancellationToken.ThrowIfCancellationRequested();
+
             var installed = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
             foreach (IFhirPackageInstallPlan plan in plans)
             {

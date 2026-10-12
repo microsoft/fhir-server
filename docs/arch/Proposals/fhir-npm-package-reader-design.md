@@ -65,23 +65,34 @@ The server is migrating to the Ignixa SDK (ADR-2607). `Ignixa.PackageManagement`
 
 ### Reader: `FhirPackageReader`
 
-Two entry points share one interpretation path:
+The Core-facing seam is SDK-neutral: `IFhirPackageReader.ReadAsync(Stream tarball, FhirPackageDescriptor descriptor)` returns a `FhirPackage`, where the descriptor holds `PackageId`, `Version` and the expected SHA-512 `Integrity`. No Ignixa type appears in Core or in the job that calls the reader.
 
-- `ReadAsync(StrictPackageExtractionResult, PackageDescriptor)` is the production feed path. AB#206133's acquirer call has already enforced the allow-list, SHA-512 and name/version identity.
-- `ReadAsync(Stream, PackageDescriptor { PackageId, Version, Integrity })` buffers up to the compressed cap, verifies SHA-512 (`NpmPackageIntegrity`, `SHA512.HashData`, fixed-time compare), then calls `ExtractStrictAsync`. Tests use it, and so would any future non-feed source.
+The Ignixa-backed implementation in `Microsoft.Health.Fhir.Ignixa` has two inputs that share one interpretation path:
+
+- **Stream** (the Core seam): buffers up to the compressed cap, verifies SHA-512 (`NpmPackageIntegrity`, `SHA512.HashData`, fixed-time compare), checks the manifest name and version against the descriptor, then calls `ExtractStrictAsync` with limits built from `PackageReaderOptions`. This is the tarball-to-validated-package seam the story requires, not just a test hook.
+- **Acquired package** (internal to the Ignixa integration, used by AB#206133): accepts Ignixa's `AcquiredNpmPackage`, not a bare `StrictPackageExtractionResult`. The guarantees it relies on, and who establishes each:
+
+| Guarantee | Established by |
+|---|---|
+| Source is on the allow-list | `NpmPackageAcquirer`, from the deployment-owned `NpmPackageSourcePolicy` (AB#206133) |
+| SHA-512 integrity of the compressed bytes | `NpmPackageAcquirer`; `AcquiredNpmPackage` has an internal constructor, so it can only come from the acquirer. The adapter also checks `AcquiredNpmPackage.Integrity` equals the descriptor's integrity when one is supplied. |
+| Name and version identity | `NpmPackageAcquirer` (metadata and manifest identity); the adapter re-checks the manifest against the descriptor |
+| Configured limits | The policy's `ExtractionLimits` are built from the same `PackageReaderOptions`; the adapter re-asserts the compressed, expanded, entry-count and ratio limits from `Statistics` |
+
+Strict extraction alone is never treated as proof of integrity, identity or the configured limits. Parity tests run the same archives through both inputs and require identical `FhirPackage` results or identical rejections.
 
 Checks run in this order. Each failure produces an actionable `OperationOutcome` before any handler runs:
 
-1. Stream path only: the compressed-size cap, then SHA-512 integrity.
+1. Stream input only: the compressed-size cap, then SHA-512 integrity.
 2. Ignixa strict extraction, with our limits mapped to `PackageExtractionLimits` using checked `int` conversion.
-3. Expansion ratio: `Statistics.ExpandedBytes / Statistics.CompressedBytes` must not exceed the configured ratio. Ignixa has no ratio limit.
+3. Expansion ratio: `ExpandedBytes` must not exceed `CompressedBytes × ratio`, compared in `long` arithmetic with no integer division. Ignixa has no ratio limit. The check runs after the strictly bounded in-memory extraction and before any handler or write. It satisfies AC3's no-disk, no-write boundary, but it doesn't prevent the decompression work itself; the expanded-size cap is what bounds that.
 4. Manifest:
-   - On the stream path, name and version must equal the descriptor.
+   - Name and version must equal the descriptor.
    - The FHIR core dependency (`dependencies["hl7.fhir.<r3|r4|r4b|r5>.core"]`, and `fhirVersion`/`fhirVersions` if present) must exactly equal `IModelInfoProvider.SupportedVersion.VersionString`.
    - Non-core dependencies are reported as information and never resolved.
 5. Classification:
-   - Top-level `package/*.json` entries with a `resourceType` go to handlers.
-   - Everything else is ignored and reported: sub-folders (`example/`, `other/`, …), metadata JSON (`.index.json`, null `ResourceType`) and resource types without a handler.
+   - Top-level `package/*.json` entries with a `resourceType` go to the installer.
+   - Resources in sub-folders (`example/`, `other/`, …) are ignored and reported.
    - Metadata JSON such as `.index.json` is expected package content and isn't reported. Non-JSON files are dropped by Ignixa and aren't reported either, because its statistics don't separate them from directories.
 
 `PackageReaderOptions` defaults (configurable; the section name will be agreed with AB#206133):
@@ -101,7 +112,7 @@ Handlers work in two phases: every handler validates before anything is written.
 
 ```csharp
 string ResourceType { get; }
-Task<IPackageInstallPlan> ValidateAsync(IReadOnlyList<PackageEntry> entries, FhirPackageContext context, CancellationToken cancellationToken);
+Task<IFhirPackageInstallPlan> ValidateAsync(IReadOnlyList<FhirPackageEntry> entries, FhirPackage package, CancellationToken cancellationToken);
 ```
 
 The handler registry is built from DI. This release registers only `SearchParameter`.
@@ -116,22 +127,33 @@ It validates the complete set as one unit and collects every failure into one `O
 - **Against the server's reference set**, refreshed first with `GetAndApplySearchParameterUpdates`:
   - no URL collides with a system-defined parameter;
   - code conflicts per base type follow the same `SearchParameterComparer` rules as `SearchParameterValidator`, including `Resource`/`DomainResource` expansion.
-- **Composites:** each `component.definition` must resolve to a core parameter, a parameter in the same package, or an existing parameter in the reference set (decision 5).
+- **Composites:** each `component.definition` must resolve to a core parameter, a parameter in the same package, or an existing parameter in the reference set (decision 5, under review). Same-package resolution doesn't depend on the order of entries in the archive.
 - **Data-store support:** `SearchParameterInfo`s are built for the set, with an overlay so same-package composite components resolve, and run through `ISearchParameterSupportResolver.IsSearchParameterSupported`. Unsupported or partially supported parameters are rejected, and the data store's own rules (`IDataStoreSearchParameterValidator`) run last. Rejecting partial support is stricter than the single-resource create path, which accepts it: a provisioned parameter that silently misses some target types is worse than a failed install.
 
 Reuse: the code-conflict and comparison logic in `SearchParameterValidator` moves unchanged into the internal static `SearchParameterConflictRules`, which takes its dependencies as arguments. The per-request validator and the package handler then share the rules. No lookup abstraction is needed: package members are checked against each other separately (duplicate URL and code), and against the current definitions through the existing definition manager. The per-request validator keeps its `DataActions.Reindex` authorization check, which the package path must not hit because there is no user context.
 
+### Validation-to-write handoff
+
+Refreshing the reference set before validation doesn't keep it unchanged until persistence. The contract between this story and AB#206132:
+
+- The handler captures `ISearchParameterOperations.SearchParamLastUpdated` immediately after the refresh. This is the same reference-set token the single-resource create path passes downstream.
+- The plan carries that token, and `ISearchParameterPackageWriter.WriteAsync` receives it.
+- Inside one serialized SearchParameter change, the writer must reject the write with a retryable conflict, or revalidate, if the reference set has changed since the token. It must commit the complete set atomically. Looping ordinary per-resource writes doesn't satisfy this.
+- The installer checks for cancellation after validation and before any write. A plan's URLs are *planned*; the install result reports a type's URLs as installed only after its plan's `ApplyAsync` succeeds.
+
+This story tests the token handoff, no writer call after a validation failure, and cancellation before writing. Transaction, rollback and race tests belong to AB#206132.
+
 ### Installer and result
 
-`PackageInstaller.InstallAsync` reads the package, sends entries to handlers, validates everything, then hands the validated plans to `ISearchParameterPackageWriter` (implemented in AB#206132).
+`FhirPackageInstaller.InstallAsync` receives a `FhirPackage` from the reader, sends root entries to handlers, validates everything, and only then applies the plans, which call `ISearchParameterPackageWriter` (implemented in AB#206132).
 
-`PackageInstallResult` reports:
+`FhirPackageInstallResult` reports:
 
 - package id, version and integrity;
-- installed SearchParameter canonical URLs;
+- installed canonical URLs, by resource type;
 - ignored resource types with counts;
-- ignored non-resource entries and non-core dependencies;
-- `ToOperationOutcome()`: information issues for ignored content, error issues on failure.
+- non-core dependencies;
+- information issues for all ignored content. On failure, `FhirPackageException` carries every error issue.
 
 Error mapping:
 
@@ -153,7 +175,7 @@ Messages go in `Resources.resx`.
 | 2 | Integrity | SHA-512 SRI only (npm `dist.integrity`), matching Ignixa. SHA-1 `shasum` is not accepted. |
 | 3 | Non-core dependencies | Never resolved. Ignored and reported as information. |
 | 4 | FHIR core version | Must match `SupportedVersion.VersionString` exactly, e.g. `4.0.1`. |
-| 5 | Composite components | Allowed when they resolve to a core parameter, a same-package parameter, **or any existing parameter**; otherwise rejected. This relaxes the work item's original AC6, which allowed only core or same-package, and the work item will be updated. On an empty store the difference never applies. |
+| 5 | Composite components | **Under review.** As agreed so far: allowed when they resolve to a core parameter, a same-package parameter, **or any existing parameter**; otherwise rejected. This relaxes the work item's AC6 and ADR-2608, which allow only core or same-package. The reviewer recommends keeping the closed set, because an immutable package would otherwise validate differently by service and depend on parameters it doesn't own. On an empty store the only existing parameters are system-defined, so the two rules behave the same there. |
 | 6 | SearchParameter `status` | Not an install filter. `draft`, `active`, `retired` and `unknown` all install. |
 | 7 | Limits | Configurable `PackageReaderOptions` with the defaults above. |
 | 8 | SDK | Ignixa.PackageManagement strict extraction, registered unconditionally. Firely.Fhir.Packages rejected. |
@@ -162,17 +184,20 @@ Messages go in `Resources.resx`.
 
 ## Tests
 
-xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory with `TarWriter` and `GZipStream`. One small checked-in package produced by a real `npm pack` proves that partner-pipeline output passes strict extraction. Ignixa's internal checks are not re-tested. For each rejection, the tests assert the `OperationOutcome` and that no handler or writer was called.
+xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory with `TarWriter` and `GZipStream`. One small checked-in package produced by a real `npm pack` proves that partner-pipeline output passes strict extraction. Ignixa's internal checks are not re-tested; the tests cover our integration and observable outcomes. "Nothing was written" is asserted per layer:
+
+- **Reader failures** (integrity, limits, unsafe paths, manifest): neither the installer's handlers nor the writer are called.
+- **Handler validation failures:** the handler necessarily runs, but the writer is never called.
 
 | AC | Tests |
 |---|---|
 | 1 | A valid SearchParameter-only package reads and validates end to end (per FHIR version, through Shared tests) |
 | 2 | StructureDefinition, ValueSet and examples are ignored and named in the result and `OperationOutcome` |
-| 3 | Integrity mismatch; malformed or non-SHA-512 integrity; compressed cap; expanded cap; ratio bomb; entry-count cap; `../x`, `/abs`, `C:\x`, backslash paths; symlink and hardlink entries |
+| 3 | Integrity mismatch; malformed or non-SHA-512 integrity; compressed cap; expanded cap; ratio just below, at and above the limit; entry-count cap; `../x`, `/abs`, `C:\x`, backslash paths; symlink and hardlink entries. Stream and acquired-package inputs give identical results. |
 | 4 | Core dependency mismatch or missing; `package.json` missing or invalid; name or version differs from the descriptor |
-| 5 | One invalid SearchParameter among valid ones: writer never called, all issues reported |
-| 6 | Composite resolves to core, same-package and existing custom parameters; an unresolvable component is rejected |
-| 7 | Duplicate URL or code within the package; collision with a system-defined URL; expression the data store doesn't support |
+| 5 | One invalid SearchParameter among valid ones: writer never called, all issues reported; cancellation after validation: writer never called |
+| 6 | Composite resolves to core and same-package parameters regardless of entry order; an unresolvable component, a composite component, or a component without an expression is rejected. Existing custom parameters depend on decision 5. |
+| 7 | Duplicate URL or code within the package; collision with a system-defined URL; code collisions inherited through `Resource` and `DomainResource`; support-resolver and data-store rejections (writer never called); the reference-set token reaches the writer |
 
 ## Delivery
 

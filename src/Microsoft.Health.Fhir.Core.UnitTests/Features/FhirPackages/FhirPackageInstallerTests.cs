@@ -128,6 +128,46 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         }
 
         [Fact]
+        public async Task GivenCancellationDuringValidation_WhenInstalling_ThenNothingIsWritten()
+        {
+            // Arrange
+            using var cancellationTokenSource = new CancellationTokenSource();
+            IFhirPackageInstallPlan plan = CreatePlan(SearchParameterType, "http://example.org/sp/a");
+            IFhirPackageResourceHandler handler = Substitute.For<IFhirPackageResourceHandler>();
+            handler.ResourceType.Returns(SearchParameterType);
+            handler
+                .ValidateAsync(Arg.Any<IReadOnlyList<FhirPackageEntry>>(), Arg.Any<FhirPackage>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    cancellationTokenSource.Cancel();
+                    return Task.FromResult(plan);
+                });
+            var package = new FhirPackage("example.package", "1.0.0", "sha512-abc", new[] { Entry("package/SearchParameter-a.json", SearchParameterType) });
+
+            // Act
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => CreateInstaller(handler).InstallAsync(package, cancellationTokenSource.Token));
+
+            // Assert
+            await plan.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenTheWriteFails_WhenInstalling_ThenTheFailurePropagatesAndNoResultIsReturned()
+        {
+            // Arrange
+            IFhirPackageInstallPlan plan = CreatePlan(SearchParameterType, "http://example.org/sp/a");
+            plan.ApplyAsync(Arg.Any<CancellationToken>()).Returns<Task>(_ => throw new InvalidOperationException("write failed"));
+            IFhirPackageResourceHandler handler = CreateHandler(SearchParameterType, plan);
+            var package = new FhirPackage("example.package", "1.0.0", "sha512-abc", new[] { Entry("package/SearchParameter-a.json", SearchParameterType) });
+
+            // Act and assert
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => CreateInstaller(handler).InstallAsync(package, CancellationToken.None));
+            Assert.Equal("write failed", exception.Message);
+        }
+
+        [Fact]
         public void GivenTwoHandlersForTheSameResourceType_WhenCreatingTheInstaller_ThenItThrows()
         {
             // Arrange

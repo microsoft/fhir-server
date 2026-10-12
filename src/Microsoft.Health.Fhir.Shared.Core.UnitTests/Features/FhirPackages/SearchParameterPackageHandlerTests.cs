@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         private const string UrlB = "http://example.org/fhir/SearchParameter/patient-b";
         private const string CompositeUrl = "http://example.org/fhir/SearchParameter/patient-a-b";
 
+        private static readonly DateTimeOffset ReferenceSetLastUpdated = new DateTimeOffset(2026, 10, 12, 18, 0, 0, TimeSpan.Zero);
+
         private readonly ISearchParameterDefinitionManager _definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IModelInfoProvider _modelInfoProvider = Substitute.For<IModelInfoProvider>();
@@ -42,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
         public SearchParameterPackageHandlerTests()
         {
+            _searchParameterOperations.SearchParamLastUpdated.Returns(ReferenceSetLastUpdated);
             _supportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
             _dataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true);
         }
@@ -63,13 +66,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             await _searchParameterOperations.Received(1).GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), Arg.Any<bool>());
             Assert.Equal(KnownResourceTypes.SearchParameter, plan.ResourceType);
             Assert.Equal(new[] { UrlA, UrlB }, plan.CanonicalUrls);
-            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default);
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
 
             await plan.ApplyAsync(CancellationToken.None);
 
             await _writer.Received(1).WriteAsync(
                 _package,
                 Arg.Is<IReadOnlyList<ResourceElement>>(x => x.Count == 2 && x.All(r => r.InstanceType == KnownResourceTypes.SearchParameter)),
+                ReferenceSetLastUpdated,
                 Arg.Any<CancellationToken>());
         }
 
@@ -109,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.Equal("Required", issue.Code);
             Assert.Contains("package/SearchParameter-b.json", issue.Diagnostics, StringComparison.Ordinal);
             Assert.Contains("'expression'", issue.Diagnostics, StringComparison.Ordinal);
-            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default);
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
         }
 
         [Fact]
@@ -357,6 +361,99 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             // Assert
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
             Assert.Contains("package/SearchParameter-outer.json", issue.Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenACodeOnResourceThatAnInheritingTypeAlreadyUsesIncompatibly_WhenValidating_ThenItIsRejectedAsAConflict()
+        {
+            // Arrange
+            _modelInfoProvider.GetResourceTypeNames().Returns(new[] { "Patient" });
+            var existing = new SearchParameterInfo("shared", "shared", SearchParamType.String, new Uri("http://example.org/other"), expression: "Patient.name");
+            _definitionManager.TryGetSearchParameter("Patient", "shared", Arg.Any<bool>(), out Arg.Any<SearchParameterInfo>()).Returns(x =>
+            {
+                x[3] = existing;
+                return true;
+            });
+            JsonObject json = SearchParameterNode(UrlA, "shared", expression: "Resource.id");
+            json["base"] = new JsonArray("Resource");
+            var entries = new[] { Entry("package/SearchParameter-a.json", json.ToJsonString()) };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Conflict", issue.Code);
+        }
+
+        [Fact]
+        public async Task GivenACodeOnDomainResourceThatAnInheritingTypeAlreadyUsesIncompatibly_WhenValidating_ThenItIsRejectedAsAConflict()
+        {
+            // Arrange
+            _modelInfoProvider.GetResourceTypeNames().Returns(new[] { "Patient" });
+            _modelInfoProvider.GetTypeForFhirType("Patient").Returns(typeof(Hl7.Fhir.Model.Patient));
+            _modelInfoProvider.GetFhirTypeNameForType(typeof(Hl7.Fhir.Model.Patient).BaseType).Returns(KnownResourceTypes.DomainResource);
+            var existing = new SearchParameterInfo("shared", "shared", SearchParamType.String, new Uri("http://example.org/other"), expression: "Patient.name");
+            _definitionManager.TryGetSearchParameter("Patient", "shared", Arg.Any<bool>(), out Arg.Any<SearchParameterInfo>()).Returns(x =>
+            {
+                x[3] = existing;
+                return true;
+            });
+            JsonObject json = SearchParameterNode(UrlA, "shared", expression: "DomainResource.text");
+            json["base"] = new JsonArray("DomainResource");
+            var entries = new[] { Entry("package/SearchParameter-a.json", json.ToJsonString()) };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Conflict", issue.Code);
+        }
+
+        [Fact]
+        public async Task GivenACompositeListedBeforeItsComponents_WhenValidating_ThenComponentsStillResolve()
+        {
+            // Arrange
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-ab.json", CompositeJson(CompositeUrl, "a-b", UrlA, UrlB)),
+                Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a")),
+                Entry("package/SearchParameter-b.json", SearchParameterJson(UrlB, "b")),
+            };
+
+            // Act
+            IFhirPackageInstallPlan plan = await CreateHandler().ValidateAsync(entries, _package, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(new[] { CompositeUrl, UrlA, UrlB }, plan.CanonicalUrls);
+            _supportResolver.Received(1).IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(i =>
+                i.Url.OriginalString == CompositeUrl && i.Component.All(c => c.ResolvedSearchParameter != null)));
+        }
+
+        [Fact]
+        public async Task GivenACompositeComponentWithoutAnExpression_WhenValidating_ThenItIsRejected()
+        {
+            // Arrange
+            JsonObject composite = JsonNode.Parse(CompositeJson(CompositeUrl, "a-b", UrlA, UrlB)).AsObject();
+            composite["component"][1].AsObject().Remove("expression");
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a")),
+                Entry("package/SearchParameter-b.json", SearchParameterJson(UrlB, "b")),
+                Entry("package/SearchParameter-ab.json", composite.ToJsonString()),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Required", issue.Code);
+            Assert.Contains("package/SearchParameter-ab.json", issue.Diagnostics, StringComparison.Ordinal);
         }
 
         [Theory]
