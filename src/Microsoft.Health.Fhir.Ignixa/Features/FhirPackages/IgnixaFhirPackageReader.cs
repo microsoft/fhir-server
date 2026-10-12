@@ -31,10 +31,13 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
     /// (see ADR-2607). It isn't registered for DI yet; that lands with the writer (AB#206132). No Ignixa type crosses the
     /// <see cref="IFhirPackageReader"/> seam.
     /// </remarks>
-    public sealed partial class IgnixaFhirPackageReader : IFhirPackageReader
+    public sealed class IgnixaFhirPackageReader : IFhirPackageReader
     {
         private const string PackageRootPrefix = "package/";
         private const string Sha512Prefix = "sha512-";
+
+        // Not [GeneratedRegex]: the SDL analyzer build passes its own compiler Features, which stops the source generator from running.
+        private static readonly Regex CorePackageIdRegex = new Regex(@"^hl7\.fhir\.r\d+b?\.core$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly FhirPackageReaderOptions _options;
@@ -300,10 +303,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
             _ => throw new NotSupportedException($"FHIR version '{version}' is not supported for packages."),
         };
 
-        private static bool IsCorePackageId(string packageId) => CorePackageIdRegex().IsMatch(packageId);
-
-        [GeneratedRegex(@"^hl7\.fhir\.r\d+b?\.core$", RegexOptions.CultureInvariant)]
-        private static partial Regex CorePackageIdRegex();
+        private static bool IsCorePackageId(string packageId) => CorePackageIdRegex.IsMatch(packageId);
 
         private List<string> CheckFhirVersionAndDependencies(StrictPackageManifest manifest)
         {
