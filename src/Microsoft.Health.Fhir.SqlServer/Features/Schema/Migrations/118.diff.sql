@@ -33,43 +33,16 @@ IF EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('dbo.CurrentRes
   EXECUTE sp_refreshview 'dbo.CurrentResource'
 GO
 
--- Table types cannot be altered, so the dependent procedures and the types are dropped and recreated in one transaction.
+-- Table types cannot be altered, so each type is dropped and recreated with the procedures that use it, in one transaction per independent group.
+-- Separate groups keep procedures outside a group callable while another group is swapped.
 -- The schema runner executes GO batches in order on one connection and stops at the first error.
+
+-- Read path for GetResources.
 BEGIN TRANSACTION
 GO
 
-IF object_id('dbo.MergeResourcesAndSearchParams') IS NOT NULL DROP PROCEDURE dbo.MergeResourcesAndSearchParams
-IF object_id('dbo.MergeResources') IS NOT NULL DROP PROCEDURE dbo.MergeResources
-IF object_id('dbo.UpdateResourceSearchParams') IS NOT NULL DROP PROCEDURE dbo.UpdateResourceSearchParams
 IF object_id('dbo.GetResources') IS NOT NULL DROP PROCEDURE dbo.GetResources
-IF object_id('dbo.GetResourceVersions') IS NOT NULL DROP PROCEDURE dbo.GetResourceVersions
-IF object_id('dbo.CaptureResourceIdsForChanges') IS NOT NULL DROP PROCEDURE dbo.CaptureResourceIdsForChanges
-IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceList') DROP TYPE dbo.ResourceList
 IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceKeyList') DROP TYPE dbo.ResourceKeyList
-IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceDateKeyList') DROP TYPE dbo.ResourceDateKeyList
-IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceSearchParamList') DROP TYPE dbo.ReferenceSearchParamList
-IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceTokenCompositeSearchParamList') DROP TYPE dbo.ReferenceTokenCompositeSearchParamList
-GO
-
--- Resource versions with raw resource and history flags, passed to the merge and reindex procedures.
-CREATE TYPE dbo.ResourceList AS TABLE
-(
-    ResourceTypeId       smallint            NOT NULL
-   ,ResourceSurrogateId  bigint              NOT NULL
-   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,Version              int                 NOT NULL
-   ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
-   ,IsDeleted            bit                 NOT NULL
-   ,IsHistory            bit                 NOT NULL
-   ,KeepHistory          bit                 NOT NULL
-   ,RawResource          varbinary(max)      NOT NULL
-   ,IsRawResourceMetaSet bit                 NOT NULL
-   ,RequestMethod        varchar(10)         NULL
-   ,SearchParamHash      varchar(64)         NULL
-
-    PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
-   ,UNIQUE (ResourceTypeId, ResourceId, Version)
-)
 GO
 
 -- Resource type, id and optional version to read with GetResources.
@@ -81,99 +54,6 @@ CREATE TYPE dbo.ResourceKeyList AS TABLE
 
     UNIQUE (ResourceTypeId, ResourceId, Version)
 )
-GO
-
--- Resource type, id and surrogate id that GetResourceVersions uses to find version gaps and lastUpdated duplicates.
-CREATE TYPE dbo.ResourceDateKeyList AS TABLE
-(
-    ResourceTypeId       smallint            NOT NULL
-   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,ResourceSurrogateId  bigint              NOT NULL
-
-    PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId)
-)
-GO
-
--- Reference search index rows, passed to the merge and reindex procedures.
-CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
-(
-    ResourceTypeId           smallint NOT NULL
-   ,ResourceSurrogateId      bigint   NOT NULL
-   ,SearchParamId            smallint NOT NULL
-   ,BaseUri                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-   ,ReferenceResourceTypeId  smallint NULL
-   ,ReferenceResourceId      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,ReferenceResourceVersion int      NULL
-
-   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
-)
-GO
-
--- Reference and token composite search index rows, passed to the merge and reindex procedures.
-CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE
-(
-    ResourceTypeId            smallint NOT NULL
-   ,ResourceSurrogateId       bigint   NOT NULL
-   ,SearchParamId             smallint NOT NULL
-   ,BaseUri1                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-   ,ReferenceResourceTypeId1  smallint NULL
-   ,ReferenceResourceId1      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,ReferenceResourceVersion1 int      NULL
-   ,SystemId2                 int      NULL
-   ,Code2                     varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,CodeOverflow2             varchar(max) COLLATE Latin1_General_100_CS_AS NULL
-)
-GO
-
--- Procedures that take the table types above, restored with the same definitions as Sql/Sprocs.
-CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
-AS
-set nocount on
--- This procedure is intended to be called from the MergeResources procedure and relies on its transaction logic
-INSERT INTO dbo.ResourceChangeData 
-       ( ResourceId, ResourceTypeId, ResourceVersion,                                              ResourceChangeTypeId )
-  SELECT ResourceId, ResourceTypeId,         Version, CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
-    FROM @Resources
-    WHERE IsHistory = 0
-GO
-
-CREATE PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
-AS
--- This stored procedure allows to identifiy if version gap is available and checks dups on lastUpdated
-set nocount on
-DECLARE @st datetime = getUTCdate()
-       ,@SP varchar(100) = 'GetResourceVersions'
-       ,@Mode varchar(100) = 'Rows='+convert(varchar,(SELECT count(*) FROM @ResourceDateKeys))
-       ,@DummyTop bigint = 9223372036854775807
-
-BEGIN TRY
-  SELECT A.ResourceTypeId
-        ,A.ResourceId
-        ,A.ResourceSurrogateId
-        -- set version to 0 if there is no gap available, or lastUpdated is already used. It would indicate potential conflict for the caller.
-        ,Version = CASE
-                     -- ResourceSurrogateId is generated from lastUpdated only without extra bits at the end. Need to ckeck interval (0..79999) on resource id level.
-                     WHEN D.Version IS NOT NULL THEN 0 -- input lastUpdated matches stored 
-                     WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > ResourceIndex THEN isnull(U.Version, 1) - ResourceIndex -- gap is available
-                     ELSE isnull(M.Version, 0) - ResourceIndex -- late arrival
-                   END
-        ,MatchedVersion = isnull(D.Version,0)
-        ,MatchedRawResource = D.RawResource
-        -- ResourceIndex allows to deal with more than one late arrival per resource 
-    FROM (SELECT TOP (@DummyTop) *, ResourceIndex = convert(int,row_number() OVER (PARTITION BY ResourceTypeId, ResourceId ORDER BY ResourceSurrogateId DESC)) FROM @ResourceDateKeys) A
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version < 0 ORDER BY B.Version) M -- minus
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) D -- date
-    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
-END TRY
-BEGIN CATCH
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
-  THROW
-END CATCH
 GO
 
 CREATE PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
@@ -257,6 +137,146 @@ BEGIN CATCH
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
+GO
+
+COMMIT TRANSACTION
+GO
+
+-- Version gap and lastUpdated duplicate checks in GetResourceVersions.
+BEGIN TRANSACTION
+GO
+
+IF object_id('dbo.GetResourceVersions') IS NOT NULL DROP PROCEDURE dbo.GetResourceVersions
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceDateKeyList') DROP TYPE dbo.ResourceDateKeyList
+GO
+
+-- Resource type, id and surrogate id that GetResourceVersions uses to find version gaps and lastUpdated duplicates.
+CREATE TYPE dbo.ResourceDateKeyList AS TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceSurrogateId  bigint              NOT NULL
+
+    PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId)
+)
+GO
+
+CREATE PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
+AS
+-- This stored procedure allows to identifiy if version gap is available and checks dups on lastUpdated
+set nocount on
+DECLARE @st datetime = getUTCdate()
+       ,@SP varchar(100) = 'GetResourceVersions'
+       ,@Mode varchar(100) = 'Rows='+convert(varchar,(SELECT count(*) FROM @ResourceDateKeys))
+       ,@DummyTop bigint = 9223372036854775807
+
+BEGIN TRY
+  SELECT A.ResourceTypeId
+        ,A.ResourceId
+        ,A.ResourceSurrogateId
+        -- set version to 0 if there is no gap available, or lastUpdated is already used. It would indicate potential conflict for the caller.
+        ,Version = CASE
+                     -- ResourceSurrogateId is generated from lastUpdated only without extra bits at the end. Need to ckeck interval (0..79999) on resource id level.
+                     WHEN D.Version IS NOT NULL THEN 0 -- input lastUpdated matches stored 
+                     WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > ResourceIndex THEN isnull(U.Version, 1) - ResourceIndex -- gap is available
+                     ELSE isnull(M.Version, 0) - ResourceIndex -- late arrival
+                   END
+        ,MatchedVersion = isnull(D.Version,0)
+        ,MatchedRawResource = D.RawResource
+        -- ResourceIndex allows to deal with more than one late arrival per resource 
+    FROM (SELECT TOP (@DummyTop) *, ResourceIndex = convert(int,row_number() OVER (PARTITION BY ResourceTypeId, ResourceId ORDER BY ResourceSurrogateId DESC)) FROM @ResourceDateKeys) A
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version < 0 ORDER BY B.Version) M -- minus
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) D -- date
+    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+
+COMMIT TRANSACTION
+GO
+
+-- Merge, reindex and change capture. These procedures share ResourceList, so they swap together.
+BEGIN TRANSACTION
+GO
+
+IF object_id('dbo.MergeResourcesAndSearchParams') IS NOT NULL DROP PROCEDURE dbo.MergeResourcesAndSearchParams
+IF object_id('dbo.MergeResources') IS NOT NULL DROP PROCEDURE dbo.MergeResources
+IF object_id('dbo.UpdateResourceSearchParams') IS NOT NULL DROP PROCEDURE dbo.UpdateResourceSearchParams
+IF object_id('dbo.CaptureResourceIdsForChanges') IS NOT NULL DROP PROCEDURE dbo.CaptureResourceIdsForChanges
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceList') DROP TYPE dbo.ResourceList
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceSearchParamList') DROP TYPE dbo.ReferenceSearchParamList
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceTokenCompositeSearchParamList') DROP TYPE dbo.ReferenceTokenCompositeSearchParamList
+GO
+
+-- Resource versions with raw resource and history flags, passed to the merge and reindex procedures.
+CREATE TYPE dbo.ResourceList AS TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceSurrogateId  bigint              NOT NULL
+   ,ResourceId           varchar(128)        COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version              int                 NOT NULL
+   ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
+   ,IsDeleted            bit                 NOT NULL
+   ,IsHistory            bit                 NOT NULL
+   ,KeepHistory          bit                 NOT NULL
+   ,RawResource          varbinary(max)      NOT NULL
+   ,IsRawResourceMetaSet bit                 NOT NULL
+   ,RequestMethod        varchar(10)         NULL
+   ,SearchParamHash      varchar(64)         NULL
+
+    PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
+   ,UNIQUE (ResourceTypeId, ResourceId, Version)
+)
+GO
+
+-- Reference search index rows, passed to the merge and reindex procedures.
+CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
+(
+    ResourceTypeId           smallint NOT NULL
+   ,ResourceSurrogateId      bigint   NOT NULL
+   ,SearchParamId            smallint NOT NULL
+   ,BaseUri                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
+   ,ReferenceResourceTypeId  smallint NULL
+   ,ReferenceResourceId      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceVersion int      NULL
+
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
+)
+GO
+
+-- Reference and token composite search index rows, passed to the merge and reindex procedures.
+CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE
+(
+    ResourceTypeId            smallint NOT NULL
+   ,ResourceSurrogateId       bigint   NOT NULL
+   ,SearchParamId             smallint NOT NULL
+   ,BaseUri1                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
+   ,ReferenceResourceTypeId1  smallint NULL
+   ,ReferenceResourceId1      varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceVersion1 int      NULL
+   ,SystemId2                 int      NULL
+   ,Code2                     varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,CodeOverflow2             varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+)
+GO
+
+CREATE PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
+AS
+set nocount on
+-- This procedure is intended to be called from the MergeResources procedure and relies on its transaction logic
+INSERT INTO dbo.ResourceChangeData 
+       ( ResourceId, ResourceTypeId, ResourceVersion,                                              ResourceChangeTypeId )
+  SELECT ResourceId, ResourceTypeId,         Version, CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
+    FROM @Resources
+    WHERE IsHistory = 0
 GO
 
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
