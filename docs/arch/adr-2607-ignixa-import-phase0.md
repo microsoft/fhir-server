@@ -67,6 +67,15 @@ Phase numbering stays fixed regardless of execution order — the backlog refere
 
 Every migration PR changes exactly one feature seam, preserves Firely as the default until final cutover, has one composition-root decision point, avoids hidden fallback, states its rollback action (typically: reset the provider setting; no data migration required), and states which seams remain Firely-backed. As a review heuristic, we target no more than roughly ten modified production files per seam PR (excluding new provider-project scaffolding and mechanical solution/Docker entries) — exceeding that isn't automatically wrong, but it requires explaining why the seam can't be split further. Phase 0 lands at exactly ten.
 
+### New capabilities built on Ignixa (added 2026-10)
+
+The provider setting and the one-seam-per-PR rules above govern *migrating* an existing Firely-backed seam. A capability that has no Firely implementation isn't a migration. It may use Ignixa directly, registered regardless of `FhirSdkProvider`, as long as:
+
+- its Core contract is SDK-neutral, so no Ignixa type crosses it and both provider settings resolve it;
+- its Ignixa code lives in `Microsoft.Health.Fhir.Ignixa`.
+
+The first case is FHIR NPM package reading (`IgnixaFhirPackageReader`, built on `Ignixa.PackageManagement` strict extraction; see `docs/arch/Proposals/fhir-npm-package-reader-design.md`). It doesn't change which seams `FhirSdkProvider` controls, so the startup log's "migrated seams" list is unaffected.
+
 ## Status
 
 Accepted

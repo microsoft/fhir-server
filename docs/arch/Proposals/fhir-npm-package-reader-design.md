@@ -1,6 +1,6 @@
 # Design: FHIR NPM Package Reader and SearchParameter Installation Handler
 
-**Status**: Proposed (working design for a draft PR; handler, installer and validator refactor implemented, reader pending)
+**Status**: Proposed (implemented in the draft PR; awaiting the published Ignixa 0.6.82 for final verification)
 **Work item**: AB#206131
 **Parent feature**: install SearchParameter resources from FHIR NPM packages when a new service is provisioned
 
@@ -61,7 +61,7 @@ The server is migrating to the Ignixa SDK (ADR-2607). `Ignixa.PackageManagement`
 
 `Firely.Fhir.Packages` was considered and rejected: it extracts to disk, does no SRI verification, has no size, entry-count or path limits, and goes against the migration direction.
 
-**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `PackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/FhirPackages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/FhirPackages/`. It is registered unconditionally, not behind `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 gets a note saying so. The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
+**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `FhirPackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/FhirPackages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/FhirPackages/`. It is registered unconditionally, not behind `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 now has a section saying so ("New capabilities built on Ignixa"). The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
 
 ### Reader: `FhirPackageReader`
 
@@ -69,17 +69,17 @@ The Core-facing seam is SDK-neutral: `IFhirPackageReader.ReadAsync(Stream tarbal
 
 The Ignixa-backed implementation in `Microsoft.Health.Fhir.Ignixa` has two inputs that share one interpretation path:
 
-- **Stream** (the Core seam): buffers up to the compressed cap, verifies SHA-512 (`NpmPackageIntegrity`, `SHA512.HashData`, fixed-time compare), checks the manifest name and version against the descriptor, then calls `ExtractStrictAsync` with limits built from `PackageReaderOptions`. This is the tarball-to-validated-package seam the story requires, not just a test hook.
-- **Acquired package** (internal to the Ignixa integration, used by AB#206133): accepts Ignixa's `AcquiredNpmPackage`, not a bare `StrictPackageExtractionResult`. The guarantees it relies on, and who establishes each:
+- **Stream** (the Core seam): buffers up to the compressed cap, verifies SHA-512 (`NpmPackageIntegrity`, `SHA512.HashData`, fixed-time compare), checks the manifest name and version against the descriptor, then calls `ExtractStrictAsync` with limits built from `FhirPackageReaderOptions`. This is the tarball-to-validated-package seam the story requires, not just a test hook.
+- **Acquired package** (internal to the Ignixa integration; **implemented in AB#206133**): accepts Ignixa's `AcquiredNpmPackage`, not a bare `StrictPackageExtractionResult`. `AcquiredNpmPackage` has an internal constructor, so it can only be produced, and therefore tested, by a real acquisition against a registry fixture. That makes the adapter and its parity tests part of the acquisition story. This story provides the internal `Interpret(StrictPackageExtractionResult, FhirPackageDescriptor)` step both inputs must call, so the post-extraction checks can't diverge. The guarantees the adapter relies on, and who establishes each:
 
 | Guarantee | Established by |
 |---|---|
 | Source is on the allow-list | `NpmPackageAcquirer`, from the deployment-owned `NpmPackageSourcePolicy` (AB#206133) |
 | SHA-512 integrity of the compressed bytes | `NpmPackageAcquirer`; `AcquiredNpmPackage` has an internal constructor, so it can only come from the acquirer. The adapter also checks `AcquiredNpmPackage.Integrity` equals the descriptor's integrity when one is supplied. |
 | Name and version identity | `NpmPackageAcquirer` (metadata and manifest identity); the adapter re-checks the manifest against the descriptor |
-| Configured limits | The policy's `ExtractionLimits` are built from the same `PackageReaderOptions`. The adapter re-asserts the compressed, expanded, entry-count and ratio limits from `Statistics`. Statistics can't prove the per-entry and JSON-depth limits, so the adapter also checks that the policy's `MaxEntryBytes` and `MaxJsonDepth` are no larger than the configured values, and rejects the package if they are. |
+| Configured limits | The policy's `ExtractionLimits` are built from the same `FhirPackageReaderOptions`. The adapter re-asserts the compressed, expanded, entry-count and ratio limits from `Statistics`. Statistics can't prove the per-entry and JSON-depth limits, so the adapter also checks that the policy's `MaxEntryBytes` and `MaxJsonDepth` are no larger than the configured values, and rejects the package if they are. |
 
-Strict extraction alone is never treated as proof of integrity, identity or the configured limits. Parity tests run the same archives through both inputs and require identical `FhirPackage` results or identical rejections.
+Strict extraction alone is never treated as proof of integrity, identity or the configured limits. Parity tests (AB#206133) run the same archives through both inputs and require identical `FhirPackage` results or identical rejections.
 
 Checks run in this order. Each failure produces an actionable `OperationOutcome` before any handler runs:
 
@@ -95,7 +95,7 @@ Checks run in this order. Each failure produces an actionable `OperationOutcome`
    - Resources in sub-folders (`example/`, `other/`, …) are ignored and reported.
    - Metadata JSON such as `.index.json` is expected package content and isn't reported. Non-JSON files are dropped by Ignixa and aren't reported either, because its statistics don't separate them from directories.
 
-`PackageReaderOptions` defaults (configurable; the section name will be agreed with AB#206133):
+`FhirPackageReaderOptions` defaults (configurable; the section name will be agreed with AB#206133):
 
 | Limit | Default |
 |---|---|
@@ -163,7 +163,7 @@ Error mapping:
 
 | Failure | `OperationOutcome` issue code |
 |---|---|
-| Integrity, unsafe path | `security` |
+| Integrity mismatch, malformed or non-SHA-512 expected integrity, unsafe path, link or special entry | `security` |
 | Size, count, ratio or depth limit | `too-costly` |
 | FHIR version mismatch | `not-supported` |
 | Invalid manifest, archive or SearchParameter | `invalid` |
@@ -181,7 +181,7 @@ Messages go in `Resources.resx`.
 | 4 | FHIR core version | Must match `SupportedVersion.VersionString` exactly, e.g. `4.0.1`. |
 | 5 | Composite components | **Decided by the owner (2026-10-12):** a component may resolve to a parameter in the same package, or to any existing definition (core or custom) whose status is `Enabled` or `Supported`. Definitions in any other state are rejected, and the error names the state. The work item's AC6 and ADR-2608 are updated to match. Tradeoff accepted: the same package can validate differently on different services, and in this release the package doesn't record a dependency on a definition it doesn't own, so retiring that definition isn't blocked. On an empty store the only existing definitions are system-defined, so bootstrap installs behave as core-or-same-package. Dependency tracking belongs with the existing-service design. |
 | 6 | SearchParameter `status` | Not an install filter. `draft`, `active`, `retired` and `unknown` all install. |
-| 7 | Limits | Configurable `PackageReaderOptions` with the defaults above. |
+| 7 | Limits | Configurable `FhirPackageReaderOptions` with the defaults above. |
 | 8 | SDK | Ignixa.PackageManagement strict extraction, registered unconditionally. Firely.Fhir.Packages rejected. |
 | 9 | Empty packages | A package with no installable resources at its root is rejected as `invalid`; it almost certainly means a packaging mistake. |
 | 10 | DI registration | Deferred to the PR that provides `ISearchParameterPackageWriter` (AB#206132). Registering the handler earlier would leave a service whose dependency can't be resolved. |
@@ -206,7 +206,7 @@ xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory wit
 ## Delivery
 
 0. **Dependency bump:** `IgnixaPackageVersion` 0.6.74 → 0.6.82 (the release that includes brendankowitz/ignixa-fhir#464). Polly 8.5.2 → 8.6.6. Add `Semver` 3.0.0, a new transitive dependency. `Ignixa.Extensions.FirelySdk5` 0.6.82 still pins Hl7.Fhir 5.11.4, which matches this repo. Re-run the `$import` parity tests, because the shared version property also moves the `$import` packages.
-1. Reader on Ignixa (both entry points, ratio, manifest and core-dependency checks, classification, error mapping), `PackageReaderOptions`, tests, and the ADR-2607 note.
+1. Reader on Ignixa (stream input, the shared `Interpret` step, ratio, manifest and core-dependency checks, classification, error mapping), `FhirPackageReaderOptions`, tests including `npm pack` fixtures and an end-to-end tarball-to-writer test, and the ADR-2607 note. The acquired-package adapter follows in AB#206133.
 2. Handler contracts, SearchParameter set validator, `SearchParameterValidator` refactor, installer and result, tests.
 
 Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#206133 land.
@@ -220,7 +220,10 @@ Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#20
 | `FhirPackageInstaller` and `FhirPackageInstallResult` | Done, with unit tests |
 | `SearchParameterConflictRules` extracted from `SearchParameterValidator` | Done; existing validator tests pass |
 | `SearchParameterPackageHandler` | Done, with unit tests on STU3, R4, R4B and R5 |
-| Ignixa-backed reader | Not started |
+| `IgnixaFhirPackageReader`, `FhirPackageDescriptor`, `FhirPackageReaderOptions` | Done. Tests cover integrity, every limit, ratio boundaries, unsafe paths and links, manifest and core-dependency rules, classification, `npm pack` fixtures for all four FHIR versions, and an end-to-end path from tarball to writer |
+| ADR-2607 note on new Ignixa capabilities | Done |
+| Acquired-package adapter and parity tests | Moved to AB#206133 (needs a real acquisition) |
+| Verification against the published Ignixa 0.6.82 | Pending; the internal proxy is holding the release |
 
 ## Consequences
 
