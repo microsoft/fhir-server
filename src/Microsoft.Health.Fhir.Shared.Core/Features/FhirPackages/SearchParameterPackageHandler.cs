@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 #if !Stu3 && !R4 && !R4B
@@ -34,6 +35,12 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
     public sealed class SearchParameterPackageHandler : IFhirPackageResourceHandler
     {
         private const int MaxUrlLength = 128;
+
+        private static readonly HashSet<SearchParameterStatus> EligibleExternalComponentStatuses = new HashSet<SearchParameterStatus>
+        {
+            SearchParameterStatus.Enabled,
+            SearchParameterStatus.Supported,
+        };
 
         private static readonly FhirJsonParser Parser = new FhirJsonParser();
 
@@ -310,14 +317,26 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 string definitionUrl = components[i].DefinitionUrl.OriginalString;
 
                 // Same-package definitions take precedence; otherwise any current definition (core or existing) may be used.
-                if (!packageDefinitions.TryGetValue(definitionUrl, out SearchParameterInfo target) &&
-                    !_searchParameterDefinitionManager.TryGetSearchParameter(definitionUrl, true, out target))
+                bool inPackage = packageDefinitions.TryGetValue(definitionUrl, out SearchParameterInfo target);
+                if (!inPackage && !_searchParameterDefinitionManager.TryGetSearchParameter(definitionUrl, out target))
                 {
                     AddIssue(
                         issues,
                         candidate,
                         OperationOutcomeConstants.IssueType.Invalid,
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterUnresolvedComponent, i, definitionUrl));
+                    resolved = false;
+                    continue;
+                }
+
+                // A component outside the package must be a live definition; retired or disabled ones would leave the composite unusable.
+                if (!inPackage && !EligibleExternalComponentStatuses.Contains(target.SearchParameterStatus))
+                {
+                    AddIssue(
+                        issues,
+                        candidate,
+                        OperationOutcomeConstants.IssueType.Invalid,
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterIneligibleComponent, i, definitionUrl, target.SearchParameterStatus));
                     resolved = false;
                     continue;
                 }

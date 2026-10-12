@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.FhirPackages;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -295,21 +296,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                 i.Component[1].ResolvedSearchParameter.Url.OriginalString == UrlB));
         }
 
-        [Fact]
-        public async Task GivenACompositeWhoseComponentIsAnExistingSearchParameter_WhenValidating_ThenItIsAccepted()
+        [Theory]
+        [InlineData(SearchParameterStatus.Enabled)]
+        [InlineData(SearchParameterStatus.Supported)]
+        public async Task GivenACompositeWhoseComponentIsAnExistingLiveSearchParameter_WhenValidating_ThenItIsAccepted(SearchParameterStatus status)
         {
             // Arrange
-            const string existingUrl = "http://hl7.org/fhir/SearchParameter/Patient-gender";
-            var existing = new SearchParameterInfo("gender", "gender", SearchParamType.Token, new Uri(existingUrl), expression: "Patient.gender");
-            _definitionManager.TryGetSearchParameter(existingUrl, Arg.Any<bool>(), out Arg.Any<SearchParameterInfo>()).Returns(x =>
+            const string existingUrl = "http://example.org/fhir/SearchParameter/customer-defined";
+            var existing = new SearchParameterInfo("custom", "custom", SearchParamType.Token, new Uri(existingUrl), expression: "Patient.gender")
             {
-                x[2] = existing;
+                SearchParameterStatus = status,
+            };
+            _definitionManager.TryGetSearchParameter(existingUrl, out Arg.Any<SearchParameterInfo>()).Returns(x =>
+            {
+                x[1] = existing;
                 return true;
             });
             var entries = new[]
             {
                 Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a")),
-                Entry("package/SearchParameter-ab.json", CompositeJson(CompositeUrl, "a-gender", UrlA, existingUrl)),
+                Entry("package/SearchParameter-ab.json", CompositeJson(CompositeUrl, "a-custom", UrlA, existingUrl)),
             };
 
             // Act
@@ -319,6 +325,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.Equal(new[] { UrlA, CompositeUrl }, plan.CanonicalUrls);
             _supportResolver.Received(1).IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(i =>
                 i.Url.OriginalString == CompositeUrl && i.Component[1].ResolvedSearchParameter == existing));
+        }
+
+        [Theory]
+        [InlineData(SearchParameterStatus.Disabled)]
+        [InlineData(SearchParameterStatus.PendingDisable)]
+        [InlineData(SearchParameterStatus.PendingDelete)]
+        [InlineData(SearchParameterStatus.PendingHardDelete)]
+        [InlineData(SearchParameterStatus.Deleted)]
+        [InlineData(SearchParameterStatus.Unsupported)]
+        public async Task GivenACompositeWhoseComponentIsAnExistingSearchParameterThatIsNotLive_WhenValidating_ThenItIsRejected(SearchParameterStatus status)
+        {
+            // Arrange
+            const string existingUrl = "http://example.org/fhir/SearchParameter/customer-defined";
+            var existing = new SearchParameterInfo("custom", "custom", SearchParamType.Token, new Uri(existingUrl), expression: "Patient.gender")
+            {
+                SearchParameterStatus = status,
+            };
+            _definitionManager.TryGetSearchParameter(existingUrl, out Arg.Any<SearchParameterInfo>()).Returns(x =>
+            {
+                x[1] = existing;
+                return true;
+            });
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a")),
+                Entry("package/SearchParameter-ab.json", CompositeJson(CompositeUrl, "a-custom", UrlA, existingUrl)),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains($"'{status}'", issue.Diagnostics, StringComparison.Ordinal);
         }
 
         [Fact]

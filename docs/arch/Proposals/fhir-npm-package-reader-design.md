@@ -29,7 +29,7 @@ Design constraints from the feature:
 3. Integrity-hash mismatch, oversized archive, zip-bomb expansion ratio, and path-traversal or absolute-path entries are each rejected before extraction to disk or any write, with an actionable `OperationOutcome`.
 4. A package declaring a mismatched FHIR core dependency is rejected.
 5. A package with one invalid SearchParameter fails the whole set; nothing is persisted.
-6. A composite parameter whose components can't be resolved is rejected (see decision 5).
+6. A composite parameter whose components can't be resolved is rejected (see decision 5; AC6 on the work item has been updated to match).
 7. Unit tests cover every rejection case and the ignored-resource-type reporting.
 
 ## Where this sits in the flow
@@ -127,7 +127,7 @@ It validates the complete set as one unit and collects every failure into one `O
 - **Against the server's reference set**, refreshed first with `GetAndApplySearchParameterUpdates`:
   - no URL collides with a system-defined parameter;
   - code conflicts per base type follow the same `SearchParameterComparer` rules as `SearchParameterValidator`, including `Resource`/`DomainResource` expansion.
-- **Composites:** each `component.definition` must resolve to a core parameter, a parameter in the same package, or an existing parameter in the reference set (decision 5, under review). Same-package resolution doesn't depend on the order of entries in the archive.
+- **Composites:** each `component.definition` must resolve to a parameter in the same package, or to an existing definition (core or custom) whose status is `Enabled` or `Supported` (decision 5). Same-package resolution doesn't depend on the order of entries in the archive, and a component may not itself be a composite.
 - **Data-store support:** `SearchParameterInfo`s are built for the set, with an overlay so same-package composite components resolve, and run through `ISearchParameterSupportResolver.IsSearchParameterSupported`. Unsupported or partially supported parameters are rejected, and the data store's own rules (`IDataStoreSearchParameterValidator`) run last. Rejecting partial support is stricter than the single-resource create path, which accepts it: a provisioned parameter that silently misses some target types is worse than a failed install.
 
 Reuse: the code-conflict and comparison logic in `SearchParameterValidator` moves unchanged into the internal static `SearchParameterConflictRules`, which takes its dependencies as arguments. The per-request validator and the package handler then share the rules. No lookup abstraction is needed: package members are checked against each other separately (duplicate URL and code), and against the current definitions through the existing definition manager. The per-request validator keeps its `DataActions.Reindex` authorization check, which the package path must not hit because there is no user context.
@@ -175,7 +175,7 @@ Messages go in `Resources.resx`.
 | 2 | Integrity | SHA-512 SRI only (npm `dist.integrity`), matching Ignixa. SHA-1 `shasum` is not accepted. |
 | 3 | Non-core dependencies | Never resolved. Ignored and reported as information. |
 | 4 | FHIR core version | Must match `SupportedVersion.VersionString` exactly, e.g. `4.0.1`. |
-| 5 | Composite components | **Under review.** As agreed so far: allowed when they resolve to a core parameter, a same-package parameter, **or any existing parameter**; otherwise rejected. This relaxes the work item's AC6 and ADR-2608, which allow only core or same-package. The reviewer recommends keeping the closed set, because an immutable package would otherwise validate differently by service and depend on parameters it doesn't own. On an empty store the only existing parameters are system-defined, so the two rules behave the same there. |
+| 5 | Composite components | **Decided by the owner (2026-10-12):** a component may resolve to a parameter in the same package, or to any existing definition (core or custom) whose status is `Enabled` or `Supported`. Definitions in any other state are rejected, and the error names the state. The work item's AC6 and ADR-2608 are updated to match. Tradeoff accepted: the same package can validate differently on different services, and in this release the package doesn't record a dependency on a definition it doesn't own, so retiring that definition isn't blocked. On an empty store the only existing definitions are system-defined, so bootstrap installs behave as core-or-same-package. Dependency tracking belongs with the existing-service design. |
 | 6 | SearchParameter `status` | Not an install filter. `draft`, `active`, `retired` and `unknown` all install. |
 | 7 | Limits | Configurable `PackageReaderOptions` with the defaults above. |
 | 8 | SDK | Ignixa.PackageManagement strict extraction, registered unconditionally. Firely.Fhir.Packages rejected. |
@@ -196,7 +196,7 @@ xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory wit
 | 3 | Integrity mismatch; malformed or non-SHA-512 integrity; compressed cap; expanded cap; ratio just below, at and above the limit; entry-count cap; `../x`, `/abs`, `C:\x`, backslash paths; symlink and hardlink entries. Stream and acquired-package inputs give identical results. |
 | 4 | Core dependency mismatch or missing; `package.json` missing or invalid; name or version differs from the descriptor |
 | 5 | One invalid SearchParameter among valid ones: writer never called, all issues reported; cancellation after validation: writer never called |
-| 6 | Composite resolves to core and same-package parameters regardless of entry order; an unresolvable component, a composite component, or a component without an expression is rejected. Existing custom parameters depend on decision 5. |
+| 6 | Composite resolves to same-package parameters regardless of entry order, and to existing `Enabled` or `Supported` definitions. Rejected: an unresolvable component, an existing definition in any other status, a composite component, or a component without an expression. |
 | 7 | Duplicate URL or code within the package; collision with a system-defined URL; code collisions inherited through `Resource` and `DomainResource`; support-resolver and data-store rejections (writer never called); the reference-set token reaches the writer |
 
 ## Delivery

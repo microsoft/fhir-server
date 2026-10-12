@@ -936,4 +936,7 @@
   <data name="FhirPackageSearchParameterInvalidExpression" xml:space="preserve">
     <value>The expression can&apos;t be parsed: {0}</value>
   </data>
+  <data name="FhirPackageSearchParameterIneligibleComponent" xml:space="preserve">
+    <value>Component {0} references &apos;{1}&apos;, whose status is &apos;{2}&apos;. A component outside the package must reference a SearchParameter whose status is Enabled or Supported.</value>
+  </data>
 </root>

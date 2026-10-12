@@ -2302,5 +2302,14 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("FhirPackageSearchParameterInvalidExpression", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Component {0} references &apos;{1}&apos;, whose status is &apos;{2}&apos;. A component outside the package must reference a SearchParameter whose status is Enabled or Supported..
+        /// </summary>
+        internal static string FhirPackageSearchParameterIneligibleComponent {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterIneligibleComponent", resourceCulture);
+            }
+        }
     }
 }
