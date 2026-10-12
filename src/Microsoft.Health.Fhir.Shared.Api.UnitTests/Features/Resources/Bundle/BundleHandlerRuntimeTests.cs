@@ -5,9 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -243,6 +243,69 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 Assert.True(e is FhirTransactionCancelledException);
             }
+        }
+
+        [Fact]
+        public void IsConditionalOperation_WhenIfNoneExistIsSet_ReturnsTrue()
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.POST,
+                Url = "Patient",
+                IfNoneExist = "identifier=12345",
+            };
+
+            Assert.True(request.IsConditionalOperation());
+        }
+
+        [Theory]
+        [InlineData("Patient?identifier=12345")]
+        [InlineData("Patient?_id=abc&name=John")]
+        public void IsConditionalOperation_WhenUrlHasSearchQueryParameters_ReturnsTrue(string url)
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.PUT,
+                Url = url,
+            };
+
+            Assert.True(request.IsConditionalOperation());
+        }
+
+        [Theory]
+        [InlineData("Patient")]
+        [InlineData("Patient/123")]
+        [InlineData(null)]
+        [InlineData("")]
+        public void IsConditionalOperation_WhenUrlHasNoQueryStringAndNoIfNoneExist_ReturnsFalse(string url)
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.PUT,
+                Url = url,
+            };
+
+            Assert.False(request.IsConditionalOperation());
+        }
+
+        [Fact]
+        public void IsConditionalOperation_WhenUrlOnlyContainsNonConditionalQueryParameters_ReturnsFalse()
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.GET,
+                Url = "Patient/123?_meta-history",
+            };
+
+            Assert.False(request.IsConditionalOperation());
+        }
+
+        [Fact]
+        public void IsConditionalOperation_WhenNullRequest_Throws()
+        {
+            RequestComponent request = null;
+
+            Assert.Throws<ArgumentNullException>(() => request.IsConditionalOperation());
         }
 
         private static HttpContext GetHttpContext()

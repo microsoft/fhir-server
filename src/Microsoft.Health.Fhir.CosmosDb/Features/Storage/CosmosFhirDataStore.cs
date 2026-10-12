@@ -249,10 +249,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleParallelOperation =
-                _bundleOrchestrator.IsEnabled &&
-                resource.BundleResourceContext != null &&
-                resource.BundleResourceContext.IsParallelBundle;
+            bool isBundleParallelOperation = resource.BundleResourceContext != null && resource.BundleResourceContext.IsParallelBundle;
 
             if (isBundleParallelOperation)
             {

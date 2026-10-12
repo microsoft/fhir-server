@@ -45,6 +45,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -84,29 +85,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 RequestHeaders = new HeaderDictionary(),
             };
 
-            _fhirRequestContextAccessor = new FhirRequestContextAccessor { RequestContext = _fhirRequestContext };
-
-            IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-
-            var fhirJsonSerializer = new FhirJsonSerializer();
-            var fhirJsonParser = new FhirJsonParser();
-
-            var loggerResourceReferenceResolver = Substitute.For<ILogger<ResourceReferenceResolver>>();
-
-            ISearchService searchService = Substitute.For<ISearchService>();
-            var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser(), loggerResourceReferenceResolver);
-
-            var transactionBundleValidatorLogger = Substitute.For<ILogger<TransactionBundleValidator>>();
-            var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver, transactionBundleValidatorLogger);
-
-            var bundleHttpContextAccessor = new BundleHttpContextAccessor();
-
             _bundleConfiguration = new BundleConfiguration();
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(_bundleConfiguration);
 
-            var bundleOrchestratorLogger = Substitute.For<ILogger<BundleOrchestrator>>();
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, bundleOrchestratorLogger);
+            _transactionHandler = Substitute.For<ITransactionHandler>();
+
+            _profilesResolver = Substitute.For<IProvideProfilesForValidation>();
+            _profilesResolver.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+
+            _mediator = Substitute.For<IMediator>();
+
+            _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
+
+            _fhirRequestContextAccessor = new FhirRequestContextAccessor { RequestContext = _fhirRequestContext };
 
             _httpContext = new DefaultHttpContext()
             {
@@ -117,43 +107,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     PathBase = new PathString("/"),
                 },
             };
-            ConfigureFeatures(_httpContext.Features);
-            httpContextAccessor.HttpContext.Returns(_httpContext);
 
-            _transactionHandler = Substitute.For<ITransactionHandler>();
-
-            var resourceIdProvider = new ResourceIdProvider();
-
-            IAuditEventTypeMapping auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
-
-            _profilesResolver = Substitute.For<IProvideProfilesForValidation>();
-            _profilesResolver.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
-
-            _mediator = Substitute.For<IMediator>();
-
-            _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
-
-            _bundleHandler = new BundleHandler(
-                httpContextAccessor,
-                _fhirRequestContextAccessor,
-                fhirJsonSerializer,
-                fhirJsonParser,
-                _transactionHandler,
-                bundleHttpContextAccessor,
-                bundleOrchestrator,
-                resourceIdProvider,
-                transactionBundleValidator,
-                resourceReferenceResolver,
-                auditEventTypeMapping,
-                bundleOptions,
-                DisabledFhirAuthorizationService.Instance,
-                _profilesResolver,
-                Substitute.For<IModelInfoProvider>(),
-                Substitute.For<ISearchParameterOperations>(),
-                _mediator,
-                _router,
-                _bundleMetricHandler,
-                NullLogger<BundleHandler>.Instance);
+            _bundleHandler = CreateBundleHandler();
         }
 
         [Fact]
@@ -828,8 +783,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleType.Transaction)]
         public async Task GivenABundle_WhenOneRequestProducesA429_ThenCancelledTheRequestDuringDelay(BundleType bundleType)
         {
+            if (bundleType == BundleType.Transaction)
+            {
+                // In case of transactions, we're forcing the bundle to be executed sequentially, otherwise (with parallel) it completes too fast and the cancellation does not happen.
+                _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Sequential;
+            }
+
             const int RetryAfterSeconds = 3;
-            const int CancellationAfterSeconds = 1;
 
             // Set Retry-After header.
             _fhirRequestContext.ResponseHeaders.Add("retry-after", RetryAfterSeconds.ToString());
@@ -869,11 +829,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(CancellationAfterSeconds));
+            tokenSource.CancelAfter(TimeSpan.FromMilliseconds(100));
 
             if (bundleType == BundleType.Batch)
             {
-                BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, tokenSource.Token);
+                BundleHandler bundleHandler = CreateBundleHandler();
+                BundleResponse bundleResponse = await bundleHandler.HandleAsync(bundleRequest, tokenSource.Token);
 
                 Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
                 var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -906,7 +867,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenATransaction_WithMultipleEntriesAndOneFailsWithClientError_ReturnClientErrorNotTimeout(BundleProcessingLogic bundleProcessingLogic)
         {
             _bundleConfiguration.TransactionDefaultProcessingLogic = bundleProcessingLogic;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             // When a transaction bundle has multiple entries processed in parallel, and one entry
             // fails with a client error (400), the transaction should return that client error
@@ -1015,10 +975,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             _bundleConfiguration.EntryLimit = 1;
             _bundleConfiguration.EntryLimitExpanded = 2;
-            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
-            BundleRequest bundleRequest = CreateBundleRequest(2);
+            BundleRequest bundleRequest = CreateBundleRequest(entryCount: 2);
 
-            BundleResponse response = await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
+            // Set the expanded bundle header to true to indicate that the request is an expanded bundle.
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
+
+            // Create a new instance of BundleHandler, as the "Expandable bundles" are identified at the constructor time.
+            BundleHandler bundleHandler = CreateBundleHandler();
+            BundleResponse response = await bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
 
             Assert.NotNull(response);
         }
@@ -1028,11 +992,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             _bundleConfiguration.EntryLimit = 1;
             _bundleConfiguration.EntryLimitExpanded = 2;
-            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
-            BundleRequest bundleRequest = CreateBundleRequest(3);
+            BundleRequest bundleRequest = CreateBundleRequest(entryCount: 3);
 
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
+
+            // Create a new instance of BundleHandler, as the "Expandable bundles" are identified at the constructor time.
+            BundleHandler bundleHandler = CreateBundleHandler();
             BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(
-                () => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+                () => bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
 
             Assert.Equal("The number of entries in the bundle exceeded the configured limit of 2.", exception.Message);
         }
@@ -1045,11 +1012,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             _bundleConfiguration.EntryLimit = 1;
             _bundleConfiguration.EntryLimitExpanded = 3;
-            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = headerValue;
-            BundleRequest bundleRequest = CreateBundleRequest(2);
+            BundleRequest bundleRequest = CreateBundleRequest(entryCount: 2);
 
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = headerValue;
+
+            // Create a new instance of BundleHandler, as the "Expandable bundles" are identified at the constructor time.
+            BundleHandler bundleHandler = CreateBundleHandler();
             BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(
-                () => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+                () => bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
 
             Assert.Equal("The number of entries in the bundle exceeded the configured limit of 1.", exception.Message);
         }
@@ -1142,7 +1112,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
 
             Assert.True(bundleResponse.Info.BundleType == type, "BundleType is different than the expected.");
-            Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
+            if (type == BundleType.Batch)
+            {
+                Assert.True(bundleResponse.Info.ProcessingLogic == _bundleConfiguration.BatchDefaultProcessingLogic, "BundleProcessingLogic is different than the expected.");
+            }
+            else
+            {
+                Assert.True(bundleResponse.Info.ProcessingLogic == _bundleConfiguration.TransactionDefaultProcessingLogic, "BundleProcessingLogic is different than the expected.");
+            }
+
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
@@ -1259,7 +1237,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenABundleRequest_WhenBatchAndParallelProcessing_ThenTheRequestShouldBeProcessedSuccessfully()
         {
             _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -1310,7 +1287,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.PUT)]
         public async Task GivenConflictingOuterBundleContext_WhenProcessingEntries_ThenEachEntryHasIsolatedServerContext(BundleProcessingLogic processingLogic, HTTPVerb httpVerb)
         {
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
             const string contextKey = BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext;
             const string forgedHeader = "{\"HttpVerb\":\"DELETE\"}";
@@ -1409,6 +1385,62 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             featureCollection.Set(httpAuthenticationFeature);
             featureCollection.Set(routingFeature);
+        }
+
+        private BundleHandler CreateBundleHandler()
+        {
+            var fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+
+            IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+
+            var fhirJsonSerializer = new FhirJsonSerializer();
+            var fhirJsonParser = new FhirJsonParser();
+
+            var loggerResourceReferenceResolver = Substitute.For<ILogger<ResourceReferenceResolver>>();
+
+            ISearchService searchService = Substitute.For<ISearchService>();
+            var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser(), loggerResourceReferenceResolver);
+
+            var transactionBundleValidatorLogger = Substitute.For<ILogger<TransactionBundleValidator>>();
+            var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver, transactionBundleValidatorLogger);
+
+            var bundleHttpContextAccessor = new BundleHttpContextAccessor();
+
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(_bundleConfiguration);
+
+            var bundleOrchestratorLogger = Substitute.For<ILogger<BundleOrchestrator>>();
+            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, bundleOrchestratorLogger);
+
+            ConfigureFeatures(_httpContext.Features);
+            httpContextAccessor.HttpContext.Returns(_httpContext);
+
+            var resourceIdProvider = new ResourceIdProvider();
+
+            IAuditEventTypeMapping auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
+
+            return new BundleHandler(
+                fhirRuntimeConfiguration,
+                httpContextAccessor,
+                _fhirRequestContextAccessor,
+                fhirJsonSerializer,
+                fhirJsonParser,
+                _transactionHandler,
+                bundleHttpContextAccessor,
+                bundleOrchestrator,
+                resourceIdProvider,
+                transactionBundleValidator,
+                resourceReferenceResolver,
+                auditEventTypeMapping,
+                bundleOptions,
+                DisabledFhirAuthorizationService.Instance,
+                _profilesResolver,
+                Substitute.For<IModelInfoProvider>(),
+                Substitute.For<ISearchParameterOperations>(),
+                _mediator,
+                _router,
+                _bundleMetricHandler,
+                NullLogger<BundleHandler>.Instance);
         }
     }
 }
