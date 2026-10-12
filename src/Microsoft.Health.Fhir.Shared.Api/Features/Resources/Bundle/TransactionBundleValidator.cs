@@ -23,11 +23,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public class TransactionBundleValidator
     {
-        private static readonly string[] NonConditionalQueryParameters = new string[]
-        {
-            KnownQueryParameterNames.MetaHistory,
-        };
-
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly ILogger<TransactionBundleValidator> _logger;
 
@@ -177,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var queryString = request.Url.Split('?').Last();
                 var queryParameters = queryString.Split('&', StringSplitOptions.RemoveEmptyEntries).Select((string parameter) => parameter.Split('=', 2)[0]);
 
-                if (queryParameters.Any(param => !NonConditionalQueryParameters.Contains(param)))
+                if (queryParameters.Any(param => !BundleHandlerRuntime.NonConditionalQueryParameters.Contains(param)))
                 {
                     conditionalRequest = true;
                 }

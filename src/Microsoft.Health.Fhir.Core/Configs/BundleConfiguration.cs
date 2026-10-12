@@ -30,5 +30,20 @@ namespace Microsoft.Health.Fhir.Core.Configs
         // The default bundle processing logic for Batches is set to Sequential, as current customer can have resource identities overlaps
         // (including resolved identities from conditional update/delete, which are not allowed in a transaction bundle).
         public BundleProcessingLogic BatchDefaultProcessingLogic { get; set; } = BundleProcessingLogic.Sequential;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether conditional-operation throttling is enabled.
+        /// </summary>
+        public bool IsConditionalOperationThrottlingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the number of conditional operations dispatched between pacing delays in a parallel bundle.
+        /// </summary>
+        public int ConditionalOperationGroupSize { get; set; } = 50;
+
+        /// <summary>
+        /// Gets or sets the pacing delay, in milliseconds, between groups of conditional operations.
+        /// </summary>
+        public int ConditionalOperationGroupDelayInMilliseconds { get; set; } = 7;
     }
 }

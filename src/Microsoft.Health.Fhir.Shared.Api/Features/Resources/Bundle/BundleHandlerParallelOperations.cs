@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -179,10 +180,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                 };
 
+                int conditionalOperationsCounter = 0;
                 List<Task> requestsPerResource = new List<Task>();
                 foreach (ResourceExecutionContext resourceContext in resources)
                 {
                     requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
+
+                    if (_isConditionalOperationThrottlingEnabled && resourceContext.IsConditionalOperation)
+                    {
+                        conditionalOperationsCounter++;
+                        if (conditionalOperationsCounter % _bundleConfiguration.ConditionalOperationGroupSize == 0)
+                        {
+                            _logger.LogInformation($"BundleHandler - Conditional Operation Throttling.");
+                            await Task.Delay(_bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds, CancellationToken.None);
+                        }
+                    }
                 }
 
                 Task parallelRequests = null;
@@ -508,13 +520,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId, bool isConditionalOperation)
             {
                 HttpVerb = httpVerb;
                 ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
                 Context = context;
                 Index = index;
                 PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
+                IsConditionalOperation = isConditionalOperation;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
@@ -526,6 +539,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public int Index { get; private set; }
 
             public string PersistedId { get; private set; }
+
+            public bool IsConditionalOperation { get; private set; }
         }
 
         private sealed class BundleExecutionContext

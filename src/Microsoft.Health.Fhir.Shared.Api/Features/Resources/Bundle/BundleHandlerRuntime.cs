@@ -14,6 +14,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -25,6 +26,39 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public static class BundleHandlerRuntime
     {
+        /// <summary>
+        /// Query parameters that do not make a bundle entry conditional.
+        /// </summary>
+        public static readonly string[] NonConditionalQueryParameters = new string[]
+        {
+            KnownQueryParameterNames.MetaHistory,
+        };
+
+        /// <summary>
+        /// Determines whether a bundle entry represents a conditional operation.
+        /// </summary>
+        /// <param name="request">The bundle entry's request component.</param>
+        /// <returns>Whether the request has conditional search criteria.</returns>
+        public static bool IsConditionalOperation(this RequestComponent request)
+        {
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            if (!string.IsNullOrWhiteSpace(request.IfNoneExist))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Url) || !request.Url.Contains('?', StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string queryString = request.Url.Split('?').Last();
+            IEnumerable<string> queryParameters = queryString.Split('&', StringSplitOptions.RemoveEmptyEntries).Select(parameter => parameter.Split('=', 2)[0]);
+
+            return queryParameters.Any(parameter => !NonConditionalQueryParameters.Contains(parameter));
+        }
+
         /// <summary>
         /// Delay logic used in case of retry operations.
         /// </summary>

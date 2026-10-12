@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -45,6 +46,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -134,6 +136,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
 
             _bundleHandler = new BundleHandler(
+                new AzureHealthDataServicesRuntimeConfiguration(),
                 httpContextAccessor,
                 _fhirRequestContextAccessor,
                 fhirJsonSerializer,
@@ -1301,6 +1304,65 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+        }
+
+        [Theory]
+        [InlineData(BundleType.Batch, true)]
+        [InlineData(BundleType.Transaction, true)]
+        [InlineData(BundleType.Batch, false)]
+        [InlineData(BundleType.Transaction, false)]
+        public async Task GivenAParallelBundle_WhenConditionalOperationsReachTheGroupSize_ThenThrottlingRespectsTheEnabledFlag(BundleType bundleType, bool isThrottlingEnabled)
+        {
+            Assert.True(_bundleConfiguration.IsConditionalOperationThrottlingEnabled);
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+            _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.IsConditionalOperationThrottlingEnabled = isThrottlingEnabled;
+            _bundleConfiguration.ConditionalOperationGroupSize = 2;
+            _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds = isThrottlingEnabled ? 50 : 5000;
+            var dispatchTimes = new List<long>();
+            var stopwatch = Stopwatch.StartNew();
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = bundleType,
+                Entry = Enumerable.Range(0, 4)
+                    .Select(index => new EntryComponent
+                    {
+                        Resource = new Patient(),
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                            IfNoneExist = index == 1 || index == 2 ? $"identifier={index}" : null,
+                        },
+                    })
+                    .ToList(),
+            };
+            _router.When(router => router.RouteAsync(Arg.Any<RouteContext>())).Do(info =>
+            {
+                info.Arg<RouteContext>().Handler = context =>
+                {
+                    dispatchTimes.Add(stopwatch.ElapsedMilliseconds);
+                    context.Response.StatusCode = StatusCodes.Status200OK;
+                    return Task.CompletedTask;
+                };
+            });
+
+            BundleResponse response = await _bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+
+            Assert.Equal(BundleProcessingLogic.Parallel, response.Info.ProcessingLogic);
+            Assert.Equal(4, dispatchTimes.Count);
+            long dispatchInterval = dispatchTimes[3] - dispatchTimes[2];
+            if (isThrottlingEnabled)
+            {
+                Assert.True(dispatchInterval >= _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds);
+            }
+            else
+            {
+                Assert.True(dispatchInterval < _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds);
+            }
+
+            Assert.All(response.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry, entry => Assert.Equal("200", entry.Response.Status));
         }
 
         [Theory]
