@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -18,7 +17,6 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -29,7 +27,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Core.Registration;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -148,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         };
 
                         responseBundle.Entry[resourceExecutionContext.Index] = entry;
-                        statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, HttpStatusCode.Conflict, watch.Elapsed);
+                        statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, HttpStatusCode.Conflict, watch.Elapsed, resourceExecutionContext.IsConditionalOperation);
                     }
                     catch (BaseFhirTransactionException ex)
                     {
@@ -191,6 +188,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         conditionalOperationsCounter++;
                         if (conditionalOperationsCounter % _bundleConfiguration.ConditionalOperationGroupSize == 0)
                         {
+                            _totalThrottledDelays++;
                             _logger.LogInformation($"BundleHandler - Conditional Operation Throttling.");
                             await Task.Delay(_bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds, CancellationToken.None);
                         }
@@ -455,7 +453,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent, bundleExecutionContext);
-            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, httpStatusCode, watch.Elapsed);
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, httpStatusCode, watch.Elapsed, resourceExecutionContext.IsConditionalOperation);
 
             if (bundleExecutionContext.BundleType == BundleType.Transaction && entryComponent.Response.Outcome != null)
             {
@@ -476,7 +474,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             const HttpStatusCode cancelledRequestHttpStatusCode = HttpStatusCode.RequestTimeout;
             EntryComponent entryComponent = CreateEntryComponentForCancelledRequest(httpContext);
 
-            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, cancelledRequestHttpStatusCode, watch.Elapsed);
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, cancelledRequestHttpStatusCode, watch.Elapsed, resourceExecutionContext.IsConditionalOperation);
 
             if (bundleType.Equals(BundleType.Transaction))
             {

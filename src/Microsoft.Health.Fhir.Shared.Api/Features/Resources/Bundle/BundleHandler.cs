@@ -113,6 +113,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         // Total number of resolved references in the bundle.
         private int _totalResolvedReferences = 0;
 
+        // Total number of throttled delays.
+        private int _totalThrottledDelays = 0;
+
         /// <summary>
         /// Headers to propagate from the inner actions to the outer HTTP request.
         /// </summary>
@@ -859,7 +862,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent);
-                statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, httpStatusCode, watch.Elapsed);
+                statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, httpStatusCode, watch.Elapsed, resourceContext.IsConditionalOperation);
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
@@ -1159,6 +1162,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private void FinishCollectingBundleStatistics(BundleHandlerStatistics statistics)
         {
+            // Fill up final execution numbers.
+            statistics.ThrottlingDelays = _totalThrottledDelays;
+
+            // Stop collecting results.
             statistics.StopCollectingResults();
 
             try

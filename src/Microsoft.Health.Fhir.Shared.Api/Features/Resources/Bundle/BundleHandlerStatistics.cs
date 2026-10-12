@@ -63,6 +63,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public bool Cancelled { get; private set; }
 
+        public int ThrottlingDelays { get; set; }
+
         public override string GetLoggingCategory() => LoggingCategory;
 
         public override string GetStatisticsAsJson()
@@ -97,6 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 customerErrors = customerFailedRequests,
                 statistics = finalStatistics,
                 resourceTypes = resourceTypesStatistics,
+                throttlingDelays = ThrottlingDelays,
                 references = new
                 {
                     identifiers = GeneratedIdentifiers,
@@ -107,9 +110,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return serializableEntity.ToString();
         }
 
-        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, string resourceType, int index, HttpStatusCode httpStatusCode, TimeSpan elapsedTime)
+        public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, string resourceType, int index, HttpStatusCode httpStatusCode, TimeSpan elapsedTime, bool isConditionalOperation)
         {
-            _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, ResourceType = resourceType, Index = index, HttpStatusCode = (int)httpStatusCode, ElapsedTime = elapsedTime });
+            _entries.Add(new BundleHandlerStatisticEntry()
+            {
+                HttpVerb = httpVerb,
+                ResourceType = resourceType,
+                Index = index,
+                HttpStatusCode = (int)httpStatusCode,
+                ElapsedTime = elapsedTime,
+                IsConditionalOperation = isConditionalOperation,
+            });
         }
 
         public void SetBundleAsFailedByClientError()
@@ -133,6 +144,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public int HttpStatusCode { get; set; }
 
             public TimeSpan ElapsedTime { get; set; }
+
+            public bool IsConditionalOperation { get; set; }
         }
     }
 }
