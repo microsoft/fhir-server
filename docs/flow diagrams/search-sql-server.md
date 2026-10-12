@@ -98,3 +98,46 @@ not a request header or per-search setting.
 connection-local SQL tables, compares result IDs with the original join shape, and measures rows at
 each traversal. Its 128 matching reference rows reproduce over two million rows at the third
 traversal before the change; each traversal now produces only 130 rows.
+
+### Why not DISTINCT on every chained CTE?
+
+An independent restart consumes only `(T1, Sid1)` source existence. Inside a chain, the live
+relation is `(T1, Sid1, T2, Sid2)`: both the root and the current target must survive.
+Forward, reverse (`_has`), and deeper nested links continue from `T2`/`Sid2`; grouped
+target predicates must hold on that same target. Two targets of one root cannot be
+collapsed into one target binding. Conversely, multiple paths reaching the same complete
+root/target tuple do not add resource matches. `SELECT DISTINCT` over the complete tuple
+can preserve this relation, but source-key-only deduplication cannot replace it.
+
+Broader deduplication is not necessarily faster. A local relational-fixture comparison
+used three nested reference hops followed by a token filter and a distinct-root count.
+Reference edges were unique; matching token rows could differ by system. The comparison
+used SQL Server 2025 Express LocalDB, connection-local indexed tables, `MAXDOP 1`, one
+warm-up and nine measured executions per variant, with rotating execution order:
+
+| Fixture | Existing joins: rows / median CPU | DISTINCT on every chain and target-filter tuple: rows / median CPU | DISTINCT on nested-hop predecessor tuples only: rows / median CPU |
+|---|---|---|---|
+| 100 roots, 64-by-64 converging paths, 16 matching token systems | 6,553,600 / 12,265 ms | 100 / 94 ms | 102,400 / 235 ms |
+| 20,000 roots, one path and one token each | 20,000 / 125 ms | 20,000 / 157 ms | 20,000 / 141 ms |
+| 100 roots, 64 paths converging at the last hop, one token each | 6,400 / 31 ms | 100 / 16 ms | 6,400 / 31 ms |
+
+Rows are terminal relation rows, not returned resources; all variants retained the same
+distinct-root counts. On the duplicate-free fixture, blanket deduplication increased
+median execution CPU by about 26% and elapsed time from 423 to 483 ms. Predecessor-only
+deduplication missed late convergence; its duplicate-free elapsed time improved to
+242 ms despite higher CPU, illustrating that placement also changes the execution plan.
+
+These are hand-authored relational fixtures matching the generator's key projections,
+not generated customer queries or a production benchmark. They do not reproduce production
+indexes, statistics, data distributions, concurrent workload, or optimizer retry behavior.
+Small timings are also subject to SQL Server CPU timer granularity. Existing value-free
+HTTP query-shape frequencies do not measure converging paths or matching index cardinality.
+For example, independent single-hop OrganizationAffiliation chains account for about 74%
+of the previously collected multi-chain candidate requests, but that does not establish
+their runtime multiplicity.
+
+Therefore the default-on optimization remains limited to source-existence intersections
+at independent restarts. No broader chain/target-filter DISTINCT is enabled. The small-query
+EXISTS path, nested/grouped bindings, UNION/SMART handling, count/paging/sort/include
+generation, and flag-off SQL remain unchanged. A broader placement needs representative
+cardinality and execution-plan evidence rather than query shape alone.
