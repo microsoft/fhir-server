@@ -118,6 +118,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
             {
                 throw new InvalidOperationException($"Vector search distance metric must be '{SupportedDistanceMetric}'.");
             }
+
+            if (!Enum.IsDefined(Query.ApproximateSearch))
+            {
+                throw new InvalidOperationException($"Vector search approximate search mode '{Query.ApproximateSearch}' is not supported.");
+            }
+
+            if (Query.ApproximateCandidateMultiplier < 1 || Query.ApproximateCandidateMultiplier > VectorSearchQueryConfiguration.MaximumApproximateCandidateMultiplier)
+            {
+                throw new InvalidOperationException($"Vector search approximate candidate multiplier must be between 1 and {VectorSearchQueryConfiguration.MaximumApproximateCandidateMultiplier}.");
+            }
         }
 
         /// <summary>

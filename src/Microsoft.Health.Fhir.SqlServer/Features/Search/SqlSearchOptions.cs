@@ -42,6 +42,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public PreparedVectorSearchQuery PreparedVectorQuery { get; set; }
 
         /// <summary>
+        /// Gets or sets the vector query configuration decision to use approximate retrieval: how many nearest chunks to
+        /// examine per requested result, or null when the query must rank exactly.
+        /// </summary>
+        internal int? ApproximateVectorCandidateMultiplier { get; set; }
+
+        /// <summary>
         /// Gets or sets the validated semantic continuation token, or null for the first page.
         /// </summary>
         internal SemanticSearchContinuationToken SemanticContinuationToken { get; set; }

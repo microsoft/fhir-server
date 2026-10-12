@@ -99,8 +99,11 @@ standard `Bundle.entry.search.score`. Semantic chained parameters are rejected b
   unrelated `GetMostRecentJob` and configurable resource ID length migrations, which such databases
   would otherwise skip.
 - Persisted passage bytes are not consumed by score-only MVP queries.
-- DiskANN remains a future, explicit approximate-query choice; the current schema does not certify
-  the composite-key and PAGE-compressed layout on every Azure SQL tier or index version.
+- DiskANN is an explicit opt-in (`Query:ApproximateSearch`, disabled by default): the application detects a
+  version-3 cosine index created by an operator and uses approximate retrieval for relevance-ordered paging,
+  while counts and explicit sorts stay exact. Approximate results are not guaranteed identical to exact ranking.
+  The schema still does not certify the composite-key and PAGE-compressed layout on every Azure SQL tier or
+  index version.
 - Enabled deployments make synchronous embedding calls during writes, reindex, transaction recovery,
   and semantic queries, so Foundry availability participates directly in those failure modes.
 - Binary/PDF extraction, linked-resource resolution, provenance, evidence output, source refresh jobs,

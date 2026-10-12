@@ -45,6 +45,25 @@ Example configuration:
 Invalid enabled configuration fails during service registration. When the feature is disabled,
 semantic services are not registered and no embedding request is made.
 
+### Optional approximate retrieval (DiskANN)
+
+Queries rank with exact cosine distance by default. If an operator has created a version-3 cosine DiskANN
+index on `dbo.VectorSearchParam.Embedding`, set `Query:ApproximateSearch` to `Auto` and the server detects
+and uses it for relevance-ordered queries (default order or `_sort=_score`); otherwise it stays exact:
+
+```json
+"Query": {
+  "DistanceMetric": "cosine",
+  "ApproximateSearch": "Auto",
+  "ApproximateCandidateMultiplier": 10
+}
+```
+
+Each page ranks at most `(_count + 1) x ApproximateCandidateMultiplier` nearest chunks (1 to 100), so results
+are approximate. `_summary=count` and explicit sorts remain exact. The server never creates or drops the index
+and re-checks for it every five minutes. See [SQL vector index compatibility](SqlVectorIndexCompatibility.md#opt-in-approximate-search)
+for detection, the contract and operations.
+
 ## SearchParameter extension
 
 The extension URL is

@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -62,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly IVectorSearchQueryProcessor _vectorSearchQueryProcessor;
+        private readonly FakeApproximateVectorSearchProvider _approximateVectorSearchProvider;
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
 
@@ -81,6 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
             _vectorSearchQueryProcessor = Substitute.For<IVectorSearchQueryProcessor>();
+            _approximateVectorSearchProvider = new FakeApproximateVectorSearchProvider();
 
             var config = new SqlServerDataStoreConfiguration
             {
@@ -127,7 +130,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
                 NullLogger<SqlServerSearchService>.Instance,
-                _vectorSearchQueryProcessor);
+                _vectorSearchQueryProcessor,
+                _approximateVectorSearchProvider);
         }
 
         [Theory]
@@ -370,6 +374,43 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.Same(expectedException, exception);
             await _vectorSearchQueryProcessor.Received(1).PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenPreparedSemanticQuery_WhenSearching_ThenApproximateSearchDecisionIsRequested()
+        {
+            // Arrange
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var expectedException = new InvalidOperationException("Stop after the approximate search decision.");
+            var searchOptions = new SearchOptions
+            {
+                MaxItemCount = 10,
+                Expression = new VectorSearchExpression(vectorSearchParameter, "breathing difficulty"),
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            };
+            _vectorSearchQueryProcessor
+                .PrepareAsync(searchOptions.Expression, Arg.Any<CancellationToken>())
+                .Returns(new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 3,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray(),
+                    minimumScore: 0.65m));
+            _approximateVectorSearchProvider.Exception = expectedException;
+
+            // Act
+            InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _searchService.SearchAsync(searchOptions, CancellationToken.None));
+
+            // Assert
+            Assert.Same(expectedException, exception);
+            Assert.Equal(1, _approximateVectorSearchProvider.CallCount);
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
         }
 
         [Theory]
@@ -728,6 +769,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     return union.Expressions.Any(e => ContainsPredicate(e, predicate));
                 default:
                     return false;
+            }
+        }
+
+        private sealed class FakeApproximateVectorSearchProvider : IApproximateVectorSearchProvider
+        {
+            public int CallCount { get; private set; }
+
+            public Exception Exception { get; set; }
+
+            public Task<int?> GetCandidateMultiplierAsync(CancellationToken cancellationToken)
+            {
+                CallCount++;
+                return Exception == null ? Task.FromResult<int?>(null) : Task.FromException<int?>(Exception);
             }
         }
     }

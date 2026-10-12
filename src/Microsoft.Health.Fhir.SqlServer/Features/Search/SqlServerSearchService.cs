@@ -40,6 +40,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
@@ -97,6 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly IVectorSearchQueryProcessor _vectorSearchQueryProcessor;
+        private readonly IApproximateVectorSearchProvider _approximateVectorSearchProvider;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -171,7 +173,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IQueryPlanReuseChecker queryPlanReuseChecker,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SqlServerSearchService> logger,
-            IVectorSearchQueryProcessor vectorSearchQueryProcessor = null)
+            IVectorSearchQueryProcessor vectorSearchQueryProcessor = null,
+            IApproximateVectorSearchProvider approximateVectorSearchProvider = null)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
@@ -202,6 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
             _vectorSearchQueryProcessor = vectorSearchQueryProcessor;
+            _approximateVectorSearchProvider = approximateVectorSearchProvider;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -245,6 +249,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (_vectorSearchQueryProcessor != null)
             {
                 sqlSearchOptions.PreparedVectorQuery = await _vectorSearchQueryProcessor.PrepareAsync(sqlSearchOptions.Expression, cancellationToken);
+                if (sqlSearchOptions.PreparedVectorQuery != null && _approximateVectorSearchProvider != null)
+                {
+                    sqlSearchOptions.ApproximateVectorCandidateMultiplier = await _approximateVectorSearchProvider.GetCandidateMultiplierAsync(cancellationToken);
+                }
             }
 
             if (sqlSearchOptions.IsIncludesOperation)

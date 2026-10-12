@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -32,6 +34,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Equal(800, configuration.Indexing.ChunkSizeTokens);
             Assert.Equal(100, configuration.Indexing.ChunkOverlapTokens);
             Assert.Equal(VectorSearchConfiguration.SupportedDistanceMetric, configuration.Query.DistanceMetric);
+            Assert.Equal(VectorSearchApproximateMode.Disabled, configuration.Query.ApproximateSearch);
+            Assert.Equal(10, configuration.Query.ApproximateCandidateMultiplier);
         }
 
         [Fact]
@@ -264,6 +268,79 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
 
             // Assert
             Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Fact]
+        public void GivenEnabledConfigurationWithUnsupportedApproximateSearchMode_WhenValidated_ThenValidationFails()
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Query.ApproximateSearch = (VectorSearchApproximateMode)99;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(VectorSearchQueryConfiguration.MaximumApproximateCandidateMultiplier + 1)]
+        public void GivenEnabledConfigurationWithInvalidApproximateCandidateMultiplier_WhenValidated_ThenValidationFails(int multiplier)
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Query.ApproximateSearch = VectorSearchApproximateMode.Auto;
+            configuration.Query.ApproximateCandidateMultiplier = multiplier;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            Assert.Throws<InvalidOperationException>(validate);
+        }
+
+        [Theory]
+        [InlineData(VectorSearchApproximateMode.Disabled, 1)]
+        [InlineData(VectorSearchApproximateMode.Auto, 1)]
+        [InlineData(VectorSearchApproximateMode.Auto, VectorSearchQueryConfiguration.MaximumApproximateCandidateMultiplier)]
+        public void GivenEnabledConfigurationWithApproximateSettingsAtTheirLimits_WhenValidated_ThenValidationSucceeds(
+            VectorSearchApproximateMode mode,
+            int multiplier)
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Query.ApproximateSearch = mode;
+            configuration.Query.ApproximateCandidateMultiplier = multiplier;
+
+            // Act
+            Exception exception = Record.Exception(configuration.Validate);
+
+            // Assert
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void GivenApproximateSearchConfigurationValues_WhenBoundFromConfiguration_ThenTheyAreApplied()
+        {
+            // Arrange
+            IConfiguration source = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["Query:ApproximateSearch"] = "Auto",
+                    ["Query:ApproximateCandidateMultiplier"] = "25",
+                })
+                .Build();
+            var configuration = new VectorSearchConfiguration();
+
+            // Act
+            source.Bind(configuration);
+
+            // Assert
+            Assert.Equal(VectorSearchApproximateMode.Auto, configuration.Query.ApproximateSearch);
+            Assert.Equal(25, configuration.Query.ApproximateCandidateMultiplier);
         }
 
         private static VectorSearchConfiguration CreateValidConfiguration()

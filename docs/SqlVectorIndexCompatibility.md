@@ -1,8 +1,10 @@
 # Azure SQL vector index compatibility
 
-Documentation and execution assessed on **2026-09-21**. This assessment accompanies schema V119 and distinguishes
-native vector storage from future approximate nearest-neighbor indexing. The current MVP uses exact
-cosine ranking and does not install or enable a DiskANN index.
+Documentation and execution assessed on **2026-09-21**; the opt-in approximate query path was validated on
+**2026-10-12** (see [Opt-in approximate search](#opt-in-approximate-search)). This assessment accompanies
+schema V119 and distinguishes native vector storage from approximate nearest-neighbor indexing. By
+default the MVP uses exact cosine ranking. The migration never installs a DiskANN index; an operator creates
+one, and a setting lets the application detect and use it.
 
 ## Minimum engine requirement
 
@@ -108,9 +110,9 @@ ANN quality was measured, not certified. Ten filtered recall-at-10 probes averag
 two-dimensional circle padded to 1,536 dimensions. A second deterministic fixture with 50 dense
 1,536-dimensional clusters averaged **1.0** across ten probes, and the indexed lifecycle checks
 passed again. These small synthetic results are workload-dependent, not a production recall or
-performance guarantee. No stale-index setting was enabled. The production MVP continues to use
-exact distance queries; enabling an approximate FHIR query path requires separate acceptance of
-recall, authorization, resource-level deduplication and paging.
+performance guarantee. No stale-index setting was enabled. Approximate retrieval is therefore opt-in
+(`Query:ApproximateSearch`, disabled by default) and the exact path remains the default; see
+[Opt-in approximate search](#opt-in-approximate-search) for the contract that was accepted.
 
 Additional references:
 
@@ -140,13 +142,64 @@ General Purpose and Hyperscale databases:
    chunk retrieval is not automatically equivalent to exact ranking of distinct FHIR resources.
 
 Latest-format queries use `SELECT TOP (N) WITH APPROXIMATE` with `VECTOR_SEARCH`; the legacy `TOP_N`
-argument is not supported by version 3 indexes. Adding an index alone does not change the current
-`VECTOR_DISTANCE` query into approximate search or establish an acceptable recall contract.
+argument is not supported by version 3 indexes. Adding an index alone does not change the exact
+`VECTOR_DISTANCE` query into approximate search; that requires the opt-in setting below.
 
 Index creation belongs to a separate populated-database enablement operation, not the empty-table
 V119 migration. Current limitations also prohibit `TRUNCATE TABLE` while a vector index exists and
 deployment of vector indexes through DacPac/BACPAC; operational import/export and rebuild procedures
 must account for those restrictions. This document does not authorize changes to shared databases.
+
+## Opt-in approximate search
+
+Microsoft's documentation (checked 2026-10-12) lists vector indexes and `VECTOR_SEARCH` as generally
+available on Azure SQL Database and in preview on SQL Server 2025. The application does not create or drop
+the index; it only decides whether to use one.
+
+```json
+"Query": {
+  "DistanceMetric": "cosine",
+  "ApproximateSearch": "Auto",
+  "ApproximateCandidateMultiplier": 10
+}
+```
+
+| Setting | Meaning |
+|---|---|
+| `ApproximateSearch` | `Disabled` (default) always ranks exactly. `Auto` uses the index when it is detected. Ignored unless `VectorSearch:Enabled` is true. |
+| `ApproximateCandidateMultiplier` | A page examines up to `(_count + 1) x multiplier` nearest chunks (1 to 100, default 10). |
+
+**Detection.** The first semantic query probes `sys.vector_indexes` for an enabled DiskANN index on
+`dbo.VectorSearchParam.Embedding` whose metric is cosine and whose build version is 3 or later. A positive
+result is kept for the life of the process. A negative result, or a failed probe, is logged once, ranks
+exactly, and is re-checked every five minutes, so an index created later is used without a restart. The
+probe never fails a search.
+
+**What uses the index.** Relevance-ordered queries: the default order and `_sort=_score`. `_summary=count`
+and explicit sorts must see every match and stay exact. Structured filters, `_id` and resource-table
+predicates are applied inside the index search (iterative filtering) and again by the outer query, so a
+selective filter is not lost behind the nearest neighbors. Continuation tokens skip earlier pages inside the
+index; the outer query keeps the exact (distance, resource) boundary and excludes any resource whose best
+chunk precedes it, so a resource is never returned twice with a worse chunk.
+
+**Contract.** Results are approximate. A page ranks at most the candidate window; pages can end early when
+many of the nearest chunks belong to few resources, and a low multiplier can omit distant matches. The
+engine's optimizer may still choose an exact scan on small tables, and the same SQL runs as an exact scan if
+the index is dropped after detection. The earlier synthetic filtered recall of 0.57 shows recall is
+workload-dependent: measure it on representative data before relying on it.
+
+**Operations.** Create the index on a populated table (at least 100 non-null vectors), for example
+`CREATE VECTOR INDEX vi_embedding ON dbo.VectorSearchParam (Embedding) WITH (METRIC = 'cosine', TYPE = 'DiskANN')`.
+SQL Server 2025 additionally requires the preview-features database option.
+
+**Execution evidence, 2026-10-12.** On a disposable Azure SQL Database (build `12.0.2000.8`) with the V119
+table layout (five-column clustered key, PAGE compression), a cosine version-3 index was created over 533 and
+then 34,112 vectors. The generated SQL ran unchanged: at 34,112 vectors the optimizer chose `Vector Index
+Seek` without a hint; page 1 and page 2 (continuation) matched the exact ranking, a resource filter returned
+its row with a three-chunk window, removing the index kept the query working, and index-reported distances
+equalled `VECTOR_DISTANCE` exactly for 2,000 chunks (the duplicate guard compares the two). Local SQL Server 2025
+RTM-GDR (17.0.1135.8) lacks `CREATE VECTOR INDEX` and `WITH APPROXIMATE`, so the setting must stay
+`Disabled` there and unit tests cover the generated SQL.
 
 - [VECTOR_SEARCH syntax and filtering](https://learn.microsoft.com/en-us/sql/t-sql/functions/vector-search-transact-sql?view=azuresqldb-current).
 - [Index versions, DML and deployment restrictions](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-vector-index-transact-sql?view=azuresqldb-current).

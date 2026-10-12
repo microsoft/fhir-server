@@ -118,6 +118,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlApproximateVectorSearchProvider>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             AddSqlServerTableRowParameterGenerators(services);
 
             services.Add<SearchParamTableExpressionQueryGeneratorFactory>()
