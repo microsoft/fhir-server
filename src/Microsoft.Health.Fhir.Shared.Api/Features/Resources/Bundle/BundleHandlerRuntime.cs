@@ -48,7 +48,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return true;
             }
 
-            if (string.IsNullOrWhiteSpace(request.Url) || !request.Url.Contains('?', StringComparison.Ordinal))
+            bool isConditionalWrite = request.Method == HTTPVerb.PUT || request.Method == HTTPVerb.DELETE;
+#if !STU3
+            isConditionalWrite = isConditionalWrite || request.Method == HTTPVerb.PATCH;
+#endif
+
+            if (!isConditionalWrite || string.IsNullOrWhiteSpace(request.Url) || !request.Url.Contains('?', StringComparison.Ordinal))
             {
                 return false;
             }
