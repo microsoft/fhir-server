@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
     {
         private const string SearchParameterType = "SearchParameter";
 
+        private static readonly FhirPackageDescriptor Descriptor = new FhirPackageDescriptor("example.package", "1.0.0", "sha512-abc");
+
         [Fact]
         public async Task GivenSupportedAndUnsupportedResources_WhenInstalling_ThenOnlySupportedResourcesAreInstalledAndIgnoredTypesAreNamed()
         {
@@ -31,9 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             IFhirPackageInstallPlan plan = CreatePlan(SearchParameterType, "http://example.org/sp/a", "http://example.org/sp/b");
             IFhirPackageResourceHandler handler = CreateHandler(SearchParameterType, plan);
             var package = new FhirPackage(
-                "example.package",
-                "1.0.0",
-                "sha512-abc",
+                Descriptor,
                 new[]
                 {
                     Entry("package/SearchParameter-a.json", SearchParameterType),
@@ -59,9 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                 Arg.Any<CancellationToken>());
             await plan.Received(1).ApplyAsync(Arg.Any<CancellationToken>());
 
-            Assert.Equal("example.package", result.PackageId);
-            Assert.Equal("1.0.0", result.Version);
-            Assert.Equal("sha512-abc", result.Integrity);
+            Assert.Same(Descriptor, result.Descriptor);
             Assert.Equal(new[] { "http://example.org/sp/a", "http://example.org/sp/b" }, result.InstalledResources[SearchParameterType]);
             Assert.Equal(3, result.IgnoredResourceTypes.Count);
             Assert.Equal(1, result.IgnoredResourceTypes["Patient"]);
@@ -90,9 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                 .Returns<Task<IFhirPackageInstallPlan>>(_ => throw new FhirPackageException(new[] { Error("first"), Error("second") }));
 
             var package = new FhirPackage(
-                "example.package",
-                "1.0.0",
-                "sha512-abc",
+                Descriptor,
                 new[] { Entry("package/CodeSystem-a.json", "CodeSystem"), Entry("package/SearchParameter-a.json", SearchParameterType) });
 
             // Act
@@ -111,9 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             // Arrange
             IFhirPackageResourceHandler handler = CreateHandler(SearchParameterType, CreatePlan(SearchParameterType));
             var package = new FhirPackage(
-                "example.package",
-                "1.0.0",
-                "sha512-abc",
+                Descriptor,
                 new[] { Entry("package/StructureDefinition-x.json", "StructureDefinition") });
 
             // Act
@@ -142,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                     cancellationTokenSource.Cancel();
                     return Task.FromResult(plan);
                 });
-            var package = new FhirPackage("example.package", "1.0.0", "sha512-abc", new[] { Entry("package/SearchParameter-a.json", SearchParameterType) });
+            var package = new FhirPackage(Descriptor, new[] { Entry("package/SearchParameter-a.json", SearchParameterType) });
 
             // Act
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
@@ -159,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             IFhirPackageInstallPlan plan = CreatePlan(SearchParameterType, "http://example.org/sp/a");
             plan.ApplyAsync(Arg.Any<CancellationToken>()).Returns<Task>(_ => throw new InvalidOperationException("write failed"));
             IFhirPackageResourceHandler handler = CreateHandler(SearchParameterType, plan);
-            var package = new FhirPackage("example.package", "1.0.0", "sha512-abc", new[] { Entry("package/SearchParameter-a.json", SearchParameterType) });
+            var package = new FhirPackage(Descriptor, new[] { Entry("package/SearchParameter-a.json", SearchParameterType) });
 
             // Act and assert
             InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(

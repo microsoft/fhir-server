@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
                 ignoredEntries.Count,
                 ignoredDependencies.Count);
 
-            return new FhirPackage(manifest.Name, manifest.Version, descriptor.Integrity, resourceEntries, ignoredEntries, ignoredDependencies);
+            return new FhirPackage(descriptor, resourceEntries, ignoredEntries, ignoredDependencies);
         }
 
         /// <summary>

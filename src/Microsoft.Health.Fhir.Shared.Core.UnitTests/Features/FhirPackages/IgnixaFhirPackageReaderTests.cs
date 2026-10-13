@@ -53,12 +53,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             byte[] tarball = NewPackage().File("package/SearchParameter-a.json", SearchParameterJson()).Build();
 
             // Act
-            FhirPackage package = await ReadAsync(tarball, Descriptor(tarball));
+            FhirPackageDescriptor descriptor = Descriptor(tarball);
+            FhirPackage package = await ReadAsync(tarball, descriptor);
 
             // Assert
-            Assert.Equal(PackageId, package.PackageId);
-            Assert.Equal(PackageVersion, package.Version);
-            Assert.Equal(Integrity(tarball), package.Integrity);
+            Assert.Same(descriptor, package.Descriptor);
             FhirPackageEntry entry = Assert.Single(package.ResourceEntries);
             Assert.Equal("package/SearchParameter-a.json", entry.Path);
             Assert.Equal(KnownResourceTypes.SearchParameter, entry.ResourceType);

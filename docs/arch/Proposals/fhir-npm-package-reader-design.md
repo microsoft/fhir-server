@@ -65,7 +65,7 @@ The server is migrating to the Ignixa SDK (ADR-2607). `Ignixa.PackageManagement`
 
 ### Reader: `FhirPackageReader`
 
-The Core-facing seam is SDK-neutral: `IFhirPackageReader.ReadAsync(Stream tarball, FhirPackageDescriptor descriptor)` returns a `FhirPackage`, where the descriptor holds `PackageId`, `Version` and the expected SHA-512 `Integrity`. No Ignixa type appears in Core or in the job that calls the reader.
+The Core-facing seam is SDK-neutral: `IFhirPackageReader.ReadAsync(Stream tarball, FhirPackageDescriptor descriptor)` returns a `FhirPackage`, where the descriptor holds `PackageId`, `Version` and the expected SHA-512 `Integrity`. The returned `FhirPackage` and `FhirPackageInstallResult` carry that same descriptor in their `Descriptor` property; it is attached only after the hash and manifest identity checks pass, so it doesn't duplicate the identity fields. No Ignixa type appears in Core or in the job that calls the reader.
 
 The Ignixa-backed implementation in `Microsoft.Health.Fhir.Ignixa` has two inputs that share one interpretation path:
 

@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         private readonly ISearchParameterSupportResolver _supportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly IDataStoreSearchParameterValidator _dataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
         private readonly ISearchParameterPackageWriter _writer = Substitute.For<ISearchParameterPackageWriter>();
-        private readonly FhirPackage _package = new FhirPackage("example.package", "1.0.0", "sha512-abc", Array.Empty<FhirPackageEntry>());
+        private readonly FhirPackage _package = new FhirPackage(new FhirPackageDescriptor("example.package", "1.0.0", "sha512-abc"), Array.Empty<FhirPackageEntry>());
 
         public SearchParameterPackageHandlerTests()
         {

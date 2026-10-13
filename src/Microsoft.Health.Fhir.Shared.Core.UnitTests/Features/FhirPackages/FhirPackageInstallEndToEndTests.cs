@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.Equal(1, result.IgnoredResourceTypes["StructureDefinition"]);
             Assert.Equal(1, result.IgnoredResourceTypes["Patient"]);
             Assert.Equal(2, result.IgnoredResourceTypes.Count);
-            Assert.Equal(descriptor.Integrity, result.Integrity);
+            Assert.Same(descriptor, result.Descriptor);
             await _writer.Received(1).WriteAsync(
                 package,
                 Arg.Is<IReadOnlyList<ResourceElement>>(x => x.Count == 1 && x[0].InstanceType == KnownResourceTypes.SearchParameter),

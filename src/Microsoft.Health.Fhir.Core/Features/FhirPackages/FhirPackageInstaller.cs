@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             {
                 throw new FhirPackageException(
                     OperationOutcomeConstants.IssueType.Invalid,
-                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageNoInstallableResources, package.PackageId, package.Version, InstalledTypes()));
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageNoInstallableResources, package.Descriptor.PackageId, package.Descriptor.Version, InstalledTypes()));
             }
 
             // Phase 1: validate everything before anything is written.
@@ -104,8 +104,8 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             {
                 _logger.LogWarning(
                     "FHIR package {PackageId} version {Version} was rejected with {IssueCount} issue(s).",
-                    package.PackageId,
-                    package.Version,
+                    package.Descriptor.PackageId,
+                    package.Descriptor.Version,
                     issues.Count);
 
                 throw new FhirPackageException(issues);
@@ -123,8 +123,8 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 
             _logger.LogInformation(
                 "Installed FHIR package {PackageId} version {Version}: {InstalledCount} resource(s) installed, {IgnoredCount} ignored.",
-                package.PackageId,
-                package.Version,
+                package.Descriptor.PackageId,
+                package.Descriptor.Version,
                 installed.Values.Sum(x => x.Count),
                 ignored.Values.Sum());
 

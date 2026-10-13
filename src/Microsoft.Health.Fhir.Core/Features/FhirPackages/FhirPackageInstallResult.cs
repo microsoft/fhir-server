@@ -35,9 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             EnsureArg.IsNotNull(ignoredResourceTypes, nameof(ignoredResourceTypes));
             EnsureArg.IsNotNull(installedResourceTypes, nameof(installedResourceTypes));
 
-            PackageId = package.PackageId;
-            Version = package.Version;
-            Integrity = package.Integrity;
+            Descriptor = package.Descriptor;
             InstalledResources = installedResources;
             IgnoredResourceTypes = ignoredResourceTypes;
             IgnoredDependencies = package.IgnoredDependencies;
@@ -45,19 +43,9 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         }
 
         /// <summary>
-        /// Gets the package name.
+        /// Gets the verified identity and integrity of the installed package.
         /// </summary>
-        public string PackageId { get; }
-
-        /// <summary>
-        /// Gets the exact package version.
-        /// </summary>
-        public string Version { get; }
-
-        /// <summary>
-        /// Gets the verified SHA-512 SRI integrity of the package tarball.
-        /// </summary>
-        public string Integrity { get; }
+        public FhirPackageDescriptor Descriptor { get; }
 
         /// <summary>
         /// Gets the canonical URLs installed, keyed by resource type.

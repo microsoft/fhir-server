@@ -115,8 +115,8 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             {
                 _logger.LogWarning(
                     "SearchParameter set in FHIR package {PackageId} version {Version} failed validation with {IssueCount} issue(s).",
-                    package.PackageId,
-                    package.Version,
+                    package.Descriptor.PackageId,
+                    package.Descriptor.Version,
                     issues.Count);
 
                 throw new FhirPackageException(issues);
