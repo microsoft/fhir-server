@@ -127,6 +127,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             _output.WriteLine(sql);
         }
 
+        // Executes the search and preserves returned IDs, including duplicates, for result assertions.
         private static async Task<List<string>> ReadIdsAsync(SqlCommand command)
         {
             using var reader = await command.ExecuteReaderAsync();
@@ -139,6 +140,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             return ids;
         }
 
+        // Configures SQL workload identity authentication when Azure Pipelines credentials are available.
         private static void ConfigureWorkloadIdentityAuthentication()
         {
             string clientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
@@ -155,6 +157,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             }
         }
 
+        // Reads the intermediate row counts for the three independent chain traversals.
         private static async Task<long[]> ReadCountsAsync(SqlCommand command)
         {
             using var reader = await command.ExecuteReaderAsync();
@@ -162,6 +165,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             return [reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2)];
         }
 
+        // Generates SQL against the temp tables, with independent or bound target predicates and optional legacy joins.
         private static SqlCommand CreateSearchCommand(SqlConnection connection, bool bindTarget = false, bool enableChainSourceDeduplication = true)
         {
             var model = Substitute.For<ISqlServerFhirModel>();
@@ -254,9 +258,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             return command;
         }
 
+        // Creates a test search parameter with a stable URL and optional reference target types.
         private static SearchParameterInfo Parameter(string name, SearchParamType type, string[] targets = null) =>
             new(name, name, type, new Uri($"http://example.org/SearchParameter/{name}"), null, name, targets);
 
+        // Seeds connection-local tables with repeated references and the selected target-matching scenario.
         private static async Task SeedAsync(SqlConnection connection, string scenario, string terminalType, bool history, bool deleted)
         {
             using var command = connection.CreateCommand();
