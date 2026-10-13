@@ -888,6 +888,63 @@
   <data name="FhirPackageRejected" xml:space="preserve">
     <value>The FHIR package was rejected. Nothing from the package was installed.</value>
   </data>
+  <data name="FhirPackageNoInstallableResources" xml:space="preserve">
+    <value>The FHIR package &apos;{0}&apos; version &apos;{1}&apos; contains no resources that can be installed. Only {2} resources at the package root are installed.</value>
+  </data>
+  <data name="FhirPackageIgnoredResourceType" xml:space="preserve">
+    <value>The FHIR package contains {0} &apos;{1}&apos; resource(s) that were not installed. Only {2} resources at the package root are installed.</value>
+  </data>
+  <data name="FhirPackageIgnoredDependency" xml:space="preserve">
+    <value>The FHIR package declares a dependency on &apos;{0}&apos;, which was not resolved or installed.</value>
+  </data>
+  <data name="FhirPackageEntryInvalid" xml:space="preserve">
+    <value>Package entry &apos;{0}&apos; could not be read as a {1} resource: {2}</value>
+  </data>
+  <data name="FhirPackageSearchParameterIssue" xml:space="preserve">
+    <value>Package entry &apos;{0}&apos; (SearchParameter &apos;{1}&apos;): {2}</value>
+  </data>
+  <data name="FhirPackageSearchParameterMissingElement" xml:space="preserve">
+    <value>The required element &apos;{0}&apos; is missing.</value>
+  </data>
+  <data name="FhirPackageSearchParameterInvalidUrl" xml:space="preserve">
+    <value>The url must be an absolute URI of at most {0} characters.</value>
+  </data>
+  <data name="FhirPackageSearchParameterDuplicateUrl" xml:space="preserve">
+    <value>The url is used by more than one SearchParameter in the package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterDuplicateCode" xml:space="preserve">
+    <value>The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterSystemDefinedUrl" xml:space="preserve">
+    <value>The url belongs to a SearchParameter defined by the FHIR specification or by the server, and can&apos;t be installed from a package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterMissingComponent" xml:space="preserve">
+    <value>A composite SearchParameter must define at least one component, and every component must have a definition and an expression.</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnresolvedComponent" xml:space="preserve">
+    <value>Component {0} references &apos;{1}&apos;, which is not a core SearchParameter, a SearchParameter in this package, or an existing SearchParameter.</value>
+  </data>
+  <data name="FhirPackageSearchParameterCompositeComponent" xml:space="preserve">
+    <value>Component {0} references &apos;{1}&apos;, which is itself a composite SearchParameter.</value>
+  </data>
+  <data name="FhirPackageSearchParameterNotSupported" xml:space="preserve">
+    <value>The SearchParameter is not supported by this server. {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterPartiallySupported" xml:space="preserve">
+    <value>The expression can be indexed for only some of its target types, so searches would silently miss data.</value>
+  </data>
+  <data name="FhirPackageSearchParameterInvalidExpression" xml:space="preserve">
+    <value>The expression can&apos;t be parsed: {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterIneligibleComponent" xml:space="preserve">
+    <value>Component {0} references &apos;{1}&apos;, whose status is &apos;{2}&apos;. A component outside the package must reference a SearchParameter whose status is Enabled or Supported.</value>
+  </data>
+  <data name="FhirPackageSearchParameterModelInvalid" xml:space="preserve">
+    <value>The resource is not valid: {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterInvalidComponentDefinition" xml:space="preserve">
+    <value>Component {0} has the definition &apos;{1}&apos;, which is not an absolute URI.</value>
+  </data>
   <data name="FhirPackageIntegrityInvalid" xml:space="preserve">
     <value>The expected package integrity must be a single sha512 Subresource Integrity value, as reported in npm &apos;dist.integrity&apos;.</value>
   </data>

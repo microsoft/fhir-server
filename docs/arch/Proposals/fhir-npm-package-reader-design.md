@@ -1,6 +1,6 @@
 # Design: FHIR NPM Package Reader and SearchParameter Installation Handler
 
-**Status**: Proposed (implemented in two stacked PRs: the reader in 1/2, SearchParameter installation in 2/2; awaiting the published Ignixa 0.6.82 for final verification)
+**Status**: Proposed (implemented in the draft PR; awaiting the published Ignixa 0.6.82 for final verification)
 **Work item**: AB#206131
 **Parent feature**: install SearchParameter resources from FHIR NPM packages when a new service is provisioned
 
@@ -206,8 +206,8 @@ xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory wit
 ## Delivery
 
 0. **Dependency bump:** `IgnixaPackageVersion` 0.6.74 → 0.6.82 (the release that includes brendankowitz/ignixa-fhir#464). Polly 8.5.2 → 8.6.6. Add `Semver` 3.0.0, a new transitive dependency. `Ignixa.Extensions.FirelySdk5` 0.6.82 still pins Hl7.Fhir 5.11.4, which matches this repo. Re-run the `$import` parity tests, because the shared version property also moves the `$import` packages.
-1. **PR 1/2:** Reader on Ignixa (stream input, the shared `Interpret` step, ratio, manifest and core-dependency checks, classification, error mapping), `FhirPackageReaderOptions`, tests including `npm pack` fixtures, and the ADR-2607 note. The acquired-package adapter follows in AB#206133.
-2. **PR 2/2 (stacked on 1/2):** Handler contracts, SearchParameter set validator, `SearchParameterValidator` refactor, installer and result, tests including an end-to-end tarball-to-writer test.
+1. Reader on Ignixa (stream input, the shared `Interpret` step, ratio, manifest and core-dependency checks, classification, error mapping), `FhirPackageReaderOptions`, tests including `npm pack` fixtures and an end-to-end tarball-to-writer test, and the ADR-2607 note. The acquired-package adapter follows in AB#206133.
+2. Handler contracts, SearchParameter set validator, `SearchParameterValidator` refactor, installer and result, tests.
 
 Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#206133 land.
 
@@ -216,12 +216,11 @@ Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#20
 | Piece | Status |
 |---|---|
 | Ignixa 0.6.82 and Polly 8.6.6 bump | Done; `$import` tests pass on all four FHIR versions |
-| Reader contracts: `FhirPackage`, `FhirPackageEntry`, `IFhirPackageReader`, `FhirPackageException` | Done |
-| Handler contracts: `IFhirPackageResourceHandler`, `IFhirPackageInstallPlan`, `ISearchParameterPackageWriter` | Lands in the next stacked PR (2/2, SearchParameter installation) |
-| `FhirPackageInstaller` and `FhirPackageInstallResult` | Lands in the next stacked PR (2/2), with unit tests |
-| `SearchParameterConflictRules` extracted from `SearchParameterValidator` | Lands in the next stacked PR (2/2) |
-| `SearchParameterPackageHandler` | Lands in the next stacked PR (2/2), with unit tests on STU3, R4, R4B and R5 |
-| `IgnixaFhirPackageReader`, `FhirPackageDescriptor`, `FhirPackageReaderOptions` | Done (PR 1/2). Tests cover integrity, every limit, ratio boundaries, unsafe paths and links, manifest and core-dependency rules, classification, and `npm pack` fixtures for all four FHIR versions. The end-to-end path from tarball to writer lands in the next stacked PR (2/2) |
+| Contracts: `FhirPackage`, `IFhirPackageResourceHandler`, `IFhirPackageInstallPlan`, `ISearchParameterPackageWriter`, `FhirPackageException` | Done |
+| `FhirPackageInstaller` and `FhirPackageInstallResult` | Done, with unit tests |
+| `SearchParameterConflictRules` extracted from `SearchParameterValidator` | Done; existing validator tests pass |
+| `SearchParameterPackageHandler` | Done, with unit tests on STU3, R4, R4B and R5 |
+| `IgnixaFhirPackageReader`, `FhirPackageDescriptor`, `FhirPackageReaderOptions` | Done. Tests cover integrity, every limit, ratio boundaries, unsafe paths and links, manifest and core-dependency rules, classification, `npm pack` fixtures for all four FHIR versions, and an end-to-end path from tarball to writer |
 | ADR-2607 note on new Ignixa capabilities | Done |
 | Acquired-package adapter and parity tests | Moved to AB#206133 (needs a real acquisition) |
 | Verification against the published Ignixa 0.6.82 | Pending; the internal proxy is holding the release |
