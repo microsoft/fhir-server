@@ -178,6 +178,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 };
 
                 int conditionalOperationsCounter = 0;
+                int conditionalOperationsGroupSize = _bundleConfiguration.ConditionalOperationGroupSize;
+                if (conditionalOperationsGroupSize <= 0)
+                {
+                    conditionalOperationsGroupSize = BundleConfiguration.DefaultConditionalOperationGroupSize;
+                }
+
                 List<Task> requestsPerResource = new List<Task>();
                 foreach (ResourceExecutionContext resourceContext in resources)
                 {
@@ -186,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     if (_isConditionalOperationThrottlingEnabled && resourceContext.IsConditionalOperation)
                     {
                         conditionalOperationsCounter++;
-                        if (conditionalOperationsCounter % _bundleConfiguration.ConditionalOperationGroupSize == 0)
+                        if (conditionalOperationsCounter % conditionalOperationsGroupSize == 0)
                         {
                             _totalThrottledDelays++;
                             _logger.LogInformation($"BundleHandler - Conditional Operation Throttling.");
