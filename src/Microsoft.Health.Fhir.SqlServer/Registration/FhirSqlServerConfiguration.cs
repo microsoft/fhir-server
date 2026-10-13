@@ -17,7 +17,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
 
         /// <summary>
         /// Gets or sets whether independent SQL search chains intersect distinct predecessor source keys.
-        /// Enabled by default. Set <c>FhirSqlServer:EnableChainSourceDeduplication=false</c>
+        /// This feature flag is temporary and can be removed in 2027. Enabled by default.
+        /// Set <c>FhirSqlServer:EnableChainSourceDeduplication=false</c>
         /// (or environment variable <c>FhirSqlServer__EnableChainSourceDeduplication=false</c>)
         /// to restore the legacy joins for customer rollback scenarios.
         /// </summary>
