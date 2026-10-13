@@ -127,6 +127,70 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             _output.WriteLine(sql);
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIndependentReverseNestedChains_WhenExecuted_ThenSourceAndIntermediateBindingsArePreserved(bool enableChainSourceDeduplication)
+        {
+            // Arrange
+            using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
+            await connection.OpenAsync();
+            await CreateTablesAsync(connection);
+            using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted) VALUES
+                    (3, 300, 'matching', 0, 0), (3, 301, 'split', 0, 0), (3, 302, 'other', 0, 0),
+                    (2, 400, 'visit-observation', 0, 0), (2, 401, 'final-observation', 0, 0),
+                    (2, 402, 'split-observation', 0, 0), (2, 403, 'other-observation', 0, 0),
+                    (1, 500, 'visit-report', 0, 0), (1, 501, 'final-report', 0, 0),
+                    (1, 502, 'split-report', 0, 0), (1, 503, 'other-report', 0, 0);
+                INSERT INTO #ReferenceSearchParam VALUES
+                    (2, 400, 15, 3, 'matching', 0), (2, 401, 15, 3, 'matching', 0),
+                    (2, 402, 15, 3, 'split', 0), (2, 403, 15, 3, 'other', 0),
+                    (1, 500, 13, 2, 'visit-observation', 0), (1, 501, 13, 2, 'final-observation', 0),
+                    (1, 502, 13, 2, 'split-observation', 0), (1, 503, 13, 2, 'other-observation', 0);
+                INSERT INTO #TokenSearchParam VALUES
+                    (1, 500, 12, 'visit', 0, NULL), (1, 501, 11, 'final', 0, NULL),
+                    (1, 502, 12, 'visit', 0, NULL), (1, 503, 11, 'final', 0, NULL);
+                """;
+            await seed.ExecuteNonQueryAsync();
+
+            var model = Substitute.For<ISqlServerFhirModel>();
+            model.GetResourceTypeId("DiagnosticReport").Returns((short)1);
+            model.GetResourceTypeId("Observation").Returns((short)2);
+            model.GetResourceTypeId("Patient").Returns((short)3);
+            var subject = Parameter("subject", SearchParamType.Reference, ["Patient"]);
+            var result = Parameter("result", SearchParamType.Reference, ["Observation"]);
+            var code = Parameter("code", SearchParamType.Token);
+            var status = Parameter("status", SearchParamType.Token);
+            model.GetSearchParamId(subject.Url).Returns((short)15);
+            model.GetSearchParamId(result.Url).Returns((short)13);
+            model.GetSearchParamId(code.Url).Returns((short)12);
+            model.GetSearchParamId(status.Url).Returns((short)11);
+
+            Expression Chain(SearchParameterInfo parameter, string value) =>
+                Expression.Chained(
+                    ["Observation"],
+                    subject,
+                    ["Patient"],
+                    true,
+                    Expression.Chained(
+                        ["DiagnosticReport"],
+                        result,
+                        ["Observation"],
+                        true,
+                        Expression.SearchParameter(parameter, Expression.StringEquals(FieldName.TokenCode, null, value, false))));
+            using var command = CreateSearchCommand(connection, Expression.And(Chain(code, "visit"), Chain(status, "final")), model, enableChainSourceDeduplication);
+            _output.WriteLine(command.CommandText);
+
+            // Act
+            var ids = await ReadIdsAsync(command);
+
+            // Assert
+            // Independent predicates may use different observations; each report must reference its own chain's observation.
+            Assert.Equal(new[] { "matching" }, ids);
+        }
+
         // Executes the search and preserves returned IDs, including duplicates, for result assertions.
         private static async Task<List<string>> ReadIdsAsync(SqlCommand command)
         {
@@ -222,7 +286,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 predicates.AddRange(targetPredicates.Select(Chain));
             }
 
-            Expression expression = Expression.And(predicates.ToArray());
+            return CreateSearchCommand(connection, Expression.And(predicates.ToArray()), model, enableChainSourceDeduplication);
+        }
+
+        // Runs the production rewriters and generator for an expression, redirecting table names to the local fixture.
+        private static SqlCommand CreateSearchCommand(SqlConnection connection, Expression expression, ISqlServerFhirModel model, bool enableChainSourceDeduplication)
+        {
             var factory = new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap());
             var root = (SqlRootExpression)expression
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)
@@ -262,8 +331,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         private static SearchParameterInfo Parameter(string name, SearchParamType type, string[] targets = null) =>
             new(name, name, type, new Uri($"http://example.org/SearchParameter/{name}"), null, name, targets);
 
-        // Seeds connection-local tables with repeated references and the selected target-matching scenario.
-        private static async Task SeedAsync(SqlConnection connection, string scenario, string terminalType, bool history, bool deleted)
+        // Creates temp tables in an unparameterized session batch so subsequent commands can access them.
+        private static async Task CreateTablesAsync(SqlConnection connection)
         {
             using var command = connection.CreateCommand();
             command.CommandText = """
@@ -280,6 +349,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 CREATE TABLE #DateTimeSearchParam (
                     ResourceTypeId smallint, ResourceSurrogateId bigint, SearchParamId smallint,
                     StartDateTime datetime2, EndDateTime datetime2, IsHistory bit);
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        // Seeds connection-local tables with repeated references and the selected target-matching scenario.
+        private static async Task SeedAsync(SqlConnection connection, string scenario, string terminalType, bool history, bool deleted)
+        {
+            await CreateTablesAsync(connection);
+            using var command = connection.CreateCommand();
+            command.CommandText = """
                 INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted)
                     VALUES (1, 100, 'source', 0, 0), (2, 200, 'target-a', @history, @deleted),
                            (2, 201, 'target-b', @history, @deleted), (2, 202, 'unqualified', @history, @deleted);
@@ -308,12 +387,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 END
                 """;
 
-            // Create temp tables in the session batch, not the parameterized sp_executesql scope.
-            int seedStart = command.CommandText.IndexOf("INSERT INTO #Resource", StringComparison.Ordinal);
-            string seedSql = command.CommandText[seedStart..];
-            command.CommandText = command.CommandText[..seedStart];
-            await command.ExecuteNonQueryAsync();
-            command.CommandText = seedSql;
             command.Parameters.AddWithValue("@history", history);
             command.Parameters.AddWithValue("@deleted", deleted);
             command.Parameters.AddWithValue("@start", scenario.EndsWith("split-bounds", StringComparison.Ordinal) ? new DateTime(2026, 1, 4) : new DateTime(2026, 1, 1));
