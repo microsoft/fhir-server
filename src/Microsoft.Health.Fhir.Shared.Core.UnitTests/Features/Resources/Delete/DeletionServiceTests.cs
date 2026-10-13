@@ -80,7 +80,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 new Dictionary<string, StringValues>());
             _contextAccessor.RequestContext.Returns(dummyRequestContext);
 
-            _profilesProvider.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+            _profilesProvider.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
 
             _service = new DeletionService(

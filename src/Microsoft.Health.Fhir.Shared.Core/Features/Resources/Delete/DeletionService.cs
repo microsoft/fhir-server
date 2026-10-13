@@ -456,6 +456,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return;
             }
 
+            // The API pipeline owns refresh for successful direct profile deletes and bundle inner requests.
+            // This service owns refresh for include deletes, background operations, and partial failures.
             bool pipelineWillRefresh =
                 profileTypes.Contains(request.ResourceType) &&
                 (request.IsBundleInnerRequest || operationCompletedSuccessfully) &&

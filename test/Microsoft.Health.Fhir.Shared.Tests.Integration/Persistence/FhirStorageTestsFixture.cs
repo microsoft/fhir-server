@@ -331,7 +331,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var logger = Substitute.For<ILogger<DeletionService>>();
 
             var profilesProvider = Substitute.For<IProvideProfilesForValidation>();
-            profilesProvider.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+            profilesProvider.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
 
             var searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));

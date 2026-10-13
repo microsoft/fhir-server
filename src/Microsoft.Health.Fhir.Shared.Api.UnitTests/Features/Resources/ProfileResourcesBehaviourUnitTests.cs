@@ -42,7 +42,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.EditProfileDefinitions);
 
             _profilesResolver = Substitute.For<IProvideProfilesForValidation>();
-            _profilesResolver.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+            _profilesResolver.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
 
             _profileResourcesBehaviour = new ProfileResourcesBehaviour(_authorizationService, _profilesResolver);
         }
@@ -170,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
         [Theory]
         [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.SoftDelete, 1)]
         [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.HardDelete, 100)]
-        [InlineData("CodeSystem", DeleteOperation.SoftDelete, 100)]
+        [InlineData(KnownResourceTypes.CodeSystem, DeleteOperation.SoftDelete, 100)]
         [InlineData(KnownResourceTypes.StructureDefinition, DeleteOperation.HardDelete, 1)]
         public async Task GivenCallerWithoutEditProfileDefinitions_WhenConditionallyDeletingAProfileResource_ThenAccessIsDeniedBeforeTheRequestIsHandled(
             string resourceType,

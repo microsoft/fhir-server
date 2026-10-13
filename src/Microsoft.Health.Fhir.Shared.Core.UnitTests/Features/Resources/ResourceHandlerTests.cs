@@ -484,7 +484,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private static IProvideProfilesForValidation CreateProfilesProvider()
         {
             var profilesProvider = Substitute.For<IProvideProfilesForValidation>();
-            profilesProvider.GetProfilesTypes().Returns(new HashSet<string>() { KnownResourceTypes.ValueSet, KnownResourceTypes.StructureDefinition, "CodeSystem" });
+            profilesProvider.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
             return profilesProvider;
         }
 
