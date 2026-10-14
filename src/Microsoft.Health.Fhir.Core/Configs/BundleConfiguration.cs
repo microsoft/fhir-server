@@ -46,6 +46,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the pacing delay, in milliseconds, between groups of conditional operations.
         /// </summary>
-        public int ConditionalOperationGroupDelayInMilliseconds { get; set; } = 7;
+        public int ConditionalOperationGroupDelayInMilliseconds { get; set; } = 15;
     }
 }
