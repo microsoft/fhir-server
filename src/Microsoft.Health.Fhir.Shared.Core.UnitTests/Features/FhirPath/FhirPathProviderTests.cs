@@ -310,6 +310,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             }
         }
 
+        [Theory]
+        [InlineData("Identifier { system: 'http://hl7.org', value: 'N0001' }.value", "N0001")]
+        [InlineData("Identifier { type: CodeableConcept { coding: Coding { code: 'MR' } } }.type.coding.code", "MR")]
+        [InlineData("Coding { system: 'http://example.org', code: 'c1' } ~ Coding { system: 'http://example.org', code: 'c1' }", true)]
+        public void GivenIgnixaProvider_WhenInstanceSelectorIsEvaluated_ThenFhirInstanceIsCreated(string expression, object expected)
+        {
+            ITypedElement patient = new Patient { Id = "patient-1" }.ToTypedElement();
+
+            ITypedElement[] result = CreateIgnixaProvider().Compile(expression).Select(patient).ToArray();
+
+            Assert.Equal(expected, Assert.Single(result).Value);
+        }
+
+        [Fact]
+        public void GivenIgnixaProvider_WhenInstanceSelectorIsEvaluated_ThenCreatedInstanceHasFhirType()
+        {
+            ITypedElement patient = new Patient { Id = "patient-1" }.ToTypedElement();
+
+            ITypedElement result = Assert.Single(CreateIgnixaProvider()
+                .Compile("Identifier { system: 'http://hl7.org', value: 'N0001' }")
+                .Select(patient));
+
+            Assert.Equal("Identifier", result.InstanceType);
+        }
+
         [Fact]
         public async Task GivenVersionedResourceCorpus_WhenGeneratedAndResolverExpressionsAreEvaluated_ThenResultsMatch()
         {

@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
+using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
 using Ignixa.FhirPath.Evaluation;
+using Ignixa.Serialization.SourceNodes;
 using FirelyEvaluationContext = Hl7.FhirPath.EvaluationContext;
 using FirelyFhirEvaluationContext = Hl7.Fhir.FhirPath.FhirEvaluationContext;
 using IgnixaFhirEvaluationContext = Ignixa.FhirPath.Evaluation.FhirEvaluationContext;
@@ -22,6 +24,7 @@ namespace Microsoft.Health.Fhir.Ignixa
     public sealed class IgnixaEvaluationContextBridge
     {
         private readonly IgnixaSchemaContext _schemaContext;
+        private readonly Func<InstanceCreationRequest, IElement> _instanceCreator;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaEvaluationContextBridge"/> class.
@@ -30,6 +33,9 @@ namespace Microsoft.Health.Fhir.Ignixa
         public IgnixaEvaluationContextBridge(IgnixaSchemaContext schemaContext)
         {
             _schemaContext = schemaContext ?? throw new ArgumentNullException(nameof(schemaContext));
+
+            // Ignixa delegates FHIRPath instance selectors (e.g. "Coding { code: 'x' }") to the host.
+            _instanceCreator = new SourceNodeInstanceFactory(_schemaContext.Schema).Create;
         }
 
         /// <summary>
@@ -50,6 +56,7 @@ namespace Microsoft.Health.Fhir.Ignixa
             IgnixaFhirEvaluationContext result = new()
             {
                 Schema = _schemaContext.Schema,
+                InstanceCreator = _instanceCreator,
                 ContextNode = ignixaInput,
                 Resource = context.Resource?.ToIgnixaElement(),
                 RootResource = context.RootResource?.ToIgnixaElement(),
