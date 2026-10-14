@@ -201,6 +201,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// <returns>A task executing the test</returns>
         [Theory]
         [InlineData("_revinclude=Observation:subject&_count=2&_includesCount=2")]
+        [InlineData("_revinclude=Observation:subject&_sort=birthdate&_count=2&_includesCount=2")]
+        [InlineData("_revinclude=MedicationRequest:patient&_revinclude:iterate=MedicationDispense:prescription&_count=2&_includesCount=2")]
         [InlineData("_include=Patient:organization&_revinclude=MedicationDispense:subject&_revinclude=DiagnosticReport:subject&_count=4&_includesCount=2")]
         [InlineData("_include=*:*&_revinclude=*:*&_count=2&_includesCount=10")]
         public async Task GivenAnIncludesRequest_WhenSummaryCountIsRequested_ThenTotalIsTheNumberOfDistinctIncludedResources(string query)

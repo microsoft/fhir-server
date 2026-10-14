@@ -1588,8 +1588,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             if (IsIncludesCount(context))
             {
-                // Every include cte, including the first one, excludes the matched resources. Duplicates across ctes
-                // are removed by the DISTINCT over (T1, Sid1) of the final count select.
+                // Each union branch excludes matched resources; the include CTEs themselves do not, so :iterate
+                // can read them before this exclusion. The final count removes duplicates across branches with DISTINCT.
                 for (var index = 0; index < _includeCteIds.Count; index++)
                 {
                     var includeCte = _includeCteIds[index];
