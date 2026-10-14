@@ -89,6 +89,74 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenIncludesCount_WhenSqlGenerated_ThenMatchesAndIncludesUseOneStatement()
+        {
+            // Arrange
+            var expression = CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false));
+            var options = CreateOptions(countOnly: true, PagedIncludesToken, 10, 11);
+
+            // Act
+            (string sql, _) = Generate(expression, options);
+
+            // Assert
+            Assert.DoesNotContain("@FilteredData", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("INSERT INTO", sql, StringComparison.Ordinal);
+            Assert.Single(Regex.Matches(sql, @";WITH\b"));
+        }
+
+        [Fact]
+        public void GivenSmartScopedIncludesCount_WhenSqlGenerated_ThenScopeCtesStayInTheSameStatement()
+        {
+            // Arrange
+            var searchParameter = new SearchParameterInfo(
+                "subject",
+                "subject",
+                SearchParamType.Reference,
+                new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+                null,
+                "Observation.subject",
+                ["Patient"]);
+            var scopeUnion = Expression.Union(
+                UnionOperator.All,
+                [
+                    Expression.SearchParameter(searchParameter, Expression.StringEquals(FieldName.ReferenceResourceId, null, "patient-a", false)),
+                    Expression.SearchParameter(searchParameter, Expression.StringEquals(FieldName.ReferenceResourceId, null, "patient-b", false)),
+                ]);
+            scopeUnion.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+            var include = new IncludeExpression(
+                ["Observation"],
+                searchParameter,
+                "Observation",
+                "Patient",
+                null,
+                wildCard: false,
+                reversed: false,
+                iterate: false,
+                allowedResourceTypesByScope: ["Patient"]);
+            var expression = new SqlRootExpression(
+                [
+                    new SearchParamTableExpression(ReferenceQueryGenerator.Instance, Expression.And(scopeUnion), SearchParamTableExpressionKind.Normal),
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+                    new SearchParamTableExpression(IncludeQueryGenerator.Instance, include, SearchParamTableExpressionKind.Include),
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+                ],
+                []);
+            var options = CreateOptions(countOnly: true, PagedIncludesToken, 10, 11);
+            _fhirModel.GetSearchParamId(searchParameter.Url).Returns((short)40);
+
+            // Act
+            (string sql, _) = Generate(expression, options);
+
+            // Assert
+            Assert.DoesNotContain("@FilteredData", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("INSERT INTO", sql, StringComparison.Ordinal);
+            Assert.Single(Regex.Matches(sql, @";WITH\b"));
+            Assert.Matches(@"EXISTS \(SELECT \* FROM cte\d+ WHERE refSource\.ResourceTypeId = T1", sql);
+        }
+
+        [Fact]
         public void GivenIncludesCount_WhenSqlGenerated_ThenEveryIncludeCteExcludesMatchesAndMatchesAreNotCounted()
         {
             // Arrange
@@ -191,6 +259,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Contains("ORDER BY T1 ASC, Sid1 ASC", sql, StringComparison.Ordinal);
             Assert.Contains("> 250", sql, StringComparison.Ordinal);
             Assert.DoesNotContain("SELECT count_big(", sql, StringComparison.Ordinal);
+            Assert.Contains("@FilteredData", sql, StringComparison.Ordinal);
+            Assert.Contains("INSERT INTO @FilteredData", sql, StringComparison.Ordinal);
             Assert.Contains(parameters.Values, v => v is int i && i == 3);
         }
 

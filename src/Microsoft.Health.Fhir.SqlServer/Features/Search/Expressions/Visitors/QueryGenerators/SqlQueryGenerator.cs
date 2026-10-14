@@ -136,12 +136,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new InvalidOperationException("Expected no predicates on the Resource table because of the presence of TableExpressions");
                 }
 
+                bool isIncludesCount = IsIncludesCount(context);
+
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 // If include, split SQL into 2 parts: 1st filter and preserve data in filtered data table variable, and 2nd - use persisted data
-                StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                if (!isIncludesCount)
+                {
+                    StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                }
+
                 var isSortValueNeeded = IsSortValueNeeded(context);
-                if (isSortValueNeeded)
+                if (!isIncludesCount && isSortValueNeeded)
                 {
                     var sortContext = GetSortRelatedDetails(context);
                     var dbType = sortContext.SortColumnName.Metadata.SqlDbType;
@@ -153,7 +159,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                StringBuilder.AppendLine(")");
+                if (!isIncludesCount)
+                {
+                    StringBuilder.AppendLine(")");
+                }
+
                 bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
                 bool hasSmartV2UnionExpressionInTheSet = expression.SearchParamTableExpressions.Any(t => t.HasSmartV2UnionExpression());
 
@@ -201,7 +211,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     else
                     {
                         // Look for include kind. Before going to include itself, add filtered data persistence.
-                        if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
+                        if (!isIncludesCount && !visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
                             AddParametersHash(); // hash is required in upper SQL
