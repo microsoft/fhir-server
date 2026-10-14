@@ -176,6 +176,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public TestServer Server { get; }
 
+        /// <inheritdoc />
+        public override TimeSpan SearchParameterCacheRefreshInterval =>
+            TimeSpan.FromSeconds(Server.Services.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.SearchParameterCacheRefreshIntervalSeconds);
+
         internal override HttpMessageHandler CreateMessageHandler()
         {
             return Server.CreateHandler();

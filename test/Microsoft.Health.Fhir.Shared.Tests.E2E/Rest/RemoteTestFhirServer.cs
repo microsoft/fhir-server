@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Net.Http;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -18,6 +21,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public RemoteTestFhirServer(string environmentUrl)
             : base(new Uri(environmentUrl))
         {
+            SearchParameterCacheRefreshInterval = ParseSearchParameterCacheRefreshInterval(
+                EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestSearchParameterCacheRefreshIntervalSeconds));
+        }
+
+        /// <inheritdoc />
+        public override TimeSpan SearchParameterCacheRefreshInterval { get; }
+
+        internal static TimeSpan ParseSearchParameterCacheRefreshInterval(string value)
+        {
+            if (value == null)
+            {
+                return TimeSpan.FromSeconds(new CoreFeatureConfiguration().SearchParameterCacheRefreshIntervalSeconds);
+            }
+
+            // Five refresh cycles must fit the cancellation timer used by status polling.
+            const int maximumSeconds = int.MaxValue / 5000;
+            if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) || seconds <= 0 || seconds > maximumSeconds)
+            {
+                throw new InvalidOperationException(
+                    $"{KnownEnvironmentVariableNames.TestSearchParameterCacheRefreshIntervalSeconds} must be an integer between 1 and {maximumSeconds} seconds. Received '{value}'.");
+            }
+
+            return TimeSpan.FromSeconds(seconds);
         }
 
         internal override HttpMessageHandler CreateMessageHandler()
