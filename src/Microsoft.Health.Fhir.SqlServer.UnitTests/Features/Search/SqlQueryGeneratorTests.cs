@@ -565,6 +565,80 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
+    [InlineData(false, "refSource.ReferenceResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1")]
+    [InlineData(true, "refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1")]
+    public void GivenWildcardScopeWithSearchParameterUnionAndInclude_WhenSqlGenerated_ThenCandidateIsFilteredBySmartScopeUnionCte(
+        bool reversed,
+        string expectedScopeJoinClause)
+    {
+        // Arrange: a wildcard SMART scope with search parameters (e.g. patient/*.read?_tag=allowed) sets
+        // AllowedResourceTypesByScope to ["all"] AND emits a SMART v2 union expression. The include CTE must
+        // still join against _smartv2ScopeUnionCTE so "all" is not treated as unconstrained.
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var tagParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Resource-tag");
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var tagParameter = new SearchParameterInfo(
+            "_tag",
+            "_tag",
+            SearchParamType.Token,
+            tagParameterUrl,
+            null,
+            "Resource.meta.tag",
+            ["Resource"]);
+        var includeExpression = new IncludeExpression(
+            [reversed ? "Patient" : "Observation"],
+            includeParameter,
+            "Observation",
+            "Patient",
+            null,
+            false,
+            reversed,
+            false,
+            allowedResourceTypesByScope: [KnownResourceTypes.All]);
+
+        var individualAnd = Expression.And(Expression.SearchParameter(tagParameter, Expression.StringEquals(FieldName.TokenCode, null, "allowed", false)));
+        individualAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var scopeAnd = Expression.And(individualAnd);
+        scopeAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var smartUnion = Expression.Union(UnionOperator.All, [scopeAnd]);
+        smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(TokenQueryGenerator.Instance, Expression.And(smartUnion), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+            ],
+            []);
+        SearchOptions searchOptions = new()
+        {
+            IncludeCount = 10,
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(tagParameterUrl).Returns((short)42);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains($"EXISTS (SELECT * FROM cte1 WHERE {expectedScopeJoinClause})", generatedSql, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void GivenIncludeWithoutSmartCompartmentMembership_WhenSqlGenerated_ThenNoCandidatePredicateIsEmitted(bool reversed)

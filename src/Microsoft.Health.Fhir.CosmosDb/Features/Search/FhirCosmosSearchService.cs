@@ -1021,8 +1021,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return null; // No filtering needed for this resource type
             }
 
-            // Find granular scope(s) for this resource type
-            var granularScopes = scopeRestrictions.Where(s => s.Resource == resourceType && s.SearchParameters != null).ToList();
+            // Find granular scope(s) for this resource type (including wildcard scopes with search parameters)
+            var granularScopes = scopeRestrictions.Where(s => (s.Resource == resourceType || s.Resource == KnownResourceTypes.All) && s.SearchParameters != null).ToList();
             if (!granularScopes.Any())
             {
                 // No scope allows access to this resource type - indicate caller should skip the query
@@ -1036,44 +1036,48 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             foreach (var expr in unionExpression.Expressions)
             {
-                // Each expression in the union should be an AND expression containing resource type and search parameters
+                // Each expression in the union should be an AND expression containing resource type and search parameters,
+                // or a wildcard ("all") scope expression containing only search parameters.
                 if (expr is MultiaryExpression andExpr && andExpr.MultiaryOperation == MultiaryOperator.And)
                 {
                     // Recursively search for the resource type SearchParameterExpression
                     var resourceTypeExpr = FindResourceTypeExpression(andExpr);
 
-                    if (resourceTypeExpr != null)
+                    if (resourceTypeExpr == null || CheckResourceTypeMatches(resourceTypeExpr.Expression, resourceType))
                     {
-                        // Check if the resource type matches
-                        var matchesResourceType = CheckResourceTypeMatches(resourceTypeExpr.Expression, resourceType);
-                        if (matchesResourceType)
+                        var singleScopeANDExpressions = new List<Expression>();
+
+                        // Extract just the search parameter filters (not the resource type)
+                        // We need to remove the entire sub-expression that contains the resource type filter
+                        foreach (MultiaryExpression child in andExpr.Expressions.OfType<MultiaryExpression>())
                         {
-                            var singleScopeANDExpressions = new List<Expression>();
-
-                            // Extract just the search parameter filters (not the resource type)
-                            // We need to remove the entire sub-expression that contains the resource type filter
-                            foreach (MultiaryExpression child in andExpr.Expressions.OfType<MultiaryExpression>())
+                            var searchParamFilters = child.Expressions.Where(e => !ContainsResourceTypeExpression(e)).ToList();
+                            if (searchParamFilters.Any())
                             {
-                                var searchParamFilters = child.Expressions.Where(e => !ContainsResourceTypeExpression(e)).ToList();
-                                if (searchParamFilters.Any())
-                                {
-                                    singleScopeANDExpressions.Add(searchParamFilters.Count == 1 ? searchParamFilters[0] : Expression.And(searchParamFilters.ToArray()));
-                                }
+                                singleScopeANDExpressions.Add(searchParamFilters.Count == 1 ? searchParamFilters[0] : Expression.And(searchParamFilters.ToArray()));
                             }
-
-                            if (singleScopeANDExpressions.Count == 0)
-                            {
-                                continue;
-                            }
-
-                            resourceTypeFilters.Add(singleScopeANDExpressions.Count == 1 ? singleScopeANDExpressions[0] : Expression.And(singleScopeANDExpressions.ToArray()));
                         }
+
+                        if (singleScopeANDExpressions.Count == 0)
+                        {
+                            // A matching scope leg with no non-type search parameter filters grants unrestricted access to this resource type
+                            return null;
+                        }
+
+                        resourceTypeFilters.Add(singleScopeANDExpressions.Count == 1 ? singleScopeANDExpressions[0] : Expression.And(singleScopeANDExpressions.ToArray()));
                     }
+                }
+                else if (expr is SearchParameterExpression spe &&
+                         (spe.Parameter.Name == "_type" || spe.Parameter.Name == "resourceType") &&
+                         CheckResourceTypeMatches(spe.Expression, resourceType))
+                {
+                    return null;
                 }
             }
 
             if (resourceTypeFilters.Count == 0)
             {
+                hasNoAccess = true;
                 return null;
             }
 
@@ -1118,6 +1122,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             // Check if the expression matches the given resource type
             if (expression is StringExpression strExpr && strExpr.Value == resourceType)
+            {
+                return true;
+            }
+
+            if (expression is InExpression<string> inExpr && inExpr.Values.Contains(resourceType, StringComparer.Ordinal))
             {
                 return true;
             }
