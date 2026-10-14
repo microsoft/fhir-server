@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         if (conditionalOperationsCounter % conditionalOperationsGroupSize == 0)
                         {
                             _totalThrottledDelays++;
-                            _logger.LogInformation($"BundleHandler - Conditional Operation Throttling.");
+                            _logger.LogInformation($"BundleHandler - Conditional Operation Throttling - {_bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds}ms");
                             await Task.Delay(_bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds, CancellationToken.None);
                         }
                     }
