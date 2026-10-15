@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 numberOfResources: numberOfResources,
                 generatedIdentifiers: 5,
                 resolvedReferences: 50,
-                highComplexity: false);
+                complexity: BundleComplexity.Low);
             bundleStatistics.ThrottlingDelays = 3;
 
             Parallel.For(0, numberOfResources - 2, i =>

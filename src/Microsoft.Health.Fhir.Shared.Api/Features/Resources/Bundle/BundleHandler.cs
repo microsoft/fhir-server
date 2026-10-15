@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private BundleType? _bundleType;
 
         // Indicates if a bundle contains a complex logic that requires additional processing.
-        private bool _bundleWithHighComplexity = false;
+        private BundleComplexity _bundleComplexity = BundleComplexity.Low;
 
         // Indicates if any of the resources in the bundle require Profile refresh.
         private bool _forceProfilesRefresh = false;
@@ -537,7 +537,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Long sequential bundles are complex and can take long time to run.
                 if (processingLogic == BundleProcessingLogic.Sequential && _requestCount > 100)
                 {
-                    _bundleWithHighComplexity = true;
+                    _bundleComplexity = BundleComplexity.High;
                     return;
                 }
 
@@ -545,7 +545,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 int totalConditionalOperations = _requests.SelectMany(r => r.Value).Count(x => x.IsConditionalOperation);
                 if (totalConditionalOperations > 50)
                 {
-                    _bundleWithHighComplexity = true;
+                    _bundleComplexity = BundleComplexity.High;
                     return;
                 }
 
@@ -554,7 +554,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 bool requiredProfileRefresh = _requests.SelectMany(r => r.Value).Any(x => x.ResourceType != null && profileResourceTypes.Contains(x.ResourceType));
                 if (requiredProfileRefresh)
                 {
-                    _bundleWithHighComplexity = true;
+                    _bundleComplexity = BundleComplexity.High;
                     return;
                 }
             }
@@ -593,7 +593,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private void EmitBundleLatency(Stopwatch stopwatch)
         {
-            if (_bundleWithHighComplexity)
+            if (_bundleComplexity == BundleComplexity.High)
             {
                 _metricHandler.EmitLatency(new BundleHighComplexityMetricNotification { ElapsedMilliseconds = stopwatch.ElapsedMilliseconds });
             }
@@ -1206,7 +1206,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _requestCount,
                 _totalGeneratedIdentifiers,
                 _totalResolvedReferences,
-                _bundleWithHighComplexity);
+                _bundleComplexity);
 
             statistics.StartCollectingResults();
 
@@ -1216,7 +1216,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private void FinishCollectingBundleStatistics(BundleHandlerStatistics statistics)
         {
             // Mark the bundle as high complexity.
-            statistics.HighComplexity = _bundleWithHighComplexity;
+            statistics.Complexity = _bundleComplexity;
 
             // Fill up final execution numbers.
             statistics.ThrottlingDelays = _totalThrottledDelays;
