@@ -22,8 +22,10 @@ using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -239,6 +241,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (sqlSearchOptions.IsIncludesOperation)
             {
+                if (sqlSearchOptions.CountOnly)
+                {
+                    // The $includes count covers the whole original search in a single statement. It does not depend on the
+                    // page or sort phase recorded in the includes continuation token, so no further phases are run.
+                    try
+                    {
+                        return await RunSearch(sqlSearchOptions, cancellationToken);
+                    }
+                    catch (SqlException ex) when (ex.Number is SqlErrorCodes.TimeoutExpired or 1222)
+                    {
+                        // Translate only after the existing SQL retries have finished: -2 is the client command
+                        // timeout; 1222 is the server lock-request timeout. Do not match exception messages.
+                        _logger.LogWarning(ex, "$includes _summary=count failed with SQL timeout error {SqlErrorNumber}.", ex.Number);
+                        throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired, ex);
+                    }
+                    catch (SqlException ex) when (IsIncludesCountCapacityFailure(sqlSearchOptions, ex))
+                    {
+                        _logger.LogWarning(ex, "$includes _summary=count failed with SQL capacity error {SqlErrorNumber}.", ex.Number);
+                        throw new ServiceUnavailableException(Resources.IncludesCountResourceExhausted, ex);
+                    }
+                }
+
                 var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
 
                 sqlSearchOptions.SortQuerySecondPhase = includesContinuationToken.SortQuerySecondPhase ?? false;
@@ -1978,7 +2002,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             var includesContinuationToken = ParseIncludesContinuationToken(sqlSearchOptions);
             Expression searchExpression;
-            if (includesContinuationToken.MatchPageSize.HasValue)
+            if (sqlSearchOptions.CountOnly)
+            {
+                // The count covers the whole original search, so the match scope is not constrained by the token's match page.
+                searchExpression = sqlSearchOptions.Expression;
+            }
+            else if (includesContinuationToken.MatchPageSize.HasValue)
             {
                 sqlSearchOptions = sqlSearchOptions.CloneSqlSearchOptions();
                 sqlSearchOptions.ContinuationToken = includesContinuationToken.MatchContinuationToken;
@@ -2004,17 +2033,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
-            if (clonedSearchOptions.CountOnly)
-            {
-                // if we're only returning a count, discard any _include parameters since included resources are not counted.
-                searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
-            }
+            // The include expressions are what an $includes count counts, so RemoveIncludesRewriter is intentionally not applied here.
 
             // ! - Trace
             SqlRootExpression expression = (SqlRootExpression)CreateDefaultSearchExpression(searchExpression, clonedSearchOptions)
                 ?.AcceptVisitor(IncludesOperationRewriter.Instance)
                 ?? SqlRootExpression.WithResourceTableExpressions();
             expression = AttachSmartCompartmentMembership(expression, searchExpression, clonedSearchOptions);
+
+            if (clonedSearchOptions.CountOnly && expression.SearchParamTableExpressions.All(e => e.Kind != SearchParamTableExpressionKind.Include))
+            {
+                // Nothing to include, so nothing to count. Primary matches are never counted by $includes.
+                return new SearchResult(0, clonedSearchOptions.UnsupportedSearchParams);
+            }
 
             await CreateStats(expression, cancellationToken);
 
@@ -2218,9 +2249,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 },
                 _logger,
                 cancellationToken,
-                true); // this enables reads from replicas
+                true, // this enables reads from replicas
+                shouldNotRetry: ex => IsIncludesCountCapacityFailure(clonedSearchOptions, ex));
 
             return searchResult;
+        }
+
+        private static bool IsIncludesCountCapacityFailure(SearchOptions searchOptions, SqlException exception)
+        {
+            // Known capacity failures only: 701 (insufficient memory), 1105 (filegroup allocation),
+            // 1204 (lock resources), 8645 (memory-grant wait), 8651 (memory grant unavailable),
+            // 10928/10929 (Azure SQL resource limits), 40501 (service busy), 49918 (insufficient resources).
+            // Other SQL failures, including query-plan errors, retain their existing handling.
+            return searchOptions.IsIncludesOperation &&
+                searchOptions.CountOnly &&
+                (exception.Number is 701 or 1105 or 1204 or 8645 or 8651 or 10928 or 10929 or 40501 or 49918);
         }
 
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
