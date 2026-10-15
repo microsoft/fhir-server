@@ -85,6 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Assert.Equal(_testUrl, definition.BaseUrl);
                 Assert.Equal(DeleteOperation.HardDelete, definition.DeleteOperation);
                 Assert.Equal(searchParams.Count, definition.SearchParameters.Count);
+                Assert.False(definition.AllowProfileResourceModification);
 
                 return new List<JobInfo>()
                     {
@@ -101,6 +102,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             Assert.NotNull(response);
             Assert.Equal(1, response.Id);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenEditProfileDefinitionsAccess_WhenBulkDeleteJobCreated_ThenProfileModificationIsAllowed()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>())
+                .Returns(DataActions.HardDelete | DataActions.Delete | DataActions.EditProfileDefinitions);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(callInfo.ArgAt<string[]>(1)[0]);
+                    Assert.True(definition.AllowProfileResourceModification);
+                    return new List<JobInfo> { new() { Id = 1 } };
+                });
+
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, "StructureDefinition", new List<Tuple<string, string>>(), false, null, false);
+
+            CreateBulkDeleteResponse response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
         }
 
         [Fact]
