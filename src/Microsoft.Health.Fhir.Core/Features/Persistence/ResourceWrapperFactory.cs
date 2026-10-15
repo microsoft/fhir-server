@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -14,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -30,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IVectorSearchIndexer _vectorSearchIndexer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResourceWrapperFactory"/> class.
@@ -41,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="compartmentIndexer">The compartment indexer.</param>
         /// <param name="searchParameterDefinitionManager"> The search parameter definition manager.</param>
         /// <param name="resourceDeserializer">Resource deserializer</param>
+        /// <param name="vectorSearchIndexer">The optional vector indexer, registered when vector search is enabled.</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -48,7 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IClaimsExtractor claimsExtractor,
             ICompartmentIndexer compartmentIndexer,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IResourceDeserializer resourceDeserializer)
+            IResourceDeserializer resourceDeserializer,
+            IVectorSearchIndexer vectorSearchIndexer = null)
         {
             EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
@@ -65,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _compartmentIndexer = compartmentIndexer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _resourceDeserializer = resourceDeserializer;
+            _vectorSearchIndexer = vectorSearchIndexer;
         }
 
         /// <inheritdoc />
@@ -110,6 +117,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceElement.InstanceType);
             ExtractMinAndMaxValues(newIndices);
             resourceWrapper.UpdateSearchIndices(newIndices, searchParameterHash);
+        }
+
+        /// <inheritdoc />
+        public async Task UpdateAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resources, nameof(resources));
+
+            foreach (ResourceWrapper resource in resources)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Update(resource);
+            }
+
+            await UpdateVectorSearchIndicesAsync(resources, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public async Task UpdateVectorSearchIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resources, nameof(resources));
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (_vectorSearchIndexer != null && resources.Count > 0)
+            {
+                await _vectorSearchIndexer.UpdateVectorSearchIndicesAsync(resources, cancellationToken);
+            }
         }
 
         // A given search parameter can have multiple values. We want to keep track of which

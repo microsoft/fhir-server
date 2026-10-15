@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 resource.Search = new Bundle.SearchComponent
                 {
                     Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
+                    Score = r.Score,
                 };
 
                 return resource;

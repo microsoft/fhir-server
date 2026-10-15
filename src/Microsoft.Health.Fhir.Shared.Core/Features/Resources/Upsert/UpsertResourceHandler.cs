@@ -16,6 +16,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -50,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-
             _referenceResolver = referenceResolver;
             _modelInfoProvider = modelInfoProvider;
             _contextAccessor = contextAccessor;

@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Medino;
@@ -26,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -34,6 +37,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -49,6 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
+    [Collection(Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.ModelInfoProviderSerialCollection.Name)]
     public class SqlServerFhirDataStoreUnitTests
     {
         public static IEnumerable<object[]> RemoveTrailingZerosTestCases()
@@ -152,7 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         // Note: GetJsonValue tests require instance creation which has complex dependencies
         // This method is indirectly tested through integration tests (UpdateTests, FhirPathPatchTests)
 
-        private static ResourceWrapper CreateResourceWrapper(string rawResourceData)
+        private static ResourceWrapper CreateResourceWrapper(string rawResourceData, long resourceSurrogateId = 0)
         {
             return new ResourceWrapper(
                 "123",
@@ -165,7 +170,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 null,
                 null,
                 null,
-                null);
+                null,
+                resourceSurrogateId);
         }
 
         private static string InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
@@ -377,11 +383,360 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Fact]
         public void GivenNoVectorIndexer_WhenGeneratingVectorSearchParameters_ThenNoRowsAreReturned()
         {
-            var generator = new VectorSearchParamListRowGenerator();
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            SqlServerFhirModel model = GetModel(CreateSqlServerFhirDataStore(sqlRetryService));
+            var generator = new VectorSearchParamListRowGenerator(model, Substitute.For<ICompressedRawResourceConverter>());
 
             var rows = generator.GenerateRows(Array.Empty<MergeResourceWrapper>());
 
             Assert.Empty(rows);
+        }
+
+        [Fact]
+        public void GivenBulkReindex_WhenCreatingCommand_ThenExistingProcedureIsUsed()
+        {
+            // Arrange and Act
+            using SqlCommand command = SqlServerFhirDataStore.CreateBulkUpdateSearchParameterIndicesCommand(resourceCount: 1);
+
+            // Assert
+            Assert.Equal("dbo.UpdateResourceSearchParams", command.CommandText);
+        }
+
+        [Fact]
+        public void GivenEvaluatedVectorResourceAndSchema119_WhenCheckingVectorReindex_ThenVectorTvpsAreEnabled()
+        {
+            // Arrange
+            ResourceWrapper resource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
+            resource.UpdateVectorSearchIndices(Array.Empty<VectorSearchIndexEntry>());
+
+            // Act
+            bool schema118Result = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, currentSchemaVersion: 118);
+            bool schema119Result = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(new[] { resource }, currentSchemaVersion: 119);
+            bool unevaluatedResult = SqlServerFhirDataStore.ShouldUpdateVectorSearchIndices(
+                new[] { CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"456\"}") },
+                currentSchemaVersion: 119);
+
+            // Assert
+            Assert.False(schema118Result);
+            Assert.True(schema119Result);
+            Assert.False(unevaluatedResult);
+        }
+
+        [Fact]
+        public void GivenVectorPassages_WhenGeneratingRows_ThenTextIsCompressedAndOnlyDuplicatePrimaryKeysAreRemoved()
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            SqlServerFhirModel model = GetModel(CreateSqlServerFhirDataStore(sqlRetryService));
+            var searchParameterUri = new Uri("https://example.org/fhir/SearchParameter/patient-semantic-text");
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(model, new Dictionary<Uri, short> { { searchParameterUri, 11 } });
+
+            var searchParameter = new SearchParameterInfo(
+                "PatientSemanticText",
+                "semantic-text",
+                SearchParamType.Special,
+                searchParameterUri,
+                expression: "Patient.text.div",
+                baseResourceTypes: new[] { "Patient" },
+                vectorConfig: new VectorSearchParameterConfig());
+            const string unicodePassage = "Résumé 東京";
+            ResourceWrapper firstResource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}", resourceSurrogateId: 41);
+            firstResource.UpdateVectorSearchIndices(
+                new[]
+                {
+                    new VectorSearchIndexEntry(
+                        searchParameter,
+                        embeddingModelId: 7,
+                        new[]
+                        {
+                            CreateChunk(0, unicodePassage, 0.25f),
+                            CreateChunk(1, string.Empty, 0.5f),
+                        }),
+                    new VectorSearchIndexEntry(
+                        searchParameter,
+                        embeddingModelId: 7,
+                        new[] { CreateChunk(0, "duplicate key with different payload", 0.75f) }),
+                    new VectorSearchIndexEntry(
+                        searchParameter,
+                        embeddingModelId: 8,
+                        new[] { CreateChunk(0, unicodePassage, 0.75f) }),
+                });
+            ResourceWrapper secondResource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"456\"}", resourceSurrogateId: 42);
+            secondResource.UpdateVectorSearchIndices(
+                new[]
+                {
+                    new VectorSearchIndexEntry(
+                        searchParameter,
+                        embeddingModelId: 7,
+                        new[] { CreateChunk(0, "second resource", 1.0f) }),
+                });
+            var converter = new CompressedRawResourceConverter();
+            var generator = new VectorSearchParamListRowGenerator(model, converter);
+            var passages = new List<(long ResourceSurrogateId, short ChunkOrdinal, short EmbeddingModelId, byte[] Hash, string Text)>();
+
+            // Act
+            foreach (var row in generator.GenerateRows(
+                new[]
+                {
+                    new MergeResourceWrapper(firstResource, false, false),
+                    new MergeResourceWrapper(secondResource, false, false),
+                }))
+            {
+                passages.Add((
+                    row.ResourceSurrogateId,
+                    row.ChunkOrdinal,
+                    row.EmbeddingModelId,
+                    row.SourceTextHash,
+                    converter.ReadCompressedRawResource(row.SourceTextCompressed)));
+            }
+
+            // Assert
+            Assert.Collection(
+                passages,
+                passage =>
+                {
+                    Assert.Equal((41, (short)0, (short)7), (passage.ResourceSurrogateId, passage.ChunkOrdinal, passage.EmbeddingModelId));
+                    Assert.Equal(unicodePassage, passage.Text);
+                    Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(unicodePassage)), passage.Hash);
+                },
+                passage =>
+                {
+                    Assert.Equal((41, (short)1, (short)7), (passage.ResourceSurrogateId, passage.ChunkOrdinal, passage.EmbeddingModelId));
+                    Assert.Equal(string.Empty, passage.Text);
+                    Assert.Equal(SHA256.HashData(Array.Empty<byte>()), passage.Hash);
+                },
+                passage =>
+                {
+                    Assert.Equal((41, (short)0, (short)8), (passage.ResourceSurrogateId, passage.ChunkOrdinal, passage.EmbeddingModelId));
+                    Assert.Equal(unicodePassage, passage.Text);
+                    Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(unicodePassage)), passage.Hash);
+                },
+                passage =>
+                {
+                    Assert.Equal((42, (short)0, (short)7), (passage.ResourceSurrogateId, passage.ChunkOrdinal, passage.EmbeddingModelId));
+                    Assert.Equal("second resource", passage.Text);
+                });
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenInFlightHeartbeatSqlFailure_WhenMerging_ThenOnlyRequestedShutdownIsSilent(bool failDuringShutdown)
+        {
+            // Arrange
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var heartbeatStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var heartbeatStopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            SqlException heartbeatException = SqlExceptionFactory.GetSqlException(0, "Operation cancelled by user.");
+            CancellationToken mergeToken = default;
+            bool mergeCompleted = false;
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(Array.Empty<ResourceWrapper>());
+            sqlRetryService.ExecuteSql(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>())
+                .Returns(async call =>
+                {
+                    SqlCommand command = call.Arg<SqlCommand>();
+                    CancellationToken cancellationToken = call.Arg<CancellationToken>();
+                    switch (command.CommandText)
+                    {
+                        case "dbo.MergeResourcesBeginTransaction":
+                            command.Parameters["@TransactionId"].Value = 41L;
+                            command.Parameters["@SequenceRangeFirstValue"].Value = 0;
+                            break;
+                        case "dbo.MergeResourcesCommitTransaction":
+                            cancellationToken.ThrowIfCancellationRequested();
+                            break;
+                        case "dbo.MergeResourcesPutTransactionHeartbeat":
+                            using (cancellationToken.Register(() => heartbeatStopped.TrySetResult()))
+                            {
+                                heartbeatStarted.TrySetResult();
+                                if (failDuringShutdown)
+                                {
+                                    await heartbeatStopped.Task;
+                                }
+
+                                throw heartbeatException;
+                            }
+
+                        case "dbo.MergeResources":
+                            mergeToken = cancellationToken;
+                            await heartbeatStarted.Task.WaitAsync(TimeSpan.FromSeconds(20));
+                            if (!failDuringShutdown)
+                            {
+                                await Task.Delay(Timeout.Infinite, cancellationToken);
+                            }
+
+                            mergeCompleted = true;
+                            break;
+                        default:
+                            throw new InvalidOperationException($"Unexpected SQL command: {command.CommandText}");
+                    }
+                });
+            SqlServerFhirDataStore dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(GetModel(dataStore), new Dictionary<Uri, short>
+                {
+                    { SearchParameterNames.IdUri, 1 },
+                    { SearchParameterNames.LastUpdatedUri, 2 },
+                });
+            ResourceWrapper resource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\",\"meta\":{\"versionId\":\"1\",\"lastUpdated\":\"2023-01-01T00:00:00Z\"}}");
+            var operation = new ResourceWrapperOperation(resource, true, false, null, false, false, null);
+
+            // Act
+            Task<MergeOutcome> merge = dataStore.MergeAsync(new[] { operation }, MergeOptions.Default, CancellationToken.None);
+
+            // Assert
+            if (failDuringShutdown)
+            {
+                MergeOutcome outcome = await merge.WaitAsync(TimeSpan.FromSeconds(30));
+                Assert.Equal(MergeOutcomeFinalState.Completed, outcome.State);
+                Assert.True(Assert.Single(outcome.Results).Value.IsOperationSuccessful);
+                Assert.True(mergeCompleted);
+                Assert.True(heartbeatStopped.Task.IsCompleted);
+                Assert.False(mergeToken.IsCancellationRequested);
+            }
+            else
+            {
+                SqlException actual = await Assert.ThrowsAsync<SqlException>(() => merge.WaitAsync(TimeSpan.FromSeconds(30)));
+                Assert.Same(heartbeatException, actual);
+                Assert.False(mergeCompleted);
+                Assert.True(mergeToken.IsCancellationRequested);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task GivenHeartbeatCompletesOrIsCancelled_WhenStopping_ThenShutdownIsSilent(
+            bool waitForCancellation,
+            bool propagateHeartbeatFailure)
+        {
+            // Arrange
+            using var cancellationSource = new CancellationTokenSource();
+            var logger = Substitute.For<ILogger>();
+            Task heartbeat = waitForCancellation
+                ? Task.Delay(Timeout.Infinite, cancellationSource.Token)
+                : Task.CompletedTask;
+
+            // Act
+            await SqlServerFhirDataStore.StopTransactionHeartbeatAsync(heartbeat, cancellationSource, propagateHeartbeatFailure, logger);
+
+            // Assert
+            Assert.True(cancellationSource.IsCancellationRequested);
+            Assert.True(heartbeat.IsCompleted);
+            Assert.Equal(waitForCancellation, heartbeat.IsCanceled);
+            Assert.Empty(logger.ReceivedCalls());
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenHeartbeatFaultedWithCancellation_WhenStopping_ThenShutdownIsSilent(bool propagateHeartbeatFailure)
+        {
+            // Arrange
+            using var cancellationSource = new CancellationTokenSource();
+            var logger = Substitute.For<ILogger>();
+            var completion = new TaskCompletionSource();
+            completion.SetException(
+                new Exception[] { new OperationCanceledException(), new InvalidOperationException("Not the awaited exception.") });
+
+            // Act
+            await SqlServerFhirDataStore.StopTransactionHeartbeatAsync(completion.Task, cancellationSource, propagateHeartbeatFailure, logger);
+
+            // Assert
+            Assert.True(cancellationSource.IsCancellationRequested);
+            Assert.True(completion.Task.IsFaulted);
+            Assert.Empty(logger.ReceivedCalls());
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenMergeIsFailing_WhenHeartbeatAlsoFails_ThenMergeExceptionPropagatesAndHeartbeatIsLogged(bool requestCancelled)
+        {
+            // Arrange
+            using var cancellationSource = new CancellationTokenSource();
+            var logger = Substitute.For<ILogger>();
+            Exception mergeException = requestCancelled
+                ? new OperationCanceledException()
+                : new InvalidOperationException("Merge failed.");
+            var heartbeatException = new InvalidOperationException("Heartbeat failed.");
+            Task heartbeat = Task.FromException(heartbeatException);
+
+            // Act
+            Exception actual = await Record.ExceptionAsync(async () =>
+            {
+                try
+                {
+                    throw mergeException;
+                }
+                finally
+                {
+                    await SqlServerFhirDataStore.StopTransactionHeartbeatAsync(heartbeat, cancellationSource, propagateHeartbeatFailure: false, logger);
+                }
+            });
+
+            // Assert
+            Assert.Same(mergeException, actual);
+            Assert.True(cancellationSource.IsCancellationRequested);
+            var logCall = Assert.Single(logger.ReceivedCalls());
+            object[] arguments = logCall.GetArguments();
+            Assert.Equal(LogLevel.Warning, arguments[0]);
+            Assert.Same(heartbeatException, arguments[3]);
+            Assert.Equal("Transaction heartbeat failed while the owning merge was already failing.", arguments[2].ToString());
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenHeartbeatFailureShouldPropagate_WhenStopping_ThenFirstExceptionIsRethrownUnchanged(bool aggregateFailure)
+        {
+            // Arrange
+            using var cancellationSource = new CancellationTokenSource();
+            var logger = Substitute.For<ILogger>();
+            Exception expected = aggregateFailure
+                ? new AggregateException(new OperationCanceledException(), new InvalidOperationException("Heartbeat failed."))
+                : new InvalidOperationException("Heartbeat failed.");
+            var completion = new TaskCompletionSource();
+            completion.SetException(new[] { expected, new InvalidOperationException("Not the awaited exception.") });
+
+            // Act
+            Exception actual = await Record.ExceptionAsync(
+                () => SqlServerFhirDataStore.StopTransactionHeartbeatAsync(completion.Task, cancellationSource, propagateHeartbeatFailure: true, logger));
+
+            // Assert
+            Assert.Same(expected, actual);
+            Assert.True(cancellationSource.IsCancellationRequested);
+            Assert.Empty(logger.ReceivedCalls());
+        }
+
+        private static VectorSearchChunk CreateChunk(int ordinal, string text, float embedding)
+        {
+            return new VectorSearchChunk(
+                ordinal,
+                text,
+                SHA256.HashData(Encoding.UTF8.GetBytes(text)),
+                new[] { embedding });
         }
 
         private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
@@ -460,7 +815,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 ModelInfoProvider.Instance,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 Substitute.For<IImportErrorSerializer>(),
-                storeClient);
+                storeClient,
+                Substitute.For<IResourceWrapperFactory>());
 
             return dataStore;
         }

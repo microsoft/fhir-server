@@ -295,10 +295,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         internal async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, IFhirDataStore store, CancellationToken cancellationToken)
         {
-            foreach (var resource in resources)
-            {
-                _resourceWrapperFactory.Update(resource);
-            }
+            await _resourceWrapperFactory.UpdateAsync(resources, cancellationToken);
 
             await _bulkUpdateRetries.ExecuteAsync(async () => await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken));
         }
