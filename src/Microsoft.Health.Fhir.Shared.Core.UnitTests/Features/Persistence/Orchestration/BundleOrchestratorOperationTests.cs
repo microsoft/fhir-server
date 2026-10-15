@@ -309,17 +309,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         }
 
         [Fact]
-        public async Task GivenABatchOperation_WhenCanceledWhileMergeIsWaitingForResources_ThenRemainCanceled()
+        public async Task GivenATransactionOperation_WhenCanceledWhileMergeIsWaitingForResources_ThenRemainCanceled()
         {
+            // Cancel() is only called on the transaction path, when a sibling entry fails.
             using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
-            IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: 2);
+            var transactionOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = transactionOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Transaction, "POST", expectedNumberOfResources: 2);
 
             DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
             ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
                 resource,
-                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
+                new BundleResourceContext(Bundle.BundleType.Transaction, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
 
             Task<UpsertOutcome> appendTask = operation.AppendResourceAsync(resourceWrapper, BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore(), cts.Token);
 

@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
             else if (context.Exception is BundleOrchestratorOperationCanceledException)
             {
-                context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.FailedDependency);
+                context.Result = CreateOperationOutcomeResult(Core.Resources.TransactionEntryFailedDependency, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.FailedDependency);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception is System.OperationCanceledException operationCanceledException)

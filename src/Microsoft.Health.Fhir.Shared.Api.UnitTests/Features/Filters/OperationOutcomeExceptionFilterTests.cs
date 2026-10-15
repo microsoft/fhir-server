@@ -282,7 +282,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             OperationOutcomeResult result = ValidateOperationOutcome(wrapped ? new Exception(null, exception) : exception, HttpStatusCode.FailedDependency);
 
-            Assert.Equal(OperationOutcome.IssueType.Processing, Assert.Single(result.Result.Issue).Code);
+            OperationOutcome.IssueComponent issue = Assert.Single(result.Result.Issue);
+            Assert.Equal(OperationOutcome.IssueType.Processing, issue.Code);
+            Assert.Equal(Core.Resources.TransactionEntryFailedDependency, issue.Diagnostics);
         }
 
         [Theory]

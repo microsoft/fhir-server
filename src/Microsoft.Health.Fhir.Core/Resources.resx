@@ -706,6 +706,9 @@
   <data name="TransactionDeadlock" xml:space="preserve">
     <value>There was resource contention with another process in the datastore. Please retry this transaction.</value>
   </data>
+  <data name="TransactionEntryFailedDependency" xml:space="preserve">
+    <value>The request was not completed because another entry in the transaction failed. Review the other entries in the bundle for the original error.</value>
+  </data>
   <data name="FhirUserClaimMustHaveResourceTypeAndId" xml:space="preserve">
     <value>The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id.</value>
     <comment>{0} is a string value of given fhirUser claim.</comment>
