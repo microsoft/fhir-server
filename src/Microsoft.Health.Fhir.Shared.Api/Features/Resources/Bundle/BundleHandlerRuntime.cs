@@ -162,6 +162,45 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return cancellationToken.IsCancellationRequested && elapsedTime.TotalSeconds < bundleConfiguration.MaxExecutionTimeInSeconds;
         }
 
+        public static BundleComplexity IdentifyBundleComplexity(
+            BundleProcessingLogic processingLogic,
+            int requestCount,
+            int totalConditionalOperations,
+            bool requiresProfileRefresh,
+            double sumResourceSize)
+        {
+            const double tenMegabytes = 1024 * 1024 * 10;
+
+            BundleComplexity complexity = BundleComplexity.Low;
+
+            // Conditional operations are complex and can take long time to execute.
+            if (processingLogic == BundleProcessingLogic.Sequential && totalConditionalOperations > 200)
+            {
+                return BundleComplexity.High;
+            }
+
+            // Long sequential bundles are complex and can take long time to run.
+            if (processingLogic == BundleProcessingLogic.Sequential && requestCount > 400)
+            {
+                return BundleComplexity.High;
+            }
+
+            // Bundles modifying profiles can take longer as require profiles to refresh.
+            if (requiresProfileRefresh)
+            {
+                return BundleComplexity.High;
+            }
+
+            if (sumResourceSize >= tenMegabytes)
+            {
+                return BundleComplexity.High;
+            }
+
+            // TODO: Add more complexity checks here, such as checking for large payloads, large number of indexable values, etc.
+
+            return complexity;
+        }
+
         internal static bool IsBundleProcessingLogicValid(HttpContext outerHttpContext)
         {
             EnsureArg.IsNotNull(outerHttpContext, nameof(outerHttpContext));

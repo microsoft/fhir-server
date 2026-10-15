@@ -534,29 +534,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             try
             {
-                // Long sequential bundles are complex and can take long time to run.
-                if (processingLogic == BundleProcessingLogic.Sequential && _requestCount > 100)
-                {
-                    _bundleComplexity = BundleComplexity.High;
-                    return;
-                }
-
-                // Conditional operations are complex and can take long time to execute.
                 int totalConditionalOperations = _requests.SelectMany(r => r.Value).Count(x => x.IsConditionalOperation);
-                if (totalConditionalOperations > 50)
-                {
-                    _bundleComplexity = BundleComplexity.High;
-                    return;
-                }
 
-                // Bundles modifying profiles can take longer as require profiles to refresh.
                 IReadOnlySet<string> profileResourceTypes = _profilesResolver.GetProfilesTypes();
-                bool requiredProfileRefresh = _requests.SelectMany(r => r.Value).Any(x => x.ResourceType != null && profileResourceTypes.Contains(x.ResourceType));
-                if (requiredProfileRefresh)
-                {
-                    _bundleComplexity = BundleComplexity.High;
-                    return;
-                }
+                bool requiresProfileRefresh = _requests.SelectMany(r => r.Value).Any(x => x.ResourceType != null && profileResourceTypes.Contains(x.ResourceType));
+
+                double sumResourceSize = _requests.SelectMany(r => r.Value).Where(x => x.Context?.HttpContext?.Request != null).Select(x => x.Context.HttpContext.Request.ContentLength ?? 0).DefaultIfEmpty(0).Sum();
+
+                _bundleComplexity = BundleHandlerRuntime.IdentifyBundleComplexity(
+                    processingLogic,
+                    _requestCount,
+                    totalConditionalOperations,
+                    requiresProfileRefresh,
+                    sumResourceSize);
             }
             catch (InvalidOperationException e)
             {
@@ -567,6 +557,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
             }
             catch (IOException e)
+            {
+                _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
+            }
+            catch (Exception e)
             {
                 _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
             }
