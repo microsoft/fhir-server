@@ -312,6 +312,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         }
 
         [Fact]
+        public void GivenADeleteSearchOperation_WhenOperationDefinitionUrlIsResolved_ThenCorrectUrlShouldBeReturned()
+        {
+            _urlResolver.ResolveOperationDefinitionUrl(OperationsConstants.DeleteSearch);
+
+            Assert.NotNull(_capturedUrlRouteContext);
+            Assert.Equal(RouteNames.DeleteSearchOperationDefinition, _capturedUrlRouteContext.RouteName);
+            Assert.Equal(Scheme, _capturedUrlRouteContext.Protocol);
+            Assert.Equal(Host, _capturedUrlRouteContext.Host);
+        }
+
+        [Fact]
         public void GivenAnUnknownOperation_WhenOperationResultUrlIsResolved_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
             const string id = "12345";
