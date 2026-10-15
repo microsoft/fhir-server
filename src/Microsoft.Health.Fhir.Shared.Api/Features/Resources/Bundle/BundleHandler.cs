@@ -558,7 +558,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     return;
                 }
             }
-            catch (Exception e)
+            catch (InvalidOperationException e)
+            {
+                _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
+            }
+            catch (ArgumentException e)
+            {
+                _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
+            }
+            catch (IOException e)
             {
                 _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
             }
