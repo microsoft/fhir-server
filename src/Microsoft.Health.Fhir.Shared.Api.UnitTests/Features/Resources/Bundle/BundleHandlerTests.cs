@@ -226,6 +226,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Ensures success sign is emitted.
             _bundleMetricHandler.Received(1).EmitSuccess();
+            _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -371,6 +372,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Ensures success sign is emitted.
             _bundleMetricHandler.Received(1).EmitSuccess();
+            _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
@@ -594,6 +596,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 // Ensures failure sign is emitted.
                 _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
 
@@ -853,6 +856,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 // Ensures failure sign is emitted.
                 _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
 

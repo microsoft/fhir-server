@@ -33,7 +33,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\ActionExecutedStatistics.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\BaseEndpointMetricEmitterAttribute.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\BundleEndpointMetricEmitterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\CrudEndpointMetricEmitterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\SearchEndpointMetricEmitterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\QueryLatencyOverEfficiencyFilterAttribute.cs" />
