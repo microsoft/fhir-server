@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Net.Http.Headers;
@@ -238,6 +239,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             else if (context.Exception is FormatException formatException)
             {
                 context.Result = CreateOperationOutcomeResult(formatException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
+                context.ExceptionHandled = true;
+            }
+            else if (context.Exception is BundleOrchestratorOperationCanceledException)
+            {
+                context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.FailedDependency);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception is System.OperationCanceledException operationCanceledException)

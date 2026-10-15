@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -270,6 +271,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenAnOperationCanceledException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new System.OperationCanceledException(), HttpStatusCode.RequestTimeout);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenABundleOrchestratorOperationCanceledException_WhenExecutingAnAction_ThenTheResponseShouldBeFailedDependency(bool wrapped)
+        {
+            var exception = new BundleOrchestratorOperationCanceledException("The bundle operation was canceled.");
+
+            OperationOutcomeResult result = ValidateOperationOutcome(wrapped ? new Exception(null, exception) : exception, HttpStatusCode.FailedDependency);
+
+            Assert.Equal(OperationOutcome.IssueType.Processing, Assert.Single(result.Result.Issue).Code);
         }
 
         [Theory]

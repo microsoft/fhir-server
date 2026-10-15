@@ -309,6 +309,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         }
 
         [Fact]
+        public async Task GivenABatchOperation_WhenCanceledWhileMergeIsWaitingForResources_ThenRemainCanceled()
+        {
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: 2);
+
+            DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                resource,
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
+
+            Task<UpsertOutcome> appendTask = operation.AppendResourceAsync(resourceWrapper, BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore(), cts.Token);
+
+            operation.Cancel("Simulated client failure.");
+
+            await Assert.ThrowsAsync<BundleOrchestratorOperationCanceledException>(() => appendTask);
+            Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
+        }
+
+        [Fact]
         public async Task GivenABatchOperation_WhenOneWorkerFailsAndRemainingWorkersRelease_ThenReleaseResourceAsyncShouldReturnWithoutThrowingBundleOrchestratorException()
         {
             // A bundle with N parallel workers is being processed. One worker fails (e.g., SQL timeout)
