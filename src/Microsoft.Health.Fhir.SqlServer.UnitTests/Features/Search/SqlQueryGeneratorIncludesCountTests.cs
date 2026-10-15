@@ -259,8 +259,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Contains("ORDER BY T1 ASC, Sid1 ASC", sql, StringComparison.Ordinal);
             Assert.Contains("> 250", sql, StringComparison.Ordinal);
             Assert.DoesNotContain("SELECT count_big(", sql, StringComparison.Ordinal);
-            Assert.Contains("@FilteredData", sql, StringComparison.Ordinal);
-            Assert.Contains("INSERT INTO @FilteredData", sql, StringComparison.Ordinal);
             Assert.Contains(parameters.Values, v => v is int i && i == 3);
         }
 

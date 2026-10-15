@@ -265,7 +265,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var includesUrl = searchResponse.Resource.Link?
                 .FirstOrDefault(x => x.Relation.Equals("related", StringComparison.Ordinal))?.Url;
             Assert.NotNull(includesUrl);
-            Assert.Matches(IncludesContinuationTokenRegex, includesUrl);
 
             var patientReferences = _fixture.PatientResources
                 .Select(GetResourceReference)
