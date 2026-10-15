@@ -76,8 +76,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Fact]
-        public async Task GivenBulkUpdateRequestWithUnsupportedResourceType_WhenRequested_ThenBadRequestIsReturned()
+        [Theory]
+        [InlineData("SearchParameter")]
+        public async Task GivenBulkUpdateRequestWithUnsupportedResourceTypes_WhenRequested_ThenBadRequestIsReturned(string resourceType)
         {
             CheckBulkUpdateEnabled();
             var patchRequest = new Parameters();
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var response = await SendBulkUpdateRequest(
                 "tag",
                 patchRequest,
-                "SearchParameter/$bulk-update",
+                $"{resourceType}/$bulk-update",
                 null);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

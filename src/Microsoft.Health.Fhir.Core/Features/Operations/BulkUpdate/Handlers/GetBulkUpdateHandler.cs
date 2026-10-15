@@ -90,6 +90,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                             {
                                 cancelled = true;
                             }
+                            else if (IsProfileResourceSkippedIssue(issue))
+                            {
+                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, detailsText: issue));
+                            }
                             else
                             {
                                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
@@ -184,7 +188,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             AddParameterComponent(resourcesPatchFailed, ResourcePatchFailedCountName);
 
             HttpStatusCode statusCode;
-            if (failed && issues.Count > 0)
+            if (failed && issues.Any(issue =>
+                issue.Severity == OperationOutcomeConstants.IssueSeverity.Error ||
+                issue.Severity == OperationOutcomeConstants.IssueSeverity.Fatal))
             {
                 statusCode = failureResultCode;
             }
@@ -229,6 +235,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             }
 
             return new GetBulkUpdateResponse(fhirResults, issues, statusCode);
+        }
+
+        private static bool IsProfileResourceSkippedIssue(string issue)
+        {
+            return issue.StartsWith("Skipped ", StringComparison.Ordinal)
+                && issue.Contains("because the submitting caller did not have EditProfileDefinitions permission.", StringComparison.Ordinal);
         }
     }
 }

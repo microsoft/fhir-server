@@ -261,10 +261,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
-        [Fact]
-        public async Task GivenBulkUpdateRequest_WhenResourceTypeIsSearchParameter_ThenBadRequestIsReturned()
+        [Theory]
+        [InlineData("SearchParameter")]
+        public async Task GivenBulkUpdateRequest_WhenResourceTypeIsExcluded_ThenBadRequestIsReturned(string resourceType)
         {
-            const string resourceType = "SearchParameter";
             var searchParams = new List<Tuple<string, string>>
             {
                 new Tuple<string, string>("param", "value"),

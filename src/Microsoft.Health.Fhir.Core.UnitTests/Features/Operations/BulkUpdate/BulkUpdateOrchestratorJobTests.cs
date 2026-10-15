@@ -131,6 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             Assert.NotEmpty(queuedDefinitions);
             Assert.All(queuedDefinitions, queued => Assert.Equal("StructureDefinition", queued.Type));
+            Assert.All(queuedDefinitions, queued => Assert.Equal(allowProfileResourceModification, queued.AllowProfileResourceModification));
         }
 
         [Fact]

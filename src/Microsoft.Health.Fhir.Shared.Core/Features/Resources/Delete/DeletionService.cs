@@ -65,12 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private bool _disposed;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         private const int MaxParallelThreads = 64;
-        private static readonly HashSet<string> ProfileResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "CodeSystem",
-            "ValueSet",
-            "StructureDefinition",
-        };
+        private static readonly HashSet<string> ProfileResourceTypes = new HashSet<string>(OperationsConstants.ProtectedProfileResourceTypes, StringComparer.OrdinalIgnoreCase);
 
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,

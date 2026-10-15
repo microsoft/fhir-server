@@ -148,13 +148,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task UpdateMultipleAsync_WhenProfileResourceReturned_RespectsProfileModificationPermission(bool allowProfileResourceModification)
+        [InlineData("CodeSystem", false, true)]
+        [InlineData("CodeSystem", true, true)]
+        [InlineData("ValueSet", false, true)]
+        [InlineData("ValueSet", true, true)]
+        [InlineData("StructureDefinition", false, true)]
+        [InlineData("StructureDefinition", true, true)]
+        [InlineData("Patient", false, false)]
+        [InlineData("Patient", true, false)]
+        public async Task UpdateMultipleAsync_WhenResourceReturned_RespectsProfileModificationPermission(
+            string resourceType,
+            bool allowProfileResourceModification,
+            bool isProtectedProfileResource)
         {
             // Arrange
-            const string resourceType = "CodeSystem";
-            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"CodeSystem\"},{\"name\":\"name\",\"valueString\":\"status\"},{\"name\":\"value\",\"valueCode\":\"active\"}]}]}";
+            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
             var conditionalParameters = new List<Tuple<string, string>>();
             var searchService = Substitute.For<ISearchService>();
             var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
@@ -168,6 +176,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 ResourceVersionType.Latest,
                 false,
                 false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
 
             // Act
             var result = await _service.UpdateMultipleAsync(
@@ -183,15 +195,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 allowProfileResourceModification);
 
             // Assert
-            if (allowProfileResourceModification)
-            {
-                Assert.Equal(1, result.ResourcesUpdated[resourceType]);
-                Assert.Empty(result.ResourcesIgnored);
-            }
-            else
+            if (isProtectedProfileResource && !allowProfileResourceModification)
             {
                 Assert.Empty(result.ResourcesUpdated);
                 Assert.Equal(1, result.ResourcesIgnored[resourceType]);
+                await fhirDataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
+            }
+            else
+            {
+                Assert.Equal(1, result.ResourcesUpdated[resourceType]);
+                Assert.Empty(result.ResourcesIgnored);
+
+                var mergeCall = Assert.Single(fhirDataStore.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(IFhirDataStore.MergeAsync));
+                var operations = Assert.IsAssignableFrom<IReadOnlyList<ResourceWrapperOperation>>(mergeCall.GetArguments()[0]);
+                ResourceWrapperOperation operation = Assert.Single(operations);
+                Assert.Contains("\"language\":\"en\"", operation.Wrapper.RawResource.Data, StringComparison.Ordinal);
             }
         }
 
@@ -200,6 +218,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         {
             // Arrange
             const string resourceType = "SearchParameter";
+            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
             var conditionalParameters = new List<Tuple<string, string>>();
             var searchService = Substitute.For<ISearchService>();
             var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
@@ -213,11 +232,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 ResourceVersionType.Latest,
                 false,
                 false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
 
             // Act
             var result = await _service.UpdateMultipleAsync(
                 resourceType,
-                fhirPatchParameters,
+                patchParameters,
                 false,
                 0,
                 false,
@@ -230,6 +253,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Assert
             Assert.Empty(result.ResourcesUpdated);
             Assert.Equal(1, result.ResourcesIgnored[resourceType]);
+            await fhirDataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
         }
 
         [Theory]
@@ -770,7 +794,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Fact]
-        public async Task UpdateMultipleAsync_WhenMergeAsyncThrowsIncompleteOperationException_ThrowsIncompleteOperationExceptionBulkUpdateResult()
+        public async Task UpdateMultipleAsync_WhenProtectedResourcesAreIgnoredAcrossIncludePagesAndMergeFails_ReturnsIgnoredCountsWithPartialResults()
         {
             // Arrange
             var resourceType = "Patient";
@@ -796,7 +820,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Simulate a search result
             searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
             {
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 } }, "continuationToken", "includesContinuationToken"));
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 }, { "CodeSystem", 1 } }, "continuationToken", "includesContinuationToken"));
             });
 
             // Simulate a include search result
@@ -805,7 +829,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             {
                 callCountForIncludeResults++;
                 var includesContinuationToken = callCountForIncludeResults <= 2 ? "includesContinuationToken" : null;
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 } }, null, includesContinuationToken));
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 }, { "ValueSet", 1 } }, null, includesContinuationToken));
             });
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
@@ -848,7 +872,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, true, cancellationToken);
+                await _service.UpdateMultipleAsync(
+                    resourceType,
+                    fhirPatchParameters,
+                    readNextPage,
+                    0,
+                    isIncludesRequest,
+                    conditionalParameters,
+                    bundleResourceContext: null,
+                    true,
+                    cancellationToken,
+                    allowProfileResourceModification: false);
             });
 
             // The inner exception should be an AggregateException containing the simulated failure
@@ -863,12 +897,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // The partial results should be present
             Assert.NotNull(ex.PartialResults);
             Assert.True(ex.PartialResults.ResourcesUpdated.Count == 2);
-            Assert.True(ex.PartialResults.ResourcesIgnored.Count == 1);
+            Assert.True(ex.PartialResults.ResourcesIgnored.Count == 3);
             Assert.True(ex.PartialResults.ResourcesPatchFailed.Count == 1);
             Assert.True(ex.PartialResults.ResourcesUpdated["Patient"] == 3);
             Assert.True(ex.PartialResults.ResourcesUpdated["Organization"] == 8);
             Assert.True(ex.PartialResults.ResourcesIgnored["Observation"] == 1);
+            Assert.True(ex.PartialResults.ResourcesIgnored["CodeSystem"] == 1);
+            Assert.True(ex.PartialResults.ResourcesIgnored["ValueSet"] == 3);
             Assert.True(ex.PartialResults.ResourcesPatchFailed["Practitioner"] == 2);
+            Assert.DoesNotContain(
+                fhirDataStore.ReceivedCalls()
+                    .Where(call => call.GetMethodInfo().Name == nameof(IFhirDataStore.MergeAsync))
+                    .SelectMany(call => (IReadOnlyList<ResourceWrapperOperation>)call.GetArguments()[0]),
+                operation => OperationsConstants.ProtectedProfileResourceTypes.Contains(operation.Wrapper.ResourceTypeName));
         }
 
         [Fact]
@@ -1172,6 +1213,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                                 {
                                     Status = PublicationStatus.Draft,
                                 };
+                                break;
+                            case "ValueSet":
+                                resource = new ValueSet();
+                                break;
+                            case "StructureDefinition":
+                                resource = new StructureDefinition();
                                 break;
                             case "SearchParameter":
                                 resource = new SearchParameter();
