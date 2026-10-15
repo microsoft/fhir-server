@@ -191,6 +191,67 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.Equal(new[] { "matching" }, ids);
         }
 
+        [Theory]
+        [InlineData(true, 1L)]
+        [InlineData(false, 128L)]
+        public async Task GivenReverseChainFollowedByRootFilters_WhenJoined_ThenSourceRowsDoNotFanOut(bool enableChainSourceDeduplication, long expectedRootFilterRows)
+        {
+            // Arrange
+            using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
+            await connection.OpenAsync();
+            await CreateTablesAsync(connection);
+            using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted) VALUES (3, 300, 'patient', 0, 0);
+                WITH numbers AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 128)
+                INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted)
+                    SELECT 2, 400 + n, CONCAT('observation', n), 0, 0 FROM numbers OPTION (MAXRECURSION 128);
+                INSERT INTO #ReferenceSearchParam SELECT 2, ResourceSurrogateId, 15, 3, 'patient', 0 FROM #Resource WHERE ResourceTypeId = 2;
+                INSERT INTO #TokenSearchParam SELECT 2, ResourceSurrogateId, 12, 'visit', 0, NULL FROM #Resource WHERE ResourceTypeId = 2;
+                INSERT INTO #TokenSearchParam VALUES (3, 300, 20, 'tag0', 0, NULL), (3, 300, 21, 'tag1', 0, NULL), (3, 300, 22, 'tag2', 0, NULL), (3, 300, 23, 'tag3', 0, NULL);
+                """;
+            await seed.ExecuteNonQueryAsync();
+
+            var model = Substitute.For<ISqlServerFhirModel>();
+            model.GetResourceTypeId("Observation").Returns((short)2);
+            model.GetResourceTypeId("Patient").Returns((short)3);
+            var subject = Parameter("subject", SearchParamType.Reference, ["Patient"]);
+            var code = Parameter("code", SearchParamType.Token);
+            model.GetSearchParamId(subject.Url).Returns((short)15);
+            model.GetSearchParamId(code.Url).Returns((short)12);
+            var predicates = new List<Expression>
+            {
+                Expression.Chained(["Observation"], subject, ["Patient"], true, Expression.SearchParameter(code, Expression.StringEquals(FieldName.TokenCode, null, "visit", false))),
+            };
+            for (int i = 0; i < 4; i++)
+            {
+                var tag = Parameter($"tag{i}", SearchParamType.Token);
+                model.GetSearchParamId(tag.Url).Returns((short)(20 + i));
+                predicates.Add(Expression.SearchParameter(tag, Expression.StringEquals(FieldName.TokenCode, null, $"tag{i}", false)));
+            }
+
+            using var command = CreateSearchCommand(connection, Expression.And(predicates.ToArray()), model, enableChainSourceDeduplication);
+            string sql = command.CommandText;
+            _output.WriteLine(sql);
+            using var countCommand = connection.CreateCommand();
+            countCommand.CommandText = sql[..sql.IndexOf(SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal)]
+                + "SELECT (SELECT count_big(*) FROM cte1), (SELECT count_big(*) FROM cte2), (SELECT count_big(*) FROM cte5)";
+            foreach (SqlParameter parameter in command.Parameters)
+            {
+                countCommand.Parameters.Add(((ICloneable)parameter).Clone());
+            }
+
+            // Act
+            var ids = await ReadIdsAsync(command);
+            var counts = await ReadCountsAsync(countCommand);
+
+            // Assert
+            Assert.Equal(new[] { "patient" }, ids);
+            Assert.Equal(128L, counts[0]);
+            Assert.Equal(expectedRootFilterRows, counts[1]);
+            Assert.Equal(expectedRootFilterRows, counts[2]);
+        }
+
         // Executes the search and preserves returned IDs, including duplicates, for result assertions.
         private static async Task<List<string>> ReadIdsAsync(SqlCommand command)
         {
@@ -221,7 +282,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             }
         }
 
-        // Reads the intermediate row counts for the three independent chain traversals.
+        // Reads the row counts of three intermediate CTEs selected by the command.
         private static async Task<long[]> ReadCountsAsync(SqlCommand command)
         {
             using var reader = await command.ExecuteReaderAsync();

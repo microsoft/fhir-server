@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
         private readonly bool _enableChainSourceDeduplication;
+        private readonly HashSet<int> _chainTableExpressionIndexes = new();
         private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
 
         public SqlQueryGenerator(
@@ -569,6 +570,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 const string referenceSourceTableAlias = "refSource";
                 const string referenceTargetResourceTableAlias = "refTarget";
+
+                if (searchParamTableExpression.ChainLevel > 0)
+                {
+                    _chainTableExpressionIndexes.Add(_tableExpressionCounter);
+                }
+                else
+                {
+                    _chainTableExpressionIndexes.Remove(_tableExpressionCounter);
+                }
 
                 switch (searchParamTableExpression.Kind)
                 {
@@ -1956,10 +1966,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
                 sb.Append(_joinShift).Append("JOIN ");
-                if (_enableChainSourceDeduplication && searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1)
+                bool restartsChain = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1;
+                bool filtersChainSources = searchParamTableExpression.ChainLevel == 0 && _chainTableExpressionIndexes.Contains(predecessorIndex);
+                if (_enableChainSourceDeduplication && (restartsChain || filtersChainSources))
                 {
-                    // Independent chains intersect on source existence, not on the preceding chain's target.
-                    // Project unique source keys so its matching references cannot multiply the new traversal.
+                    // Independent chains and root-level filters intersect on source existence, not on a chain's target.
+                    // Project unique source keys so the predecessor's matching references cannot multiply this table.
                     sb.Append("(SELECT DISTINCT T1, Sid1 FROM ").Append(TableExpressionName(predecessorIndex)).Append(") predecessor");
                 }
                 else
