@@ -1,7 +1,7 @@
 # DESCRIPTION: 	
 # Removes resource groups used in PRs.
 # The Exclude variable can be used to preserve specific resource groups. It is a comma seperated list of the full resource group names. 
-# The DeleteRecent variable can be used to delete recent runs. Otherwise only resource groups with no deployments in the last day will be deleted.
+# The DeleteRecent variable can be used to delete recent runs. Otherwise only resource groups with no deployments in the last week will be deleted.
 
 variables:
 - template: build-variables.yml
@@ -86,7 +86,7 @@ stages:
           $cutoffTime = Get-Date
           If (${env:DeleteRecent} -ne $true)
           {
-            $cutoffTime = $cutoffTime.AddDays(-1)
+            $cutoffTime = $cutoffTime.AddDays(-7)
           }
 
           $successCount = 0
