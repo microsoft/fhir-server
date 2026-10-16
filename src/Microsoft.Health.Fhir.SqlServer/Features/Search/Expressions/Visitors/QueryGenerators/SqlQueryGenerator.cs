@@ -786,6 +786,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
 
+                if (specialCaseTableName.Equals(VLatest.Resource))
+                {
+                    AppendDeletedClause(delimited, context.ResourceVersionTypes);
+                }
+
                 // For smart request when we have union of all scopes ANDed with their respective search parameters
                 // Like (ResourceType = x and searchParam1 = foo) Intersect (ResourceType = x and searchParam2 = doo) UNION (ResourceType = y and searchParam3 = goo) Intersect (ResourceType = y and searchParam4 = woo)
                 // To get the intersection we need to AppendIntersectionWithPredecessor
@@ -1275,7 +1280,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 scope.Append(")");
 
-                if (includeExpression.AllowedResourceTypesByScope != null && !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All) && _smartV2UnionVisited)
+                if (includeExpression.AllowedResourceTypesByScope != null && _smartV2UnionVisited)
                 {
                     if (!includeExpression.Reversed)
                     {
@@ -1972,7 +1977,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             // Use the factory to determine the appropriate query generator for this expression
             var specificGenerator = expression.AcceptVisitor(_queryGeneratorFactory, _queryGeneratorFactory.InitialContext);
-            return specificGenerator ?? defaultQueryGenerator;
+            return specificGenerator ?? NotReferencedQueryGenerator.Instance;
         }
 
         private bool UseAppendWithJoin()

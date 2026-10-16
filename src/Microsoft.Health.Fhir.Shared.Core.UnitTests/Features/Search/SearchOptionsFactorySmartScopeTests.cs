@@ -167,6 +167,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
+        [Theory]
+        [InlineData("_include", "DiagnosticReport:result", false)]
+        [InlineData("_revinclude", "Observation:subject", true)]
+        public void GivenWildcardScopeWithAvailableParameterAndInclude_WhenCreated_ThenSmartScopeUnionIsApplied(
+            string includeParameterName,
+            string includeValue,
+            bool reversed)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams(("_tag", "allowed"))));
+
+            SearchOptions options = factory.Create(
+                reversed ? KnownResourceTypes.Patient : KnownResourceTypes.DiagnosticReport,
+                new[] { Tuple.Create(includeParameterName, includeValue) },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            var multiary = Assert.IsType<MultiaryExpression>(options.Expression);
+            UnionExpression smartUnion = Assert.Single(multiary.Expressions.OfType<UnionExpression>());
+            Assert.True(smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.Contains("_tag=allowed", smartUnion.ToString(), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithUnavailableParameterAndRevInclude_WhenCreated_ThenRequestIsDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Patient,
+                    new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(UnavailableParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
         [Fact]
         public void GivenCallerSuppliedUnavailableParameter_WhenCreated_ThenOrdinaryLenientHandlingIsPreserved()
         {
@@ -234,6 +273,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     }
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");
+                });
+
+            var referenceParam = new SearchParameterInfo(
+                "subject",
+                "subject",
+                ValueSets.SearchParamType.Reference,
+                new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+                targetResourceTypes: new[] { KnownResourceTypes.Patient, KnownResourceTypes.Observation });
+            expressionParser.ParseInclude(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyCollection<string>>())
+                .Returns(callInfo =>
+                {
+                    string includeQuery = callInfo.ArgAt<string>(1);
+                    string sourceType = includeQuery.Split(':')[0];
+                    bool isReversed = callInfo.ArgAt<bool>(2);
+                    bool isIterate = callInfo.ArgAt<bool>(3);
+                    var allowedTypes = callInfo.ArgAt<IReadOnlyCollection<string>>(4);
+                    return new IncludeExpression(
+                        callInfo.ArgAt<string[]>(0),
+                        referenceParam,
+                        sourceType,
+                        isReversed ? KnownResourceTypes.Patient : KnownResourceTypes.Observation,
+                        referencedTypes: null,
+                        wildCard: false,
+                        reversed: isReversed,
+                        iterate: isIterate,
+                        allowedResourceTypesByScope: allowedTypes);
                 });
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
