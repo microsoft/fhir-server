@@ -24,10 +24,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -131,6 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -179,6 +178,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -226,6 +226,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Ensures success sign is emitted.
             _bundleMetricHandler.Received(1).EmitSuccess();
+            _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -237,6 +238,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -331,6 +333,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Medium, "BundleComplexity is different than the expected: medium is expected as profiles are refreshed.");
         }
 
         [Fact]
@@ -371,6 +374,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Ensures success sign is emitted.
             _bundleMetricHandler.Received(1).EmitSuccess();
+            _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
@@ -379,6 +383,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Transaction, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -594,6 +599,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 // Ensures failure sign is emitted.
                 _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
 
@@ -686,6 +692,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -726,6 +733,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -777,6 +785,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Theory]
@@ -843,6 +852,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
                 Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
                 Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+                Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
             }
             else
             {
@@ -853,6 +863,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 // Ensures failure sign is emitted.
                 _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
 
@@ -1024,7 +1035,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.HandleAsync(bundleRequest, default));
 
             Assert.Equal(numberOfEntries, runningEntries);
-            Assert.Equal(System.Net.HttpStatusCode.BadRequest, fhirTfe.ResponseStatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, fhirTfe.ResponseStatusCode);
             Assert.True(fhirTfe.IsErrorCausedDueClientFailure());
         }
 
@@ -1107,6 +1118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         // PUT calls are mocked to succeed while POST calls are mocked to fail.
@@ -1175,6 +1187,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == type, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -1332,6 +1345,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Theory]

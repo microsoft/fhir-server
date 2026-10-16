@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
+        private readonly Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
@@ -103,6 +103,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         // Bundle type being processed (batch, transaction).
         private BundleType? _bundleType;
+
+        // Indicates if a bundle contains a complex logic that requires additional processing.
+        private BundleComplexity _bundleComplexity = BundleComplexity.Low;
 
         // Indicates if any of the resources in the bundle require Profile refresh.
         private bool _forceProfilesRefresh = false;
@@ -177,7 +180,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _metricHandler = EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
-            _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
+            _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<BundleHandlerInternalOperationExecutionContext>());
 
             _outerHttpContext = httpContextAccessor.HttpContext;
             _httpAuthenticationFeature = _outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
@@ -214,10 +217,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             _originalFhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+            Stopwatch stopwatch = Stopwatch.StartNew();
             try
             {
-                Stopwatch stopwatch = Stopwatch.StartNew();
-
                 var bundleResource = request.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
                 _bundleType = bundleResource.Type;
 
@@ -239,7 +241,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
-                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Batch, bundleProcessingLogic));
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Batch, bundleProcessingLogic, _bundleComplexity));
 
                     await PublishNotification(responseBundle, BundleType.Batch);
 
@@ -280,7 +282,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
-                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Transaction, bundleProcessingLogic));
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Transaction, bundleProcessingLogic, _bundleComplexity));
 
                     await PublishNotification(responseBundle, BundleType.Transaction);
 
@@ -293,6 +295,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             finally
             {
+                EmitBundleLatency(stopwatch);
+
                 _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
             }
         }
@@ -375,6 +379,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task ProcessAllResourcesInABundleAsRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
         {
+            IdentifyBundleComplexity(processingLogic);
+
             // List is not created initially since it doesn't create a list with _requestCount elements
             responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
             foreach (int emptyRequestOrder in _emptyRequestsOrder)
@@ -451,7 +457,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Transaction)
                 {
-                    List<ResourceExecutionContext> resources = _requests.Select(r => r.Value).SelectMany(r => r).ToList();
+                    List<BundleHandlerInternalOperationExecutionContext> resources = _requests.Select(r => r.Value).SelectMany(r => r).ToList();
 
                     if (resources.Any())
                     {
@@ -524,6 +530,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             AddFinalOperationOutcomesIfApplicable(responseBundle, _bundleType);
         }
 
+        private void IdentifyBundleComplexity(BundleProcessingLogic processingLogic)
+        {
+            try
+            {
+                _bundleComplexity = BundleHandlerComplexityCalculator.CalculateBundleComplexity(
+                    processingLogic,
+                    _requests,
+                    _profilesResolver,
+                    _logger);
+            }
+            catch (InvalidOperationException e)
+            {
+                _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
+            }
+            catch (ArgumentException e)
+            {
+                _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
+            }
+        }
+
         private void AddFinalOperationOutcomesIfApplicable(Hl7.Fhir.Model.Bundle responseBundle, BundleType? bundleType)
         {
             try
@@ -549,6 +579,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 _logger.LogWarning(ex, "Error including additional operation outcomes. This error will not block the bundle processing.");
             }
+        }
+
+        private void EmitBundleLatency(Stopwatch stopwatch)
+        {
+            _metricHandler.EmitLatency(new BundleMetricNotification(stopwatch.ElapsedMilliseconds, _bundleComplexity));
         }
 
         private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
@@ -744,7 +779,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId, entry.Request.IsConditionalOperation()));
+            _requests[requestMethod].Add(new BundleHandlerInternalOperationExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId, entry.Request.IsConditionalOperation()));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, DefaultHttpContext httpContext)
@@ -757,7 +792,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
         {
-            foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
+            foreach (BundleHandlerInternalOperationExecutionContext resourceContext in _requests[httpVerb])
             {
                 EntryComponent entryComponent;
 
@@ -946,7 +981,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// Reference implementation of 'SetupContexts'. Originally created to support sequential operations and run manipulations on local
         /// attributes. This is a non-thread safe method. Not to be used in parallel-operation under the same HTTP request context.
         /// </summary>
-        private void SetupContexts(ResourceExecutionContext resourceExecutionContext, HttpContext httpContext)
+        private void SetupContexts(BundleHandlerInternalOperationExecutionContext resourceExecutionContext, HttpContext httpContext)
         {
             SetupContexts(
                 bundleType: _bundleType,
@@ -1153,7 +1188,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _optimizedQuerySet,
                 _requestCount,
                 _totalGeneratedIdentifiers,
-                _totalResolvedReferences);
+                _totalResolvedReferences,
+                _bundleComplexity);
 
             statistics.StartCollectingResults();
 
@@ -1162,6 +1198,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private void FinishCollectingBundleStatistics(BundleHandlerStatistics statistics)
         {
+            // Mark the bundle as high complexity.
+            statistics.Complexity = _bundleComplexity;
+
             // Fill up final execution numbers.
             statistics.ThrottlingDelays = _totalThrottledDelays;
 

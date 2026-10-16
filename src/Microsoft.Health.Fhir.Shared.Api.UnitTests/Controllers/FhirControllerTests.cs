@@ -136,14 +136,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void WhenProvidedAFhirController_CheckIfTheBundleEndpointHasTheLatencyMetricFilter()
-        {
-            Type expectedCustomAttribute = typeof(BundleEndpointMetricEmitterAttribute);
-
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "BatchAndTransactions", _targetFhirControllerClass);
-        }
-
-        [Fact]
         public void WhenProvidedAFhirController_CheckIfTheSearchEndpointsHaveTheLatencyMetricFilter()
         {
             Type expectedCustomAttribute = typeof(SearchEndpointMetricEmitterAttribute);
@@ -1228,9 +1220,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var responseInfo = new BundleResponseInfo(
                 TimeSpan.FromSeconds(60),
                 BundleType.BatchResponse,
-                BundleProcessingLogic.Parallel);
-            var httpContext = new DefaultHttpContext();
-            _fhirController.ControllerContext.HttpContext = httpContext;
+                BundleProcessingLogic.Parallel,
+                BundleComplexity.Low);
+
+            _fhirController.ControllerContext.HttpContext = new DefaultHttpContext();
+
             _mediator.SendAsync<BundleResponse>(
                 Arg.Any<BundleRequest>(),
                 Arg.Any<CancellationToken>())
