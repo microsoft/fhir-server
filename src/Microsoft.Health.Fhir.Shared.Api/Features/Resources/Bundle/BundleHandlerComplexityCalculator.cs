@@ -88,6 +88,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 processingLogic,
                 requestCount);
 
+            int profileRefreshCost = CalculateProfileRefreshCost(requiresProfileRefresh);
+
             int searchCost = CalculateSearchCost(searchOperationCount);
 
             long payloadCost = CalculatePayloadScore(
@@ -99,6 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 conditionalCost +
                 executionCost +
                 searchCost +
+                profileRefreshCost +
                 payloadCost;
 
             BundleComplexity bundleComplexity = GetComplexity(score);
@@ -136,6 +139,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return bundleComplexity;
+        }
+
+        private static int CalculateProfileRefreshCost(bool requiresProfileRefresh)
+        {
+            const int ProfileRefreshCost = 300;
+
+            return requiresProfileRefresh ? ProfileRefreshCost : 0;
         }
 
         private static int CalculateSearchCost(int searchOperationCount)

@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Fact]
         public void GivenParallelBundle_WhenConditionalOperationIsPresent_ReturnsExpectedComplexity()
         {
-            var requests = CreateRequests(98, HTTPVerb.POST, conditionalOperationCount: 1);
+            var requests = CreateRequests(99, HTTPVerb.POST, conditionalOperationCount: 1);
 
             BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
 
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Fact]
         public void GivenParallelBundle_WhenResourcePayloadIsSmallerThanOneMebibyte_ReturnsComplexityIncludingRoundedPayloadCost()
         {
-            var requests = CreateRequests(97, HTTPVerb.POST, contentLength: 1);
+            var requests = CreateRequests(99, HTTPVerb.POST, contentLength: 1);
 
             BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
 
@@ -117,6 +118,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 {
                     var httpContext = new DefaultHttpContext();
                     httpContext.Request.ContentLength = contentLength;
+                    httpContext.Request.Body = new System.IO.MemoryStream();
+                    httpContext.Request.Body.SetLength(contentLength.Value);
                     routeContext = new RouteContext(httpContext);
                 }
 
@@ -139,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var profileResolver = Substitute.For<IProvideProfilesForValidation>();
             profileResolver.GetProfilesTypes().Returns(ProfileSupportedTypes);
 
-            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(processingLogic, requests, profileResolver);
+            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(processingLogic, requests, profileResolver, NullLogger.Instance);
         }
     }
 }
