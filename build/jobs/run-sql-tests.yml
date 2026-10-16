@@ -16,9 +16,22 @@ parameters:
 - name: runBulkUpdateJob
   type: boolean
   default: true
+- name: runIntegrationTests
+  type: boolean
+  default: true
+- name: testRunTitleSuffix
+  type: string
+  default: ''
+- name: expectedFhirSdkProviderSystemDefault
+  type: string
+  default: ''
+- name: expectedSqlDatabaseName
+  type: string
+  default: ''
 jobs:
 
 - job: "SqlIntegrationTests"
+  condition: and(succeeded(), ${{ parameters.runIntegrationTests }})
   timeoutInMinutes: 75
   pool:
     name: '$(InternalPool)'
@@ -124,6 +137,10 @@ jobs:
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }}'
+      expectedFhirSdkProviderSystemDefault: '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
+      expectedKeyVaultName: '${{ parameters.keyVaultName }}'
+      expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'sqlE2eTests_Reindex'
@@ -143,7 +160,10 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=IndexAndReindex'
-        testRunTitleSuffix: ' Reindex'
+        testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} Reindex'
+        expectedFhirSdkProviderSystemDefault: '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
+        expectedKeyVaultName: '${{ parameters.keyVaultName }}'
+        expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'
 
 - ${{ if eq(parameters.runBulkUpdateJob, true) }}:
   - job: 'sqlE2eTests_BulkUpdate'
@@ -163,4 +183,7 @@ jobs:
         containerAppName: '${{ parameters.containerAppName }}'
         appServiceType: 'SqlServer'
         categoryFilter: 'Category=BulkUpdate'
-        testRunTitleSuffix: ' BulkUpdate'
+        testRunTitleSuffix: '${{ parameters.testRunTitleSuffix }} BulkUpdate'
+        expectedFhirSdkProviderSystemDefault: '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
+        expectedKeyVaultName: '${{ parameters.keyVaultName }}'
+        expectedSqlDatabaseName: '${{ parameters.expectedSqlDatabaseName }}'

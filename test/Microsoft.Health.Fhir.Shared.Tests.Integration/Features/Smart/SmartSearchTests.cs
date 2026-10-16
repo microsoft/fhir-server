@@ -1741,6 +1741,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Device);
 
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+
+            Assert.Contains(
+                results.Results,
+                r => r.Resource.ResourceTypeName == KnownResourceTypes.Immunization &&
+                    r.Resource.ResourceId == "smart-immunization-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-B1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-device-C1");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-B");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-C");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-patient-D");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
+
             // This test is SqlServer-only (see the DataStore.SqlServer fixture attribute above). The expected
             // count is the full set of resources a patient-scoped caller may see for smart-patient-A:
             //  - 20 Patient compartment members, every one of which references Patient/smart-patient-A.
