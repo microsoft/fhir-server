@@ -162,6 +162,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return cancellationToken.IsCancellationRequested && elapsedTime.TotalSeconds < bundleConfiguration.MaxExecutionTimeInSeconds;
         }
 
+        /// <summary>
+        /// Identify the complexity of a bundle based on scope of their internal operations.
+        /// </summary>
         public static BundleComplexity IdentifyBundleComplexity(
             BundleProcessingLogic processingLogic,
             int requestCount,

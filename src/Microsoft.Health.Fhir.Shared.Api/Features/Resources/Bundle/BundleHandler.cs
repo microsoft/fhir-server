@@ -595,14 +595,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private void EmitBundleLatency(Stopwatch stopwatch)
         {
-            if (_bundleComplexity == BundleComplexity.High)
-            {
-                _metricHandler.EmitLatency(new BundleHighComplexityMetricNotification { ElapsedMilliseconds = stopwatch.ElapsedMilliseconds });
-            }
-            else
-            {
-                _metricHandler.EmitLatency(new BundleMetricNotification { ElapsedMilliseconds = stopwatch.ElapsedMilliseconds });
-            }
+            _metricHandler.EmitLatency(new BundleMetricNotification(stopwatch.ElapsedMilliseconds, _bundleComplexity));
         }
 
         private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
