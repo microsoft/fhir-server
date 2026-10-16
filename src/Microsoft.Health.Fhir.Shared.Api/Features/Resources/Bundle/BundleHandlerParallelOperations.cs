@@ -373,51 +373,60 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         bundleHttpContextAccessor,
                         logger);
 
-                    // Attempt 1.
-                    await resourceExecutionContext.Context.Handler.Invoke(httpContext);
+                    IFhirRequestContext entryRequestContext = requestContext.RequestContext;
 
-                    // Should we continue retrying HTTP 429s?
-                    // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
-                    // -----------
-                    // We will retry a 429 one time per request in the bundle
-                    if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
+                    try
                     {
-                        logger.LogInformation(
-                            "BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}",
-                            resourceExecutionContext.HttpVerb,
-                            bundleExecutionContext.RequestCount,
-                            resourceExecutionContext.Index);
-
-                        try
-                        {
-                            await BundleHandlerRuntime.DelayWithRetryAfterAsync(httpContext, cancellationToken);
-                        }
-                        catch (OperationCanceledException oce)
-                        {
-                            logger.LogWarning(oce, "BundleHandler received 429 message, client cancelled during retry delay. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", resourceExecutionContext.HttpVerb, bundleExecutionContext.RequestCount, resourceExecutionContext.Index);
-
-                            // This is an edge case scenario when the client cancels the request during the retry delay.
-                            // We should respect the cancellation and not attempt to process the request further.
-
-                            entryComponent = HandleCancelledRetryRequest(
-                                responseBundle,
-                                resourceExecutionContext,
-                                bundleExecutionContext.BundleType,
-                                statistics,
-                                bundleExecutionContext.Configuration,
-                                watch,
-                                httpContext,
-                                isOperationCancelledByClientError: bundleExecutionContext.IsTransactionFailedByClientError,
-                                cancellationToken);
-
-                            // This action was throttled and then cancelled. Capture the entry and reuse it for subsequent actions.
-                            throttledEntryComponent = entryComponent;
-
-                            return entryComponent;
-                        }
-
-                        // Attempt 2.
+                        // Attempt 1.
                         await resourceExecutionContext.Context.Handler.Invoke(httpContext);
+
+                        // Should we continue retrying HTTP 429s?
+                        // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
+                        // -----------
+                        // We will retry a 429 one time per request in the bundle
+                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
+                        {
+                            logger.LogInformation(
+                                "BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}",
+                                resourceExecutionContext.HttpVerb,
+                                bundleExecutionContext.RequestCount,
+                                resourceExecutionContext.Index);
+
+                            try
+                            {
+                                await BundleHandlerRuntime.DelayWithRetryAfterAsync(httpContext, cancellationToken);
+                            }
+                            catch (OperationCanceledException oce)
+                            {
+                                logger.LogWarning(oce, "BundleHandler received 429 message, client cancelled during retry delay. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", resourceExecutionContext.HttpVerb, bundleExecutionContext.RequestCount, resourceExecutionContext.Index);
+
+                                // This is an edge case scenario when the client cancels the request during the retry delay.
+                                // We should respect the cancellation and not attempt to process the request further.
+
+                                entryComponent = HandleCancelledRetryRequest(
+                                    responseBundle,
+                                    resourceExecutionContext,
+                                    bundleExecutionContext.BundleType,
+                                    statistics,
+                                    bundleExecutionContext.Configuration,
+                                    watch,
+                                    httpContext,
+                                    isOperationCancelledByClientError: bundleExecutionContext.IsTransactionFailedByClientError,
+                                    cancellationToken);
+
+                                // This action was throttled and then cancelled. Capture the entry and reuse it for subsequent actions.
+                                throttledEntryComponent = entryComponent;
+
+                                return entryComponent;
+                            }
+
+                            // Attempt 2.
+                            await resourceExecutionContext.Context.Handler.Invoke(httpContext);
+                        }
+                    }
+                    finally
+                    {
+                        RegisterEntrySearchIndexValues(statistics, resourceExecutionContext, entryRequestContext);
                     }
 
                     entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
@@ -524,7 +533,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId, bool isConditionalOperation)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId, bool isConditionalOperation, long resourceSizeInBytes)
             {
                 HttpVerb = httpVerb;
                 ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
@@ -532,6 +541,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 Index = index;
                 PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
                 IsConditionalOperation = isConditionalOperation;
+                ResourceSizeInBytes = resourceSizeInBytes;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
@@ -545,6 +555,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public string PersistedId { get; private set; }
 
             public bool IsConditionalOperation { get; private set; }
+
+            public long ResourceSizeInBytes { get; private set; }
         }
 
         private sealed class BundleExecutionContext
