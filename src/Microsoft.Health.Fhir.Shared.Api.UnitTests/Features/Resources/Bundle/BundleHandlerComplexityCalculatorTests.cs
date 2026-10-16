@@ -98,13 +98,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(BundleComplexity.Medium, complexity);
         }
 
+        [Fact]
+        public void GivenParallelBundle_WhenValueSetOperationIsPresent_ReturnsMediumComplexity()
+        {
+            var requests = CreateRequests(1, HTTPVerb.POST, resourceType: KnownResourceTypes.ValueSet);
+
+            BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
+
+            Assert.Equal(BundleComplexity.Medium, complexity);
+        }
+
         private static Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> CreateRequests(
             int operationCount,
             HTTPVerb verb,
             int conditionalOperationCount = 0,
             long? contentLength = null,
             int getOperationCount = 0,
-            int payloadOperationCount = 1)
+            int payloadOperationCount = 1,
+            string resourceType = "Patient")
         {
             var requests = new Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>>();
 
@@ -129,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 operations.Add(new BundleHandlerInternalOperationExecutionContext(
                     requestVerb,
-                    "Patient",
+                    resourceType,
                     routeContext,
                     i,
                     persistedId: null,

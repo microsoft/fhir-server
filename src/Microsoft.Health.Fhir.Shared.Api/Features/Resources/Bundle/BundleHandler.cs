@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
-                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Batch, bundleProcessingLogic));
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Batch, bundleProcessingLogic, _bundleComplexity));
 
                     await PublishNotification(responseBundle, BundleType.Batch);
 
@@ -282,7 +282,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
-                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Transaction, bundleProcessingLogic));
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Transaction, bundleProcessingLogic, _bundleComplexity));
 
                     await PublishNotification(responseBundle, BundleType.Transaction);
 

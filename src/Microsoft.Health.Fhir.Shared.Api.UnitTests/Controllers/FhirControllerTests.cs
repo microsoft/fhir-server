@@ -1220,9 +1220,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var responseInfo = new BundleResponseInfo(
                 TimeSpan.FromSeconds(60),
                 BundleType.BatchResponse,
-                BundleProcessingLogic.Parallel);
-            var httpContext = new DefaultHttpContext();
-            _fhirController.ControllerContext.HttpContext = httpContext;
+                BundleProcessingLogic.Parallel,
+                BundleComplexity.Low);
+
+            _fhirController.ControllerContext.HttpContext = new DefaultHttpContext();
+
             _mediator.SendAsync<BundleResponse>(
                 Arg.Any<BundleRequest>(),
                 Arg.Any<CancellationToken>())
