@@ -1935,6 +1935,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The request was not completed because another entry in the transaction failed. Review the other entries in the bundle for the original error..
+        /// </summary>
+        internal static string TransactionEntryFailedDependency {
+            get {
+                return ResourceManager.GetString("TransactionEntryFailedDependency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Include result was truncated.
         /// </summary>
         internal static string TruncatedIncludeMessage {
