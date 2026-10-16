@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 numberOfResources: numberOfResources,
                 generatedIdentifiers: 5,
                 resolvedReferences: 50,
-                complexity: BundleComplexity.Low);
+                complexity: BundleComplexity.High);
             bundleStatistics.ThrottlingDelays = 3;
 
             Parallel.For(0, numberOfResources - 2, i =>
@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             long conditionalOperations = statisticsAsJson["conditionalOperations"].Value<long>();
             long throttlingDelays = statisticsAsJson["throttlingDelays"].Value<long>();
 
+            Assert.Equal("High", statisticsAsJson["complexity"].Value<string>());
             Assert.Equal(bundleStatistics.RegisteredEntries, success + errors + customerErrors);
 
             // Conditional operations and throttling delays.

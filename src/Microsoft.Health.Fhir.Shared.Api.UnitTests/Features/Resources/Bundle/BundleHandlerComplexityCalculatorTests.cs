@@ -80,18 +80,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Fact]
         public void GivenParallelBundle_WhenResourcePayloadIsSmallerThanOneMebibyte_ReturnsComplexityIncludingRoundedPayloadCost()
         {
-            var requests = CreateRequests(99, HTTPVerb.POST, contentLength: 1);
+            var requests = CreateRequests(99, HTTPVerb.POST, bodyLength: 1);
 
             BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
 
             Assert.Equal(BundleComplexity.Medium, complexity);
         }
 
-        [Fact]
-        public void GivenParallelBundle_WhenPayloadsAccumulateAcrossResources_ReturnsComplexityIncludingBundleAndLargestResourceCosts()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenParallelBundle_WhenPayloadsAccumulateAcrossResources_ReturnsComplexityIncludingBundleAndLargestResourceCosts(bool setContentLength)
         {
             const long mebibyte = 1024L * 1024L;
-            var requests = CreateRequests(96, HTTPVerb.POST, contentLength: mebibyte, payloadOperationCount: 2);
+            var requests = CreateRequests(96, HTTPVerb.POST, bodyLength: mebibyte, payloadOperationCount: 2, setContentLength: setContentLength);
+            Assert.All(requests[HTTPVerb.POST].GetRange(0, 2), operation =>
+            {
+                Assert.Equal(mebibyte, operation.Context.HttpContext.Request.Body.Length);
+                Assert.Equal(setContentLength ? mebibyte : null, operation.Context.HttpContext.Request.ContentLength);
+            });
 
             BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
 
@@ -108,14 +115,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(BundleComplexity.Medium, complexity);
         }
 
+        [Theory]
+        [InlineData(199, 1, BundleComplexity.Medium)]
+        [InlineData(200, 1, BundleComplexity.High)]
+        [InlineData(199, 2, BundleComplexity.Medium)]
+        public void GivenParallelBundle_WhenProfileOperationsArePresent_AppliesProfileRefreshCostOncePerBundle(int operationCount, int profileOperationCount, BundleComplexity expectedComplexity)
+        {
+            var requests = CreateRequests(operationCount, HTTPVerb.POST, profileOperationCount: profileOperationCount);
+
+            BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
+
+            Assert.Equal(expectedComplexity, complexity);
+        }
+
         private static Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> CreateRequests(
             int operationCount,
             HTTPVerb verb,
             int conditionalOperationCount = 0,
-            long? contentLength = null,
+            long? bodyLength = null,
             int getOperationCount = 0,
             int payloadOperationCount = 1,
-            string resourceType = "Patient")
+            string resourceType = "Patient",
+            bool setContentLength = true,
+            int profileOperationCount = 0)
         {
             var requests = new Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>>();
 
@@ -129,18 +151,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 }
 
                 RouteContext routeContext = null;
-                if (i < payloadOperationCount && contentLength.HasValue)
+                if (i < payloadOperationCount && bodyLength.HasValue)
                 {
                     var httpContext = new DefaultHttpContext();
-                    httpContext.Request.ContentLength = contentLength;
+                    if (setContentLength)
+                    {
+                        httpContext.Request.ContentLength = bodyLength;
+                    }
+
                     httpContext.Request.Body = new System.IO.MemoryStream();
-                    httpContext.Request.Body.SetLength(contentLength.Value);
+                    httpContext.Request.Body.SetLength(bodyLength.Value);
                     routeContext = new RouteContext(httpContext);
                 }
 
                 operations.Add(new BundleHandlerInternalOperationExecutionContext(
                     requestVerb,
-                    resourceType,
+                    i < profileOperationCount ? KnownResourceTypes.ValueSet : resourceType,
                     routeContext,
                     i,
                     persistedId: null,

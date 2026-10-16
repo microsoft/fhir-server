@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 executionTime = ElapsedMilliseconds,
                 clientError = FailedByClientError,
                 cancelled = Cancelled,
-                complexity = Complexity,
+                complexity = Complexity.ToString(),
                 success = successedRequests,
                 errors = failedRequests,
                 customerErrors = customerFailedRequests,
