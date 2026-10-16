@@ -8,11 +8,8 @@ namespace Microsoft.Health.Fhir.Core.Models
     public enum BundleComplexity
     {
         Low = 0,
-
         Medium = 1,
-
         High = 2,
-
         Extreme = 3,
     }
 }
