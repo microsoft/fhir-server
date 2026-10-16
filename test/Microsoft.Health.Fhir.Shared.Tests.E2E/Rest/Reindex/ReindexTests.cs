@@ -549,7 +549,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.NotNull(searchParam);
 
             await WaitForSearchParameterCacheAsync(searchParam);
-            await UpdatePersonAsync(_fixture.TestFhirClient, testResources[0].resourceId, _output, CancellationToken.None);
+            await UpdatePersonAsync(testResources[0].resourceId, CancellationToken.None);
             _output.WriteLine($"Pre-job update succeeded at {DateTimeOffset.UtcNow:O}; {testResources.Count - 1} resources remain unchanged.");
 
             value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
@@ -560,7 +560,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             using var cancel = new CancellationTokenSource();
             var reindex = WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300), cancel.Token, failOnPollingError: true);
-            var update = UpdatePersonsDuringReindexAsync(_fixture.TestFhirClient, testResources, value.jobUri, _output, cancel.Token);
+            var update = UpdatePersonsDuringReindexAsync(testResources, value.jobUri, cancel.Token);
 
             try
             {
@@ -1074,9 +1074,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
 
             var responses = await WaitForSearchParameterStatusesAsync(
-                _fixture.TestFhirClient,
-                [(oldUrl, null), (newUrl, SearchParameterStatus.Supported)],
-                _fixture.TestFhirServer.SearchParameterCacheRefreshInterval * 5);
+                [(oldUrl, null), (newUrl, SearchParameterStatus.Supported)]);
 
             Assert.True(responses[0].Parameter.Count == 0, "Expected Deleted not found");
             Assert.True(responses[1].Parameter.Count == 1, "Expected supported param found");
@@ -1490,7 +1488,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return await Task.FromResult(CreatePersonResource(id, name));
         }
 
-        private static Person CreatePersonResource(string id, string name)
+        private Person CreatePersonResource(string id, string name)
         {
             return new Person { Id = id, Name = [new() { Given = [name] }] };
         }
@@ -2028,9 +2026,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             if (_isSql)
             {
                 await WaitForSearchParameterStatusesAsync(
-                    _fixture.TestFhirClient,
                     searchParameters.Select(p => (p.Url, (SearchParameterStatus?)SearchParameterStatus.Supported)).ToArray(),
-                    interval * 5,
                     interval * 3);
             }
             else
@@ -2039,17 +2035,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        internal static async Task<Parameters[]> WaitForSearchParameterStatusesAsync(
-            Microsoft.Health.Fhir.Client.FhirClient client,
+        private async Task<Parameters[]> WaitForSearchParameterStatusesAsync(
             (string Url, SearchParameterStatus? Status)[] expected,
-            TimeSpan timeout,
             TimeSpan minimumWait = default)
         {
+            var timeout = _fixture.TestFhirServer.SearchParameterCacheRefreshInterval * 5;
             using var cancellation = new CancellationTokenSource(timeout);
             var stopwatch = Stopwatch.StartNew();
             var responses = new Parameters[expected.Length];
             var lastResponses = expected.Select(p => $"{p.Url}: not observed").ToArray();
-            var pollInterval = TimeSpan.FromMilliseconds(Math.Min(1000, timeout.TotalMilliseconds / 5));
             var serializer = new Hl7.Fhir.Serialization.FhirJsonSerializer();
 
             try
@@ -2060,7 +2054,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     var matched = true;
                     for (var i = 0; i < expected.Length; i++)
                     {
-                        using var response = await client.ReadAsync<Parameters>($"SearchParameter/$status?url={Uri.EscapeDataString(expected[i].Url)}", cancellation.Token);
+                        using var response = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={Uri.EscapeDataString(expected[i].Url)}", cancellation.Token);
                         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                         lastResponses[i] = $"{expected[i].Url}: {serializer.SerializeToString(response.Resource)}";
                         responses[i] = response.Resource;
@@ -2076,7 +2070,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         return responses;
                     }
 
-                    await Task.Delay(pollInterval, cancellation.Token);
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellation.Token);
                 }
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -2085,19 +2079,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        private static async Task UpdatePersonAsync(Microsoft.Health.Fhir.Client.FhirClient client, string resourceId, ITestOutputHelper output, CancellationToken cancellationToken)
+        private async Task UpdatePersonAsync(string resourceId, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            output.WriteLine($"PUT Person/{resourceId} at {DateTimeOffset.UtcNow:O}");
-            using var response = await client.UpdateAsync(CreatePersonResource(resourceId, Guid.NewGuid().ToString()), cancellationToken: cancellationToken);
+            _output.WriteLine($"PUT Person/{resourceId} at {DateTimeOffset.UtcNow:O}");
+            using var response = await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resourceId, Guid.NewGuid().ToString()), cancellationToken: cancellationToken);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
-        internal static async Task<(int Successful, int WhileRunning)> UpdatePersonsDuringReindexAsync(
-            Microsoft.Health.Fhir.Client.FhirClient client,
+        private async Task<(int Successful, int WhileRunning)> UpdatePersonsDuringReindexAsync(
             IList<(string resourceType, string resourceId)> resources,
             Uri jobUri,
-            ITestOutputHelper output,
             CancellationToken cancellationToken)
         {
             var successful = 0;
@@ -2118,7 +2110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                             continue;
                         }
 
-                        await UpdatePersonAsync(client, resource.resourceId, output, cancellationToken);
+                        await UpdatePersonAsync(resource.resourceId, cancellationToken);
                         successful++;
                         firstUpdate ??= DateTimeOffset.UtcNow;
                         lastUpdate = DateTimeOffset.UtcNow;
@@ -2136,12 +2128,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                output.WriteLine($"Concurrent PUTs: successful={successful}, bracketed by Running={whileRunning}, first={firstUpdate:O}, last={lastUpdate:O}, stopped={DateTimeOffset.UtcNow:O}.");
+                _output.WriteLine($"Concurrent PUTs: successful={successful}, bracketed by Running={whileRunning}, first={firstUpdate:O}, last={lastUpdate:O}, stopped={DateTimeOffset.UtcNow:O}.");
             }
 
             async Task<OperationStatus> GetStatusAsync()
             {
-                using var response = await client.CheckJobAsync(jobUri, cancellationToken);
+                using var response = await _fixture.TestFhirClient.CheckJobAsync(jobUri, cancellationToken);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 var status = response.Resource.Parameter.Single(p => p.Name == "status").Value.ToString();
                 return Enum.Parse<OperationStatus>(status, ignoreCase: true);
