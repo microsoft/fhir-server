@@ -10,12 +10,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -107,6 +109,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
+        }
+
+        [Fact]
+        public async Task GivenMaxPoolSizeConfigured_WhenSqlIsExecuted_ThenConnectionUsesConfiguredMaxPoolSize()
+        {
+            var configuration = Microsoft.Extensions.Options.Options.Create(new SqlServerDataStoreConfiguration
+            {
+                CommandTimeout = _fixture.SqlServerDataStoreConfiguration.Value.CommandTimeout,
+                MaxPoolSize = 37,
+            });
+            var sqlRetryService = new SqlRetryService(_fixture.SqlConnectionBuilder, configuration, Microsoft.Extensions.Options.Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
+            int? connectionMaxPoolSize = null;
+            object result = null;
+
+            await sqlRetryService.ExecuteSql(
+                async (connection, cancellationToken, _) =>
+                {
+                    connectionMaxPoolSize = new SqlConnectionStringBuilder(connection.ConnectionString).MaxPoolSize;
+                    await using SqlCommand command = new SqlCommand("SELECT 1", connection);
+                    result = await command.ExecuteScalarAsync(cancellationToken);
+                },
+                NullLogger.Instance,
+                CancellationToken.None);
+
+            Assert.Equal(37, connectionMaxPoolSize);
+            Assert.Equal(1, result);
         }
 
         private async Task ExecuteSql(string commandText)
