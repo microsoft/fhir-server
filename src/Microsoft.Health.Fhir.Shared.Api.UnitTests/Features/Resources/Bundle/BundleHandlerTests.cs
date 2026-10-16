@@ -957,6 +957,81 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(fhirTfe.IsErrorCausedDueClientFailure());
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(3)]
+        public async Task GivenAParallelTransaction_WhenSiblingsReturnFailedDependencyAfterAClientError_ThenReturnTheClientError(int clientErrorEntryIndex)
+        {
+            // Reproduces the cancellation race: one entry fails with HTTP 400 and cancels the bundle orchestrator operation,
+            // while its siblings observe the canceled operation and return HTTP 424. The transaction must return the original
+            // HTTP 400, never HTTP 500 or HTTP 424, regardless of which entry finishes first.
+            const int numberOfEntries = 4;
+
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>(),
+            };
+
+            for (int i = 0; i < numberOfEntries; i++)
+            {
+                bundle.Entry.Add(new EntryComponent
+                {
+                    Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/Patient" },
+                    Resource = new Patient(),
+                });
+            }
+
+            // Hold every entry until all of them are running, so the client error and the dependent failures overlap.
+            int routedEntries = 0;
+            int runningEntries = 0;
+            var allEntriesRunning = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    int entryIndex = Interlocked.Increment(ref routedEntries) - 1;
+                    bool isClientError = entryIndex == clientErrorEntryIndex;
+
+                    callInfo.Arg<RouteContext>().Handler = async context =>
+                    {
+                        if (Interlocked.Increment(ref runningEntries) == numberOfEntries)
+                        {
+                            allEntriesRunning.TrySetResult();
+                        }
+
+                        await allEntriesRunning.Task.WaitAsync(TimeSpan.FromSeconds(30));
+
+                        context.Response.StatusCode = isClientError ? StatusCodes.Status400BadRequest : StatusCodes.Status424FailedDependency;
+                        var outcome = new OperationOutcome
+                        {
+                            Issue = new List<OperationOutcome.IssueComponent>
+                            {
+                                new OperationOutcome.IssueComponent
+                                {
+                                    Severity = OperationOutcome.IssueSeverity.Error,
+                                    Code = isClientError ? OperationOutcome.IssueType.Invalid : OperationOutcome.IssueType.Processing,
+                                    Diagnostics = isClientError ? "Validation failed" : Core.Resources.TransactionEntryFailedDependency,
+                                },
+                            },
+                        };
+
+                        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(new FhirJsonSerializer().SerializeToString(outcome));
+                        await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.HandleAsync(bundleRequest, default));
+
+            Assert.Equal(numberOfEntries, runningEntries);
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, fhirTfe.ResponseStatusCode);
+            Assert.True(fhirTfe.IsErrorCausedDueClientFailure());
+        }
+
         [Fact]
         public async Task GivenAConfigurationEntryLimit_WhenExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
         {
