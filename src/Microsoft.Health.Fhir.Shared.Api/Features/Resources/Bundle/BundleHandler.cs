@@ -537,7 +537,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleComplexity = BundleHandlerComplexityCalculator.CalculateBundleComplexity(
                     processingLogic,
                     _requests,
-                    _profilesResolver);
+                    _profilesResolver,
+                    _logger);
             }
             catch (InvalidOperationException e)
             {
