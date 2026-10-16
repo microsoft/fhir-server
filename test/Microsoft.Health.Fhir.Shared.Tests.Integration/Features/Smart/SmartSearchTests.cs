@@ -4825,7 +4825,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 Id = otherCompartmentAllowedObservationId,
                 Status = ObservationStatus.Final,
                 Subject = new ResourceReference($"Patient/{otherPatientId}"),
+#if !Stu3
                 Focus = new List<ResourceReference> { new ResourceReference($"Patient/{patientId}") },
+#endif
                 Meta = new Meta { Tag = new List<Coding> { new Coding(tagSystem, "allowed") } },
             });
             await _smartFixture.UpsertResource(new DiagnosticReport
