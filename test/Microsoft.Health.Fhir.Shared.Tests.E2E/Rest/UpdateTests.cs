@@ -299,6 +299,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(updateResponseAfterMetaUpdated.Resource.Meta.Tag, t => t.Code == "TestCode2");
         }
 
+        [Theory]
+        [InlineData("John Doe")]
+        [InlineData("山田　 太郎")] // Scenario with full-width space.
+        [InlineData("\u5C71\u7530 \u592A\u90CE")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatientName_WhenUpdatingRepeatedlyWithNoDataChange_ThenServerShouldNotCreateANewVersion(string name)
+        {
+            // Arrange
+            var patient = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = new List<HumanName> { new HumanName { Text = name } },
+            };
+
+            using FhirResponse<Patient> createResponse = await _client.UpdateAsync(patient);
+            ValidateUpdateCreateResponse(patient, createResponse);
+            Patient createdPatient = createResponse.Resource;
+            Assert.NotNull(createdPatient.Meta.LastUpdated);
+            Assert.Equal(name, Assert.Single(createdPatient.Name).Text);
+
+            // Act and assert: Resubmit the original payload, not the server's potentially normalized response.
+            for (int i = 0; i < 15; i++)
+            {
+                using FhirResponse<Patient> updateResponse = await _client.UpdateAsync(patient);
+                ValidateUpdateResponse(createdPatient, updateResponse, true, HttpStatusCode.OK);
+                Assert.Equal(name, Assert.Single(updateResponse.Resource.Name).Text);
+            }
+
+            using FhirResponse<Patient> readResponse = await _client.ReadAsync<Patient>($"Patient/{patient.Id}");
+            ValidateUpdateResponse(createdPatient, readResponse, true, HttpStatusCode.OK);
+            Assert.Equal(name, Assert.Single(readResponse.Resource.Name).Text);
+
+            using FhirResponse<Bundle> historyResponse = await _client.ReadHistoryAsync(ResourceType.Patient, patient.Id);
+            Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+            Patient historicalPatient = Assert.IsType<Patient>(Assert.Single(historyResponse.Resource.Entry).Resource);
+            Assert.Equal(createdPatient.Meta.VersionId, historicalPatient.Meta.VersionId);
+            Assert.Equal(createdPatient.Meta.LastUpdated, historicalPatient.Meta.LastUpdated);
+            Assert.Equal(name, Assert.Single(historicalPatient.Name).Text);
+        }
+
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
