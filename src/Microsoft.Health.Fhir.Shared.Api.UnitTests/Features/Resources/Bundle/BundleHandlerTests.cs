@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -39,6 +40,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -1363,6 +1365,45 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             JToken largeEntry = Assert.Single(statistics["resourceSize"]["large"]);
             Assert.Equal("Binary", largeEntry["resourceType"].Value<string>());
             Assert.Equal(Convert.ToBase64String(new byte[decodedPatchSize]).Length, largeEntry["resourceBytes"].Value<long>());
+        }
+
+        [Fact]
+        public async Task GivenAPatchEntry_WhenProcessed_ThenSearchIndexValuesAreAttributedToThePatchedResourceType()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PATCH, Url = "/Observation/123" },
+                        Resource = new Binary { ContentType = "application/json-patch+json", Data = Encoding.UTF8.GetBytes("[]") },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    RouteContext routeContext = callInfo.Arg<RouteContext>();
+                    routeContext.RouteData.Values[KnownActionParameterNames.ResourceType] = "Observation";
+                    routeContext.Handler = context =>
+                    {
+                        _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName] = 150;
+                        context.Response.StatusCode = 200;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            JToken heavyEntry = Assert.Single(statistics["searchIndex"]["heavy"]);
+            Assert.Equal("Observation", heavyEntry["resourceType"].Value<string>());
         }
 #endif
 

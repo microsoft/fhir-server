@@ -1170,12 +1170,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _totalGeneratedIdentifiers,
                 _totalResolvedReferences);
 
-            foreach (ResourceExecutionContext resourceContext in _requests.Values.SelectMany(r => r))
+            foreach (ResourceExecutionContext resourceContext in _requests.Values.SelectMany(r => r).Where(r => r.ResourceSizeInBytes > 0))
             {
-                if (resourceContext.ResourceSizeInBytes > 0)
-                {
-                    statistics.RegisterResourceSize(resourceContext.Index, resourceContext.ResourceType, resourceContext.ResourceSizeInBytes);
-                }
+                statistics.RegisterResourceSize(resourceContext.Index, resourceContext.ResourceType, resourceContext.ResourceSizeInBytes);
             }
 
             // Null for chunked requests, which have no Content-Length.
@@ -1190,7 +1187,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             if (entryRequestContext.Properties.TryGetValue(ResourceWrapperFactory.SearchIndexValuesPropertyName, out object value) && value is int indexValues)
             {
-                statistics.RegisterEntrySearchIndexValues(resourceContext.Index, resourceContext.ResourceType, indexValues);
+                // PATCH payloads are Parameters/Binary; the routed type is the resource that was indexed.
+                statistics.RegisterEntrySearchIndexValues(resourceContext.Index, entryRequestContext.ResourceType ?? resourceContext.ResourceType, indexValues);
             }
         }
 
