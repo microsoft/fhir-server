@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
 {
     public sealed class DefaultBundleMetricHandler : BaseSuccessRateMetricHandler, IBundleMetricHandler
     {
-        private readonly Histogram<long> _bundleRegularLatencyHistogram;
+        private readonly Histogram<long> _bundleLatencyHistogram;
 
         public DefaultBundleMetricHandler(IMeterFactory meterFactory)
             : base(
@@ -19,14 +19,14 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
                   successMetricName: "Bundle.Success",
                   failureMetricName: "Bundle.Failure")
         {
-            _bundleRegularLatencyHistogram = MetricMeter.CreateHistogram<long>("Bundle.Latency");
+            _bundleLatencyHistogram = MetricMeter.CreateHistogram<long>("Bundle.Latency");
         }
 
         public void EmitLatency(BundleMetricNotification notification)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _bundleRegularLatencyHistogram.Record(
+            _bundleLatencyHistogram.Record(
                 notification.ElapsedMilliseconds,
                 KeyValuePair.Create<string, object>("Complexity", notification.Complexity.ToString()));
         }

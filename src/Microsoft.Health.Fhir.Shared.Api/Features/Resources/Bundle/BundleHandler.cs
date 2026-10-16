@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
+        private readonly Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _metricHandler = EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
-            _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
+            _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<BundleHandlerInternalOperationExecutionContext>());
 
             _outerHttpContext = httpContextAccessor.HttpContext;
             _httpAuthenticationFeature = _outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Transaction)
                 {
-                    List<ResourceExecutionContext> resources = _requests.Select(r => r.Value).SelectMany(r => r).ToList();
+                    List<BundleHandlerInternalOperationExecutionContext> resources = _requests.Select(r => r.Value).SelectMany(r => r).ToList();
 
                     if (resources.Any())
                     {
@@ -534,29 +534,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             try
             {
-                int totalConditionalOperations = _requests.SelectMany(r => r.Value).Count(x => x.IsConditionalOperation);
-
-                IReadOnlySet<string> profileResourceTypes = _profilesResolver.GetProfilesTypes();
-                bool requiresProfileRefresh = _requests.SelectMany(r => r.Value).Any(x => x.ResourceType != null && profileResourceTypes.Contains(x.ResourceType));
-
-                double sumResourceSize = _requests.SelectMany(r => r.Value).Where(x => x.Context?.HttpContext?.Request != null).Select(x => x.Context.HttpContext.Request.ContentLength ?? 0).DefaultIfEmpty(0).Sum();
-
-                _bundleComplexity = BundleHandlerRuntime.IdentifyBundleComplexity(
+                _bundleComplexity = BundleHandlerComplexityCalculator.CalculateBundleComplexity(
                     processingLogic,
-                    _requestCount,
-                    totalConditionalOperations,
-                    requiresProfileRefresh,
-                    sumResourceSize);
+                    _requests,
+                    _profilesResolver);
             }
             catch (InvalidOperationException e)
             {
                 _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
             }
             catch (ArgumentException e)
-            {
-                _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
-            }
-            catch (IOException e)
             {
                 _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
             }
@@ -791,7 +778,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId, entry.Request.IsConditionalOperation()));
+            _requests[requestMethod].Add(new BundleHandlerInternalOperationExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId, entry.Request.IsConditionalOperation()));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, DefaultHttpContext httpContext)
@@ -804,7 +791,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
         {
-            foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
+            foreach (BundleHandlerInternalOperationExecutionContext resourceContext in _requests[httpVerb])
             {
                 EntryComponent entryComponent;
 
@@ -993,7 +980,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// Reference implementation of 'SetupContexts'. Originally created to support sequential operations and run manipulations on local
         /// attributes. This is a non-thread safe method. Not to be used in parallel-operation under the same HTTP request context.
         /// </summary>
-        private void SetupContexts(ResourceExecutionContext resourceExecutionContext, HttpContext httpContext)
+        private void SetupContexts(BundleHandlerInternalOperationExecutionContext resourceExecutionContext, HttpContext httpContext)
         {
             SetupContexts(
                 bundleType: _bundleType,

@@ -12,5 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         Medium = 1,
 
         High = 2,
+
+        Extreme = 3,
     }
 }
