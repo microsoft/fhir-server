@@ -20,12 +20,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private const string LoggingCategory = "bundleStatistics";
 
         private const long OneMebibyte = 1024 * 1024;
-        private const long LargeEntryThresholdBytes = 5 * OneMebibyte;
+        private const long LargeResourceThresholdBytes = 5 * OneMebibyte;
         private const int HeavyEntryThresholdIndexValues = 100;
         private const int TopEntriesToLog = 5;
 
         private readonly ConcurrentBag<BundleHandlerStatisticEntry> _entries;
-        private readonly ConcurrentBag<(int Index, string ResourceType, long Bytes)> _entrySizes;
+        private readonly ConcurrentBag<(int Index, string ResourceType, long Bytes)> _resourceSizes;
         private readonly ConcurrentBag<(int Index, string ResourceType, int IndexValues)> _entrySearchIndexValues;
 
         public BundleHandlerStatistics(
@@ -44,16 +44,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             GeneratedIdentifiers = generatedIdentifiers;
             ResolvedReferences = resolvedReferences;
             _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
-            _entrySizes = new ConcurrentBag<(int Index, string ResourceType, long Bytes)>();
+            _resourceSizes = new ConcurrentBag<(int Index, string ResourceType, long Bytes)>();
             _entrySearchIndexValues = new ConcurrentBag<(int Index, string ResourceType, int IndexValues)>();
         }
 
         public int NumberOfResources { get; }
 
         /// <summary>
-        /// Total size of the bundle request body, in bytes.
+        /// Size of the bundle request body from Content-Length, in bytes; null when the header is absent.
         /// </summary>
-        public long? TotalBundleBytes { get; set; }
+        public long? BundleRequestBodyBytes { get; set; }
 
         /// <summary>
         /// Total number of resource identifiers that were generated during the processing of a transactional bundle.
@@ -98,16 +98,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 300);
             int conditionalOperations = _entries.Count(e => e.IsConditionalOperation);
 
-            var entrySize = new
+            var resourceSize = new
             {
-                over5MiB = _entrySizes.Count(e => e.Bytes > 5 * OneMebibyte),
-                over10MiB = _entrySizes.Count(e => e.Bytes > 10 * OneMebibyte),
-                over20MiB = _entrySizes.Count(e => e.Bytes > 20 * OneMebibyte),
-                large = _entrySizes
-                    .Where(e => e.Bytes > LargeEntryThresholdBytes)
+                over5MiB = _resourceSizes.Count(e => e.Bytes > 5 * OneMebibyte),
+                over10MiB = _resourceSizes.Count(e => e.Bytes > 10 * OneMebibyte),
+                over20MiB = _resourceSizes.Count(e => e.Bytes > 20 * OneMebibyte),
+                large = _resourceSizes
+                    .Where(e => e.Bytes > LargeResourceThresholdBytes)
                     .OrderByDescending(e => e.Bytes)
                     .Take(TopEntriesToLog)
-                    .Select(e => new { index = e.Index, resourceType = e.ResourceType, bytes = e.Bytes })
+                    .Select(e => new { index = e.Index, resourceType = e.ResourceType, resourceBytes = e.Bytes })
                     .ToArray(),
             };
 
@@ -147,8 +147,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     identifiers = GeneratedIdentifiers,
                     references = ResolvedReferences,
                 },
-                totalBundleBytes = TotalBundleBytes,
-                entrySize,
+                bundleRequestBodyBytes = BundleRequestBodyBytes,
+                resourceSize,
                 searchIndex,
             });
 
@@ -174,11 +174,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         }
 
         /// <summary>
-        /// Registers the request body size of a bundle entry.
+        /// Registers the serialized size of a bundle entry's resource.
         /// </summary>
-        public void RegisterEntrySize(int index, string resourceType, long bytes)
+        public void RegisterResourceSize(int index, string resourceType, long bytes)
         {
-            _entrySizes.Add((index, resourceType, bytes));
+            _resourceSizes.Add((index, resourceType, bytes));
         }
 
         /// <summary>

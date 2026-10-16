@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public void GivenEntrySizesAndSearchIndexValues_WhenGettingStatistics_ThenBucketsAndTopEntriesAreLogged()
+        public void GivenResourceSizesAndSearchIndexValues_WhenGettingStatistics_ThenBucketsAndTopEntriesAreLogged()
         {
             const long mebibyte = 1024 * 1024;
 
@@ -88,25 +88,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 numberOfResources: 10,
                 generatedIdentifiers: 0,
                 resolvedReferences: 0);
-            bundleStatistics.TotalBundleBytes = 123 * mebibyte;
+            bundleStatistics.BundleRequestBodyBytes = 123 * mebibyte;
 
-            long[] entrySizes = [1 * mebibyte, 6 * mebibyte, 7 * mebibyte, 8 * mebibyte, 9 * mebibyte, 12 * mebibyte, 25 * mebibyte];
-            Parallel.For(0, entrySizes.Length, i => bundleStatistics.RegisterEntrySize(i, "DocumentReference", entrySizes[i]));
+            long[] resourceSizes = [1 * mebibyte, 6 * mebibyte, 7 * mebibyte, 8 * mebibyte, 9 * mebibyte, 12 * mebibyte, 25 * mebibyte];
+            Parallel.For(0, resourceSizes.Length, i => bundleStatistics.RegisterResourceSize(i, "DocumentReference", resourceSizes[i]));
 
             int[] indexValues = [50, 101, 150, 251, 300, 501, 600, 700];
             Parallel.For(0, indexValues.Length, i => bundleStatistics.RegisterEntrySearchIndexValues(i, "Observation", indexValues[i]));
 
             JObject statisticsAsJson = JObject.Parse(bundleStatistics.GetStatisticsAsJson());
 
-            Assert.Equal(123 * mebibyte, statisticsAsJson["totalBundleBytes"].Value<long>());
+            Assert.Equal(123 * mebibyte, statisticsAsJson["bundleRequestBodyBytes"].Value<long>());
 
-            JToken entrySize = statisticsAsJson["entrySize"];
-            Assert.Equal(6, entrySize["over5MiB"].Value<int>());
-            Assert.Equal(2, entrySize["over10MiB"].Value<int>());
-            Assert.Equal(1, entrySize["over20MiB"].Value<int>());
-            Assert.Equal(new long[] { 25 * mebibyte, 12 * mebibyte, 9 * mebibyte, 8 * mebibyte, 7 * mebibyte }, entrySize["large"].Select(e => e["bytes"].Value<long>()).ToArray());
-            Assert.Equal(6, entrySize["large"][0]["index"].Value<int>());
-            Assert.Equal("DocumentReference", entrySize["large"][0]["resourceType"].Value<string>());
+            JToken resourceSize = statisticsAsJson["resourceSize"];
+            Assert.Equal(6, resourceSize["over5MiB"].Value<int>());
+            Assert.Equal(2, resourceSize["over10MiB"].Value<int>());
+            Assert.Equal(1, resourceSize["over20MiB"].Value<int>());
+            Assert.Equal(new long[] { 25 * mebibyte, 12 * mebibyte, 9 * mebibyte, 8 * mebibyte, 7 * mebibyte }, resourceSize["large"].Select(e => e["resourceBytes"].Value<long>()).ToArray());
+            Assert.Equal(6, resourceSize["large"][0]["index"].Value<int>());
+            Assert.Equal("DocumentReference", resourceSize["large"][0]["resourceType"].Value<string>());
 
             JToken searchIndex = statisticsAsJson["searchIndex"];
             Assert.Equal(7, searchIndex["over100"].Value<int>());
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public void GivenNoEntrySizesOrSearchIndexValues_WhenGettingStatistics_ThenEmptySummariesAreLogged()
+        public void GivenNoResourceSizesOrSearchIndexValues_WhenGettingStatistics_ThenEmptySummariesAreLogged()
         {
             var bundleStatistics = new BundleHandlerStatistics(
                 Hl7.Fhir.Model.Bundle.BundleType.Batch,
@@ -130,9 +130,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             JObject statisticsAsJson = JObject.Parse(bundleStatistics.GetStatisticsAsJson());
 
-            Assert.Equal(JTokenType.Null, statisticsAsJson["totalBundleBytes"].Type);
-            Assert.Equal(0, statisticsAsJson["entrySize"]["over5MiB"].Value<int>());
-            Assert.Empty(statisticsAsJson["entrySize"]["large"]);
+            Assert.Equal(JTokenType.Null, statisticsAsJson["bundleRequestBodyBytes"].Type);
+            Assert.Equal(0, statisticsAsJson["resourceSize"]["over5MiB"].Value<int>());
+            Assert.Empty(statisticsAsJson["resourceSize"]["large"]);
             Assert.Equal(0, statisticsAsJson["searchIndex"]["over100"].Value<int>());
             Assert.Empty(statisticsAsJson["searchIndex"]["heavy"]);
         }
