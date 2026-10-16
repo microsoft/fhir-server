@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Fact]
         public void GivenParallelBundle_WhenGetOperationsArePresent_ReturnsExpectedComplexity()
         {
-            var requests = CreateRequests(98, HTTPVerb.GET);
+            var requests = CreateRequests(98, HTTPVerb.POST, getOperationCount: 1);
 
             BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
 
@@ -82,18 +82,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(BundleComplexity.Medium, complexity);
         }
 
+        [Fact]
+        public void GivenParallelBundle_WhenPayloadsAccumulateAcrossResources_ReturnsComplexityIncludingBundleAndLargestResourceCosts()
+        {
+            const long mebibyte = 1024L * 1024L;
+            var requests = CreateRequests(96, HTTPVerb.POST, contentLength: mebibyte, payloadOperationCount: 2);
+
+            BundleComplexity complexity = CalculateComplexity(BundleProcessingLogic.Parallel, requests);
+
+            Assert.Equal(BundleComplexity.Medium, complexity);
+        }
+
         private static Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> CreateRequests(
             int operationCount,
             HTTPVerb verb,
             int conditionalOperationCount = 0,
-            long? contentLength = null)
+            long? contentLength = null,
+            int getOperationCount = 0,
+            int payloadOperationCount = 1)
         {
-            var operations = new List<BundleHandlerInternalOperationExecutionContext>(operationCount);
+            var requests = new Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>>();
 
             for (int i = 0; i < operationCount; i++)
             {
+                HTTPVerb requestVerb = i < getOperationCount ? HTTPVerb.GET : verb;
+                if (!requests.TryGetValue(requestVerb, out List<BundleHandlerInternalOperationExecutionContext> operations))
+                {
+                    operations = new List<BundleHandlerInternalOperationExecutionContext>();
+                    requests.Add(requestVerb, operations);
+                }
+
                 RouteContext routeContext = null;
-                if (i == 0 && contentLength.HasValue)
+                if (i < payloadOperationCount && contentLength.HasValue)
                 {
                     var httpContext = new DefaultHttpContext();
                     httpContext.Request.ContentLength = contentLength;
@@ -101,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 }
 
                 operations.Add(new BundleHandlerInternalOperationExecutionContext(
-                    verb,
+                    requestVerb,
                     "Patient",
                     routeContext,
                     i,
@@ -109,10 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     isConditionalOperation: i < conditionalOperationCount));
             }
 
-            return new Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>>
-            {
-                [verb] = operations,
-            };
+            return requests;
         }
 
         private static BundleComplexity CalculateComplexity(
