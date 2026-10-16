@@ -23,6 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     /// </summary>
     public class ResourceWrapperFactory : IResourceWrapperFactory
     {
+        /// <summary>
+        /// Request context property that holds the number of search index values extracted for a bundle entry's resource.
+        /// </summary>
+        public const string SearchIndexValuesPropertyName = "Bundle.Entry.SearchIndexValues";
+
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly ISearchIndexer _searchIndexer;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
@@ -83,6 +88,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ExtractMinAndMaxValues(searchIndices);
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+
+            if (fhirRequestContext.ExecutingBatchOrTransaction)
+            {
+                fhirRequestContext.Properties[SearchIndexValuesPropertyName] = searchIndices.Count;
+            }
 
             return new ResourceWrapper(
                 resource,

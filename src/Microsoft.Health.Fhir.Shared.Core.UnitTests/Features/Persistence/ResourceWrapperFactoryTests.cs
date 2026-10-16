@@ -217,5 +217,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Same(updatedSearchIndexEntry, Assert.Single(resourceWrapper.SearchIndices));
             Assert.Equal("currentHash", resourceWrapper.SearchParameterHash);
         }
+
+        [Fact]
+        public void GivenABundleEntryRequest_WhenCreate_ThenSearchIndexValueCountIsStoredOnRequestContext()
+        {
+            _fhirRequestContextAccessor.RequestContext.ExecutingBatchOrTransaction = true;
+            _searchIndexer
+                .Extract(Arg.Any<ResourceElement>())
+                .Returns(new List<SearchIndexEntry>()
+                {
+                    new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")),
+                    new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("beta")),
+                    new SearchIndexEntry(_addressSearchParameterInfo, new StringSearchValue("redmond")),
+                });
+
+            _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+
+            Assert.Equal(3, _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName]);
+        }
+
+        [Fact]
+        public void GivenARequestOutsideABundle_WhenCreate_ThenSearchIndexValueCountIsNotStored()
+        {
+            _searchIndexer
+                .Extract(Arg.Any<ResourceElement>())
+                .Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")) });
+
+            _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+
+            Assert.False(_fhirRequestContextAccessor.RequestContext.Properties.ContainsKey(ResourceWrapperFactory.SearchIndexValuesPropertyName));
+        }
     }
 }

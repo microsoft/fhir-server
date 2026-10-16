@@ -697,6 +697,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownHeaders.Prefer, preferValue, httpContext);
             }
 
+            long requestBodySizeInBytes = 0;
+
             if (requestMethod == HTTPVerb.POST || requestMethod == HTTPVerb.PUT)
             {
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
@@ -706,6 +708,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(entry.Resource));
                     memoryStream.Seek(0, SeekOrigin.Begin);
                     httpContext.Request.Body = memoryStream;
+                    requestBodySizeInBytes = memoryStream.Length;
                 }
             }
 
@@ -720,6 +723,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(parametersResource));
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
+                requestBodySizeInBytes = memoryStream.Length;
             }
 
             // Allow JSON Patch to be an encoded Binary in a Bundle (See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request)
@@ -732,6 +736,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var memoryStream = new MemoryStream(binaryResource.Data);
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
+                requestBodySizeInBytes = memoryStream.Length;
             }
 #endif
 
@@ -744,7 +749,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId, entry.Request.IsConditionalOperation()));
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId, entry.Request.IsConditionalOperation(), requestBodySizeInBytes));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, DefaultHttpContext httpContext)
@@ -777,6 +782,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
                         httpContext.RequestAborted = cancellationToken;
                         SetupContexts(resourceContext, httpContext);
+                        IFhirRequestContext entryRequestContext = _fhirRequestContextAccessor.RequestContext;
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
@@ -822,6 +828,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                             await resourceContext.Context.Handler.Invoke(httpContext);
                         }
+
+                        RegisterEntrySearchIndexValues(statistics, resourceContext, entryRequestContext);
 
                         _resourceIdProvider.Create = originalResourceIdProvider;
 
@@ -1155,9 +1163,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _totalGeneratedIdentifiers,
                 _totalResolvedReferences);
 
+            long totalEntryBytes = 0;
+            foreach (ResourceExecutionContext resourceContext in _requests.Values.SelectMany(r => r))
+            {
+                if (resourceContext.RequestBodySizeInBytes > 0)
+                {
+                    statistics.RegisterEntrySize(resourceContext.Index, resourceContext.ResourceType, resourceContext.RequestBodySizeInBytes);
+                    totalEntryBytes += resourceContext.RequestBodySizeInBytes;
+                }
+            }
+
+            // Content-Length is absent for chunked requests; the serialized entries are the closest approximation.
+            statistics.TotalBundleBytes = _outerHttpContext.Request.ContentLength ?? totalEntryBytes;
+
             statistics.StartCollectingResults();
 
             return statistics;
+        }
+
+        private static void RegisterEntrySearchIndexValues(BundleHandlerStatistics statistics, ResourceExecutionContext resourceContext, IFhirRequestContext entryRequestContext)
+        {
+            if (entryRequestContext.Properties.TryGetValue(ResourceWrapperFactory.SearchIndexValuesPropertyName, out object value) && value is int indexValues)
+            {
+                statistics.RegisterEntrySearchIndexValues(resourceContext.Index, resourceContext.ResourceType, indexValues);
+            }
         }
 
         private void FinishCollectingBundleStatistics(BundleHandlerStatistics statistics)

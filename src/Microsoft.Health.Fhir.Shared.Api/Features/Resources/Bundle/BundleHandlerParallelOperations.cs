@@ -373,6 +373,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         bundleHttpContextAccessor,
                         logger);
 
+                    IFhirRequestContext entryRequestContext = requestContext.RequestContext;
+
                     // Attempt 1.
                     await resourceExecutionContext.Context.Handler.Invoke(httpContext);
 
@@ -419,6 +421,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // Attempt 2.
                         await resourceExecutionContext.Context.Handler.Invoke(httpContext);
                     }
+
+                    RegisterEntrySearchIndexValues(statistics, resourceExecutionContext, entryRequestContext);
 
                     entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
 
@@ -524,7 +528,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId, bool isConditionalOperation)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId, bool isConditionalOperation, long requestBodySizeInBytes)
             {
                 HttpVerb = httpVerb;
                 ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
@@ -532,6 +536,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 Index = index;
                 PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
                 IsConditionalOperation = isConditionalOperation;
+                RequestBodySizeInBytes = requestBodySizeInBytes;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
@@ -545,6 +550,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public string PersistedId { get; private set; }
 
             public bool IsConditionalOperation { get; private set; }
+
+            public long RequestBodySizeInBytes { get; private set; }
         }
 
         private sealed class BundleExecutionContext
