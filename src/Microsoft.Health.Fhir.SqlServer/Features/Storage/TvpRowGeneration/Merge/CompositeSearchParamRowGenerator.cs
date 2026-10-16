@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
     {
         private readonly Func<EnumeratorWrapper<ISearchValue>, TSearchValue> _converter = CreateConverterFunc();
 
-        protected CompositeSearchParamRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
-            : base(model, searchParameterTypeMap)
+        protected CompositeSearchParamRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap, IEqualityComparer<TRow> rowComparer)
+            : base(model, searchParameterTypeMap, rowComparer)
         {
         }
 

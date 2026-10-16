@@ -204,7 +204,7 @@
     <value>Parameter {0} cannot a be a value in the future.</value>
   </data>
   <data name="IdRequirements" xml:space="preserve">
-    <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
+    <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of {0} characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
   </data>
   <data name="IfMatchHeaderRequiredForResource" xml:space="preserve">
     <value>A valid if-match header is required for resource type '{0}'.</value>
@@ -706,6 +706,9 @@
   <data name="TransactionDeadlock" xml:space="preserve">
     <value>There was resource contention with another process in the datastore. Please retry this transaction.</value>
   </data>
+  <data name="TransactionEntryFailedDependency" xml:space="preserve">
+    <value>The request was not completed because another entry in the transaction failed. Review the other entries in the bundle for the original error.</value>
+  </data>
   <data name="FhirUserClaimMustHaveResourceTypeAndId" xml:space="preserve">
     <value>The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id.</value>
     <comment>{0} is a string value of given fhirUser claim.</comment>
@@ -884,5 +887,9 @@
   </data>
   <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
+  </data>
+  <data name="SmartScopeSearchParameterNotEnforceable" xml:space="preserve">
+    <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
+    <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>
   </data>
 </root>

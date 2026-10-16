@@ -131,6 +131,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                             Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
                             Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
                         break;
+
+                    case SmartCompartmentConditionalVisibility.Never:
+                        // Fail closed: contribute no union leg at all. The type is already excluded from the
+                        // universally shared types above, so it stays invisible within the compartment.
+                        break;
                 }
             }
 
@@ -139,20 +144,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Determines whether the SMART Device compartment restriction applies for the current configuration.
-        /// When it applies, Device is not treated as a universally shared resource; instead only devices that
-        /// reference the compartment root (via Device.patient) or that have no patient reference at all are
-        /// visible. The restriction relies on SQL-only expression support, so it is gated on the SQL compartment
-        /// rewriter (Cosmos DB support is retired).
+        /// Determines whether the SMART Device compartment restriction applies, and whether it can actually be
+        /// enforced. The restriction authorizes a Device that has no patient reference, which it detects from the
+        /// absence of a Device.patient search index entry. That inference is only sound while Device.patient is
+        /// enabled: once it is disabled, pending delete, or awaiting a reindex, resources are indexed using the
+        /// supported parameters only, so a Device assigned to another patient can also end up with no index entry
+        /// and would satisfy the "unassigned" condition. Availability is therefore checked here and the caller
+        /// fails closed rather than inferring absence from an incomplete index.
         /// </summary>
         /// <param name="devicePatientSearchParameter">The resolved Device.patient reference search parameter when the restriction applies; otherwise null.</param>
-        /// <returns><c>true</c> when the Device restriction applies; otherwise <c>false</c>.</returns>
-        public bool ShouldRestrictDevices(out SearchParameterInfo devicePatientSearchParameter)
+        /// <returns>Whether the restriction is not applicable, enforceable, or unenforceable.</returns>
+        public SmartCompartmentDeviceRestrictionState GetDeviceRestrictionState(out SearchParameterInfo devicePatientSearchParameter)
         {
             devicePatientSearchParameter = null;
-            return _coreFeatures.EnableSmartCompartmentDeviceRestriction &&
-                _compartmentSearchRewriter is SqlCompartmentSearchRewriter &&
-                _searchParameterDefinitionManager.Value.TryGetSearchParameter(KnownResourceTypes.Device, DevicePatientSearchParameterCode, out devicePatientSearchParameter);
+
+            if (!_coreFeatures.EnableSmartCompartmentDeviceRestriction || _compartmentSearchRewriter is not SqlCompartmentSearchRewriter)
+            {
+                return SmartCompartmentDeviceRestrictionState.NotApplicable;
+            }
+
+            // The definition lookup deliberately uses the unfiltered definition manager: a disabled parameter is
+            // still defined, and we need to tell "this FHIR version has no Device patient linkage" apart from
+            // "the linkage exists but is currently unavailable".
+            if (!_searchParameterDefinitionManager.Value.TryGetSearchParameter(KnownResourceTypes.Device, DevicePatientSearchParameterCode, out SearchParameterInfo devicePatientParameter))
+            {
+                return SmartCompartmentDeviceRestrictionState.NotApplicable;
+            }
+
+            devicePatientSearchParameter = devicePatientParameter;
+
+            // IsSearchable is set only for the Enabled status. Every other status (PendingDisable, Disabled,
+            // PendingDelete, or Supported while a reindex is still running) means the Device.patient index is
+            // missing or incomplete, so it cannot be used to prove that a Device is unassigned.
+            return devicePatientParameter.IsSearchable
+                ? SmartCompartmentDeviceRestrictionState.Enforceable
+                : SmartCompartmentDeviceRestrictionState.Unenforceable;
         }
 
         /// <summary>
@@ -165,9 +191,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <returns>The conditional rules that apply for the compartment; empty when none apply.</returns>
         public IReadOnlyList<SmartCompartmentConditionalRule> GetConditionalCompartmentRules(string compartmentType)
         {
-            if (!ShouldRestrictDevices(out SearchParameterInfo devicePatientSearchParameter))
+            SmartCompartmentDeviceRestrictionState deviceRestrictionState = GetDeviceRestrictionState(out SearchParameterInfo devicePatientSearchParameter);
+
+            if (deviceRestrictionState == SmartCompartmentDeviceRestrictionState.NotApplicable)
             {
                 return Array.Empty<SmartCompartmentConditionalRule>();
+            }
+
+            if (deviceRestrictionState == SmartCompartmentDeviceRestrictionState.Unenforceable)
+            {
+                // Fail closed. Emitting a single Never rule keeps Device out of the unconditionally shared types
+                // (GetSharedResourceTypes subtracts any type that carries a conditional rule) while contributing
+                // no authorizing predicate of its own, so no Device is visible in the compartment until
+                // Device.patient is enabled and reindexed. This holds in every non-enabled status, including
+                // Supported: the compartment definitions list Device with no membership parameter, so the formal
+                // compartment leg never authorizes it either. Authorizing the "unassigned" branch here instead
+                // would expose devices assigned to other patients, because they can also lack an index entry.
+                return new[]
+                {
+                    new SmartCompartmentConditionalRule(KnownResourceTypes.Device, devicePatientSearchParameter, SmartCompartmentConditionalVisibility.Never),
+                };
             }
 
             var rules = new List<SmartCompartmentConditionalRule>

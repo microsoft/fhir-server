@@ -31,18 +31,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 numberOfResources: numberOfResources,
                 generatedIdentifiers: 5,
                 resolvedReferences: 50);
+            bundleStatistics.ThrottlingDelays = 3;
 
             Parallel.For(0, numberOfResources - 2, i =>
             {
                 // Success.
-                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "foo", i, HttpStatusCode.OK, TimeSpan.Zero);
+                bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "foo", i, HttpStatusCode.OK, TimeSpan.Zero, isConditionalOperation: true);
             });
 
             // Customer error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "bar", numberOfResources - 2, HttpStatusCode.BadRequest, TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "bar", numberOfResources - 2, HttpStatusCode.BadRequest, TimeSpan.Zero, isConditionalOperation: false);
 
             // Server error.
-            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "baz", numberOfResources - 1, HttpStatusCode.InternalServerError, TimeSpan.Zero);
+            bundleStatistics.RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb.POST, "baz", numberOfResources - 1, HttpStatusCode.InternalServerError, TimeSpan.Zero, isConditionalOperation: false);
 
             Assert.Equal(numberOfResources, bundleStatistics.NumberOfResources);
             Assert.Equal(50, bundleStatistics.ResolvedReferences);
@@ -54,8 +55,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             long success = statisticsAsJson["success"].Value<long>();
             long errors = statisticsAsJson["errors"].Value<long>();
             long customerErrors = statisticsAsJson["customerErrors"].Value<long>();
+            long conditionalOperations = statisticsAsJson["conditionalOperations"].Value<long>();
+            long throttlingDelays = statisticsAsJson["throttlingDelays"].Value<long>();
 
             Assert.Equal(bundleStatistics.RegisteredEntries, success + errors + customerErrors);
+
+            // Conditional operations and throttling delays.
+            Assert.True(throttlingDelays == 3, $"Expected 3 throttling delays but found {throttlingDelays}.");
+            Assert.True(conditionalOperations == numberOfResources - 2, $"Expected {numberOfResources - 2} conditional operations but found {conditionalOperations}.");
 
             // Generated identifiers.
             int generatedIdentifiers = statisticsAsJson["references"]["identifiers"].Value<int>();

@@ -37,7 +37,8 @@ Configure the refresh interval in your application settings:
 ```json
 {
   "Core": {
-    "SearchParameterCacheRefreshIntervalSeconds": 60
+    "SearchParameterCacheRefreshIntervalSeconds": 60,
+    "SearchParameterCacheRefreshConsecutiveFailureThreshold": 3
   }
 }
 ```
@@ -45,12 +46,15 @@ Configure the refresh interval in your application settings:
 ### Environment Variables
 ```
 Core__SearchParameterCacheRefreshIntervalSeconds=60
+Core__SearchParameterCacheRefreshConsecutiveFailureThreshold=3
 ```
 
 ### Default Behavior
 - **Default Interval**: 60 seconds
 - **Minimum Interval**: Any positive integer
 - **Invalid Values**: 0 or negative values default to 1 second
+- **Default Consecutive-Failure Threshold**: 3 - the failure metric (`SearchParameter.CacheRefresher.Failure`) is only emitted once a refresh attempt has failed for this many consecutive runs, so an isolated transient failure (e.g. a momentary database blip) doesn't trigger alerting when the next scheduled refresh is likely to succeed. A success resets the count back to zero.
+- **Invalid Threshold Values**: 0 or negative values default to a minimum of 1, which preserves immediate emission on the first failure (equivalent to the behavior before this setting existed)
 
 ## Registration
 
@@ -87,6 +91,9 @@ The service logs at different levels:
 - **Debug**: Cache check details and SearchParameter operation progress
 - **Error**: Exceptions during refresh attempts
 - **Warning**: Retryable errors and resource retrieval issues
+
+### Failure Metric Suppression
+Every refresh failure is still logged at `Error` level, but the `SearchParameter.CacheRefresher.Failure` metric is only emitted once the configured consecutive-failure threshold (see [Configuration](#configuration)) is reached, and continues to be emitted on every subsequent failure while the outage persists. A single successful refresh resets the consecutive-failure count back to zero. This avoids noisy alerting from isolated, transient failures while still surfacing sustained outages.
 
 Additional monitoring through SQL EventLog:
 - **Stored Procedure Execution**: All calls to `GetSearchParamMaxLastUpdated` are logged

@@ -78,7 +78,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Theory]
         [InlineData("SearchParameter")]
-        [InlineData("StructureDefinition")]
         public async Task GivenBulkUpdateRequestWithUnsupportedResourceTypes_WhenRequested_ThenBadRequestIsReturned(string resourceType)
         {
             CheckBulkUpdateEnabled();
@@ -144,7 +143,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task GivenBulkUpdateRequestOnSystemLevel_WhenCompleted_ThenExcludedResourcesAreNotUpdatedAndCountedInIgnoredResources(bool isParallel)
+        public async Task GivenBulkUpdateRequestOnSystemLevelWithProfileModificationPermission_WhenCompleted_ThenProfileResourcesAreUpdated(bool isParallel)
         {
             CheckBulkUpdateEnabled();
 
@@ -152,7 +151,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResults.ResourcesUpdated.Add("Patient", 2);
             expectedResults.ResourcesUpdated.Add("Location", 1);
             expectedResults.ResourcesUpdated.Add("Organization", 1);
-            expectedResults.ResourcesIgnored.Add("StructureDefinition", 4);  // Changed: use 4 StructureDefinitions instead of 2 + 2 SearchParameters
+            expectedResults.ResourcesUpdated.Add("StructureDefinition", 4);
 
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
             var createdResources = new List<Resource>();
@@ -213,8 +212,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     .AddAddPatchParameter("Resource", "language", new Code("en"));
 
                 ChangeTypeToUpsertPatchParameter(patchRequest);
-
-                // Create the request with Observation and Location as excluded resource types
 
                 var queryParam = new Dictionary<string, string>
                     {
