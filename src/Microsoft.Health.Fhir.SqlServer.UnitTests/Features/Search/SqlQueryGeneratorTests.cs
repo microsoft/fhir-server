@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -24,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -418,6 +420,150 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         // Verify both type IDs were passed as parameters by checking the mock was called
         _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    public void GivenChainSourceDeduplicationConfiguration_WhenBound_ThenDefaultAndRollbackAreSupported(string value, bool expected)
+    {
+        // Arrange
+        var settings = new Dictionary<string, string>();
+        if (value != null)
+        {
+            settings["FhirSqlServer:EnableChainSourceDeduplication"] = value;
+        }
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        var options = new FhirSqlServerConfiguration();
+
+        // Act
+        configuration.GetSection("FhirSqlServer").Bind(options);
+
+        // Assert
+        Assert.Equal(expected, options.EnableChainSourceDeduplication);
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(5, false)]
+    [InlineData(5, true)]
+    [InlineData(1, false, false)]
+    [InlineData(1, true, false)]
+    [InlineData(5, false, false)]
+    [InlineData(5, true, false)]
+    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool enabled = true)
+    {
+        // Arrange
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        _fhirModel.GetResourceTypeId("Observation").Returns((short)10);
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)11);
+        _fhirModel.GetSearchParamId(reference.Url).Returns((short)20);
+        var tables = new List<SearchParamTableExpression>
+        {
+            new(null, null, SearchParamTableExpressionKind.All),
+        };
+        for (int i = 0; i < chainCount; i++)
+        {
+            tables.Add(new SearchParamTableExpression(
+                ChainLinkQueryGenerator.Instance,
+                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+                SearchParamTableExpressionKind.Chain,
+                chainLevel: 1));
+        }
+
+        // Act
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false,
+            enableChainSourceDeduplication: enabled);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+        {
+            Sort = [],
+            CountOnly = true,
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        });
+
+        // Assert
+        string sql = _strBuilder.ToString();
+        string alias = reversed ? "refTarget" : "refSource";
+        if (chainCount == 1)
+        {
+            Assert.Contains($"EXISTS (SELECT * FROM cte0 WHERE {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1)", sql);
+        }
+        else
+        {
+            for (int i = 0; i < chainCount; i++)
+            {
+                if (enabled)
+                {
+                    Assert.Contains($"JOIN (SELECT DISTINCT T1, Sid1 FROM cte{i}) predecessor ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+                    Assert.DoesNotContain($"JOIN cte{i} ON {alias}.ResourceTypeId = T1", sql);
+                }
+                else
+                {
+                    Assert.Contains($"JOIN cte{i} ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+                    Assert.DoesNotContain(") predecessor", sql);
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed)
+    {
+        // Arrange
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var tables = new List<SearchParamTableExpression> { new(null, null, SearchParamTableExpressionKind.All) };
+        for (int level = 1; level <= 5; level++)
+        {
+            tables.Add(new SearchParamTableExpression(
+                ChainLinkQueryGenerator.Instance,
+                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+                SearchParamTableExpressionKind.Chain,
+                level));
+        }
+
+        // Act
+        _queryGenerator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+        {
+            Sort = [],
+            CountOnly = true,
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        });
+
+        // Assert
+        string sql = _strBuilder.ToString();
+        Assert.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte0) predecessor", sql);
+        string alias = reversed ? "refTarget" : "refSource";
+        for (int i = 1; i < 5; i++)
+        {
+            Assert.Contains($"JOIN cte{i} ON {alias}.ResourceTypeId = T2 AND {alias}.ResourceSurrogateId = Sid2", sql);
+        }
     }
 
     private (SqlQueryGenerator Generator, string Sql) GenerateSqlWithHashedParameter(

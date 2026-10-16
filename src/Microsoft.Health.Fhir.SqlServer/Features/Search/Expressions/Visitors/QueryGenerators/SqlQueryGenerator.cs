@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
+        private readonly bool _enableChainSourceDeduplication;
+        private readonly HashSet<int> _chainTableExpressionIndexes = new();
         private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
 
         public SqlQueryGenerator(
@@ -74,7 +76,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             bool reuseQueryPlans,
             bool isAsyncOperation,
-            SqlException sqlException = null)
+            SqlException sqlException = null,
+            bool enableChainSourceDeduplication = true)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -89,6 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _queryGeneratorFactory = queryGeneratorFactory;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
+            _enableChainSourceDeduplication = enableChainSourceDeduplication;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -586,6 +590,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 const string referenceSourceTableAlias = "refSource";
                 const string referenceTargetResourceTableAlias = "refTarget";
+
+                if (searchParamTableExpression.ChainLevel > 0)
+                {
+                    _chainTableExpressionIndexes.Add(_tableExpressionCounter);
+                }
+                else
+                {
+                    _chainTableExpressionIndexes.Remove(_tableExpressionCounter);
+                }
 
                 switch (searchParamTableExpression.Kind)
                 {
@@ -2020,8 +2033,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // To simplify query plan generation, if we are intersecting with the Reference search param table, we will use an inner join
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
-                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex - 0))
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                sb.Append(_joinShift).Append("JOIN ");
+                bool restartsChain = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1;
+                bool filtersChainSources = searchParamTableExpression.ChainLevel == 0 && _chainTableExpressionIndexes.Contains(predecessorIndex);
+                if (_enableChainSourceDeduplication && (restartsChain || filtersChainSources))
+                {
+                    // Independent chains and root-level filters intersect on source existence, not on a chain's target.
+                    // Project unique source keys so the predecessor's matching references cannot multiply this table.
+                    sb.Append("(SELECT DISTINCT T1, Sid1 FROM ").Append(TableExpressionName(predecessorIndex)).Append(") predecessor");
+                }
+                else
+                {
+                    sb.Append(TableExpressionName(predecessorIndex));
+                }
+
+                sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .AppendLine();
             }
