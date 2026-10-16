@@ -140,8 +140,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observationSummaryCountResult = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime:o}&_before={beforeTime:o}&_summary=count");
             var observationSummaryCountZero = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime:o}&_before={beforeTime:o}&_count=0");
 
-            // Find all resources in window - needed to filter out stragglers from other tests
-            var allResources = await _client.SearchAsync($"_history?_since={sinceTime:o}&_before={beforeTime:o}");
+            // Find all resources in window (one full page, not the default 10) - needed to filter out stragglers from concurrent writers
+            var allResources = await _client.SearchAsync($"_history?_since={sinceTime:o}&_before={beforeTime:o}&_count=1000");
             var stragglerResources = allResources.Resource.Entry.Where(r => !expectedResourceIds.Contains(r.Resource.Id));
 
             // 9 versions total for all resources.
