@@ -7,6 +7,7 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -30,17 +31,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();
 
-            services.AddFactory<IScoped<ISearchService>>();
-            services.AddFactory<IScoped<IFhirDataStore>>();
-            services.AddFactory<IScoped<IFhirOperationDataStore>>();
+            services.AddScopedFactory<ISearchService>();
+            services.AddScopedFactory<IFhirDataStore>();
+            services.AddScopedFactory<IFhirOperationDataStore>();
 
             services.AddScoped<TransactionBundleValidator>();
             services.AddScoped<ResourceReferenceResolver>();
 
-            services.AddFactory<IScoped<IDeletionService>>();
+            services.AddScopedFactory<IDeletionService>();
             services.AddScoped<IDeletionService, DeletionService>();
 
-            services.AddFactory<IScoped<IBulkUpdateService>>();
+            services.AddScopedFactory<IBulkUpdateService>();
             services.AddScoped<IBulkUpdateService, BulkUpdateService>();
         }
     }
