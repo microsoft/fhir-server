@@ -277,6 +277,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; parameter is not supported for conditional delete. Included resources cannot be deletion targets..
+        /// </summary>
+        internal static string ConditionalDeleteIncludesNotSupported {
+            get {
+                return ResourceManager.GetString("ConditionalDeleteIncludesNotSupported", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Conditional operation on {0} was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {

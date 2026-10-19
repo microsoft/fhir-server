@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Globalization;
 using EnsureThat;
 using FluentValidation;
@@ -32,6 +33,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
                     {
                         logger?.LogInformation("PreconditionFailed: ConditionalOperationNotSelectiveEnough");
                         context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, context.InstanceToValidate.ResourceType));
+                    }
+
+                    foreach (var parameter in conditionalParameters)
+                    {
+                        var parameterName = parameter.Item1.Split(':')[0];
+                        if (string.Equals(parameterName, "_include", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(parameterName, "_revinclude", StringComparison.OrdinalIgnoreCase))
+                        {
+                            context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalDeleteIncludesNotSupported, parameter.Item1));
+                        }
                     }
                 });
 

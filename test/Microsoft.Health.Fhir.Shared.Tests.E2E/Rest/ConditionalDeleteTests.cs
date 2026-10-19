@@ -140,50 +140,109 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(tag, expected);
         }
 
-        [Fact]
-        public async Task GivenMatchingResources_WhenDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
+        [Theory]
+        [InlineData("_include", 1, false)]
+        [InlineData("_include", 2, false)]
+        [InlineData("_include", 1, true)]
+        [InlineData("_include", 2, true)]
+        [InlineData("_include:iterate", 1, false)]
+        [InlineData("_include:recurse", 2, true)]
+        [InlineData("_revinclude", 1, false)]
+        [InlineData("_revinclude", 2, false)]
+        [InlineData("_revinclude", 1, true)]
+        [InlineData("_revinclude", 2, true)]
+        [InlineData("_revinclude:iterate", 2, false)]
+        [InlineData("_revinclude:recurse", 1, true)]
+        public async Task GivenMatchingResources_WhenDeletingConditionallyWithInclusions_ThenBadRequestIsReturnedAndNoResourcesAreDeleted(
+            string parameter,
+            int deleteCount,
+            bool hardDelete)
         {
+            // Arrange
             var tag = Guid.NewGuid().ToString();
             await CreateGroupWithPatients(tag, 5);
+            var resourceType = parameter.StartsWith("_revinclude", StringComparison.Ordinal) ? "Patient" : "Group";
+
+            // Act
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync(
+                $"{resourceType}?_tag={tag}&_count={deleteCount}&hardDelete={hardDelete}&{parameter}=Group:member",
+                CancellationToken.None));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            Assert.Contains(parameter, Assert.Single(exception.Response.Resource.Issue).Diagnostics);
             await ValidateResults(tag, 6);
-            FhirResponse response = await _client.DeleteAsync($"Group?_tag={tag}&_count=1&_include=Group:member", CancellationToken.None);
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal(6, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First())); // currently returning 1 for some reason
-            await ValidateResults(tag, 0);
         }
 
-        [Fact]
-        public async Task GivenMatchingResources_WhenHardDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData(1, false)]
+        [InlineData(2, false)]
+        [InlineData(null, true)]
+        [InlineData(1, true)]
+        [InlineData(2, true)]
+        public async Task GivenObservationReferencingPatient_WhenDeletingWithInclude_ThenBadRequestIsReturnedAndBothResourcesRemain(int? deleteCount, bool hardDelete)
         {
-            var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 5);
-            await ValidateResults(tag, 6);
-            FhirResponse response = await _client.DeleteAsync($"Group?hardDelete=true&_tag={tag}&_count=1&_include=Group:member", CancellationToken.None);
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal(6, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First())); // currently returning 1 for some reason
-            await ValidateResults(tag, 0);
+            // Arrange
+            using var patient = await _client.CreateAsync(new Patient());
+            using var observation = await _client.CreateAsync(new Observation
+            {
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "85354-9"),
+                Subject = new ResourceReference($"Patient/{patient.Resource.Id}"),
+            });
+            var countParameter = deleteCount.HasValue ? $"&_count={deleteCount}" : string.Empty;
+
+            // Act
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync(
+                $"Observation?_id={observation.Resource.Id}&_include=Observation:subject&hardDelete={hardDelete}{countParameter}",
+                CancellationToken.None));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            using var remainingPatient = await _client.ReadAsync<Patient>($"Patient/{patient.Resource.Id}");
+            using var remainingObservation = await _client.ReadAsync<Observation>($"Observation/{observation.Resource.Id}");
+            Assert.Equal(patient.Resource.Meta.VersionId, remainingPatient.Resource.Meta.VersionId);
+            Assert.Equal(observation.Resource.Meta.VersionId, remainingObservation.Resource.Meta.VersionId);
         }
 
-        [Fact]
-        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
+        [Theory]
+        [InlineData(Bundle.BundleType.Batch)]
+        [InlineData(Bundle.BundleType.Transaction)]
+        public async Task GivenConditionalDeleteWithIncludeInBundle_WhenSubmitting_ThenBadRequestIsReturnedAndNoResourcesAreDeleted(Bundle.BundleType bundleType)
         {
+            // Arrange
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 5);
-            await CreateGroupWithPatients(tag, 5);
-            await ValidateResults(tag, 12);
-            FhirResponse response = await _client.DeleteAsync($"Group?_tag={tag}&_count=2&_include=Group:member", CancellationToken.None);
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal(12, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First())); // currently returning 1 for some reason
-            await ValidateResults(tag, 0);
-        }
+            await CreateGroupWithPatients(tag, 1);
+            var bundle = new Bundle
+            {
+                Type = bundleType,
+                Entry =
+                {
+                    new Bundle.EntryComponent
+                    {
+                        Request = new Bundle.RequestComponent
+                        {
+                            Method = Bundle.HTTPVerb.DELETE,
+                            Url = $"Group?_tag={tag}&_include=Group:member",
+                        },
+                    },
+                },
+            };
 
-        [Fact]
-        public async Task GivenMatchingResources_WhenDeletingConditionallyWithMoreIncludedResourcesThanTheLimit_ThenBadRequestIsRetured()
-        {
-            var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 101);
-            await ValidateResults(tag, 102);
-            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"Group?_tag={tag}&_count=100&_include=Group:member&_includesCount=100", CancellationToken.None));
+            // Act / Assert
+            if (bundleType == Bundle.BundleType.Batch)
+            {
+                using var response = await _client.PostBundleAsync(bundle);
+                Assert.Equal("400", Assert.Single(response.Resource.Entry).Response.Status);
+            }
+            else
+            {
+                var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(bundle));
+                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            }
+
+            await ValidateResults(tag, 2);
         }
 
         private async Task CreateWithTag(string tag)
