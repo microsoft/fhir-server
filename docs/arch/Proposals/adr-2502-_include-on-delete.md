@@ -7,15 +7,13 @@ In the FHIR specification, the `_include` parameter allows clients to request re
 
 ## Decision
 
-**Conditional-delete restriction:** The `_count` portion of this proposal is superseded. Conditional DELETE rejects `_include` and `_revinclude`, including all modifiers, with HTTP 400 before searching or deleting any resources. This applies to soft and hard deletion, single and multiple deletion counts, and conditional DELETE entries in batch and transaction bundles. Included search results are not deletion matches, and search permission on a related resource does not grant delete permission. See the FHIR [conditional delete](https://hl7.org/fhir/R4/http.html#cdelete) and [search inclusion](https://hl7.org/fhir/R4/search.html#include) specifications.
-
-The inclusion behavior below applies only to the separately authorized bulk-delete operation. Its existing restriction on fine-grained SMART callers remains unchanged; normal search inclusion behavior is also unchanged.
-
 We will implement support for the `_include` parameter in delete requests. This enhancement will allow clients to specify related resources that should also be deleted when a primary resource is deleted. The implementation will involve updating the delete operation logic to process the `_include` parameter, identify related resources based on the inclusion criteria, and delete them alongside the primary resource. This approach ensures that related resources are appropriately managed during delete operations, maintaining data consistency and integrity.
+
+**Authorization:** Conditional deletion preserves this inclusion behavior for authorized callers. Before deleting each page, the server checks SMART delete permissions against the actual resource types of both matches and included resources, requiring hard-delete permission as well for hard deletion. Search permission alone does not authorize deletion of an included resource. The protected-profile checks and the existing SMART restriction on background bulk deletion remain unchanged.
 
 The changes will apply to:
 - **Bulk-delete operations**: Enabling `_include` for bulk deletions ensures that all related resources are removed efficiently in large-scale delete operations.
-- **Delete with `_count`**: Inclusion parameters are rejected, regardless of the requested count. Clients must issue separately authorized delete requests for related resources.
+- **Delete with `_count`**: Allowing `_include` in deletions that specify `_count` helps control batch deletions while ensuring referenced resources are properly handled.
 
 ## Status
 
@@ -24,3 +22,4 @@ Proposed
 ## Consequences
 
 By supporting the `_include` parameter in delete requests, the FHIR Server will provide more robust data management capabilities. Clients will have the ability to perform cascading deletions, ensuring that related resources are removed alongside primary resources when appropriate. This enhancement reduces the risk of orphaned data and maintains referential integrity within the FHIR data store. However, clients must use this feature judiciously to avoid unintended data loss, and thorough testing will be necessary to ensure that the implementation handles various scenarios correctly.
+
