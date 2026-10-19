@@ -627,6 +627,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         };
 
         ConfigureResourceTypeIds();
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)1);
         _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
         _fhirModel.GetSearchParamId(tagParameterUrl).Returns((short)42);
 
@@ -635,6 +636,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Assert
         string generatedSql = _strBuilder.ToString();
+        Assert.Contains("refSource.SearchParamId = 40", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("refSource.ReferenceResourceTypeId = 1", generatedSql, StringComparison.Ordinal);
         Assert.Contains($"EXISTS (SELECT * FROM cte1 WHERE {expectedScopeJoinClause})", generatedSql, StringComparison.Ordinal);
     }
 

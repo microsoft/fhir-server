@@ -1040,10 +1040,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // or a wildcard ("all") scope expression containing only search parameters.
                 if (expr is MultiaryExpression andExpr && andExpr.MultiaryOperation == MultiaryOperator.And)
                 {
-                    // Recursively search for the resource type SearchParameterExpression
-                    var resourceTypeExpr = FindResourceTypeExpression(andExpr);
+                    // Collect all resource-type SearchParameterExpressions in this scope leg (a resource-specific scope
+                    // or concrete-type fallback may also include an explicit _type query parameter). Every resource-type
+                    // predicate present in the leg must match the target resourceType.
+                    List<SearchParameterExpression> resourceTypeExprs = FindResourceTypeExpressions(andExpr);
 
-                    if (resourceTypeExpr == null || CheckResourceTypeMatches(resourceTypeExpr.Expression, resourceType))
+                    if (resourceTypeExprs.All(rte => CheckResourceTypeMatches(rte.Expression, resourceType)))
                     {
                         var singleScopeANDExpressions = new List<Expression>();
 
@@ -1086,28 +1088,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         }
 
         /// <summary>
-        /// Recursively searches for a SearchParameterExpression with Parameter.Name == "_type" or "resourceType"
+        /// Recursively collects all SearchParameterExpressions with Parameter.Name == "_type" or "resourceType".
         /// </summary>
-        private static SearchParameterExpression FindResourceTypeExpression(Expression expression)
+        private static List<SearchParameterExpression> FindResourceTypeExpressions(Expression expression)
+        {
+            var results = new List<SearchParameterExpression>();
+            CollectResourceTypeExpressions(expression, results);
+            return results;
+        }
+
+        private static void CollectResourceTypeExpressions(Expression expression, List<SearchParameterExpression> results)
         {
             if (expression is SearchParameterExpression spe && (spe.Parameter.Name == "_type" || spe.Parameter.Name == "resourceType"))
             {
-                return spe;
+                results.Add(spe);
+                return;
             }
 
             if (expression is MultiaryExpression me)
             {
                 foreach (var child in me.Expressions)
                 {
-                    var found = FindResourceTypeExpression(child);
-                    if (found != null)
-                    {
-                        return found;
-                    }
+                    CollectResourceTypeExpressions(child, results);
                 }
             }
-
-            return null;
         }
 
         /// <summary>
@@ -1115,7 +1119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         /// </summary>
         private static bool ContainsResourceTypeExpression(Expression expression)
         {
-            return FindResourceTypeExpression(expression) != null;
+            return FindResourceTypeExpressions(expression).Count > 0;
         }
 
         private static bool CheckResourceTypeMatches(Expression expression, string resourceType)
@@ -1129,6 +1133,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             if (expression is InExpression<string> inExpr && inExpr.Values.Contains(resourceType, StringComparer.Ordinal))
             {
                 return true;
+            }
+
+            if (expression is MultiaryExpression multiaryExpr && multiaryExpr.MultiaryOperation == MultiaryOperator.Or)
+            {
+                return multiaryExpr.Expressions.Any(e => CheckResourceTypeMatches(e, resourceType));
             }
 
             return false;

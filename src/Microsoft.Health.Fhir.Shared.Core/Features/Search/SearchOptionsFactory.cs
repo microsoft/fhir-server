@@ -891,12 +891,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         /// <summary>
         /// Applies the resource-type and search-parameter restrictions carried by the caller's SMART clinical
-        /// scopes. Constraints from a wildcard (all-resource) scope cannot be parsed here because they must be
-        /// parsed against the request's resource types alongside the caller's own query parameters, so they are
-        /// merged into <paramref name="searchParams"/> and returned to the caller for a post-parse enforceability
-        /// check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>). A resource-specific scope whose
-        /// constraint cannot be enforced is withdrawn; the request is denied only when that leaves a requested
-        /// resource type with no enforceable scope.
+        /// scopes. When <paramref name="hasIncludeOrRevInclude"/> is <see langword="false"/>, constraints from a
+        /// wildcard (all-resource) scope are merged into <paramref name="searchParams"/> so they are parsed against
+        /// the request's resource types alongside the caller's own query parameters and returned for a post-parse
+        /// enforceability check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>). When
+        /// <paramref name="hasIncludeOrRevInclude"/> is <see langword="true"/>, wildcard scope constraints are
+        /// parsed here—first against <see cref="KnownResourceTypes.DomainResource"/> with a fallback to each
+        /// concrete type in <paramref name="requiredResourceTypes"/>—to build a SMART scope union expression that
+        /// constrains both primary matches and included candidate resources. Any scope whose constraint cannot be
+        /// enforced is withdrawn; the request is denied only when that leaves a requested resource type with no
+        /// enforceable scope.
         /// </summary>
         /// <returns>The scope constraints that were merged into <paramref name="searchParams"/>.</returns>
         private HashSet<Tuple<string, string>> CheckFineGrainedAccessControl(
@@ -959,40 +963,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         // parameters). Build a SMART v2 scope union leg so both primary matches and included
                         // candidate resources are filtered by the scope constraints.
                         isFineGrainedAccessControlWithSearchParameters = true;
-                        var wildcardAndedSmartSearchExpressions = new List<Expression>();
-                        string wildcardUnenforceableParameter = null;
-                        foreach (var param in restriction.SearchParameters.Parameters)
+                        if (TryBuildSmartScopeExpression(
+                            restriction,
+                            KnownResourceTypes.DomainResource,
+                            includeResourceTypePredicate: false,
+                            out Expression wildcardAndExp,
+                            out string wildcardUnenforceableParameter))
                         {
-                            var fineGrainedSmartSearchExpressions = new List<Expression>();
-                            var smartSearchParams = new SearchParams();
-                            smartSearchParams.Add(param.Item1, param.Item2);
-                            foreach (Tuple<string, string> q in smartSearchParams.Parameters)
-                            {
-                                try
-                                {
-                                    fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { KnownResourceTypes.DomainResource }, q.Item1, q.Item2));
-                                }
-                                catch (SearchParameterNotSupportedException)
-                                {
-                                    wildcardUnenforceableParameter = q.Item1;
-                                    break;
-                                }
-                            }
-
-                            if (wildcardUnenforceableParameter != null)
-                            {
-                                break;
-                            }
-
-                            var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
-                            individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
-                            wildcardAndedSmartSearchExpressions.Add(individualAndExp);
-                        }
-
-                        if (wildcardUnenforceableParameter == null)
-                        {
-                            var wildcardAndExp = Expression.And(wildcardAndedSmartSearchExpressions.ToArray());
-                            wildcardAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
                             finalSmartSearchExpressions.Add(wildcardAndExp);
                             hasConstrainedAllResourceTypesScope = true;
                         }
@@ -1010,48 +987,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                     continue;
                                 }
 
-                                var candidateAndedExpressions = new List<Expression>();
-                                string candidateUnenforceableParameter = null;
-                                foreach (var param in restriction.SearchParameters.Parameters)
-                                {
-                                    var fineGrainedSmartSearchExpressions = new List<Expression>
-                                    {
-                                        Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, parsedCandidateType.ToString(), false)),
-                                    };
-
-                                    var smartSearchParams = new SearchParams();
-                                    smartSearchParams.Add(param.Item1, param.Item2);
-                                    foreach (Tuple<string, string> q in smartSearchParams.Parameters)
-                                    {
-                                        try
-                                        {
-                                            fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { parsedCandidateType.ToString() }, q.Item1, q.Item2));
-                                        }
-                                        catch (SearchParameterNotSupportedException)
-                                        {
-                                            candidateUnenforceableParameter = q.Item1;
-                                            break;
-                                        }
-                                    }
-
-                                    if (candidateUnenforceableParameter != null)
-                                    {
-                                        break;
-                                    }
-
-                                    var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
-                                    individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
-                                    candidateAndedExpressions.Add(individualAndExp);
-                                }
-
-                                if (candidateUnenforceableParameter != null)
+                                if (!TryBuildSmartScopeExpression(
+                                    restriction,
+                                    parsedCandidateType.ToString(),
+                                    includeResourceTypePredicate: true,
+                                    out Expression candidateAndExp,
+                                    out string candidateUnenforceableParameter))
                                 {
                                     unenforceableScopeConstraints.Add((candidateResourceType, candidateUnenforceableParameter));
                                     continue;
                                 }
 
-                                var candidateAndExp = Expression.And(candidateAndedExpressions.ToArray());
-                                candidateAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
                                 finalSmartSearchExpressions.Add(candidateAndExp);
                                 clinicalScopeResources.Add(parsedCandidateType);
                             }
@@ -1090,40 +1036,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         }
 
                         isFineGrainedAccessControlWithSearchParameters = true;
-                        var andedSmartSmartSearchExpressions = new List<Expression>();
-                        string unenforceableParameter = null;
-                        foreach (var param in restriction.SearchParameters.Parameters)
-                        {
-                            var fineGrainedSmartSearchExpressions = new List<Expression>();
-                            fineGrainedSmartSearchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResourceType.ToString(), false)));
-
-                            // We need to parse the search parameters for each resource type since the same search parameter can have different definitions for different resource types
-                            var smartSearchParams = new SearchParams();
-                            smartSearchParams.Add(param.Item1, param.Item2);
-                            foreach (Tuple<string, string> q in smartSearchParams.Parameters)
-                            {
-                                try
-                                {
-                                    fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { clinicalScopeResourceType.ToString() }, q.Item1, q.Item2));
-                                }
-                                catch (SearchParameterNotSupportedException)
-                                {
-                                    unenforceableParameter = q.Item1;
-                                    break;
-                                }
-                            }
-
-                            if (unenforceableParameter != null)
-                            {
-                                break;
-                            }
-
-                            var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
-                            individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
-                            andedSmartSmartSearchExpressions.Add(individualAndExp);
-                        }
-
-                        if (unenforceableParameter != null)
+                        if (!TryBuildSmartScopeExpression(
+                            restriction,
+                            clinicalScopeResourceType.ToString(),
+                            includeResourceTypePredicate: true,
+                            out Expression andExp,
+                            out string unenforceableParameter))
                         {
                             // This predicate is the authorization constraint attached to the scope (for example
                             // patient=<id> on "patient/Observation.rs?patient=<id>"). Dropping only the predicate
@@ -1135,8 +1053,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             continue;
                         }
 
-                        var andExp = Expression.And(andedSmartSmartSearchExpressions.ToArray());
-                        andExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
                         finalSmartSearchExpressions.Add(andExp);
                     }
                     else
@@ -1214,6 +1130,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return injectedScopeParameters;
+        }
+
+        private bool TryBuildSmartScopeExpression(
+            ScopeRestriction restriction,
+            string targetResourceType,
+            bool includeResourceTypePredicate,
+            out Expression scopeExpression,
+            out string unenforceableParameter)
+        {
+            scopeExpression = null;
+            unenforceableParameter = null;
+
+            var andedSmartSearchExpressions = new List<Expression>();
+            foreach (Tuple<string, string> param in restriction.SearchParameters.Parameters)
+            {
+                var fineGrainedSmartSearchExpressions = new List<Expression>();
+                if (includeResourceTypePredicate)
+                {
+                    fineGrainedSmartSearchExpressions.Add(
+                        Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, targetResourceType, false)));
+                }
+
+                // Normalize each parameter through SearchParams before parsing for the target resource type.
+                var smartSearchParams = new SearchParams();
+                smartSearchParams.Add(param.Item1, param.Item2);
+                foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+                {
+                    try
+                    {
+                        fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2));
+                    }
+                    catch (SearchParameterNotSupportedException)
+                    {
+                        unenforceableParameter = q.Item1;
+                        return false;
+                    }
+                }
+
+                var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
+                individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                andedSmartSearchExpressions.Add(individualAndExp);
+            }
+
+            var andExp = Expression.And(andedSmartSearchExpressions.ToArray());
+            andExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+            scopeExpression = andExp;
+            return true;
         }
 
         /// <summary>
