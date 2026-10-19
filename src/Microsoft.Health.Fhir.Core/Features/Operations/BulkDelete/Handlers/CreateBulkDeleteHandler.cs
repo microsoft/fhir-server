@@ -59,13 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions requiredDataAction = request.DeleteOperation switch
-            {
-                DeleteOperation.SoftDelete => DataActions.Delete,
-                _ => DataActions.HardDelete | DataActions.Delete,
-            };
-
-            await _authorizationService.CheckAccess(requiredDataAction, true, cancellationToken);
+            await _authorizationService.CheckConditionalDeleteAccess(cancellationToken, hardDelete: request.DeleteOperation != DeleteOperation.SoftDelete);
             bool allowProfileResourceModification = await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, false, cancellationToken);
 
             if (_coreFeatures.EnableSmartBulkDeleteRestriction &&
