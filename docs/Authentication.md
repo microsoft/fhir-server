@@ -37,7 +37,9 @@ For compatibility, when the `patient` claim is absent, an existing `fhirUser`
 compartment. A Practitioner identity without a patient context is rejected for
 patient scopes, even when `ErrorOnMissingFhirUserClaim` is disabled. A valid
 `patient` claim takes precedence over `fhirUser` and does not require that identity
-claim to be present. `user/` and `system/` scope behavior is unchanged.
+claim to be present. Rejecting previously accepted practitioner fallback or invalid
+patient context is an intentional security-related behavior change. `user/` and
+`system/` scope behavior is unchanged.
 
 ## Development Identity Provider
 For the F5 experience and test environments, an in-process identity provider is included that can act as the authentication provider for the FHIR API. 

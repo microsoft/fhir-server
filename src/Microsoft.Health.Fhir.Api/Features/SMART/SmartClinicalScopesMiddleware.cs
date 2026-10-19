@@ -60,6 +60,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 .Concat(new[] { "iterate", "recurse" }),
             StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Initializes the middleware with the standard FHIR resource id policy.
+        /// </summary>
+        /// <param name="next">The next middleware delegate.</param>
+        /// <param name="logger">The middleware logger.</param>
+        public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
+            : this(next, logger, ResourceIdPolicy.Standard)
+        {
+        }
+
+        /// <summary>
+        /// Initializes the middleware with the configured resource id policy.
+        /// </summary>
+        /// <param name="next">The next middleware delegate.</param>
+        /// <param name="logger">The middleware logger.</param>
+        /// <param name="resourceIdPolicy">The resource id validation policy.</param>
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger, ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(next, nameof(next));

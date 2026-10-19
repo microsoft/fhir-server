@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         public SmartClinicalScopesMiddlewareTests()
         {
             _smartClinicalScopesMiddleware = new SmartClinicalScopesMiddleware(
-                httpContext => Task.CompletedTask, _logger, ResourceIdPolicy.Standard);
+                httpContext => Task.CompletedTask, _logger);
         }
 
         [Theory]
@@ -733,45 +734,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         [InlineData("patient/Patient.rs", null, "scope")]
         public async Task GivenPatientScopeAndPatientClaim_WhenInvoked_ThenSelectedPatientCompartmentIsUsed(string scope, string fhirUser, string scopeClaim)
         {
-            var fhirConfiguration = new FhirServerConfiguration();
-            fhirConfiguration.Security.Enabled = true;
-            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
-            await LoadRoles(authorizationConfiguration);
-
             var claims = new List<Claim>
             {
                 new Claim(scopeClaim, scope),
-                new Claim(authorizationConfiguration.RolesClaim, "smartUser"),
                 new Claim("patient", "selected-patient"),
             };
             if (fhirUser != null)
             {
-                claims.Add(new Claim(authorizationConfiguration.FhirUserClaim, fhirUser));
+                claims.Add(new Claim("fhirUser", fhirUser));
             }
 
-            var principal = new ClaimsPrincipal(new ClaimsIdentity(claims));
-            var requestContext = new DefaultFhirRequestContext { Principal = principal, CorrelationId = Guid.NewGuid().ToString() };
-            var accessor = new FhirRequestContextAccessor { RequestContext = requestContext };
-            var httpContext = new DefaultHttpContext { User = principal };
-            bool nextCalled = false;
-            var middleware = new SmartClinicalScopesMiddleware(
-                _ =>
-                {
-                    nextCalled = true;
-                    return Task.CompletedTask;
-                },
-                _logger,
-                ResourceIdPolicy.Standard);
-            var authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, accessor);
+            var httpContext = new DefaultHttpContext();
 
-            await middleware.Invoke(httpContext, accessor, Options.Create(fhirConfiguration.Security), authorizationService);
+            var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims);
 
             Assert.True(nextCalled);
-            Assert.Equal("Patient", requestContext.AccessControlContext.CompartmentResourceType);
-            Assert.Equal("selected-patient", requestContext.AccessControlContext.CompartmentId);
-            Assert.True(requestContext.AccessControlContext.ApplyFineGrainedAccessControl);
-            Assert.Single(requestContext.AccessControlContext.AllowedResourceActions);
+            Assert.Equal("Patient", accessControlContext.CompartmentResourceType);
+            Assert.Equal("selected-patient", accessControlContext.CompartmentId);
+            Assert.True(accessControlContext.ApplyFineGrainedAccessControl);
+            Assert.Single(accessControlContext.AllowedResourceActions);
         }
 
         [Theory]
@@ -791,17 +772,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         {
             foreach (bool errorOnMissingFhirUserClaim in new[] { true, false })
             {
-                var fhirConfiguration = new FhirServerConfiguration();
-                fhirConfiguration.Security.Enabled = true;
-                var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-                authorizationConfiguration.Enabled = true;
-                authorizationConfiguration.ErrorOnMissingFhirUserClaim = errorOnMissingFhirUserClaim;
-                await LoadRoles(authorizationConfiguration);
-
                 var claims = new List<Claim>
                 {
                     new Claim("scope", "patient.all.read"),
-                    new Claim(authorizationConfiguration.RolesClaim, "smartUser"),
                 };
                 if (patient != null)
                 {
@@ -810,29 +783,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
                 if (fhirUser != null)
                 {
-                    claims.Add(new Claim(authorizationConfiguration.FhirUserClaim, fhirUser));
+                    claims.Add(new Claim("fhirUser", fhirUser));
                 }
 
-                var principal = new ClaimsPrincipal(new ClaimsIdentity(claims));
-                var requestContext = new DefaultFhirRequestContext { Principal = principal, CorrelationId = Guid.NewGuid().ToString() };
-                var accessor = new FhirRequestContextAccessor { RequestContext = requestContext };
-                var httpContext = new DefaultHttpContext { User = principal };
+                var httpContext = new DefaultHttpContext();
                 using var stream = new MemoryStream();
                 httpContext.Response.Body = stream;
                 httpContext.Request.QueryString = new QueryString("?patient=selected-patient");
                 httpContext.Request.Headers["patient"] = "selected-patient";
-                bool nextCalled = false;
-                var middleware = new SmartClinicalScopesMiddleware(
-                    _ =>
-                    {
-                        nextCalled = true;
-                        return Task.CompletedTask;
-                    },
-                    _logger,
-                    ResourceIdPolicy.Standard);
-                var authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, accessor);
 
-                await middleware.Invoke(httpContext, accessor, Options.Create(fhirConfiguration.Security), authorizationService);
+                var (_, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims, errorOnMissingFhirUserClaim);
 
                 Assert.False(nextCalled);
                 ValidateErrorResponse(httpContext);
@@ -845,37 +805,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         [InlineData("")]
         public async Task GivenMultiplePatientClaims_WhenInvoked_ThenRequestIsRejected(string secondPatient)
         {
-            var fhirConfiguration = new FhirServerConfiguration();
-            fhirConfiguration.Security.Enabled = true;
-            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
-            await LoadRoles(authorizationConfiguration);
-
-            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            var claims = new[]
             {
                 new Claim("scope", "patient/*.rs"),
-                new Claim(authorizationConfiguration.RolesClaim, "smartUser"),
                 new Claim("patient", "selected-patient"),
                 new Claim("patient", secondPatient),
-                new Claim(authorizationConfiguration.FhirUserClaim, "Patient/legacy-patient"),
-            }));
-            var requestContext = new DefaultFhirRequestContext { Principal = principal, CorrelationId = Guid.NewGuid().ToString() };
-            var accessor = new FhirRequestContextAccessor { RequestContext = requestContext };
-            var httpContext = new DefaultHttpContext { User = principal };
+                new Claim("fhirUser", "Patient/legacy-patient"),
+            };
+            var httpContext = new DefaultHttpContext();
             using var stream = new MemoryStream();
             httpContext.Response.Body = stream;
-            bool nextCalled = false;
-            var middleware = new SmartClinicalScopesMiddleware(
-                _ =>
-                {
-                    nextCalled = true;
-                    return Task.CompletedTask;
-                },
-                _logger,
-                ResourceIdPolicy.Standard);
-            var authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, accessor);
 
-            await middleware.Invoke(httpContext, accessor, Options.Create(fhirConfiguration.Security), authorizationService);
+            var (_, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims);
 
             Assert.False(nextCalled);
             ValidateErrorResponse(httpContext, new[] { Api.Resources.SmartPatientContextInvalid });
@@ -886,28 +827,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         [InlineData("patient/Patient.rs", "extension_fhirUser")]
         public async Task GivenLegacyPatientScopeWithoutPatientClaim_WhenInvoked_ThenPatientFhirUserRemainsSupported(string scope, string fhirUserClaim)
         {
-            var fhirConfiguration = new FhirServerConfiguration();
-            fhirConfiguration.Security.Enabled = true;
-            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
-            await LoadRoles(authorizationConfiguration);
-
-            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            var claims = new[]
             {
                 new Claim("scope", scope),
-                new Claim(authorizationConfiguration.RolesClaim, "smartUser"),
                 new Claim(fhirUserClaim, "https://fhirServer/Patient/legacy-patient"),
-            }));
-            var requestContext = new DefaultFhirRequestContext { Principal = principal, CorrelationId = Guid.NewGuid().ToString() };
-            var accessor = new FhirRequestContextAccessor { RequestContext = requestContext };
-            var httpContext = new DefaultHttpContext { User = principal };
-            var authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, accessor);
+            };
+            var httpContext = new DefaultHttpContext();
 
-            await _smartClinicalScopesMiddleware.Invoke(httpContext, accessor, Options.Create(fhirConfiguration.Security), authorizationService);
+            var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims);
 
+            Assert.True(nextCalled);
             Assert.Equal((int)HttpStatusCode.OK, httpContext.Response.StatusCode);
-            Assert.Equal("Patient", requestContext.AccessControlContext.CompartmentResourceType);
-            Assert.Equal("legacy-patient", requestContext.AccessControlContext.CompartmentId);
+            Assert.Equal("Patient", accessControlContext.CompartmentResourceType);
+            Assert.Equal("legacy-patient", accessControlContext.CompartmentId);
         }
 
         [Theory]
@@ -915,29 +847,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         [InlineData("system/Patient.read", null, null)]
         public async Task GivenNonPatientScopeWithPatientClaim_WhenInvoked_ThenExistingCompartmentBehaviorIsPreserved(string scope, string expectedType, string expectedId)
         {
-            var fhirConfiguration = new FhirServerConfiguration();
-            fhirConfiguration.Security.Enabled = true;
-            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
-            await LoadRoles(authorizationConfiguration);
-
-            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            var claims = new[]
             {
                 new Claim("scope", scope),
-                new Claim(authorizationConfiguration.RolesClaim, "smartUser"),
-                new Claim(authorizationConfiguration.FhirUserClaim, "Practitioner/doctor"),
+                new Claim("fhirUser", "Practitioner/doctor"),
                 new Claim("patient", "Patient/invalid-context"),
-            }));
-            var requestContext = new DefaultFhirRequestContext { Principal = principal, CorrelationId = Guid.NewGuid().ToString() };
-            var accessor = new FhirRequestContextAccessor { RequestContext = requestContext };
-            var httpContext = new DefaultHttpContext { User = principal };
-            var authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, accessor);
+            };
+            var httpContext = new DefaultHttpContext();
 
-            await _smartClinicalScopesMiddleware.Invoke(httpContext, accessor, Options.Create(fhirConfiguration.Security), authorizationService);
+            var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims);
 
+            Assert.True(nextCalled);
             Assert.Equal((int)HttpStatusCode.OK, httpContext.Response.StatusCode);
-            Assert.Equal(expectedType, requestContext.AccessControlContext.CompartmentResourceType);
-            Assert.Equal(expectedId, requestContext.AccessControlContext.CompartmentId);
+            Assert.Equal(expectedType, accessControlContext.CompartmentResourceType);
+            Assert.Equal(expectedId, accessControlContext.CompartmentId);
         }
 
         [Theory]
@@ -947,42 +870,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         [InlineData(129, true, false)]
         public async Task GivenPatientClaim_WhenInvoked_ThenResourceIdLengthPolicyIsEnforced(int length, bool useLongResourceIds, bool expectedSuccess)
         {
-            var fhirConfiguration = new FhirServerConfiguration();
-            fhirConfiguration.Security.Enabled = true;
-            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
-            await LoadRoles(authorizationConfiguration);
-
             string patient = new string('a', length);
-            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            var claims = new[]
             {
                 new Claim("scope", "patient/*.rs"),
-                new Claim(authorizationConfiguration.RolesClaim, "smartUser"),
                 new Claim("patient", patient),
-            }));
-            var requestContext = new DefaultFhirRequestContext { Principal = principal, CorrelationId = Guid.NewGuid().ToString() };
-            var accessor = new FhirRequestContextAccessor { RequestContext = requestContext };
-            var httpContext = new DefaultHttpContext { User = principal };
+            };
+            var httpContext = new DefaultHttpContext();
             using var stream = new MemoryStream();
             httpContext.Response.Body = stream;
-            bool nextCalled = false;
-            var middleware = new SmartClinicalScopesMiddleware(
-                _ =>
-                {
-                    nextCalled = true;
-                    return Task.CompletedTask;
-                },
-                _logger,
-                ResourceIdPolicy.From(useLongResourceIds));
-            var authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, accessor);
 
-            await middleware.Invoke(httpContext, accessor, Options.Create(fhirConfiguration.Security), authorizationService);
+            var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims, useLongResourceIds: useLongResourceIds);
 
             Assert.Equal(expectedSuccess, nextCalled);
             if (expectedSuccess)
             {
-                Assert.Equal("Patient", requestContext.AccessControlContext.CompartmentResourceType);
-                Assert.Equal(patient, requestContext.AccessControlContext.CompartmentId);
+                Assert.Equal("Patient", accessControlContext.CompartmentResourceType);
+                Assert.Equal(patient, accessControlContext.CompartmentId);
             }
             else
             {
@@ -1442,6 +1346,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Observation.rrrrssssss" }; // multiple duplicates
             yield return new object[] { "user/Patient.crudss" };            // duplicate 's' after a full set
             yield return new object[] { "user/Patient.crudsc" };            // duplicate 'c' wrapping a full set
+        }
+
+        private async Task<(AccessControlContext AccessControlContext, bool NextCalled)> InvokeWithSmartClaimsAsync(
+            HttpContext httpContext,
+            IEnumerable<Claim> claims,
+            bool errorOnMissingFhirUserClaim = true,
+            bool useLongResourceIds = false)
+        {
+            var securityConfiguration = new SecurityConfiguration { Enabled = true };
+            var authorizationConfiguration = securityConfiguration.Authorization;
+            authorizationConfiguration.Enabled = true;
+            authorizationConfiguration.ErrorOnMissingFhirUserClaim = errorOnMissingFhirUserClaim;
+            await LoadRoles(authorizationConfiguration);
+
+            var identity = new ClaimsIdentity(claims);
+            identity.AddClaim(new Claim(authorizationConfiguration.RolesClaim, "smartUser"));
+            var principal = new ClaimsPrincipal(identity);
+            var requestContext = new DefaultFhirRequestContext { Principal = principal, CorrelationId = Guid.NewGuid().ToString() };
+            var accessor = new FhirRequestContextAccessor { RequestContext = requestContext };
+            httpContext.User = principal;
+            bool nextCalled = false;
+            RequestDelegate next = _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            };
+            using var services = new ServiceCollection()
+                .AddSingleton(_logger)
+                .AddSingleton(ResourceIdPolicy.From(useLongResourceIds))
+                .BuildServiceProvider();
+            var middleware = ActivatorUtilities.CreateInstance<SmartClinicalScopesMiddleware>(services, next);
+            var authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, accessor);
+
+            await middleware.Invoke(httpContext, accessor, Options.Create(securityConfiguration), authorizationService);
+
+            return (requestContext.AccessControlContext, nextCalled);
         }
 
         private static async Task<AuthorizationConfiguration> LoadRoles(AuthorizationConfiguration authConfig)
