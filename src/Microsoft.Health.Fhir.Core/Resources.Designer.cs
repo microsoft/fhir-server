@@ -963,6 +963,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The value specified for &apos;_lastUpdated&apos; is outside of the supported range. It must be no later than &apos;{0}&apos;..
+        /// </summary>
+        internal static string LastUpdatedValueOutOfRange {
+            get {
+                return ResourceManager.GetString("LastUpdatedValueOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle.link values omitted because they exceeded the maximum Uri length..
         /// </summary>
         internal static string LinksCantBeCreated {

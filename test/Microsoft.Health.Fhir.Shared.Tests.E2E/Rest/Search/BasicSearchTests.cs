@@ -228,6 +228,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         /// <summary>
+        /// Regression test for IcM 848848621. Converting _lastUpdated into a ResourceSurrogateId rounds the boundary
+        /// up by a millisecond, which used to overflow and surface as a 500 for datetimes near the end of the range.
+        /// </summary>
+        /// <param name="lastUpdated">The out of range _lastUpdated query parameter value.</param>
+        /// <returns>Task</returns>
+        [Theory]
+        [InlineData("le9999-12-31T23:59:59.9999999")]
+        [InlineData("le9999-12-31")]
+        [InlineData("9999-12-31")]
+        [InlineData("gt9999-12-31T23:59:59.9999999")]
+        [InlineData("ge9999-12-31T23:59:59.9999999")]
+        [InlineData("lt9999-12-31T23:59:59.9999999")]
+        [InlineData("gt5000-01-01T00:00:00.0000000Z")]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenALastUpdatedValueOutsideOfTheSupportedRange_WhenSearching_ThenBadRequestIsReturned(string lastUpdated)
+        {
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?_lastUpdated={lastUpdated}"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("lt3000-01-01T00:00:00.0000000Z")]
+        [InlineData("le3000-01-01T00:00:00.0000000Z")]
+        [InlineData("gt1900-01-01T00:00:00.0000000Z")]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenALastUpdatedValueInsideOfTheSupportedRange_WhenSearching_ThenSearchSucceeds(string lastUpdated)
+        {
+            Bundle bundle = await Client.SearchAsync($"Patient?_lastUpdated={lastUpdated}&_summary=count");
+
+            Assert.NotNull(bundle);
+        }
+
+        /// <summary>
         /// This test is based on the details of user story #101268
         /// </summary>
         /// <returns>task</returns>
