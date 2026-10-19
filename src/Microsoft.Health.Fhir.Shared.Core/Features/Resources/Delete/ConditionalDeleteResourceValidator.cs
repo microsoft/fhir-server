@@ -37,6 +37,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
                     foreach (var parameter in conditionalParameters)
                     {
+                        if (string.IsNullOrWhiteSpace(parameter.Item1))
+                        {
+                            context.AddFailure(Core.Resources.ConditionalDeleteParameterNameRequired);
+                            continue;
+                        }
+
                         var parameterName = parameter.Item1.Split(':')[0];
                         if (string.Equals(parameterName, "_include", StringComparison.OrdinalIgnoreCase)
                             || string.Equals(parameterName, "_revinclude", StringComparison.OrdinalIgnoreCase))

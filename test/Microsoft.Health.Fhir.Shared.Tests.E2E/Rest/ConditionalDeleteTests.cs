@@ -175,6 +175,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
+        [InlineData("flag", 1, false)]
+        [InlineData("_include", 2, false)]
+        [InlineData("_revinclude:iterate", 1, true)]
+        [InlineData("=value", 2, true)]
+        [InlineData("%20=value", 1, false)]
+        public async Task GivenNamelessQueryParameter_WhenDeletingConditionally_ThenBadRequestIsReturnedAndNoResourcesAreDeleted(
+            string queryParameter,
+            int deleteCount,
+            bool hardDelete)
+        {
+            // Arrange
+            var tag = Guid.NewGuid().ToString();
+            await CreateGroupWithPatients(tag, 1);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync(
+                $"Group?_tag={tag}&_count={deleteCount}&hardDelete={hardDelete}&{queryParameter}",
+                CancellationToken.None));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            Assert.Equal(Core.Resources.ConditionalDeleteParameterNameRequired, Assert.Single(exception.Response.Resource.Issue).Diagnostics);
+            await ValidateResults(tag, 2);
+        }
+
+        [Theory]
         [InlineData(null, false)]
         [InlineData(1, false)]
         [InlineData(2, false)]

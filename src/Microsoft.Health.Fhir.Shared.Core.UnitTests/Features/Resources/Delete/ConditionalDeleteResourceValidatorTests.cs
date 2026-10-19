@@ -6,8 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -89,6 +91,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             Assert.Equal(
                 string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalDeleteIncludesNotSupported, parameter),
                 issue.Diagnostics);
+        }
+
+        [Theory]
+        [InlineData("_id=observation-id&flag")]
+        [InlineData("_include")]
+        [InlineData("_revinclude:iterate")]
+        [InlineData("_id=observation-id&=value")]
+        [InlineData("_id=observation-id&%20=value")]
+        public async Task GivenNamelessQueryParameter_WhenValidatingPipeline_ThenRequestIsRejectedBeforeHandlerRuns(string queryString)
+        {
+            // Arrange
+            var parsed = HttpUtility.ParseQueryString(queryString);
+            var parameters = parsed.AllKeys
+                .SelectMany(key => parsed.GetValues(key).Select(value => Tuple.Create(key, value)))
+                .ToArray();
+            var request = new ConditionalDeleteResourceRequest(
+                KnownResourceTypes.Observation,
+                parameters,
+                DeleteOperation.SoftDelete,
+                1);
+            var pipeline = new ValidateRequestPreProcessor<ConditionalDeleteResourceRequest, DeleteResourceResponse>(new[] { _validator });
+            bool handlerCalled = false;
+
+            // Act
+            var exception = await Assert.ThrowsAsync<ResourceNotValidException>(() => pipeline.HandleAsync(
+                request,
+                () =>
+                {
+                    handlerCalled = true;
+                    return Task.FromResult(new DeleteResourceResponse(0));
+                },
+                CancellationToken.None));
+
+            // Assert
+            Assert.False(handlerCalled);
+            Assert.Equal(Core.Resources.ConditionalDeleteParameterNameRequired, Assert.Single(exception.Issues).Diagnostics);
         }
 
         [Theory]

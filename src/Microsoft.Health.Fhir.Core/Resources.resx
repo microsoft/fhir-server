@@ -604,6 +604,9 @@
     <value>The '{0}' parameter is not supported for conditional delete. Included resources cannot be deletion targets.</value>
     <comment>{0}: the unsupported inclusion parameter name.</comment>
   </data>
+  <data name="ConditionalDeleteParameterNameRequired" xml:space="preserve">
+    <value>Conditional delete query parameters must have a non-empty name.</value>
+  </data>
   <data name="SearchParameterDefinitionConflictingCodeValue" xml:space="preserve">
     <value>A search parameter with the same code value '{0}' already exists for base type '{1}'.</value>
   </data>

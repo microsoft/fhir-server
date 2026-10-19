@@ -286,6 +286,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Conditional delete query parameters must have a non-empty name..
+        /// </summary>
+        internal static string ConditionalDeleteParameterNameRequired {
+            get {
+                return ResourceManager.GetString("ConditionalDeleteParameterNameRequired", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Conditional operation on {0} was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {
