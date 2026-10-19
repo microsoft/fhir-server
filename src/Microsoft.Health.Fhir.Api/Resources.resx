@@ -435,6 +435,9 @@
     <value>Invalid SMART on FHIR clinical scope '{0}'. The resource type '{1}' is not a supported FHIR resource type.</value>
     <comment>{0} is the scope string; {1} is the unknown resource type</comment>
   </data>
+  <data name="SmartPatientContextInvalid" xml:space="preserve">
+    <value>Patient-level SMART scopes require a single valid patient resource id in the patient claim, or a Patient-valued fhirUser claim when the patient claim is absent.</value>
+  </data>
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>

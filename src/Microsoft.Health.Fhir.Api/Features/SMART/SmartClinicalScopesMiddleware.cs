@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -37,6 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<SmartClinicalScopesMiddleware> _logger;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         // Regex based on SMART on FHIR clinical scopes v1.0 and v2.0
         // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
@@ -58,13 +60,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 .Concat(new[] { "iterate", "recurse" }),
             StringComparer.OrdinalIgnoreCase);
 
-        public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
+        public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger, ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
 
             _logger = logger;
             _next = next;
+            _resourceIdPolicy = resourceIdPolicy;
         }
 
         /// <summary>
@@ -447,7 +451,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     _logger.LogInformation("Scope restrictions allowed are {ScopeRestriction}", scopeRestrictions);
                     _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
 
-                    if (includeFhirUserClaim)
+                    bool isPatientScope = string.Equals("patient", clinicalScopeContext, StringComparison.Ordinal);
+                    var patientClaims = isPatientScope ? principal.FindAll("patient").ToList() : new List<Claim>();
+                    if (patientClaims.Count > 0)
+                    {
+                        if (patientClaims.Count != 1 || !_resourceIdPolicy.IsValid(patientClaims[0].Value))
+                        {
+                            _logger.LogWarning(Api.Resources.SmartPatientContextInvalid);
+                            await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, Api.Resources.SmartPatientContextInvalid);
+                            return;
+                        }
+
+                        fhirRequestContext.AccessControlContext.CompartmentResourceType = KnownResourceTypes.Patient;
+                        fhirRequestContext.AccessControlContext.CompartmentId = patientClaims[0].Value;
+                    }
+                    else if (includeFhirUserClaim)
                     {
                         // Check if the "fhirUser" claim is present.
                         var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
@@ -461,7 +479,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         try
                         {
                             fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
-                            FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
+                            FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim && !isPatientScope);
                         }
                         catch (UriFormatException)
                         {
@@ -482,6 +500,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 return;
                             }
                         }
+                    }
+
+                    // Legacy patient tokens may identify the patient through fhirUser, but a user
+                    // identity must never widen a patient scope to a practitioner's compartment.
+                    if (isPatientScope
+                        && (fhirRequestContext.AccessControlContext.CompartmentResourceType != KnownResourceTypes.Patient
+                            || !_resourceIdPolicy.IsValid(fhirRequestContext.AccessControlContext.CompartmentId)))
+                    {
+                        _logger.LogWarning(Api.Resources.SmartPatientContextInvalid);
+                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, Api.Resources.SmartPatientContextInvalid);
+                        return;
                     }
                 }
             }
