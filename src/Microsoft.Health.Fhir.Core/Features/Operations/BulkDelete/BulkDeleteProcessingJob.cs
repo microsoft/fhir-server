@@ -81,6 +81,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
+                void OnProfileResourceSkipped(string resourceType, long count)
+                {
+                    result.ResourcesIgnored[resourceType] = result.ResourcesIgnored.TryGetValue(resourceType, out long existing)
+                        ? existing + count
+                        : count;
+                }
+
                 try
                 {
                     resourcesDeleted = await deleter.Value.DeleteMultipleAsync(
@@ -94,7 +101,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             allowPartialSuccess: false, // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                             removeReferences: definition.RemoveReferences),
                         cancellationToken,
-                        definition.ExcludedResourceTypes);
+                        definition.ExcludedResourceTypes,
+                        definition.AllowProfileResourceModification ? null : OnProfileResourceSkipped);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
@@ -132,6 +140,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     {
                         result.ResourcesDeleted[key] += value;
                     }
+                }
+
+                foreach (var (resourceType, count) in result.ResourcesIgnored)
+                {
+                    result.Issues.Add($"Skipped {count} {resourceType} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not deleted.");
                 }
 
                 await _mediator.PublishAsync(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);

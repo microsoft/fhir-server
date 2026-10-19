@@ -17,7 +17,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {
-            if (context.CountOnly || expression.SearchParamTableExpressions.Count == 0)
+            // The Top table expression is what assigns the main CTE, and the include table expressions
+            // reference that CTE unconditionally. An $includes operation therefore still needs it even when
+            // only a count is requested. A regular count-only search has no include table expressions, so
+            // the main CTE is never referenced and Top can be skipped.
+            if ((context.CountOnly && !context.IsIncludesOperation) || expression.SearchParamTableExpressions.Count == 0)
             {
                 return expression;
             }

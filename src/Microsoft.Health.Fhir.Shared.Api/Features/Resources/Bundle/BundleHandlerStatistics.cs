@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             bool optimizedQuerySet,
             int numberOfResources,
             int generatedIdentifiers,
-            int resolvedReferences)
+            int resolvedReferences,
+            BundleComplexity complexity)
             : base()
         {
             BundleType = bundleType;
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
             _resourceSizes = new ConcurrentBag<(int Index, string ResourceType, long Bytes)>();
             _entrySearchIndexValues = new ConcurrentBag<(int Index, string ResourceType, int IndexValues)>();
+            Complexity = complexity;
         }
 
         public int NumberOfResources { get; }
@@ -76,6 +78,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public bool FailedByClientError { get; private set; }
 
         public bool Cancelled { get; private set; }
+
+        public BundleComplexity Complexity { get; set; }
 
         public int ThrottlingDelays { get; set; }
 
@@ -135,6 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 executionTime = ElapsedMilliseconds,
                 clientError = FailedByClientError,
                 cancelled = Cancelled,
+                complexity = Complexity.ToString(),
                 success = successedRequests,
                 errors = failedRequests,
                 customerErrors = customerFailedRequests,

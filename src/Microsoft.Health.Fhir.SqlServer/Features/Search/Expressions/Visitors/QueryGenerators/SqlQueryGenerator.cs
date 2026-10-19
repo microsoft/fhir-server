@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
+        private readonly bool _enableChainSourceDeduplication;
+        private readonly HashSet<int> _chainTableExpressionIndexes = new();
         private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
 
         public SqlQueryGenerator(
@@ -74,7 +76,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             bool reuseQueryPlans,
             bool isAsyncOperation,
-            SqlException sqlException = null)
+            SqlException sqlException = null,
+            bool enableChainSourceDeduplication = true)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -89,6 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _queryGeneratorFactory = queryGeneratorFactory;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
+            _enableChainSourceDeduplication = enableChainSourceDeduplication;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -136,12 +140,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new InvalidOperationException("Expected no predicates on the Resource table because of the presence of TableExpressions");
                 }
 
+                bool isIncludesCount = IsIncludesCount(context);
+
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 // If include, split SQL into 2 parts: 1st filter and preserve data in filtered data table variable, and 2nd - use persisted data
-                StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                if (!isIncludesCount)
+                {
+                    StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                }
+
                 var isSortValueNeeded = IsSortValueNeeded(context);
-                if (isSortValueNeeded)
+                if (!isIncludesCount && isSortValueNeeded)
                 {
                     var sortContext = GetSortRelatedDetails(context);
                     var dbType = sortContext.SortColumnName.Metadata.SqlDbType;
@@ -153,7 +163,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                StringBuilder.AppendLine(")");
+                if (!isIncludesCount)
+                {
+                    StringBuilder.AppendLine(")");
+                }
+
                 bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
                 bool hasSmartV2UnionExpressionInTheSet = expression.SearchParamTableExpressions.Any(t => t.HasSmartV2UnionExpression());
 
@@ -201,7 +215,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     else
                     {
                         // Look for include kind. Before going to include itself, add filtered data persistence.
-                        if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
+                        if (!isIncludesCount && !visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
                             AddParametersHash(); // hash is required in upper SQL
@@ -269,7 +283,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // The last CTE has all the surrogate IDs that match the results.
                     // We just need to count those and don't need to join with the Resource table
                     selectingFromResourceTable = false;
-                    StringBuilder.AppendLine("count_big(DISTINCT Sid1)");
+
+                    // The $includes count is over distinct (ResourceTypeId, ResourceSurrogateId) pairs, which a single
+                    // count_big(DISTINCT ...) cannot express, so the distinct set is computed in a derived table below.
+                    StringBuilder.AppendLine(IsIncludesCount(context) ? "count_big(*)" : "count_big(DISTINCT Sid1)");
                 }
                 else
                 {
@@ -447,7 +464,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             else
             {
                 // this is selecting only from the last CTE (for a count)
-                StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter));
+                if (IsIncludesCount(context))
+                {
+                    StringBuilder.Append("FROM (SELECT DISTINCT T1, Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(") AS IncludedResources");
+                }
+                else
+                {
+                    StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter));
+                }
             }
 
             return null;
@@ -566,6 +590,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 const string referenceSourceTableAlias = "refSource";
                 const string referenceTargetResourceTableAlias = "refTarget";
+
+                if (searchParamTableExpression.ChainLevel > 0)
+                {
+                    _chainTableExpressionIndexes.Add(_tableExpressionCounter);
+                }
+                else
+                {
+                    _chainTableExpressionIndexes.Remove(_tableExpressionCounter);
+                }
 
                 switch (searchParamTableExpression.Kind)
                 {
@@ -861,6 +894,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void HandleTableKindTop(SearchOptions context)
         {
             var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
+
+            if (IsIncludesCount(context))
+            {
+                // The $includes count covers the whole original search, so the matches must not be truncated, paged or
+                // sorted. The Row column only exists to satisfy the shape of @FilteredData; it is never used for a count.
+                StringBuilder.Append("SELECT DISTINCT T1, Sid1, 1 AS IsMatch, 0 AS IsPartial, 0 AS Row FROM ").AppendLine(tableExpressionName);
+                _cteMainSelect = TableExpressionName(_tableExpressionCounter);
+                return;
+            }
+
             var sortExpression = IsSortValueNeeded(context) ? $"{tableExpressionName}.SortValue" : null;
 
             bool hasIncludeExpression = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
@@ -1032,7 +1075,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("SELECT DISTINCT ");
 
             // Adding 1 to the include count for detecting a case of truncated "include" resources.
-            StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
+            // A count must see every included resource, so it is not truncated.
+            if (!IsIncludesCount(context))
+            {
+                StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
+            }
 
             var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
 
@@ -1189,7 +1236,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 var includesContinuationToken = IncludesContinuationToken.FromString(context.IncludesContinuationToken);
-                if (!context.IsIncludesOperation || includesContinuationToken?.IncludeResourceTypeId == null || includesContinuationToken?.IncludeResourceSurrogateId == null)
+                if (!context.IsIncludesOperation || IsIncludesCount(context) || includesContinuationToken?.IncludeResourceTypeId == null || includesContinuationToken?.IncludeResourceSurrogateId == null)
                 {
                     if (includeExpression.Reversed && includeExpression.SourceResourceType != "*")
                     {
@@ -1274,7 +1321,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (context.IsIncludesOperation)
             {
-                StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
+                if (!IsIncludesCount(context))
+                {
+                    StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
+                }
+
                 _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
             }
 
@@ -1286,7 +1337,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // Update target reference cte dictionary
-            var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
+            // An includes operation has no per-include limit cte, so for a count the include cte itself is what
+            // :iterate expressions read from. Otherwise the cte that follows (the next include) would be referenced.
+            var curLimitCte = TableExpressionName(IsIncludesCount(context) ? _tableExpressionCounter : _tableExpressionCounter + 1);
 
             // Take the count before AddIncludeLimitCte because _includeFromCteIds?.Count will be incremented differently depending on the resource type.
             int count = _includeFromCteIds?.Count ?? 0;
@@ -1527,6 +1580,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindIncludeLimit(SearchOptions context)
         {
+            if (IsIncludesCount(context))
+            {
+                // A count must not be limited; pass the included resources through unchanged.
+                StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+                return;
+            }
+
             StringBuilder.Append("SELECT DISTINCT TOP (")
                 .Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false))
                 .Append(") T1, Sid1, IsMatch, ");
@@ -1549,6 +1609,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindIncludeUnionAll(SearchOptions context)
         {
+            if (IsIncludesCount(context))
+            {
+                // Each union branch excludes matched resources; the include CTEs themselves do not, so :iterate
+                // can read them before this exclusion. The final count removes duplicates across branches with DISTINCT.
+                for (var index = 0; index < _includeCteIds.Count; index++)
+                {
+                    var includeCte = _includeCteIds[index];
+                    if (index > 0)
+                    {
+                        StringBuilder.AppendLine("UNION ALL");
+                    }
+
+                    StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial FROM ").Append(includeCte)
+                        .Append(" WHERE NOT EXISTS (SELECT * FROM ").Append(_cteMainSelect)
+                        .Append(" WHERE ").Append(_cteMainSelect).Append(".Sid1 = ").Append(includeCte).Append(".Sid1")
+                        .Append(" AND ").Append(_cteMainSelect).Append(".T1 = ").Append(includeCte).AppendLine(".T1)");
+                }
+
+                return;
+            }
+
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
 
             bool sortValueNeeded = IsSortValueNeeded(context);
@@ -1952,8 +2033,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // To simplify query plan generation, if we are intersecting with the Reference search param table, we will use an inner join
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
-                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex - 0))
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                sb.Append(_joinShift).Append("JOIN ");
+                bool restartsChain = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1;
+                bool filtersChainSources = searchParamTableExpression.ChainLevel == 0 && _chainTableExpressionIndexes.Contains(predecessorIndex);
+                if (_enableChainSourceDeduplication && (restartsChain || filtersChainSources))
+                {
+                    // Independent chains and root-level filters intersect on source existence, not on a chain's target.
+                    // Project unique source keys so the predecessor's matching references cannot multiply this table.
+                    sb.Append("(SELECT DISTINCT T1, Sid1 FROM ").Append(TableExpressionName(predecessorIndex)).Append(") predecessor");
+                }
+                else
+                {
+                    sb.Append(TableExpressionName(predecessorIndex));
+                }
+
+                sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .AppendLine();
             }
@@ -2081,6 +2175,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             return _includeLimitCtesByResourceType.TryGetValue(resourceType, out ctes);
         }
+
+        /// <summary>
+        /// A count over an $includes operation counts the distinct included resources of the whole original search.
+        /// It ignores the includes continuation token (match page, include cursor, page sizes), the limits and the sort.
+        /// </summary>
+        private static bool IsIncludesCount(SearchOptions context) => context.CountOnly && context.IsIncludesOperation;
 
         private static bool IsPrimaryKeySort(SearchOptions searchOptions)
         {

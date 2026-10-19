@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsInParallelAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
-            List<ResourceExecutionContext> resources,
+            List<BundleHandlerInternalOperationExecutionContext> resources,
             IBundleOrchestratorOperation bundleOperation,
             EntryComponent throttledEntryComponent,
             BundleHandlerStatistics statistics,
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
 
                 // Parallel Resource Handling Function.
-                Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
+                Func<BundleHandlerInternalOperationExecutionContext, CancellationToken, Task> handleRequestFunction = async (BundleHandlerInternalOperationExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 List<Task> requestsPerResource = new List<Task>();
-                foreach (ResourceExecutionContext resourceContext in resources)
+                foreach (BundleHandlerInternalOperationExecutionContext resourceContext in resources)
                 {
                     requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
 
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// * If a resource finishes while the Bundle Operation is still "waiting for resources", it means that resource followed an unexpected path, and
         /// it should be released.
         /// </remarks>
-        private async Task SetResourceProcessingStatusAsync(HTTPVerb httpVerb, ResourceExecutionContext resourceExecutionContext, IBundleOrchestratorOperation bundleOperation, EntryComponent entry, CancellationToken cancellationToken)
+        private async Task SetResourceProcessingStatusAsync(HTTPVerb httpVerb, BundleHandlerInternalOperationExecutionContext resourceExecutionContext, IBundleOrchestratorOperation bundleOperation, EntryComponent entry, CancellationToken cancellationToken)
         {
             string resourceFinalStatusCode = entry.Response.Status;
 
@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static async Task<EntryComponent> HandleRequestAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
             BundleExecutionContext bundleExecutionContext,
-            ResourceExecutionContext resourceExecutionContext,
+            BundleHandlerInternalOperationExecutionContext resourceExecutionContext,
             EntryComponent throttledEntryComponent,
             IBundleOrchestratorOperation bundleOperation,
             IAuditEventTypeMapping auditEventTypeMapping,
@@ -484,7 +484,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private static EntryComponent HandleCancelledRetryRequest(Hl7.Fhir.Model.Bundle responseBundle, ResourceExecutionContext resourceExecutionContext, BundleType? bundleType, BundleHandlerStatistics statistics, BundleConfiguration bundleConfiguration, Stopwatch watch, HttpContext httpContext, bool isOperationCancelledByClientError, CancellationToken cancellationToken)
+        private static EntryComponent HandleCancelledRetryRequest(Hl7.Fhir.Model.Bundle responseBundle, BundleHandlerInternalOperationExecutionContext resourceExecutionContext, BundleType? bundleType, BundleHandlerStatistics statistics, BundleConfiguration bundleConfiguration, Stopwatch watch, HttpContext httpContext, bool isOperationCancelledByClientError, CancellationToken cancellationToken)
         {
             const HttpStatusCode cancelledRequestHttpStatusCode = HttpStatusCode.RequestTimeout;
             EntryComponent entryComponent = CreateEntryComponentForCancelledRequest(httpContext);
@@ -502,7 +502,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         }
 
         private static void RaiseFhirTransactionException(
-            ResourceExecutionContext resourceContext,
+            BundleHandlerInternalOperationExecutionContext resourceContext,
             HttpStatusCode httpStatusCode,
             Hl7.Fhir.Model.Bundle.EntryComponent entryComponent,
             bool isOperationCancelledByClient)
@@ -529,34 +529,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return httpStatusCode;
-        }
-
-        private struct ResourceExecutionContext
-        {
-            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId, bool isConditionalOperation, long resourceSizeInBytes)
-            {
-                HttpVerb = httpVerb;
-                ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
-                Context = context;
-                Index = index;
-                PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
-                IsConditionalOperation = isConditionalOperation;
-                ResourceSizeInBytes = resourceSizeInBytes;
-            }
-
-            public HTTPVerb HttpVerb { get; private set; }
-
-            public string ResourceType { get; private set; }
-
-            public RouteContext Context { get; private set; }
-
-            public int Index { get; private set; }
-
-            public string PersistedId { get; private set; }
-
-            public bool IsConditionalOperation { get; private set; }
-
-            public long ResourceSizeInBytes { get; private set; }
         }
 
         private sealed class BundleExecutionContext

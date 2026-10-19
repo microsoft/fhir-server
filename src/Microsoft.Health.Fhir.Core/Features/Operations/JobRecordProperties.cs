@@ -195,6 +195,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string RemoveReferences = "removeReferences";
 
+        public const string AllowProfileResourceModification = "allowProfileResourceModification";
+
         public const string ReadNextPage = "readNextPage";
 
         public const string MetaHistory = "metaHistory";
