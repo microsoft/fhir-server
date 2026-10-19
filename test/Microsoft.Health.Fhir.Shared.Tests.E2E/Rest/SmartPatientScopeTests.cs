@@ -33,10 +33,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("patient.all.read", "Patient")]
+        [InlineData("patient/*.read", "Patient")]
         [InlineData("patient/*.rs", "Observation")]
         [InlineData("patient/*.rs", "MedicationRequest")]
-        [InlineData("patient.all.read", "Patient/other-patient")]
+        [InlineData("patient/*.read", "Patient/other-patient")]
         [InlineData("patient/*.rs", "Observation/other-observation")]
         public async Task GivenPractitionerIdentityWithoutPatientContext_WhenUsingPatientScope_ThenRequestIsRejected(string scope, string path)
         {
