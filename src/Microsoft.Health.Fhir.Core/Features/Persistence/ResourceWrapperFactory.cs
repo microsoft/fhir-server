@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
-            if (fhirRequestContext.ExecutingBatchOrTransaction)
+            if (!deleted && fhirRequestContext.ExecutingBatchOrTransaction)
             {
                 fhirRequestContext.Properties[SearchIndexValuesPropertyName] = searchIndices.Count;
             }

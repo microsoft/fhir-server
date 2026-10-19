@@ -247,5 +247,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             Assert.False(_fhirRequestContextAccessor.RequestContext.Properties.ContainsKey(ResourceWrapperFactory.SearchIndexValuesPropertyName));
         }
+
+        [Fact]
+        public void GivenADeletedResourceInABundle_WhenCreate_ThenSearchIndexValueCountIsNotStored()
+        {
+            _fhirRequestContextAccessor.RequestContext.ExecutingBatchOrTransaction = true;
+            _searchIndexer
+                .Extract(Arg.Any<ResourceElement>())
+                .Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")) });
+
+            _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: true, keepMeta: false);
+
+            Assert.False(_fhirRequestContextAccessor.RequestContext.Properties.ContainsKey(ResourceWrapperFactory.SearchIndexValuesPropertyName));
+        }
     }
 }
