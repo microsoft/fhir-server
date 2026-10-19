@@ -42,7 +42,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\BackgroundJobService\HostingBackgroundServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\BackgroundJobService\JobMetricFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Binders\DictionaryExpansionConfigurationProviderTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Bundle\FhirTransactionFailedExceptionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerComplexityCalculatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\FhirTransactionFailedExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirAuthenticationExceptionHandlerMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />
