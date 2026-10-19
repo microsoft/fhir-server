@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
@@ -23,6 +24,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
@@ -57,6 +59,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 .Select(m => m.GetLiteral())
                 .Concat(new[] { "iterate", "recurse" }),
             StringComparer.OrdinalIgnoreCase);
+
+        // Maximum number of fractional (or integer) decimal digits supported for numeric values in SMART clinical
+        // scope search parameter constraints.
+        // Note: SQL Server indexes NumberSearchParam and QuantitySearchParam values in decimal(36, 18) columns
+        // (18 integer digits and 18 fractional digits). When FHIR search builds the implicit range for a number
+        // or quantity (SearchValueExpressionBuilderHelper.GenerateNumberExpression), it adds and subtracts half a
+        // unit at the next decimal place (±0.5 * 10^-scale), which requires (scale + 1) fractional digits, and
+        // for 'ap' also ±10% of the value. A scope value with 18 fractional digits therefore produces
+        // 19-fractional-digit bounds that overflow the scale of decimal(36, 18) and are silently rounded by SQL
+        // Server, altering matching semantics and widening the granted scope (and 19+ fractional digits round
+        // both the value and its bounds). Limiting decimal precision in SMART scopes to 17 digits (matching the
+        // FHIR R5 decimal limit and W3C XML Schema's 18-digit minimum) guarantees that both the value and its
+        // expanded range bounds are represented without rounding or overflow.
+        private const int MaxSupportedDecimalDigits = 17;
+        private const decimal MaxSupportedIntegerThreshold = 100_000_000_000_000_000m; // 10^17 (smallest 18-integer-digit magnitude)
+
+        // FHIR search comparator prefixes (https://hl7.org/fhir/R4/search.html#prefix).
+        private static readonly string[] SearchComparatorPrefixes = Enum.GetValues<SearchComparator>()
+            .Select(c => c.GetLiteral())
+            .ToArray();
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
@@ -168,6 +190,136 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             var baseName = paramKey.Split(':')[0];
             return baseName.Equals("_include", StringComparison.OrdinalIgnoreCase)
                    || baseName.Equals("_revinclude", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Returns true when any numeric value in the search parameter value (including comma-separated OR lists,
+        // '$' composite components, and 'number|system|code' quantity tuples with optional comparator prefixes)
+        // exceeds MaxSupportedDecimalDigits (17 digits), which would cause silent rounding or overflow when
+        // expanding implicit search range bounds (±0.5 * 10^-scale) against SQL decimal(36, 18).
+        private static bool ExceedsSupportedDecimalPrecision(string paramValue)
+        {
+            if (string.IsNullOrEmpty(paramValue))
+            {
+                return false;
+            }
+
+            foreach (string orPart in paramValue.SplitByOrSeparator())
+            {
+                foreach (string componentPart in orPart.SplitByCompositeSeparator())
+                {
+                    IReadOnlyList<string> tokenParts = componentPart.SplitByTokenSeparator();
+                    if (tokenParts.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    ReadOnlySpan<char> candidate = StripComparatorPrefix(tokenParts[0].AsSpan());
+                    if (IsDecimalValueWithExcessivePrecision(candidate))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static ReadOnlySpan<char> StripComparatorPrefix(ReadOnlySpan<char> value)
+        {
+            foreach (string prefix in SearchComparatorPrefixes)
+            {
+                if (value.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return value.Slice(prefix.Length);
+                }
+            }
+
+            return value;
+        }
+
+        private static bool IsDecimalValueWithExcessivePrecision(ReadOnlySpan<char> candidate)
+        {
+            if (candidate.IsEmpty)
+            {
+                return false;
+            }
+
+            if (!decimal.TryParse(candidate, NumberStyles.Number | NumberStyles.AllowExponent, CultureInfo.InvariantCulture, out decimal parsedValue))
+            {
+                // If the token is a valid floating-point number that overflowed System.Decimal (> 28-29 digits),
+                // it also exceeds the supported decimal precision.
+                return double.TryParse(candidate, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double d)
+                    && !double.IsNaN(d);
+            }
+
+            if (parsedValue.Scale > MaxSupportedDecimalDigits || Math.Abs(parsedValue) >= MaxSupportedIntegerThreshold)
+            {
+                return true;
+            }
+
+            // Also inspect the raw literal in case decimal.TryParse silently rounded > 28 mantissa digits or
+            // underflowed a small negative exponent (e.g., 1e-30) to 0m with Scale == 0.
+            int expIndex = candidate.IndexOfAny('e', 'E');
+            ReadOnlySpan<char> mantissa = expIndex >= 0 ? candidate.Slice(0, expIndex) : candidate;
+            int dotIndex = mantissa.IndexOf('.');
+
+            ReadOnlySpan<char> integerPart = dotIndex >= 0 ? mantissa.Slice(0, dotIndex) : mantissa;
+            ReadOnlySpan<char> fractionalPart = dotIndex >= 0 ? mantissa.Slice(dotIndex + 1) : ReadOnlySpan<char>.Empty;
+
+            int integerDigits = CountSignificantIntegerDigits(integerPart);
+            int fractionalDigits = CountDigits(fractionalPart);
+
+            long effectiveIntegerDigits = integerDigits;
+            long effectiveFractionalDigits = fractionalDigits;
+
+            if (expIndex >= 0)
+            {
+                if (!int.TryParse(candidate.Slice(expIndex + 1), NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out int exponent))
+                {
+                    return true;
+                }
+
+                effectiveIntegerDigits = Math.Max(0L, (long)integerDigits + exponent);
+                effectiveFractionalDigits = Math.Max(0L, (long)fractionalDigits - exponent);
+            }
+
+            return effectiveIntegerDigits > MaxSupportedDecimalDigits
+                || effectiveFractionalDigits > MaxSupportedDecimalDigits
+                || effectiveIntegerDigits + effectiveFractionalDigits > MaxSupportedDecimalDigits + 1;
+        }
+
+        private static int CountSignificantIntegerDigits(ReadOnlySpan<char> span)
+        {
+            int count = 0;
+            bool seenNonZero = false;
+            foreach (char c in span)
+            {
+                if (c >= '1' && c <= '9')
+                {
+                    seenNonZero = true;
+                    count++;
+                }
+                else if (c == '0' && seenNonZero)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountDigits(ReadOnlySpan<char> span)
+        {
+            int count = 0;
+            foreach (char c in span)
+            {
+                if (char.IsAsciiDigit(c))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         public async Task Invoke(
@@ -424,6 +576,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     if (parts.Length != 2 || paramValue.Contains('=', StringComparison.Ordinal))
                                     {
                                         var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, match.Value?.Trim());
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
+                                    }
+
+                                    // Reject numeric/quantity search parameter values whose precision exceeds
+                                    // MaxSupportedDecimalDigits (17 digits). Values with 18+ fractional digits
+                                    // produce 19+-fractional-digit implicit range bounds (±0.5 * 10^-scale) that
+                                    // overflow SQL decimal(36, 18) scale and are silently rounded, altering
+                                    // matching semantics and widening the granted scope.
+                                    if (ExceedsSupportedDecimalPrecision(paramValue))
+                                    {
+                                        var error = string.Format(Api.Resources.SmartScopeSearchParameterDecimalPrecisionNotSupported, MaxSupportedDecimalDigits, match.Value?.Trim(), $"{paramKey}={paramValue}");
                                         _logger.LogWarning(error);
                                         await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
                                         return;

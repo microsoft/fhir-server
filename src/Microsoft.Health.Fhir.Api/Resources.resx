@@ -435,6 +435,10 @@
     <value>Invalid SMART on FHIR clinical scope '{0}'. The resource type '{1}' is not a supported FHIR resource type.</value>
     <comment>{0} is the scope string; {1} is the unknown resource type</comment>
   </data>
+  <data name="SmartScopeSearchParameterDecimalPrecisionNotSupported" xml:space="preserve">
+    <value>Decimal values exceeding {0} digits of precision are not supported in SMART on FHIR clinical scopes. The scope '{1}' contains an unsupported value in parameter '{2}'.</value>
+    <comment>{0} is the maximum supported decimal digits; {1} is the scope string; {2} is the offending search parameter key=value</comment>
+  </data>
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>
