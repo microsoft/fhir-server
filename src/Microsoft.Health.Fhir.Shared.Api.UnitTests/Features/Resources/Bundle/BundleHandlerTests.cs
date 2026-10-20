@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -37,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -49,6 +51,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
@@ -1349,6 +1352,226 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenABatchWithALargeEntry_WhenProcessed_ThenBundleStatisticsIncludeResourceSizeAndSearchIndexValues(BundleProcessingLogic processingLogic)
+        {
+            const int largeEntryPayloadSize = 6 * 1024 * 1024;
+            _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+
+            var largePatient = new Patient
+            {
+                Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div xmlns=\"http://www.w3.org/1999/xhtml\">{new string('a', largeEntryPayloadSize)}</div>",
+                },
+            };
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/Patient" },
+                        Resource = largePatient,
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PUT, Url = "/Patient/123" },
+                        Resource = new Patient { Id = "123" },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    callInfo.Arg<RouteContext>().Handler = context =>
+                    {
+                        // Simulates the search index count recorded by ResourceWrapperFactory for the inner request.
+                        if (context.Request.Method == "PUT")
+                        {
+                            _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName] = 150;
+                        }
+
+                        context.Response.StatusCode = 200;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+
+            JToken largeEntry = Assert.Single(statistics["resourceSize"]["large"]);
+            Assert.Equal(0, largeEntry["index"].Value<int>());
+            Assert.Equal("Patient", largeEntry["resourceType"].Value<string>());
+            Assert.True(largeEntry["resourceBytes"].Value<long>() > largeEntryPayloadSize);
+            Assert.Equal(1, statistics["resourceSize"]["over5MiB"].Value<int>());
+
+            JToken heavyEntry = Assert.Single(statistics["searchIndex"]["heavy"]);
+            Assert.Equal(1, heavyEntry["index"].Value<int>());
+            Assert.Equal(150, heavyEntry["indexValues"].Value<int>());
+
+            Assert.Equal(JTokenType.Null, statistics["bundleRequestBodyBytes"].Type);
+        }
+
+#if !Stu3
+        [Fact]
+        public async Task GivenABinaryJsonPatchEntry_WhenProcessed_ThenResourceSizeIsTheBase64EncodedDataSize()
+        {
+            const int decodedPatchSize = (int)(4.5 * 1024 * 1024);
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PATCH, Url = "/Patient/123" },
+                        Resource = new Binary { ContentType = "application/json-patch+json", Data = new byte[decodedPatchSize] },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            JToken largeEntry = Assert.Single(statistics["resourceSize"]["large"]);
+            Assert.Equal("Binary", largeEntry["resourceType"].Value<string>());
+            Assert.Equal(Convert.ToBase64String(new byte[decodedPatchSize]).Length, largeEntry["resourceBytes"].Value<long>());
+        }
+
+        [Fact]
+        public async Task GivenAPatchEntry_WhenProcessed_ThenSearchIndexValuesAreAttributedToThePatchedResourceType()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PATCH, Url = "/Observation/123" },
+                        Resource = new Binary { ContentType = "application/json-patch+json", Data = Encoding.UTF8.GetBytes("[]") },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    RouteContext routeContext = callInfo.Arg<RouteContext>();
+                    routeContext.RouteData.Values[KnownActionParameterNames.ResourceType] = "Observation";
+                    routeContext.Handler = context =>
+                    {
+                        _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName] = 150;
+                        context.Response.StatusCode = 200;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            JToken heavyEntry = Assert.Single(statistics["searchIndex"]["heavy"]);
+            Assert.Equal("Observation", heavyEntry["resourceType"].Value<string>());
+        }
+#endif
+
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenAnEntryThrottledAfterIndexing_WhenCancelledDuringRetryDelay_ThenSearchIndexValuesAreLoggedOnce(BundleProcessingLogic processingLogic)
+        {
+            _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+            _fhirRequestContext.ResponseHeaders.Add("retry-after", "3");
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PUT, Url = "/Patient/123" },
+                        Resource = new Patient { Id = "123" },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    callInfo.Arg<RouteContext>().Handler = context =>
+                    {
+                        _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName] = 150;
+                        context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+            using var tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), tokenSource.Token);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            Assert.Equal(1, statistics["searchIndex"]["over100"].Value<int>());
+            JToken heavyEntry = Assert.Single(statistics["searchIndex"]["heavy"]);
+            Assert.Equal(150, heavyEntry["indexValues"].Value<int>());
+        }
+
+        [Fact]
+        public async Task GivenABundleRequestWithContentLength_WhenProcessed_ThenBundleRequestBodyBytesUsesContentLength()
+        {
+            _httpContext.Request.ContentLength = 4242;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PUT, Url = "/Patient/123" },
+                        Resource = new Patient { Id = "123" },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            Assert.Equal(4242, statistics["bundleRequestBodyBytes"].Value<long>());
+        }
+
+        [Theory]
         [InlineData(BundleType.Batch, true)]
         [InlineData(BundleType.Transaction, true)]
         [InlineData(BundleType.Batch, false)]
@@ -1516,7 +1739,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             featureCollection.Set(routingFeature);
         }
 
-        private BundleHandler CreateBundleHandler()
+        private BundleHandler CreateBundleHandler(ILogger<BundleHandler> logger = null)
         {
             var fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
@@ -1569,7 +1792,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _mediator,
                 _router,
                 _bundleMetricHandler,
-                NullLogger<BundleHandler>.Instance);
+                logger ?? NullLogger<BundleHandler>.Instance);
+        }
+
+        private sealed class CapturingLogger : ILogger<BundleHandler>
+        {
+            public ConcurrentQueue<string> Messages { get; } = new ConcurrentQueue<string>();
+
+            public IDisposable BeginScope<TState>(TState state) => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                Messages.Enqueue(formatter(state, exception));
+            }
         }
     }
 }
