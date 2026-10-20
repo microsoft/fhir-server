@@ -2628,6 +2628,68 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Equal(patientId, updateResult.Wrapper.ResourceId);
         }
 
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenSmartV2TagScopedObservationSearch_WhenRequestSuppliesSurrogateIdRange_ThenRequestIsRejectedAndUntaggedObservationIsNotReturned()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Arrange ─ MSRC 154497: a token limited to Observations with a specific _tag must not be able to
+            // reach the raw surrogate id range read, which ignores the scope's _tag predicate.
+            const string tagSystem = "http://example.org/smart-range-scope";
+            string tagCode = Guid.NewGuid().ToString("N");
+            string taggedId = CreateSmartV2TestResourceId("range-tagged");
+            string untaggedId = CreateSmartV2TestResourceId("range-untagged");
+
+            await _smartFixture.UpsertResource(CreateRangeScopeObservation(taggedId, new Coding(tagSystem, tagCode)));
+            await _smartFixture.UpsertResource(CreateRangeScopeObservation(untaggedId, tag: null));
+
+            var scopeRestriction = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search,
+                "user",
+                CreateSearchParams(("_tag", $"{tagSystem}|{tagCode}")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction }, true);
+
+            var idQuery = new List<Tuple<string, string>>() { Tuple.Create("_id", $"{taggedId},{untaggedId}") };
+            var rangeQuery = new List<Tuple<string, string>>(idQuery)
+            {
+                Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
+                Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
+            };
+
+            // Act
+            SearchResult scopedResults = await _searchService.Value.SearchAsync(KnownResourceTypes.Observation, idQuery, CancellationToken.None);
+            InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.Value.SearchAsync(KnownResourceTypes.Observation, rangeQuery, CancellationToken.None));
+
+            // Assert
+            Assert.Collection(scopedResults.Results, r => Assert.Equal(taggedId, r.Resource.ResourceId));
+            Assert.Contains(KnownQueryParameterNames.StartSurrogateId, exception.Message, StringComparison.Ordinal);
+        }
+
+        private static Observation CreateRangeScopeObservation(string id, Coding tag)
+        {
+            var observation = new Observation
+            {
+                Id = id,
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "8867-4"),
+                Value = new FhirString($"synthetic-{id}"),
+                Meta = new Meta(),
+            };
+
+            if (tag != null)
+            {
+                observation.Meta.Tag.Add(tag);
+            }
+
+            return observation;
+        }
+
         // SMART v2 Granular Scope with Search parameters Tests
         private static SearchParams CreateSearchParams(params (string key, string value)[] items)
         {

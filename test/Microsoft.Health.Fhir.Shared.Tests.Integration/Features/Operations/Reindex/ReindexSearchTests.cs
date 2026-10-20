@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -34,11 +36,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
     {
         private readonly IScoped<IFhirDataStore> _scopedDataStore;
         private readonly IScoped<ISearchService> _searchService;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
             _searchService = fixture.SearchService.CreateMockScope();
+            _contextAccessor = fixture.FhirRequestContextAccessor;
         }
 
         [Fact]
@@ -62,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 };
 
                 // Pass in the same hash value
-                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, patientHash, false, CancellationToken.None);
+                SearchResult searchResult = await BackgroundTaskRequestContext.RunAsync(_contextAccessor, () => _searchService.Value.SearchForReindexAsync(queryParametersList, patientHash, false, CancellationToken.None));
 
                 // A reindex search should return all the resources that have a different hash value than the one specified
                 Assert.Empty(searchResult.Results);
@@ -96,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 };
 
                 // Pass in a different hash value
-                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, "differentHash", false, CancellationToken.None);
+                SearchResult searchResult = await BackgroundTaskRequestContext.RunAsync(_contextAccessor, () => _searchService.Value.SearchForReindexAsync(queryParametersList, "differentHash", false, CancellationToken.None));
 
                 // A reindex search should return all the resources that have a different hash value than the one specified.
                 Assert.Single(searchResult.Results);
@@ -134,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 };
 
                 // Pass in a different hash value
-                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, "fakehash", false, CancellationToken.None);
+                SearchResult searchResult = await BackgroundTaskRequestContext.RunAsync(_contextAccessor, () => _searchService.Value.SearchForReindexAsync(queryParametersList, "fakehash", false, CancellationToken.None));
 
                 Assert.Equal("14", testPatient.Version);
 
