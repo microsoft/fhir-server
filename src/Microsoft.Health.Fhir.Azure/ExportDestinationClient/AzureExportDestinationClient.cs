@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private readonly Dictionary<string, BlobStreamWriter> _blobStreams = new Dictionary<string, BlobStreamWriter>();
+        private readonly Dictionary<string, BlockBlobWriter> _blobWriters = new Dictionary<string, BlockBlobWriter>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -120,79 +121,75 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
 
-            BlobStreamWriter blobStream;
-            if (!_blobStreams.TryGetValue(fileName, out blobStream))
+            if (!_blobWriters.TryGetValue(fileName, out BlockBlobWriter blobWriter))
             {
-                blobStream = new BlobStreamWriter(_blobContainer.GetBlockBlobClient(fileName));
-                _blobStreams.Add(fileName, blobStream);
+                blobWriter = new BlockBlobWriter(_blobContainer.GetBlockBlobClient(fileName));
+                _blobWriters.Add(fileName, blobWriter);
             }
 
-            blobStream.StreamWriter.WriteLine(data);
+            blobWriter.WriteLine(data);
         }
 
         public IDictionary<string, Uri> Commit()
         {
             Dictionary<string, Uri> blobUris = new Dictionary<string, Uri>();
 
-            foreach (string fileName in _blobStreams.Keys)
+            foreach (KeyValuePair<string, BlockBlobWriter> entry in _blobWriters)
             {
-                var blobUri = CommitFile(fileName);
-                blobUris.Add(fileName, blobUri);
+                blobUris.Add(entry.Key, CommitWriter(entry.Key, entry.Value));
             }
 
+            // Release the writers only after every file is committed. If one file fails, the caller doesn't mark any file
+            // as committed and the export job retry keeps writing to the same files, so already committed writers must
+            // keep their block lists. Otherwise a new writer would replace the committed blob with only the later data.
+            foreach (BlockBlobWriter blobWriter in _blobWriters.Values)
+            {
+                blobWriter.Dispose();
+            }
+
+            _blobWriters.Clear();
             return blobUris;
         }
 
         public Uri CommitFile(string fileName)
         {
-            Uri uri = null;
-            if (_blobStreams.ContainsKey(fileName))
-            {
-                try
-                {
-                    uri = CommitFileRetry(fileName);
-                }
-                catch (RequestFailedException ex)
-                {
-                    _logger.LogError(ex, "Failed to write export file");
-
-                    // Add a small delay before retrying in case of race condition
-                    Task.Delay(TimeSpan.FromSeconds(RetryDelaySeconds)).Wait();
-
-                    try
-                    {
-                        uri = CommitFileRetry(fileName);
-                    }
-                    catch (ObjectDisposedException odEx)
-                    {
-                        _logger.LogError(odEx, "Failed to write export file due to ObjectDisposedException");
-                        throw new DestinationConnectionException(ex.Message, (HttpStatusCode)ex.Status);
-                    }
-                    catch (RequestFailedException ex2)
-                    {
-                        _logger.LogError(ex2, "Failed to write export file on retry");
-                        throw new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
-                    }
-                }
-            }
-            else
+            if (!_blobWriters.TryGetValue(fileName, out BlockBlobWriter blobWriter))
             {
                 throw new ArgumentException($"Cannot commit non-existant file {fileName}");
             }
 
-            _blobStreams[fileName].Dispose();
-            _blobStreams.Remove(fileName);
+            Uri uri = CommitWriter(fileName, blobWriter);
+
+            blobWriter.Dispose();
+            _blobWriters.Remove(fileName);
             return uri;
         }
 
-        private Uri CommitFileRetry(string fileName)
+        private Uri CommitWriter(string fileName, BlockBlobWriter blobWriter)
         {
-            var blobWriter = _blobStreams[fileName];
+            try
+            {
+                return blobWriter.Commit();
+            }
+            catch (RequestFailedException ex)
+            {
+                _logger.LogError(ex, "Failed to write export file {FileName}", fileName);
 
-            blobWriter.StreamWriter.Flush();
-            blobWriter.StreamWriter.Close();
+                // Add a small delay before retrying in case the storage account is throttling.
+                Task.Delay(TimeSpan.FromSeconds(RetryDelaySeconds)).Wait();
 
-            return blobWriter.BlobUri;
+                try
+                {
+                    // Committing again is safe: it commits the same block list, so a retry can't duplicate data.
+                    return blobWriter.Commit();
+                }
+                catch (RequestFailedException ex2)
+                {
+                    // The writer is kept so that a later commit, for example from the export job retry, can still succeed.
+                    _logger.LogError(ex2, "Failed to write export file {FileName} on retry", fileName);
+                    throw new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
+                }
+            }
         }
 
         private void CheckIfClientIsConnected()
@@ -203,25 +200,90 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
         }
 
-        private class BlobStreamWriter : IDisposable
+        /// <summary>
+        /// Buffers the lines of one export file and uploads them as the blocks of a block blob.
+        /// </summary>
+        /// <remarks>
+        /// This writer replaces <c>BlockBlobClient.OpenWrite</c>.
+        /// OpenWrite commits the block list with an If-Match condition on the blob ETag. When storage applies a commit
+        /// but the response is lost, for example while the account is throttling, the SDK retries the commit with the
+        /// old ETag and storage rejects it with 412 ConditionNotMet, which fails the export.
+        /// This writer commits without a condition. Each export file is written by exactly one export job, and
+        /// committing the same block list again produces the same blob, so retries are safe and succeed.
+        /// </remarks>
+        private sealed class BlockBlobWriter : IDisposable
         {
-            public BlobStreamWriter(BlockBlobClient blockBlob)
+            // Matches the default buffer size of OpenWrite, so memory use per open file is unchanged.
+            private const int BlockSizeInBytes = 4 * 1024 * 1024;
+
+            private readonly BlockBlobClient _blockBlob;
+            private readonly MemoryStream _buffer = new MemoryStream();
+            private readonly StreamWriter _streamWriter;
+            private readonly List<string> _blockIds = new List<string>();
+
+            public BlockBlobWriter(BlockBlobClient blockBlob)
             {
-                BlobUri = blockBlob.Uri;
-                Stream = blockBlob.OpenWrite(true);
-                StreamWriter = new StreamWriter(Stream);
+                _blockBlob = blockBlob;
+                _streamWriter = new StreamWriter(_buffer, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: true);
             }
 
-            public Stream Stream { get; private set;  }
+            /// <summary>
+            /// Writes a line to the file and uploads a block when the buffer is full.
+            /// </summary>
+            /// <param name="data">The line to write.</param>
+            public void WriteLine(string data)
+            {
+                _streamWriter.WriteLine(data);
+                _streamWriter.Flush();
 
-            public StreamWriter StreamWriter { get; private set; }
+                if (_buffer.Length >= BlockSizeInBytes)
+                {
+                    StageBufferedData();
+                }
+            }
 
-            public Uri BlobUri { get; private set; }
+            /// <summary>
+            /// Uploads any buffered data and commits all blocks, without an If-Match condition.
+            /// </summary>
+            /// <returns>The URI of the committed blob.</returns>
+            public Uri Commit()
+            {
+                _streamWriter.Flush();
+                StageBufferedData();
+
+                _blockBlob.CommitBlockList(_blockIds);
+                return _blockBlob.Uri;
+            }
 
             public void Dispose()
             {
-                StreamWriter?.Dispose();
-                Stream?.Dispose();
+                _streamWriter.Dispose();
+                _buffer.Dispose();
+            }
+
+            private void StageBufferedData()
+            {
+                if (_buffer.Length == 0)
+                {
+                    return;
+                }
+
+                // Block IDs must all have the same length within a blob. A GUID gives a unique, fixed-length ID.
+                string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+
+                _buffer.Position = 0;
+                try
+                {
+                    _blockBlob.StageBlock(blockId, _buffer);
+                }
+                finally
+                {
+                    // If staging failed, keep appending after the buffered data so a later attempt uploads all of it.
+                    _buffer.Position = _buffer.Length;
+                }
+
+                _blockIds.Add(blockId);
+                _buffer.SetLength(0);
             }
         }
     }
