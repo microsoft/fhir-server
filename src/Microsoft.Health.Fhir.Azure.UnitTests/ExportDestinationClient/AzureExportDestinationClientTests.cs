@@ -175,6 +175,22 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         }
 
         [Fact]
+        public async Task GivenCommitIsAppliedTwice_WhenCommittingFile_ThenFileContainsEachLineOnce()
+        {
+            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
+            WriteLines("Patient-1-1.ndjson", 5);
+            storage.CommitResponsesToLose = 1;
+
+            _exportDestinationClient.CommitFile("Patient-1-1.ndjson");
+
+            // The first commit was applied but its response was lost, so the SDK sent the same commit again.
+            Assert.Equal(2, storage.CommitIfMatchHeaders.Count);
+            string[] lines = storage.GetBlobContent("Patient-1-1.ndjson").Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(5, lines.Length);
+            Assert.Equal(5, lines.Distinct().Count());
+        }
+
+        [Fact]
         public async Task GivenFileIsWritten_WhenCommittingFile_ThenCommitIsSentWithoutIfMatchCondition()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
