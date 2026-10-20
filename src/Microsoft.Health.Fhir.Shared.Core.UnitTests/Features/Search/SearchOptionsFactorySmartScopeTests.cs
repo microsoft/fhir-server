@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private const string UnavailableParameterCode = "patient";
         private const string AvailableParameterCode = "code";
+        private const string ConcreteOnlyParameterCode = "status";
+        private const string ObservationOnlyParameterCode = "value-quantity";
 
         [Fact]
         public void GivenResourceSpecificScopeWithUnavailableParameter_WhenCreated_ThenRequestIsDenied()
@@ -167,6 +169,135 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
+        [Theory]
+        [InlineData("_include", "DiagnosticReport:result", false)]
+        [InlineData("_revinclude", "Observation:subject", true)]
+        public void GivenWildcardScopeWithAvailableParameterAndInclude_WhenCreated_ThenSmartScopeUnionIsApplied(
+            string includeParameterName,
+            string includeValue,
+            bool reversed)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams(("_tag", "allowed"))));
+
+            SearchOptions options = factory.Create(
+                reversed ? KnownResourceTypes.Patient : KnownResourceTypes.DiagnosticReport,
+                new[] { Tuple.Create(includeParameterName, includeValue) },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            var multiary = Assert.IsType<MultiaryExpression>(options.Expression);
+            UnionExpression smartUnion = Assert.Single(multiary.Expressions.OfType<UnionExpression>());
+            Assert.True(smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.Contains("_tag=allowed", smartUnion.ToString(), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithUnavailableParameterAndRevInclude_WhenCreated_ThenRequestIsDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Patient,
+                    new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(UnavailableParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithParameterUnsupportedOnDomainResourceButSupportedOnConcreteTypes_WhenCreatedWithInclude_ThenConcreteTypeFallbackSucceeds()
+        {
+            // Clinical search parameters (such as "status") are defined on concrete resource types rather than
+            // DomainResource. Parsing against DomainResource fails first, and the concrete-type fallback builds a
+            // typed union leg for each required resource type (DiagnosticReport and Observation).
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((ConcreteOnlyParameterCode, "final"))));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.DiagnosticReport,
+                new[] { Tuple.Create("_include", "DiagnosticReport:result") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            var multiary = Assert.IsType<MultiaryExpression>(options.Expression);
+            UnionExpression smartUnion = Assert.Single(multiary.Expressions.OfType<UnionExpression>());
+            Assert.True(smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.Equal(2, smartUnion.Expressions.Count);
+            string unionText = smartUnion.ToString();
+            Assert.Contains(KnownResourceTypes.DiagnosticReport, unionText, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, unionText, StringComparison.Ordinal);
+            Assert.Contains($"{ConcreteOnlyParameterCode}=final", unionText, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithParameterSupportedOnOnlyOneRequiredType_WhenOtherTypeHasNoFallbackScope_ThenRequestIsDenied()
+        {
+            // Observation?_include=Observation:subject requires both Observation and Patient. When the wildcard
+            // scope parameter is only valid on Observation and no other scope grants Patient, the request must be denied.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((ObservationOnlyParameterCode, "5"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Observation,
+                    new[] { Tuple.Create("_include", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(ObservationOnlyParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithParameterSupportedOnOnlyOneRequiredType_WhenOtherTypeHasExplicitScope_ThenRequestSucceeds()
+        {
+            // When the wildcard scope fallback covers Observation and a separate Patient scope covers Patient,
+            // every required resource type is authorized.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((ObservationOnlyParameterCode, "5"))),
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create("_include", "Observation:subject") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            var multiary = Assert.IsType<MultiaryExpression>(options.Expression);
+            UnionExpression smartUnion = Assert.Single(multiary.Expressions.OfType<UnionExpression>());
+            Assert.Equal(2, smartUnion.Expressions.Count);
+            string unionText = smartUnion.ToString();
+            Assert.Contains($"{ObservationOnlyParameterCode}=5", unionText, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Patient, unionText, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenMultiParameterScopeWhereLaterParameterFails_WhenCreated_ThenPartiallyParsedScopeDoesNotSurvive()
+        {
+            // If an earlier parameter in a scope succeeds ("code=loinc-1") and a later parameter in the same scope
+            // fails ("patient=patient-B"), the entire scope must be withdrawn rather than surviving with only the
+            // first parameter applied.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(
+                    KnownResourceTypes.All,
+                    DataActions.Read,
+                    "patient",
+                    CreateSearchParams((AvailableParameterCode, "loinc-1"), (UnavailableParameterCode, "patient-B"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient"),
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Patient,
+                new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            Assert.DoesNotContain($"{AvailableParameterCode}=loinc-1", options.Expression.ToString(), StringComparison.Ordinal);
+        }
+
         [Fact]
         public void GivenCallerSuppliedUnavailableParameter_WhenCreated_ThenOrdinaryLenientHandlingIsPreserved()
         {
@@ -226,14 +357,56 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             expressionParser.Parse(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
+                    string targetType = callInfo.ArgAt<string[]>(0).First();
                     string code = callInfo.ArgAt<string>(1);
 
                     if (string.Equals(code, UnavailableParameterCode, StringComparison.Ordinal))
                     {
-                        throw new SearchParameterNotSupportedException(callInfo.ArgAt<string[]>(0).First(), code);
+                        throw new SearchParameterNotSupportedException(targetType, code);
+                    }
+
+                    if (string.Equals(code, ConcreteOnlyParameterCode, StringComparison.Ordinal) &&
+                        string.Equals(targetType, KnownResourceTypes.DomainResource, StringComparison.Ordinal))
+                    {
+                        throw new SearchParameterNotSupportedException(targetType, code);
+                    }
+
+                    if (string.Equals(code, ObservationOnlyParameterCode, StringComparison.Ordinal) &&
+                        !string.Equals(targetType, KnownResourceTypes.Observation, StringComparison.Ordinal))
+                    {
+                        throw new SearchParameterNotSupportedException(targetType, code);
                     }
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");
+                });
+
+            expressionParser.ParseInclude(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyCollection<string>>())
+                .Returns(callInfo =>
+                {
+                    string includeQuery = callInfo.ArgAt<string>(1);
+                    string sourceType = includeQuery.Split(':')[0];
+                    bool isReversed = callInfo.ArgAt<bool>(2);
+                    bool isIterate = callInfo.ArgAt<bool>(3);
+                    var allowedTypes = callInfo.ArgAt<IReadOnlyCollection<string>>(4);
+                    string targetType = isReversed || string.Equals(sourceType, KnownResourceTypes.Observation, StringComparison.Ordinal)
+                        ? KnownResourceTypes.Patient
+                        : KnownResourceTypes.Observation;
+                    var referenceParam = new SearchParameterInfo(
+                        "subject",
+                        "subject",
+                        ValueSets.SearchParamType.Reference,
+                        new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+                        targetResourceTypes: new[] { targetType });
+                    return new IncludeExpression(
+                        callInfo.ArgAt<string[]>(0),
+                        referenceParam,
+                        sourceType,
+                        targetType,
+                        referencedTypes: null,
+                        wildCard: false,
+                        reversed: isReversed,
+                        iterate: isIterate,
+                        allowedResourceTypesByScope: allowedTypes);
                 });
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
