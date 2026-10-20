@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobContainerClient _blobContainer = null;
 
         private readonly Dictionary<string, BlockBlobWriter> _blobWriters = new Dictionary<string, BlockBlobWriter>();
+        private DestinationConnectionException _commitFailure;
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -56,6 +57,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public async Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null)
         {
+            _commitFailure = null;
+
             try
             {
                 _blobClient = _exportClientInitializer.GetAuthorizedClient(exportJobConfiguration);
@@ -120,6 +123,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(fileName, nameof(fileName));
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
+            ThrowIfCommitFailed();
 
             if (!_blobWriters.TryGetValue(fileName, out BlockBlobWriter blobWriter))
             {
@@ -132,6 +136,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public IDictionary<string, Uri> Commit()
         {
+            ThrowIfCommitFailed();
+
             Dictionary<string, Uri> blobUris = new Dictionary<string, Uri>();
 
             foreach (KeyValuePair<string, BlockBlobWriter> entry in _blobWriters)
@@ -139,20 +145,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 blobUris.Add(entry.Key, CommitWriter(entry.Key, entry.Value));
             }
 
-            // Release the writers only after every file is committed. If one file fails, the caller doesn't mark any file
-            // as committed and the export job retry keeps writing to the same files, so already committed writers must
-            // keep their block lists. Otherwise a new writer would replace the committed blob with only the later data.
-            foreach (BlockBlobWriter blobWriter in _blobWriters.Values)
-            {
-                blobWriter.Dispose();
-            }
-
-            _blobWriters.Clear();
+            ReleaseWriters();
             return blobUris;
         }
 
         public Uri CommitFile(string fileName)
         {
+            ThrowIfCommitFailed();
+
             if (!_blobWriters.TryGetValue(fileName, out BlockBlobWriter blobWriter))
             {
                 throw new ArgumentException($"Cannot commit non-existant file {fileName}");
@@ -185,10 +185,35 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 }
                 catch (RequestFailedException ex2)
                 {
-                    // The writer is kept so that a later commit, for example from the export job retry, can still succeed.
                     _logger.LogError(ex2, "Failed to write export file {FileName} on retry", fileName);
-                    throw new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
+
+                    // Fail closed. The export job retry can't safely continue after a failed commit: on the final page it
+                    // writes the page again, which would duplicate records in a kept writer, and on earlier pages it
+                    // continues after data that only a kept writer holds, which a new writer would lose. Rejecting all
+                    // further writes and commits makes the export fail instead of producing incorrect files.
+                    var failure = new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
+                    _commitFailure = failure;
+                    ReleaseWriters();
+                    throw failure;
                 }
+            }
+        }
+
+        private void ReleaseWriters()
+        {
+            foreach (BlockBlobWriter blobWriter in _blobWriters.Values)
+            {
+                blobWriter.Dispose();
+            }
+
+            _blobWriters.Clear();
+        }
+
+        private void ThrowIfCommitFailed()
+        {
+            if (_commitFailure is not null)
+            {
+                throw new DestinationConnectionException(_commitFailure.Message, _commitFailure.StatusCode);
             }
         }
 
@@ -201,7 +226,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         }
 
         /// <summary>
-        /// Buffers the lines of one export file and uploads them as the blocks of a block blob.
+        /// Writes the lines of one export file and uploads them as the blocks of a block blob.
         /// </summary>
         /// <remarks>
         /// This writer replaces <c>BlockBlobClient.OpenWrite</c>.
@@ -213,33 +238,25 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         /// </remarks>
         private sealed class BlockBlobWriter : IDisposable
         {
-            // Matches the default buffer size of OpenWrite, so memory use per open file is unchanged.
-            private const int BlockSizeInBytes = 4 * 1024 * 1024;
-
-            private readonly BlockBlobClient _blockBlob;
-            private readonly MemoryStream _buffer = new MemoryStream();
+            private readonly BlockStagingStream _stagingStream;
             private readonly StreamWriter _streamWriter;
-            private readonly List<string> _blockIds = new List<string>();
 
             public BlockBlobWriter(BlockBlobClient blockBlob)
             {
-                _blockBlob = blockBlob;
-                _streamWriter = new StreamWriter(_buffer, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: true);
+                _stagingStream = new BlockStagingStream(blockBlob);
+
+                // The small character buffer makes the writer encode and pass data to the staging stream in small chunks,
+                // so a large resource is uploaded as it's written instead of being buffered whole.
+                _streamWriter = new StreamWriter(_stagingStream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: true);
             }
 
             /// <summary>
-            /// Writes a line to the file and uploads a block when the buffer is full.
+            /// Writes a line to the file. Full blocks are uploaded as they fill.
             /// </summary>
             /// <param name="data">The line to write.</param>
             public void WriteLine(string data)
             {
                 _streamWriter.WriteLine(data);
-                _streamWriter.Flush();
-
-                if (_buffer.Length >= BlockSizeInBytes)
-                {
-                    StageBufferedData();
-                }
             }
 
             /// <summary>
@@ -249,21 +266,116 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             public Uri Commit()
             {
                 _streamWriter.Flush();
-                StageBufferedData();
+                return _stagingStream.Commit();
+            }
+
+            public void Dispose()
+            {
+                // Writers are disposed after a commit or when they're abandoned. Discard anything still buffered so disposal
+                // never uploads data.
+                _stagingStream.Discard();
+                _streamWriter.Dispose();
+                _stagingStream.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// A write-only stream that uploads data as blocks of a block blob when about 4 MB is buffered.
+        /// </summary>
+        private sealed class BlockStagingStream : Stream
+        {
+            // Matches the default buffer size of OpenWrite, so memory use per open file is unchanged.
+            private const int BlockSizeInBytes = 4 * 1024 * 1024;
+
+            private readonly BlockBlobClient _blockBlob;
+            private readonly MemoryStream _pending = new MemoryStream();
+            private readonly List<string> _blockIds = new List<string>();
+            private bool _discarding;
+
+            public BlockStagingStream(BlockBlobClient blockBlob)
+            {
+                _blockBlob = blockBlob;
+            }
+
+            public override bool CanRead => false;
+
+            public override bool CanSeek => false;
+
+            public override bool CanWrite => true;
+
+            public override long Length => throw new NotSupportedException();
+
+            public override long Position
+            {
+                get => throw new NotSupportedException();
+                set => throw new NotSupportedException();
+            }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                Write(new ReadOnlySpan<byte>(buffer, offset, count));
+            }
+
+            public override void Write(ReadOnlySpan<byte> buffer)
+            {
+                if (_discarding)
+                {
+                    return;
+                }
+
+                // Buffer all bytes before uploading, so a failed upload loses nothing and a later attempt uploads everything.
+                _pending.Write(buffer);
+
+                if (_pending.Length >= BlockSizeInBytes)
+                {
+                    StagePendingData();
+                }
+            }
+
+            /// <summary>
+            /// Stops uploading. Later writes are ignored.
+            /// </summary>
+            public void Discard()
+            {
+                _discarding = true;
+            }
+
+            /// <summary>
+            /// Uploads any pending data and commits all blocks, without an If-Match condition.
+            /// </summary>
+            /// <returns>The URI of the committed blob.</returns>
+            public Uri Commit()
+            {
+                StagePendingData();
 
                 _blockBlob.CommitBlockList(_blockIds);
                 return _blockBlob.Uri;
             }
 
-            public void Dispose()
+            public override void Flush()
             {
-                _streamWriter.Dispose();
-                _buffer.Dispose();
+                // Data is uploaded when a block is full or on commit, not on flush.
             }
 
-            private void StageBufferedData()
+            public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+            public override void SetLength(long value) => throw new NotSupportedException();
+
+            protected override void Dispose(bool disposing)
             {
-                if (_buffer.Length == 0)
+                if (disposing)
+                {
+                    _pending.Dispose();
+                }
+
+                base.Dispose(disposing);
+            }
+
+            private void StagePendingData()
+            {
+                if (_pending.Length == 0)
                 {
                     return;
                 }
@@ -271,19 +383,19 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 // Block IDs must all have the same length within a blob. A GUID gives a unique, fixed-length ID.
                 string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
 
-                _buffer.Position = 0;
+                _pending.Position = 0;
                 try
                 {
-                    _blockBlob.StageBlock(blockId, _buffer);
+                    _blockBlob.StageBlock(blockId, _pending);
                 }
                 finally
                 {
-                    // If staging failed, keep appending after the buffered data so a later attempt uploads all of it.
-                    _buffer.Position = _buffer.Length;
+                    // If staging failed, keep appending after the pending data so a later attempt uploads all of it.
+                    _pending.Position = _pending.Length;
                 }
 
                 _blockIds.Add(blockId);
-                _buffer.SetLength(0);
+                _pending.SetLength(0);
             }
         }
     }

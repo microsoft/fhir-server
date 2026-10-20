@@ -130,7 +130,8 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
                 return CreateError(HttpStatusCode.PreconditionFailed, "ConditionNotMet");
             }
 
-            IEnumerable<string> blockIds = XDocument.Load(new MemoryStream(body)).Root.Elements().Select(e => e.Value);
+            using var bodyStream = new MemoryStream(body);
+            IEnumerable<string> blockIds = XDocument.Load(bodyStream).Root.Elements().Select(e => e.Value).ToList();
             var content = new List<byte>();
             foreach (string blockId in blockIds)
             {

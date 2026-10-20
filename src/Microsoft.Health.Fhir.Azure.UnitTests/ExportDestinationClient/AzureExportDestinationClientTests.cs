@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         }
 
         [Fact]
-        public async Task GivenCommitIsRejected_WhenCommittingFile_ThenDestinationConnectionExceptionIsThrownAndLaterCommitWritesFileOnce()
+        public async Task GivenCommitFailsPermanently_WhenCommittingFile_ThenClientRejectsFurtherWritesAndCommits()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
             WriteLines("Patient-1-1.ndjson", 3);
@@ -210,9 +210,64 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             Assert.Null(storage.GetBlobContent("Patient-1-1.ndjson"));
 
             storage.RejectCommitsWith = null;
+
+            Assert.Equal(HttpStatusCode.Forbidden, Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.WriteFilePart("Patient-1-1.ndjson", Line(0, 10))).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.Commit()).StatusCode);
+            Assert.Null(storage.GetBlobContent("Patient-1-1.ndjson"));
+        }
+
+        [Fact]
+        public async Task GivenOneFileFailsInBatchCommit_WhenTheJobRetries_ThenClientFailsClosedAndCommittedFileIsUnchanged()
+        {
+            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
+            WriteLines("Patient-1-1.ndjson", 2);
+            WriteLines("Observation-1-1.ndjson", 2);
+            storage.RejectCommitsWith = HttpStatusCode.ServiceUnavailable;
+            storage.RejectCommitsForBlob = "Observation-1-1.ndjson";
+
+            Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.Commit());
+            Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
+
+            // The export job retry replays the final page. It must fail rather than write duplicate or partial files.
+            storage.RejectCommitsWith = null;
+            Assert.Throws<DestinationConnectionException>(() => WriteLines("Patient-1-1.ndjson", 2));
+            Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.Commit());
+
+            Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
+            Assert.Null(storage.GetBlobContent("Observation-1-1.ndjson"));
+        }
+
+        [Fact]
+        public async Task GivenCommitFailedPermanently_WhenClientReconnects_ThenWritesAndCommitsSucceed()
+        {
+            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
+            WriteLines("Patient-1-1.ndjson", 1);
+            storage.RejectCommitsWith = HttpStatusCode.Forbidden;
+            Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson"));
+            storage.RejectCommitsWith = null;
+
+            await _exportDestinationClient.ConnectAsync(CancellationToken.None, "export");
+            WriteLines("Patient-1-1.ndjson", 3);
             _exportDestinationClient.CommitFile("Patient-1-1.ndjson");
 
             Assert.Equal(ExpectedContent(3), storage.GetBlobContent("Patient-1-1.ndjson"));
+        }
+
+        [Fact]
+        public async Task GivenSingleResourceLargerThanOneBlock_WhenWritingFilePart_ThenBlocksAreUploadedBeforeCommit()
+        {
+            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
+            string largeResource = Line(0, 10 * 1024 * 1024);
+
+            _exportDestinationClient.WriteFilePart("Binary-1-1.ndjson", largeResource);
+
+            Assert.True(storage.StagedBlockCount >= 2);
+            Assert.Null(storage.GetBlobContent("Binary-1-1.ndjson"));
+
+            _exportDestinationClient.CommitFile("Binary-1-1.ndjson");
+
+            Assert.Equal(largeResource + Environment.NewLine, storage.GetBlobContent("Binary-1-1.ndjson"));
         }
 
         [Fact]
@@ -228,28 +283,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
             Assert.Equal(ExpectedContent(4), storage.GetBlobContent("Observation-1-1.ndjson"));
             Assert.Empty(_exportDestinationClient.Commit());
-        }
-
-        [Fact]
-        public async Task GivenOneFileFailsInBatchCommit_WhenMoreDataIsWrittenAndCommitted_ThenEarlierCommittedFileKeepsAllData()
-        {
-            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
-            WriteLines("Patient-1-1.ndjson", 2);
-            WriteLines("Observation-1-1.ndjson", 2);
-            storage.RejectCommitsWith = HttpStatusCode.ServiceUnavailable;
-            storage.RejectCommitsForBlob = "Observation-1-1.ndjson";
-
-            Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.Commit());
-            Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
-
-            storage.RejectCommitsWith = null;
-            _exportDestinationClient.WriteFilePart("Patient-1-1.ndjson", Line(2, 10));
-            _exportDestinationClient.WriteFilePart("Observation-1-1.ndjson", Line(2, 10));
-            var result = _exportDestinationClient.Commit();
-
-            Assert.Equal(2, result.Count);
-            Assert.Equal(ExpectedContent(3), storage.GetBlobContent("Patient-1-1.ndjson"));
-            Assert.Equal(ExpectedContent(3), storage.GetBlobContent("Observation-1-1.ndjson"));
         }
 
         private async Task<FakeBlobStorageHandler> ConnectToFakeStorageAsync()
