@@ -1423,7 +1423,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(JTokenType.Null, statistics["bundleRequestBodyBytes"].Type);
         }
 
-#if !STU3
+#if !Stu3
         [Fact]
         public async Task GivenABinaryJsonPatchEntry_WhenProcessed_ThenResourceSizeIsTheBase64EncodedDataSize()
         {
