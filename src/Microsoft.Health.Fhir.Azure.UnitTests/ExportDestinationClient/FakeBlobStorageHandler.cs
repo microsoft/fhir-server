@@ -48,6 +48,12 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         public HttpStatusCode? FailGetPropertiesWith { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether every get blob properties request fails at the transport level, as if
+        /// the connection failed. The SDK then exhausts its retries and throws an <see cref="AggregateException"/>.
+        /// </summary>
+        public bool FailGetPropertiesTransport { get; set; }
+
+        /// <summary>
         /// Gets the If-Match header of every commit request, in order, or null when a request had none.
         /// </summary>
         public List<string> CommitIfMatchHeaders { get; } = new List<string>();
@@ -189,6 +195,11 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         private HttpResponseMessage GetProperties(string path)
         {
             GetPropertiesRequestCount++;
+
+            if (FailGetPropertiesTransport)
+            {
+                throw new HttpRequestException("Simulated transport failure.");
+            }
 
             if (FailGetPropertiesWith is HttpStatusCode failStatus)
             {

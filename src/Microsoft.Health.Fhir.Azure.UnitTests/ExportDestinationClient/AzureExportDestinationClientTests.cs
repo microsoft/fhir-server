@@ -272,6 +272,21 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         }
 
         [Fact]
+        public async Task GivenCommitResponseIsLostAndPropertiesRequestFailsAtTransportLevel_WhenCommittingFile_ThenConditionNotMetIsReturned()
+        {
+            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
+            WriteLines("Patient-1-1.ndjson", 3);
+            storage.CommitsWithLostResponse.Add(1);
+            storage.FailGetPropertiesTransport = true;
+
+            var exception = Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson"));
+
+            // The SDK retried the properties request and threw an AggregateException; the original 412 is still reported.
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCode);
+            Assert.True(storage.GetPropertiesRequestCount > 1);
+        }
+
+        [Fact]
         public async Task GivenCommitFailsWithOtherError_WhenCommittingFile_ThenErrorIsReturnedAndFileIsNotRead()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();

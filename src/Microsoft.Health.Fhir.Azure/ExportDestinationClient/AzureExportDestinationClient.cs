@@ -213,11 +213,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         /// lost, for example while the account is throttling, the SDK retries the commit with the old ETag and gets 412 even
         /// though the file is complete. Each export file is written only by this writer, so the commit was applied when the
         /// blob size matches the number of bytes written.
+        /// The check compares sizes only. If another client overwrote the blob with content of exactly the same size, the
+        /// commit would be treated as applied. We accept this unlikely case so we don't download the whole file and keep
+        /// its contents in memory to compare them.
         /// </remarks>
         /// <param name="fileName">The export file name.</param>
         /// <param name="exception">The commit failure.</param>
         /// <param name="uri">The blob URI when the commit was applied.</param>
-        /// <returns>True when the failure is 412 and the blob already contains all written data.</returns>
+        /// <returns>True when the failure is 412 and the blob size matches the number of bytes written.</returns>
         private bool TryGetCommittedBlobUri(string fileName, RequestFailedException exception, out Uri uri)
         {
             uri = null;
@@ -236,6 +239,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
             catch (RequestFailedException propertiesException)
             {
+                _logger.LogWarning(propertiesException, "Failed to read export file {FileName} after a 412 response to commit", fileName);
+                return false;
+            }
+            catch (AggregateException propertiesException) when (propertiesException.InnerException is RequestFailedException)
+            {
+                // The SDK throws an AggregateException when retries are exhausted, for example after transport failures.
                 _logger.LogWarning(propertiesException, "Failed to read export file {FileName} after a 412 response to commit", fileName);
                 return false;
             }
