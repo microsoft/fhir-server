@@ -54,15 +54,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// <inheritdoc />
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            ResourceJsonNode resource;
-            try
-            {
-                resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(rawResource);
-            }
-            catch (JsonException exception)
-            {
-                throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
-            }
+            ResourceJsonNode resource = ParseResourceJson(rawResource);
 
             ImportResourceIdValidator.Validate(resource.Id, _resourceIdPolicy);
             CheckConditionalReferenceInResource(resource, importMode);
@@ -117,6 +109,18 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
+        }
+
+        private static ResourceJsonNode ParseResourceJson(string rawResource)
+        {
+            try
+            {
+                return JsonSourceNodeFactory.Parse<ResourceJsonNode>(rawResource);
+            }
+            catch (JsonException exception)
+            {
+                throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
+            }
         }
 
         /// <summary>
@@ -186,10 +190,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 return;
             }
 
-            if (referenceNode is not JsonObject referenceObject)
-            {
-                throw new FormatException($"Expected a Reference object but found {referenceNode.GetValueKind()}.");
-            }
+            JsonObject referenceObject = referenceNode as JsonObject
+                ?? throw new FormatException($"Expected a Reference object but found {referenceNode.GetValueKind()}.");
 
             var reference = referenceObject["reference"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(reference) && reference.Contains('?', StringComparison.Ordinal))

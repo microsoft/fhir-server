@@ -310,6 +310,68 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             }
         }
 
+        [Fact]
+        public void GivenCallerSuppliedResourceAndRootResource_WhenEvaluated_ThenEitherProviderKeepsThem()
+        {
+            ITypedElement callerResource = new Patient { Id = "caller-resource" }.ToTypedElement();
+            ITypedElement callerRootResource = new Patient { Id = "caller-root" }.ToTypedElement();
+            IFhirPathProvider[] providers =
+            [
+                new FirelyFhirPathProvider(),
+                CreateIgnixaProvider(),
+            ];
+
+            foreach (IFhirPathProvider provider in providers)
+            {
+                ITypedElement input = SelectScopedInput(CreatePatientWithContainedOrganization(), "contained");
+                EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+                context.Resource = callerResource;
+                context.RootResource = callerRootResource;
+
+                string[] resourceIds = Normalize(provider.Compile("%resource.id").Select(input, context));
+                string[] rootResourceIds = Normalize(provider.Compile("%rootResource.id").Select(input, context));
+
+                string providerName = provider.GetType().Name;
+                Assert.True(
+                    resourceIds.SequenceEqual(["System.String|caller-resource"]),
+                    $"{providerName} %resource.id was [{string.Join(", ", resourceIds)}].");
+                Assert.True(
+                    rootResourceIds.SequenceEqual(["System.String|caller-root"]),
+                    $"{providerName} %rootResource.id was [{string.Join(", ", rootResourceIds)}].");
+                Assert.Same(callerResource, context.Resource);
+                Assert.Same(callerRootResource, context.RootResource);
+            }
+        }
+
+        [Fact]
+        public void GivenEnvironmentVariables_WhenEvaluated_ThenEitherProviderResolvesThem()
+        {
+            ITypedElement patient = new Patient { Id = "patient-1" }.ToTypedElement();
+            IFhirPathProvider[] providers =
+            [
+                new FirelyFhirPathProvider(),
+                CreateIgnixaProvider(),
+            ];
+
+            foreach (IFhirPathProvider provider in providers)
+            {
+                EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+                context.Environment["label"] = [ElementNode.ForPrimitive("alpha")];
+                context.Environment["limits"] = [ElementNode.ForPrimitive(1), ElementNode.ForPrimitive(2)];
+
+                string[] labels = Normalize(provider.Compile("%label").Select(patient, context));
+                string[] limits = Normalize(provider.Compile("%limits").Select(patient, context));
+
+                string providerName = provider.GetType().Name;
+                Assert.True(
+                    labels.SequenceEqual(["System.String|alpha"]),
+                    $"{providerName} %label was [{string.Join(", ", labels)}].");
+                Assert.True(
+                    limits.SequenceEqual(["System.Int32|1", "System.Int32|2"]),
+                    $"{providerName} %limits was [{string.Join(", ", limits)}].");
+            }
+        }
+
         [Theory]
         [InlineData("Identifier { system: 'http://hl7.org', value: 'N0001' }.value", "N0001")]
         [InlineData("Identifier { type: CodeableConcept { coding: Coding { code: 'MR' } } }.type.coding.code", "MR")]
