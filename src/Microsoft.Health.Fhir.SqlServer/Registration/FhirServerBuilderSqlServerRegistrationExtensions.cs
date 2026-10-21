@@ -143,7 +143,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.AddScopedFactory<SqlConnectionWrapperFactory>();
+            services.AddScopedProviderFactory<SqlConnectionWrapperFactory>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
@@ -211,7 +211,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
             services.Add<JobMonitorWatchdog>().Singleton().AsSelf();
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
-            services.AddScopedFactory<TransactionWatchdog>();
+            services.AddScopedProviderFactory<TransactionWatchdog>();
 
             services.RemoveServiceTypeExact<JobMonitorMetricNotifier, INotificationHandler<JobMonitorMetricsNotification>>()
                     .Add<JobMonitorMetricNotifier>()

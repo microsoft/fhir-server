@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             AnonymizerEngine.InitializeFhirPathExtensionSymbols();
 
-            services.AddScopedFactory<IAnonymizer>();
+            services.AddScopedProviderFactory<IAnonymizer>();
 
             services.Add<ExportAnonymizerFactory>()
                     .Transient()

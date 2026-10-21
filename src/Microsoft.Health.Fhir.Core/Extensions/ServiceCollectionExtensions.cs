@@ -20,7 +20,7 @@ public static class ServiceCollectionExtensions
     /// <typeparam name="T">The service resolved within each scope.</typeparam>
     /// <param name="serviceCollection">The service collection.</param>
     /// <returns>The collection with the scoped factory registered.</returns>
-    public static IServiceCollection AddScopedFactory<T>(this IServiceCollection serviceCollection)
+    public static IServiceCollection AddScopedProviderFactory<T>(this IServiceCollection serviceCollection)
     {
         EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
 
