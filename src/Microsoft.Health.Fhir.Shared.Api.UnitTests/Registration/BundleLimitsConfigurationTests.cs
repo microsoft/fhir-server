@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             CircuitBreakerConfiguration circuitBreaker = provider.GetRequiredService<IOptions<CircuitBreakerConfiguration>>().Value;
             Assert.False(circuitBreaker.EnableAutoThrottle);
-            Assert.Equal(0.85, circuitBreaker.MemoryPressureThreshold);
+            Assert.Equal(0.8, circuitBreaker.MemoryPressureThreshold);
             Assert.Equal(60, circuitBreaker.ThrottleRecoveryTimeSeconds);
         }
 
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 ["FhirServer:Bundle:MaxResourceSizeBytes"] = "20971520",
                 ["FhirServer:Bundle:MaxSearchParametersPerResource"] = "2000",
                 ["FhirServer:CircuitBreaker:EnableAutoThrottle"] = "true",
-                ["FhirServer:CircuitBreaker:MemoryPressureThreshold"] = "0.8",
+                ["FhirServer:CircuitBreaker:MemoryPressureThreshold"] = "0.75",
                 ["FhirServer:CircuitBreaker:ThrottleRecoveryTimeSeconds"] = "30",
             });
 
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
 
             CircuitBreakerConfiguration circuitBreaker = provider.GetRequiredService<IOptions<CircuitBreakerConfiguration>>().Value;
             Assert.True(circuitBreaker.EnableAutoThrottle);
-            Assert.Equal(0.8, circuitBreaker.MemoryPressureThreshold);
+            Assert.Equal(0.75, circuitBreaker.MemoryPressureThreshold);
             Assert.Equal(30, circuitBreaker.ThrottleRecoveryTimeSeconds);
         }
 

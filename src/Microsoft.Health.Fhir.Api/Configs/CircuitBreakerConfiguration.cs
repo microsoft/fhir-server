@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// <summary>
         /// Gets or sets the memory usage ratio, greater than 0 and at most 1, at which throttling starts.
         /// </summary>
-        public double MemoryPressureThreshold { get; set; } = 0.85;
+        public double MemoryPressureThreshold { get; set; } = 0.8;
 
         /// <summary>
         /// Gets or sets the number of seconds memory pressure must stay below the threshold before throttling stops.
