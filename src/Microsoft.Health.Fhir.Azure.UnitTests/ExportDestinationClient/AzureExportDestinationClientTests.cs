@@ -7,7 +7,10 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
+using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
@@ -112,6 +115,24 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             // Assert
             Assert.Contains(message, exception.Message);
             Assert.Equal(statusCode, exception.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenAuthenticationFails_WhenConnectingToStorage_ThenDestinationConnectionIsForbidden()
+        {
+            // Arrange
+            var blobClient = Substitute.For<BlobServiceClient>();
+            var container = Substitute.For<BlobContainerClient>();
+            _exportClientInitializer.GetAuthorizedClient(Arg.Any<ExportJobConfiguration>()).Returns(blobClient);
+            blobClient.GetBlobContainerClient(Arg.Any<string>()).Returns(container);
+            container.CreateIfNotExistsAsync(cancellationToken: Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<Response<BlobContainerInfo>>(new AuthenticationFailedException("Managed identity authentication failed.")));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(CancellationToken.None, "export"));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, exception.StatusCode);
         }
 
         [Fact]

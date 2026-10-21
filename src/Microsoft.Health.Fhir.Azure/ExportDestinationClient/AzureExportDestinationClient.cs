@@ -10,6 +10,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
@@ -104,6 +105,11 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 // Can't get an access token, likely an error with setup
                 _logger.LogWarning(ex, "Failed to get access token for export");
+                throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
+            }
+            catch (AuthenticationFailedException ex)
+            {
+                _logger.LogWarning(ex, "Failed to authenticate to storage for export");
                 throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
             }
             catch (ArgumentNullException ex) when (ex.Message.Contains("credentialBundleName", StringComparison.OrdinalIgnoreCase))

@@ -71,6 +71,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string FailureDetails = "failureDetails";
 
+        /// <summary>
+        /// The property name for customer-caused job failures.
+        /// </summary>
+        public const string IsCustomerCaused = "isCustomerCaused";
+
         public const string Since = "since";
 
         public const string FailureCount = "failureCount";

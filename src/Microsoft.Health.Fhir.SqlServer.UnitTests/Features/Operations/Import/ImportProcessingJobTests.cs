@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Channels;
@@ -18,8 +19,11 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -150,7 +154,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportInput_WhenOperationWasCancelledExceptionThrow_ThenJobShouldFailed()
+        public async Task GivenImportInput_WhenOperationWasCancelledExceptionThrow_ThenCancellationIsPropagated()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
@@ -186,7 +190,93 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                                     loggerFactory,
                                     auditLogger);
 
-            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+            await Assert.ThrowsAsync<OperationCanceledException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("not a blob URI")]
+        public async Task GivenMissingOrInvalidBlobUri_WhenProcessingExecutes_ThenFailureIsCustomerCaused(string resourceLocation)
+        {
+            // Arrange
+            var input = GetInputData();
+            input.ResourceLocation = resourceLocation;
+            var job = CreateProcessingJob();
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(input, null), CancellationToken.None));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ImportJobErrorResult>(exception.Error).HttpStatusCode);
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.Conflict)]
+        [InlineData(FhirSqlErrorCodes.SurrogateIdCollision)]
+        public async Task GivenDuplicateResourceConflict_WhenProcessingExecutes_ThenFailureIsCustomerCaused(int errorCode)
+        {
+            // Arrange
+            var importer = Substitute.For<IImporter>();
+            var conflict = SqlExceptionFactory.GetSqlException(errorCode, "Duplicate resource keys.");
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<ImportProcessingProgress>>(_ => throw conflict);
+            var job = CreateProcessingJob(importer: importer);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Same(conflict, exception.InnerException);
+            Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ImportJobErrorResult>(exception.Error).HttpStatusCode);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenCancellation_WhenProcessingExecutes_ThenCancellationIsPropagated(bool cancelBeforeExecution)
+        {
+            // Arrange
+            using var cancellationSource = new CancellationTokenSource();
+            var loader = Substitute.For<IImportResourceLoader>();
+            var canceled = new OperationCanceledException(cancellationSource.Token);
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns((Channel.CreateUnbounded<ImportResource>(), Task.FromException(canceled)));
+            var job = CreateProcessingJob(loader);
+            if (cancelBeforeExecution)
+            {
+                cancellationSource.Cancel();
+            }
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), cancellationSource.Token));
+
+            // Assert
+            Assert.Equal(cancellationSource.Token, exception.CancellationToken);
+        }
+
+        private static ImportProcessingJob CreateProcessingJob(IImportResourceLoader loader = null, IImporter importer = null)
+        {
+            var errorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            errorStoreFactory.InitializeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Substitute.For<IImportErrorStore>());
+            if (importer == null)
+            {
+                importer = Substitute.For<IImporter>();
+                importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns(new ImportProcessingProgress());
+            }
+
+            return new ImportProcessingJob(
+                Substitute.For<IMediator>(),
+                Substitute.For<IQueueClient>(),
+                loader ?? Substitute.For<IImportResourceLoader>(),
+                importer,
+                errorStoreFactory,
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                NullLoggerFactory.Instance,
+                Substitute.For<IAuditLogger>());
         }
 
         [Fact]

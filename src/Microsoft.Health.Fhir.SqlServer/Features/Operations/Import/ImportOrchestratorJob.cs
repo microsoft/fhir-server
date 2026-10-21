@@ -114,9 +114,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (OperationCanceledException ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);
-                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Cancelled, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
+                throw;
             }
             catch (IntegrationDataStoreException ex)
             {
@@ -143,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex.IsCustomerCaused);
             }
             catch (CredentialUnavailableException ex)
             {
@@ -174,6 +173,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             await Parallel.ForEachAsync(inputData.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
+                if (input.Url == null || !input.Url.IsAbsoluteUri)
+                {
+                    var errorResult = new ImportJobErrorResult { ErrorMessage = "Input blob URI must be a valid absolute URI.", HttpStatusCode = HttpStatusCode.BadRequest };
+                    throw new JobExecutionException(errorResult.ErrorMessage, errorResult, true);
+                }
+
                 Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
                 if (!string.IsNullOrEmpty(input.Etag))
                 {
@@ -327,6 +332,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList());
                 return jobIds;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
