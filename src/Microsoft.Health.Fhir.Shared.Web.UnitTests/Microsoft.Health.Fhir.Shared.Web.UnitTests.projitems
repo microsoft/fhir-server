@@ -11,5 +11,6 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AzureMonitorOpenTelemetryLogEnricherTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)StartupTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)StartupScopedFactoryTests.cs" />
   </ItemGroup>
 </Project>

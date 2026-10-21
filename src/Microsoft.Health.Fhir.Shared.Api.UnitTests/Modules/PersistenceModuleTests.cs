@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Modules;
@@ -20,24 +19,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
     [Trait(Traits.Category, Categories.Validate)]
     public class PersistenceModuleTests
     {
-        [Fact]
-        public void GivenRootResolvedSearchFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetainedByRootProvider()
-        {
-            var services = new ServiceCollection();
-            services.AddScoped();
-            services.AddScoped<ISearchService>(_ => Substitute.For<ISearchService>());
-            new PersistenceModule().Load(services);
-            using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
-
-            WeakReference reference = CreateDisposedSearchScope(provider);
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-
-            Assert.False(reference.IsAlive);
-            GC.KeepAlive(provider);
-        }
-
         [Fact]
         public void GivenSearchFactory_WhenScopesAreDisposed_ThenEachInvocationOwnsAndDisposesItsServices()
         {
@@ -66,15 +47,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             }
 
             Assert.Equal(2, disposalCount);
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static WeakReference CreateDisposedSearchScope(IServiceProvider provider)
-        {
-            Func<IScoped<ISearchService>> factory = provider.GetRequiredService<Func<IScoped<ISearchService>>>();
-            using IScoped<ISearchService> scope = factory();
-            Assert.NotNull(scope.Value);
-            return new WeakReference(scope);
         }
 
         private sealed class DisposalProbe : IDisposable
