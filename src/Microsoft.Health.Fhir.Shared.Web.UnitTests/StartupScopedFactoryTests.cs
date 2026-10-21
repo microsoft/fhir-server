@@ -20,9 +20,8 @@ namespace Microsoft.Health.Fhir.Web.UnitTests
     [Trait(Traits.Category, Categories.Validate)]
     public class StartupScopedFactoryTests
     {
-        [Theory]
-        [InlineData(nameof(JobHosting))]
-        public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained(string caseName)
+        [Fact]
+        public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
         {
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
             {
@@ -39,7 +38,7 @@ namespace Microsoft.Health.Fhir.Web.UnitTests
                 NullLogger<JobHosting>.Instance));
             using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
 
-            ScopedFactoryAssert.NotRetainedByRoot<JobHosting>(provider, caseName);
+            ScopedFactoryAssert.NotRetainedByRoot<JobHosting>(provider, nameof(JobHosting));
         }
     }
 }

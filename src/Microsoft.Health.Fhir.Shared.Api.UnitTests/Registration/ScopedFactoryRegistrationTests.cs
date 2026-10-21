@@ -24,84 +24,61 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
     [Trait(Traits.Category, Categories.Validate)]
     public class ScopedFactoryRegistrationTests
     {
-        public enum ScopedService
+        [Fact]
+        public void GivenRootResolvedSearchFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
         {
-            Search,
-            DataStore,
-            OperationDataStore,
-            Deletion,
-            BulkUpdate,
-            ProvideCapability,
-            InstantiateCapability,
-            Anonymizer,
+            AssertCollectible(() => Substitute.For<ISearchService>(), nameof(ISearchService));
         }
 
-        public static TheoryData<ScopedService> ScopedServices
+        [Fact]
+        public void GivenRootResolvedDataStoreFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
         {
-            get
-            {
-                var services = new TheoryData<ScopedService>
-                {
-                    ScopedService.Search,
-                    ScopedService.DataStore,
-                    ScopedService.OperationDataStore,
-                    ScopedService.Deletion,
-                    ScopedService.BulkUpdate,
-                    ScopedService.ProvideCapability,
-                    ScopedService.InstantiateCapability,
-                };
-
-                if (ModelInfoProvider.Version is FhirSpecification.Stu3 or FhirSpecification.R4)
-                {
-                    services.Add(ScopedService.Anonymizer);
-                }
-
-                return services;
-            }
+            AssertCollectible(() => Substitute.For<IFhirDataStore>(), nameof(IFhirDataStore));
         }
 
-        [Theory]
-        [MemberData(nameof(ScopedServices), DisableDiscoveryEnumeration = true)]
-        public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained(ScopedService service)
+        [Fact]
+        public void GivenRootResolvedOperationDataStoreFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            AssertCollectible(() => Substitute.For<IFhirOperationDataStore>(), nameof(IFhirOperationDataStore));
+        }
+
+        [Fact]
+        public void GivenRootResolvedDeletionFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            AssertCollectible(() => Substitute.For<IDeletionService>(), nameof(IDeletionService));
+        }
+
+        [Fact]
+        public void GivenRootResolvedBulkUpdateFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            AssertCollectible(() => Substitute.For<IBulkUpdateService>(), nameof(IBulkUpdateService));
+        }
+
+        [Fact]
+        public void GivenRootResolvedProvideCapabilityFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            AssertCollectible<IEnumerable<IProvideCapability>>(() => new[] { Substitute.For<IProvideCapability>() }, "IEnumerable<IProvideCapability>");
+        }
+
+        [Fact]
+        public void GivenRootResolvedInstantiateCapabilityFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            AssertCollectible<IEnumerable<IInstantiateCapability>>(() => new[] { Substitute.For<IInstantiateCapability>() }, "IEnumerable<IInstantiateCapability>");
+        }
+
+        [Fact]
+        public void GivenRootResolvedAnonymizerFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            Assert.SkipWhen(ModelInfoProvider.Version is not (FhirSpecification.Stu3 or FhirSpecification.R4), "Anonymization is available only in STU3 and R4.");
+            AssertCollectible(() => Substitute.For<IAnonymizer>(), nameof(IAnonymizer));
+        }
+
+        private static void AssertCollectible<T>(Func<T> createPayload, string caseName)
+            where T : class
         {
             var services = new ServiceCollection();
             IConfiguration configuration = new ConfigurationBuilder().Build();
             services.AddFhirServer(configuration);
-
-            switch (service)
-            {
-                case ScopedService.Search:
-                    AssertCollectible(services, () => Substitute.For<ISearchService>(), nameof(ISearchService));
-                    break;
-                case ScopedService.DataStore:
-                    AssertCollectible(services, () => Substitute.For<IFhirDataStore>(), nameof(IFhirDataStore));
-                    break;
-                case ScopedService.OperationDataStore:
-                    AssertCollectible(services, () => Substitute.For<IFhirOperationDataStore>(), nameof(IFhirOperationDataStore));
-                    break;
-                case ScopedService.Deletion:
-                    AssertCollectible(services, () => Substitute.For<IDeletionService>(), nameof(IDeletionService));
-                    break;
-                case ScopedService.BulkUpdate:
-                    AssertCollectible(services, () => Substitute.For<IBulkUpdateService>(), nameof(IBulkUpdateService));
-                    break;
-                case ScopedService.ProvideCapability:
-                    AssertCollectible<IEnumerable<IProvideCapability>>(services, () => new[] { Substitute.For<IProvideCapability>() }, "IEnumerable<IProvideCapability>");
-                    break;
-                case ScopedService.InstantiateCapability:
-                    AssertCollectible<IEnumerable<IInstantiateCapability>>(services, () => new[] { Substitute.For<IInstantiateCapability>() }, "IEnumerable<IInstantiateCapability>");
-                    break;
-                case ScopedService.Anonymizer:
-                    AssertCollectible(services, () => Substitute.For<IAnonymizer>(), nameof(IAnonymizer));
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(service));
-            }
-        }
-
-        private static void AssertCollectible<T>(IServiceCollection services, Func<T> createPayload, string caseName)
-            where T : class
-        {
             services.AddScoped(_ => createPayload());
             using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
 

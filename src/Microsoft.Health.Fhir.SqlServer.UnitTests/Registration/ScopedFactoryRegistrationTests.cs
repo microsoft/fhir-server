@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -25,16 +24,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
     [Trait(Traits.Category, Categories.Validate)]
     public class ScopedFactoryRegistrationTests
     {
-        public enum ScopedService
+        [Fact]
+        public void GivenRootResolvedConnectionWrapperFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
         {
-            SqlConnectionWrapperFactory,
-            TransactionWatchdog,
+            IServiceCollection services = CreateServices();
+            services.AddScoped<SqlTransactionHandler>();
+            services.AddScoped(provider => new SqlConnectionWrapperFactory(
+                provider.GetRequiredService<SqlTransactionHandler>(),
+                Substitute.For<ISqlConnectionBuilder>(),
+                SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings),
+                Options.Create(new SqlServerDataStoreConfiguration())));
+            using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+
+            ScopedFactoryAssert.NotRetainedByRoot<SqlConnectionWrapperFactory>(provider, nameof(SqlConnectionWrapperFactory));
         }
 
-        [Theory]
-        [InlineData(ScopedService.SqlConnectionWrapperFactory)]
-        [InlineData(ScopedService.TransactionWatchdog)]
-        public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained(ScopedService service)
+        [Fact]
+        public void GivenRootResolvedTransactionWatchdogFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            IServiceCollection services = CreateServices();
+            services.AddScoped(_ => new TransactionWatchdog());
+            using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+
+            ScopedFactoryAssert.NotRetainedByRoot<TransactionWatchdog>(provider, nameof(TransactionWatchdog));
+        }
+
+        private static IServiceCollection CreateServices()
         {
             var services = new ServiceCollection();
             services.AddScoped();
@@ -42,32 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
             builder.Services.Returns(services);
             builder.AddSqlServer(_ => { });
 
-            switch (service)
-            {
-                case ScopedService.SqlConnectionWrapperFactory:
-                    services.AddScoped<SqlTransactionHandler>();
-                    services.AddScoped(provider => new SqlConnectionWrapperFactory(
-                        provider.GetRequiredService<SqlTransactionHandler>(),
-                        Substitute.For<ISqlConnectionBuilder>(),
-                        SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings),
-                        Options.Create(new SqlServerDataStoreConfiguration())));
-                    using (ServiceProvider provider = services.BuildServiceProvider(validateScopes: true))
-                    {
-                        ScopedFactoryAssert.NotRetainedByRoot<SqlConnectionWrapperFactory>(provider, nameof(SqlConnectionWrapperFactory));
-                    }
-
-                    break;
-                case ScopedService.TransactionWatchdog:
-                    services.AddScoped(_ => new TransactionWatchdog());
-                    using (ServiceProvider provider = services.BuildServiceProvider(validateScopes: true))
-                    {
-                        ScopedFactoryAssert.NotRetainedByRoot<TransactionWatchdog>(provider, nameof(TransactionWatchdog));
-                    }
-
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(service));
-            }
+            return services;
         }
     }
 }
