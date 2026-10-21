@@ -45,8 +45,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
             switch (service)
             {
                 case ScopedService.SqlConnectionWrapperFactory:
-                    services.AddScoped(_ => new SqlConnectionWrapperFactory(
-                        new SqlTransactionHandler(),
+                    services.AddScoped<SqlTransactionHandler>();
+                    services.AddScoped(provider => new SqlConnectionWrapperFactory(
+                        provider.GetRequiredService<SqlTransactionHandler>(),
                         Substitute.For<ISqlConnectionBuilder>(),
                         SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings),
                         Options.Create(new SqlServerDataStoreConfiguration())));
