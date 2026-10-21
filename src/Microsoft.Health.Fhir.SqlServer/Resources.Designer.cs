@@ -115,6 +115,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to SQL Server has insufficient resources to complete the includes count. Please try again later..
+        /// </summary>
+        internal static string IncludesCountResourceExhausted {
+            get {
+                return ResourceManager.GetString("IncludesCountResourceExhausted", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {

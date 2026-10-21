@@ -125,13 +125,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                       ? 1
                                       : ((definition.MaximumNumberOfResourcesPerQuery - 1) / 1000) + 1);
 
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, definition.MetaHistory, cancellationToken);
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, definition.MetaHistory, cancellationToken, definition.AllowProfileResourceModification);
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
                     result = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
+                }
+
+                if (!definition.AllowProfileResourceModification)
+                {
+                    foreach (var (resourceType, count) in result.ResourcesIgnored.Where(resource => OperationsConstants.ProtectedProfileResourceTypes.Contains(resource.Key)))
+                    {
+                        result.Issues.Add($"Skipped {count} {resourceType} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not updated.");
+                    }
                 }
 
                 if (result.ResourcesUpdated.Any())

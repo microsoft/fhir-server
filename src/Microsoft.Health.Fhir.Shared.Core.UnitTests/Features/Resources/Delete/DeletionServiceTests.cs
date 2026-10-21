@@ -179,6 +179,126 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
         }
 
+        [Theory]
+        [InlineData("CodeSystem", false, true)]
+        [InlineData("CodeSystem", true, true)]
+        [InlineData("ValueSet", false, true)]
+        [InlineData("ValueSet", true, true)]
+        [InlineData("StructureDefinition", false, true)]
+        [InlineData("StructureDefinition", true, true)]
+        [InlineData("Patient", false, false)]
+        [InlineData("Patient", true, false)]
+        public async Task GivenBulkDelete_WhenResourceIsReturned_ThenProfilePermissionIsRespected(
+            string resourceType,
+            bool allowProfileResourceModification,
+            bool isProtectedProfileResource)
+        {
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                new List<Tuple<string, string>> { Tuple.Create("_id", "resource-1") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: null,
+                deleteAll: true);
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry(resourceType, "resource-1", SearchEntryMode.Match) },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+            var skipped = new Dictionary<string, long>();
+            Action<string, long> onProfileResourceSkipped = allowProfileResourceModification
+                ? null
+                : (skippedResourceType, count) => skipped[skippedResourceType] = count;
+
+            var result = await _service.DeleteMultipleAsync(
+                request,
+                CancellationToken.None,
+                onProfileResourceSkipped: onProfileResourceSkipped);
+
+            if (isProtectedProfileResource && !allowProfileResourceModification)
+            {
+                Assert.Empty(result);
+                Assert.Equal(1, skipped[resourceType]);
+                await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(default, default, default, default);
+            }
+            else
+            {
+                Assert.Equal(1, result[resourceType]);
+                Assert.Empty(skipped);
+                await fhirDataStore.Received(1).HardDeleteAsync(
+                    Arg.Is<ResourceKey>(key => key.ResourceType == resourceType),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>());
+            }
+        }
+
+        [Fact]
+        public async Task GivenBulkDelete_WhenIncludedProfileResourceIsReturned_ThenEligibleResourceIsDeletedAndProfileResourceIsSkipped()
+        {
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Provenance:target") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: null,
+                deleteAll: true);
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(
+                    new[]
+                    {
+                        CreateSearchResultEntry("Provenance", "provenance-1", SearchEntryMode.Match),
+                        CreateSearchResultEntry("ValueSet", "valueset-1", SearchEntryMode.Include),
+                    },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+            var skipped = new Dictionary<string, long>();
+
+            var result = await _service.DeleteMultipleAsync(
+                request,
+                CancellationToken.None,
+                onProfileResourceSkipped: (resourceType, count) => skipped[resourceType] = count);
+
+            Assert.Equal(1, result["Provenance"]);
+            Assert.Equal(1, skipped["ValueSet"]);
+            await fhirDataStore.Received(1).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "Provenance"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "ValueSet"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
         [Fact]
         public async Task GivenConditionalDeleteOfOrdinaryType_WhenIncludeResultIsAProfileResourceAndCallerLacksEditProfileDefinitions_ThenThrowsAndDeletesNothing()
         {

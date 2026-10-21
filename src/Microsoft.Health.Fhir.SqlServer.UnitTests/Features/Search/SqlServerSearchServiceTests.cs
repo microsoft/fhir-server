@@ -6,13 +6,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Medino;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -20,8 +25,10 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -32,14 +39,17 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 {
@@ -154,6 +164,360 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Act and Assert
             await Assert.ThrowsAsync<BadRequestException>(() => _searchService.SearchAsync(options, CancellationToken.None));
             Assert.Empty(_sqlRetryService.ReceivedCalls());
+        }
+
+        [Theory]
+        [InlineData("[10,100,300,null,null,false,null,null,3]")]
+        [InlineData("[10,100,300,10,250,true,null,null,3]")]
+        public async Task GivenIncludesCountWithoutIncludeExpressions_WhenSearched_ThenZeroIsReturnedWithoutSql(string includesToken)
+        {
+            // Arrange
+            var options = new SearchOptions
+            {
+                CountOnly = true,
+                MaxItemCount = 1,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                IncludesContinuationToken = includesToken,
+            };
+
+            // Act
+            SearchResult result = await _searchService.SearchAsync(options, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(0, result.TotalCount);
+            Assert.Empty(result.Results);
+            Assert.Null(result.IncludesContinuationToken);
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
+        }
+
+        [Fact]
+        public async Task GivenIncludesCountWithInvalidIncludesToken_WhenSearched_ThenRejectedBeforeSql()
+        {
+            // Arrange
+            var options = new SearchOptions
+            {
+                CountOnly = true,
+                MaxItemCount = 1,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                IncludesContinuationToken = "not-a-token",
+            };
+
+            // Act and Assert
+            await Assert.ThrowsAsync<BadRequestException>(() => _searchService.SearchAsync(options, CancellationToken.None));
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.TimeoutExpired)]
+        [InlineData(1222)]
+        [InlineData(701)]
+        [InlineData(1105)]
+        [InlineData(1204)]
+        [InlineData(8645)]
+        [InlineData(8651)]
+        [InlineData(10928)]
+        [InlineData(10929)]
+        [InlineData(40501)]
+        [InlineData(49918)]
+        public async Task GivenIncludesCountWithTerminalSqlException_WhenSearched_ThenKnownFailureIsTranslated(int sqlErrorCode)
+        {
+            // Arrange
+            var sqlException = CreateSqlException(sqlErrorCode, "terminal include count failure");
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            _sqlRetryService.ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<Func<SqlException, bool>>())
+                .Returns(_ => throw sqlException);
+
+            var options = CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)));
+
+            // Act
+            Exception exception;
+            if (sqlErrorCode is SqlErrorCodes.TimeoutExpired or 1222)
+            {
+                exception = await Assert.ThrowsAsync<RequestTimeoutException>(() => searchService.SearchAsync(options, CancellationToken.None));
+            }
+            else
+            {
+                exception = await Assert.ThrowsAsync<ServiceUnavailableException>(() => searchService.SearchAsync(options, CancellationToken.None));
+            }
+
+            // Assert
+            Assert.Same(sqlException, exception.InnerException);
+            Assert.Equal(
+                sqlErrorCode is SqlErrorCodes.TimeoutExpired or 1222
+                    ? Microsoft.Health.Fhir.SqlServer.Resources.ExecutionTimeoutExpired
+                    : Microsoft.Health.Fhir.SqlServer.Resources.IncludesCountResourceExhausted,
+                exception.Message);
+            Assert.Equal(sqlErrorCode, ((SqlException)exception.InnerException).Number);
+            await _sqlRetryService.Received(1)
+                .ExecuteSql(
+                    Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>(),
+                    Arg.Is<Func<SqlException, bool>>(shouldNotRetry =>
+                        shouldNotRetry != null &&
+                        shouldNotRetry(sqlException) == (sqlErrorCode != SqlErrorCodes.TimeoutExpired && sqlErrorCode != 1222)));
+        }
+
+        [Theory]
+        [InlineData(102)]
+        [InlineData(229)]
+        [InlineData(1205)]
+        [InlineData(8623)]
+        public async Task GivenIncludesCountWithUnrecognizedSqlException_WhenSearched_ThenOriginalExceptionIsPreserved(int sqlErrorCode)
+        {
+            // Arrange
+            var sqlException = CreateSqlException(sqlErrorCode, "unrelated include count failure");
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            _sqlRetryService.ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<Func<SqlException, bool>>())
+                .Returns(_ => throw sqlException);
+
+            var options = CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<SqlException>(() => searchService.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Same(sqlException, exception);
+            Assert.Equal(sqlErrorCode, exception.Number);
+            await _sqlRetryService.Received(1)
+                .ExecuteSql(
+                    Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>(),
+                    Arg.Is<Func<SqlException, bool>>(shouldNotRetry =>
+                        shouldNotRetry != null && !shouldNotRetry(sqlException)));
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.TimeoutExpired)]
+        [InlineData(701)]
+        public async Task GivenNonCountIncludesSearchWithTerminalSqlException_WhenSearched_ThenOriginalSqlExceptionIsPreserved(int sqlErrorCode)
+        {
+            // Arrange
+            var sqlException = CreateSqlException(sqlErrorCode, "non-count include failure");
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            _sqlRetryService.ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<Func<SqlException, bool>>())
+                .Returns(_ => throw sqlException);
+
+            var options = CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)), countOnly: false);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<SqlException>(() => searchService.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Same(sqlException, exception);
+            Assert.Equal(sqlErrorCode, exception.Number);
+            await _sqlRetryService.Received(1)
+                .ExecuteSql(
+                    Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>(),
+                    Arg.Is<Func<SqlException, bool>>(shouldNotRetry =>
+                        shouldNotRetry != null && !shouldNotRetry(sqlException)));
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.TimeoutExpired)]
+        [InlineData(701)]
+        public async Task GivenRegularCountSearchWithTerminalSqlException_WhenSearched_ThenOriginalSqlExceptionIsPreserved(int sqlErrorCode)
+        {
+            // Arrange
+            var sqlException = CreateSqlException(sqlErrorCode, "regular count failure");
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            _sqlRetryService.ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(_ => throw sqlException);
+
+            var options = new SearchOptions
+            {
+                CountOnly = true,
+                MaxItemCount = 11,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<SqlException>(() => searchService.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Same(sqlException, exception);
+            Assert.Equal(sqlErrorCode, exception.Number);
+        }
+
+        [Fact]
+        public async Task GivenCountOnlyIncludesSearch_WhenOperationIsCanceled_ThenCancellationIsPreserved()
+        {
+            // Arrange
+            using var cts = new CancellationTokenSource();
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            var operationCanceledException = new OperationCanceledException(cts.Token);
+            _sqlRetryService.ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<Func<SqlException, bool>>())
+                .Returns(_ => throw operationCanceledException);
+
+            var options = CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => searchService.SearchAsync(options, cts.Token));
+
+            // Assert
+            Assert.Same(operationCanceledException, exception);
+            Assert.Equal(cts.Token, exception.CancellationToken);
+        }
+
+        private static SqlServerFhirModel CreateConcreteModel(ISqlRetryService sqlRetryService)
+        {
+            var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
+            {
+                Current = SchemaVersionConstants.Max,
+            };
+
+            var model = new SqlServerFhirModel(
+                schemaInfo,
+                Substitute.For<ISearchParameterDefinitionManager>(),
+                () => Substitute.For<FilebasedSearchParameterStatusDataStore>(Substitute.For<ISearchParameterDefinitionManager>(), Substitute.For<IModelInfoProvider>()),
+                Options.Create(new SecurityConfiguration()),
+                Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
+                Substitute.For<IMediator>(),
+                sqlRetryService,
+                ResourceIdPolicy.Standard,
+                NullLogger<SqlServerFhirModel>.Instance);
+
+            typeof(SqlServerFhirModel)
+                .GetField("_resourceTypeToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.SetValue(model, new Dictionary<string, short>(StringComparer.Ordinal)
+                {
+                    ["Patient"] = 1,
+                    ["Observation"] = 2,
+                });
+
+            typeof(SqlServerFhirModel)
+                .GetField("_resourceTypeIdToTypeName", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.SetValue(model, new Dictionary<short, string>
+                {
+                    [1] = "Patient",
+                    [2] = "Observation",
+                });
+
+            typeof(SqlServerFhirModel)
+                .GetField("_highestInitializedVersion", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.SetValue(model, schemaInfo.Current);
+
+            typeof(SqlServerFhirModel)
+                .GetField("_resourceTypeIdRange", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.SetValue(model, ((short)1, (short)2));
+
+            return model;
+        }
+
+        private SqlServerSearchService CreateSearchService(ISqlServerFhirModel model)
+        {
+            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(_queryGeneratorFactory);
+            var chainFlatteningRewriter = new ChainFlatteningRewriter(_queryGeneratorFactory);
+            var sortRewriter = new SortRewriter(_queryGeneratorFactory);
+            var compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType)
+                .Returns(SearchParameterInfo.ResourceTypeSearchParameter);
+            var partitionEliminationRewriter = new PartitionEliminationRewriter(model, _schemaInformation, () => searchParameterDefinitionManager);
+            var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(
+                new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager),
+                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(
+                compartmentSearchRewriter,
+                new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+                Options.Create(new CoreFeatureConfiguration()));
+
+            return new SqlServerSearchService(
+                _searchOptionsFactory,
+                _fhirDataStore,
+                model,
+                sqlRootExpressionRewriter,
+                chainFlatteningRewriter,
+                sortRewriter,
+                partitionEliminationRewriter,
+                compartmentSearchRewriter,
+                smartCompartmentSearchRewriter,
+                _queryGeneratorFactory,
+                _sqlRetryService,
+                Options.Create(new SqlServerDataStoreConfiguration { CommandTimeout = TimeSpan.FromSeconds(30) }),
+                new FhirSqlServerConfiguration(),
+                _schemaInformation,
+                _requestContextAccessor,
+                _compressedRawResourceConverter,
+                _queryHashCalculator,
+                _queryPlanReuseChecker,
+                Options.Create(_coreFeatureConfiguration),
+                NullLogger<SqlServerSearchService>.Instance);
+        }
+
+        private static SearchOptions CreateIncludesCountOptions(Expression includeExpression, bool countOnly = true)
+        {
+            return new SearchOptions
+            {
+                CountOnly = countOnly,
+                Expression = includeExpression,
+                IncludeCount = 10,
+                MaxItemCount = 11,
+                IncludesContinuationToken = new IncludesContinuationToken(new object[] { (short)10, 100L, 300L, null, null, false, null, null, 3 }).ToJson(),
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                ResourceVersionTypes = ResourceVersionType.Latest,
+            };
+        }
+
+        private static IncludeExpression CreateInclude(string sourceType, string targetType, bool reversed, bool iterate)
+        {
+            var parameter = new SearchParameterInfo("reference", "reference", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/reference"), null, null, [targetType]);
+            return new IncludeExpression([sourceType], parameter, sourceType, targetType, null, wildCard: false, reversed: reversed, iterate: iterate);
+        }
+
+        /// <summary>
+        /// Builds the search expression in the same shape the search layer hands to the SQL data store: a
+        /// Core <see cref="Expression"/>. SqlServerSearchService owns the translation into a SqlRootExpression,
+        /// so the test must not pre-translate it.
+        /// </summary>
+        private static Expression CreateIncludesExpression(params IncludeExpression[] includes)
+        {
+            return Expression.And(
+                new Expression[]
+                {
+                    Expression.SearchParameter(
+                        SearchParameterInfo.ResourceTypeSearchParameter,
+                        Expression.Equals(FieldName.TokenCode, null, "Patient")),
+                }.Concat(includes).ToArray());
+        }
+
+        private static SqlException CreateSqlException(int number, string message)
+        {
+            return SqlExceptionFactory.GetSqlException(number, message);
         }
 
         [Fact]

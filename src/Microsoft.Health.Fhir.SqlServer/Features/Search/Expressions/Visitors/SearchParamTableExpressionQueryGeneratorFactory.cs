@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitUnion(UnionExpression expression, object context)
         {
-            return VisitExpressionsContainer(expression, context);
+            return VisitExpressionsContainer(expression, context) ?? NotReferencedQueryGenerator.Instance;
         }
 
         public SearchParamTableExpressionQueryGenerator VisitString(StringExpression expression, object context)

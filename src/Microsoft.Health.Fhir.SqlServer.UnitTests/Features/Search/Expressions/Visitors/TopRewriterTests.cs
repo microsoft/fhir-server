@@ -46,12 +46,44 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var searchOptions = new SearchOptions { CountOnly = true };
 
+            // A regular count-only search emits no include table expressions, so nothing reads the main CTE.
+            Assert.False(searchOptions.IsIncludesOperation);
+
             // Act
             var result = TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
 
             // Assert - Should return unchanged for count-only queries
             Assert.Same(sqlRoot, result);
             Assert.Single(((SqlRootExpression)result).SearchParamTableExpressions);
+        }
+
+        [Fact]
+        public void GivenCountOnlyIncludesQuery_WhenVisited_ThenAddsTopExpression()
+        {
+            // Arrange
+            var stringExpression = Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(TestSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+
+            var searchOptions = new SearchOptions
+            {
+                CountOnly = true,
+                IncludesContinuationToken = new IncludesContinuationToken(
+                    new object[] { (short)10, 100L, 300L }).ToJson(),
+            };
+
+            Assert.True(searchOptions.IsIncludesOperation);
+
+            // Act
+            var result = (SqlRootExpression)TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
+
+            // Assert - The include table expressions reference the main CTE, which only the Top expression
+            // assigns, so it must still be emitted even though only a count was requested.
+            Assert.NotSame(sqlRoot, result);
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            Assert.Same(searchParamExpression, result.SearchParamTableExpressions[0].Predicate);
+            Assert.Equal(SearchParamTableExpressionKind.Top, result.SearchParamTableExpressions[1].Kind);
         }
 
         [Fact]

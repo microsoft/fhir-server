@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
         [InlineData(HttpStatusCode.NotFound, true)]
         [InlineData(HttpStatusCode.MethodNotAllowed, true)]
         [InlineData(HttpStatusCode.Conflict, true)]
+        [InlineData(HttpStatusCode.FailedDependency, true)]
         [InlineData(HttpStatusCode.PreconditionFailed, true)]
         [InlineData(HttpStatusCode.RequestEntityTooLarge, true)]
         [InlineData(HttpStatusCode.UnsupportedMediaType, true)]
