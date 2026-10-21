@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure;
@@ -27,8 +26,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private readonly Dictionary<string, BlockBlobWriter> _blobWriters = new Dictionary<string, BlockBlobWriter>();
-        private DestinationConnectionException _commitFailure;
+        private readonly Dictionary<string, BlobStreamWriter> _blobStreams = new Dictionary<string, BlobStreamWriter>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -57,8 +55,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public async Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null)
         {
-            _commitFailure = null;
-
             try
             {
                 _blobClient = _exportClientInitializer.GetAuthorizedClient(exportJobConfiguration);
@@ -123,98 +119,140 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(fileName, nameof(fileName));
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
-            ThrowIfCommitFailed();
 
-            if (!_blobWriters.TryGetValue(fileName, out BlockBlobWriter blobWriter))
+            BlobStreamWriter blobStream;
+            if (!_blobStreams.TryGetValue(fileName, out blobStream))
             {
-                blobWriter = new BlockBlobWriter(_blobContainer.GetBlockBlobClient(fileName));
-                _blobWriters.Add(fileName, blobWriter);
+                blobStream = new BlobStreamWriter(_blobContainer.GetBlockBlobClient(fileName));
+                _blobStreams.Add(fileName, blobStream);
             }
 
-            blobWriter.WriteLine(data);
+            blobStream.StreamWriter.WriteLine(data);
         }
 
         public IDictionary<string, Uri> Commit()
         {
-            ThrowIfCommitFailed();
-
             Dictionary<string, Uri> blobUris = new Dictionary<string, Uri>();
 
-            foreach (KeyValuePair<string, BlockBlobWriter> entry in _blobWriters)
+            foreach (string fileName in _blobStreams.Keys)
             {
-                blobUris.Add(entry.Key, CommitWriter(entry.Key, entry.Value));
+                var blobUri = CommitFile(fileName);
+                blobUris.Add(fileName, blobUri);
             }
 
-            ReleaseWriters();
             return blobUris;
         }
 
         public Uri CommitFile(string fileName)
         {
-            ThrowIfCommitFailed();
+            Uri uri = null;
+            if (_blobStreams.ContainsKey(fileName))
+            {
+                try
+                {
+                    uri = CommitFileRetry(fileName);
+                }
+                catch (RequestFailedException ex)
+                {
+                    if (TryGetCommittedBlobUri(fileName, ex, out uri))
+                    {
+                        return uri;
+                    }
 
-            if (!_blobWriters.TryGetValue(fileName, out BlockBlobWriter blobWriter))
+                    _logger.LogError(ex, "Failed to write export file");
+
+                    // Add a small delay before retrying in case of race condition
+                    Task.Delay(TimeSpan.FromSeconds(RetryDelaySeconds)).Wait();
+
+                    try
+                    {
+                        uri = CommitFileRetry(fileName);
+                    }
+                    catch (ObjectDisposedException odEx)
+                    {
+                        _logger.LogError(odEx, "Failed to write export file due to ObjectDisposedException");
+                        throw new DestinationConnectionException(ex.Message, (HttpStatusCode)ex.Status);
+                    }
+                    catch (RequestFailedException ex2)
+                    {
+                        if (TryGetCommittedBlobUri(fileName, ex2, out uri))
+                        {
+                            return uri;
+                        }
+
+                        _logger.LogError(ex2, "Failed to write export file on retry");
+                        throw new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
+                    }
+                }
+            }
+            else
             {
                 throw new ArgumentException($"Cannot commit non-existant file {fileName}");
             }
 
-            Uri uri = CommitWriter(fileName, blobWriter);
-
-            blobWriter.Dispose();
-            _blobWriters.Remove(fileName);
+            _blobStreams[fileName].Dispose();
+            _blobStreams.Remove(fileName);
             return uri;
         }
 
-        private Uri CommitWriter(string fileName, BlockBlobWriter blobWriter)
+        private Uri CommitFileRetry(string fileName)
         {
+            var blobWriter = _blobStreams[fileName];
+
+            blobWriter.StreamWriter.Flush();
+            blobWriter.StreamWriter.Close();
+
+            return blobWriter.BlobUri;
+        }
+
+        /// <summary>
+        /// Checks whether a commit that failed with 412 ConditionNotMet was actually applied by storage.
+        /// </summary>
+        /// <remarks>
+        /// OpenWrite commits with an If-Match condition on the blob ETag. When storage applies a commit but the response is
+        /// lost, for example while the account is throttling, the SDK retries the commit with the old ETag and gets 412 even
+        /// though the file is complete. Each export file is written only by this writer, so the commit was applied when the
+        /// blob size matches the number of bytes written.
+        /// </remarks>
+        /// <param name="fileName">The export file name.</param>
+        /// <param name="exception">The commit failure.</param>
+        /// <param name="uri">The blob URI when the commit was applied.</param>
+        /// <returns>True when the failure is 412 and the blob already contains all written data.</returns>
+        private bool TryGetCommittedBlobUri(string fileName, RequestFailedException exception, out Uri uri)
+        {
+            uri = null;
+            if (exception.Status != (int)HttpStatusCode.PreconditionFailed)
+            {
+                return false;
+            }
+
+            BlobStreamWriter blobWriter = _blobStreams[fileName];
+            long bytesWritten = blobWriter.Stream.Position;
+
+            long blobLength;
             try
             {
-                return blobWriter.Commit();
+                blobLength = blobWriter.BlockBlob.GetProperties().Value.ContentLength;
             }
-            catch (RequestFailedException ex)
+            catch (RequestFailedException propertiesException)
             {
-                _logger.LogError(ex, "Failed to write export file {FileName}", fileName);
-
-                // Add a small delay before retrying in case the storage account is throttling.
-                Task.Delay(TimeSpan.FromSeconds(RetryDelaySeconds)).Wait();
-
-                try
-                {
-                    // Committing again is safe: it commits the same block list, so a retry can't duplicate data.
-                    return blobWriter.Commit();
-                }
-                catch (RequestFailedException ex2)
-                {
-                    _logger.LogError(ex2, "Failed to write export file {FileName} on retry", fileName);
-
-                    // Fail closed. The export job retry can't safely continue after a failed commit: on the final page it
-                    // writes the page again, which would duplicate records in a kept writer, and on earlier pages it
-                    // continues after data that only a kept writer holds, which a new writer would lose. Rejecting all
-                    // further writes and commits makes the export fail instead of producing incorrect files.
-                    var failure = new DestinationConnectionException(ex2.Message, (HttpStatusCode)ex2.Status);
-                    _commitFailure = failure;
-                    ReleaseWriters();
-                    throw failure;
-                }
+                _logger.LogWarning(propertiesException, "Failed to read export file {FileName} after a 412 response to commit", fileName);
+                return false;
             }
-        }
 
-        private void ReleaseWriters()
-        {
-            foreach (BlockBlobWriter blobWriter in _blobWriters.Values)
+            if (bytesWritten == 0 || blobLength != bytesWritten)
             {
-                blobWriter.Dispose();
+                _logger.LogWarning("Export file {FileName} commit returned 412 and the file is incomplete. Expected {BytesWritten} bytes, found {BlobLength}.", fileName, bytesWritten, blobLength);
+                return false;
             }
 
-            _blobWriters.Clear();
-        }
+            _logger.LogWarning(exception, "Export file {FileName} commit returned 412, but the file has all {BytesWritten} bytes, so the commit was applied", fileName, bytesWritten);
 
-        private void ThrowIfCommitFailed()
-        {
-            if (_commitFailure is not null)
-            {
-                throw new DestinationConnectionException(_commitFailure.Message, _commitFailure.StatusCode);
-            }
+            // Release the writer without disposing it. Disposing would send another commit with the same old ETag,
+            // which fails again with 412.
+            _blobStreams.Remove(fileName);
+            uri = blobWriter.BlobUri;
+            return true;
         }
 
         private void CheckIfClientIsConnected()
@@ -225,177 +263,28 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
         }
 
-        /// <summary>
-        /// Writes the lines of one export file and uploads them as the blocks of a block blob.
-        /// </summary>
-        /// <remarks>
-        /// This writer replaces <c>BlockBlobClient.OpenWrite</c>.
-        /// OpenWrite commits the block list with an If-Match condition on the blob ETag. When storage applies a commit
-        /// but the response is lost, for example while the account is throttling, the SDK retries the commit with the
-        /// old ETag and storage rejects it with 412 ConditionNotMet, which fails the export.
-        /// This writer commits without a condition. Each export file is written by exactly one export job, and
-        /// committing the same block list again produces the same blob, so retries are safe and succeed.
-        /// </remarks>
-        private sealed class BlockBlobWriter : IDisposable
+        private class BlobStreamWriter : IDisposable
         {
-            private readonly BlockStagingStream _stagingStream;
-            private readonly StreamWriter _streamWriter;
-
-            public BlockBlobWriter(BlockBlobClient blockBlob)
+            public BlobStreamWriter(BlockBlobClient blockBlob)
             {
-                _stagingStream = new BlockStagingStream(blockBlob);
-
-                // The small character buffer makes the writer encode and pass data to the staging stream in small chunks,
-                // so a large resource is uploaded as it's written instead of being buffered whole.
-                _streamWriter = new StreamWriter(_stagingStream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: true);
+                BlockBlob = blockBlob;
+                BlobUri = blockBlob.Uri;
+                Stream = blockBlob.OpenWrite(true);
+                StreamWriter = new StreamWriter(Stream);
             }
 
-            /// <summary>
-            /// Writes a line to the file. Full blocks are uploaded as they fill.
-            /// </summary>
-            /// <param name="data">The line to write.</param>
-            public void WriteLine(string data)
-            {
-                _streamWriter.WriteLine(data);
-            }
+            public BlockBlobClient BlockBlob { get; private set; }
 
-            /// <summary>
-            /// Uploads any buffered data and commits all blocks, without an If-Match condition.
-            /// </summary>
-            /// <returns>The URI of the committed blob.</returns>
-            public Uri Commit()
-            {
-                _streamWriter.Flush();
-                return _stagingStream.Commit();
-            }
+            public Stream Stream { get; private set;  }
+
+            public StreamWriter StreamWriter { get; private set; }
+
+            public Uri BlobUri { get; private set; }
 
             public void Dispose()
             {
-                // Writers are disposed after a commit or when they're abandoned. Discard anything still buffered so disposal
-                // never uploads data.
-                _stagingStream.Discard();
-                _streamWriter.Dispose();
-                _stagingStream.Dispose();
-            }
-        }
-
-        /// <summary>
-        /// A write-only stream that uploads data as blocks of a block blob when about 4 MB is buffered.
-        /// </summary>
-        private sealed class BlockStagingStream : Stream
-        {
-            // Matches the default buffer size of OpenWrite, so memory use per open file is unchanged.
-            private const int BlockSizeInBytes = 4 * 1024 * 1024;
-
-            private readonly BlockBlobClient _blockBlob;
-            private readonly MemoryStream _pending = new MemoryStream();
-            private readonly List<string> _blockIds = new List<string>();
-            private bool _discarding;
-
-            public BlockStagingStream(BlockBlobClient blockBlob)
-            {
-                _blockBlob = blockBlob;
-            }
-
-            public override bool CanRead => false;
-
-            public override bool CanSeek => false;
-
-            public override bool CanWrite => true;
-
-            public override long Length => throw new NotSupportedException();
-
-            public override long Position
-            {
-                get => throw new NotSupportedException();
-                set => throw new NotSupportedException();
-            }
-
-            public override void Write(byte[] buffer, int offset, int count)
-            {
-                Write(new ReadOnlySpan<byte>(buffer, offset, count));
-            }
-
-            public override void Write(ReadOnlySpan<byte> buffer)
-            {
-                if (_discarding)
-                {
-                    return;
-                }
-
-                // Buffer all bytes before uploading, so a failed upload loses nothing and a later attempt uploads everything.
-                _pending.Write(buffer);
-
-                if (_pending.Length >= BlockSizeInBytes)
-                {
-                    StagePendingData();
-                }
-            }
-
-            /// <summary>
-            /// Stops uploading. Later writes are ignored.
-            /// </summary>
-            public void Discard()
-            {
-                _discarding = true;
-            }
-
-            /// <summary>
-            /// Uploads any pending data and commits all blocks, without an If-Match condition.
-            /// </summary>
-            /// <returns>The URI of the committed blob.</returns>
-            public Uri Commit()
-            {
-                StagePendingData();
-
-                _blockBlob.CommitBlockList(_blockIds);
-                return _blockBlob.Uri;
-            }
-
-            public override void Flush()
-            {
-                // Data is uploaded when a block is full or on commit, not on flush.
-            }
-
-            public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-
-            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-
-            public override void SetLength(long value) => throw new NotSupportedException();
-
-            protected override void Dispose(bool disposing)
-            {
-                if (disposing)
-                {
-                    _pending.Dispose();
-                }
-
-                base.Dispose(disposing);
-            }
-
-            private void StagePendingData()
-            {
-                if (_pending.Length == 0)
-                {
-                    return;
-                }
-
-                // Block IDs must all have the same length within a blob. A GUID gives a unique, fixed-length ID.
-                string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-
-                _pending.Position = 0;
-                try
-                {
-                    _blockBlob.StageBlock(blockId, _pending);
-                }
-                finally
-                {
-                    // If staging failed, keep appending after the pending data so a later attempt uploads all of it.
-                    _pending.Position = _pending.Length;
-                }
-
-                _blockIds.Add(blockId);
-                _pending.SetLength(0);
+                StreamWriter?.Dispose();
+                Stream?.Dispose();
             }
         }
     }

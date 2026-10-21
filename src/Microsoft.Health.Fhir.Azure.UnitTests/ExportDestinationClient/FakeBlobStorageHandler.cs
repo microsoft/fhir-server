@@ -18,37 +18,49 @@ using System.Xml.Linq;
 namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 {
     /// <summary>
-    /// In-memory fake of the Azure Blob Storage REST operations used by export: create container,
-    /// put blob, stage block, and commit block list. Like the real service, it enforces If-Match on
-    /// commits and changes the blob ETag on every write, so tests can simulate storage faults.
+    /// In-memory fake of the Azure Blob Storage REST operations used by export: create container, put blob, stage block,
+    /// commit block list, and get blob properties. Like the real service, it enforces If-Match on commits, replaces the
+    /// blob content on every commit, and changes the blob ETag on every write, so tests can simulate storage faults.
     /// </summary>
     internal sealed class FakeBlobStorageHandler : HttpMessageHandler
     {
+        private const string ContainerPath = "/export/";
+
         private readonly object _sync = new object();
         private readonly Dictionary<string, byte[]> _uncommittedBlocks = new Dictionary<string, byte[]>();
         private readonly Dictionary<string, BlobState> _blobs = new Dictionary<string, BlobState>();
         private int _etagCounter;
 
         /// <summary>
-        /// Gets or sets the number of upcoming commits that storage applies but whose response is replaced
-        /// with 500 OperationTimedOut, as if the response was lost during throttling.
+        /// Gets the 1-based numbers of commit requests that storage applies but answers with 500 OperationTimedOut,
+        /// as if the response was lost while the account was throttling. The SDK then retries the commit.
         /// </summary>
-        public int CommitResponsesToLose { get; set; }
+        public ISet<int> CommitsWithLostResponse { get; } = new HashSet<int>();
 
         /// <summary>
-        /// Gets or sets a status code with which storage rejects commits without applying them.
+        /// Gets or sets a status code with which storage rejects every commit without applying it.
         /// </summary>
         public HttpStatusCode? RejectCommitsWith { get; set; }
 
         /// <summary>
-        /// Gets or sets a blob name that limits <see cref="RejectCommitsWith"/> to that blob. When null, all commits are rejected.
+        /// Gets or sets a status code with which storage fails every get blob properties request.
         /// </summary>
-        public string RejectCommitsForBlob { get; set; }
+        public HttpStatusCode? FailGetPropertiesWith { get; set; }
 
         /// <summary>
-        /// Gets the If-Match header of every commit request, or null when the request had none.
+        /// Gets the If-Match header of every commit request, in order, or null when a request had none.
         /// </summary>
         public List<string> CommitIfMatchHeaders { get; } = new List<string>();
+
+        /// <summary>
+        /// Gets the status code returned for every commit request, in order.
+        /// </summary>
+        public List<HttpStatusCode> CommitResponseStatuses { get; } = new List<HttpStatusCode>();
+
+        /// <summary>
+        /// Gets the number of get blob properties requests.
+        /// </summary>
+        public int GetPropertiesRequestCount { get; private set; }
 
         /// <summary>
         /// Gets the number of stage block requests.
@@ -64,8 +76,20 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         {
             lock (_sync)
             {
-                string key = _blobs.Keys.SingleOrDefault(k => k.EndsWith("/" + blobName, StringComparison.Ordinal));
-                return key is null ? null : Encoding.UTF8.GetString(_blobs[key].Content);
+                return _blobs.TryGetValue(ContainerPath + blobName, out BlobState blob) ? Encoding.UTF8.GetString(blob.Content) : null;
+            }
+        }
+
+        /// <summary>
+        /// Replaces the content of a blob, as another writer would, which changes its ETag.
+        /// </summary>
+        /// <param name="blobName">The blob name within the container.</param>
+        /// <param name="content">The new content.</param>
+        public void OverwriteBlob(string blobName, string content)
+        {
+            lock (_sync)
+            {
+                _blobs[ContainerPath + blobName] = new BlobState(Encoding.UTF8.GetBytes(content), NextETag());
             }
         }
 
@@ -82,6 +106,11 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 
             lock (_sync)
             {
+                if (request.Method == HttpMethod.Head)
+                {
+                    return GetProperties(path);
+                }
+
                 if (request.Method != HttpMethod.Put)
                 {
                     return CreateError(HttpStatusCode.NotImplemented, "NotImplemented");
@@ -101,7 +130,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
                         return CreateSuccess(HttpStatusCode.Created, etag: null);
 
                     case "blocklist":
-                        return CommitBlockList(request, path, body);
+                        HttpResponseMessage commitResponse = CommitBlockList(request, path, body);
+                        CommitResponseStatuses.Add(commitResponse.StatusCode);
+                        return commitResponse;
 
                     case null:
                         string etag = NextETag();
@@ -118,11 +149,11 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         {
             string ifMatch = request.Headers.IfMatch.Count == 0 ? null : request.Headers.IfMatch.First().Tag;
             CommitIfMatchHeaders.Add(ifMatch);
+            int commitNumber = CommitIfMatchHeaders.Count;
 
-            if (RejectCommitsWith is HttpStatusCode rejectStatus
-                && (RejectCommitsForBlob is null || path.EndsWith("/" + RejectCommitsForBlob, StringComparison.Ordinal)))
+            if (RejectCommitsWith is HttpStatusCode rejectStatus)
             {
-                return CreateError(rejectStatus, "AuthorizationFailure");
+                return CreateError(rejectStatus, rejectStatus == HttpStatusCode.PreconditionFailed ? "ConditionNotMet" : "AuthorizationFailure");
             }
 
             if (ifMatch is not null && (!_blobs.TryGetValue(path, out BlobState current) || current.ETag != ifMatch))
@@ -131,7 +162,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             }
 
             using var bodyStream = new MemoryStream(body);
-            IEnumerable<string> blockIds = XDocument.Load(bodyStream).Root.Elements().Select(e => e.Value).ToList();
+            List<string> blockIds = XDocument.Load(bodyStream).Root.Elements().Select(e => e.Value).ToList();
             var content = new List<byte>();
             foreach (string blockId in blockIds)
             {
@@ -143,16 +174,36 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
                 content.AddRange(block);
             }
 
+            // A commit replaces the blob content with the listed blocks; it never appends.
             string etag = NextETag();
             _blobs[path] = new BlobState(content.ToArray(), etag);
 
-            if (CommitResponsesToLose > 0)
+            if (CommitsWithLostResponse.Contains(commitNumber))
             {
-                CommitResponsesToLose--;
                 return CreateError(HttpStatusCode.InternalServerError, "OperationTimedOut");
             }
 
             return CreateSuccess(HttpStatusCode.Created, etag);
+        }
+
+        private HttpResponseMessage GetProperties(string path)
+        {
+            GetPropertiesRequestCount++;
+
+            if (FailGetPropertiesWith is HttpStatusCode failStatus)
+            {
+                return CreateError(failStatus, "ServerBusy");
+            }
+
+            if (!_blobs.TryGetValue(path, out BlobState blob))
+            {
+                return CreateError(HttpStatusCode.NotFound, "BlobNotFound");
+            }
+
+            HttpResponseMessage response = CreateSuccess(HttpStatusCode.OK, blob.ETag);
+            response.Content.Headers.ContentLength = blob.Content.Length;
+            response.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob");
+            return response;
         }
 
         private string NextETag()

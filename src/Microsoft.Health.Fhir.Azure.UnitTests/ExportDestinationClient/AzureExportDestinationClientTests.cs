@@ -29,6 +29,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
     [Trait(Traits.Category, Categories.Operations)]
     public class AzureExportDestinationClientTests
     {
+        private const int LargeFileLineCount = 10_000;
+        private const int LargeFileLineLength = 1_000;
+
         private IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
         private ILogger<AzureExportDestinationClient> _logger;
@@ -162,128 +165,123 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         }
 
         [Fact]
-        public async Task GivenCommitIsAppliedButResponseIsLost_WhenCommittingFile_ThenCommitSucceedsAndFileIsComplete()
+        public async Task GivenFileLargerThanOneBlock_WhenCommittingFile_ThenFileIsCommittedWithIfMatchAndIsNotReadBack()
+        {
+            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
+            WriteLines("Observation-1-1.ndjson", LargeFileLineCount, LargeFileLineLength);
+
+            Uri uri = _exportDestinationClient.CommitFile("Observation-1-1.ndjson");
+
+            Assert.EndsWith("/export/Observation-1-1.ndjson", uri.AbsolutePath);
+            Assert.True(storage.StagedBlockCount >= 3);
+            Assert.Equal(ExpectedContent(LargeFileLineCount, LargeFileLineLength), storage.GetBlobContent("Observation-1-1.ndjson"));
+
+            // The normal path is unchanged: every commit keeps the SDK If-Match condition, and nothing reads the blob.
+            Assert.All(storage.CommitIfMatchHeaders, Assert.NotNull);
+            Assert.DoesNotContain(HttpStatusCode.PreconditionFailed, storage.CommitResponseStatuses);
+            Assert.Equal(0, storage.GetPropertiesRequestCount);
+        }
+
+        [Fact]
+        public async Task GivenCommitIsAppliedButResponseIsLost_WhenCommittingFile_ThenCommitSucceedsAndFileContainsEachLineOnce()
+        {
+            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
+            WriteLines("Observation-1-1.ndjson", LargeFileLineCount, LargeFileLineLength);
+            storage.CommitsWithLostResponse.Add(1);
+
+            Uri uri = _exportDestinationClient.CommitFile("Observation-1-1.ndjson");
+
+            Assert.EndsWith("/export/Observation-1-1.ndjson", uri.AbsolutePath);
+
+            // The SDK retried the applied commit with the old ETag and got 412, as in production.
+            Assert.Equal(HttpStatusCode.InternalServerError, storage.CommitResponseStatuses[0]);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, storage.CommitResponseStatuses[1]);
+
+            // The size check ran once, and the file holds every line exactly once.
+            Assert.Equal(1, storage.GetPropertiesRequestCount);
+            Assert.Equal(ExpectedContent(LargeFileLineCount, LargeFileLineLength), storage.GetBlobContent("Observation-1-1.ndjson"));
+
+            // The writer was released without another commit, which would fail again with the old ETag.
+            int commitCount = storage.CommitIfMatchHeaders.Count;
+            Assert.Empty(_exportDestinationClient.Commit());
+            Assert.Equal(commitCount, storage.CommitIfMatchHeaders.Count);
+        }
+
+        [Fact]
+        public async Task GivenCommitFromCloseIsAppliedButResponseIsLost_WhenCommittingFile_ThenCommitSucceeds()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
             WriteLines("Patient-1-1.ndjson", 3);
-            storage.CommitResponsesToLose = 1;
+
+            // Commit 1 comes from Flush and succeeds. Commit 2 comes from Close; storage applies it but the response is lost.
+            storage.CommitsWithLostResponse.Add(2);
 
             Uri uri = _exportDestinationClient.CommitFile("Patient-1-1.ndjson");
 
             Assert.EndsWith("/export/Patient-1-1.ndjson", uri.AbsolutePath);
+            Assert.Contains(HttpStatusCode.PreconditionFailed, storage.CommitResponseStatuses);
+            Assert.Equal(1, storage.GetPropertiesRequestCount);
             Assert.Equal(ExpectedContent(3), storage.GetBlobContent("Patient-1-1.ndjson"));
         }
 
         [Fact]
-        public async Task GivenCommitIsAppliedTwice_WhenCommittingFile_ThenFileContainsEachLineOnce()
+        public async Task GivenCommitResponseIsLostForOneFile_WhenCommittingAllFiles_ThenAllFilesAreCommittedAndReturned()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
-            WriteLines("Patient-1-1.ndjson", 5);
-            storage.CommitResponsesToLose = 1;
+            WriteLines("Patient-1-1.ndjson", 2);
+            WriteLines("Observation-1-1.ndjson", 4);
+            storage.CommitsWithLostResponse.Add(1);
 
-            _exportDestinationClient.CommitFile("Patient-1-1.ndjson");
+            var result = _exportDestinationClient.Commit();
 
-            // The first commit was applied but its response was lost, so the SDK sent the same commit again.
-            Assert.Equal(2, storage.CommitIfMatchHeaders.Count);
-            string[] lines = storage.GetBlobContent("Patient-1-1.ndjson").Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-            Assert.Equal(5, lines.Length);
-            Assert.Equal(5, lines.Distinct().Count());
+            Assert.Equal(new[] { "Observation-1-1.ndjson", "Patient-1-1.ndjson" }, result.Keys.OrderBy(k => k, StringComparer.Ordinal));
+            Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
+            Assert.Equal(ExpectedContent(4), storage.GetBlobContent("Observation-1-1.ndjson"));
+            Assert.Equal(1, storage.GetPropertiesRequestCount);
+            Assert.Empty(_exportDestinationClient.Commit());
         }
 
         [Fact]
-        public async Task GivenFileIsWritten_WhenCommittingFile_ThenCommitIsSentWithoutIfMatchCondition()
+        public async Task GivenFileIsChangedByAnotherWriter_WhenCommittingFile_ThenConditionNotMetIsReturnedAndOtherContentIsKept()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
             WriteLines("Patient-1-1.ndjson", 3);
+            storage.OverwriteBlob("Patient-1-1.ndjson", "other writer");
 
-            _exportDestinationClient.CommitFile("Patient-1-1.ndjson");
+            var exception = Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson"));
 
-            Assert.NotEmpty(storage.CommitIfMatchHeaders);
-            Assert.All(storage.CommitIfMatchHeaders, Assert.Null);
+            // A genuine conflict still fails: the size check runs on both attempts and doesn't match the written data.
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCode);
+            Assert.Equal(2, storage.GetPropertiesRequestCount);
+            Assert.Equal("other writer", storage.GetBlobContent("Patient-1-1.ndjson"));
         }
 
         [Fact]
-        public async Task GivenFileLargerThanOneBlock_WhenCommittingFile_ThenAllBlocksAreCommittedInOrder()
+        public async Task GivenCommitResponseIsLostAndFileCannotBeRead_WhenCommittingFile_ThenConditionNotMetIsReturned()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
-            WriteLines("Observation-1-1.ndjson", 10_000, lineLength: 1_000);
+            WriteLines("Patient-1-1.ndjson", 3);
+            storage.CommitsWithLostResponse.Add(1);
+            storage.FailGetPropertiesWith = HttpStatusCode.ServiceUnavailable;
 
-            _exportDestinationClient.CommitFile("Observation-1-1.ndjson");
+            var exception = Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson"));
 
-            Assert.True(storage.StagedBlockCount >= 3);
-            Assert.Equal(ExpectedContent(10_000, lineLength: 1_000), storage.GetBlobContent("Observation-1-1.ndjson"));
+            // The commit can't be verified, so the original behavior is kept.
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.StatusCode);
+            Assert.True(storage.GetPropertiesRequestCount > 0);
         }
 
         [Fact]
-        public async Task GivenCommitFailsPermanently_WhenCommittingFile_ThenClientRejectsFurtherWritesAndCommits()
+        public async Task GivenCommitFailsWithOtherError_WhenCommittingFile_ThenErrorIsReturnedAndFileIsNotRead()
         {
             FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
             WriteLines("Patient-1-1.ndjson", 3);
             storage.RejectCommitsWith = HttpStatusCode.Forbidden;
 
             var exception = Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson"));
+
             Assert.Equal(HttpStatusCode.Forbidden, exception.StatusCode);
-            Assert.Null(storage.GetBlobContent("Patient-1-1.ndjson"));
-
-            storage.RejectCommitsWith = null;
-
-            Assert.Equal(HttpStatusCode.Forbidden, Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.WriteFilePart("Patient-1-1.ndjson", Line(0, 10))).StatusCode);
-            Assert.Equal(HttpStatusCode.Forbidden, Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson")).StatusCode);
-            Assert.Equal(HttpStatusCode.Forbidden, Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.Commit()).StatusCode);
-            Assert.Null(storage.GetBlobContent("Patient-1-1.ndjson"));
-        }
-
-        [Fact]
-        public async Task GivenOneFileFailsInBatchCommit_WhenTheJobRetries_ThenClientFailsClosedAndCommittedFileIsUnchanged()
-        {
-            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
-            WriteLines("Patient-1-1.ndjson", 2);
-            WriteLines("Observation-1-1.ndjson", 2);
-            storage.RejectCommitsWith = HttpStatusCode.ServiceUnavailable;
-            storage.RejectCommitsForBlob = "Observation-1-1.ndjson";
-
-            Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.Commit());
-            Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
-
-            // The export job retry replays the final page. It must fail rather than write duplicate or partial files.
-            storage.RejectCommitsWith = null;
-            Assert.Throws<DestinationConnectionException>(() => WriteLines("Patient-1-1.ndjson", 2));
-            Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.Commit());
-
-            Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
-            Assert.Null(storage.GetBlobContent("Observation-1-1.ndjson"));
-        }
-
-        [Fact]
-        public async Task GivenCommitFailedPermanently_WhenClientReconnects_ThenWritesAndCommitsSucceed()
-        {
-            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
-            WriteLines("Patient-1-1.ndjson", 1);
-            storage.RejectCommitsWith = HttpStatusCode.Forbidden;
-            Assert.Throws<DestinationConnectionException>(() => _exportDestinationClient.CommitFile("Patient-1-1.ndjson"));
-            storage.RejectCommitsWith = null;
-
-            await _exportDestinationClient.ConnectAsync(CancellationToken.None, "export");
-            WriteLines("Patient-1-1.ndjson", 3);
-            _exportDestinationClient.CommitFile("Patient-1-1.ndjson");
-
-            Assert.Equal(ExpectedContent(3), storage.GetBlobContent("Patient-1-1.ndjson"));
-        }
-
-        [Fact]
-        public async Task GivenSingleResourceLargerThanOneBlock_WhenWritingFilePart_ThenBlocksAreUploadedBeforeCommit()
-        {
-            FakeBlobStorageHandler storage = await ConnectToFakeStorageAsync();
-            string largeResource = Line(0, 10 * 1024 * 1024);
-
-            _exportDestinationClient.WriteFilePart("Binary-1-1.ndjson", largeResource);
-
-            Assert.True(storage.StagedBlockCount >= 2);
-            Assert.Null(storage.GetBlobContent("Binary-1-1.ndjson"));
-
-            _exportDestinationClient.CommitFile("Binary-1-1.ndjson");
-
-            Assert.Equal(largeResource + Environment.NewLine, storage.GetBlobContent("Binary-1-1.ndjson"));
+            Assert.Equal(0, storage.GetPropertiesRequestCount);
         }
 
         [Fact]
@@ -298,6 +296,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             Assert.Equal(new[] { "Observation-1-1.ndjson", "Patient-1-1.ndjson" }, result.Keys.OrderBy(k => k, StringComparer.Ordinal));
             Assert.Equal(ExpectedContent(2), storage.GetBlobContent("Patient-1-1.ndjson"));
             Assert.Equal(ExpectedContent(4), storage.GetBlobContent("Observation-1-1.ndjson"));
+            Assert.Equal(0, storage.GetPropertiesRequestCount);
             Assert.Empty(_exportDestinationClient.Commit());
         }
 
