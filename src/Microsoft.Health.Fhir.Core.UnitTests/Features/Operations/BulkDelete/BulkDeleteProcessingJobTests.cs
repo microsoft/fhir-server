@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
@@ -117,7 +118,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             // Simulate the database layer throwing JobConflictException when trying to delete SearchParameter during active reindex
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
 
-            await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            Assert.True(exception.IsCustomerCaused);
+            Assert.IsType<FhirJobConflictException>(exception.InnerException);
         }
 
         [Fact]
@@ -130,7 +133,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
 
             // The conflict should propagate through the workflow, preventing any deletions
-            await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            Assert.True(exception.IsCustomerCaused);
+            Assert.IsType<FhirJobConflictException>(exception.InnerException);
         }
 
         [Fact]
@@ -160,7 +165,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>()).Returns<Task<IDictionary<string, long>>>(x => throw new FhirJobConflictException("A reindex job is currently running."));
 
             var followUpJobInfo = new JobInfo() { Id = 2, Definition = definitions[0] };
-            await Assert.ThrowsAsync<FhirJobConflictException>(async () => await _processingJob.ExecuteAsync(followUpJobInfo, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(followUpJobInfo, CancellationToken.None));
+            Assert.True(exception.IsCustomerCaused);
+            Assert.IsType<FhirJobConflictException>(exception.InnerException);
+        }
+
+        [Theory]
+        [InlineData(true, false, true)]
+        [InlineData(false, true, false)]
+        [InlineData(true, true, false)]
+        public async Task GivenIncompleteDeletion_WhenProcessingJobRuns_ThenOnlyReindexConflictsAreCustomerCaused(bool reindexConflict, bool systemFailure, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "SearchParameter", new List<Tuple<string, string>>(), new List<string>(), "https://test.com", "https://test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            var partialResults = new Dictionary<string, long> { ["SearchParameter"] = 2 };
+            var exceptions = new List<Exception>();
+            if (reindexConflict)
+            {
+                exceptions.Add(new IncompleteOperationException<Dictionary<string, long>>(
+                    new FhirJobConflictException("A reindex job is currently running."),
+                    partialResults));
+            }
+
+            if (systemFailure)
+            {
+                exceptions.Add(new InvalidOperationException("Storage failure."));
+            }
+
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
+                .Returns<Task<IDictionary<string, long>>>(_ => throw new IncompleteOperationException<IDictionary<string, long>>(new AggregateException(exceptions), partialResults));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(2, result.ResourcesDeleted["SearchParameter"]);
+            Assert.NotEmpty(result.Issues);
+            if (reindexConflict)
+            {
+                Assert.IsType<FhirJobConflictException>(exception.InnerException);
+                Assert.Contains("JobConflictException: A reindex job is currently running.", result.Issues);
+            }
+
+            if (systemFailure)
+            {
+                Assert.Contains("InvalidOperationException: Storage failure.", result.Issues);
+            }
         }
     }
 }
