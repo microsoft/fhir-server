@@ -274,6 +274,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public void IsRetriable_WithSuppressedSqlException_ShouldReturnFalse()
+        {
+            // Arrange
+            const int capacityErrorCode = 99999;
+            var options = Options.Create(new SqlRetryServiceOptions());
+            options.Value.AddTransientErrors.Add(capacityErrorCode);
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                _sqlServerDataStoreConfiguration,
+                options,
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+            var capacityException = CreateSqlException(capacityErrorCode, "Capacity error");
+            var transientException = CreateSqlException(1205, "Transaction was deadlocked");
+            Func<SqlException, bool> shouldNotRetry = ex => ex.Number == capacityErrorCode;
+
+            // Act
+            var shouldRetryCapacityError = InvokeIsRetriable(service, capacityException, shouldNotRetry);
+            var shouldRetryDeadlock = InvokeIsRetriable(service, transientException, shouldNotRetry);
+
+            // Assert
+            Assert.False(shouldRetryCapacityError);
+            Assert.True(shouldRetryDeadlock);
+        }
+
+        [Fact]
         public void IsRetriable_WithDefaultRetriableException_ShouldReturnTrue()
         {
             // Arrange
@@ -489,18 +515,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             return (bool)method.Invoke(null, new object[] { ex });
         }
 
-        private static bool InvokeIsRetriable(SqlRetryService service, Exception ex)
+        private static bool InvokeIsRetriable(SqlRetryService service, Exception ex, Func<SqlException, bool> shouldNotRetry = null)
         {
             var method = typeof(SqlRetryService).GetMethod(
                 "IsRetriable",
-                BindingFlags.NonPublic | BindingFlags.Instance);
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { typeof(Exception), typeof(Func<SqlException, bool>) },
+                null);
 
             if (method == null)
             {
                 throw new InvalidOperationException("Method 'IsRetriable' not found");
             }
 
-            return (bool)method.Invoke(service, new object[] { ex });
+            return (bool)method.Invoke(service, new object[] { ex, shouldNotRetry });
         }
 
         private static SqlException CreateSqlException(int errorNumber, string message)

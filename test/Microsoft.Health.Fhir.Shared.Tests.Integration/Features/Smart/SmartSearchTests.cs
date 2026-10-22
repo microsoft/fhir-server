@@ -4780,6 +4780,206 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [Fact]
+        public async Task GivenSmartV2WildcardScopeWithTagFilter_WhenSearchingWithIncludeOrRevInclude_ThenRestrictedResourcesAreExcluded()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            bool isSqlServer = string.Equals(_fixture.FhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase);
+            var patientId = CreateSmartV2TestResourceId("wildcard-tag-patient");
+            var otherPatientId = CreateSmartV2TestResourceId("wildcard-tag-other-patient");
+            var allowedObservationId = CreateSmartV2TestResourceId("wildcard-tag-allowed");
+            var restrictedObservationId = CreateSmartV2TestResourceId("wildcard-tag-restricted");
+            var otherCompartmentAllowedObservationId = CreateSmartV2TestResourceId("wildcard-tag-other-comp");
+            var diagnosticReportId = CreateSmartV2TestResourceId("wildcard-tag-report");
+            const string tagSystem = "testTag";
+
+            await _smartFixture.UpsertResource(new Patient
+            {
+                Id = patientId,
+                Meta = new Meta { Tag = new List<Coding> { new Coding(tagSystem, "allowed") } },
+            });
+            await _smartFixture.UpsertResource(new Patient
+            {
+                Id = otherPatientId,
+                Meta = new Meta { Tag = new List<Coding> { new Coding(tagSystem, "allowed") } },
+            });
+            await _smartFixture.UpsertResource(new Observation
+            {
+                Id = allowedObservationId,
+                Status = ObservationStatus.Final,
+                Subject = new ResourceReference($"Patient/{patientId}"),
+                Meta = new Meta { Tag = new List<Coding> { new Coding(tagSystem, "allowed") } },
+            });
+            await _smartFixture.UpsertResource(new Observation
+            {
+                Id = restrictedObservationId,
+                Status = ObservationStatus.Final,
+                Subject = new ResourceReference($"Patient/{patientId}"),
+                Meta = new Meta { Tag = new List<Coding> { new Coding(tagSystem, "restricted") } },
+            });
+            await _smartFixture.UpsertResource(new Observation
+            {
+                Id = otherCompartmentAllowedObservationId,
+                Status = ObservationStatus.Final,
+                Subject = new ResourceReference($"Patient/{otherPatientId}"),
+#if !Stu3
+                Focus = new List<ResourceReference> { new ResourceReference($"Patient/{patientId}") },
+#endif
+                Meta = new Meta { Tag = new List<Coding> { new Coding(tagSystem, "allowed") } },
+            });
+            await _smartFixture.UpsertResource(new DiagnosticReport
+            {
+                Id = diagnosticReportId,
+                Status = DiagnosticReport.DiagnosticReportStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "11502-2"),
+                Subject = new ResourceReference($"Patient/{patientId}"),
+                Result = new List<ResourceReference>
+                {
+                    new ResourceReference($"Observation/{allowedObservationId}"),
+                    new ResourceReference($"Observation/{restrictedObservationId}"),
+                    new ResourceReference($"Observation/{otherCompartmentAllowedObservationId}"),
+                },
+                Meta = new Meta { Tag = new List<Coding> { new Coding(tagSystem, "allowed") } },
+            });
+
+            var scope = new ScopeRestriction(
+                KnownResourceTypes.All,
+                Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("_tag", $"{tagSystem}|allowed")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scope }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = patientId;
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // 1. Direct search for the restricted Observation must return an empty Bundle.
+            var directSearch = await _searchService.Value.SearchAsync(
+                "Observation",
+                new List<Tuple<string, string>> { Tuple.Create("_id", restrictedObservationId) },
+                CancellationToken.None);
+            Assert.Empty(directSearch.Results);
+
+            // 2. _revinclude=Observation:subject must return only the Patient and the allowed Observation.
+            var revIncludeSearch = await _searchService.Value.SearchAsync(
+                "Patient",
+                new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", patientId),
+                    Tuple.Create("_revinclude", "Observation:subject"),
+                },
+                CancellationToken.None);
+
+            Assert.Equal(2, revIncludeSearch.Results.Count());
+            Assert.Contains(revIncludeSearch.Results, result => result.Resource.ResourceId == patientId);
+            Assert.Contains(revIncludeSearch.Results, result => result.Resource.ResourceId == allowedObservationId);
+            Assert.DoesNotContain(revIncludeSearch.Results, result => result.Resource.ResourceId == restrictedObservationId);
+
+            // 3. Wildcard _revinclude=*:* must enforce both SMART compartment authorization (on SQL) and _tag=allowed.
+            var wildcardRevIncludeSearch = await _searchService.Value.SearchAsync(
+                "Patient",
+                new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", patientId),
+                    Tuple.Create("_revinclude", "*:*"),
+                },
+                CancellationToken.None);
+
+            Assert.Contains(wildcardRevIncludeSearch.Results, result => result.Resource.ResourceId == patientId);
+            Assert.Contains(wildcardRevIncludeSearch.Results, result => result.Resource.ResourceId == allowedObservationId);
+            Assert.Contains(wildcardRevIncludeSearch.Results, result => result.Resource.ResourceId == diagnosticReportId);
+            Assert.DoesNotContain(wildcardRevIncludeSearch.Results, result => result.Resource.ResourceId == restrictedObservationId);
+            if (isSqlServer)
+            {
+                Assert.DoesNotContain(wildcardRevIncludeSearch.Results, result => result.Resource.ResourceId == otherCompartmentAllowedObservationId);
+            }
+
+            // 4. Forward _include=DiagnosticReport:result must enforce the requested relationship (result only, not subject=Patient)
+            // as well as SMART compartment authorization (on SQL) and _tag=allowed.
+            var includeSearch = await _searchService.Value.SearchAsync(
+                "DiagnosticReport",
+                new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", diagnosticReportId),
+                    Tuple.Create("_include", "DiagnosticReport:result"),
+                },
+                CancellationToken.None);
+
+            Assert.Contains(includeSearch.Results, result => result.Resource.ResourceId == diagnosticReportId);
+            Assert.Contains(includeSearch.Results, result => result.Resource.ResourceId == allowedObservationId);
+            Assert.DoesNotContain(includeSearch.Results, result => result.Resource.ResourceId == restrictedObservationId);
+            Assert.DoesNotContain(includeSearch.Results, result => result.Resource.ResourceId == patientId);
+            if (isSqlServer)
+            {
+                Assert.Equal(2, includeSearch.Results.Count());
+                Assert.DoesNotContain(includeSearch.Results, result => result.Resource.ResourceId == otherCompartmentAllowedObservationId);
+            }
+
+            // 5. Wildcard _include=*:* must enforce both SMART compartment authorization (on SQL) and _tag=allowed.
+            var wildcardIncludeSearch = await _searchService.Value.SearchAsync(
+                "DiagnosticReport",
+                new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", diagnosticReportId),
+                    Tuple.Create("_include", "*:*"),
+                },
+                CancellationToken.None);
+
+            Assert.Contains(wildcardIncludeSearch.Results, result => result.Resource.ResourceId == diagnosticReportId);
+            Assert.Contains(wildcardIncludeSearch.Results, result => result.Resource.ResourceId == patientId);
+            Assert.Contains(wildcardIncludeSearch.Results, result => result.Resource.ResourceId == allowedObservationId);
+            Assert.DoesNotContain(wildcardIncludeSearch.Results, result => result.Resource.ResourceId == restrictedObservationId);
+            if (isSqlServer)
+            {
+                Assert.DoesNotContain(wildcardIncludeSearch.Results, result => result.Resource.ResourceId == otherCompartmentAllowedObservationId);
+            }
+        }
+
+        [Fact]
+        public async Task GivenSmartV2WildcardScopeWithMultiTypeFilter_WhenSearchingWithIncludeAndRevInclude_ThenAuthorizedResourcesAreIncluded()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scope = new ScopeRestriction(
+                KnownResourceTypes.All,
+                Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search,
+                "system",
+                CreateSearchParams(("_type", "Patient,Observation")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scope }, true);
+
+            // 1. Forward _include=Observation:subject must include the authorized Patient.
+            var includeResults = await _searchService.Value.SearchAsync(
+                "Observation",
+                new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", "smart-observation-A1"),
+                    Tuple.Create("_include", "Observation:subject"),
+                },
+                CancellationToken.None);
+
+            Assert.Contains(includeResults.Results, r => r.Resource.ResourceTypeName == "Observation" && r.Resource.ResourceId == "smart-observation-A1");
+            Assert.Contains(includeResults.Results, r => r.Resource.ResourceTypeName == "Patient" && r.Resource.ResourceId == "smart-patient-A");
+
+            // 2. Named _revinclude=Observation:subject must include the authorized Observations.
+            var revIncludeResults = await _searchService.Value.SearchAsync(
+                "Patient",
+                new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", "smart-patient-A"),
+                    Tuple.Create("_revinclude", "Observation:subject"),
+                },
+                CancellationToken.None);
+
+            Assert.Contains(revIncludeResults.Results, r => r.Resource.ResourceTypeName == "Patient" && r.Resource.ResourceId == "smart-patient-A");
+            Assert.Contains(revIncludeResults.Results, r => r.Resource.ResourceTypeName == "Observation" && r.Resource.ResourceId == "smart-observation-A1");
+            Assert.Contains(revIncludeResults.Results, r => r.Resource.ResourceTypeName == "Observation" && r.Resource.ResourceId == "smart-observation-A2");
+        }
+
+        [Fact]
         public async Task GivenGranularScopesForObservationPatientDiagnosticReport_WhenSearching_ThenResultsAreAsExpected()
         {
             Assert.SkipWhen(

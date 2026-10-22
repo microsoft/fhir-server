@@ -418,6 +418,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     return mergeOutcome;
                 }
             }
+            catch (BundleOrchestratorOperationCanceledException)
+            {
+                throw;
+            }
             catch (OperationCanceledException oce)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
