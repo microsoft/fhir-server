@@ -56,13 +56,6 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Build Integration Test Projects'
-    inputs:
-      command: build
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
   - task: PowerShell@2
     displayName: 'Run SQL Integration Tests with coverage'
     inputs:
@@ -70,17 +63,18 @@ jobs:
       pwsh: true
       script: |
         $ErrorActionPreference = 'Stop'
+        $testRoot = "$(Agent.TempDirectory)/IntegrationTests"
         $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
-        $dll = "$(Pipeline.Workspace)/source/test/$testName/bin/$(buildConfiguration)/$(defaultBuildFramework)/$testName.dll"
-        if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) {
-          throw "Could not find $dll"
+        $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+        if (-not $dll) {
+          throw "Could not find $testName.dll under $testRoot"
         }
 
         # Both filters are required to exclude CosmosDb traits and traitless CosmosDb classes.
         $args = @('--filter-not-trait', 'DataStore=CosmosDb', '--filter-not-class', '*CosmosDb*', '--retry-failed-tests', '3', '--coverage', '--coverage-output-format', 'cobertura', '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml", '--report-trx')
 
-        Write-Host "Running dotnet $dll"
-        & dotnet $dll @args
+        Write-Host "Running dotnet $($dll.FullName)"
+        & dotnet $dll.FullName @args
         $testExitCode = $LASTEXITCODE
         if ($testExitCode -ne 0) {
           throw "SQL integration tests failed with exit code $testExitCode"
