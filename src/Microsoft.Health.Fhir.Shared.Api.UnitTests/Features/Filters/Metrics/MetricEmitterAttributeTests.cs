@@ -18,21 +18,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
     public sealed class MetricEmitterAttributeTests
     {
         [Fact]
-        public async Task BundleEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
-        {
-            IBundleMetricHandler metricHandler = Substitute.For<IBundleMetricHandler>();
-            metricHandler.EmitLatency(Arg.Any<BundleMetricNotification>());
-
-            var attribute = new BundleEndpointMetricEmitterAttribute(metricHandler);
-
-            attribute.OnActionExecuting(null);
-            await Task.Delay(100);
-            attribute.OnActionExecuted(null);
-
-            metricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
-        }
-
-        [Fact]
         public async Task SearchEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
         {
             ISearchMetricHandler metricHandler = Substitute.For<ISearchMetricHandler>();

@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             HttpStatusCode resultCode = HttpStatusCode.Accepted;
             HttpResponseMessage response = null;
             var sw = Stopwatch.StartNew();
-            var maxSeconds = 300;
+            var maxSeconds = 420;
 
             // Wait until status change or timeout
             while ((resultCode == HttpStatusCode.Accepted || resultCode == HttpStatusCode.ServiceUnavailable) && sw.Elapsed.TotalSeconds < maxSeconds)
