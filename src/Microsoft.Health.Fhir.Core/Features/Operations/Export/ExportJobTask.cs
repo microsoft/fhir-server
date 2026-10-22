@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _logger.LogError(rnfe, "[JobId:{JobId}] Can't find specified resource. The job will be marked as failed.", _exportJobRecord.Id);
                 }
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (FailedToParseAnonymizationConfigurationException ex)

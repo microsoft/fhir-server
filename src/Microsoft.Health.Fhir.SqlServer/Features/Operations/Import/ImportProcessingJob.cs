@@ -130,10 +130,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     await loadTask;
                 }
-                catch (OperationCanceledException oce)
+                catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogJobWarning(oce, jobInfo, nameof(OperationCanceledException));
+                    _logger.LogJobInformation(ex, jobInfo, "Import processing operation is canceled from cancellation token.");
                     throw;
+                }
+                catch (OperationCanceledException canceledEx)
+                {
+                    _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Import processing operation is canceled" };
+                    throw new JobExecutionException(canceledEx.Message, error, canceledEx, false);
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.Forbidden || ex.Status == (int)HttpStatusCode.Unauthorized)
                 {
