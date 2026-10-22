@@ -33,13 +33,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 decimal roundedValue = decimal.Round(value, scale);
                 if (roundedValue != value)
                 {
-                    throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value '{value}' exceeds the allowed scale ({scale}) for the target SQL decimal type.");
+                    throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value exceeds the allowed scale ({scale}) for the target SQL decimal type.");
                 }
             }
 
             if (integralDigits > precision - scale)
             {
-                throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value '{value}' exceeds the allowed precision ({precision}) and scale ({scale}) for the target SQL decimal type.");
+                throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value exceeds the allowed precision ({precision}) and scale ({scale}) for the target SQL decimal type.");
             }
 
             return value;

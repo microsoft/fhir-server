@@ -902,10 +902,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 _logger.LogInformation($"MergeResourcesWrapperAsync: resources={mergeWrappers.Count}, searchParams={pendingStatuses?.Count ?? 0} transactionId={transactionId}, singleTransaction={singleTransaction}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
             }
-            catch (SqlDecimalValueOutOfRangeException ex)
+            catch (SqlDecimalValueOutOfRangeException)
             {
-                _logger.LogWarning(ex, "The resource contains a search parameter value that exceeds the SQL DECIMAL(36,18) limit used for search indexing.");
-                throw new BadRequestException($"The resource contains a search parameter value that exceeds the SQL DECIMAL(36,18) limit used for search indexing: {ex.Message}");
+                _logger.LogWarning("The resource contains a search parameter value that exceeds the SQL DECIMAL(36,18) limit used for search indexing.");
+                throw new BadRequestException("The resource contains a search parameter value that exceeds the SQL DECIMAL(36,18) limit used for search indexing.");
             }
         }
 
