@@ -30,7 +30,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Health;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -174,7 +173,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
 
             // Register a factory to resolve a scope that returns all components that provide capabilities
-            services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
+            services.AddScopedProviderFactory<IEnumerable<IProvideCapability>>();
 
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
             services.Add<ProvenanceHeaderBehavior>()
@@ -217,15 +216,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddLazy();
             services.AddScoped();
 
-            services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
-
             services.AddScoped<IDocRefRequestConverter, DocRefRequestConverter>();
 
             services.TypesInSameAssembly(KnownAssemblies.All)
                 .AssignableTo<IInstantiateCapability>()
                 .Transient()
                 .AsService<IInstantiateCapability>();
-            services.AddFactory<IScoped<IEnumerable<IInstantiateCapability>>>();
+            services.AddScopedProviderFactory<IEnumerable<IInstantiateCapability>>();
         }
     }
 }

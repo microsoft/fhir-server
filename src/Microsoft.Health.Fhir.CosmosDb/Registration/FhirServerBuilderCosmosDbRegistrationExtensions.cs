@@ -269,8 +269,9 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosQueueClient>()
                 .Scoped()
                 .AsSelf()
-                .AsImplementedInterfaces()
-                .AsFactory<IScoped<IQueueClient>>();
+                .AsImplementedInterfaces();
+
+            services.AddScopedProviderFactory<IQueueClient>();
 
             services.Add<CosmosAccessTokenProviderFactory>(c => c.GetRequiredService<IAccessTokenProvider>)
                .Transient()
