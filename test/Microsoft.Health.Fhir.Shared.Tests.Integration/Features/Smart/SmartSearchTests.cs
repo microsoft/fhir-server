@@ -2657,6 +2657,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var idQuery = new List<Tuple<string, string>>() { Tuple.Create("_id", $"{taggedId},{untaggedId}") };
             var rangeQuery = new List<Tuple<string, string>>(idQuery)
             {
+                Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Observation),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
             };
