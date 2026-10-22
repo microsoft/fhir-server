@@ -498,10 +498,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             catch (FhirTransactionCancelledException tce)
             {
-                _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tce.Message);
+                // The original request token is only cancelled when the client disconnects or the request is aborted.
+                // Entries can also be cancelled by the service itself (a sibling entry failed), which only cancels the internal linked token.
+                bool isCancelledByClient = cancellationToken.IsCancellationRequested;
+
+                _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}. CancelledByClient: {CancelledByClient}.", tce.Message, isCancelledByClient);
                 statistics.SetBundleAsCancelled();
 
-                _metricHandler.EmitFailure(nameof(FhirTransactionCancelledException));
+                // Client cancellations do not count as service failures, consistent with the generic cancellation path below.
+                if (!isCancelledByClient)
+                {
+                    _metricHandler.EmitFailure(nameof(FhirTransactionCancelledException));
+                }
 
                 throw;
             }

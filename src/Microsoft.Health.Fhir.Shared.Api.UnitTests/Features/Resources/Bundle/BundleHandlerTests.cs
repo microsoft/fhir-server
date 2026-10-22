@@ -600,8 +600,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.HandleAsync(bundleRequest, cancellationToken));
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
 
-                // Ensures failure sign is emitted.
-                _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                // Client cancellations are not service failures.
+                _bundleMetricHandler.DidNotReceive().EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.DidNotReceive().EmitSuccess();
                 _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
@@ -864,8 +865,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
 
-                // Ensures failure sign is emitted.
-                _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                // Client cancellations are not service failures.
+                _bundleMetricHandler.DidNotReceive().EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.DidNotReceive().EmitSuccess();
                 _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
@@ -1040,6 +1042,104 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(numberOfEntries, runningEntries);
             Assert.Equal(HttpStatusCode.BadRequest, fhirTfe.ResponseStatusCode);
             Assert.True(fhirTfe.IsErrorCausedDueClientFailure());
+        }
+
+        [Fact]
+        public async Task GivenAParallelTransaction_WhenTheClientCancelsMidTransaction_ThenNoFailureMetricIsEmitted()
+        {
+            const int numberOfEntries = 2;
+
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+
+            Hl7.Fhir.Model.Bundle bundle = CreateTransactionBundle("/Patient", "/Patient");
+
+            int runningEntries = 0;
+            int cancelledEntries = 0;
+            var allEntriesRunning = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    callInfo.Arg<RouteContext>().Handler = async context =>
+                    {
+                        if (Interlocked.Increment(ref runningEntries) == numberOfEntries)
+                        {
+                            allEntriesRunning.TrySetResult();
+                        }
+
+                        if (await WaitForCancellationAndReturnRequestTimeoutAsync(context))
+                        {
+                            Interlocked.Increment(ref cancelledEntries);
+                        }
+                    };
+                });
+
+            using var tokenSource = new CancellationTokenSource();
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            System.Threading.Tasks.Task<BundleResponse> handleTask = _bundleHandler.HandleAsync(bundleRequest, tokenSource.Token);
+
+            // The client disconnects while every entry of the transaction is still running.
+            await allEntriesRunning.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await tokenSource.CancelAsync();
+
+            FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(() => handleTask);
+            Assert.Equal(HttpStatusCode.RequestTimeout, fhirTce.ResponseStatusCode);
+
+            // Every running entry must observe the client cancellation, not time out on its own.
+            Assert.Equal(numberOfEntries, cancelledEntries);
+
+            // Client cancellations are not service failures.
+            _bundleMetricHandler.DidNotReceive().EmitFailure(Arg.Any<string>());
+            _bundleMetricHandler.DidNotReceive().EmitSuccess();
+        }
+
+        [Theory]
+        [InlineData("/Patient", "/Observation")]
+        [InlineData("/Observation", "/Patient")]
+        public async Task GivenAParallelTransaction_WhenAnEntryFailsAndTheServiceCancelsItsSiblings_ThenAFailureMetricIsEmitted(string firstUrl, string secondUrl)
+        {
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.SupportsBundleOrchestrator = true;
+
+            // The Observation entry fails with an internal error. The Patient entry waits until the service cancels it.
+            Hl7.Fhir.Model.Bundle bundle = CreateTransactionBundle(firstUrl, secondUrl);
+
+            var waitingEntryRunning = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+            bool? waitingEntryCancelled = null;
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    RouteContext routeContext = callInfo.Arg<RouteContext>();
+                    bool isFailingEntry = routeContext.HttpContext.Request.Path.Value.Contains("Observation", StringComparison.Ordinal);
+
+                    routeContext.Handler = async context =>
+                    {
+                        if (isFailingEntry)
+                        {
+                            await waitingEntryRunning.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                            await WriteOperationOutcomeAsync(context, StatusCodes.Status500InternalServerError, OperationOutcome.IssueType.Exception, "Internal error");
+                        }
+                        else
+                        {
+                            waitingEntryRunning.TrySetResult();
+                            waitingEntryCancelled = await WaitForCancellationAndReturnRequestTimeoutAsync(context);
+                        }
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            // The client never cancels the request, so any cancellation was triggered by the service and must count as a failure.
+            await Assert.ThrowsAnyAsync<BaseFhirTransactionException>(() => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+
+            // The sibling must be cancelled by the service after the failure, not time out on its own.
+            Assert.True(waitingEntryCancelled, "The waiting entry did not observe the service-initiated cancellation.");
+
+            _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+            _bundleMetricHandler.DidNotReceive().EmitSuccess();
         }
 
         [Fact]
@@ -1702,6 +1802,63 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
 
             return new BundleRequest(bundle.ToResourceElement());
+        }
+
+        private static Hl7.Fhir.Model.Bundle CreateTransactionBundle(params string[] urls)
+        {
+            return new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = urls
+                    .Select(url => new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = url },
+                        Resource = url.Contains("Observation", StringComparison.Ordinal) ? new Observation() : new Patient(),
+                    })
+                    .ToList(),
+            };
+        }
+
+        private static async System.Threading.Tasks.Task<bool> WaitForCancellationAndReturnRequestTimeoutAsync(HttpContext context)
+        {
+            bool cancellationObserved;
+
+            try
+            {
+                // Bounded wait, so a missing cancellation fails the test instead of hanging it.
+                await Task.Delay(TimeSpan.FromSeconds(30), context.RequestAborted);
+                cancellationObserved = false;
+            }
+            catch (OperationCanceledException)
+            {
+                cancellationObserved = context.RequestAborted.IsCancellationRequested;
+            }
+
+            await WriteOperationOutcomeAsync(context, StatusCodes.Status408RequestTimeout, OperationOutcome.IssueType.Timeout, "The operation was canceled.");
+
+            // Callers assert on this value: a 408 written after the delay expired must not count as observed cancellation.
+            return cancellationObserved;
+        }
+
+        private static async Task WriteOperationOutcomeAsync(HttpContext context, int statusCode, OperationOutcome.IssueType issueType, string diagnostics)
+        {
+            context.Response.StatusCode = statusCode;
+
+            var outcome = new OperationOutcome
+            {
+                Issue = new List<OperationOutcome.IssueComponent>
+                {
+                    new OperationOutcome.IssueComponent
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = issueType,
+                        Diagnostics = diagnostics,
+                    },
+                },
+            };
+
+            byte[] bytes = Encoding.UTF8.GetBytes(new FhirJsonSerializer().SerializeToString(outcome));
+            await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)
