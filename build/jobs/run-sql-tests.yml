@@ -63,17 +63,28 @@ jobs:
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
       arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
-  - task: DotNetCoreCLI@2
+  - task: PowerShell@2
     displayName: 'Run SQL Integration Tests with coverage'
     inputs:
-      command: test
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      # Intentional simple filters (NOT --filter-query): in xunit.v3 3.2.2 any query path segment zeroes the trait predicate, and both clauses are load-bearing to reproduce v2's name+trait exclusion (drop CosmosDb-traited AND store-named-but-traitless classes). Do not merge back to --filter-query.
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter-not-trait "DataStore=CosmosDb" --filter-not-class "*CosmosDb*" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
-      publishTestResults: false
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
+        $dll = "$(Pipeline.Workspace)/source/test/$testName/bin/$(buildConfiguration)/$(defaultBuildFramework)/$testName.dll"
+        if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) {
+          throw "Could not find $dll"
+        }
+
+        # Both filters are required to exclude CosmosDb traits and traitless CosmosDb classes.
+        $args = @('--filter-not-trait', 'DataStore=CosmosDb', '--filter-not-class', '*CosmosDb*', '--retry-failed-tests', '3', '--coverage', '--coverage-output-format', 'cobertura', '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml", '--report-trx')
+
+        Write-Host "Running dotnet $dll"
+        & dotnet $dll @args
+        $testExitCode = $LASTEXITCODE
+        if ($testExitCode -ne 0) {
+          throw "SQL integration tests failed with exit code $testExitCode"
+        }
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
