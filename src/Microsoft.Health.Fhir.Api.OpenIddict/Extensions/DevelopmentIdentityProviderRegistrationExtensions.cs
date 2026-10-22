@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
@@ -158,7 +159,25 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                                 return default;
                             }).SetOrder(int.MinValue)); // Ensure this runs early
 
-                        // Note: OpenIddict has a default token validation handler that does more granular validation
+                        // OpenIddict 7+ enforces RFC 8707, rejecting 'resource' values that aren't absolute URIs.
+                        // Clients of this development IdP send the audience name (e.g. "fhir-api") as the resource,
+                        // and the token audience is derived from the granted scopes, so drop non-URI resource values.
+                        options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+                            builder.UseInlineHandler(context =>
+                            {
+                                if (context.Request.Resources is { IsDefaultOrEmpty: false } resources)
+                                {
+                                    ImmutableArray<string> absoluteResources = resources
+                                        .Where(resource => Uri.TryCreate(resource, UriKind.Absolute, out _))
+                                        .ToImmutableArray();
+
+                                    context.Request.Resources = absoluteResources.IsEmpty ? null : absoluteResources;
+                                }
+
+                                return default;
+                            }).SetOrder(int.MinValue));
+
+                        // Note: OpenIddict has a default token validation handler
                         //   including checking the cliend Id and secret. So, we may not need this event handler.
                         //   https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
                         options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
