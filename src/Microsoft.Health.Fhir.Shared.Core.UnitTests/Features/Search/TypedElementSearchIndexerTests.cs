@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new SearchParameterInfo(
                     "composite",
                     "composite",
-                    (ValueSets.SearchParamType)SearchParamType.Composite,
+                    ValueSets.SearchParamType.Composite,
                     new Uri("http://hl7.org/fhir/SearchParameter/composite"),
                     components: Array.Empty<SearchParameterComponentInfo>(),
                     expression: "Patient.name"),

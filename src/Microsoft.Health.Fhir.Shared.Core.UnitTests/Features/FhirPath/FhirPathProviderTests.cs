@@ -642,6 +642,65 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                     value.Code == "29463-7");
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenCompositeSearchParameter_WhenIndexed_ThenOnlyCompleteComponentsAreIncluded(bool useIgnixa)
+        {
+            var family = new SearchParameterInfo(
+                "family",
+                "family",
+                ValueSets.SearchParamType.String,
+                new Uri("http://example.org/SearchParameter/family"),
+                expression: "family");
+            var given = new SearchParameterInfo(
+                "given",
+                "given",
+                ValueSets.SearchParamType.String,
+                new Uri("http://example.org/SearchParameter/given"),
+                expression: "given");
+            var composite = new SearchParameterInfo(
+                "name-pair",
+                "name-pair",
+                ValueSets.SearchParamType.Composite,
+                new Uri("http://example.org/SearchParameter/name-pair"),
+                components:
+                [
+                    new SearchParameterComponentInfo(family.Url, "family") { ResolvedSearchParameter = family },
+                    new SearchParameterComponentInfo(given.Url, "given") { ResolvedSearchParameter = given },
+                ],
+                expression: "Patient.name");
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns([composite]);
+            var failures = Substitute.For<IFailureMetricHandler>();
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
+                new CorpusReferenceToElementResolver(),
+                ModelInfoProvider.Instance,
+                useIgnixa ? CreateIgnixaProvider() : new FirelyFhirPathProvider(),
+                NullLogger<TypedElementSearchIndexer>.Instance,
+                failures);
+            ResourceElement patient = new Patient
+            {
+                Id = "synthetic-patient",
+                Name =
+                [
+                    new HumanName { Family = "Complete", Given = ["Demo"] },
+                    new HumanName { Family = "MissingGiven" },
+                    new HumanName { Given = ["MissingFamily"] },
+                ],
+            }.ToResourceElement();
+
+            IReadOnlyCollection<SearchIndexEntry> entries = indexer.Extract(patient);
+
+            CompositeSearchValue value = Assert.IsType<CompositeSearchValue>(Assert.Single(entries).Value);
+            Assert.Equal(2, value.Components.Count);
+            Assert.Equal("Complete", Assert.IsType<StringSearchValue>(Assert.Single(value.Components[0])).String);
+            Assert.Equal("Demo", Assert.IsType<StringSearchValue>(Assert.Single(value.Components[1])).String);
+            failures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
         private static IFhirPathProvider CreateIgnixaProvider()
             => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
 
