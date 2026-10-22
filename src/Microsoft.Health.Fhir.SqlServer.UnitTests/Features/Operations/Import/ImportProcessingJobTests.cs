@@ -243,7 +243,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             var loader = Substitute.For<IImportResourceLoader>();
             var canceled = new OperationCanceledException(cancellationSource.Token);
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
-                .Returns((Channel.CreateUnbounded<ImportResource>(), Task.FromException(canceled)));
+                .Returns(_ =>
+                    {
+                        cancellationSource.Cancel();
+                        return (Channel.CreateUnbounded<ImportResource>(), Task.FromException(canceled));
+                    });
             var job = CreateProcessingJob(loader);
             if (cancelBeforeExecution)
             {

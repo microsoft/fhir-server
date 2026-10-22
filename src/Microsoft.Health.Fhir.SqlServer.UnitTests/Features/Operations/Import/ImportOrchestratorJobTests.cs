@@ -164,12 +164,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             var canceled = new OperationCanceledException(cancellationSource.Token);
             var client = Substitute.For<IIntegrationDataStoreClient>();
             client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-                .Returns(_ => cancellationStage == "validation"
-                    ? Task.FromException<Dictionary<string, object>>(canceled)
-                    : Task.FromResult(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L }));
+                .Returns(_ =>
+                    {
+                        if (cancellationStage == "validation")
+                        {
+                            cancellationSource.Cancel();
+                        }
+
+                        return cancellationStage == "validation"
+                            ? Task.FromException<Dictionary<string, object>>(canceled)
+                            : Task.FromResult(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L });
+                    });
             var queue = Substitute.For<IQueueClient>();
             queue.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw canceled);
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ =>
+                    {
+                        cancellationSource.Cancel();
+                        throw canceled;
+                    });
             var job = CreateOrchestratorJob(client, queue);
             var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
             if (cancellationStage == "before")

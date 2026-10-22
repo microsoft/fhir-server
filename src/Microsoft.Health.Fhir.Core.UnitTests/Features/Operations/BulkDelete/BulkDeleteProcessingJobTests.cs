@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 exceptions.Add(new InvalidOperationException("Storage failure."));
             }
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>())
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
                 .Returns<Task<IDictionary<string, long>>>(_ => throw new IncompleteOperationException<IDictionary<string, long>>(new AggregateException(exceptions), partialResults));
 
             // Act
