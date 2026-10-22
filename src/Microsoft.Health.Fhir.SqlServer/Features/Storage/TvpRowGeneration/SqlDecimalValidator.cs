@@ -30,7 +30,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             if (fractionalDigits > scale)
             {
-                throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value '{value}' exceeds the allowed scale ({scale}) for the target SQL decimal type.");
+                decimal roundedValue = decimal.Round(value, scale);
+                if (roundedValue != value)
+                {
+                    throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value '{value}' exceeds the allowed scale ({scale}) for the target SQL decimal type.");
+                }
             }
 
             if (integralDigits > precision - scale)

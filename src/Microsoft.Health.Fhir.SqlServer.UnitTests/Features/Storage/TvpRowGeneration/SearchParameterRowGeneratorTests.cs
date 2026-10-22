@@ -112,6 +112,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         [InlineData("0.123456789012345678", true)]
         [InlineData("123456789012345678", true)]
         [InlineData("1.234567890123456789", true)]
+        [InlineData("1.0000000000000000000", true)]
+        [InlineData("0.0000000000000000000", true)]
         [InlineData("999999999999999999", true)]
         [InlineData("1000000000000000000", false)]
         [InlineData("0.0000000000000000001", false)]

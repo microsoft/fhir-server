@@ -204,6 +204,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnObservationWithOutOfRangeIndexedQuantity_WhenPostingToHttp_ThenTheServerShouldRespondWithBadRequestResponse()
+        {
+            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Value = new Quantity(0.0000000000000000001m, "mg");
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(observation));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.NotNull(ex.OperationOutcome);
+            Assert.Contains("DECIMAL(36,18)", ex.OperationOutcome.Text?.Div ?? ex.Message);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnObservationWithLargePrecisionValue_WhenPostingToHttp_ThenTheServerShouldRespondSuccessfully()
         {
             Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
