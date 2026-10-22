@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public const long DefaultMaxResourceSizeBytes = 10 * 1024 * 1024;
 
-        public const int DefaultMaxSearchParametersPerResource = 1000;
+        public const int DefaultMaxSearchIndexValuesPerResource = 100;
 
         public int EntryLimit { get; set; } = 500;
 
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the maximum number of search index values per bundle entry resource. Zero disables the limit.
         /// </summary>
-        public int MaxSearchParametersPerResource { get; set; } = DefaultMaxSearchParametersPerResource;
+        public int MaxSearchIndexValuesPerResource { get; set; } = DefaultMaxSearchIndexValuesPerResource;
 
         /// <summary>
         /// Throws when a bundle limit is configured with an invalid value.
@@ -91,9 +91,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 throw new InvalidOperationException($"FhirServer:Bundle:{nameof(MaxResourceSizeBytes)} must be zero or greater. Value: {MaxResourceSizeBytes}.");
             }
 
-            if (MaxSearchParametersPerResource < 0)
+            if (MaxSearchIndexValuesPerResource < 0)
             {
-                throw new InvalidOperationException($"FhirServer:Bundle:{nameof(MaxSearchParametersPerResource)} must be zero or greater. Value: {MaxSearchParametersPerResource}.");
+                throw new InvalidOperationException($"FhirServer:Bundle:{nameof(MaxSearchIndexValuesPerResource)} must be zero or greater. Value: {MaxSearchIndexValuesPerResource}.");
             }
         }
     }

@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.False(bundle.EnableSizeRestrictions);
             Assert.Equal(50 * 1024 * 1024, bundle.MaxBundleSizeBytes);
             Assert.Equal(10 * 1024 * 1024, bundle.MaxResourceSizeBytes);
-            Assert.Equal(1000, bundle.MaxSearchParametersPerResource);
+            Assert.Equal(100, bundle.MaxSearchIndexValuesPerResource);
 
             CircuitBreakerConfiguration circuitBreaker = provider.GetRequiredService<IOptions<CircuitBreakerConfiguration>>().Value;
             Assert.False(circuitBreaker.EnableAutoThrottle);
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 ["FhirServer:Bundle:EnableSizeRestrictions"] = "true",
                 ["FhirServer:Bundle:MaxBundleSizeBytes"] = "0",
                 ["FhirServer:Bundle:MaxResourceSizeBytes"] = "20971520",
-                ["FhirServer:Bundle:MaxSearchParametersPerResource"] = "2000",
+                ["FhirServer:Bundle:MaxSearchIndexValuesPerResource"] = "2000",
                 ["FhirServer:CircuitBreaker:EnableAutoThrottle"] = "true",
                 ["FhirServer:CircuitBreaker:MemoryPressureThreshold"] = "0.75",
                 ["FhirServer:CircuitBreaker:ThrottleRecoveryTimeSeconds"] = "30",
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.True(bundle.EnableSizeRestrictions);
             Assert.Equal(0, bundle.MaxBundleSizeBytes);
             Assert.Equal(20 * 1024 * 1024, bundle.MaxResourceSizeBytes);
-            Assert.Equal(2000, bundle.MaxSearchParametersPerResource);
+            Assert.Equal(2000, bundle.MaxSearchIndexValuesPerResource);
 
             CircuitBreakerConfiguration circuitBreaker = provider.GetRequiredService<IOptions<CircuitBreakerConfiguration>>().Value;
             Assert.True(circuitBreaker.EnableAutoThrottle);
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         [Theory]
         [InlineData("FhirServer:Bundle:MaxBundleSizeBytes", "-1")]
         [InlineData("FhirServer:Bundle:MaxResourceSizeBytes", "-1")]
-        [InlineData("FhirServer:Bundle:MaxSearchParametersPerResource", "-1")]
+        [InlineData("FhirServer:Bundle:MaxSearchIndexValuesPerResource", "-1")]
         [InlineData("FhirServer:CircuitBreaker:MemoryPressureThreshold", "0")]
         [InlineData("FhirServer:CircuitBreaker:MemoryPressureThreshold", "1.5")]
         [InlineData("FhirServer:CircuitBreaker:ThrottleRecoveryTimeSeconds", "-1")]
