@@ -525,6 +525,69 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
+    [InlineData(true, true, 1)]
+    [InlineData(false, true, 2)]
+    [InlineData(true, false, 2)]
+    public void GivenBirthdateOverlap_WhenBoundedRangeRewrittenAndSqlGenerated_ThenOnlyEligibleChainsUseOneDateTimeAccess(
+        bool chained,
+        bool allowListed,
+        int expectedAccesses)
+    {
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            expression: "Observation.subject",
+            targetResourceTypes: ["Patient"]);
+        var birthdate = new SearchParameterInfo(
+            "birthdate",
+            "birthdate",
+            SearchParamType.Date,
+            new Uri(allowListed ? "http://hl7.org/fhir/SearchParameter/individual-birthdate" : "http://example.org/other-date"),
+            expression: "Patient.birthDate",
+            baseResourceTypes: ["Patient"]);
+        _fhirModel.GetResourceTypeId("Observation").Returns((short)10);
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)11);
+        _fhirModel.GetSearchParamId(reference.Url).Returns((short)20);
+        _fhirModel.GetSearchParamId(birthdate.Url).Returns((short)21);
+        var tables = new List<SearchParamTableExpression>
+        {
+            new(null, null, SearchParamTableExpressionKind.All),
+        };
+        if (chained)
+        {
+            tables.Add(new SearchParamTableExpression(
+                ChainLinkQueryGenerator.Instance,
+                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], false),
+                SearchParamTableExpressionKind.Chain,
+                chainLevel: 1));
+        }
+
+        var low = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        tables.Add(new SearchParamTableExpression(
+            DateTimeQueryGenerator.Instance,
+            Expression.SearchParameter(
+                birthdate,
+                Expression.And(
+                    Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, low),
+                    Expression.LessThanOrEqual(FieldName.DateTimeStart, null, low.AddDays(1).AddTicks(-1)))),
+            SearchParamTableExpressionKind.Normal,
+            chained ? 1 : 0));
+        var root = (SqlRootExpression)new SqlRootExpression(tables, []).AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);
+
+        _queryGenerator.VisitSqlRoot(root, new SearchOptions
+        {
+            Sort = [],
+            CountOnly = true,
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        });
+
+        string sql = _strBuilder.ToString();
+        Assert.Equal(expectedAccesses, Regex.Matches(sql, @"\b(?:FROM|JOIN)\s+dbo\.DateTimeSearchParam\b", RegexOptions.IgnoreCase).Count);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed)
