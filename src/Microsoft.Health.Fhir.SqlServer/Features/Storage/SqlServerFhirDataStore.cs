@@ -904,8 +904,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (SqlDecimalValueOutOfRangeException)
             {
-                _logger.LogWarning("The resource contains a search parameter value that exceeds the SQL DECIMAL(36,18) limit used for search indexing.");
-                throw new BadRequestException("The resource contains a search parameter value that exceeds the SQL DECIMAL(36,18) limit used for search indexing.");
+                _logger.LogWarning("One or more resources in the request contain search parameter values that exceed the SQL DECIMAL(36,18) limit used for search indexing.");
+                throw new BadRequestException("One or more resources in the request contain search parameter values that exceed the SQL DECIMAL(36,18) limit used for search indexing.");
             }
         }
 
