@@ -111,6 +111,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await EnqueueProcessingJobsAsync(jobInfo, inputData, result, cancellationToken);
                 _logger.LogJobInformation(jobInfo, "Registration of processing jobs completed.");
             }
+            catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogJobInformation(ex, jobInfo, "Import job canceled from cancellation token. {Message}", ex.Message);
+                await SendNotification(JobStatus.Cancelled, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                throw;
+            }
             catch (OperationCanceledException ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);
@@ -143,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex.IsCustomerCaused);
             }
             catch (CredentialUnavailableException ex)
             {
@@ -174,6 +180,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             await Parallel.ForEachAsync(inputData.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
+                if (input.Url == null || !input.Url.IsAbsoluteUri)
+                {
+                    var errorResult = new ImportJobErrorResult { ErrorMessage = "Input blob URI must be a valid absolute URI.", HttpStatusCode = HttpStatusCode.BadRequest };
+                    throw new JobExecutionException(errorResult.ErrorMessage, errorResult, true);
+                }
+
                 Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
                 if (!string.IsNullOrEmpty(input.Etag))
                 {
@@ -327,6 +339,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList());
                 return jobIds;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

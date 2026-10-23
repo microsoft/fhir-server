@@ -259,7 +259,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogInformation(dce, "[JobId:{JobId}] Can't connect to destination. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(
+                    dce.Message,
+                    dce.StatusCode,
+                    isCustomerCaused: dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (RequestNotValidException ex) when (ex.Message == Core.Resources.TooManyParameters)
+            {
+                _logger.LogInformation(ex, "[JobId:{JobId}] Search conditions exceeded the SQL parameter limit. The job will be marked as failed.", _exportJobRecord.Id);
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (ResourceNotFoundException rnfe)
@@ -273,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _logger.LogError(rnfe, "[JobId:{JobId}] Can't find specified resource. The job will be marked as failed.", _exportJobRecord.Id);
                 }
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (FailedToParseAnonymizationConfigurationException ex)
@@ -294,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(ex, "[JobId:{JobId}] Cannot found anonymization configuration. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (AnonymizationConfigurationFetchException ex)

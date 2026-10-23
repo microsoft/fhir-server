@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 IDictionary<string, long> resourcesDeleted = new Dictionary<string, long>();
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
+                bool isCustomerCaused = false;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
                 void OnProfileResourceSkipped(string resourceType, long count)
@@ -104,10 +105,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                         definition.ExcludedResourceTypes,
                         definition.AllowProfileResourceModification ? null : OnProfileResourceSkipped);
                 }
+                catch (FhirJobConflictException ex)
+                {
+                    result.Issues.Add($"JobConflictException: {ex.Message}");
+                    exception = ex;
+                    isCustomerCaused = true;
+                }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
                     bool conflictFound = false;
+                    bool systemFailureFound = false;
 
                     if (ex.InnerException is AggregateException aggEx)
                     {
@@ -123,9 +131,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             else
                             {
                                 result.Issues.Add($"{innerEx.GetType().Name}: {innerEx.Message}");
+                                systemFailureFound = true;
                             }
                         }
                     }
+
+                    isCustomerCaused = conflictFound && !systemFailureFound;
 
                     if (!conflictFound)
                     {
@@ -151,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, isCustomerCaused);
                 }
 
                 if (types.Count > 1)
