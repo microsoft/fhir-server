@@ -14,10 +14,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     /// </summary>
     public static class SmartScopeFhirAuthorizationService
     {
+        /// <summary>
+        /// Checks SMART permissions for the request's resource type.
+        /// </summary>
+        /// <param name="requestContextAccessor">The request context accessor.</param>
+        /// <param name="dataActions">The requested actions.</param>
+        /// <returns>The permitted subset of the requested actions.</returns>
         public static DataActions CheckSMARTScopeAccess(this RequestContextAccessor<IFhirRequestContext> requestContextAccessor, DataActions dataActions)
         {
+            return requestContextAccessor.CheckSMARTScopeAccess(dataActions, requestContextAccessor.RequestContext.ResourceType);
+        }
+
+        /// <summary>
+        /// Checks SMART permissions for an explicit resource type without changing the request context.
+        /// </summary>
+        /// <param name="requestContextAccessor">The request context accessor.</param>
+        /// <param name="dataActions">The requested actions.</param>
+        /// <param name="resourceRequested">The resource type to authorize.</param>
+        /// <returns>The permitted subset of the requested actions.</returns>
+        public static DataActions CheckSMARTScopeAccess(this RequestContextAccessor<IFhirRequestContext> requestContextAccessor, DataActions dataActions, string resourceRequested)
+        {
             var allowedResourceActions = requestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions;
-            var resourceRequested = requestContextAccessor.RequestContext.ResourceType;
 
             DataActions permittedDataActions = 0;
             foreach (ScopeRestriction scopeRestriction in allowedResourceActions)
