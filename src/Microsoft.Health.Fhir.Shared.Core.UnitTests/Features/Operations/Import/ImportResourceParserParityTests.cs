@@ -376,6 +376,59 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
         }
 
+        [Fact]
+        public void GivenCollectionReferenceArrayWithConditionalReference_WhenParsedOnInitialLoad_ThenBothProvidersReject()
+        {
+            const string json = """
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "generalPractitioner":[
+                    {"reference":"Practitioner/1"},
+                    {"reference":"Practitioner?identifier=system|value"}
+                  ]
+                }
+                """;
+
+            Assert.Throws<NotSupportedException>(
+                () => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+            Assert.Throws<NotSupportedException>(
+                () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+        }
+
+        // Choice-type fields that the schema types as Reference ("medication[x]", R5 "Observation.value[x]")
+        // serialize with the concrete type suffix (medicationReference / valueReference), so the conditional
+        // reference check must map the "[x]" schema path to that JSON property name.
+        [Fact]
+        public void GivenChoiceTypeReferenceWithConditionalReference_WhenParsedOnInitialLoad_ThenBothProvidersReject()
+        {
+            string json = ModelInfoProvider.Version == FhirSpecification.R5
+                ? """
+                  {
+                    "resourceType":"Observation",
+                    "id":"obs-1",
+                    "status":"final",
+                    "code":{"text":"test"},
+                    "valueReference":{"reference":"MolecularDefinition?identifier=system|value"}
+                  }
+                  """
+                : """
+                  {
+                    "resourceType":"MedicationRequest",
+                    "id":"mr-1",
+                    "status":"active",
+                    "intent":"order",
+                    "subject":{"reference":"Patient/1"},
+                    "medicationReference":{"reference":"Medication?code=system|value"}
+                  }
+                  """;
+
+            Assert.Throws<NotSupportedException>(
+                () => _firelyParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+            Assert.Throws<NotSupportedException>(
+                () => _ignixaParser.Parse(0, 0, json.Length, json, ImportMode.InitialLoad));
+        }
+
         // Ignixa's conditional-reference check is intentionally scoped to the resource's own direct,
         // schema-declared reference fields (via IReferenceMetadataProvider) - it does not recurse into
         // `contained` resources or Bundle entries. This matches TypedElementSearchIndexer, which likewise
