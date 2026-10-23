@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// </summary>
         public void Validate()
         {
-            if (MemoryPressureThreshold <= 0 || MemoryPressureThreshold > 1)
+            if (double.IsNaN(MemoryPressureThreshold) || MemoryPressureThreshold <= 0 || MemoryPressureThreshold > 1)
             {
                 throw new InvalidOperationException($"FhirServer:CircuitBreaker:{nameof(MemoryPressureThreshold)} must be greater than 0 and at most 1. Value: {MemoryPressureThreshold}.");
             }

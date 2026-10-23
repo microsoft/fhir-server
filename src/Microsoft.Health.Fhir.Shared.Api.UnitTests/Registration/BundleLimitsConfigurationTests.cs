@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         [InlineData("FhirServer:Bundle:MaxSearchIndexValuesPerResource", "-1")]
         [InlineData("FhirServer:CircuitBreaker:MemoryPressureThreshold", "0")]
         [InlineData("FhirServer:CircuitBreaker:MemoryPressureThreshold", "1.5")]
+        [InlineData("FhirServer:CircuitBreaker:MemoryPressureThreshold", "NaN")]
         [InlineData("FhirServer:CircuitBreaker:ThrottleRecoveryTimeSeconds", "-1")]
         public void GivenAnInvalidValue_WhenBuildingTheServerGraph_ThenStartupFails(string key, string value)
         {
