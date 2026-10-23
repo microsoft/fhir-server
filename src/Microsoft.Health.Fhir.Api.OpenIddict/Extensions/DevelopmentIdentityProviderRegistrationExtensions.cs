@@ -5,9 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -18,18 +18,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
 using Microsoft.Health.Fhir.Api.OpenIddict.Controllers;
 using Microsoft.Health.Fhir.Api.OpenIddict.Data;
 using Microsoft.Health.Fhir.Api.OpenIddict.Services;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Models;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
-using static OpenIddict.Server.OpenIddictServerEvents;
 
 namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 {
@@ -158,9 +155,27 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                                 return default;
                             }).SetOrder(int.MinValue)); // Ensure this runs early
 
+                        // OpenIddict 7+ enforces RFC 8707, rejecting 'resource' values that aren't absolute URIs.
+                        // Clients of this development IdP send the audience name (e.g. "fhir-api") as the resource,
+                        // and the token audience is derived from the granted scopes, so drop non-URI resource values.
+                        options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+                            builder.UseInlineHandler(context =>
+                            {
+                                if (context.Request.Resources is { IsDefaultOrEmpty: false } resources)
+                                {
+                                    ImmutableArray<string> absoluteResources = resources
+                                        .Where(resource => Uri.TryCreate(resource, UriKind.Absolute, out _))
+                                        .ToImmutableArray();
+
+                                    context.Request.Resources = absoluteResources.IsEmpty ? null : absoluteResources;
+                                }
+
+                                return default;
+                            }).SetOrder(int.MinValue));
+
                         // Note: OpenIddict has a default token validation handler that does more granular validation
-                        //   including checking the cliend Id and secret. So, we may not need this event handler.
-                        //   https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
+                        // including checking the cliend Id and secret. So, we may not need this event handler.
+                        // https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
                         options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
                             builder.UseInlineHandler(context =>
                             {
