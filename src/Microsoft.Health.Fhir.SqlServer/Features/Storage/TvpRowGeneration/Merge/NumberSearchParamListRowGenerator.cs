@@ -30,14 +30,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, NumberSearchValue searchValue, HashSet<NumberSearchParamListRow> results, out NumberSearchParamListRow row)
         {
             var singleValue = searchValue.Low == searchValue.High ? searchValue.Low : null;
+            var lowValue = singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.NumberSearchParam.LowValue.MinValue;
+            var highValue = singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.NumberSearchParam.HighValue.MaxValue;
+
+            if (singleValue.HasValue)
+            {
+                SqlDecimalValidator.Validate(singleValue.Value);
+            }
+            else
+            {
+                SqlDecimalValidator.Validate(lowValue.Value);
+                SqlDecimalValidator.Validate(highValue.Value);
+            }
 
             row = new NumberSearchParamListRow(
                 resourceTypeId,
                 resourceSurrogateId,
                 searchParamId,
                 singleValue.HasValue ? singleValue : null,
-                singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.NumberSearchParam.LowValue.MinValue,
-                singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.NumberSearchParam.HighValue.MaxValue);
+                lowValue,
+                highValue);
 
             return results == null || results.Add(row);
         }

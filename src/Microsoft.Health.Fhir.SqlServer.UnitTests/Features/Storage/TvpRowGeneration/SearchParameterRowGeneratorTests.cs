@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Medino;
@@ -104,6 +105,80 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 case "Token-String": AssertRows(new TokenStringCompositeSearchParamListRowGenerator(model, token, text, map).GenerateRows(resources)); break;
                 case "Token-Number-Number": AssertRows(new TokenNumberNumberCompositeSearchParamListRowGenerator(model, token, number, map).GenerateRows(resources)); break;
                 default: throw new NotSupportedException(kind);
+            }
+        }
+
+        [Theory]
+        [InlineData("0.123456789012345678", true)]
+        [InlineData("123456789012345678", true)]
+        [InlineData("1.234567890123456789", true)]
+        [InlineData("1.0000000000000000000", true)]
+        [InlineData("0.0000000000000000000", true)]
+        [InlineData("999999999999999999", true)]
+        [InlineData("1000000000000000000", false)]
+        [InlineData("0.0000000000000000001", false)]
+        [InlineData("1234567890123456789.123456789012345678", false)]
+        public void GivenDecimalValue_WhenValidatingSqlDecimalBounds_ThenValidationMatchesSchemaContract(string valueText, bool expectedToPass)
+        {
+            decimal value = decimal.Parse(valueText, CultureInfo.InvariantCulture);
+
+            if (expectedToPass)
+            {
+                var validated = SqlDecimalValidator.Validate(value);
+                Assert.Equal(value, validated);
+            }
+            else
+            {
+                Assert.Throws<SqlDecimalValueOutOfRangeException>(() => SqlDecimalValidator.Validate(value));
+            }
+        }
+
+        [Theory]
+        [InlineData("Token-Quantity")]
+        [InlineData("Token-Number-Number")]
+        public void GivenCompositeNumberOrQuantityValue_WhenValueExceedsSqlDecimalContract_ThenRowGenerationThrows(string kind)
+        {
+            // Arrange
+            var model = CreateModel(new SearchParameterInfo(
+                kind,
+                kind,
+                ValueSets.SearchParamType.Composite,
+                new Uri("https://example.org/search/" + kind),
+                new[]
+                {
+                    new SearchParameterComponentInfo { ResolvedSearchParameter = new SearchParameterInfo("token", "token", ValueSets.SearchParamType.Token) },
+                    new SearchParameterComponentInfo { ResolvedSearchParameter = new SearchParameterInfo(kind == "Token-Quantity" ? "quantity" : "number", kind == "Token-Quantity" ? "quantity" : "number", kind == "Token-Quantity" ? ValueSets.SearchParamType.Quantity : ValueSets.SearchParamType.Number) },
+                    kind == "Token-Number-Number" ? new SearchParameterComponentInfo { ResolvedSearchParameter = new SearchParameterInfo("number", "number", ValueSets.SearchParamType.Number) } : null,
+                }.Where(c => c != null).ToArray()));
+
+            var map = new SearchParameterToSearchValueTypeMap();
+            var token = new TokenSearchParamListRowGenerator(model, map);
+            var quantity = new QuantitySearchParamListRowGenerator(model, map);
+            var number = new NumberSearchParamListRowGenerator(model, map);
+            var value = 1000000000000000000m;
+
+            // Act / Assert
+            if (kind == "Token-Quantity")
+            {
+                Assert.Throws<SqlDecimalValueOutOfRangeException>(() =>
+                    new TokenQuantityCompositeSearchParamListRowGenerator(model, token, quantity, map).TryGenerateRow(
+                        1,
+                        1,
+                        1,
+                        (new TokenSearchValue("system", "code", "display"), new QuantitySearchValue("system", "mg", value)),
+                        new HashSet<Microsoft.Health.Fhir.SqlServer.Features.Schema.Model.TokenQuantityCompositeSearchParamListRow>(),
+                        out _));
+            }
+            else
+            {
+                Assert.Throws<SqlDecimalValueOutOfRangeException>(() =>
+                    new TokenNumberNumberCompositeSearchParamListRowGenerator(model, token, number, map).TryGenerateRow(
+                        1,
+                        1,
+                        1,
+                        (new TokenSearchValue("system", "code", "display"), new NumberSearchValue(value), new NumberSearchValue(1m)),
+                        new HashSet<Microsoft.Health.Fhir.SqlServer.Features.Schema.Model.TokenNumberNumberCompositeSearchParamListRow>(),
+                        out _));
             }
         }
 

@@ -32,6 +32,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, QuantitySearchValue searchValue, HashSet<QuantitySearchParamListRow> results, out QuantitySearchParamListRow row)
         {
             var singleValue = searchValue.Low == searchValue.High ? searchValue.Low : null;
+            var lowValue = singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.QuantitySearchParam.LowValue.MinValue;
+            var highValue = singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.QuantitySearchParam.HighValue.MaxValue;
+
+            if (singleValue.HasValue)
+            {
+                SqlDecimalValidator.Validate(singleValue.Value);
+            }
+            else
+            {
+                SqlDecimalValidator.Validate(lowValue.Value);
+                SqlDecimalValidator.Validate(highValue.Value);
+            }
 
             row = new QuantitySearchParamListRow(
                 resourceTypeId,
@@ -40,8 +52,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 string.IsNullOrWhiteSpace(searchValue.System) ? default(int?) : Model.GetSystemId(searchValue.System),
                 string.IsNullOrWhiteSpace(searchValue.Code) ? default(int?) : Model.GetQuantityCodeId(searchValue.Code),
                 singleValue.HasValue ? singleValue : null,
-                singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.QuantitySearchParam.LowValue.MinValue,
-                singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.QuantitySearchParam.HighValue.MaxValue);
+                lowValue,
+                highValue);
 
             return results == null || results.Add(row);
         }
