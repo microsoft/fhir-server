@@ -445,7 +445,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Equal(name, Assert.Single(patient.Name).Text);
                 using FhirResponse<Patient> updateResponse = await _client.UpdateAsync(patient);
 
-                bool same = i == 0 ? false : true; // The first update should create a new version, subsequent updates should not.
+                bool same = i != 0; // The first update should create a new version, subsequent updates should not.
                 ValidateUpdateResponse(mostRecentPatientVersionInMemory, updateResponse, same, HttpStatusCode.OK);
                 Assert.Equal(name, Assert.Single(updateResponse.Resource.Name).Text);
                 mostRecentPatientVersionInMemory = updateResponse.Resource;
