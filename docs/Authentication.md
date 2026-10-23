@@ -41,6 +41,12 @@ claim to be present. Rejecting previously accepted practitioner fallback or inva
 patient context is an intentional security-related behavior change. `user/` and
 `system/` scope behavior is unchanged.
 
+## SMART compartment reference identity
+
+SMART compartment authorization requires references to identify the compartment root on this FHIR server. A relative reference such as `Patient/123` and an absolute reference to the same Patient under this server's FHIR base URL establish the same membership. An absolute reference to a different FHIR base does not establish local compartment membership, even when its resource type and ID match. This applies to searches, direct reads, and conditionally patient-assigned Devices when the SMART Device restriction is enabled.
+
+This follows [FHIR reference identity](https://hl7.org/fhir/R4/references.html#literal). Ordinary reference-search matching is unchanged; compartment authorization additionally requires a local reference.
+
 ## Development Identity Provider
 For the F5 experience and test environments, an in-process identity provider is included that can act as the authentication provider for the FHIR API. 
 
