@@ -156,12 +156,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                             }
                         }
 
-                        foreach (var issue in processResult.Issues)
+                        foreach (var issue in processResult.Issues.Where(issue => issueKeys.Add(JsonConvert.SerializeObject(issue))))
                         {
-                            if (issueKeys.Add(JsonConvert.SerializeObject(issue)))
-                            {
-                                record.Issues.Add(issue);
-                            }
+                            record.Issues.Add(issue);
                         }
                     }
                 }
