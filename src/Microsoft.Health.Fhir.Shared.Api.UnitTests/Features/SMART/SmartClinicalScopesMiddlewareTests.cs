@@ -408,6 +408,56 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetScopesWithExcessiveDecimalPrecision))]
+        public async Task GivenSmartScopeWithExcessiveDecimalPrecision_WhenInvoked_ThenBadRequestIsThrownWithPrecisionMessage(string scopes)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(
+                    httpContext,
+                    new[]
+                    {
+                        "Decimal values exceeding 17 digits of precision are not supported",
+                    },
+                    true);
+            }
+        }
+
+        [Theory]
         [MemberData(nameof(GetMalformedScopes))]
         public async Task GivenMalformedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
         {
@@ -1065,6 +1115,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                     new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("category", "vital-signs").Add("code", "http://loinc.org|85354-9")),
                 },
             };
+
+            // Decimal values up to the maximum supported precision (17 fractional digits) are allowed
+            yield return new object[]
+            {
+                "system/Observation.rs?value-quantity=1.00000000000000000",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "system", new Hl7.Fhir.Rest.SearchParams("value-quantity", "1.00000000000000000")),
+                },
+            };
+
+            yield return new object[]
+            {
+                "patient/Observation.rs?value-quantity=eq0.12345678901234567|http://unitsofmeasure.org|mg",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("value-quantity", "eq0.12345678901234567|http://unitsofmeasure.org|mg")),
+                },
+            };
         }
 
         public static IEnumerable<object[]> GetMixedSmartScopeVersions()
@@ -1151,6 +1220,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // Case-insensitive key
             yield return new object[] { "patient/Observation.rs?_INCLUDE=Observation:subject" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithExcessiveDecimalPrecision()
+        {
+            // 19 fractional digits (exceeds SQL decimal(36, 18) scale directly)
+            yield return new object[] { "system/Observation.rs?value-quantity=1.0000000000000000000" };
+            yield return new object[] { "system%2fObservation.rs?value-quantity=1.0000000000000000000" };
+
+            // 18 fractional digits (overflow edge case: ±0.5 * 10^-18 range expansion requires 19 fractional digits)
+            yield return new object[] { "system/Observation.rs?value-quantity=1.000000000000000000" };
+            yield return new object[] { "patient/Observation.rs?value-quantity=0.123456789012345678" };
+
+            // With unit system/code and comparator prefixes
+            yield return new object[] { "patient/Observation.rs?value-quantity=1.000000000000000000|http://unitsofmeasure.org|mg" };
+            yield return new object[] { "patient/Observation.rs?value-quantity=eq1.000000000000000000|http://unitsofmeasure.org|mg" };
+            yield return new object[] { "patient/Observation.rs?value-quantity=gt1.000000000000000000" };
+            yield return new object[] { "patient/Observation.rs?value-quantity=ap1.000000000000000000" };
+
+            // Scientific/exponential notation whose effective scale exceeds 17 digits
+            yield return new object[] { "patient/Observation.rs?value-quantity=1e-18|http://unitsofmeasure.org|mg" };
+            yield return new object[] { "patient/Observation.rs?value-quantity=1.00000000000000000e-1" };
+            yield return new object[] { "patient/Observation.rs?value-quantity=1e-30" };
+
+            // Comma-separated OR list and '$' composite parameters containing an over-precise value
+            yield return new object[] { "patient/Observation.rs?value-quantity=5.4,1.000000000000000000" };
+            yield return new object[] { "patient/Observation.rs?code-value-quantity=http://loinc.org|8480-6$1.000000000000000000|http://unitsofmeasure.org|mm[Hg]" };
+
+            // 18+ integer digits
+            yield return new object[] { "patient/Observation.rs?value-quantity=100000000000000000" };
         }
 
         public static IEnumerable<object[]> GetMalformedScopes()

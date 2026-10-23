@@ -429,6 +429,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                         return;
                                     }
 
+                                    // Reject numeric/quantity search parameter values whose precision exceeds
+                                    // SmartScopeSearchParameterValidator.MaxSupportedDecimalDigits (17 digits).
+                                    if (SmartScopeSearchParameterValidator.ExceedsSupportedDecimalPrecision(paramValue))
+                                    {
+                                        var error = string.Format(Api.Resources.SmartScopeSearchParameterDecimalPrecisionNotSupported, SmartScopeSearchParameterValidator.MaxSupportedDecimalDigits, match.Value?.Trim(), $"{paramKey}={paramValue}");
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
+                                    }
+
                                     smartScopeSearchParameters.Add(paramKey, paramValue);
                                 }
 

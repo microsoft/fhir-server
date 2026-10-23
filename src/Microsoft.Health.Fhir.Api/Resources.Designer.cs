@@ -709,6 +709,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Decimal values exceeding {0} digits of precision are not supported in SMART on FHIR clinical scopes. The scope &apos;{1}&apos; contains an unsupported value in parameter &apos;{2}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterDecimalPrecisionNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterDecimalPrecisionNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
