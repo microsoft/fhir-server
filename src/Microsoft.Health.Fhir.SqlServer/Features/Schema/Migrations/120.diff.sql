@@ -6,7 +6,7 @@ CREATE OR ALTER PROCEDURE dbo.GetWatchdogLeasesLastRunDate
   ,@LastRunDate datetime OUT
 AS
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'W='+isnull(@Watchdog,'NULL')
+       ,@Mode varchar(200) = 'WD='+isnull(@Watchdog,'NULL')
        ,@st datetime = getUTCdate()
        ,@msg varchar(1000)
 
