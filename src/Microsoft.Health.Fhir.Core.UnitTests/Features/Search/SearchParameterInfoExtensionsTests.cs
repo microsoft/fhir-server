@@ -5,7 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -138,6 +140,91 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Assert
             Assert.NotEqual(firstHash, secondHash);
+        }
+
+        [Theory]
+        [InlineData(400, null, 800, null)]
+        [InlineData(400, 40, 400, 80)]
+        [InlineData(null, null, 400, null)]
+        [InlineData(400, null, 400, 0)]
+        [InlineData(4004, 0, 400, 40)]
+        public void GivenDifferentVectorChunkSettings_WhenCalculateSearchParameterHash_ThenHashIsDifferent(
+            int? firstChunkSizeTokens,
+            int? firstChunkOverlapTokens,
+            int? secondChunkSizeTokens,
+            int? secondChunkOverlapTokens)
+        {
+            // Arrange
+            var firstConfig = new VectorSearchParameterConfig { ChunkSizeTokens = firstChunkSizeTokens, ChunkOverlapTokens = firstChunkOverlapTokens };
+            var secondConfig = new VectorSearchParameterConfig { ChunkSizeTokens = secondChunkSizeTokens, ChunkOverlapTokens = secondChunkOverlapTokens };
+            SearchParameterInfo first = GenerateSearchParameterInfo(_paramUri1, "Observation", vectorConfig: firstConfig);
+            SearchParameterInfo second = GenerateSearchParameterInfo(_paramUri1, "Observation", vectorConfig: secondConfig);
+
+            // Act
+            string firstHash = new[] { first }.CalculateSearchParameterHash();
+            string secondHash = new[] { second }.CalculateSearchParameterHash();
+
+            // Assert
+            Assert.NotEqual(firstHash, secondHash);
+        }
+
+        [Fact]
+        public void GivenSeparatelyBuiltIdenticalVectorConfigurations_WhenCalculateSearchParameterHash_ThenHashIsSame()
+        {
+            // Arrange
+            var firstConfig = new VectorSearchParameterConfig { MinimumScore = 0.65m, ChunkSizeTokens = 400, ChunkOverlapTokens = 40 };
+            var secondConfig = new VectorSearchParameterConfig { MinimumScore = 0.65m, ChunkSizeTokens = 400, ChunkOverlapTokens = 40 };
+            SearchParameterInfo first = GenerateSearchParameterInfo(_paramUri1, "Observation", vectorConfig: firstConfig);
+            SearchParameterInfo second = GenerateSearchParameterInfo(_paramUri1, "Observation", vectorConfig: secondConfig);
+
+            // Act
+            string firstHash = new[] { first }.CalculateSearchParameterHash();
+            string secondHash = new[] { second }.CalculateSearchParameterHash();
+
+            // Assert
+            Assert.Equal(firstHash, secondHash);
+        }
+
+        [Fact]
+        public void GivenSameVectorConfigurationUnderDifferentCultures_WhenCalculateSearchParameterHash_ThenHashIsSame()
+        {
+            // Arrange
+            var config = new VectorSearchParameterConfig { MinimumScore = 0.65m, ChunkSizeTokens = 400, ChunkOverlapTokens = 40 };
+            SearchParameterInfo searchParameter = GenerateSearchParameterInfo(_paramUri1, "Observation", vectorConfig: config);
+            CultureInfo originalCulture = CultureInfo.CurrentCulture;
+            string invariantHash;
+            string frenchHash;
+
+            try
+            {
+                // Act
+                CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+                invariantHash = new[] { searchParameter }.CalculateSearchParameterHash();
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+                frenchHash = new[] { searchParameter }.CalculateSearchParameterHash();
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+            }
+
+            // Assert
+            Assert.Equal(invariantHash, frenchHash);
+        }
+
+        [Fact]
+        public void GivenNonVectorSearchParameter_WhenCalculateSearchParameterHash_ThenExistingHashInputIsUnchanged()
+        {
+            // Arrange
+            // Changing non-vector hash input would make every existing server report a reindex hash mismatch after upgrade.
+            SearchParameterInfo searchParameter = GenerateSearchParameterInfo(_paramUri1, "Observation");
+            string expectedHash = $"{_paramUri1}{ValueSets.SearchParamType.String}expressionObservation".ComputeHash();
+
+            // Act
+            string hash = new[] { searchParameter }.CalculateSearchParameterHash();
+
+            // Assert
+            Assert.Equal(expectedHash, hash);
         }
 
         private SearchParameterInfo GenerateSearchParameterInfo(

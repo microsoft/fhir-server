@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -193,19 +194,88 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Throws<InvalidDefinitionException>(wrap);
         }
 
-        [Fact]
-        public void GivenUnsupportedVectorExtractionPolicy_WhenWrapped_ThenDefinitionIsRejected()
+        [Theory]
+        [InlineData("unsupported")]
+        [InlineData("999")]
+        [InlineData("1")]
+        [InlineData("firstValue,concatenate")]
+        public void GivenUnsupportedVectorExtractionPolicy_WhenWrapped_ThenDefinitionIsRejected(string extractionPolicy)
         {
             // Arrange
-            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"extractionPolicy\",\"valueCode\":\"unsupported\"}]}]}";
-            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
-                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
+            ITypedElement searchParameter = CreateVectorSearchParameter($"{{\"url\":\"extractionPolicy\",\"valueCode\":\"{extractionPolicy}\"}}");
 
             // Act
             Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
 
             // Assert
             Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Theory]
+        [InlineData("firstValue", VectorTextExtractionPolicy.FirstValue)]
+        [InlineData("concatenate", VectorTextExtractionPolicy.Concatenate)]
+        [InlineData("perValueRow", VectorTextExtractionPolicy.PerValueRow)]
+        public void GivenDocumentedVectorExtractionPolicy_WhenWrapped_ThenPolicyIsParsed(string extractionPolicy, VectorTextExtractionPolicy expectedPolicy)
+        {
+            // Arrange
+            ITypedElement searchParameter = CreateVectorSearchParameter($"{{\"url\":\"extractionPolicy\",\"valueCode\":\"{extractionPolicy}\"}}");
+
+            // Act
+            var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Equal(expectedPolicy, searchParameterInfo.VectorConfig.ExtractionPolicy);
+        }
+
+        [Theory]
+        [InlineData("fr-FR")]
+        [InlineData("de-DE")]
+        public void GivenServerCultureUsesDecimalComma_WhenVectorMinimumScoreWrapped_ThenScoreIsParsedInvariantly(string cultureName)
+        {
+            // Arrange
+            ITypedElement searchParameter = CreateVectorSearchParameter("{\"url\":\"minimumScore\",\"valueDecimal\":0.65}");
+            CultureInfo originalCulture = CultureInfo.CurrentCulture;
+
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+
+                // Act
+                var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+                // Assert
+                Assert.Equal(0.65m, searchParameterInfo.VectorConfig.MinimumScore);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+            }
+        }
+
+        [Theory]
+        [InlineData("extractionPolicy")]
+        [InlineData("maxInputTokens")]
+        [InlineData("minimumScore")]
+        [InlineData("chunkSizeTokens")]
+        [InlineData("chunkOverlapTokens")]
+        [InlineData("distanceMetric")]
+        public void GivenVectorSettingWithoutValue_WhenWrapped_ThenDefinitionIsRejected(string setting)
+        {
+            // Arrange
+            ITypedElement searchParameter = CreateVectorSearchParameter($"{{\"url\":\"{setting}\"}}");
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        private static ITypedElement CreateVectorSearchParameter(string vectorSetting)
+        {
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{vectorSetting}]}}]}}";
+            return FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
         }
 
         [Fact]

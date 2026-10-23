@@ -122,7 +122,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _rootExpression = expression;
             SqlSearchOptions sqlSearchOptions = context as SqlSearchOptions;
             bool isVectorSearch = sqlSearchOptions?.PreparedVectorQuery != null;
-            bool isApproximateVectorSearch = isVectorSearch && UsesApproximateVectorSearch(sqlSearchOptions);
+            int approximateCandidateMultiplier = 0;
+            bool isApproximateVectorSearch = isVectorSearch && UsesApproximateVectorSearch(sqlSearchOptions, out approximateCandidateMultiplier);
 
             if (isApproximateVectorSearch)
             {
@@ -399,7 +400,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     if (isApproximateVectorSearch)
                     {
-                        AppendApproximateVectorSearchJoin(sqlSearchOptions, expression, resourceTableAlias);
+                        AppendApproximateVectorSearchJoin(sqlSearchOptions, approximateCandidateMultiplier, expression, resourceTableAlias);
                     }
                     else
                     {
@@ -573,20 +574,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .AppendLine("     ) semantic");
         }
 
-        // Approximate retrieval only ranks the nearest candidate chunks, so it applies to relevance-ordered paging.
-        // Counting, and an explicit sort over every semantic match, must see all matches and therefore rank exactly.
-        private static bool UsesApproximateVectorSearch(SqlSearchOptions options)
+        // Approximate retrieval ranks only the nearest candidate chunks, so it is used only when a candidate multiplier is
+        // configured and results page in relevance order (no sort, or _score first). Counts and other sorts rank exactly.
+        private static bool UsesApproximateVectorSearch(SqlSearchOptions options, out int candidateMultiplier)
         {
-            return options.ApproximateVectorCandidateMultiplier.HasValue
+            if (options.ApproximateVectorCandidateMultiplier is { } configuredMultiplier
                 && !options.CountOnly
-                && (options.Sort.Count == 0 || IsScoreSort(options));
+                && (options.Sort.Count == 0 || IsScoreSort(options)))
+            {
+                candidateMultiplier = configuredMultiplier;
+                return true;
+            }
+
+            candidateMultiplier = 0;
+            return false;
         }
 
         // Replaces the per-resource exact scan with a DiskANN candidate search. Structured filters sit inside the
         // approximate block so that they are applied while the index is searched (iterative filtering) rather than
         // after a fixed number of nearest neighbors was returned. Chunks are then reduced to the best one per resource.
         // The outer query keeps every predicate, so this only narrows which candidates the index examines.
-        private void AppendApproximateVectorSearchJoin(SqlSearchOptions options, SqlRootExpression expression, string resourceTableAlias)
+        private void AppendApproximateVectorSearchJoin(SqlSearchOptions options, int candidateMultiplier, SqlRootExpression expression, string resourceTableAlias)
         {
             const string candidateAlias = "c";
             const string vectorTableAlias = "v";
@@ -598,7 +606,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             short searchParamId = Model.GetSearchParamId(preparedQuery.SearchParameter.Url);
             _searchParamIds.Add(searchParamId);
 
-            long candidateLimit = Math.Min(((long)options.MaxItemCount + 1) * options.ApproximateVectorCandidateMultiplier.Value, int.MaxValue);
+            long candidateLimit = Math.Min(((long)options.MaxItemCount + 1) * candidateMultiplier, int.MaxValue);
             object candidateLimitParameter = Parameters.AddParameter((int)candidateLimit, includeInHash: false);
             object maximumDistanceParameter = Parameters.AddParameter(2 * (1 - preparedQuery.MinimumScore), includeInHash: false);
 

@@ -46,14 +46,18 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             foreach (ITypedElement nestedExtension in vectorExtensions[0].Select("extension"))
             {
                 string url = nestedExtension.Scalar("url")?.ToString();
-                object value = nestedExtension.Scalar("value") ??
+
+                // Typed FHIR values are culture-neutral; formatting them with the server culture changes decimals.
+                string value = Convert.ToString(
+                    nestedExtension.Scalar("value") ??
                     nestedExtension.Scalar("valueCode") ??
                     nestedExtension.Scalar("valueInteger") ??
-                    nestedExtension.Scalar("valueDecimal");
+                    nestedExtension.Scalar("valueDecimal"),
+                    CultureInfo.InvariantCulture);
 
                 if (string.Equals(url, VectorSearchParameterConfig.ExtractionPolicyExtensionUrl, StringComparison.Ordinal))
                 {
-                    if (!Enum.TryParse(value?.ToString(), ignoreCase: true, out VectorTextExtractionPolicy extractionPolicy))
+                    if (!TryParseExtractionPolicy(value, out VectorTextExtractionPolicy extractionPolicy))
                     {
                         throw new InvalidDefinitionException($"Vector SearchParameter extraction policy '{value}' is not supported.");
                     }
@@ -62,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
                 else if (string.Equals(url, VectorSearchParameterConfig.MaxInputTokensExtensionUrl, StringComparison.Ordinal))
                 {
-                    if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int maxInputTokens) || maxInputTokens <= 0)
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int maxInputTokens) || maxInputTokens <= 0)
                     {
                         throw new InvalidDefinitionException("Vector SearchParameter maxInputTokens must be greater than zero.");
                     }
@@ -71,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
                 else if (string.Equals(url, VectorSearchParameterConfig.MinimumScoreExtensionUrl, StringComparison.Ordinal))
                 {
-                    if (!decimal.TryParse(value?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out decimal minimumScore) || minimumScore < 0 || minimumScore > 1)
+                    if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal minimumScore) || minimumScore < 0 || minimumScore > 1)
                     {
                         throw new InvalidDefinitionException("Vector SearchParameter minimumScore must be between zero and one.");
                     }
@@ -80,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
                 else if (string.Equals(url, VectorSearchParameterConfig.ChunkSizeTokensExtensionUrl, StringComparison.Ordinal))
                 {
-                    if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkSizeTokens) ||
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkSizeTokens) ||
                         chunkSizeTokens < VectorSearchConfiguration.MinimumChunkSizeTokens ||
                         chunkSizeTokens > VectorSearchConfiguration.MaxEmbeddingInputTokens)
                     {
@@ -91,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
                 else if (string.Equals(url, VectorSearchParameterConfig.ChunkOverlapTokensExtensionUrl, StringComparison.Ordinal))
                 {
-                    if (!int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkOverlapTokens) || chunkOverlapTokens < 0)
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int chunkOverlapTokens) || chunkOverlapTokens < 0)
                     {
                         throw new InvalidDefinitionException("Vector SearchParameter chunkOverlapTokens must be non-negative.");
                     }
@@ -100,13 +104,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
                 else if (string.Equals(url, VectorSearchParameterConfig.DistanceMetricExtensionUrl, StringComparison.Ordinal))
                 {
-                    string distanceMetric = value?.ToString();
-                    if (distanceMetric is null || !string.Equals(distanceMetric, VectorSearchConfiguration.SupportedDistanceMetric, StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(value, VectorSearchConfiguration.SupportedDistanceMetric, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new InvalidDefinitionException($"Vector SearchParameter distanceMetric must be '{VectorSearchConfiguration.SupportedDistanceMetric}'.");
                     }
 
-                    configuration.DistanceMetric = distanceMetric.ToLowerInvariant();
+                    configuration.DistanceMetric = value.ToLowerInvariant();
                 }
                 else
                 {
@@ -121,6 +124,22 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             return configuration;
+        }
+
+        // Matches enum member names only (case-insensitive); Enum.TryParse would also accept numeric and comma-combined values.
+        private static bool TryParseExtractionPolicy(string value, out VectorTextExtractionPolicy extractionPolicy)
+        {
+            foreach (VectorTextExtractionPolicy candidate in Enum.GetValues<VectorTextExtractionPolicy>())
+            {
+                if (string.Equals(candidate.ToString(), value, StringComparison.OrdinalIgnoreCase))
+                {
+                    extractionPolicy = candidate;
+                    return true;
+                }
+            }
+
+            extractionPolicy = default;
+            return false;
         }
     }
 }
