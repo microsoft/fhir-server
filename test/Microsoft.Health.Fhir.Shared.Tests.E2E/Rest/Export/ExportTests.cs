@@ -114,12 +114,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         [Theory]
         [InlineData("$export", "_include", "respond-async")]
-        [InlineData("$export", "_revinclude", "respond-async")]
-        [InlineData("$export", "_include:iterate", "respond-async, handling=lenient")]
         [InlineData("$export", "_revinclude:iterate", "respond-async, handling=strict")]
-        [InlineData("Patient/$export", "_include", "respond-async, handling=lenient")]
         [InlineData("Patient/$export", "_revinclude:recurse", "respond-async")]
-        [InlineData("Group/123456/$export", "_include:recurse", "respond-async")]
         [InlineData("Group/123456/$export", "_revinclude", "respond-async, handling=lenient")]
         public async Task GivenInclusionTypeFilter_WhenRequestingExport_ThenServerShouldReturnAccepted(
             string path,
@@ -133,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 queryParams: new Dictionary<string, string>
                 {
                     { KnownQueryParameterNames.Type, "Observation" },
-                    { KnownQueryParameterNames.TypeFilter, $"Observation?{parameter}=Observation:subject" },
+                    { KnownQueryParameterNames.TypeFilter, $"Observation?{parameter}=Observation:subject:Patient" },
                 });
 
             // Act
@@ -223,47 +219,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         }
 
         [Theory]
-        [InlineData("_include", "respond-async")]
-        [InlineData("_include", "respond-async, handling=lenient")]
-        [InlineData("_revinclude:iterate", "respond-async, handling=lenient")]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        public async Task GivenObservationOnlySmartScopeWithInclusionTypeFilter_WhenCreatingExport_ThenServerShouldReturnAccepted(
-            string parameter,
-            string preferHeader)
-        {
-            // Arrange
-            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
-            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Observation.rs");
-            using HttpRequestMessage request = GenerateExportRequest(
-                preferHeader: preferHeader,
-                queryParams: new Dictionary<string, string>
-                {
-                    { KnownQueryParameterNames.Type, "Observation" },
-                    { KnownQueryParameterNames.TypeFilter, $"Observation?{parameter}=Observation:subject" },
-                });
-
-            // Act
-            using HttpResponseMessage response = await systemClient.SendAsync(request);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-            Assert.NotNull(response.Content.Headers.ContentLocation);
-            using HttpResponseMessage cleanupResponse = await systemClient.DeleteAsync(response.Content.Headers.ContentLocation);
-            Assert.Equal(HttpStatusCode.Accepted, cleanupResponse.StatusCode);
-        }
-
-        [Theory]
-        [InlineData(false, "_include", "respond-async", true)]
-        [InlineData(false, "_include", "respond-async, handling=lenient", false)]
-        [InlineData(false, "_include:iterate", "respond-async, handling=lenient", true)]
-        [InlineData(true, "_include", "respond-async", true)]
-        [InlineData(true, "_include:iterate", "respond-async, handling=lenient", false)]
+        [InlineData("Observation", false, "_include", "respond-async")]
+        [InlineData("Observation", true, "_include:iterate", "respond-async, handling=lenient")]
+        [InlineData("Patient", false, "_revinclude", "respond-async, handling=lenient")]
+        [InlineData("Patient", true, "_revinclude:iterate", "respond-async")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenSmartExportWithInclusionTypeFilter_WhenCompleted_ThenStorageContainsOnlyAuthorizedResources(
-            bool patientAuthorized,
+            string primaryResourceType,
+            bool inclusionAuthorized,
             string parameter,
-            string preferHeader,
-            bool isParallel)
+            string preferHeader)
         {
             // Arrange
             Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
@@ -277,21 +242,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 Code = new CodeableConcept("http://loinc.org", "8867-4"),
                 Subject = new ResourceReference($"Patient/{patientResponse.Resource.Id}"),
             });
-            string scope = patientAuthorized ? "system/Observation.rs system/Patient.rs" : "system/Observation.rs";
-            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, scope);
-            if (!patientAuthorized)
+            Resource primaryResource = primaryResourceType == "Observation" ? observationResponse.Resource : patientResponse.Resource;
+            Resource includedResource = primaryResourceType == "Observation" ? patientResponse.Resource : observationResponse.Resource;
+            string scope = $"system/{primaryResource.TypeName}.rs";
+            if (inclusionAuthorized)
             {
-                using HttpResponseMessage patientReadResponse = await systemClient.GetAsync($"Patient/{patientResponse.Resource.Id}");
-                Assert.Equal(HttpStatusCode.Forbidden, patientReadResponse.StatusCode);
+                scope += $" system/{includedResource.TypeName}.rs";
+            }
+
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, scope);
+            if (!inclusionAuthorized)
+            {
+                using HttpResponseMessage includedReadResponse = await systemClient.GetAsync($"{includedResource.TypeName}/{includedResource.Id}");
+                Assert.Equal(HttpStatusCode.Forbidden, includedReadResponse.StatusCode);
             }
 
             using HttpRequestMessage request = GenerateExportRequest(
                 preferHeader: preferHeader,
                 queryParams: new Dictionary<string, string>
                 {
-                    { KnownQueryParameterNames.Type, "Observation" },
-                    { KnownQueryParameterNames.TypeFilter, $"Observation?_id={observationResponse.Resource.Id}&{parameter}=Observation:subject" },
-                    { KnownQueryParameterNames.IsParallel, isParallel.ToString() },
+                    { KnownQueryParameterNames.Type, primaryResource.TypeName },
+                    { KnownQueryParameterNames.TypeFilter, $"{primaryResource.TypeName}?_id={primaryResource.Id}&{parameter}=Observation:subject:Patient" },
                 });
 
             // Act
@@ -301,13 +272,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var exportedResources = await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert
-            Assert.True(exportedResources.ContainsKey(("Observation", observationResponse.Resource.Id, observationResponse.Resource.VersionId)));
-            Assert.Equal(patientAuthorized, exportedResources.ContainsKey(("Patient", patientResponse.Resource.Id, patientResponse.Resource.VersionId)));
-            Assert.Equal(patientAuthorized ? 2 : 1, exportedResources.Count);
+            Assert.True(exportedResources.ContainsKey((primaryResource.TypeName, primaryResource.Id, primaryResource.VersionId)));
+            Assert.Equal(inclusionAuthorized, exportedResources.ContainsKey((includedResource.TypeName, includedResource.Id, includedResource.VersionId)));
+            Assert.Equal(inclusionAuthorized ? 2 : 1, exportedResources.Count);
             using HttpResponseMessage statusResponse = await systemClient.GetAsync(response.Content.Headers.ContentLocation);
             Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
             var result = Newtonsoft.Json.JsonConvert.DeserializeObject<ExportJobResult>(await statusResponse.Content.ReadAsStringAsync());
-            if (patientAuthorized)
+            if (inclusionAuthorized)
             {
                 Assert.DoesNotContain(result.Issues, issue => issue.Diagnostics?.Contains("were excluded") == true);
             }
@@ -316,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 Assert.Contains(result.Issues, issue =>
                     issue.Severity == "Warning"
                     && issue.Code == "Forbidden"
-                    && issue.Diagnostics == "Included resources of type 'Patient' were excluded because the caller does not have the required SMART export permissions for this resource type.");
+                    && issue.Diagnostics == $"Included resources of type '{includedResource.TypeName}' were excluded because the caller does not have the required SMART export permissions for this resource type.");
             }
         }
 

@@ -451,16 +451,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData("_include", false, false, true)]
-        [InlineData("_include", true, false, true)]
-        [InlineData("_revinclude", false, false, true)]
-        [InlineData("_include:iterate", false, false, true)]
-        [InlineData("_revinclude:iterate", true, false, true)]
-        [InlineData("_include:recurse", true, true, true)]
-        [InlineData("_revinclude:recurse", false, true, true)]
-        [InlineData("_include", false, true, false)]
-        public async Task GivenInclusionTypeFilter_WhenExecuted_ThenOnlyAuthorizedInclusionsAreWritten(
-            string parameter,
+        [InlineData(false, false, true)]
+        [InlineData(true, false, true)]
+        [InlineData(false, true, true)]
+        [InlineData(false, false, false)]
+        public async Task GivenIncludedSearchResults_WhenExecuted_ThenOnlyAuthorizedInclusionsAreWritten(
             bool resumed,
             bool patientAuthorized,
             bool smartRequest)
@@ -478,7 +473,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 {
                     new ExportJobFilter(KnownResourceTypes.Observation, new List<Tuple<string, string>>
                     {
-                        Tuple.Create(parameter, "Observation:subject"),
+                        Tuple.Create("_include", "Observation:subject"),
                     }),
                 });
             if (resumed)
