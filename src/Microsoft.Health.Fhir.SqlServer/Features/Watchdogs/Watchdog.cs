@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Data;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading;
@@ -81,10 +82,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
+            if (!await IsRunDueAsync(cancellationToken))
+            {
+                _logger.LogDebug($"{Name}.OnNextTickAsync: Skipping because the most recent run is newer than the watchdog period.");
+                return;
+            }
+
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
             await RunWorkAsync(cancellationToken);
+            await UpdateLastRunDateAsync(cancellationToken);
 
             if (DateTime.UtcNow - _lastLog > TimeSpan.FromHours(1))
             {
@@ -95,6 +103,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 _logger.LogDebug($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
             }
+        }
+
+        internal static bool ShouldRun(DateTime utcNow, DateTime lastRunDate, TimeSpan period)
+        {
+            return utcNow - lastRunDate >= period;
+        }
+
+        private async Task<bool> IsRunDueAsync(CancellationToken cancellationToken)
+        {
+            var lastRunDate = await GetLastRunDateAsync(cancellationToken);
+            return ShouldRun(DateTime.UtcNow, lastRunDate, TimeSpan.FromSeconds(PeriodSec));
+        }
+
+        private async Task<DateTime> GetLastRunDateAsync(CancellationToken cancellationToken)
+        {
+            await using var cmd = new SqlCommand("dbo.GetWatchdogLeasesLastRunDate") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@Watchdog", Name);
+
+            var lastRunDate = cmd.Parameters.Add("@LastRunDate", SqlDbType.DateTime);
+            lastRunDate.Direction = ParameterDirection.Output;
+
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+
+            var value = lastRunDate.Value;
+            if (value == null || value == DBNull.Value)
+            {
+                return DateTime.MinValue;
+            }
+
+            var result = (DateTime)value;
+            return result.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(result, DateTimeKind.Utc) : result;
+        }
+
+        private async Task UpdateLastRunDateAsync(CancellationToken cancellationToken)
+        {
+            await using var cmd = new SqlCommand("dbo.UpdateWatchdogLeasesLastRunDate") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@Watchdog", Name);
+            cmd.Parameters.AddWithValue("@LastRunDate", DateTime.UtcNow);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
         private async Task InitParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
