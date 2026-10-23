@@ -224,7 +224,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             };
 
             // !!! time travel behavior
-            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            // Surrogate id range parameters are reserved for background tasks such as export.
+            results = await SearchAsBackgroundTaskAsync(type, queryParameters);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
@@ -247,11 +248,18 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
-            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            results = await SearchAsBackgroundTaskAsync(type, queryParameters);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("3", resource.Version);
             Assert.False(resource.IsHistory); // current
+        }
+
+        private Task<SearchResult> SearchAsBackgroundTaskAsync(string type, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
+            return BackgroundTaskRequestContext.RunAsync(
+                _fixture.FhirRequestContextAccessor,
+                () => _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None));
         }
 
         private async Task UpdateResource(Patient patient)
