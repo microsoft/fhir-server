@@ -57,7 +57,7 @@ fixed database role.
 
 ## Status
 
-Proposed
+Accepted
 
 ## Consequences
 
