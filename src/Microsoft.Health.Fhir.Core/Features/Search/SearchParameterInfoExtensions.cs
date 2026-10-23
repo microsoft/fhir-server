@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using EnsureThat;
@@ -17,15 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public static class SearchParameterInfoExtensions
     {
         /// <summary>
-        /// Given a list of <see cref="SearchParameterInfo"/> calculates a hash using the
-        /// <see cref="SearchParameterInfo.Url"/>, <see cref="SearchParameterInfo.Type"/>,
-        /// <see cref="SearchParameterInfo.Expression"/>, <see cref="SearchParameterInfo.TargetResourceTypes"/>, and
-        /// <see cref="SearchParameterInfo.BaseResourceTypes"/>, <see cref="SearchParameterInfo.SearchParameterStatus"/>
-        /// values of each component. The same collection of search parameter infos (irrespective of their order in the input)
-        /// will return the same hash.
+        /// Calculates an order-independent hash of the supported or enabled search parameters' URL, type, expression,
+        /// target and base resource types, and vector settings (extraction policy, max input tokens, minimum score, and chunk overrides).
         /// </summary>
-        /// <param name="searchParamaterInfos">A list of <see cref="SearchParameterInfo" /></param>
-        /// <returns>A hash based on the search parameter uri, status, and last updated value.</returns>
+        /// <param name="searchParamaterInfos">The search parameters to hash; must not be empty.</param>
+        /// <returns>A hash that changes when any hashed property of a supported or enabled search parameter changes.</returns>
         internal static string CalculateSearchParameterHash(this IEnumerable<SearchParameterInfo> searchParamaterInfos)
         {
             EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
@@ -52,10 +49,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
                 }
+
+                if (searchParamInfo.VectorConfig is { } vectorConfig)
+                {
+                    // Delimit nullable chunk overrides so absent, explicit, and adjacent values cannot collide.
+                    sb.Append(
+                        CultureInfo.InvariantCulture,
+                        $"|vector|{vectorConfig.ExtractionPolicy}|{vectorConfig.MaxInputTokens}|{vectorConfig.MinimumScore}|{FormatOptional(vectorConfig.ChunkSizeTokens)}|{FormatOptional(vectorConfig.ChunkOverlapTokens)}");
+                }
             }
 
             string hash = sb.ToString().ComputeHash();
             return hash;
+        }
+
+        private static string FormatOptional(int? value)
+        {
+            return value?.ToString(CultureInfo.InvariantCulture) ?? "default";
         }
 
         public static bool IsBaseTypeSearchParameter(this SearchParameterInfo searchParameter)

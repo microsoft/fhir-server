@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
@@ -108,6 +109,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
         public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; set; }
 
+        [JsonIgnore]
+        public IReadOnlyCollection<VectorSearchIndexEntry> VectorSearchIndices { get; private set; } = Array.Empty<VectorSearchIndexEntry>();
+
+        /// <summary>
+        /// Gets a value indicating whether vector search indices were evaluated for this wrapper.
+        /// </summary>
+        [JsonIgnore]
+        public bool VectorSearchIndicesUpdated { get; private set; }
+
         [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }
 
@@ -125,6 +135,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public virtual void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
             SearchIndices = searchIndices;
+        }
+
+        public void UpdateVectorSearchIndices(IReadOnlyCollection<VectorSearchIndexEntry> vectorSearchIndices)
+        {
+            VectorSearchIndices = EnsureArg.IsNotNull(vectorSearchIndices, nameof(vectorSearchIndices));
+            VectorSearchIndicesUpdated = true;
         }
 
         internal void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices, string searchParameterHash)

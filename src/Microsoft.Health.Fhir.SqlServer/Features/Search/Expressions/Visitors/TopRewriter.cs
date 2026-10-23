@@ -21,7 +21,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // reference that CTE unconditionally. An $includes operation therefore still needs it even when
             // only a count is requested. A regular count-only search has no include table expressions, so
             // the main CTE is never referenced and Top can be skipped.
-            if ((context.CountOnly && !context.IsIncludesOperation) || expression.SearchParamTableExpressions.Count == 0)
+            if ((context.CountOnly && !context.IsIncludesOperation) ||
+                expression.SearchParamTableExpressions.Count == 0 ||
+                context is SqlSearchOptions { PreparedVectorQuery: not null })
             {
                 return expression;
             }
