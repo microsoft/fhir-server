@@ -1,6 +1,6 @@
 # DESCRIPTION: 	
-# Cleans up Azure resources created by PR Build & Deploy.
-# This pipeline runs after all stage-owned resource cleanups succeed.
+# Manual recovery cleanup for a selected PR Build & Deploy run.
+# Automatic cleanup runs inside pr-pipeline.yml.
 
 trigger: none
 pr: none
@@ -9,16 +9,7 @@ resources:
   pipelines:
   - pipeline: prPipeline
     source: 'PR Build & Deploy'
-    trigger:
-      branches:
-        include:
-          - '*'
-      stages:
-        - cleanup_testStu3Cosmos
-        - cleanup_testStu3Sql
-        - cleanup_testR4Cosmos
-        - cleanup_testR4Sql
-        - cleanup_testR5Sql
+    trigger: none
 
 variables:
 - template: pr-variables.yml

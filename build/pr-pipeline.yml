@@ -525,3 +525,21 @@ stages:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml
+
+- stage: cleanupEnvironment
+  displayName: 'Clean up shared PR resources'
+  dependsOn:
+  - cleanup_testStu3Cosmos
+  - cleanup_testStu3Sql
+  - cleanup_testR4Cosmos
+  - cleanup_testR4Sql
+  - cleanup_testR5Sql
+  condition: >-
+    and(not(canceled()),
+        eq(dependencies.cleanup_testStu3Cosmos.result, 'Succeeded'),
+        eq(dependencies.cleanup_testStu3Sql.result, 'Succeeded'),
+        eq(dependencies.cleanup_testR4Cosmos.result, 'Succeeded'),
+        eq(dependencies.cleanup_testR4Sql.result, 'Succeeded'),
+        eq(dependencies.cleanup_testR5Sql.result, 'Succeeded'))
+  jobs:
+  - template: ./jobs/cleanup.yml
