@@ -28,11 +28,19 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    /// <summary>
+    /// Protects fixture database creation and cleanup from shared connection-pool exhaustion.
+    /// xUnit reports class-fixture cleanup failures separately, so Azure DevOps can retain a failed
+    /// cleanup result even after an MTP retry passes. See https://github.com/microsoft/testfx/issues/4087.
+    /// Cleanup must retry the original database before fixture disposal fails; a new test attempt
+    /// creates a different database and does not prove that the original database was deleted.
+    /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerFhirStorageTestHelperTests
     {
         [Fact]
         [Trait("DataStore", "SqlServer")]
-        [Trait(Traits.Category, Categories.DataSourceValidation)]
         public async Task GivenExhaustedMasterPool_WhenDeletingDatabase_TargetIsDeletedAndMasterPoolSurvives()
         {
             var connectionString = new SqlConnectionStringBuilder(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString))
