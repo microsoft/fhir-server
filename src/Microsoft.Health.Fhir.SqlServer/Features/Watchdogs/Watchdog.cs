@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await InitParamsAsync();
 
             await Task.WhenAll(
-                _fhirTimer.ExecuteAsync(Name, PeriodSec, OnNextTickAsync, cancellationToken, PeriodSec > 3600 ? 3600 : PeriodSec),
+                _fhirTimer.ExecuteAsync(Name, PeriodSec, OnNextTickAsync, cancellationToken),
                 _watchdogLease.ExecuteAsync($"{Name}Lease", AllowRebalance, LeasePeriodSec, guid, cancellationToken));
 
             _logger.LogInformation($"{Name}.ExecuteAsync: completed.");

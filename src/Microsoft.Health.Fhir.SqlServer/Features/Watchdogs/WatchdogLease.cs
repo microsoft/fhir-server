@@ -73,8 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _workerId = _worker + '.' + guid;
 
             // Start the timer to periodically attempt to acquire the lease
-            // Caps the initial delay to 5 minutes to avoid long delays on first run.
-            await _fhirTimer.ExecuteAsync(name, periodSec, OnNextTickAsync, cancellationToken, periodSec > 300 ? 300 : periodSec);
+            await _fhirTimer.ExecuteAsync(name, periodSec, OnNextTickAsync, cancellationToken);
 
             _logger.LogDebug("WatchdogLease.StartAsync: completed.");
         }
