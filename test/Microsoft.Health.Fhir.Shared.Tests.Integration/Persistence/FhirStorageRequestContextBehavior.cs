@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly RequestContextAccessor<IFhirRequestContext> _accessor;
 
         /// <summary>
-        /// Initializes the foreground request-context boundary.
+        /// Creates a request-context behavior using the fixture's accessor.
         /// </summary>
         public FhirStorageRequestContextBehavior(RequestContextAccessor<IFhirRequestContext> accessor)
         {

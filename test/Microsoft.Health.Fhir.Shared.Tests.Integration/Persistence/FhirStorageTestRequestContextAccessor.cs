@@ -11,8 +11,6 @@ using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    // A fixture-wide substitute shares mutable request properties across background jobs.
-    // Use AsyncLocal ownership instead, with fresh contexts at each background operation boundary.
     internal sealed class FhirStorageTestRequestContextAccessor : FhirRequestContextAccessor
     {
         /// <inheritdoc/>
