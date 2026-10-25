@@ -9,13 +9,13 @@ BeforeAll {
 
     function Get-AzResource {
         [CmdletBinding()]
-        param([string] $ResourceGroupName, [string] $ResourceId, [string] $ApiVersion)
+        param([string] $ResourceGroupName)
         throw 'Azure calls must be mocked.'
     }
 
     function Remove-AzResource {
         [CmdletBinding()]
-        param([string] $ResourceId, [switch] $Force, [string] $ApiVersion)
+        param([string] $ResourceId, [switch] $Force)
         throw 'Azure calls must be mocked.'
     }
 }
@@ -40,7 +40,6 @@ Describe 'PR stage resource cleanup' {
             "$groupId/providers/Microsoft.KeyVault/vaults/shared"
             $nspId
         )
-        $associationIds = @()
         foreach ($fixtureVersion in @('Stu3', 'R4', 'R5')) {
             $suffix = if ($fixtureVersion -eq 'Stu3') { '' } else { "-$($fixtureVersion.ToLowerInvariant())" }
             $appName = "$environmentName$suffix"
@@ -49,55 +48,46 @@ Describe 'PR stage resource cleanup' {
             if ($fixtureVersion -ne 'R5') {
                 $resourceIds += "$groupId/providers/Microsoft.App/containerApps/$appName"
                 $resourceIds += "$groupId/providers/Microsoft.DocumentDB/databaseAccounts/$appName"
-                $associationIds += "$nspId/resourceAssociations/cosmosdb-$appName-association"
+                $resourceIds += "$nspId/resourceAssociations/cosmosdb-$appName-association"
             }
         }
 
         $state = @{
             Inventory = @($resourceIds | ForEach-Object { [pscustomobject]@{ ResourceId = $_ } })
-            Associations = @($associationIds | ForEach-Object { [pscustomobject]@{ ResourceId = $_ } })
             Deleted = [System.Collections.Generic.List[string]]::new()
             Attempts = 0
         }
 
         Mock Get-AzResourceGroup { [pscustomobject]@{ ResourceId = $groupId } }
         Mock Get-AzResource { $state.Inventory } -ParameterFilter { $ResourceGroupName }
-        Mock Get-AzResource { $state.Associations } -ParameterFilter { $ResourceId -eq "$nspId/resourceAssociations" }
         Mock Remove-AzResource { $state.Deleted.Add($ResourceId) }
         Mock Start-Sleep {}
     }
 
-    It 'deletes only the <Version> <DataStore> app and datastore, in dependency order' -ForEach @(
-        @{ Version = 'Stu3'; DataStore = 'sql'; AppSuffix = '-sql' }
-        @{ Version = 'R4'; DataStore = 'sql'; AppSuffix = '-r4-sql' }
-        @{ Version = 'R5'; DataStore = 'sql'; AppSuffix = '-r5-sql' }
-        @{ Version = 'Stu3'; DataStore = 'cosmos'; AppSuffix = '' }
-        @{ Version = 'R4'; DataStore = 'cosmos'; AppSuffix = '-r4' }
+    It 'deletes only the <Version> SQL app and database, in dependency order' -ForEach @(
+        @{ Version = 'Stu3'; AppSuffix = '-sql' }
+        @{ Version = 'R4'; AppSuffix = '-r4-sql' }
+        @{ Version = 'R5'; AppSuffix = '-r5-sql' }
     ) {
         $appName = "$environmentName$AppSuffix"
-        $expected = @("$groupId/providers/Microsoft.App/containerApps/$appName")
-        if ($DataStore -eq 'sql') {
-            $expected += "$groupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIR$Version"
-        } else {
-            $expected += "$nspId/resourceAssociations/cosmosdb-$appName-association"
-            $expected += "$groupId/providers/Microsoft.DocumentDB/databaseAccounts/$appName"
-        }
+        $expected = @(
+            "$groupId/providers/Microsoft.App/containerApps/$appName"
+            "$groupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIR$Version"
+        )
 
-        & $scriptUnderTest @parameters -Version $Version -DataStore $DataStore
+        & $scriptUnderTest @parameters -Version $Version
 
         @($state.Deleted) | Should -BeExactly $expected
         Should -Invoke Remove-AzResource -Times $expected.Count -Exactly -ParameterFilter { $Force -and $ErrorAction -eq 'Stop' }
-        if ($DataStore -eq 'cosmos') {
-            Should -Invoke Remove-AzResource -Times 1 -Exactly -ParameterFilter {
-                $ResourceId -like '*/resourceAssociations/*' -and $ApiVersion -eq '2023-08-01-preview'
-            }
+        Should -Invoke Remove-AzResource -Times 0 -Exactly -ParameterFilter {
+            $ResourceId -like '*/Microsoft.DocumentDB/*' -or $ResourceId -like '*/Microsoft.Network/*'
         }
     }
 
     It 'does nothing when the stage resources are already absent' {
         $state.Inventory = @()
 
-        & $scriptUnderTest @parameters -Version R4 -DataStore cosmos
+        & $scriptUnderTest @parameters -Version R4
 
         Should -Invoke Remove-AzResource -Times 0 -Exactly
     }
@@ -107,7 +97,7 @@ Describe 'PR stage resource cleanup' {
             $_.ResourceId -ne "$groupId/providers/Microsoft.App/containerApps/$environmentName-r4-sql"
         })
 
-        & $scriptUnderTest @parameters -Version R4 -DataStore sql
+        & $scriptUnderTest @parameters -Version R4
 
         @($state.Deleted) | Should -BeExactly @("$groupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIRR4")
     }
@@ -121,7 +111,7 @@ Describe 'PR stage resource cleanup' {
             $state.Deleted.Add($ResourceId)
         }
 
-        & $scriptUnderTest @parameters -Version R5 -DataStore sql
+        & $scriptUnderTest @parameters -Version R5
 
         $state.Attempts | Should -Be 3
         @($state.Deleted) | Should -BeExactly @(
@@ -133,7 +123,7 @@ Describe 'PR stage resource cleanup' {
     It 'fails visibly if deletion keeps failing and does not delete the backing database' {
         Mock Remove-AzResource { throw 'Deletion denied' }
 
-        { & $scriptUnderTest @parameters -Version R4 -DataStore sql } | Should -Throw '*Deletion denied*'
+        { & $scriptUnderTest @parameters -Version R4 } | Should -Throw '*Deletion denied*'
 
         Should -Invoke Remove-AzResource -Times 5 -Exactly -ParameterFilter {
             $ResourceId -eq "$groupId/providers/Microsoft.App/containerApps/$environmentName-r4-sql"
@@ -143,22 +133,32 @@ Describe 'PR stage resource cleanup' {
         }
     }
 
-    It 'does not delete the Cosmos account if its NSP association cannot be removed' {
-        Mock Remove-AzResource { throw 'Association removal denied' } -ParameterFilter {
-            $ResourceId -like '*/resourceAssociations/*'
+    It 'retries the same database after the app has been deleted' {
+        Mock Remove-AzResource {
+            if ($ResourceId -like '*/databases/*') {
+                $state.Attempts++
+                if ($state.Attempts -lt 3) {
+                    throw 'Transient database failure'
+                }
+            }
+            $state.Deleted.Add($ResourceId)
         }
 
-        { & $scriptUnderTest @parameters -Version Stu3 -DataStore cosmos } | Should -Throw '*Association removal denied*'
+        & $scriptUnderTest @parameters -Version Stu3
 
-        Should -Invoke Remove-AzResource -Times 0 -Exactly -ParameterFilter {
-            $ResourceId -like '*/Microsoft.DocumentDB/databaseAccounts/*'
+        @($state.Deleted) | Should -BeExactly @(
+            "$groupId/providers/Microsoft.App/containerApps/$environmentName-sql"
+            "$groupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIRStu3"
+        )
+        Should -Invoke Remove-AzResource -Times 3 -Exactly -ParameterFilter {
+            $ResourceId -eq "$groupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIRStu3"
         }
     }
 
     It 'does not interpret an inventory failure as absent resources' {
         Mock Get-AzResource { throw 'Inventory denied' } -ParameterFilter { $ResourceGroupName }
 
-        { & $scriptUnderTest @parameters -Version Stu3 -DataStore sql } | Should -Throw '*Inventory denied*'
+        { & $scriptUnderTest @parameters -Version Stu3 } | Should -Throw '*Inventory denied*'
 
         Should -Invoke Remove-AzResource -Times 0 -Exactly
     }
@@ -166,11 +166,19 @@ Describe 'PR stage resource cleanup' {
     It 'rejects <Case> before accessing Azure' -ForEach @(
         @{ Case = 'a shared CI resource group'; Parameter = 'ResourceGroupName'; Value = 'msh-fhir-ci' }
         @{ Case = 'another build resource group'; Parameter = 'ResourceGroupName'; Value = 'msh-fhir-pr-123-789' }
+        @{ Case = 'another PR resource group'; Parameter = 'ResourceGroupName'; Value = 'msh-fhir-pr-789-456' }
         @{ Case = 'another build deployment'; Parameter = 'DeploymentEnvironmentName'; Value = 'f123pr123-789' }
+        @{ Case = 'an invalid deployment prefix'; Parameter = 'DeploymentEnvironmentName'; Value = 'shared-456' }
+        @{ Case = 'an invalid PR number'; Parameter = 'PrNumber'; Value = '../123' }
+        @{ Case = 'an invalid build ID'; Parameter = 'BuildId'; Value = '456*' }
+        @{ Case = 'an unsupported version'; Parameter = 'Version'; Value = 'R6' }
     ) {
         $parameters[$Parameter] = $Value
+        if (-not $parameters.ContainsKey('Version')) {
+            $parameters.Version = 'R4'
+        }
 
-        { & $scriptUnderTest @parameters -Version R4 -DataStore sql } | Should -Throw
+        { & $scriptUnderTest @parameters } | Should -Throw
 
         Should -Invoke Get-AzResourceGroup -Times 0 -Exactly
         Should -Invoke Remove-AzResource -Times 0 -Exactly

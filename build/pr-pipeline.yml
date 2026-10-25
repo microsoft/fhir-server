@@ -479,33 +479,18 @@ stages:
 
 - template: ./stages/cleanup-pr-test-resources.yml
   parameters:
-    testStage: testStu3Cosmos
-    version: Stu3
-    dataStore: cosmos
-
-- template: ./stages/cleanup-pr-test-resources.yml
-  parameters:
     testStage: testStu3Sql
     version: Stu3
-    dataStore: sql
-
-- template: ./stages/cleanup-pr-test-resources.yml
-  parameters:
-    testStage: testR4Cosmos
-    version: R4
-    dataStore: cosmos
 
 - template: ./stages/cleanup-pr-test-resources.yml
   parameters:
     testStage: testR4Sql
     version: R4
-    dataStore: sql
 
 - template: ./stages/cleanup-pr-test-resources.yml
   parameters:
     testStage: testR5Sql
     version: R5
-    dataStore: sql
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'

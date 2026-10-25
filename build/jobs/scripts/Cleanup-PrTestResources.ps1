@@ -4,10 +4,6 @@ param(
     [string] $Version,
 
     [Parameter(Mandatory = $true)]
-    [ValidateSet('sql', 'cosmos')]
-    [string] $DataStore,
-
-    [Parameter(Mandatory = $true)]
     [string] $ResourceGroupName,
 
     [Parameter(Mandatory = $true)]
@@ -37,24 +33,13 @@ $resourceGroup = Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction Stop
 $resourceGroupId = $resourceGroup.ResourceId
 $environmentName = $DeploymentEnvironmentName.ToLowerInvariant()
 $versionSuffix = if ($Version -eq 'Stu3') { '' } else { "-$($Version.ToLowerInvariant())" }
-$appName = "$environmentName$versionSuffix"
-if ($DataStore -eq 'sql') {
-    $appName += '-sql'
-}
+$appName = "$environmentName$versionSuffix-sql"
 
 $resources = @(Get-AzResource -ResourceGroupName $ResourceGroupName -ErrorAction Stop)
-$targets = @("$resourceGroupId/providers/Microsoft.App/containerApps/$appName")
-
-if ($DataStore -eq 'sql') {
-    $targets += "$resourceGroupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIR$Version"
-} else {
-    $nspId = "$resourceGroupId/providers/Microsoft.Network/networkSecurityPerimeters/nsp-$ResourceGroupName"
-    if ($resources.ResourceId -contains $nspId) {
-        $resources += @(Get-AzResource -ResourceId "$nspId/resourceAssociations" -ApiVersion '2023-08-01-preview' -ErrorAction Stop)
-    }
-    $targets += "$nspId/resourceAssociations/cosmosdb-$appName-association"
-    $targets += "$resourceGroupId/providers/Microsoft.DocumentDB/databaseAccounts/$appName"
-}
+$targets = @(
+    "$resourceGroupId/providers/Microsoft.App/containerApps/$appName"
+    "$resourceGroupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIR$Version"
+)
 
 foreach ($resourceId in $targets) {
     if ($resources.ResourceId -notcontains $resourceId) {
@@ -62,17 +47,8 @@ foreach ($resourceId in $targets) {
         continue
     }
 
-    $removeParameters = @{
-        ResourceId = $resourceId
-        Force = $true
-        ErrorAction = 'Stop'
-    }
-    if ($resourceId -like '*/resourceAssociations/*') {
-        $removeParameters.ApiVersion = '2023-08-01-preview'
-    }
-
     Write-Host "Deleting stage-owned resource: $resourceId"
     Invoke-WithRetry -OperationName "Delete $resourceId" -ScriptBlock {
-        Remove-AzResource @removeParameters
+        Remove-AzResource -ResourceId $resourceId -Force -ErrorAction Stop
     }
 }

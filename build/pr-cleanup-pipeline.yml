@@ -1,5 +1,5 @@
 # DESCRIPTION: 	
-# Cleans up shared Azure resources after PR Build & Deploy succeeds.
+# Cleans up shared Azure resources after the owned test and SQL cleanup stages succeed.
 # Runs separately so resource group deletion does not delay PR validation.
 
 trigger: none
@@ -13,6 +13,13 @@ resources:
       branches:
         include:
         - '*'
+      # All listed stages must succeed. Wait for SQL cleanup to avoid racing whole-RG deletion.
+      stages:
+      - testStu3Cosmos
+      - cleanup_testStu3Sql
+      - testR4Cosmos
+      - cleanup_testR4Sql
+      - cleanup_testR5Sql
 
 variables:
 - template: pr-variables.yml

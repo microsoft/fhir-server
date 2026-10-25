@@ -7,15 +7,10 @@ parameters:
   - Stu3
   - R4
   - R5
-- name: dataStore
-  type: string
-  values:
-  - sql
-  - cosmos
 
 stages:
 - stage: cleanup_${{ parameters.testStage }}
-  displayName: 'Clean up ${{ parameters.version }} ${{ parameters.dataStore }} resources'
+  displayName: 'Clean up ${{ parameters.version }} SQL resources'
   dependsOn:
   - ${{ parameters.testStage }}
   condition: and(not(canceled()), eq(dependencies.${{ parameters.testStage }}.result, 'Succeeded'))
@@ -36,7 +31,6 @@ stages:
         ScriptPath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Cleanup-PrTestResources.ps1'
         ScriptArguments: >-
           -Version "${{ parameters.version }}"
-          -DataStore "${{ parameters.dataStore }}"
           -ResourceGroupName "$(UniqueResourceGroupName)"
           -DeploymentEnvironmentName "$(DeploymentEnvironmentName)"
           -PrNumber "$(prName)"
