@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             stopwatch.Start();
 
             await RunWorkAsync(cancellationToken);
-            await UpdateLastRunDateAsync(cancellationToken);
+            await UpdateLastRunTimeAsync(cancellationToken);
 
             if (DateTime.UtcNow - _lastLog > TimeSpan.FromHours(1))
             {
@@ -105,9 +105,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
         }
 
-        internal static bool ShouldRun(DateTime utcNow, DateTime lastRunDate, TimeSpan period)
+        internal static bool ShouldRun(DateTime utcNow, DateTime lastRunTime, TimeSpan period)
         {
-            return utcNow - lastRunDate >= period;
+            return utcNow - lastRunTime >= period;
         }
 
         internal static double GetPeriodSec(double periodSec, double leasePeriodSec)
@@ -117,21 +117,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<bool> IsRunDueAsync(CancellationToken cancellationToken)
         {
-            var lastRunDate = await GetLastRunDateAsync(cancellationToken);
-            return ShouldRun(DateTime.UtcNow, lastRunDate, TimeSpan.FromSeconds(PeriodSec));
+            var lastRunTime = await GetLastRunTimeAsync(cancellationToken);
+            return ShouldRun(DateTime.UtcNow, lastRunTime, TimeSpan.FromSeconds(PeriodSec));
         }
 
-        private async Task<DateTime> GetLastRunDateAsync(CancellationToken cancellationToken)
+        private async Task<DateTime> GetLastRunTimeAsync(CancellationToken cancellationToken)
         {
-            await using var cmd = new SqlCommand("dbo.GetWatchdogLeasesLastRunDate") { CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand("dbo.GetWatchdogLeasesLastRunTime") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Watchdog", Name);
 
-            var lastRunDate = cmd.Parameters.Add("@LastRunDate", SqlDbType.DateTime);
-            lastRunDate.Direction = ParameterDirection.Output;
+            var lastRunTime = cmd.Parameters.Add("@LastRunTime", SqlDbType.DateTime);
+            lastRunTime.Direction = ParameterDirection.Output;
 
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-            var value = lastRunDate.Value;
+            var value = lastRunTime.Value;
             if (value == null || value == DBNull.Value)
             {
                 return DateTime.MinValue;
@@ -141,11 +141,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return result.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(result, DateTimeKind.Utc) : result;
         }
 
-        private async Task UpdateLastRunDateAsync(CancellationToken cancellationToken)
+        private async Task UpdateLastRunTimeAsync(CancellationToken cancellationToken)
         {
-            await using var cmd = new SqlCommand("dbo.UpdateWatchdogLeasesLastRunDate") { CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand("dbo.UpdateWatchdogLeasesLastRunTime") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Watchdog", Name);
-            cmd.Parameters.AddWithValue("@LastRunDate", DateTime.UtcNow);
+            cmd.Parameters.AddWithValue("@LastRunTime", DateTime.UtcNow);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 

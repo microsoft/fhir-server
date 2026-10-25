@@ -562,16 +562,16 @@ RAISERROR('Test',18,127)
         }
 
         [Fact]
-        public async Task LastRunDateIsKeptForStateLeases()
+        public async Task LastRunTimeIsKeptForStaleLeases()
         {
             const string watchdog = "TestWatchdog";
-            var originalLastRunDate = new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            var originalLastRunTime = new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc);
 
             ExecuteSql($@"DELETE FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
             ExecuteSql($@"
 INSERT INTO dbo.WatchdogLeases 
-    (        Watchdog,  LeaseHolder,                     LeaseEndTime,                                     LastRunDate)
-  SELECT '{watchdog}', 'old-worker', dateadd(minute,-10,getUTCdate()), '{originalLastRunDate:yyyy-MM-ddTHH:mm:ss.fff}'");
+    (        Watchdog,  LeaseHolder,                     LeaseEndTime,                                     LastRunTime)
+  SELECT '{watchdog}', 'old-worker', dateadd(minute,-10,getUTCdate()), '{originalLastRunTime:yyyy-MM-ddTHH:mm:ss.fff}'");
 
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             await conn.OpenAsync();
@@ -591,8 +591,8 @@ INSERT INTO dbo.WatchdogLeases
 
             await cmd.ExecuteNonQueryAsync();
 
-            var preservedLastRunDate = (DateTime)ExecuteSql($"SELECT LastRunDate FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
-            Assert.Equal(originalLastRunDate, preservedLastRunDate);
+            var preservedLastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            Assert.Equal(originalLastRunTime, preservedLastRunTime);
             Assert.True((bool)isAcquired.Value);
             var leaseHolder = (string)ExecuteSql($"SELECT LeaseHolder FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
             Assert.Equal(newWorker, leaseHolder);
@@ -612,7 +612,7 @@ INSERT INTO dbo.WatchdogLeases
             var pastDate = DateTime.UtcNow.AddDays(-1);
             ExecuteSql($@"
 INSERT INTO dbo.WatchdogLeases 
-    (        Watchdog,  LeaseHolder, LeaseEndTime,  LastRunDate)
+    (        Watchdog,  LeaseHolder, LeaseEndTime,  LastRunTime)
   SELECT '{watchdog}', 'old-worker', '{pastDate}', '{pastDate}'");
 
             var executionTimes = new List<DateTime>();
@@ -634,8 +634,8 @@ INSERT INTO dbo.WatchdogLeases
 
             Assert.InRange((executionTimes[1] - executionTimes[0]).TotalSeconds, periodSec - leasePeriodSec, periodSec + leasePeriodSec);
 
-            var lrd = (DateTime)ExecuteSql($"SELECT LastRunDate FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
-            Assert.True((lrd - executionTimes[1]).TotalSeconds < 1, $"LastRunDate {lrd:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[1]:yyyy-MM-dd HH:mm:ss.fff}.");
+            var lastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            Assert.True((lastRunTime - executionTimes[1]).TotalSeconds < 1, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[1]:yyyy-MM-dd HH:mm:ss.fff}.");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()

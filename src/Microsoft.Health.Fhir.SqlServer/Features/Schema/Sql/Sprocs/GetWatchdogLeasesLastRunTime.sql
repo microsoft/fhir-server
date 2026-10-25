@@ -1,8 +1,8 @@
---DROP PROCEDURE dbo.GetWatchdogLeasesLastRunDate
+--DROP PROCEDURE dbo.GetWatchdogLeasesLastRunTime
 GO
-CREATE PROCEDURE dbo.GetWatchdogLeasesLastRunDate
+CREATE PROCEDURE dbo.GetWatchdogLeasesLastRunTime
     @Watchdog varchar(100)
-   ,@LastRunDate datetime OUT
+   ,@LastRunTime datetime OUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
@@ -11,8 +11,8 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@msg varchar(1000)
 
 BEGIN TRY
-  SET @LastRunDate = (SELECT LastRunDate FROM dbo.WatchdogLeases WHERE Watchdog = @Watchdog)
-  SET @msg = 'LRD='+isnull(convert(varchar(23),@LastRunDate,126),'NULL')
+  SET @LastRunTime = (SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = @Watchdog)
+  SET @msg = 'LRT='+isnull(convert(varchar(23),@LastRunTime,126),'NULL')
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Text=@msg
 END TRY

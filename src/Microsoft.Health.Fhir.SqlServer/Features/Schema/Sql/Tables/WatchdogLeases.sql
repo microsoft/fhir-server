@@ -8,7 +8,7 @@ CREATE TABLE dbo.WatchdogLeases
 	  ,RemainingLeaseTimeSec AS datediff(second,getUTCdate(),LeaseEndTime)
 	  ,LeaseRequestor      varchar(100)  NOT NULL CONSTRAINT DF_WatchdogLeases_LeaseRequestor DEFAULT ''
 	  ,LeaseRequestTime    datetime      NOT NULL CONSTRAINT DF_WatchdogLeases_LeaseRequestTime DEFAULT 0
-	  ,LastRunDate         datetime      NOT NULL CONSTRAINT DF_WatchdogLeases_LastRunDate DEFAULT 0
+	  ,LastRunTime         datetime      NOT NULL CONSTRAINT DF_WatchdogLeases_LastRunTime DEFAULT 0
 
 	   CONSTRAINT PKC_WatchdogLeases_Watchdog PRIMARY KEY CLUSTERED (Watchdog)
    )

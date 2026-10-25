@@ -1,9 +1,9 @@
-IF col_length('dbo.WatchdogLeases', 'LastRunDate') IS NULL
-  ALTER TABLE dbo.WatchdogLeases ADD LastRunDate datetime NOT NULL CONSTRAINT DF_WatchdogLeases_LastRunDate DEFAULT 0
+IF col_length('dbo.WatchdogLeases', 'LastRunTime') IS NULL
+  ALTER TABLE dbo.WatchdogLeases ADD LastRunTime datetime NOT NULL CONSTRAINT DF_WatchdogLeases_LastRunTime DEFAULT 0
 GO
-CREATE OR ALTER PROCEDURE dbo.GetWatchdogLeasesLastRunDate
-   @Watchdog varchar(100)
-  ,@LastRunDate datetime OUT
+CREATE OR ALTER PROCEDURE dbo.GetWatchdogLeasesLastRunTime
+    @Watchdog varchar(100)
+   ,@LastRunTime datetime OUT
 AS
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'WD='+isnull(@Watchdog,'NULL')
@@ -11,8 +11,8 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@msg varchar(1000)
 
 BEGIN TRY
-  SET @LastRunDate = (SELECT LastRunDate FROM dbo.WatchdogLeases WHERE Watchdog = @Watchdog)
-  SET @msg = 'LRD='+isnull(convert(varchar(23),@LastRunDate,126),'NULL')
+  SET @LastRunTime = (SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = @Watchdog)
+  SET @msg = 'LRT='+isnull(convert(varchar(23),@LastRunTime,126),'NULL')
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Text=@msg
 END TRY
@@ -22,17 +22,17 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-CREATE OR ALTER PROCEDURE dbo.UpdateWatchdogLeasesLastRunDate
-   @Watchdog varchar(100)
-  ,@LastRunDate datetime
+CREATE OR ALTER PROCEDURE dbo.UpdateWatchdogLeasesLastRunTime
+    @Watchdog varchar(100)
+   ,@LastRunTime datetime
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-        ,@Mode varchar(200) = 'WD='+isnull(@Watchdog,'NULL')+' LRD='+isnull(convert(varchar(23),@LastRunDate,126),'NULL')
+        ,@Mode varchar(200) = 'WD='+isnull(@Watchdog,'NULL')+' LRT='+isnull(convert(varchar(23),@LastRunTime,126),'NULL')
         ,@st datetime = getUTCdate()
 
 BEGIN TRY
-  UPDATE dbo.WatchdogLeases SET LastRunDate = @LastRunDate WHERE Watchdog = @Watchdog
+  UPDATE dbo.WatchdogLeases SET LastRunTime = @LastRunTime WHERE Watchdog = @Watchdog
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
@@ -126,7 +126,7 @@ BEGIN TRY
       SET @msg = ''
       SELECT @msg = convert(varchar(1000),@msg + CASE WHEN @msg = '' THEN '' ELSE ',' END + Watchdog) FROM @Watchdogs
       SET @msg = convert(varchar(1000),'Reset old/forced leases:'+@msg)
-      EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Target='WatchdogLeases',@Action='Update',@Rows=@Rows,@Text=@msg
+      EXECUTE dbo.LogEvent @Process=@SP,@Status='Info',@Mode=@Mode,@Target='WatchdogLeases',@Action='Update',@Rows=@Rows,@Text=@msg
     END
   END
 
@@ -204,7 +204,7 @@ BEGIN TRY
     SET @IsAcquired = 1
     SET @msg = 'Lease holder changed from ['+isnull(@PreviousLeaseHolder,'')+'] to ['+@Worker+']' 
     IF @PreviousLeaseHolder <> @Worker
-      EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Text=@msg
+      EXECUTE dbo.LogEvent @Process=@SP,@Status='Info',@Mode=@Mode,@Text=@msg
   END
   ELSE
     IF @AllowRebalance = 1 
@@ -231,7 +231,7 @@ BEGIN TRY
             AND (SELECT count(*) FROM dbo.WatchdogLeases B WHERE B.LeaseHolder = A.LeaseHolder AND datediff(second,B.LeaseEndTime,@Now) < @LeasePeriodSec) > @DesiredLeasesNumber -- current guy holds more than required
         SET @RowsInt = @@rowcount
         SET @msg = '@DesiredLeasesNumber=['+convert(varchar(10),@DesiredLeasesNumber)+'] > @MyValidRequestsOrLeasesNumber=['+convert(varchar(10),@MyValidRequestsOrLeasesNumber)+']' 
-        EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Rows=@RowsInt,@Text=@msg
+        EXECUTE dbo.LogEvent @Process=@SP,@Status='Info',@Mode=@Mode,@Rows=@RowsInt,@Text=@msg
       END
     END
   
@@ -241,7 +241,7 @@ END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Error',@Mode=@Mode;
+  EXECUTE dbo.LogEvent @Process=@SP,@Status='Error',@Mode=@Mode;
   THROW
 END CATCH
 GO

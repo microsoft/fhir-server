@@ -19,12 +19,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         [InlineData(5, 4, false)]
         [InlineData(5, 5, true)]
         [InlineData(5, 6, true)]
-        public void GivenLastRunDate_WhenCheckingDueTime_ThenOnlyPeriodElapsedRunsAreScheduled(int periodSeconds, int elapsedSeconds, bool expected)
+        public void GivenLastRunTime_WhenCheckingDueTime_ThenOnlyPeriodElapsedRunsAreScheduled(int periodSeconds, int elapsedSeconds, bool expected)
         {
             var utcNow = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var lastRunDate = utcNow.AddSeconds(-elapsedSeconds);
+            var lastRunTime = utcNow.AddSeconds(-elapsedSeconds);
 
-            Assert.Equal(expected, Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunDate, TimeSpan.FromSeconds(periodSeconds)));
+            Assert.Equal(expected, Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunTime, TimeSpan.FromSeconds(periodSeconds)));
         }
 
         [Theory]
@@ -40,12 +40,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         public void GivenWatchdogPeriodLongerThanLeasePeriod_WhenCheckingDueTime_ThenWorkStillRunsOnlyAfterFullPeriodHasElapsed()
         {
             var utcNow = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            var lastRunDate = utcNow.AddSeconds(-59);
+            var lastRunTime = utcNow.AddSeconds(-59);
 
-            Assert.False(Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunDate, TimeSpan.FromSeconds(60)));
+            Assert.False(Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunTime, TimeSpan.FromSeconds(60)));
 
-            lastRunDate = utcNow.AddSeconds(-60);
-            Assert.True(Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunDate, TimeSpan.FromSeconds(60)));
+            lastRunTime = utcNow.AddSeconds(-60);
+            Assert.True(Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunTime, TimeSpan.FromSeconds(60)));
         }
     }
 }
