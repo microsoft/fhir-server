@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await InitParamsAsync();
 
             await Task.WhenAll(
-                _fhirTimer.ExecuteAsync(Name, PeriodSec, OnNextTickAsync, cancellationToken),
+                _fhirTimer.ExecuteAsync(Name, GetPeriodSec(PeriodSec, LeasePeriodSec), OnNextTickAsync, cancellationToken),
                 _watchdogLease.ExecuteAsync($"{Name}Lease", AllowRebalance, LeasePeriodSec, guid, cancellationToken));
 
             _logger.LogInformation($"{Name}.ExecuteAsync: completed.");
@@ -108,6 +108,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         internal static bool ShouldRun(DateTime utcNow, DateTime lastRunDate, TimeSpan period)
         {
             return utcNow - lastRunDate >= period;
+        }
+
+        internal static double GetPeriodSec(double periodSec, double leasePeriodSec)
+        {
+            return Math.Min(periodSec, leasePeriodSec);
         }
 
         private async Task<bool> IsRunDueAsync(CancellationToken cancellationToken)

@@ -5,10 +5,14 @@
 
 using System;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class WatchdogTests
     {
         [Theory]
@@ -21,6 +25,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             var lastRunDate = utcNow.AddSeconds(-elapsedSeconds);
 
             Assert.Equal(expected, Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunDate, TimeSpan.FromSeconds(periodSeconds)));
+        }
+
+        [Theory]
+        [InlineData(60, 15, 15)]
+        [InlineData(15, 60, 15)]
+        [InlineData(30, 30, 30)]
+        public void GivenLeasePeriodShorterThanWatchdogPeriod_WhenCalculatingTimerPeriod_ThenTimerUsesShorterInterval(int periodSeconds, int leasePeriodSeconds, int expectedTimerPeriodSeconds)
+        {
+            Assert.Equal(expectedTimerPeriodSeconds, Watchdog<ExpiredResourceCleanupWatchdog>.GetPeriodSec(periodSeconds, leasePeriodSeconds));
+        }
+
+        [Fact]
+        public void GivenWatchdogPeriodLongerThanLeasePeriod_WhenCheckingDueTime_ThenWorkStillRunsOnlyAfterFullPeriodHasElapsed()
+        {
+            var utcNow = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var lastRunDate = utcNow.AddSeconds(-59);
+
+            Assert.False(Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunDate, TimeSpan.FromSeconds(60)));
+
+            lastRunDate = utcNow.AddSeconds(-60);
+            Assert.True(Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunDate, TimeSpan.FromSeconds(60)));
         }
     }
 }
