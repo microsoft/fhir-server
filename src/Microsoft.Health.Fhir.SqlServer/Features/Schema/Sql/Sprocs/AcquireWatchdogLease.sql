@@ -71,15 +71,20 @@ BEGIN TRY
          OR @ForceAcquire = 1 AND Watchdog = @Watchdog AND LeaseHolder <> @Worker
   IF @@rowcount > 0
   BEGIN 
-    DELETE FROM dbo.WatchdogLeases WHERE Watchdog IN (SELECT Watchdog FROM @Watchdogs)
+    UPDATE dbo.WatchdogLeases
+      SET LeaseHolder = ''
+         ,LeaseEndTime = dateadd(day,-10,@Now)
+         ,LeaseRequestor = ''
+         ,LeaseRequestTime = dateadd(day,-10,@Now)
+      WHERE Watchdog IN (SELECT Watchdog FROM @Watchdogs)
     SET @Rows += @@rowcount
 
     IF @Rows > 0
     BEGIN
       SET @msg = ''
       SELECT @msg = convert(varchar(1000),@msg + CASE WHEN @msg = '' THEN '' ELSE ',' END + Watchdog) FROM @Watchdogs
-      SET @msg = convert(varchar(1000),'Remove old/forced leases:'+@msg)
-      EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Target='WatchdogLeases',@Action='Delete',@Rows=@Rows,@Text=@msg
+      SET @msg = convert(varchar(1000),'Reset old/forced leases:'+@msg)
+      EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Target='WatchdogLeases',@Action='Update',@Rows=@Rows,@Text=@msg
     END
   END
 
