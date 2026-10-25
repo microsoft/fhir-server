@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
         [Fact]
         public void GivenConsolidatedVectorSchema_WhenVersionConstantsAreRead_ThenOnlyVersion119IsRequired()
         {
-            Assert.Equal((int)SchemaVersion.V119, SchemaVersionConstants.Max);
+            Assert.Equal((int)SchemaVersion.V120, SchemaVersionConstants.Max);
             Assert.Equal((int)SchemaVersion.V119, SchemaVersionConstants.VectorSearchVersion);
         }
     }
