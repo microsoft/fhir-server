@@ -364,6 +364,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 logger);
 
             var collection = new ServiceCollection();
+            collection.AddSingleton(FhirRequestContextAccessor);
+            collection.AddTransient(typeof(IPipelineBehavior<,>), typeof(FhirStorageRequestContextBehavior<,>));
 
             // Register request handlers
             collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance));
