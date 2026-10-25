@@ -1,0 +1,43 @@
+parameters:
+- name: testStage
+  type: string
+- name: version
+  type: string
+  values:
+  - Stu3
+  - R4
+  - R5
+- name: dataStore
+  type: string
+  values:
+  - sql
+  - cosmos
+
+stages:
+- stage: cleanup_${{ parameters.testStage }}
+  displayName: 'Clean up ${{ parameters.version }} ${{ parameters.dataStore }} resources'
+  dependsOn:
+  - ${{ parameters.testStage }}
+  condition: and(not(canceled()), eq(dependencies.${{ parameters.testStage }}.result, 'Succeeded'))
+  jobs:
+  - job: CleanupResources
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Delete stage-owned app and datastore'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        pwsh: true
+        ScriptType: FilePath
+        ScriptPath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Cleanup-PrTestResources.ps1'
+        ScriptArguments: >-
+          -Version "${{ parameters.version }}"
+          -DataStore "${{ parameters.dataStore }}"
+          -ResourceGroupName "$(UniqueResourceGroupName)"
+          -DeploymentEnvironmentName "$(DeploymentEnvironmentName)"
+          -PrNumber "$(prName)"
+          -BuildId "$(Build.BuildId)"
