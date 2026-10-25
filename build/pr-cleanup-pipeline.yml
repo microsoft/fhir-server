@@ -1,6 +1,6 @@
 # DESCRIPTION: 	
-# Manual recovery cleanup for a selected PR Build & Deploy run.
-# Automatic cleanup runs inside pr-pipeline.yml.
+# Cleans up shared Azure resources after PR Build & Deploy succeeds.
+# Runs separately so resource group deletion does not delay PR validation.
 
 trigger: none
 pr: none
@@ -9,7 +9,10 @@ resources:
   pipelines:
   - pipeline: prPipeline
     source: 'PR Build & Deploy'
-    trigger: none
+    trigger:
+      branches:
+        include:
+        - '*'
 
 variables:
 - template: pr-variables.yml
