@@ -285,6 +285,17 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                             SqlConnection.ClearPool(targetConnection);
                         }
 
+                        await using (SqlConnection mergeConnection = await _sqlConnectionBuilder.CreateConnectionAsync(
+                            builder =>
+                            {
+                                builder.InitialCatalog = databaseName;
+                                builder.ApplicationName = SqlServerFhirDataStore.MergeApplicationName;
+                            },
+                            cancellationToken))
+                        {
+                            SqlConnection.ClearPool(mergeConnection);
+                        }
+
                         await using SqlConnection connection = await _sqlConnectionBuilder.CreateConnectionAsync(
                             builder =>
                             {

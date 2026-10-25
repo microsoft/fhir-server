@@ -45,7 +45,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var connectionString = new SqlConnectionStringBuilder(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString))
             {
-                InitialCatalog = "master",
                 MaxPoolSize = 1,
                 Pooling = true,
                 ApplicationName = Guid.NewGuid().ToString(),
@@ -60,10 +59,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlAuthenticationProvider.SetProvider(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity, new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(credential));
             }
 
+            string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("Lifecycle");
+            connectionString.InitialCatalog = databaseName;
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString.ConnectionString });
             var builder = new DefaultSqlConnectionBuilder(config, SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings));
             var helper = CreateHelper(builder);
-            string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("Lifecycle");
             await using var master = await builder.GetSqlConnectionAsync("master");
             await master.OpenAsync();
             Guid masterConnectionId = master.ClientConnectionId;
@@ -79,6 +79,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await using (var target = await builder.GetSqlConnectionAsync(databaseName))
                 {
                     await target.OpenAsync();
+                }
+
+                await using (var merge = await builder.GetSqlConnectionAsync(false, SqlServerFhirDataStore.MergeApplicationName))
+                {
+                    await merge.OpenAsync();
                 }
 
                 await helper.DeleteDatabase(databaseName);
@@ -107,6 +112,58 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await cleanup.ExecuteNonQueryAsync();
                 SqlConnection.ClearPool(master);
             }
+        }
+
+        [Fact]
+        public async Task GivenDifferentConfiguredDatabase_WhenDeletingDatabase_BothTargetPoolsAndUnpooledMasterAreSelected()
+        {
+            var config = Options.Create(new SqlServerDataStoreConfiguration
+            {
+                ConnectionString = "Server=unused;Initial Catalog=other;Application Name=fixture-default;Pooling=true",
+            });
+            var realBuilder = new DefaultSqlConnectionBuilder(config, SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings));
+            var builder = Substitute.For<ISqlConnectionBuilder>();
+            SqlConnectionStringBuilder defaultTarget = null;
+            SqlConnectionStringBuilder mergeTarget = null;
+            SqlConnectionStringBuilder admin = null;
+            var failure = new InvalidOperationException("Stop before opening the administration connection");
+            builder.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+                .Returns(async call =>
+                {
+                    var connection = await realBuilder.GetSqlConnectionAsync(call.Arg<string>());
+                    defaultTarget = new SqlConnectionStringBuilder(connection.ConnectionString);
+                    return connection;
+                });
+            builder.CreateConnectionAsync(Arg.Any<Action<SqlConnectionStringBuilder>>(), Arg.Any<CancellationToken>())
+                .Returns<SqlConnection>(call =>
+                {
+                    var connection = realBuilder.CreateConnection(call.Arg<Action<SqlConnectionStringBuilder>>());
+                    var selected = new SqlConnectionStringBuilder(connection.ConnectionString);
+                    if (selected.InitialCatalog == "master")
+                    {
+                        admin = selected;
+                        connection.Dispose();
+                        throw failure;
+                    }
+
+                    mergeTarget = selected;
+                    return connection;
+                });
+            var helper = CreateHelper(builder);
+
+            Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() => helper.DeleteDatabase("requested")));
+
+            Assert.NotNull(defaultTarget);
+            Assert.Equal("requested", defaultTarget.InitialCatalog);
+            Assert.Equal("fixture-default", defaultTarget.ApplicationName);
+            Assert.True(defaultTarget.Pooling);
+            Assert.NotNull(mergeTarget);
+            Assert.Equal("requested", mergeTarget.InitialCatalog);
+            Assert.Equal(SqlServerFhirDataStore.MergeApplicationName, mergeTarget.ApplicationName);
+            Assert.True(mergeTarget.Pooling);
+            Assert.NotNull(admin);
+            Assert.Equal("master", admin.InitialCatalog);
+            Assert.False(admin.Pooling);
         }
 
         [Theory]
