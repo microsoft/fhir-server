@@ -201,6 +201,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _jobFactory = Substitute.For<IJobFactory>();
                 _jobFactory.Create(Arg.Any<JobInfo>()).Returns(info =>
                 {
+                    // AsyncLocal flows into child tasks; each job must replace its inherited context.
+                    _fixture.FhirRequestContextAccessor.RequestContext = FhirStorageTestRequestContextAccessor.CreateRequestContext();
                     var jobInfo = info.ArgAt<JobInfo>(0);
 
                     // Deserialize the job definition to get the TypeId
@@ -270,11 +272,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _backgroundCts = new CancellationTokenSource();
 
             // Run this on a separate thread to avoid blocking the test
-            _jobHostingTask = Task.Run(() => _jobHosting.ExecuteAsync(
-                (byte)QueueType.Reindex,  // Use the correct queue type
-                runningJobCount: 2,
-                workerName: "ReindexTestWorker",
-                cancellationTokenSource: _backgroundCts));
+            _jobHostingTask = Task.Run(() =>
+            {
+                _fixture.FhirRequestContextAccessor.RequestContext = FhirStorageTestRequestContextAccessor.CreateRequestContext();
+                return _jobHosting.ExecuteAsync(
+                    (byte)QueueType.Reindex,
+                    runningJobCount: 2,
+                    workerName: "ReindexTestWorker",
+                    cancellationTokenSource: _backgroundCts);
+            });
         }
 
         private async Task StopBackgroundTasksAsync()
@@ -282,56 +288,42 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             if (_backgroundCts != null)
             {
                 _backgroundCts.Cancel();
-
-                if (_jobHostingTask != null)
+                try
                 {
-                    try
-                    {
-                        await _jobHostingTask.ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Expected when cancellation occurs
-                    }
+                    await Task.WhenAll(_jobHostingTask, _cacheUpdateTask);
                 }
-
-                if (_cacheUpdateTask != null)
+                catch (OperationCanceledException) when (_backgroundCts.IsCancellationRequested)
                 {
-                    try
-                    {
-                        await _cacheUpdateTask.ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Expected when cancellation occurs
-                    }
                 }
-
-                _backgroundCts.Dispose();
-                _backgroundCts = null;
+                finally
+                {
+                    _backgroundCts.Dispose();
+                    _backgroundCts = null;
+                }
             }
         }
 
         private void StartCacheUpdateTask(CancellationToken cancellationToken)
         {
-            _cacheUpdateTask = new Task(
-            async _ =>
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    try
-                    {
-                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, true);
-                    }
-                    catch (Exception)
-                    {
-                    }
+            _cacheUpdateTask = RefreshSearchParameterCacheAsync(
+                _searchParameterOperations,
+                _fixture.FhirRequestContextAccessor,
+                TimeSpan.FromSeconds(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds),
+                cancellationToken);
+        }
 
-                    Thread.Sleep(TimeSpan.FromSeconds(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds));
-                }
-            },
-            cancellationToken);
-            _cacheUpdateTask.Start();
+        internal static async Task RefreshSearchParameterCacheAsync(
+            ISearchParameterOperations searchParameterOperations,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            TimeSpan interval,
+            CancellationToken cancellationToken)
+        {
+            contextAccessor.RequestContext = FhirStorageTestRequestContextAccessor.CreateRequestContext();
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, true);
+                await Task.Delay(interval, cancellationToken);
+            }
         }
 
         [Theory]

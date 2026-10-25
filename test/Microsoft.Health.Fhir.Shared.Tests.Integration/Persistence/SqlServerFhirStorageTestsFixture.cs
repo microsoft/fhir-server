@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
-        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = new FhirStorageTestRequestContextAccessor();
 
         private IMediator _mediator;
         private SqlServerFhirDataStore _fhirDataStore;
@@ -270,9 +270,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // Use the real SqlQueueClient for IFhirOperationDataStore
             _fhirOperationDataStore = _sqlServerFhirOperationDataStore;
-
-            _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
-            _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var instanceConfiguration = new FhirServerInstanceConfiguration();
