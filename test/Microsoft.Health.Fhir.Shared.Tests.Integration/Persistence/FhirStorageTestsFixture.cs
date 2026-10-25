@@ -22,7 +22,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -58,7 +57,6 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -213,17 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await asyncLifetime.InitializeAsync();
             }
 
-            // Initialize FhirRequestContext to ensure pending status updates are captured
-            // This needs to be here (like ResourceIdProvider) because it uses AsyncLocal
-            FhirRequestContextAccessor.RequestContext = new DefaultFhirRequestContext
-            {
-                BaseUri = new Uri("http://localhost/"),
-                CorrelationId = Guid.NewGuid().ToString(),
-                RequestHeaders = new Dictionary<string, StringValues>(),
-                ResponseHeaders = new Dictionary<string, StringValues>(),
-                Method = "POST",
-                Uri = new Uri("http://localhost/"),
-            };
+            FhirRequestContextAccessor.RequestContext = FhirStorageTestRequestContextAccessor.CreateRequestContext();
 
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 

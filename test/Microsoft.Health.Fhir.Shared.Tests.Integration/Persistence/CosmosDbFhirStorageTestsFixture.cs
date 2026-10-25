@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = new FhirStorageTestRequestContextAccessor();
 
         private Container _container;
         private CosmosFhirDataStore _fhirDataStore;
@@ -120,9 +120,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
 
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
-
-            _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
-            _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
