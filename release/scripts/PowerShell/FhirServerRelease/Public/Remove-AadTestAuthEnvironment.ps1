@@ -60,8 +60,6 @@ function Remove-AadTestAuthEnvironment {
     $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $ClientSecret
 
     
-    Install-Module -Name Microsoft.Graph -Force
-
     Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $ClientSecretCredential
 
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
