@@ -143,8 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return DateTime.MinValue;
             }
 
-            var result = (DateTime)value;
-            return result.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(result, DateTimeKind.Utc) : result;
+            return (DateTime)value;
         }
 
         private async Task UpdateLastRunTimeAsync(bool supportsLastRunTime, CancellationToken cancellationToken)
