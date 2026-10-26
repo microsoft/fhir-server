@@ -2506,7 +2506,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var fhirRequestContext = Substitute.For<IFhirRequestContext>();
             fhirRequestContext.AccessControlContext.Returns(accessControlContext);
 
-            contextAccessor.RequestContext.Returns(fhirRequestContext);
+            contextAccessor.RequestContext = fhirRequestContext;
         }
 
         // SMART v2 Granular Scope Tests
