@@ -325,12 +325,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
-            catch (FileNotFoundException ex)
-            {
-                _logger.LogWarning(ex, "[JobId:{JobId}] Anonymization configuration file not found. The job will be marked as failed.", _exportJobRecord.Id);
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-            }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation(ex, "[JobId:{JobId}] The job was canceled.", _exportJobRecord.Id);
