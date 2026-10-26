@@ -48,6 +48,9 @@
         <OutputType>Exe</OutputType>
       </PropertyGroup>
       <ItemGroup>
+        <!-- Retain VSTest support for Test Explorer alongside the MTP command-line runner. -->
+        <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
+        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
         <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
         <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
