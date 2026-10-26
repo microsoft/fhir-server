@@ -24,7 +24,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
         private readonly FhirTimer _fhirTimer;
-        private DateTime _lastLog;
 
         protected Watchdog(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -96,15 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await RunWorkAsync(cancellationToken);
             await UpdateLastRunTimeAsync(supportsLastRunTime, cancellationToken);
 
-            if (DateTime.UtcNow - _lastLog > TimeSpan.FromHours(1))
-            {
-                _lastLog = DateTime.UtcNow;
-                _logger.LogInformation($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
-            }
-            else
-            {
-                _logger.LogDebug($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
-            }
+            _logger.LogInformation($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
         }
 
         internal static bool ShouldRun(DateTime utcNow, DateTime lastRunTime, TimeSpan period)
