@@ -14,6 +14,20 @@ sequenceDiagram
     SearchInternalAsync->>SqlServerSearchService: SearchResult
 ```
 
+## SQL generation
+
+`SqlServerSearchService` passes a rewritten `SqlRootExpression` to `SqlQueryGenerator`, which emits the SQL
+statements and CTEs for the search. The generator uses `EXISTS` for source-existence checks when practical.
+For complex searches or optimizer retries, it can use joins instead. The final query applies resource-version
+and deletion filters, sorting, and pagination, then returns distinct resources. Include searches save the
+matched resources before generating queries for included resources.
+
+Independent chained parameters can match different referenced resources. When the generator uses joins,
+it intersects independent chains, and root-level filters that follow a chain, on distinct source-resource keys
+so multiple matches in one chain do not multiply rows in later tables.
+
+### Query shape comments
+
 Generated SQL includes a value-free FHIR query shape. When the generator emits its existing parameter hash
 comment with SQL query-plan reuse disabled, the shape is added without changing that comment's location:
 

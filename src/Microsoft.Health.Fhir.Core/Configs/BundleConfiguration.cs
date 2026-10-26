@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class BundleConfiguration
     {
+        public const int DefaultConditionalOperationGroupSize = 50;
+
         public int EntryLimit { get; set; } = 500;
 
         /// <summary>
@@ -29,5 +31,20 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int BundleExpandedGroupSize { get; set; } = 50;
 
         public int BundleExpandedGroupDelayInMilliseconds { get; set; } = 07;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether conditional-operation throttling is enabled.
+        /// </summary>
+        public bool IsConditionalOperationThrottlingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the number of conditional operations dispatched between pacing delays in a parallel bundle.
+        /// </summary>
+        public int ConditionalOperationGroupSize { get; set; } = DefaultConditionalOperationGroupSize;
+
+        /// <summary>
+        /// Gets or sets the pacing delay, in milliseconds, between groups of conditional operations.
+        /// </summary>
+        public int ConditionalOperationGroupDelayInMilliseconds { get; set; } = 15;
     }
 }

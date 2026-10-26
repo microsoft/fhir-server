@@ -6,9 +6,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -23,10 +25,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -50,6 +51,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
@@ -130,6 +132,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -178,6 +181,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -225,6 +229,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Ensures success sign is emitted.
             _bundleMetricHandler.Received(1).EmitSuccess();
+            _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -236,6 +241,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -330,6 +336,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Medium, "BundleComplexity is different than the expected: medium is expected as profiles are refreshed.");
         }
 
         [Fact]
@@ -370,6 +377,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Ensures success sign is emitted.
             _bundleMetricHandler.Received(1).EmitSuccess();
+            _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
@@ -378,6 +386,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Transaction, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -591,8 +600,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.HandleAsync(bundleRequest, cancellationToken));
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
 
-                // Ensures failure sign is emitted.
-                _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                // Client cancellations are not service failures.
+                _bundleMetricHandler.DidNotReceive().EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.DidNotReceive().EmitSuccess();
+                _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
 
@@ -685,6 +696,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -725,6 +737,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -776,6 +789,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Theory]
@@ -848,6 +862,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
                 Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
                 Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+                Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
             }
             else
             {
@@ -856,8 +871,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
 
-                // Ensures failure sign is emitted.
-                _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+                // Client cancellations are not service failures.
+                _bundleMetricHandler.DidNotReceive().EmitFailure(Arg.Any<string>());
+                _bundleMetricHandler.DidNotReceive().EmitSuccess();
+                _bundleMetricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
             }
         }
 
@@ -957,6 +974,176 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(fhirTfe.IsErrorCausedDueClientFailure());
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(3)]
+        public async Task GivenAParallelTransaction_WhenSiblingsReturnFailedDependencyAfterAClientError_ThenReturnTheClientError(int clientErrorEntryIndex)
+        {
+            // Reproduces the cancellation race: one entry fails with HTTP 400 and cancels the bundle orchestrator operation,
+            // while its siblings observe the canceled operation and return HTTP 424. The transaction must return the original
+            // HTTP 400, never HTTP 500 or HTTP 424, regardless of which entry finishes first.
+            const int numberOfEntries = 4;
+
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>(),
+            };
+
+            for (int i = 0; i < numberOfEntries; i++)
+            {
+                bundle.Entry.Add(new EntryComponent
+                {
+                    Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/Patient" },
+                    Resource = new Patient(),
+                });
+            }
+
+            // Hold every entry until all of them are running, so the client error and the dependent failures overlap.
+            int routedEntries = 0;
+            int runningEntries = 0;
+            var allEntriesRunning = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    int entryIndex = Interlocked.Increment(ref routedEntries) - 1;
+                    bool isClientError = entryIndex == clientErrorEntryIndex;
+
+                    callInfo.Arg<RouteContext>().Handler = async context =>
+                    {
+                        if (Interlocked.Increment(ref runningEntries) == numberOfEntries)
+                        {
+                            allEntriesRunning.TrySetResult();
+                        }
+
+                        await allEntriesRunning.Task.WaitAsync(TimeSpan.FromSeconds(30));
+
+                        context.Response.StatusCode = isClientError ? StatusCodes.Status400BadRequest : StatusCodes.Status424FailedDependency;
+                        var outcome = new OperationOutcome
+                        {
+                            Issue = new List<OperationOutcome.IssueComponent>
+                            {
+                                new OperationOutcome.IssueComponent
+                                {
+                                    Severity = OperationOutcome.IssueSeverity.Error,
+                                    Code = isClientError ? OperationOutcome.IssueType.Invalid : OperationOutcome.IssueType.Processing,
+                                    Diagnostics = isClientError ? "Validation failed" : Core.Resources.TransactionEntryFailedDependency,
+                                },
+                            },
+                        };
+
+                        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(new FhirJsonSerializer().SerializeToString(outcome));
+                        await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.HandleAsync(bundleRequest, default));
+
+            Assert.Equal(numberOfEntries, runningEntries);
+            Assert.Equal(HttpStatusCode.BadRequest, fhirTfe.ResponseStatusCode);
+            Assert.True(fhirTfe.IsErrorCausedDueClientFailure());
+        }
+
+        [Fact]
+        public async Task GivenAParallelTransaction_WhenTheClientCancelsMidTransaction_ThenNoFailureMetricIsEmitted()
+        {
+            const int numberOfEntries = 2;
+
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+
+            Hl7.Fhir.Model.Bundle bundle = CreateTransactionBundle("/Patient", "/Patient");
+
+            int runningEntries = 0;
+            int cancelledEntries = 0;
+            var allEntriesRunning = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    callInfo.Arg<RouteContext>().Handler = async context =>
+                    {
+                        if (Interlocked.Increment(ref runningEntries) == numberOfEntries)
+                        {
+                            allEntriesRunning.TrySetResult();
+                        }
+
+                        if (await WaitForCancellationAndReturnRequestTimeoutAsync(context))
+                        {
+                            Interlocked.Increment(ref cancelledEntries);
+                        }
+                    };
+                });
+
+            using var tokenSource = new CancellationTokenSource();
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            System.Threading.Tasks.Task<BundleResponse> handleTask = _bundleHandler.HandleAsync(bundleRequest, tokenSource.Token);
+
+            // The client disconnects while every entry of the transaction is still running.
+            await allEntriesRunning.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await tokenSource.CancelAsync();
+
+            FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(() => handleTask);
+            Assert.Equal(HttpStatusCode.RequestTimeout, fhirTce.ResponseStatusCode);
+
+            // Every running entry must observe the client cancellation, not time out on its own.
+            Assert.Equal(numberOfEntries, cancelledEntries);
+
+            // Client cancellations are not service failures.
+            _bundleMetricHandler.DidNotReceive().EmitFailure(Arg.Any<string>());
+            _bundleMetricHandler.DidNotReceive().EmitSuccess();
+        }
+
+        [Theory]
+        [InlineData("/Patient", "/Observation")]
+        [InlineData("/Observation", "/Patient")]
+        public async Task GivenAParallelTransaction_WhenAnEntryFailsAndTheServiceCancelsItsSiblings_ThenAFailureMetricIsEmitted(string firstUrl, string secondUrl)
+        {
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+
+            // The Observation entry fails with an internal error. The Patient entry waits until the service cancels it.
+            Hl7.Fhir.Model.Bundle bundle = CreateTransactionBundle(firstUrl, secondUrl);
+
+            var waitingEntryRunning = new System.Threading.Tasks.TaskCompletionSource(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+            bool? waitingEntryCancelled = null;
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    RouteContext routeContext = callInfo.Arg<RouteContext>();
+                    bool isFailingEntry = routeContext.HttpContext.Request.Path.Value.Contains("Observation", StringComparison.Ordinal);
+
+                    routeContext.Handler = async context =>
+                    {
+                        if (isFailingEntry)
+                        {
+                            await waitingEntryRunning.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                            await WriteOperationOutcomeAsync(context, StatusCodes.Status500InternalServerError, OperationOutcome.IssueType.Exception, "Internal error");
+                        }
+                        else
+                        {
+                            waitingEntryRunning.TrySetResult();
+                            waitingEntryCancelled = await WaitForCancellationAndReturnRequestTimeoutAsync(context);
+                        }
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            // The client never cancels the request, so any cancellation was triggered by the service and must count as a failure.
+            await Assert.ThrowsAnyAsync<BaseFhirTransactionException>(() => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+
+            // The sibling must be cancelled by the service after the failure, not time out on its own.
+            Assert.True(waitingEntryCancelled, "The waiting entry did not observe the service-initiated cancellation.");
+
+            _bundleMetricHandler.Received(1).EmitFailure(Arg.Any<string>());
+            _bundleMetricHandler.DidNotReceive().EmitSuccess();
+        }
+
         [Fact]
         public async Task GivenAConfigurationEntryLimit_WhenExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
         {
@@ -985,6 +1172,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             BundleResponse response = await bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
 
             Assert.NotNull(response);
+            Assert.True(response.Info.IsExtendedBundle);
+            Assert.Equal(BundleComplexity.Low, response.Info.Complexity);
         }
 
         [Fact]
@@ -1046,6 +1235,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         // PUT calls are mocked to succeed while POST calls are mocked to fail.
@@ -1122,6 +1312,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
 
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
 
         [Fact]
@@ -1278,6 +1469,286 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
             Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Parallel, "BundleProcessingLogic is different than the expected.");
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
+            Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
+        }
+
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenABatchWithALargeEntry_WhenProcessed_ThenBundleStatisticsIncludeResourceSizeAndSearchIndexValues(BundleProcessingLogic processingLogic)
+        {
+            const int largeEntryPayloadSize = 6 * 1024 * 1024;
+            _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
+
+            var largePatient = new Patient
+            {
+                Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div xmlns=\"http://www.w3.org/1999/xhtml\">{new string('a', largeEntryPayloadSize)}</div>",
+                },
+            };
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/Patient" },
+                        Resource = largePatient,
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PUT, Url = "/Patient/123" },
+                        Resource = new Patient { Id = "123" },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    callInfo.Arg<RouteContext>().Handler = context =>
+                    {
+                        // Simulates the search index count recorded by ResourceWrapperFactory for the inner request.
+                        if (context.Request.Method == "PUT")
+                        {
+                            _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName] = 150;
+                        }
+
+                        context.Response.StatusCode = 200;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+
+            JToken largeEntry = Assert.Single(statistics["resourceSize"]["large"]);
+            Assert.Equal(0, largeEntry["index"].Value<int>());
+            Assert.Equal("Patient", largeEntry["resourceType"].Value<string>());
+            Assert.True(largeEntry["resourceBytes"].Value<long>() > largeEntryPayloadSize);
+            Assert.Equal(1, statistics["resourceSize"]["over5MiB"].Value<int>());
+
+            JToken heavyEntry = Assert.Single(statistics["searchIndex"]["heavy"]);
+            Assert.Equal(1, heavyEntry["index"].Value<int>());
+            Assert.Equal(150, heavyEntry["indexValues"].Value<int>());
+
+            Assert.Equal(JTokenType.Null, statistics["bundleRequestBodyBytes"].Type);
+        }
+
+#if !Stu3
+        [Fact]
+        public async Task GivenABinaryJsonPatchEntry_WhenProcessed_ThenResourceSizeIsTheBase64EncodedDataSize()
+        {
+            const int decodedPatchSize = (int)(4.5 * 1024 * 1024);
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PATCH, Url = "/Patient/123" },
+                        Resource = new Binary { ContentType = "application/json-patch+json", Data = new byte[decodedPatchSize] },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            JToken largeEntry = Assert.Single(statistics["resourceSize"]["large"]);
+            Assert.Equal("Binary", largeEntry["resourceType"].Value<string>());
+            Assert.Equal(Convert.ToBase64String(new byte[decodedPatchSize]).Length, largeEntry["resourceBytes"].Value<long>());
+        }
+
+        [Fact]
+        public async Task GivenAPatchEntry_WhenProcessed_ThenSearchIndexValuesAreAttributedToThePatchedResourceType()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PATCH, Url = "/Observation/123" },
+                        Resource = new Binary { ContentType = "application/json-patch+json", Data = Encoding.UTF8.GetBytes("[]") },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    RouteContext routeContext = callInfo.Arg<RouteContext>();
+                    routeContext.RouteData.Values[KnownActionParameterNames.ResourceType] = "Observation";
+                    routeContext.Handler = context =>
+                    {
+                        _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName] = 150;
+                        context.Response.StatusCode = 200;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            JToken heavyEntry = Assert.Single(statistics["searchIndex"]["heavy"]);
+            Assert.Equal("Observation", heavyEntry["resourceType"].Value<string>());
+        }
+#endif
+
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenAnEntryThrottledAfterIndexing_WhenCancelledDuringRetryDelay_ThenSearchIndexValuesAreLoggedOnce(BundleProcessingLogic processingLogic)
+        {
+            _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
+            _fhirRequestContext.ResponseHeaders.Add("retry-after", "3");
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PUT, Url = "/Patient/123" },
+                        Resource = new Patient { Id = "123" },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo =>
+                {
+                    callInfo.Arg<RouteContext>().Handler = context =>
+                    {
+                        _fhirRequestContextAccessor.RequestContext.Properties[ResourceWrapperFactory.SearchIndexValuesPropertyName] = 150;
+                        context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+            using var tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), tokenSource.Token);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            Assert.Equal(1, statistics["searchIndex"]["over100"].Value<int>());
+            JToken heavyEntry = Assert.Single(statistics["searchIndex"]["heavy"]);
+            Assert.Equal(150, heavyEntry["indexValues"].Value<int>());
+        }
+
+        [Fact]
+        public async Task GivenABundleRequestWithContentLength_WhenProcessed_ThenBundleRequestBodyBytesUsesContentLength()
+        {
+            _httpContext.Request.ContentLength = 4242;
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.PUT, Url = "/Patient/123" },
+                        Resource = new Patient { Id = "123" },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var logger = new CapturingLogger();
+            BundleHandler bundleHandler = CreateBundleHandler(logger);
+
+            await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), default);
+
+            JObject statistics = JObject.Parse(logger.Messages.Single(m => m.Contains("\"bundleStatistics\"", StringComparison.Ordinal)));
+            Assert.Equal(4242, statistics["bundleRequestBodyBytes"].Value<long>());
+        }
+
+        [Theory]
+        [InlineData(BundleType.Batch, true)]
+        [InlineData(BundleType.Transaction, true)]
+        [InlineData(BundleType.Batch, false)]
+        [InlineData(BundleType.Transaction, false)]
+        public async Task GivenAParallelBundle_WhenConditionalOperationsReachTheGroupSize_ThenThrottlingRespectsTheEnabledFlag(BundleType bundleType, bool isThrottlingEnabled)
+        {
+            Assert.True(_bundleConfiguration.IsConditionalOperationThrottlingEnabled);
+            _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
+            _bundleConfiguration.IsConditionalOperationThrottlingEnabled = isThrottlingEnabled;
+            _bundleConfiguration.ConditionalOperationGroupSize = 2;
+            _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds = isThrottlingEnabled ? 100 : 5000;
+            var dispatchTimes = new List<long>();
+            var stopwatch = Stopwatch.StartNew();
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = bundleType,
+                Entry = Enumerable.Range(0, 4)
+                    .Select(index => new EntryComponent
+                    {
+                        Resource = new Patient(),
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                            IfNoneExist = index == 1 || index == 2 ? $"identifier={index}" : null,
+                        },
+                    })
+                    .ToList(),
+            };
+            _router.When(router => router.RouteAsync(Arg.Any<RouteContext>())).Do(info =>
+            {
+                info.Arg<RouteContext>().Handler = context =>
+                {
+                    dispatchTimes.Add(stopwatch.ElapsedMilliseconds);
+                    context.Response.StatusCode = StatusCodes.Status200OK;
+                    return Task.CompletedTask;
+                };
+            });
+
+            var bundleHandler = CreateBundleHandler();
+            BundleResponse response = await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+
+            Assert.Equal(BundleProcessingLogic.Parallel, response.Info.ProcessingLogic);
+            Assert.False(response.Info.IsExtendedBundle);
+            Assert.Equal(BundleComplexity.Low, response.Info.Complexity);
+            Assert.Equal(4, dispatchTimes.Count);
+            long dispatchInterval = dispatchTimes[3] - dispatchTimes[2];
+            if (isThrottlingEnabled)
+            {
+                Assert.True(dispatchInterval >= _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds);
+            }
+            else
+            {
+                Assert.True(dispatchInterval < _bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds);
+            }
+
+            Assert.All(response.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry, entry => Assert.Equal("200", entry.Response.Status));
         }
 
         [Theory]
@@ -1352,6 +1823,63 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             return new BundleRequest(bundle.ToResourceElement());
         }
 
+        private static Hl7.Fhir.Model.Bundle CreateTransactionBundle(params string[] urls)
+        {
+            return new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = urls
+                    .Select(url => new EntryComponent
+                    {
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = url },
+                        Resource = url.Contains("Observation", StringComparison.Ordinal) ? new Observation() : new Patient(),
+                    })
+                    .ToList(),
+            };
+        }
+
+        private static async System.Threading.Tasks.Task<bool> WaitForCancellationAndReturnRequestTimeoutAsync(HttpContext context)
+        {
+            bool cancellationObserved;
+
+            try
+            {
+                // Bounded wait, so a missing cancellation fails the test instead of hanging it.
+                await Task.Delay(TimeSpan.FromSeconds(30), context.RequestAborted);
+                cancellationObserved = false;
+            }
+            catch (OperationCanceledException)
+            {
+                cancellationObserved = context.RequestAborted.IsCancellationRequested;
+            }
+
+            await WriteOperationOutcomeAsync(context, StatusCodes.Status408RequestTimeout, OperationOutcome.IssueType.Timeout, "The operation was canceled.");
+
+            // Callers assert on this value: a 408 written after the delay expired must not count as observed cancellation.
+            return cancellationObserved;
+        }
+
+        private static async Task WriteOperationOutcomeAsync(HttpContext context, int statusCode, OperationOutcome.IssueType issueType, string diagnostics)
+        {
+            context.Response.StatusCode = statusCode;
+
+            var outcome = new OperationOutcome
+            {
+                Issue = new List<OperationOutcome.IssueComponent>
+                {
+                    new OperationOutcome.IssueComponent
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = issueType,
+                        Diagnostics = diagnostics,
+                    },
+                },
+            };
+
+            byte[] bytes = Encoding.UTF8.GetBytes(new FhirJsonSerializer().SerializeToString(outcome));
+            await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
+        }
+
         private void RouteAsyncFunction(CallInfo callInfo)
         {
             var routeContext = callInfo.Arg<RouteContext>();
@@ -1387,7 +1915,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             featureCollection.Set(routingFeature);
         }
 
-        private BundleHandler CreateBundleHandler()
+        private BundleHandler CreateBundleHandler(ILogger<BundleHandler> logger = null)
         {
             var fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
@@ -1440,7 +1968,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _mediator,
                 _router,
                 _bundleMetricHandler,
-                NullLogger<BundleHandler>.Instance);
+                logger ?? NullLogger<BundleHandler>.Instance);
+        }
+
+        private sealed class CapturingLogger : ILogger<BundleHandler>
+        {
+            public ConcurrentQueue<string> Messages { get; } = new ConcurrentQueue<string>();
+
+            public IDisposable BeginScope<TState>(TState state) => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                Messages.Enqueue(formatter(state, exception));
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 # DESCRIPTION: 	
-# Cleans up Azure resources after a successful PR Build & Deploy pipeline run.
-# This pipeline is triggered automatically when the PR pipeline completes successfully.
+# Cleans up Azure resources created by PR Build & Deploy.
+# This pipeline is triggered automatically when all configured test stages succeed.
 
 trigger: none
 pr: none
@@ -14,10 +14,11 @@ resources:
         include:
           - '*'
       stages:
-        - testStu3
-        - testR4
-        - testR4B
-        - testR5
+        - testStu3Cosmos
+        - testStu3Sql
+        - testR4Cosmos
+        - testR4Sql
+        - testR5Sql
 
 variables:
 - template: pr-variables.yml

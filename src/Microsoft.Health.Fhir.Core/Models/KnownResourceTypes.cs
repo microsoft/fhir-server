@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string CompartmentDefinition = "CompartmentDefinition";
 
+        public const string CodeSystem = "CodeSystem";
+
         public const string Device = "Device";
 
         public const string DiagnosticReport = "DiagnosticReport";

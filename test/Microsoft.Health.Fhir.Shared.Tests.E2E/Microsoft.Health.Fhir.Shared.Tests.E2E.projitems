@@ -35,6 +35,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleBatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\SmartPatientScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalUpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />

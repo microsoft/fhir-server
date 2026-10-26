@@ -38,7 +38,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// </summary>
     public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation, IDisposable
     {
-        private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
+        private static readonly HashSet<string> _supportedTypes = new HashSet<string>()
+        {
+            KnownResourceTypes.ValueSet,
+            KnownResourceTypes.StructureDefinition,
+            KnownResourceTypes.CodeSystem,
+        };
+
         private static string _structureDefinitionVersionKey = "Conformance.version";
 
         private readonly Task _backgroundTask;
