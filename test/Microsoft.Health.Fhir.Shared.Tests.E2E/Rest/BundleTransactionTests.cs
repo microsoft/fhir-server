@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                             {
                                 new Identifier { System = "http://example.org/fhir/ids", Value = invalidObservationId },
                             },
-                            Value = new Quantity(0.0000000000000000001m, "mg"),
+                            Value = new Quantity(1000000000000000000m, "mg"),
                         },
                         Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Observation" },
                     },

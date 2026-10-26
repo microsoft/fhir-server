@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAnObservationWithOutOfRangeIndexedQuantity_WhenPostingToHttp_ThenTheServerShouldRespondWithBadRequestResponse()
         {
             Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
-            observation.Value = new Quantity(0.0000000000000000001m, "mg");
+            observation.Value = new Quantity(1000000000000000000m, "mg");
 
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(observation));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
@@ -216,6 +216,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(ex.OperationOutcome.Issue, i => i.Code == OperationOutcome.IssueType.Invalid);
             Assert.Contains(ex.OperationOutcome.Issue, i =>
                 i.Diagnostics != null && i.Diagnostics.Contains("DECIMAL(36,18)", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAnObservationWithExcessScale_WhenPostingToHttp_ThenRawQuantityIsPreserved()
+        {
+            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            const decimal value = 0.0000000000000000001m;
+            observation.Value = new Quantity(value, "mg");
+
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            using FhirResponse<Observation> readResponse = await _client.ReadAsync<Observation>(
+                ResourceType.Observation, response.Resource.Id);
+            Assert.Equal(value, Assert.IsType<Quantity>(readResponse.Resource.Value).Value);
         }
 
         [Fact]

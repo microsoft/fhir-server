@@ -116,7 +116,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         [InlineData("0.0000000000000000000", true)]
         [InlineData("999999999999999999", true)]
         [InlineData("1000000000000000000", false)]
-        [InlineData("0.0000000000000000001", false)]
+        [InlineData("0.0000000000000000001", true)]
+        [InlineData("-0.0000000000000000001", true)]
+        [InlineData("1.2345678901234567895", true)]
+        [InlineData("-1000000000000000000", false)]
         [InlineData("1234567890123456789.123456789012345678", false)]
         public void GivenDecimalValue_WhenValidatingSqlDecimalBounds_ThenValidationMatchesSchemaContract(string valueText, bool expectedToPass)
         {
@@ -130,6 +133,29 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             else
             {
                 Assert.Throws<SqlDecimalValueOutOfRangeException>(() => SqlDecimalValidator.Validate(value));
+            }
+        }
+
+        [Theory]
+        [InlineData("99.994", true)]
+        [InlineData("99.995", false)]
+        [InlineData("-99.994", true)]
+        [InlineData("-99.995", false)]
+        [InlineData("100", false)]
+        public void GivenDecimalValue_WhenRoundingToSqlScale_ThenOverflowIsRejected(string valueText, bool expectedToPass)
+        {
+            // Arrange
+            decimal value = decimal.Parse(valueText, CultureInfo.InvariantCulture);
+
+            // Act / Assert
+            if (expectedToPass)
+            {
+                Assert.Equal(value, SqlDecimalValidator.Validate(value, precision: 4, scale: 2));
+            }
+            else
+            {
+                Assert.Throws<SqlDecimalValueOutOfRangeException>(() =>
+                    SqlDecimalValidator.Validate(value, precision: 4, scale: 2));
             }
         }
 

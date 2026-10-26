@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Globalization;
+using System.Data.SqlTypes;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
@@ -25,19 +25,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 throw new ArgumentOutOfRangeException(nameof(scale), $"Scale must be between zero and {precision}.");
             }
 
-            int integralDigits = GetIntegralDigitCount(value);
-            int fractionalDigits = GetFractionalDigitCount(value);
-
-            if (fractionalDigits > scale)
+            try
             {
-                decimal roundedValue = decimal.Round(value, scale);
-                if (roundedValue != value)
-                {
-                    throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value exceeds the allowed scale ({scale}) for the target SQL decimal type.");
-                }
+                SqlDecimal.ConvertToPrecScale(new SqlDecimal(value), precision, scale);
             }
-
-            if (integralDigits > precision - scale)
+            catch (Exception ex) when (ex is SqlTruncateException || ex is OverflowException)
             {
                 throw new SqlDecimalValueOutOfRangeException(parameterName, $"The decimal value exceeds the allowed precision ({precision}) and scale ({scale}) for the target SQL decimal type.");
             }
@@ -53,36 +45,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             }
 
             return Validate(value.Value, precision, scale, parameterName);
-        }
-
-        private static int GetIntegralDigitCount(decimal value)
-        {
-            decimal absValue = decimal.Abs(value);
-            if (absValue == 0m)
-            {
-                return 1;
-            }
-
-            var text = absValue.ToString(CultureInfo.InvariantCulture);
-            int decimalIndex = text.IndexOf('.', StringComparison.Ordinal);
-            if (decimalIndex < 0)
-            {
-                return text.Length;
-            }
-
-            int integralLength = decimalIndex;
-            if (integralLength == 0)
-            {
-                return 0;
-            }
-
-            return integralLength;
-        }
-
-        private static int GetFractionalDigitCount(decimal value)
-        {
-            int[] bits = decimal.GetBits(value);
-            return (bits[3] >> 16) & 0xFF;
         }
     }
 }
