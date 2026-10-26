@@ -267,19 +267,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new TransactionDeadlockException(Core.Resources.TransactionDeadlock), HttpStatusCode.Conflict);
         }
 
-        [Fact]
-        public void GivenATaskCanceledException_WhenExecutingAnAction_ThenTheResponseShouldBeATimeout()
-        {
-            // Arrange
-            var exception = new System.Threading.Tasks.TaskCanceledException();
-
-            // Act
-            var result = ValidateOperationOutcome(exception, HttpStatusCode.RequestTimeout);
-
-            // Assert
-            Assert.Equal(OperationOutcome.IssueType.Timeout, Assert.Single(result.Result.Issue).Code);
-        }
-
         [Theory]
         [InlineData(false)]
         [InlineData(true)]

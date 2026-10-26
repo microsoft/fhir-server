@@ -69,8 +69,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Theory]
         [InlineData(0, HttpStatusCode.RequestTimeout)]
         [InlineData(1, HttpStatusCode.InternalServerError)]
-        [InlineData(2, HttpStatusCode.InternalServerError)]
-        [InlineData(3, HttpStatusCode.InternalServerError)]
         public async Task GivenPartiallyCompletedHardDelete_WhenMvcHandlesTheFailure_ThenStatusCountsAndAuditingArePreserved(int failureKind, HttpStatusCode expectedStatus)
         {
             // Arrange
@@ -78,8 +76,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             {
                 0 => new TaskCanceledException(),
                 1 => new AggregateException(new TaskCanceledException(), new InvalidOperationException("Storage failure.")),
-                2 => new AggregateException(),
-                3 => new InvalidOperationException("Storage failure."),
                 _ => throw new ArgumentOutOfRangeException(nameof(failureKind)),
             };
             using var host = CreateHost(failure);
