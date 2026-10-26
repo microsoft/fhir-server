@@ -148,11 +148,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
 
             // Controllers outside FhirController that should also have the search metric emitter.
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "PatientEverythingById", typeof(Controllers.EverythingController));
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Search", typeof(Controllers.IncludesController));
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "PatientEverythingById", typeof(EverythingController));
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Search", typeof(IncludesController));
 
             // DocRefController GET Search only (POST overload does not emit search latency).
-            var docRefGetSearch = typeof(Controllers.DocRefController).GetMethod("Search", Type.EmptyTypes);
+            var docRefGetSearch = typeof(DocRefController).GetMethod("Search", Type.EmptyTypes);
             Assert.True(docRefGetSearch != null, "DocRefController.Search() (GET) method not found.");
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, docRefGetSearch);
         }
