@@ -17,14 +17,6 @@ If discovery aborts with "Could not find testhost", verify these references are 
 To run this project from a terminal it will first need to be built. Once built an executable can be found in each of the Web project folders, for example in the R4.Web project: .\src\Microsoft.Health.Fhir.R4.Web\bin\Debug\net6.0\Microsoft.Health.Fhir.R4.Web.exe
 Running this executable will start the project in the terminal. Note that it will use the appsettings options stored in the folder with the executable, which is only updated when the project is built. This file can also be manually edited if desired.
 
-### Diagnosing canceled conditional deletes
-
-When a conditional delete fails only because of cancellation, the server returns HTTP 408 with an `OperationOutcome` issue code of `timeout`, matching direct request cancellation. Only cancellation exceptions inside recognized delete partial-result wrappers and nonempty aggregates qualify; mixed storage failures, unknown exceptions, and empty aggregates remain HTTP 500.
-
-Cancellation does not roll back completed deletions. The `Items-Deleted` response header still reports completed deletions, and executed audit records identify the affected resources. A disconnected client might not receive the response.
-
-This classification does not identify the cancellation source, change timeouts or retries, or make the delete complete. Upstream delete error logs and the exception-bearing cancellation warning remain; log-derived exception metrics and alerts can therefore still fire. An HTTP 408 response alone is not evidence that exception-metric emission has stopped.
-
 ### Enabling extra logging
 
 When running from Visual Studio additional logging is enabled by default. To enable this logging when running from a terminal change the logging level in appsettings.json as so:
