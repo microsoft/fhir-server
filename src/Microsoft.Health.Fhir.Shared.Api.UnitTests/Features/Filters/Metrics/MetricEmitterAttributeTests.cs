@@ -1,11 +1,18 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -45,6 +52,83 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
             attribute.OnActionExecuted(null);
 
             metricHandler.Received(1).EmitLatency(Arg.Any<CrudMetricNotification>());
+        }
+
+        [Theory]
+        [InlineData("FhirController", "SystemHistory", SearchComplexity.Heavy)]
+        [InlineData("Everything", "PatientEverythingById", SearchComplexity.Medium)]
+        [InlineData("Includes", "Search", SearchComplexity.Medium)]
+        [InlineData("DocRef", "Search", SearchComplexity.Medium)]
+        [InlineData("FhirController", "SearchByResourceType", SearchComplexity.Standard)]
+        [InlineData("FhirController", "Search", SearchComplexity.Standard)]
+        [InlineData("FhirController", "TypeHistory", SearchComplexity.Standard)]
+        [InlineData("FhirController", "History", SearchComplexity.Standard)]
+        public void DetermineComplexity_GivenRouteValues_ReturnsExpectedComplexity(
+            string controller,
+            string action,
+            SearchComplexity expected)
+        {
+            var routeValues = new Dictionary<string, string>
+            {
+                { "controller", controller },
+                { "action", action },
+            };
+
+            var actionDescriptor = new ActionDescriptor();
+            foreach (var kv in routeValues)
+            {
+                actionDescriptor.RouteValues[kv.Key] = kv.Value;
+            }
+
+            var httpContext = new DefaultHttpContext();
+            var actionContext = new ActionContext(httpContext, new RouteData(), actionDescriptor);
+            var context = new ActionExecutedContext(actionContext, new List<IFilterMetadata>(), controller: null);
+
+            SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(context);
+
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void DetermineComplexity_GivenMultipleIncludes_ReturnsMedium()
+        {
+            var actionDescriptor = new ActionDescriptor();
+            actionDescriptor.RouteValues["controller"] = "FhirController";
+            actionDescriptor.RouteValues["action"] = "SearchByResourceType";
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_include=Patient:organization&_include=Patient:general-practitioner");
+            var actionContext = new ActionContext(httpContext, new RouteData(), actionDescriptor);
+            var context = new ActionExecutedContext(actionContext, new List<IFilterMetadata>(), controller: null);
+
+            SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(context);
+
+            Assert.Equal(SearchComplexity.Medium, result);
+        }
+
+        [Fact]
+        public void DetermineComplexity_GivenSingleInclude_ReturnsStandard()
+        {
+            var actionDescriptor = new ActionDescriptor();
+            actionDescriptor.RouteValues["controller"] = "FhirController";
+            actionDescriptor.RouteValues["action"] = "SearchByResourceType";
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_include=Patient:organization");
+            var actionContext = new ActionContext(httpContext, new RouteData(), actionDescriptor);
+            var context = new ActionExecutedContext(actionContext, new List<IFilterMetadata>(), controller: null);
+
+            SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(context);
+
+            Assert.Equal(SearchComplexity.Standard, result);
+        }
+
+        [Fact]
+        public void DetermineComplexity_GivenNullContext_ReturnsStandard()
+        {
+            SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(null);
+
+            Assert.Equal(SearchComplexity.Standard, result);
         }
     }
 }
