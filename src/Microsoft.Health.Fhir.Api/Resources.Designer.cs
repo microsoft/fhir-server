@@ -664,6 +664,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Patient-level SMART scopes require a single valid patient resource id in the patient claim, or a Patient-valued fhirUser claim when the patient claim is absent..
+        /// </summary>
+        public static string SmartPatientContextInvalid {
+            get {
+                return ResourceManager.GetString("SmartPatientContextInvalid", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains an unsupported modifier in parameter &apos;{1}&apos;..
         /// </summary>
         public static string SmartScopeSearchParameterModifiersNotSupported {
