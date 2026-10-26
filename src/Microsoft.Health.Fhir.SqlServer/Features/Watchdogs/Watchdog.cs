@@ -169,8 +169,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     // Offset for other instances running init
                     await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), CancellationToken.None);
 
-                    _lastLog = DateTime.UtcNow;
-
                     await using var cmd = new SqlCommand(
                         @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, @PeriodSec
