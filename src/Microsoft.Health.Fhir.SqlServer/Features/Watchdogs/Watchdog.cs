@@ -108,9 +108,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return Math.Min(periodSec, leasePeriodSec);
         }
 
-        private async Task<bool> IsRunDueAsync(bool supportsPersistedLastRunTime, CancellationToken cancellationToken)
+        private async Task<bool> IsRunDueAsync(bool supportsLastRunTime, CancellationToken cancellationToken)
         {
-            if (!supportsPersistedLastRunTime)
+            if (!supportsLastRunTime)
             {
                 _logger.LogDebug($"{Name}.IsRunDueAsync: Legacy schema detected; skipping persisted last-run checks.");
                 return true;
@@ -147,9 +147,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return result.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(result, DateTimeKind.Utc) : result;
         }
 
-        private async Task UpdateLastRunTimeAsync(bool supportsPersistedLastRunTime, CancellationToken cancellationToken)
+        private async Task UpdateLastRunTimeAsync(bool supportsLastRunTime, CancellationToken cancellationToken)
         {
-            if (!supportsPersistedLastRunTime)
+            if (!supportsLastRunTime)
             {
                 return;
             }
