@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -262,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(
                     dce.Message,
                     dce.StatusCode,
-                    isCustomerCaused: dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden);
+                    isCustomerCaused: dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden || dce.StatusCode == HttpStatusCode.NotFound || dce.StatusCode == HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (RequestNotValidException ex) when (ex.Message == Core.Resources.TooManyParameters)
@@ -322,6 +323,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Need to remove output records in order to make the export job record savable in the database.
                 _exportJobRecord.Output.Clear();
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (FileNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "[JobId:{JobId}] Anonymization configuration file not found. The job will be marked as failed.", _exportJobRecord.Id);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
