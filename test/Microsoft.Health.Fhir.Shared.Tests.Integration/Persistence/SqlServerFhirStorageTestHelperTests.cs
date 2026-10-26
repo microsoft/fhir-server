@@ -186,10 +186,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData(true)]
         public async Task GivenTerminalConnectionFailure_WhenLifecycleRepeats_FailurePropagatesAndGateIsReleased(bool create)
         {
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = "Server=unused;Initial Catalog=fixture;Encrypt=true" });
+            var realBuilder = new DefaultSqlConnectionBuilder(config, SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings));
             var builder = Substitute.For<ISqlConnectionBuilder>();
             var failure = new InvalidOperationException("Terminal connection failure");
             builder.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
-                .Returns(_ => Task.FromResult(new SqlConnection("Server=unused;Initial Catalog=fixture")));
+                .Returns(call => realBuilder.GetSqlConnectionAsync(call.Arg<string>()));
             builder.CreateConnectionAsync(Arg.Any<Action<SqlConnectionStringBuilder>>(), Arg.Any<CancellationToken>())
                 .Returns<SqlConnection>(_ => throw failure);
             var helper = CreateHelper(builder);
@@ -207,10 +209,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenTransientConnectionFailure_WhenDeleteRetriesExhausted_SameDatabaseIsRetriedAndFailurePropagates()
         {
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = "Server=unused;Initial Catalog=fixture;Encrypt=true" });
+            var realBuilder = new DefaultSqlConnectionBuilder(config, SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings));
             var builder = Substitute.For<ISqlConnectionBuilder>();
             var failure = new TimeoutException("Transient connection failure");
             builder.GetSqlConnectionAsync("fixture", null, Arg.Any<CancellationToken>())
-                .Returns(_ => Task.FromResult(new SqlConnection("Server=unused;Initial Catalog=fixture")));
+                .Returns(call => realBuilder.GetSqlConnectionAsync(call.Arg<string>()));
             builder.CreateConnectionAsync(Arg.Any<Action<SqlConnectionStringBuilder>>(), Arg.Any<CancellationToken>())
                 .Returns<SqlConnection>(_ => throw failure);
             var helper = CreateHelper(builder);
