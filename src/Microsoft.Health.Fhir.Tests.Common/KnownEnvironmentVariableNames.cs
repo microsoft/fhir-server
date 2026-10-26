@@ -18,6 +18,12 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string CosmosDbPreferredLocations = "CosmosDb__PreferredLocations";
         public const string CosmosDbUseManagedIdentity = "CosmosDb__UseManagedIdentity";
         public const string SqlServerConnectionString = "SqlServer:ConnectionString";
+
+        /// <summary>
+        /// Gets the environment variable name for the optional integration test SQL elastic pool.
+        /// </summary>
+        public const string SqlServerElasticPoolName = "SqlServer:ElasticPoolName";
+
         public const string SystemAccessToken = "SYSTEM_ACCESSTOKEN";
         public const string TestContainerRegistryServer = "TestContainerRegistryServer";
         public const string TestEnvironmentName = "TestEnvironmentName";

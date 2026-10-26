@@ -7,6 +7,9 @@ parameters:
   type: string
 - name: integrationSqlServerName
   type: string
+- name: integrationSqlElasticPoolName
+  type: string
+  default: ''
 - name: mainCategoryFilter
   type: string
   default: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
@@ -81,6 +84,7 @@ jobs:
         }
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
+      'SqlServer:ElasticPoolName': '${{ parameters.integrationSqlElasticPoolName }}'
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'

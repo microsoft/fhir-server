@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -75,6 +76,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task CreateAndInitializeDatabase(string databaseName, int targetSchemaVersion, CancellationToken cancellationToken = default)
         {
             string testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
+            var createDatabaseStatement = BuildCreateDatabaseStatement(
+                databaseName,
+                EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerElasticPoolName));
 
             await _dbSetupRetryPolicy.ExecuteAsync(
                 async () =>
@@ -88,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     command.CommandText = @$"
                         IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
                         BEGIN
-                          CREATE DATABASE {databaseName};
+                          {createDatabaseStatement}
                         END";
 
                     await DbSetupSemaphore.WaitAsync(cancellationToken);
@@ -134,6 +138,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await EnableDatabaseLogging(databaseName);
             await InitSystem(databaseName);
             await _sqlServerFhirModel.Initialize(targetSchemaVersion, cancellationToken);
+        }
+
+        internal static string BuildCreateDatabaseStatement(string databaseName, string elasticPoolName)
+        {
+            using var commandBuilder = new SqlCommandBuilder();
+            var databaseIdentifier = commandBuilder.QuoteIdentifier(databaseName);
+            var poolClause = string.IsNullOrWhiteSpace(elasticPoolName)
+                ? string.Empty
+                : $" (SERVICE_OBJECTIVE = ELASTIC_POOL (NAME = {commandBuilder.QuoteIdentifier(elasticPoolName)}))";
+
+            return $"CREATE DATABASE {databaseIdentifier}{poolClause};";
         }
 
         private async Task<bool> IsEmpty()
