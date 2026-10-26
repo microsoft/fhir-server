@@ -207,6 +207,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 switch (microsoftHealthException)
                 {
+                    case IncompleteOperationException<IDictionary<string, long>> incompleteDeleteException when IsCanceledDelete(incompleteDeleteException):
+                        healthExceptionResult = CreateCancellationResult(context, incompleteDeleteException);
+                        break;
                     case RequestRateExceededException ex:
                         healthExceptionResult = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Throttled, HttpStatusCode.TooManyRequests);
                         healthExceptionResult.Headers.AddRetryAfterHeaders(ex.RetryAfter);
@@ -248,11 +251,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
             else if (context.Exception is System.OperationCanceledException operationCanceledException)
             {
-                // Distinguishes a client/upstream disconnect from cancellation by another token (e.g. a server-side timeout).
-                bool clientDisconnected = context.HttpContext?.RequestAborted.IsCancellationRequested == true;
-                _logger.LogWarning(operationCanceledException, "Request was canceled. ClientDisconnected: {ClientDisconnected}", clientDisconnected);
-
-                context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
+                context.Result = CreateCancellationResult(context, operationCanceledException);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception is System.OverflowException)
@@ -293,6 +292,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     _logger.LogError(context.Exception, "{StatusCode} error returned", statusCode);
                 }
             }
+        }
+
+        private static bool IsCanceledDelete(Exception exception)
+        {
+            return exception switch
+            {
+                System.OperationCanceledException => true,
+                AggregateException aggregate => aggregate.InnerExceptions.Count > 0 && aggregate.InnerExceptions.All(IsCanceledDelete),
+                IncompleteOperationException<IDictionary<string, long>> incomplete => IsCanceledDelete(incomplete.InnerException),
+                IncompleteOperationException<Dictionary<string, long>> incomplete => IsCanceledDelete(incomplete.InnerException),
+                _ => false,
+            };
+        }
+
+        private OperationOutcomeResult CreateCancellationResult(ActionExecutedContext context, Exception exception)
+        {
+            // Distinguishes a client/upstream disconnect from cancellation by another token (e.g. a server-side timeout).
+            bool clientDisconnected = context.HttpContext?.RequestAborted.IsCancellationRequested == true;
+            _logger.LogWarning(exception, "Request was canceled. ClientDisconnected: {ClientDisconnected}", clientDisconnected);
+
+            return CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
         }
 
         private OperationOutcomeResult CreateOperationOutcomeResult(string message, OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, HttpStatusCode httpStatusCode)

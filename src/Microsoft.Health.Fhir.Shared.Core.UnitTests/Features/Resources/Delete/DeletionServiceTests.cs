@@ -107,6 +107,91 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         }
 
         [Fact]
+        public async Task GivenCanceledPageTask_WhenDeletingMultipleResources_ThenCancellationEvidenceIsPreserved()
+        {
+            // Arrange
+            var request = new ConditionalDeleteResourceRequest(
+                "Patient",
+                new List<Tuple<string, string>> { Tuple.Create("active", "false") },
+                DeleteOperation.SoftDelete,
+                maxDeleteCount: 10);
+            var dataStore = SetUpDeletionSearch(Task.FromResult(new SearchResult(
+                new[] { CreateSearchResultEntry("Patient", "canceled", SearchEntryMode.Match) },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>())));
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromCanceled<bool>(new CancellationToken(canceled: true)));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException);
+            Assert.IsType<TaskCanceledException>(Assert.Single(aggregate.InnerExceptions));
+            Assert.Empty(exception.PartialResults);
+            await dataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenParallelDeleteWorkersFailAndCancel_WhenDeletingMultipleResources_ThenTheStorageFailureIsPreserved(bool included)
+        {
+            // Arrange
+            using var cancellation = new CancellationTokenSource();
+            var siblingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var storageFailure = new InvalidOperationException("Storage delete failed.");
+            var mode = included ? SearchEntryMode.Include : SearchEntryMode.Match;
+            var dataStore = SetUpDeletionSearch(
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry("Patient", "failure", mode) },
+                    "next-page",
+                    null,
+                    Array.Empty<Tuple<string, string>>())),
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry("Patient", "canceled", mode) },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(async call =>
+                {
+                    if (call.Arg<ResourceKey>().Id == "failure")
+                    {
+                        await siblingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                        await cancellation.CancelAsync();
+                        throw storageFailure;
+                    }
+
+                    siblingStarted.TrySetResult();
+                    await Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+                });
+            var request = new ConditionalDeleteResourceRequest(
+                "Patient",
+                new List<Tuple<string, string>> { Tuple.Create("active", "false") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, cancellation.Token));
+
+            // Assert
+            Assert.True(cancellation.IsCancellationRequested);
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException);
+            var pageFailures = aggregate.InnerExceptions
+                .Cast<IncompleteOperationException<Dictionary<string, long>>>()
+                .Select(page => page.InnerException)
+                .ToList();
+            Assert.Equal(2, pageFailures.Count);
+            Assert.Contains(pageFailures, failure => failure is AggregateException errors && errors.InnerExceptions.Contains(storageFailure));
+            Assert.Contains(pageFailures, failure => failure is OperationCanceledException);
+            Assert.Empty(exception.PartialResults);
+        }
+
+        [Fact]
         public async Task GivenBulkHardDelete_WhenResourcesAreDeleted_ThenAuditLoggerIsCalledWithBatchedAffectedItems()
         {
             // Arrange
