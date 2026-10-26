@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // _include/_revinclude can pull in resources of a different type than request.ResourceType, and those
                 // included results are deleted together with the primary matches below. Authorize the whole page -
                 // primary matches and included results alike - before anything is queued for deletion.
-                await EnsureProfileResourceDeletionAuthorizedAsync(results, cancellationToken);
+                await EnsureResourceDeletionAuthorizedAsync(results, request.DeleteOperation, cancellationToken);
             }
             else
             {
@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         {
                             // Authorize this newly fetched page - primary matches and included results alike - before it is
                             // queued for deletion on the next loop iteration.
-                            await EnsureProfileResourceDeletionAuthorizedAsync(results, cancellationToken);
+                            await EnsureResourceDeletionAuthorizedAsync(results, request.DeleteOperation, cancellationToken);
                         }
                         else
                         {
@@ -425,21 +425,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         /// <summary>
-        /// Throws <see cref="UnauthorizedFhirActionException"/> when any resource in <paramref name="resultsToDelete"/> is a
-        /// profile defining resource type (CodeSystem, ValueSet, StructureDefinition) and the caller was not granted
-        /// <see cref="DataActions.EditProfileDefinitions"/>. This protects a profile defining resource that is pulled into a
-        /// conditional delete indirectly through <c>_include</c>/<c>_revinclude</c>, even when the request's own resource
-        /// type is an ordinary, unprotected type.
+        /// Requires SMART delete permissions for each target resource type, including resources returned by
+        /// <c>_include</c>/<c>_revinclude</c>, and <see cref="DataActions.EditProfileDefinitions"/> for profile defining types.
         /// </summary>
         /// <remarks>
         /// Background jobs (for example $bulk-delete processing jobs) execute without a principal; this check only applies
         /// to interactive requests that have a request context.
         /// </remarks>
-        private async Task EnsureProfileResourceDeletionAuthorizedAsync(IEnumerable<SearchResultEntry> resultsToDelete, CancellationToken cancellationToken)
+        private async Task EnsureResourceDeletionAuthorizedAsync(IReadOnlyCollection<SearchResultEntry> resultsToDelete, DeleteOperation deleteOperation, CancellationToken cancellationToken)
         {
             if (_contextAccessor.RequestContext == null || _contextAccessor.RequestContext.IsBackgroundTask)
             {
                 return;
+            }
+
+            if (_contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl)
+            {
+                var requiredActions = DataActions.Delete | (deleteOperation != DeleteOperation.SoftDelete ? DataActions.HardDelete : DataActions.None);
+                foreach (var resourceType in resultsToDelete.Select(entry => entry.Resource.ResourceTypeName).Distinct())
+                {
+                    if (_contextAccessor.CheckSMARTScopeAccess(requiredActions, resourceType) != requiredActions)
+                    {
+                        throw new UnauthorizedFhirActionException();
+                    }
+                }
             }
 
             IReadOnlySet<string> profileTypes = _profilesProvider.GetProfilesTypes();
