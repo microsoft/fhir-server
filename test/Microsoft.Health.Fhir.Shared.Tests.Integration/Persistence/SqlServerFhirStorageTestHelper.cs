@@ -80,28 +80,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () =>
                 {
                     // Create the database.
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                    await connection.OpenAsync(cancellationToken);
-
-                    await using SqlCommand command = connection.CreateCommand();
-                    command.CommandTimeout = 300;
-                    command.CommandText = @$"
-                        IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
-                        BEGIN
-                          CREATE DATABASE {databaseName};
-                        END";
-
                     await DbSetupSemaphore.WaitAsync(cancellationToken);
                     try
                     {
+                        await using SqlConnection connection = await _sqlConnectionBuilder.CreateConnectionAsync(
+                            builder =>
+                            {
+                                builder.InitialCatalog = _masterDatabaseName;
+                                builder.Pooling = false;
+                            },
+                            cancellationToken);
+                        await connection.OpenAsync(cancellationToken);
+
+                        await using SqlCommand command = connection.CreateCommand();
+                        command.CommandTimeout = 300;
+                        command.CommandText = @$"
+                            IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
+                            BEGIN
+                              CREATE DATABASE {databaseName};
+                            END";
+
                         await command.ExecuteNonQueryAsync(cancellationToken);
                     }
                     finally
                     {
                         DbSetupSemaphore.Release();
                     }
-
-                    await connection.CloseAsync();
                 });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
@@ -276,9 +280,29 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                     await DbSetupSemaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        SqlConnection.ClearAllPools();
+                        await using (SqlConnection targetConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken))
+                        {
+                            SqlConnection.ClearPool(targetConnection);
+                        }
 
-                        await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                        await using (SqlConnection mergeConnection = await _sqlConnectionBuilder.CreateConnectionAsync(
+                            builder =>
+                            {
+                                builder.InitialCatalog = databaseName;
+                                builder.ApplicationName = SqlServerFhirDataStore.MergeApplicationName;
+                            },
+                            cancellationToken))
+                        {
+                            SqlConnection.ClearPool(mergeConnection);
+                        }
+
+                        await using SqlConnection connection = await _sqlConnectionBuilder.CreateConnectionAsync(
+                            builder =>
+                            {
+                                builder.InitialCatalog = _masterDatabaseName;
+                                builder.Pooling = false;
+                            },
+                            cancellationToken);
                         await connection.OpenAsync(cancellationToken);
                         await using SqlCommand command = connection.CreateCommand();
 
