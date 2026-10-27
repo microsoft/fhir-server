@@ -4,11 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Build.ObjectModelRemoting;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -80,6 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return e?.Message?.Contains(_completedSqlTransactionError, StringComparison.OrdinalIgnoreCase) ?? false;
         }
 
+        /// <summary>
+        /// Determines if the exception is caused by a SQL customer managed key error.
+        /// </summary>
         public static bool IsCustomerManagedKeyException(this Exception e)
         {
             const int keyVaultCriticalError = 40981;

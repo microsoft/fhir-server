@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var sqlException = Microsoft.Health.Fhir.Core.UnitTests.Features.Storage.SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
             using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(
@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             // C# transaction scope. There is nothing to zombie, so a SQL conflict must still be retried
             // (last-write-wins), not converted into a fail-fast 409.
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var sqlException = Microsoft.Health.Fhir.Core.UnitTests.Features.Storage.SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
             using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var sqlException = Microsoft.Health.Fhir.Core.UnitTests.Features.Storage.SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlErrorCodes.Conflict, "SQL Conflict");
             using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(
@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var sqlException = Microsoft.Health.Fhir.Core.UnitTests.Features.Storage.SqlExceptionFactory.GetSqlException(FhirSqlErrorCodes.SurrogateIdCollision, "Surrogate Id Collision.");
+            var sqlException = SqlExceptionFactory.GetSqlException(FhirSqlErrorCodes.SurrogateIdCollision, "Surrogate Id Collision.");
             using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(
