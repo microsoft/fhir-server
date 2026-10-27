@@ -65,13 +65,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
             if (context.HttpContext?.Request?.Query != null)
             {
                 int includeCount = 0;
-                foreach (string key in context.HttpContext.Request.Query.Keys)
+                foreach (string key in context.HttpContext.Request.Query.Keys.Where(
+                    key => string.Equals(key, "_include", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(key, "_revinclude", StringComparison.OrdinalIgnoreCase)))
                 {
-                    if (string.Equals(key, "_include", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(key, "_revinclude", StringComparison.OrdinalIgnoreCase))
-                    {
-                        includeCount += context.HttpContext.Request.Query[key].Count;
-                    }
+                    includeCount += context.HttpContext.Request.Query[key].Count;
                 }
 
                 if (includeCount > 1)
