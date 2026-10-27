@@ -8,7 +8,7 @@ This project is primarily built in Visual Studio and has several files included 
 
 ### Running tests in Test Explorer
 
-Test projects support both Microsoft Testing Platform (MTP), selected by `global.json` for `dotnet test`, and VSTest-based Visual Studio Test Explorer. Keep the `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` references in `Directory.Build.props` and their versions in `Directory.Packages.props`; MTP support alone does not provide a VSTest test host or adapter.
+Test projects support both Microsoft Testing Platform (MTP), selected by `global.json` for `dotnet test`, and VSTest-based Visual Studio Test Explorer. Keep the `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` references in `Directory.Build.targets` and their versions in `Directory.Packages.props`; MTP support alone does not provide a VSTest test host or adapter.
 
 If discovery aborts with "Could not find testhost", verify these references are present, then build the solution so all test project outputs are updated before rerunning tests in Test Explorer.
 
