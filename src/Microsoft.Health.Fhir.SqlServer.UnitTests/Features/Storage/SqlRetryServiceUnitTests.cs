@@ -43,48 +43,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             _coreFeatureConfiguration = Options.Create(new CoreFeatureConfiguration());
         }
 
-        [Theory]
-        [InlineData(SqlErrorCodes.KeyVaultCriticalError, false)]
-        [InlineData(SqlErrorCodes.KeyVaultCriticalError, true)]
-        [InlineData(SqlErrorCodes.KeyVaultEncounteredError, false)]
-        [InlineData(SqlErrorCodes.KeyVaultEncounteredError, true)]
-        [InlineData(SqlErrorCodes.KeyVaultErrorObtainingInfo, false)]
-        [InlineData(SqlErrorCodes.KeyVaultErrorObtainingInfo, true)]
-        [InlineData(SqlErrorCodes.CannotConnectToDBInCurrentState, false)]
-        [InlineData(SqlErrorCodes.CannotConnectToDBInCurrentState, true)]
-        [InlineData(99999, false)]
-        [InlineData(99999, true)]
-        public async Task ExecuteSql_WhenConnectionFails_ThenOnlyCmkErrorsAreTranslated(int errorCode, bool useCommand)
-        {
-            // Arrange
-            var sqlException = CreateSqlException(errorCode, "SQL connection error");
-            _sqlConnectionBuilder.GetSqlConnectionAsync(false, null)
-                .Returns(Task.FromException<SqlConnection>(sqlException));
-            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
-            using var command = new SqlCommand("SELECT 1");
-            var logger = NullLogger<SqlRetryService>.Instance;
-            Func<Task> execute = useCommand
-                ? () => service.ExecuteSql(command, (_, _) => Task.CompletedTask, logger, null, CancellationToken.None)
-                : () => service.ExecuteSql((_, _, _) => Task.CompletedTask, logger, CancellationToken.None);
-
-            // Act
-            var exception = await Record.ExceptionAsync(execute);
-
-            // Assert
-            if (errorCode == 99999)
-            {
-                Assert.Same(sqlException, exception);
-            }
-            else
-            {
-                var cmkException = Assert.IsType<CustomerManagedKeyException>(exception);
-                Assert.Equal(Core.Resources.OperationFailedForCustomerManagedKey, cmkException.Message);
-                Assert.Same(sqlException, cmkException.InnerException);
-            }
-
-            await _sqlConnectionBuilder.Received(1).GetSqlConnectionAsync(false, null);
-        }
-
         [Fact]
         public void Constructor_WithNullConnectionBuilder_ShouldThrowArgumentNullException()
         {

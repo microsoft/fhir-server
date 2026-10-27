@@ -283,8 +283,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         {
             // Arrange
             Exception searchException = isCustomerCaused
-                ? new CustomerManagedKeyException("Search service error")
+                ? new SqlException("The database is not accessible due to Azure Key Vault critical error")
                 : new InvalidOperationException("Search service error");
+
             var expectedResourceType = "Patient";
             var job = new ReindexProcessingJobDefinition()
             {

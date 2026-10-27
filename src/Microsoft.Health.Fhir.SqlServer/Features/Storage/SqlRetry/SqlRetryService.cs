@@ -208,11 +208,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;
                 }
-                catch (SqlException ex) when (ex.IsCMKError())
-                {
-                    logger.LogWarning(ex, "SQL operation failed due to customer-managed key configuration.");
-                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey, ex);
-                }
                 catch (Exception ex)
                 {
                     if (++retry >= _maxRetries || !IsRetriable(ex, shouldNotRetry))
@@ -276,11 +271,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     return;
-                }
-                catch (SqlException ex) when (ex.IsCMKError())
-                {
-                    logger.LogWarning(ex, "SQL operation failed due to customer-managed key configuration.");
-                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey, ex);
                 }
                 catch (Exception ex)
                 {

@@ -4,8 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Build.ObjectModelRemoting;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -75,6 +78,32 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static bool IsCompletedTransactionException(this InvalidOperationException e)
         {
             return e?.Message?.Contains(_completedSqlTransactionError, StringComparison.OrdinalIgnoreCase) ?? false;
+        }
+
+        public static bool IsCustomerManagedKeyException(this Exception e)
+        {
+            const int keyVaultCriticalError = 40981;
+            const int keyVaultEncounteredError = 33183;
+            const int keyVaultErrorObtainingInfo = 33184;
+            const int cannotConnectToDBInCurrentState = 40925;
+
+            if (e is SqlException sqlEx)
+            {
+                if (sqlEx.ErrorCode == keyVaultCriticalError ||
+                    sqlEx.ErrorCode == keyVaultEncounteredError ||
+                    sqlEx.ErrorCode == keyVaultErrorObtainingInfo ||
+                    sqlEx.ErrorCode == cannotConnectToDBInCurrentState)
+                {
+                    return true;
+                }
+
+                if (sqlEx.Message.Contains("is not accessible due to Azure Key Vault critical error", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

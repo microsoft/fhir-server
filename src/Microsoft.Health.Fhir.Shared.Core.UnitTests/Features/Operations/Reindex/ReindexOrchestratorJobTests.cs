@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             // Arrange
             Exception storageException = isCustomerCaused
-                ? new CustomerManagedKeyException("Database error")
+                ? new SqlException("The database is not accessible due to Azure Key Vault critical error")
                 : new InvalidOperationException("Database error");
             _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
                 .Returns(Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(storageException));
