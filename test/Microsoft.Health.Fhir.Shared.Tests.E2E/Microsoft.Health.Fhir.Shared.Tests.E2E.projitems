@@ -32,6 +32,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\StartupWithTraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\TraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BasicAuthTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\SmartPatientReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleBatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
