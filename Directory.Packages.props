@@ -37,7 +37,7 @@
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
     <PackageVersion Include="Microsoft.Bcl.Memory" Version="9.0.17" />
     <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore -->
-    <PackageVersion Include="OpenTelemetry.Api" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.19.1" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
@@ -107,7 +107,6 @@
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetSdkPackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.23.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />

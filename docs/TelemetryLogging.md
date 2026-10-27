@@ -13,6 +13,11 @@ Properties in Telemetry section in appsettings.json
 1. Technical support for instrumentation key-based logging in Application Insights will end in March 2025. 
 2. When the instrumentation key and connection string are provided in appsettings.json for ApplicationInsights provider, the instrumentation key will be used. 
 
+The Application Insights 3.x SDK uses OpenTelemetry internally for requests, dependencies, metrics, and logs.
+The `ApplicationInsights` provider keeps support for `Telemetry:InstrumentationKey` by converting it to a connection string.
+Telemetry retains the `Microsoft FHIR Server` cloud role, the `user_agent` custom dimension on incoming requests, and log scope properties.
+Custom telemetry enrichment uses OpenTelemetry resource attributes and instrumentation callbacks rather than `ITelemetryInitializer`.
+
 Next Steps: OpenTelemetry provider is still experimental-mode, not recommended for production use. 
 To use OTEL, set the provider value to “OpenTelemetry” in appsettings.json. Incase the connection string is used for OpenTelemetry provider, the instrumentation key will be ignored. 
 
