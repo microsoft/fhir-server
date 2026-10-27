@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -207,6 +208,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;
                 }
+                catch (SqlException ex) when (ex.IsCMKError())
+                {
+                    logger.LogWarning(ex, "SQL operation failed due to customer-managed key configuration.");
+                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey, ex);
+                }
                 catch (Exception ex)
                 {
                     if (++retry >= _maxRetries || !IsRetriable(ex, shouldNotRetry))
@@ -270,6 +276,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     return;
+                }
+                catch (SqlException ex) when (ex.IsCMKError())
+                {
+                    logger.LogWarning(ex, "SQL operation failed due to customer-managed key configuration.");
+                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey, ex);
                 }
                 catch (Exception ex)
                 {

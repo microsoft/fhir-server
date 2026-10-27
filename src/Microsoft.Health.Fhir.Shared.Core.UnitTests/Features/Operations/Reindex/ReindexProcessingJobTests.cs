@@ -276,9 +276,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<CancellationToken>());
         }
 
-        [Fact]
-        public async Task ProcessQueryAsync_WithSearchServiceException_ThrowsReindexException()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ProcessQueryAsync_WithSearchServiceException_ThrowsReindexException(bool isCustomerCaused)
         {
+            // Arrange
+            Exception searchException = isCustomerCaused
+                ? new CustomerManagedKeyException("Search service error")
+                : new InvalidOperationException("Search service error");
             var expectedResourceType = "Patient";
             var job = new ReindexProcessingJobDefinition()
             {
@@ -313,15 +319,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<long>(),
                 Arg.Any<long>(),
                 Arg.Any<CancellationToken>())
-                .Returns(Task.FromException<SearchResult>(new InvalidOperationException("Search service error")));
+                .Returns(Task.FromException<SearchResult>(searchException));
 
-            // When search service throws an exception, the job should throw JobExecutionSoftFailureException with error in result
+            // Act
             var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            var jobResult = exception.Error as ReindexProcessingJobResult;
-            string errorMessage = Assert.IsType<string>(jobResult?.Error);
-            Assert.Contains("Search service error", errorMessage);
+            // Assert
+            var jobResult = Assert.IsType<ReindexProcessingJobResult>(exception.Error);
+            Assert.Equal(searchException.Message, jobResult.Error);
+            Assert.Same(searchException, exception.InnerException);
+            Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
+            Assert.Equal(isCustomerCaused, jobResult.IsCustomerCaused);
         }
 
         [Fact]

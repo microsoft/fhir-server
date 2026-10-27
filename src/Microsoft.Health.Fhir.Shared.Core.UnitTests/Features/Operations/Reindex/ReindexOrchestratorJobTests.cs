@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -318,13 +319,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 });
         }
 
-        [Fact]
-        public async Task ExecuteAsync_WithExceptionInProcessing_ThrowsJobExecutionExceptionWithErrorResult()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ExecuteAsync_WithExceptionInProcessing_ThrowsJobExecutionExceptionWithErrorResult(bool isCustomerCaused)
         {
             // Arrange
+            Exception storageException = isCustomerCaused
+                ? new CustomerManagedKeyException("Database error")
+                : new InvalidOperationException("Database error");
             _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
-                .Returns(Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(
-                    new InvalidOperationException("Database error")));
+                .Returns(Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(storageException));
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob();
@@ -337,6 +342,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.NotNull(jobResult);
             Assert.NotNull(jobResult.Error);
             Assert.Contains(jobResult.Error, e => e.Severity == OperationOutcomeConstants.IssueSeverity.Error);
+            Assert.Contains(jobResult.Error, e => e.Diagnostics == storageException.Message);
+            Assert.Same(storageException, exception.InnerException);
+            Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
         }
 
         [Fact]
@@ -1358,8 +1366,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.True(hasNoWorkError, $"Expected error indicating no search parameters to run reindex. Actual errors: {string.Join(", ", jobResult.Error.Select(e => e.Diagnostics))}");
         }
 
-        [Fact]
-        public async Task ProcessCompletedJobs_WithFailedJobs_HandlesFailed()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ProcessCompletedJobs_WithFailedJobs_HandlesFailed(bool isCustomerCaused)
         {
             // Arrange - Create multiple search parameters
             var patientNameParam = CreateSearchParameterInfo(
@@ -1464,7 +1474,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var orchestrator = CreateReindexOrchestratorJob();
 
             // Act - Start the orchestrator
-            _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+            var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
 
             // Wait for processing jobs to be created
             var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(30), expectedMinimumJobs: 2);
@@ -1499,6 +1509,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var failedResult = new ReindexProcessingJobResult
             {
                 SucceededResourceCount = 1,
+                Error = "Processing failed",
+                IsCustomerCaused = isCustomerCaused,
             };
 
             jobToFail.Status = JobStatus.Failed;
@@ -1507,8 +1519,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Update the job in the queue to mark it as failed
             await _queueClient.CompleteJobAsync(jobToFail, false, _cancellationToken);
 
-            // Wait a bit for the orchestrator to process the failed jobs
-            await Task.Delay(TimeSpan.FromSeconds(2), _cancellationToken);
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => executeTask);
+            Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
+            var errorResult = Assert.IsType<ReindexOrchestratorJobResult>(exception.Error);
+            Assert.Equal(jobDef.ResourceCount.Count - failedResult.SucceededResourceCount, errorResult.FailedResources);
+            Assert.Contains(errorResult.Error, issue => issue.Diagnostics.Contains(failedResult.Error));
 
             // Get the updated jobs
             var updatedJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);

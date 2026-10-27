@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHash, false, _cancellationToken, true);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not CustomerManagedKeyException)
             {
                 _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _definition.ResourceType);
                 throw;
@@ -188,6 +188,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         await ProcessWithContinuationTokensAsync();
                     }
                 });
+            }
+            catch (CustomerManagedKeyException ex)
+            {
+                _logger.LogJobWarning(ex, _jobInfo, "Reindex processing job failed due to customer-managed key configuration.");
+                _result.Error = ex.Message;
+                _result.IsCustomerCaused = true;
+                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, true);
             }
             catch (SqlException ex)
             {

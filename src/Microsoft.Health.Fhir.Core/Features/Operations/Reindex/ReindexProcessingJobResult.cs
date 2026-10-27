@@ -16,5 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Critical error during data processing.
         /// </summary>
         public string Error { get; set; }
+
+        /// <summary>
+        /// Whether the processing error was caused by customer configuration.
+        /// </summary>
+        public bool IsCustomerCaused { get; set; }
     }
 }
