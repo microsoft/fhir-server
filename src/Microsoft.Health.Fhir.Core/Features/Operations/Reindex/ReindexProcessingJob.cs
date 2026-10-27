@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobError(ex, _jobInfo, "Key Vault Error running reindex query for resource type {ResourceType}.", _definition.ResourceType);
                 throw new JobExecutionSoftFailureException(_result.Error, _result, ex, isCustomerCaused: true);
             }
-            catch (Exception ex) when (ex is not CustomerManagedKeyException)
+            catch (Exception ex)
             {
                 _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _definition.ResourceType);
                 throw;
@@ -196,10 +196,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (SqlException ex)
             {
-                bool customerCausedError = ex.IsCustomerManagedKeyException();
-
                 _logger.LogJobError(ex, _jobInfo, $"Reindex processing job error occurred. SqlException: {ex.Message}.");
+
+                bool customerCausedError = ex.IsCustomerManagedKeyException();
                 _result.Error = ex.Message;
+                _result.IsCustomerCaused = customerCausedError;
+
                 throw new JobExecutionSoftFailureException(_result.Error, _result, ex, customerCausedError);
             }
             catch (FhirException ex)

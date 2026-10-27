@@ -167,19 +167,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 throw;
             }
-            catch (CustomerManagedKeyException ex)
-            {
-                var msg = $"The reindex id={_jobInfo.Id} failed due to customer-managed key configuration.";
-                _logger.LogJobWarning(ex, _jobInfo, msg);
-                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, ex.Message);
-                throw new JobExecutionException(msg, _result, ex, true);
-            }
             catch (Exception ex)
             {
+                bool isCustomerCaused = ex.IsCustomerManagedKeyException();
+
                 var msg = $"The reindex id={_jobInfo.Id} failed.";
                 _logger.LogJobError(ex, _jobInfo, msg);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
-                throw new JobExecutionException(msg, _result, ex, false);
+                throw new JobExecutionException(msg, _result, ex, isCustomerCaused);
             }
             finally
             {
@@ -504,7 +499,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobInformation(_jobInfo, $"Reindex: Enqueued batch of {jobIds.Count} jobs for resource type {resourceType}.");
                 return jobIds;
             }
-            catch (Exception ex) when (ex is not CustomerManagedKeyException)
+            catch (Exception ex)
             {
                 _logger.LogJobError(ex, _jobInfo, $"Reindex: Failed to enqueue jobs for resource type {resourceType}.");
                 throw;
@@ -544,12 +539,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return await _retries.ExecuteAsync(
                     async () => await searchService.Value.SearchForReindexAsync(queryParametersList, string.Empty, countOnly: true, cancellationToken, true));
             }
-            catch (Exception ex) when (ex is not CustomerManagedKeyException)
+            catch (Exception ex)
             {
+                bool isCustomerCaused = ex.IsCustomerManagedKeyException();
                 var msg = $"Reindex: Error running cosmos query for resource type {resourceType}.";
                 _logger.LogJobError(ex, _jobInfo, msg);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
-                throw new JobExecutionException(msg, _result, false);
+                throw new JobExecutionException(msg, _result, ex, isCustomerCaused);
             }
         }
 
