@@ -419,6 +419,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         exceptions.Add(new TaskCanceledException(result));
                     }
                 });
+                var nonCancellationFailures = exceptions.Where(exception => !IsCancellationOnly(exception)).ToList();
+                if (nonCancellationFailures.Count > 0)
+                {
+                    exceptions = nonCancellationFailures;
+                }
+
                 var aggregateException = new AggregateException(exceptions);
                 RefreshProfilesIfNeeded(request, resourceTypesDeleted, operationCompletedSuccessfully: false);
                 throw new IncompleteOperationException<IDictionary<string, long>>(aggregateException, resourceTypesDeleted);
@@ -683,9 +689,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag);
 
                 // Await can surface cancellation even when another parallel worker failed.
-                Exception failure = ex is OperationCanceledException && failures.Any(error => error is not OperationCanceledException)
-                    ? new AggregateException(failures)
-                    : ex;
+                Exception failure = ex;
+                if (ex is OperationCanceledException)
+                {
+                    var nonCancellationFailures = failures.Where(error => !IsCancellationOnly(error)).ToList();
+                    failure = nonCancellationFailures.Count switch
+                    {
+                        0 => ex,
+                        1 => nonCancellationFailures[0],
+                        _ => new AggregateException(nonCancellationFailures),
+                    };
+                }
+
                 throw new IncompleteOperationException<Dictionary<string, long>>(failure, parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count()));
             }
 
@@ -695,6 +710,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _logger.LogInformation("Hard deleted {Count} resources with request {RequestId}", results.Sum(x => x.Value), guid);
 
             return results;
+        }
+
+        private static bool IsCancellationOnly(Exception exception)
+        {
+            return exception switch
+            {
+                OperationCanceledException => true,
+                AggregateException aggregate => aggregate.InnerExceptions.Count > 0 && aggregate.InnerExceptions.All(IsCancellationOnly),
+                IncompleteOperationException<IDictionary<string, long>> incomplete => IsCancellationOnly(incomplete.InnerException),
+                IncompleteOperationException<Dictionary<string, long>> incomplete => IsCancellationOnly(incomplete.InnerException),
+                _ => false,
+            };
         }
 
         private ResourceWrapper CreateSoftDeletedWrapper(string resourceType, string resourceId)

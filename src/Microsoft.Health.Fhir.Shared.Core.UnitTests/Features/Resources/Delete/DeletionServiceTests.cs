@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -25,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -33,10 +35,13 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -185,10 +190,191 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 .Cast<IncompleteOperationException<Dictionary<string, long>>>()
                 .Select(page => page.InnerException)
                 .ToList();
-            Assert.Equal(2, pageFailures.Count);
-            Assert.Contains(pageFailures, failure => failure is AggregateException errors && errors.InnerExceptions.Contains(storageFailure));
-            Assert.Contains(pageFailures, failure => failure is OperationCanceledException);
+            Assert.Same(storageFailure, Assert.Single(pageFailures));
             Assert.Empty(exception.PartialResults);
+        }
+
+        [Theory]
+        [InlineData(false, 0)]
+        [InlineData(true, 0)]
+        [InlineData(true, 1)]
+        [InlineData(true, 2)]
+        public async Task GivenCanceledPageAndAnotherFailure_WhenExecutingBulkDelete_ThenTheJobReportsTheOtherFailureAndPartialCount(bool wrappedCancellation, int failureKind)
+        {
+            // Arrange
+            var failureStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var canceledCapability = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var dataStore = SetUpDeletionSearch(
+                Task.FromResult(new SearchResult(
+                    wrappedCancellation
+                        ? new[]
+                        {
+                            CreateSearchResultEntry("Patient", "completed", SearchEntryMode.Include),
+                            CreateSearchResultEntry("Patient", "canceled", SearchEntryMode.Match),
+                        }
+                        : new[] { CreateSearchResultEntry("Patient", "canceled", SearchEntryMode.Match) },
+                    "next-page",
+                    null,
+                    Array.Empty<Tuple<string, string>>())),
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry("Patient", "failure", SearchEntryMode.Match) },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            Exception failure = failureKind switch
+            {
+                0 => new InvalidOperationException("Storage delete failed."),
+                1 => new AggregateException(),
+                2 => new Exception("Unknown wrapper.", new OperationCanceledException()),
+                _ => throw new ArgumentOutOfRangeException(nameof(failureKind)),
+            };
+            var capabilityCalls = 0;
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(_ => Interlocked.Increment(ref capabilityCalls) == 1 ? canceledCapability.Task : Task.FromResult(false));
+            _resourceWrapperFactory.Create(Arg.Any<ResourceElement>(), true, false)
+                .Returns(call => CreateSearchResultEntry(call.Arg<ResourceElement>().InstanceType, call.Arg<ResourceElement>().Id, SearchEntryMode.Match).Resource);
+            dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    canceledCapability.TrySetCanceled();
+                    return Task.FromException<MergeOutcome>(failure);
+                });
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(async call =>
+                {
+                    if (call.Arg<ResourceKey>().Id == "completed")
+                    {
+                        return;
+                    }
+
+                    if (call.Arg<ResourceKey>().Id == "canceled")
+                    {
+                        await failureStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                        throw new TaskCanceledException();
+                    }
+
+                    failureStarted.TrySetResult(true);
+                    throw failure;
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() =>
+                ExecuteBulkDeleteJobAsync(wrappedCancellation ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, CancellationToken.None));
+
+            // Assert
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(wrappedCancellation ? 1 : 0, result.ResourcesDeleted.Values.Sum());
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException.InnerException);
+            var page = Assert.IsType<IncompleteOperationException<Dictionary<string, long>>>(Assert.Single(aggregate.InnerExceptions));
+            Assert.Same(failure, page.InnerException);
+            Assert.Contains(failure.Message, exception.Message);
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public async Task GivenOneWorkerConflict_WhenExecutingBulkDelete_ThenTheJobRecognizesTheConflictAndPreservesCompletedItems(bool included, bool cancelRequest)
+        {
+            // Arrange
+            using var cancellation = new CancellationTokenSource();
+            var conflict = new Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException("A reindex job is running.");
+            var dataStore = SetUpDeletionSearch(Task.FromResult(new SearchResult(
+                new[]
+                {
+                    CreateSearchResultEntry("Patient", "completed", SearchEntryMode.Include),
+                    CreateSearchResultEntry("Patient", "failure", included ? SearchEntryMode.Include : SearchEntryMode.Match),
+                },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>())));
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    if (call.Arg<ResourceKey>().Id == "completed")
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    if (cancelRequest)
+                    {
+                        cancellation.Cancel();
+                    }
+
+                    return Task.FromException(conflict);
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() =>
+                ExecuteBulkDeleteJobAsync(DeleteOperation.HardDelete, cancellation.Token));
+
+            // Assert
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(1, result.ResourcesDeleted["Patient"]);
+            var audit = Assert.Single(_auditLogger.ReceivedCalls(), call =>
+                call.GetMethodInfo().Name == nameof(IAuditLogger.LogAudit) && (AuditAction)call.GetArguments()[0] == AuditAction.Executed);
+            var auditProperties = Assert.Single(audit.GetArguments().OfType<IReadOnlyDictionary<string, string>>(), value => value.ContainsKey("Affected Items"));
+            Assert.Equal("[Include] Patient/completed", auditProperties["Affected Items"]);
+            Assert.Same(conflict, exception.InnerException);
+            Assert.StartsWith("JobConflictException:", result.Issues.First());
+        }
+
+        [Fact]
+        public async Task GivenMultipleWorkerFailuresAndCancellation_WhenExecutingBulkDelete_ThenAllRealFailuresArePreserved()
+        {
+            // Arrange
+            Assert.SkipWhen(Environment.ProcessorCount < 2, "Parallel delete workers require at least two logical processors.");
+            using var cancellation = new CancellationTokenSource();
+            var allStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var started = 0;
+            var failures = new Dictionary<string, Exception>
+            {
+                ["failure-1"] = new InvalidOperationException("First storage failure."),
+                ["failure-2"] = new InvalidOperationException("Second storage failure."),
+            };
+            var dataStore = SetUpDeletionSearch(Task.FromResult(new SearchResult(
+                new[]
+                {
+                    CreateSearchResultEntry("Patient", "completed", SearchEntryMode.Include),
+                    CreateSearchResultEntry("Patient", "failure-1", SearchEntryMode.Match),
+                    CreateSearchResultEntry("Patient", "failure-2", SearchEntryMode.Match),
+                },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>())));
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(async call =>
+                {
+                    string id = call.Arg<ResourceKey>().Id;
+                    if (id == "completed")
+                    {
+                        return;
+                    }
+
+                    if (Interlocked.Increment(ref started) == 2)
+                    {
+                        cancellation.Cancel();
+                        allStarted.TrySetResult(true);
+                    }
+
+                    await allStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                    throw failures[id];
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() =>
+                ExecuteBulkDeleteJobAsync(DeleteOperation.HardDelete, cancellation.Token));
+
+            // Assert
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(1, result.ResourcesDeleted["Patient"]);
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException.InnerException);
+            var page = Assert.IsType<IncompleteOperationException<Dictionary<string, long>>>(Assert.Single(aggregate.InnerExceptions));
+            var workerErrors = Assert.IsType<AggregateException>(page.InnerException);
+            Assert.Equal(2, workerErrors.InnerExceptions.Count);
+            Assert.Contains(failures["failure-1"], workerErrors.InnerExceptions);
+            Assert.Contains(failures["failure-2"], workerErrors.InnerExceptions);
         }
 
         [Fact]
@@ -792,6 +978,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
                 await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(default, default, default, default);
             }
+        }
+
+        private Task<string> ExecuteBulkDeleteJobAsync(DeleteOperation deleteOperation, CancellationToken cancellationToken)
+        {
+            var job = new BulkDeleteProcessingJob(
+                ((IDeletionService)_service).CreateMockScopeFactory(),
+                _contextAccessor,
+                Substitute.For<IMediator>(),
+                Substitute.For<ISearchService>().CreateMockScopeFactory(),
+                Substitute.For<IQueueClient>());
+            var definition = new BulkDeleteDefinition(
+                JobType.BulkDeleteProcessing,
+                deleteOperation,
+                "Patient",
+                new List<Tuple<string, string>> { Tuple.Create("active", "false") },
+                new List<string>(),
+                "https://localhost/Patient",
+                "https://localhost/",
+                "bulk-delete-test");
+            return job.ExecuteAsync(new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) }, cancellationToken);
         }
 
         private IFhirDataStore SetUpDeletionSearch(params Task<SearchResult>[] pages)
