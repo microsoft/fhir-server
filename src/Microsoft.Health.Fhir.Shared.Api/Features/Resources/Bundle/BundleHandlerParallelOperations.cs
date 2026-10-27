@@ -15,7 +15,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
@@ -91,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
 
                 // Parallel Resource Handling Function.
-                Func<BundleHandlerInternalOperationExecutionContext, CancellationToken, Task> handleRequestFunction = async (BundleHandlerInternalOperationExecutionContext resourceExecutionContext, CancellationToken ct) =>
+                Func<BundleHandlerInternalOperationExecutionContext, CancellationToken, Task> handleRequestFunctionAsync = async (BundleHandlerInternalOperationExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
@@ -184,12 +183,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     conditionalOperationsGroupSize = BundleConfiguration.DefaultConditionalOperationGroupSize;
                 }
 
-                List<Task> requestsPerResource = new List<Task>();
-                foreach (BundleHandlerInternalOperationExecutionContext resourceContext in resources)
+                List<Task> requestsPerResource = new List<Task>(resources.Count);
+                for (int i = 0; i < resources.Count; i++)
                 {
-                    requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
+                    BundleHandlerInternalOperationExecutionContext resourceContext = resources[i];
+                    requestsPerResource.Add(handleRequestFunctionAsync(resourceContext, requestCancellationToken.Token));
 
-                    if (_isConditionalOperationThrottlingEnabled && resourceContext.IsConditionalOperation)
+                    if (_isBundleExpandedOperation && _bundleType == BundleType.Transaction)
+                    {
+                        // Scenario 1: If the bundle is expanded and a transaction, then a delay is added between the operations to minimize the number of running tasks.
+
+                        if (i % _bundleConfiguration.BundleExpandedGroupSize == 0)
+                        {
+                            await Task.Delay(_bundleConfiguration.BundleExpandedGroupDelayInMilliseconds, CancellationToken.None);
+                        }
+                    }
+                    else if (!_isBundleExpandedOperation && _isConditionalOperationThrottlingEnabled && resourceContext.IsConditionalOperation)
                     {
                         conditionalOperationsCounter++;
                         if (conditionalOperationsCounter % conditionalOperationsGroupSize == 0)

@@ -797,8 +797,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleType.Transaction)]
         public async Task GivenABundle_WhenOneRequestProducesA429_ThenCancelledTheRequestDuringDelay(BundleType bundleType)
         {
+            if (bundleType == BundleType.Transaction)
+            {
+                // In case of transactions, we're forcing the bundle to be executed sequentially, otherwise (with parallel) it completes too fast and the cancellation does not happen.
+                _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Sequential;
+            }
+
             const int RetryAfterSeconds = 3;
-            const int CancellationAfterSeconds = 1;
 
             // Set Retry-After header.
             _fhirRequestContext.ResponseHeaders.Add("retry-after", RetryAfterSeconds.ToString());
@@ -838,11 +843,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(CancellationAfterSeconds));
+            tokenSource.CancelAfter(TimeSpan.FromMilliseconds(100));
 
             if (bundleType == BundleType.Batch)
             {
-                BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, tokenSource.Token);
+                BundleHandler bundleHandler = CreateBundleHandler();
+                BundleResponse bundleResponse = await bundleHandler.HandleAsync(bundleRequest, tokenSource.Token);
 
                 Assert.Equal(2, callCount); // Two calls should be executed, as the second one is throttled and before retried it's cancelled.
                 var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -878,7 +884,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenATransaction_WithMultipleEntriesAndOneFailsWithClientError_ReturnClientErrorNotTimeout(BundleProcessingLogic bundleProcessingLogic)
         {
             _bundleConfiguration.TransactionDefaultProcessingLogic = bundleProcessingLogic;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             // When a transaction bundle has multiple entries processed in parallel, and one entry
             // fails with a client error (400), the transaction should return that client error
@@ -980,7 +985,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             const int numberOfEntries = 4;
 
             _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -1050,7 +1054,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             const int numberOfEntries = 2;
 
             _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             Hl7.Fhir.Model.Bundle bundle = CreateTransactionBundle("/Patient", "/Patient");
 
@@ -1101,7 +1104,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenAParallelTransaction_WhenAnEntryFailsAndTheServiceCancelsItsSiblings_ThenAFailureMetricIsEmitted(string firstUrl, string secondUrl)
         {
             _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             // The Observation entry fails with an internal error. The Patient entry waits until the service cancels it.
             Hl7.Fhir.Model.Bundle bundle = CreateTransactionBundle(firstUrl, secondUrl);
@@ -1160,12 +1162,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             _bundleConfiguration.EntryLimit = 1;
             _bundleConfiguration.EntryLimitExpanded = 2;
-            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
-            BundleRequest bundleRequest = CreateBundleRequest(2);
+            BundleRequest bundleRequest = CreateBundleRequest(entryCount: 2);
 
-            BundleResponse response = await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
+            // Set the expanded bundle header to true to indicate that the request is an expanded bundle.
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
+
+            // Create a new instance of BundleHandler, as the "Expandable bundles" are identified at the constructor time.
+            BundleHandler bundleHandler = CreateBundleHandler();
+            BundleResponse response = await bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
 
             Assert.NotNull(response);
+            Assert.True(response.Info.IsExtendedBundle);
+            Assert.Equal(BundleComplexity.Low, response.Info.Complexity);
         }
 
         [Fact]
@@ -1173,11 +1181,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             _bundleConfiguration.EntryLimit = 1;
             _bundleConfiguration.EntryLimitExpanded = 2;
-            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
-            BundleRequest bundleRequest = CreateBundleRequest(3);
+            BundleRequest bundleRequest = CreateBundleRequest(entryCount: 3);
 
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = "true";
+
+            // Create a new instance of BundleHandler, as the "Expandable bundles" are identified at the constructor time.
+            BundleHandler bundleHandler = CreateBundleHandler();
             BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(
-                () => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+                () => bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
 
             Assert.Equal("The number of entries in the bundle exceeded the configured limit of 2.", exception.Message);
         }
@@ -1190,11 +1201,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             _bundleConfiguration.EntryLimit = 1;
             _bundleConfiguration.EntryLimitExpanded = 3;
-            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = headerValue;
-            BundleRequest bundleRequest = CreateBundleRequest(2);
+            BundleRequest bundleRequest = CreateBundleRequest(entryCount: 2);
 
+            _httpContext.Request.Headers[KnownHeaders.ExpandedBundle] = headerValue;
+
+            // Create a new instance of BundleHandler, as the "Expandable bundles" are identified at the constructor time.
+            BundleHandler bundleHandler = CreateBundleHandler();
             BundleEntryLimitExceededException exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(
-                () => _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
+                () => bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
 
             Assert.Equal("The number of entries in the bundle exceeded the configured limit of 1.", exception.Message);
         }
@@ -1288,7 +1302,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
 
             Assert.True(bundleResponse.Info.BundleType == type, "BundleType is different than the expected.");
-            Assert.True(bundleResponse.Info.ProcessingLogic == BundleProcessingLogic.Sequential, "BundleProcessingLogic is different than the expected.");
+            if (type == BundleType.Batch)
+            {
+                Assert.True(bundleResponse.Info.ProcessingLogic == _bundleConfiguration.BatchDefaultProcessingLogic, "BundleProcessingLogic is different than the expected.");
+            }
+            else
+            {
+                Assert.True(bundleResponse.Info.ProcessingLogic == _bundleConfiguration.TransactionDefaultProcessingLogic, "BundleProcessingLogic is different than the expected.");
+            }
+
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
             Assert.True(bundleResponse.Info.Complexity == BundleComplexity.Low, "BundleComplexity is different than the expected.");
         }
@@ -1406,7 +1428,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenABundleRequest_WhenBatchAndParallelProcessing_ThenTheRequestShouldBeProcessedSuccessfully()
         {
             _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -1458,7 +1479,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             const int largeEntryPayloadSize = 6 * 1024 * 1024;
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
 
             var largePatient = new Patient
             {
@@ -1602,7 +1622,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenAnEntryThrottledAfterIndexing_WhenCancelledDuringRetryDelay_ThenSearchIndexValuesAreLoggedOnce(BundleProcessingLogic processingLogic)
         {
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
             _fhirRequestContext.ResponseHeaders.Add("retry-after", "3");
 
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -1679,7 +1698,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenAParallelBundle_WhenConditionalOperationsReachTheGroupSize_ThenThrottlingRespectsTheEnabledFlag(BundleType bundleType, bool isThrottlingEnabled)
         {
             Assert.True(_bundleConfiguration.IsConditionalOperationThrottlingEnabled);
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
             _bundleConfiguration.BatchDefaultProcessingLogic = BundleProcessingLogic.Parallel;
             _bundleConfiguration.TransactionDefaultProcessingLogic = BundleProcessingLogic.Parallel;
             _bundleConfiguration.IsConditionalOperationThrottlingEnabled = isThrottlingEnabled;
@@ -1717,6 +1735,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             BundleResponse response = await bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
 
             Assert.Equal(BundleProcessingLogic.Parallel, response.Info.ProcessingLogic);
+            Assert.False(response.Info.IsExtendedBundle);
+            Assert.Equal(BundleComplexity.Low, response.Info.Complexity);
             Assert.Equal(4, dispatchTimes.Count);
             long dispatchInterval = dispatchTimes[3] - dispatchTimes[2];
             if (isThrottlingEnabled)
@@ -1738,7 +1758,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.PUT)]
         public async Task GivenConflictingOuterBundleContext_WhenProcessingEntries_ThenEachEntryHasIsolatedServerContext(BundleProcessingLogic processingLogic, HTTPVerb httpVerb)
         {
-            _bundleConfiguration.SupportsBundleOrchestrator = true;
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
             const string contextKey = BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext;
             const string forgedHeader = "{\"HttpVerb\":\"DELETE\"}";

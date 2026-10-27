@@ -11,13 +11,16 @@ namespace Microsoft.Health.Fhir.Core.Messages.Bundle
 {
     public sealed class BundleResponseInfo
     {
-        public BundleResponseInfo(TimeSpan executionTime, BundleType bundleType, BundleProcessingLogic processingLogic, BundleComplexity complexity)
+        public BundleResponseInfo(TimeSpan executionTime, BundleType bundleType, BundleProcessingLogic processingLogic, bool isExtendedBundle, BundleComplexity complexity)
         {
             ExecutionTime = executionTime;
             BundleType = bundleType;
             ProcessingLogic = processingLogic;
+            IsExtendedBundle = isExtendedBundle;
             Complexity = complexity;
         }
+
+        public bool IsExtendedBundle { get; }
 
         public TimeSpan ExecutionTime { get; }
 

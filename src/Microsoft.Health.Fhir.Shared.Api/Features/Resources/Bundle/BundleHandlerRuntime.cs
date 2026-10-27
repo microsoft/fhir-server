@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public static class BundleHandlerRuntime
     {
         /// <summary>
-        /// Query parameters that do not make a bundle entry conditional.
+        /// Query parameters that, on their own, do not turn a bundle entry's request into a conditional operation.
         /// </summary>
         public static readonly string[] NonConditionalQueryParameters = new string[]
         {
@@ -35,10 +35,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         };
 
         /// <summary>
-        /// Determines whether a bundle entry represents a conditional operation.
+        /// Determines whether the internal <see cref="RequestComponent"/> of a bundle entry represents a conditional operation,
+        /// such as a conditional create (If-None-Exist), a conditional update (PUT with search parameters), or a conditional delete.
         /// </summary>
         /// <param name="request">The bundle entry's request component.</param>
-        /// <returns>Whether the request has conditional search criteria.</returns>
+        /// <returns><c>true</c> if the request is a conditional operation; otherwise, <c>false</c>.</returns>
         public static bool IsConditionalOperation(this RequestComponent request)
         {
             EnsureArg.IsNotNull(request, nameof(request));
@@ -167,6 +168,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(outerHttpContext, nameof(outerHttpContext));
 
             return outerHttpContext.IsBundleProcessingLogicValid();
+        }
+
+        internal static List<EntryComponent> CreateEmptyEntryList(int entryCount)
+        {
+            // This is an optimized way of initializing a List<T> without having to pre-allocate another array.
+            var emptyEntryComponentList = new List<EntryComponent>(entryCount);
+            for (int i = 0; i < entryCount; i++)
+            {
+                emptyEntryComponentList.Add(null);
+            }
+
+            return emptyEntryComponentList;
         }
     }
 }

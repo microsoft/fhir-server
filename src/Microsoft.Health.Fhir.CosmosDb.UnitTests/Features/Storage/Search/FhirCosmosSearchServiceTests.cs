@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var cosmosQueryFactory = new TestCosmosQueryFactory(primaryMatches, subqueryResults);
 
             var cosmosConfig = new CosmosDataStoreConfiguration();
-            var bundleOptions = Options.Create(new BundleConfiguration { SupportsBundleOrchestrator = true });
+            var bundleOptions = Options.Create(new BundleConfiguration());
             var dataStore = new CosmosFhirDataStore(
                 Substitute.For<Container>().CreateMockScope(),
                 cosmosConfig,

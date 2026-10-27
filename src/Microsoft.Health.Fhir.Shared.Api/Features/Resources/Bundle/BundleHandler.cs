@@ -89,6 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly bool _optimizedQuerySet;
+        private readonly bool _isBundleExpandedOperation;
         private readonly bool _isBundleProcessingLogicValid;
         private readonly bool _isConditionalOperationThrottlingEnabled;
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -192,9 +193,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Set optimized-query processing logic.
             _optimizedQuerySet = SetRequestContextWithOptimizedQuerying(_outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
 
+            _isBundleExpandedOperation = _runtimeConfiguration.IsBundleExpandedSupported && _outerHttpContext.IsExpandedBundleEnabled();
+            _isBundleProcessingLogicValid = BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext);
             _isConditionalOperationThrottlingEnabled = _bundleConfiguration.IsConditionalOperationThrottlingEnabled && _runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration;
-
-            _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext) : true;
         }
 
         public async Task<BundleResponse> HandleAsync(BundleRequest request, CancellationToken cancellationToken)
@@ -224,7 +225,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _bundleType = bundleResource.Type;
 
                 // Retrieve bundle processing logic.
-                BundleProcessingLogic bundleProcessingLogic = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType) : BundleProcessingLogic.Sequential;
+                BundleProcessingLogic bundleProcessingLogic = BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, _outerHttpContext, _bundleType);
+                if (_isBundleExpandedOperation)
+                {
+                    _logger.LogInformation("Extended Bundle detected. Setting the execution to run as 'parallel'.");
+                    bundleProcessingLogic = BundleProcessingLogic.Parallel;
+                }
 
                 if (_bundleType == BundleType.Batch)
                 {
@@ -241,7 +247,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
-                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Batch, bundleProcessingLogic, _bundleComplexity));
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Batch, bundleProcessingLogic, _isBundleExpandedOperation, _bundleComplexity));
 
                     await PublishNotification(responseBundle, BundleType.Batch);
 
@@ -282,7 +288,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var response = new BundleResponse(
                         responseBundle.ToResourceElement(),
-                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Transaction, bundleProcessingLogic, _bundleComplexity));
+                        new BundleResponseInfo(stopwatch.Elapsed, BundleType.Transaction, bundleProcessingLogic, _isBundleExpandedOperation, _bundleComplexity));
 
                     await PublishNotification(responseBundle, BundleType.Transaction);
 
@@ -345,7 +351,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             // for deletes Entry.Resource is null. need to check in other way
-            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
+            if (!searchParamsInBundle && bundle.Entry.Any(e => e.Request != null && e.Request.Method == HTTPVerb.DELETE && e.Request.Url.StartsWith(KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
             {
                 searchParamsInBundle = true;
             }
@@ -381,8 +387,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             IdentifyBundleComplexity(processingLogic);
 
-            // List is not created initially since it doesn't create a list with _requestCount elements
-            responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
+            // Initialize response "Entry" with an empty list.
+            responseBundle.Entry = BundleHandlerRuntime.CreateEmptyEntryList(_requestCount);
+
             foreach (int emptyRequestOrder in _emptyRequestsOrder)
             {
                 var entryComponent = new EntryComponent
@@ -435,23 +442,41 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         if (_requests[verb].Any())
                         {
-                            IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
-                                type: BundleOrchestratorOperationType.Batch,
-                                label: verb.ToString(),
-                                expectedNumberOfResources: _requests[verb].Count);
+                            for (int i = 0; i < _requests[verb].Count;)
+                            {
+                                List<BundleHandlerInternalOperationExecutionContext> resources;
 
-                            _logger.LogInformation(
-                                "BundleHandler - Starting the parallel processing of a sub-batch with {NumberOfRequests} '{HttpVerb}' requests.",
-                                _requests[verb].Count,
-                                verb);
+                                // If the operation is part of an extended bundle and a batch, then we reduce the max number of inner-operations running internally by
+                                // dividing the total number of running operations in groups, that holds the execution and does not create too many parallel requests.
+                                if (_isBundleExpandedOperation)
+                                {
+                                    resources = _requests[verb].Skip(i).Take(_bundleConfiguration.BundleExpandedGroupSize).ToList();
+                                }
+                                else
+                                {
+                                    resources = _requests[verb];
+                                }
 
-                            throttledEntryComponent = await ExecuteRequestsInParallelAsync(
-                                responseBundle: responseBundle,
-                                resources: _requests[verb],
-                                bundleOperation: bundleOperation,
-                                throttledEntryComponent: throttledEntryComponent,
-                                statistics: statistics,
-                                cancellationToken: cancellationToken);
+                                i += resources.Count;
+
+                                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                                    type: BundleOrchestratorOperationType.Batch,
+                                    label: verb.ToString(),
+                                    expectedNumberOfResources: resources.Count);
+
+                                _logger.LogInformation(
+                                    "BundleHandler - Starting the parallel processing of a sub-batch with {NumberOfRequests} '{HttpVerb}' requests.",
+                                    resources.Count,
+                                    verb);
+
+                                throttledEntryComponent = await ExecuteRequestsInParallelAsync(
+                                    responseBundle: responseBundle,
+                                    resources: resources,
+                                    bundleOperation: bundleOperation,
+                                    throttledEntryComponent: throttledEntryComponent,
+                                    statistics: statistics,
+                                    cancellationToken: cancellationToken);
+                            }
                         }
                     }
                 }
@@ -649,7 +674,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private int GetEntryLimit()
         {
-            if (_outerHttpContext.IsExpandedBundleEnabled())
+            if (_isBundleExpandedOperation)
             {
                 return _bundleConfiguration.EntryLimitExpanded;
             }

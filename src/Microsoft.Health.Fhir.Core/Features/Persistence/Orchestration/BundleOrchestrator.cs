@@ -62,8 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _lockObject = new object();
         }
 
-        public bool IsEnabled => _bundleConfiguration.SupportsBundleOrchestrator;
-
         public IBundleOrchestratorOperation CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
