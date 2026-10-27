@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 
-namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
 {
     public static class SqlExceptionFactory
     {

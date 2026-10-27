@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -283,7 +284,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         {
             // Arrange
             Exception searchException = isCustomerCaused
-                ? new SqlException("The database is not accessible due to Azure Key Vault critical error")
+                ? SqlExceptionFactory.GetSqlException("The database is not accessible due to Azure Key Vault critical error", innerException: null)
                 : new InvalidOperationException("Search service error");
 
             var expectedResourceType = "Patient";
