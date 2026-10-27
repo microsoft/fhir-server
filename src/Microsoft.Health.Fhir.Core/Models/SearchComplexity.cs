@@ -7,8 +7,9 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public enum SearchComplexity
     {
-        Standard = 0,
+        Low = 0,
         Medium = 1,
-        Heavy = 2,
+        High = 2,
+        Extreme = 3,
     }
 }

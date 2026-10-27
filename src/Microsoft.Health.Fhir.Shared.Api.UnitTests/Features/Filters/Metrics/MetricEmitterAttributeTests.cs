@@ -55,14 +55,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
         }
 
         [Theory]
-        [InlineData("FhirController", "SystemHistory", SearchComplexity.Heavy)]
+        [InlineData("FhirController", "SystemHistory", SearchComplexity.High)]
         [InlineData("Everything", "PatientEverythingById", SearchComplexity.Medium)]
         [InlineData("Includes", "Search", SearchComplexity.Medium)]
         [InlineData("DocRef", "Search", SearchComplexity.Medium)]
-        [InlineData("FhirController", "SearchByResourceType", SearchComplexity.Standard)]
-        [InlineData("FhirController", "Search", SearchComplexity.Standard)]
-        [InlineData("FhirController", "TypeHistory", SearchComplexity.Standard)]
-        [InlineData("FhirController", "History", SearchComplexity.Standard)]
+        [InlineData("FhirController", "SearchByResourceType", SearchComplexity.Low)]
+        [InlineData("FhirController", "Search", SearchComplexity.Low)]
+        [InlineData("FhirController", "TypeHistory", SearchComplexity.Low)]
+        [InlineData("FhirController", "History", SearchComplexity.Low)]
         public void DetermineComplexity_GivenRouteValues_ReturnsExpectedComplexity(
             string controller,
             string action,
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
 
             SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(context);
 
-            Assert.Equal(SearchComplexity.Standard, result);
+            Assert.Equal(SearchComplexity.Low, result);
         }
 
         [Fact]
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
         {
             SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(null);
 
-            Assert.Equal(SearchComplexity.Standard, result);
+            Assert.Equal(SearchComplexity.Low, result);
         }
     }
 }

@@ -41,45 +41,52 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
         {
             if (context?.ActionDescriptor?.RouteValues == null)
             {
-                return SearchComplexity.Standard;
+                return SearchComplexity.Low;
             }
 
-            context.ActionDescriptor.RouteValues.TryGetValue("action", out string actionName);
-            context.ActionDescriptor.RouteValues.TryGetValue("controller", out string controllerName);
-
-            // System History is inherently expensive (scans all resource versions) — Heavy.
-            if (string.Equals(actionName, "SystemHistory", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                return SearchComplexity.Heavy;
-            }
+                context.ActionDescriptor.RouteValues.TryGetValue("action", out string actionName);
+                context.ActionDescriptor.RouteValues.TryGetValue("controller", out string controllerName);
 
-            // $everything, $includes, $docref are multi-step operations — Medium.
-            if (string.Equals(controllerName, "Everything", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(controllerName, "Includes", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(controllerName, "DocRef", StringComparison.OrdinalIgnoreCase))
-            {
-                return SearchComplexity.Medium;
-            }
-
-            // Searches with multiple _include/_revinclude require additional DB round-trips — Medium.
-            if (context.HttpContext?.Request?.Query != null)
-            {
-                int includeCount = 0;
-                foreach (string key in context.HttpContext.Request.Query.Keys.Where(
-                    key => string.Equals(key, "_include", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(key, "_revinclude", StringComparison.OrdinalIgnoreCase)))
+                // System History is inherently expensive (scans all resource versions) — High.
+                if (string.Equals(actionName, "SystemHistory", StringComparison.OrdinalIgnoreCase))
                 {
-                    includeCount += context.HttpContext.Request.Query[key].Count;
+                    return SearchComplexity.High;
                 }
 
-                if (includeCount > 1)
+                // $everything, $includes, $docref are multi-step operations — Medium.
+                if (string.Equals(controllerName, "Everything", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(controllerName, "Includes", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(controllerName, "DocRef", StringComparison.OrdinalIgnoreCase))
                 {
                     return SearchComplexity.Medium;
                 }
+
+                // Searches with multiple _include/_revinclude require additional DB round-trips — Medium.
+                if (context.HttpContext?.Request?.Query != null)
+                {
+                    int includeCount = 0;
+                    foreach (string key in context.HttpContext.Request.Query.Keys.Where(
+                        key => string.Equals(key, "_include", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(key, "_revinclude", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        includeCount += context.HttpContext.Request.Query[key].Count;
+                    }
+
+                    if (includeCount > 1)
+                    {
+                        return SearchComplexity.Medium;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return SearchComplexity.Low;
             }
 
             // Standard Search, Type Get All, Type History, Instance History.
-            return SearchComplexity.Standard;
+            return SearchComplexity.Low;
         }
     }
 }
