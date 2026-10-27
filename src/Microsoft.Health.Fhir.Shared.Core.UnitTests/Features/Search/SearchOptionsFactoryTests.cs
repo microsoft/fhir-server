@@ -1097,7 +1097,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
             {
-                throw new NotImplementedException();
+                return default;
             }
         }
 
