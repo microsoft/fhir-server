@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -155,20 +154,12 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                                 return default;
                             }).SetOrder(int.MinValue)); // Ensure this runs early
 
-                        // OpenIddict 7+ enforces RFC 8707, rejecting 'resource' values that aren't absolute URIs.
-                        // Clients of this development IdP send the audience name (e.g. "fhir-api") as the resource,
-                        // and the token audience is derived from the granted scopes, so drop non-URI resource values.
+                        // This development IdP derives token audiences from granted scopes, not requested resources.
+                        // Clear resources before OpenIddict validates their URI format and registration.
                         options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
                             builder.UseInlineHandler(context =>
                             {
-                                if (context.Request.Resources is { IsDefaultOrEmpty: false } resources)
-                                {
-                                    ImmutableArray<string> absoluteResources = resources
-                                        .Where(resource => Uri.TryCreate(resource, UriKind.Absolute, out _))
-                                        .ToImmutableArray();
-
-                                    context.Request.Resources = absoluteResources.IsEmpty ? null : absoluteResources;
-                                }
+                                context.Request.Resources = null;
 
                                 return default;
                             }).SetOrder(int.MinValue));
