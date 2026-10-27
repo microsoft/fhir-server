@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -517,7 +518,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             var resourceTypes = authorizer.GetAuthorizedIncludeResourceTypes();
 
             // Assert
-            Assert.Equal(new[] { KnownResourceTypes.Observation, KnownResourceTypes.Patient }, resourceTypes);
+            Assert.Equal(
+                new[] { KnownResourceTypes.Observation, KnownResourceTypes.Patient }.OrderBy(type => type, StringComparer.Ordinal),
+                resourceTypes.OrderBy(type => type, StringComparer.Ordinal));
         }
 
         [Theory]

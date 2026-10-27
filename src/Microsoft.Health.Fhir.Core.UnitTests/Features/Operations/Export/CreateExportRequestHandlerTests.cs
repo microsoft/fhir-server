@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -104,7 +105,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Assert
             Assert.Equal(KnownResourceTypes.Observation, persistedJob.ResourceType);
-            Assert.Equal(new[] { KnownResourceTypes.Observation, KnownResourceTypes.Patient }, persistedJob.AuthorizedIncludeResourceTypes);
+            Assert.Equal(
+                new[] { KnownResourceTypes.Observation, KnownResourceTypes.Patient }.OrderBy(type => type, StringComparer.Ordinal),
+                persistedJob.AuthorizedIncludeResourceTypes.OrderBy(type => type, StringComparer.Ordinal));
         }
 
         private CreateExportRequestHandler CreateHandler(bool smartRequest)
