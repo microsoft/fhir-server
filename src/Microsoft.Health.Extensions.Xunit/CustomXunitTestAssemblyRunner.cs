@@ -25,11 +25,10 @@ namespace Microsoft.Health.Extensions.Xunit
 
         protected override ValueTask<RunSummary> RunTestCollection(XunitTestAssemblyRunnerContext context, IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases)
         {
-            var orderer = context.AssemblyTestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
             var runner = new CustomXunitTestCollectionRunner();
 
             // Aggregator is a struct wrapping a mutable list; clone so collections don't share one.
-            return runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, orderer, context.Aggregator.Clone(), context.CancellationTokenSource, context.AssemblyFixtureMappings);
+            return runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, context.Aggregator.Clone(), context.CancellationTokenSource, context.ParallelMode, context.Scheduler, context.AssemblyFixtureMappings);
         }
     }
 }
