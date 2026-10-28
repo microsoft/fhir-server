@@ -162,11 +162,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             await _fixture.Mediator.UpsertResourceAsync(UpdateObservationStatus(observationToUpdate), WeakETag.FromVersionId(version1.Version));
             var version2 = await _dataStore.GetAsync(new ResourceKey("Observation", version1.ResourceId), CancellationToken.None);
 
-            var sqlSearchService = _searchService as SqlServerSearchService;
-            Assert.NotNull(sqlSearchService);
+            var sqlSearchService = Assert.IsType<SqlServerSearchService>(_searchService);
 
             // Act - read the range of version 1 with snapshots taken before and after version 2.
-            var beforeUpdate = await sqlSearchService!.SearchBySurrogateIdRange(
+            var beforeUpdate = await sqlSearchService.SearchBySurrogateIdRange(
                 "Observation",
                 version1.ResourceSurrogateId,
                 version1.ResourceSurrogateId,
