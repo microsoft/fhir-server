@@ -195,10 +195,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newResourceTableExpressions = new List<SearchParameterExpressionBase>();
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
-                if (i == primaryKeyValueIndex || // eliminate the existing primaryKey expression
-                    (singleAllowedResourceTypeId == null && // if there are many possible types, the PrimaryKeyRange expression will already be constrained to those types
-                     expression.ResourceTableExpressions[i] is SearchParameterExpression searchParameterExpression &&
-                     searchParameterExpression.Parameter.Name == SearchParameterNames.ResourceType))
+                // Only the existing primary key expression is replaced. The _type constraints are deliberately kept:
+                // the continuation token is client supplied, and the PrimaryKeyRange always admits the token's own
+                // ResourceTypeId, so the range alone must never be trusted to enforce the allowed types.
+                if (i == primaryKeyValueIndex)
                 {
                     continue;
                 }
