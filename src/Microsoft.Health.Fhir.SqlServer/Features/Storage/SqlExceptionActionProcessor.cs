@@ -5,7 +5,6 @@
 
 using System;
 using System.Data.SqlTypes;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -13,6 +12,7 @@ using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.SqlServer.Features.Storage;
 
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new LoginFailedForUserException(Core.Resources.InternalServerError, exception);
                 }
-                else if (sqlException.IsCMKError())
+                else if (sqlException.IsCustomerManagedKeyException())
                 {
                     throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey);
                 }
