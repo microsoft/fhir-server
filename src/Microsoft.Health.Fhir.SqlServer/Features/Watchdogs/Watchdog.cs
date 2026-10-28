@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public bool IsInitialized { get; private set; }
 
-        public async Task ExecuteAsync(Guid guid, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation($"{Name}.ExecuteAsync: starting...");
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             await Task.WhenAll(
                 _fhirTimer.ExecuteAsync(Name, GetPeriod(PeriodSec, LeasePeriodSec), OnNextTickAsync, cancellationToken),
-                _watchdogLease.ExecuteAsync($"{Name}Lease", AllowRebalance, LeasePeriodSec, guid, cancellationToken));
+                _watchdogLease.ExecuteAsync($"{Name}Lease", AllowRebalance, LeasePeriodSec, cancellationToken));
 
             _logger.LogInformation($"{Name}.ExecuteAsync: completed.");
         }
