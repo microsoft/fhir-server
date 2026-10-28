@@ -18,6 +18,7 @@ using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
@@ -32,19 +33,22 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IgnixaSchemaContext _schemaContext;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaImportResourceParser"/> class.
         /// </summary>
         /// <param name="resourceFactory">The factory used to create resource wrappers.</param>
         /// <param name="schemaContext">The Ignixa generated schema for the current FHIR version.</param>
-        public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext)
+        /// <param name="resourceIdPolicy">The resource id policy.</param>
+        public IgnixaImportResourceParser(IResourceWrapperFactory resourceFactory, IgnixaSchemaContext schemaContext, ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
             EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
 
             _resourceFactory = resourceFactory;
             _schemaContext = schemaContext;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
 
         /// <inheritdoc />
@@ -60,15 +64,13 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
             }
 
-            ImportResourceIdValidator.Validate(resource.Id);
+            ImportResourceIdValidator.Validate(resource.Id, _resourceIdPolicy);
             CheckConditionalReferenceInResource(resource, importMode);
 
-            resource.Meta ??= new MetaJsonNode();
-
-            var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
-            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated.Value;
-            resource.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
-            if (!lastUpdatedIsNull && resource.Meta.LastUpdated.Value > Clock.UtcNow.AddSeconds(10)) // 10 sec is the max for the computers in the domain
+            var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdatedOffset == null;
+            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdatedOffset.Value;
+            resource.Meta.LastUpdatedOffset = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
+            if (!lastUpdatedIsNull && resource.Meta.LastUpdatedOffset.Value > Clock.UtcNow.AddSeconds(10)) // 10 sec is the max for the computers in the domain
             {
                 throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");
             }
@@ -134,7 +136,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// </remarks>
         private void CheckConditionalReferenceInResource(ResourceJsonNode resource, ImportMode importMode)
         {
-            if (importMode == ImportMode.IncrementalLoad || resource.MutableNode is not JsonObject root)
+            if (importMode == ImportMode.IncrementalLoad || resource.ToSourceNavigator().Meta<JsonNode>() is not JsonObject root)
             {
                 return;
             }
@@ -156,7 +158,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 {
                     foreach (var item in array)
                     {
-                        ThrowIfConditionalReference(item, resource.FhirVersion);
+                        ThrowIfConditionalReference(item);
                     }
                 }
                 else
@@ -166,23 +168,21 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                     // Match that leniency here (field.IsCollection but value isn't a JsonArray) instead of
                     // rejecting it - ThrowIfConditionalReference still throws below if this value isn't even
                     // a JSON object.
-                    ThrowIfConditionalReference(value, resource.FhirVersion);
+                    ThrowIfConditionalReference(value);
                 }
             }
         }
 
         /// <summary>
-        /// Reads the reference field through the typed <see cref="ReferenceJsonNode"/> model instead of casting
-        /// through raw <see cref="JsonValue"/>. A missing "reference" property (e.g. an identifier-only or
-        /// display-only reference, both valid FHIR) yields a null <see cref="ReferenceJsonNode.Reference"/> and
-        /// is skipped, matching the Firely parser. A non-string "reference" scalar (e.g. <c>"reference": 123</c>)
-        /// is deliberately not guarded against - <see cref="ReferenceJsonNode.Reference"/> throws in that case.
+        /// Reads the reference field from the raw JSON object. A missing "reference" property (e.g. an
+        /// identifier-only or display-only reference, both valid FHIR) is skipped, matching the Firely parser.
+        /// A non-string "reference" scalar (e.g. <c>"reference": 123</c>) deliberately throws.
         /// A reference field that is present but isn't a JSON object at all (schema-invalid, e.g. a bare string
         /// or number) also throws here rather than being silently skipped - confirmed empirically that
         /// <c>resource.ToElement(schema)</c> does NOT reject this shape on its own, so this is the only place
         /// that catches it. A null array item (e.g. <c>[null, {...}]</c>) is treated as absent, not malformed.
         /// </summary>
-        private static void ThrowIfConditionalReference(JsonNode referenceNode, FhirVersion? fhirVersion)
+        private static void ThrowIfConditionalReference(JsonNode referenceNode)
         {
             if (referenceNode is null)
             {
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 throw new FormatException($"Expected a Reference object but found {referenceNode.GetValueKind()}.");
             }
 
-            var reference = new ReferenceJsonNode(referenceObject, fhirVersion).Reference;
+            var reference = referenceObject["reference"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(reference) && reference.Contains('?', StringComparison.Ordinal))
             {
                 throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");

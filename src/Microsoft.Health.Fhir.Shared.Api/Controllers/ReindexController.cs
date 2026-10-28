@@ -68,8 +68,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ValidateParams(inputParams);
 
-            uint? maxResourcesPerQuery = (uint?)ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerQuery);
-            uint? maxResourcesPerWrite = (uint?)ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerWrite);
+            int? maxResourcesPerQuery = ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerQuery);
+            int? maxResourcesPerWrite = ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerWrite);
             int? queryDelay = ReadNumericParameter(inputParams, JobRecordProperties.QueryDelayIntervalInMilliseconds);
             ushort? targetDataStoreResourcePercentage = (ushort?)ReadNumericParameter(inputParams, JobRecordProperties.TargetDataStoreUsagePercentage);
             string targetResourceTypes = ReadStringParameter(inputParams, JobRecordProperties.TargetResourceTypes);
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 targetSearchParamTypes,
                 HttpContext.RequestAborted);
 
-            var result = FhirResult.Create(response, HttpStatusCode.Created)
+            var result = FhirResult.Create(_logger, response, HttpStatusCode.Created)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ReindexSingleResourceResponse response = await _mediator.SendReindexSingleResourceRequestAsync(Request.Method, typeParameter, idParameter, HttpContext.RequestAborted);
 
-            var result = FhirResult.Create(response.ParameterResource, HttpStatusCode.OK);
+            var result = FhirResult.Create(_logger, response.ParameterResource, HttpStatusCode.OK);
 
             return result;
         }
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ResourceElement response = await _mediator.GetReindexJobAsync(null, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response, HttpStatusCode.OK)
+            return FhirResult.Create(_logger, response, HttpStatusCode.OK)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ResourceElement response = await _mediator.GetReindexJobAsync(idParameter, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response, HttpStatusCode.OK)
+            return FhirResult.Create(_logger, response, HttpStatusCode.OK)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ResourceElement response = await _mediator.CancelReindexAsync(idParameter, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response, HttpStatusCode.Accepted)
+            return FhirResult.Create(_logger, response, HttpStatusCode.Accepted)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }

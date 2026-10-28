@@ -17,7 +17,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json;
-using Xunit.Abstractions;
+using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             HttpStatusCode resultCode = HttpStatusCode.Accepted;
             HttpResponseMessage response = null;
             var sw = Stopwatch.StartNew();
-            var maxSeconds = 300;
+            var maxSeconds = 420;
 
             // Wait until status change or timeout
             while ((resultCode == HttpStatusCode.Accepted || resultCode == HttpStatusCode.ServiceUnavailable) && sw.Elapsed.TotalSeconds < maxSeconds)

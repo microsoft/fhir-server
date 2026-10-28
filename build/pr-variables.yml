@@ -15,8 +15,8 @@ variables:
     # Centralized here so all PR provision-deploy invocations stay consistent.
     minReplicas: 3
     maxReplicas: 8
-    containerCpu: '0.5'
-    containerMemory: '1Gi'
+    containerCpu: '1.0'
+    containerMemory: '2Gi'
     cosmosAutoscaleMaxThroughput: 5000
 
     # Shared FHIR runtime tuning values consumed by build/jobs/provision-deploy.yml.
@@ -25,6 +25,11 @@ variables:
     searchParameterCacheRefreshIntervalSeconds: 2
     systemConformanceProviderRefreshIntervalSeconds: 5
     reindexCacheRefreshWaitMultiplier: 6
+    reindexJobsPollingIntervalSec: 1
+
+    # Enables the in-memory $import test source, required by the import performance E2E test.
+    # Test-only hook; only ever set to true for PR/CI test environments.
+    importInMemoryTestEnabled: true
 
     # The following is passed in from a Pipeline variable, this allows it to be overriden if required.
     # prName: $(system.pullRequest.pullRequestNumber)

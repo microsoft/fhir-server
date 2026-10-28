@@ -8,7 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -22,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -153,6 +157,205 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Fact]
+    public void GivenGeneratedSql_WhenNormalizedQueryShapeAdded_ThenHashCommentContainsSafeQueryShapeWithoutChangingHash()
+    {
+        // Arrange
+        const string rawValue = "Alice-Recognizable-Value";
+        const string normalizedQuery = "Patient?birthdate&name";
+        var (generator, sqlWithoutAnnotation) = GenerateSqlWithHashedParameter(rawValue);
+        var queryHashCalculator = new SqlQueryHashCalculator();
+
+        // Act
+        string sqlWithAnnotation = generator.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutAnnotation,
+            normalizedQuery,
+            queryHashCalculator,
+            out string queryHash);
+
+        // Assert
+        Assert.Contains($" fhir={normalizedQuery} */", sqlWithAnnotation, StringComparison.Ordinal);
+        Assert.DoesNotContain(rawValue, sqlWithAnnotation, StringComparison.Ordinal);
+        Assert.Equal(
+            SqlServerSearchService.ExtractParameterHash(sqlWithoutAnnotation),
+            SqlServerSearchService.ExtractParameterHash(sqlWithAnnotation));
+        Assert.Equal(queryHashCalculator.CalculateHash(sqlWithoutAnnotation), queryHash);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("SET STATISTICS IO ON;\r\nSET STATISTICS TIME ON;\r\nDECLARE @preamble int = 1;\r\n")]
+    public void GivenQueryPlanReuse_WhenNormalizedQueryShapesDiffer_ThenShapesAreInsideStatementsWithoutChangingHash(string preamble)
+    {
+        // Arrange
+        const string rawValue = "Alice-Recognizable-Value";
+        var (generator, sqlWithoutHashComment) = GenerateSqlWithHashedParameter(rawValue, reuseQueryPlans: true, preamble: preamble);
+        var queryHashCalculator = new SqlQueryHashCalculator();
+
+        // Act
+        string patientSql = generator.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutHashComment,
+            "Patient?name",
+            queryHashCalculator,
+            out string patientQueryHash);
+        string observationSql = generator.CalculateHashThenAddNormalizedQueryShape(
+            sqlWithoutHashComment,
+            "Observation?code",
+            queryHashCalculator,
+            out string observationQueryHash);
+
+        // Assert
+        Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, sqlWithoutHashComment, StringComparison.Ordinal);
+        Assert.Contains("/* fhir=Patient?name */", patientSql, StringComparison.Ordinal);
+        Assert.Contains("/* fhir=Observation?code */", observationSql, StringComparison.Ordinal);
+        Assert.True(patientSql.IndexOf("/* fhir=", StringComparison.Ordinal) > patientSql.IndexOf(";WITH", StringComparison.Ordinal));
+        Assert.True(patientSql.IndexOf("/* fhir=", StringComparison.Ordinal) < patientSql.IndexOf("SELECT * FROM (", StringComparison.Ordinal));
+        Assert.Equal(sqlWithoutHashComment, patientSql.Replace("/* fhir=Patient?name */ ", string.Empty, StringComparison.Ordinal));
+        Assert.Equal(sqlWithoutHashComment, observationSql.Replace("/* fhir=Observation?code */ ", string.Empty, StringComparison.Ordinal));
+        Assert.Equal(queryHashCalculator.CalculateHash(sqlWithoutHashComment), patientQueryHash);
+        Assert.Equal(patientQueryHash, observationQueryHash);
+        Assert.DoesNotContain(rawValue, patientSql, StringComparison.Ordinal);
+        Assert.DoesNotContain(rawValue, observationSql, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void GivenNoParametersToHash_WhenShapeAdded_ThenSelectAndCountShapesAreInsideStatements(bool withCtes, bool countOnly)
+    {
+        // Arrange
+        var (generator, queryText) = GenerateSqlWithHashedParameter(null, withCtes: withCtes, countOnly: countOnly);
+        var calculator = Substitute.For<ISqlQueryHashCalculator>();
+        calculator.CalculateHash(queryText).Returns("original-hash");
+
+        // Act
+        string annotated = generator.CalculateHashThenAddNormalizedQueryShape(queryText, "Patient", calculator, out string hash);
+
+        // Assert
+        calculator.Received(1).CalculateHash(queryText);
+        Assert.Equal("original-hash", hash);
+        Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, annotated, StringComparison.Ordinal);
+        Assert.Contains("/* fhir=Patient */", annotated, StringComparison.Ordinal);
+        Assert.Equal(queryText, annotated.Replace("/* fhir=Patient */ ", string.Empty, StringComparison.Ordinal));
+        if (withCtes)
+        {
+            Assert.True(annotated.IndexOf("/* fhir=", StringComparison.Ordinal) > annotated.IndexOf(";WITH", StringComparison.Ordinal));
+        }
+        else
+        {
+            Assert.StartsWith("SELECT /* fhir=Patient */ ", annotated.TrimStart(), StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(false, "")]
+    [InlineData(true, null)]
+    [InlineData(true, "")]
+    public void GivenEmptyShape_WhenSqlGenerated_ThenSqlAndHashAreUnchanged(bool reuseQueryPlans, string shape)
+    {
+        // Arrange
+        var (generator, queryText) = GenerateSqlWithHashedParameter("value", reuseQueryPlans);
+        var calculator = new SqlQueryHashCalculator();
+
+        // Act
+        string annotated = generator.CalculateHashThenAddNormalizedQueryShape(queryText, shape, calculator, out string hash);
+
+        // Assert
+        Assert.Equal(queryText, annotated);
+        Assert.Equal(calculator.CalculateHash(queryText), hash);
+    }
+
+    [Fact]
+    public void GivenSameShapeWithDifferentValuesAndNameOrder_WhenPlansReused_ThenSqlAndHashAreIdentical()
+    {
+        // Arrange
+        var (firstGenerator, firstSql) = GenerateSqlWithHashedParameter("Alice", reuseQueryPlans: true);
+        var (secondGenerator, secondSql) = GenerateSqlWithHashedParameter("Bob", reuseQueryPlans: true);
+        string firstShape = FhirQueryNormalizer.Normalize("Patient", ["name", "birthdate"]);
+        string secondShape = FhirQueryNormalizer.Normalize("Patient", ["birthdate", "name"]);
+        var calculator = new SqlQueryHashCalculator();
+
+        // Act
+        string first = firstGenerator.CalculateHashThenAddNormalizedQueryShape(firstSql, firstShape, calculator, out string firstHash);
+        string second = secondGenerator.CalculateHashThenAddNormalizedQueryShape(secondSql, secondShape, calculator, out string secondHash);
+
+        // Assert
+        Assert.Contains("/* fhir=Patient?birthdate&name */", first, StringComparison.Ordinal);
+        Assert.Equal(first, second);
+        Assert.Equal(firstHash, secondHash);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public void GivenIncludesAndUnions_WhenShapeAdded_ThenBothStatementsAreAnnotated(
+        bool reuseQueryPlans,
+        bool withUnion,
+        bool smartScopes)
+    {
+        // Arrange
+        const string shape = "Observation?_include&subject";
+        var referenceParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var include = new IncludeExpression(["Observation"], referenceParameter, "Observation", "Patient", null, false, false, false);
+        var tables = new List<SearchParamTableExpression>();
+        if (withUnion)
+        {
+            var union = Expression.Union(
+                UnionOperator.All,
+                [
+                    Expression.SearchParameter(referenceParameter, Expression.StringEquals(FieldName.ReferenceResourceId, null, "patient-a", false)),
+                    Expression.SearchParameter(referenceParameter, Expression.StringEquals(FieldName.ReferenceResourceId, null, "patient-b", false)),
+                ]);
+            union.IsSmartV2UnionExpressionForScopesSearchParameters = smartScopes;
+            tables.Add(new SearchParamTableExpression(ReferenceQueryGenerator.Instance, Expression.And(union), SearchParamTableExpressionKind.Normal));
+        }
+        else
+        {
+            tables.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All));
+        }
+
+        tables.Add(new SearchParamTableExpression(IncludeQueryGenerator.Instance, include, SearchParamTableExpressionKind.Include));
+        tables.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit));
+        tables.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll));
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(referenceParameter.Url).Returns((short)40);
+        using Data.SqlClient.SqlCommand command = new();
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        parameters.AddParameter("filter-value", includeInHash: true);
+        var generator = new SqlQueryGenerator(_strBuilder, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, reuseQueryPlans, false);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest });
+        SqlCommandSimplifier.RemoveRedundantParameters(_strBuilder, command.Parameters, NullLogger.Instance);
+        string queryText = _strBuilder.ToString();
+        var calculator = new SqlQueryHashCalculator();
+
+        // Act
+        string annotated = generator.CalculateHashThenAddNormalizedQueryShape(queryText, shape, calculator, out string hash);
+
+        // Assert
+        var fragments = SqlServerSearchService.SplitIntoSearchFragments(annotated);
+        Assert.Equal(2, fragments.Count);
+        Assert.All(fragments, fragment => Assert.Contains($"fhir={shape}", fragment, StringComparison.Ordinal));
+        Assert.Equal(reuseQueryPlans ? 0 : smartScopes ? 2 : 1, annotated.Split(SqlQueryGenerator.ParametersHashStart).Length - 1);
+        Assert.Equal(
+            queryText,
+            annotated.Replace($"/* fhir={shape} */ ", string.Empty, StringComparison.Ordinal).Replace($" fhir={shape}", string.Empty, StringComparison.Ordinal));
+        Assert.Equal(calculator.CalculateHash(queryText), hash);
+    }
+
+    [Fact]
     public void GivenReferenceSearchParameterWithMultipleTargetTypes_WhenSqlGenerated_ThenSqlIncludesOrClauseForReferenceResourceTypeId()
     {
         // Setup mock to return resource type IDs
@@ -219,6 +422,261 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
 
+    [Fact]
+    public void GivenCompartmentMembership_WhenSqlGenerated_ThenReferenceIdentityUsesTheSameLocalIndexRow()
+    {
+        var subject = new SearchParameterInfo(
+            "subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+        SqlCompartmentSearchRewriter rewriter = CreateCompartmentRewriter(
+            "Observation",
+            new HashSet<string> { "subject" },
+            new Dictionary<string, SearchParameterInfo> { ["subject"] = subject });
+        _fhirModel.TryGetResourceTypeId(Arg.Any<string>(), out Arg.Any<short>())
+            .Returns(call =>
+            {
+                call[1] = (short)1;
+                return true;
+            });
+        _fhirModel.GetSearchParamId(subject.Url).Returns((short)100);
+        Expression predicate = Assert.Single(rewriter.BuildCompartmentSearchExpressionsGroup(
+            Expression.CompartmentSearch("Patient", "patient-a", new[] { "Observation" })));
+        var generator = predicate.AcceptVisitor(_queryGeneratorFactory);
+        SqlRootExpression root = new([new(generator, predicate, SearchParamTableExpressionKind.Normal)], []);
+
+        _queryGenerator.VisitSqlRoot(root, new SearchOptions { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest });
+
+        string sql = _strBuilder.ToString();
+        Match referenceRow = Regex.Match(sql, @"FROM dbo\.ReferenceSearchParam\r?\n(?<predicate>[\s\S]*?)\r?\n\)");
+        Assert.True(referenceRow.Success, sql);
+        string predicateSql = referenceRow.Groups["predicate"].Value;
+        Assert.Contains("AND BaseUri IS NULL", predicateSql);
+        Assert.Contains("AND ReferenceResourceTypeId = ", predicateSql);
+        Assert.Contains("AND ReferenceResourceId = ", predicateSql);
+        Assert.Contains("SearchParamId = ", predicateSql);
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    public void GivenChainSourceDeduplicationConfiguration_WhenBound_ThenDefaultAndRollbackAreSupported(string value, bool expected)
+    {
+        // Arrange
+        var settings = new Dictionary<string, string>();
+        if (value != null)
+        {
+            settings["FhirSqlServer:EnableChainSourceDeduplication"] = value;
+        }
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        var options = new FhirSqlServerConfiguration();
+
+        // Act
+        configuration.GetSection("FhirSqlServer").Bind(options);
+
+        // Assert
+        Assert.Equal(expected, options.EnableChainSourceDeduplication);
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(5, false)]
+    [InlineData(5, true)]
+    [InlineData(1, false, false)]
+    [InlineData(1, true, false)]
+    [InlineData(5, false, false)]
+    [InlineData(5, true, false)]
+    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool enabled = true)
+    {
+        // Arrange
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        _fhirModel.GetResourceTypeId("Observation").Returns((short)10);
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)11);
+        _fhirModel.GetSearchParamId(reference.Url).Returns((short)20);
+        var tables = new List<SearchParamTableExpression>
+        {
+            new(null, null, SearchParamTableExpressionKind.All),
+        };
+        for (int i = 0; i < chainCount; i++)
+        {
+            tables.Add(new SearchParamTableExpression(
+                ChainLinkQueryGenerator.Instance,
+                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+                SearchParamTableExpressionKind.Chain,
+                chainLevel: 1));
+        }
+
+        // Act
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false,
+            enableChainSourceDeduplication: enabled);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+        {
+            Sort = [],
+            CountOnly = true,
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        });
+
+        // Assert
+        string sql = _strBuilder.ToString();
+        string alias = reversed ? "refTarget" : "refSource";
+        if (chainCount == 1)
+        {
+            Assert.Contains($"EXISTS (SELECT * FROM cte0 WHERE {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1)", sql);
+        }
+        else
+        {
+            for (int i = 0; i < chainCount; i++)
+            {
+                if (enabled)
+                {
+                    Assert.Contains($"JOIN (SELECT DISTINCT T1, Sid1 FROM cte{i}) predecessor ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+                    Assert.DoesNotContain($"JOIN cte{i} ON {alias}.ResourceTypeId = T1", sql);
+                }
+                else
+                {
+                    Assert.Contains($"JOIN cte{i} ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+                    Assert.DoesNotContain(") predecessor", sql);
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed)
+    {
+        // Arrange
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var tables = new List<SearchParamTableExpression> { new(null, null, SearchParamTableExpressionKind.All) };
+        for (int level = 1; level <= 5; level++)
+        {
+            tables.Add(new SearchParamTableExpression(
+                ChainLinkQueryGenerator.Instance,
+                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+                SearchParamTableExpressionKind.Chain,
+                level));
+        }
+
+        // Act
+        _queryGenerator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+        {
+            Sort = [],
+            CountOnly = true,
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        });
+
+        // Assert
+        string sql = _strBuilder.ToString();
+        Assert.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte0) predecessor", sql);
+        string alias = reversed ? "refTarget" : "refSource";
+        for (int i = 1; i < 5; i++)
+        {
+            Assert.Contains($"JOIN cte{i} ON {alias}.ResourceTypeId = T2 AND {alias}.ResourceSurrogateId = Sid2", sql);
+        }
+    }
+
+    private (SqlQueryGenerator Generator, string Sql) GenerateSqlWithHashedParameter(
+        string parameterValue,
+        bool reuseQueryPlans = false,
+        string preamble = "",
+        bool withCtes = true,
+        bool countOnly = false)
+    {
+        var stringBuilder = new IndentedStringBuilder(new StringBuilder(preamble));
+        using Data.SqlClient.SqlCommand command = new();
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        if (parameterValue != null)
+        {
+            parameters.AddParameter(parameterValue, includeInHash: true);
+        }
+
+        var queryGenerator = new SqlQueryGenerator(
+            stringBuilder,
+            parameters,
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            reuseQueryPlans,
+            isAsyncOperation: false);
+        var sqlExpression = new SqlRootExpression(
+            withCtes ? [new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All)] : [],
+            new List<SearchParameterExpressionBase>());
+        var searchOptions = new SearchOptions
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+            CountOnly = countOnly,
+        };
+
+        queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, command.Parameters, NullLogger.Instance);
+
+        return (queryGenerator, stringBuilder.ToString());
+    }
+
+    [Theory]
+    [InlineData(null, 11)]
+    [InlineData("[10,100,300,null,null,false]", 11)]
+    [InlineData("[10,100,300,null,null,false,null,null,3]", 3)]
+    public void GivenMatchPageScope_WhenSqlGenerated_ThenOnlyReplayedIncludesOmitTheLookaheadRow(string includesToken, int expectedLimit)
+    {
+        // Arrange
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false);
+        SqlRootExpression expression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+            ],
+            []);
+        SearchOptions options = new()
+        {
+            MaxItemCount = 10,
+            IncludesContinuationToken = includesToken,
+            Sort = [(new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Ascending)],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        // Act
+        generator.VisitSqlRoot(expression, options);
+
+        // Assert
+        var top = Regex.Match(_strBuilder.ToString(), @"SELECT DISTINCT TOP \((@\w+)\)");
+        Assert.True(top.Success);
+        Assert.Equal(expectedLimit, command.Parameters[top.Groups[1].Value].Value);
+    }
+
     [Theory]
     [InlineData(false, "refTarget")]
     [InlineData(true, "refSource")]
@@ -283,6 +741,83 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.Contains("smartCompartmentMembership.BaseUri IS NULL", generatedSql);
         Assert.DoesNotContain("OPTION (RECOMPILE)", generatedSql);
         _fhirModel.Received(1).GetSearchParamId(membershipParameterUrl);
+    }
+
+    [Theory]
+    [InlineData(false, "refSource.ReferenceResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1")]
+    [InlineData(true, "refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1")]
+    public void GivenWildcardScopeWithSearchParameterUnionAndInclude_WhenSqlGenerated_ThenCandidateIsFilteredBySmartScopeUnionCte(
+        bool reversed,
+        string expectedScopeJoinClause)
+    {
+        // Arrange: a wildcard SMART scope with search parameters (e.g. patient/*.read?_tag=allowed) sets
+        // AllowedResourceTypesByScope to ["all"] AND emits a SMART v2 union expression. The include CTE must
+        // still join against _smartv2ScopeUnionCTE so "all" is not treated as unconstrained.
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var tagParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Resource-tag");
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var tagParameter = new SearchParameterInfo(
+            "_tag",
+            "_tag",
+            SearchParamType.Token,
+            tagParameterUrl,
+            null,
+            "Resource.meta.tag",
+            ["Resource"]);
+        var includeExpression = new IncludeExpression(
+            [reversed ? "Patient" : "Observation"],
+            includeParameter,
+            "Observation",
+            "Patient",
+            null,
+            false,
+            reversed,
+            false,
+            allowedResourceTypesByScope: [KnownResourceTypes.All]);
+
+        var individualAnd = Expression.And(Expression.SearchParameter(tagParameter, Expression.StringEquals(FieldName.TokenCode, null, "allowed", false)));
+        individualAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var scopeAnd = Expression.And(individualAnd);
+        scopeAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var smartUnion = Expression.Union(UnionOperator.All, [scopeAnd]);
+        smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(TokenQueryGenerator.Instance, Expression.And(smartUnion), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+            ],
+            []);
+        SearchOptions searchOptions = new()
+        {
+            IncludeCount = 10,
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)1);
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(tagParameterUrl).Returns((short)42);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("refSource.SearchParamId = 40", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("refSource.ReferenceResourceTypeId = 1", generatedSql, StringComparison.Ordinal);
+        Assert.Contains($"EXISTS (SELECT * FROM cte1 WHERE {expectedScopeJoinClause})", generatedSql, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -621,6 +1156,55 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).GetSearchParamId(membershipParameterUrl);
     }
 
+    [Fact]
+    public void GivenTheDeviceRestrictionCannotBeEnforced_WhenMembershipCreated_ThenDeviceAuthorizesNothing()
+    {
+        // Fail-closed canary for the SQL include/revinclude path. When Device.patient is unavailable the
+        // "unassigned device" leg cannot be trusted, so GetConditionalCompartmentRules emits a Never rule.
+        // Never must be dropped from ConditionalRules (SqlQueryGenerator would otherwise treat any
+        // non-HasNoReference visibility as EXISTS and authorize every Device with a patient index row)
+        // while still being counted when subtracting conditionally visible types from the shared types.
+        // Dropping the rule outright instead would put Device back in SharedResourceTypes — universally
+        // visible, the opposite of fail closed.
+        SqlCompartmentSearchRewriter compartmentRewriter = CreateCompartmentRewriter(
+            "DiagnosticReport",
+            ["subject"],
+            new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal));
+
+        Expression coreExpression = Expression.SmartCompartmentSearch("Patient", "patient-a", "DomainResource");
+
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
+            coreExpression,
+            compartmentRewriter,
+            CreateDeviceRestrictedSmartRewriter(devicePatientParameterIsSearchable: false));
+
+        Assert.NotNull(membership);
+        Assert.Empty(membership.ConditionalRules);
+        Assert.DoesNotContain("Device", membership.SharedResourceTypes, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void GivenTheDeviceRestrictionIsEnforceable_WhenMembershipCreated_ThenDeviceIsAuthorizedOnlyConditionally()
+    {
+        SqlCompartmentSearchRewriter compartmentRewriter = CreateCompartmentRewriter(
+            "DiagnosticReport",
+            ["subject"],
+            new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal));
+
+        Expression coreExpression = Expression.SmartCompartmentSearch("Patient", "patient-a", "DomainResource");
+
+        SmartCompartmentMembershipContext membership = SmartCompartmentMembershipContextFactory.Create(
+            coreExpression,
+            compartmentRewriter,
+            CreateDeviceRestrictedSmartRewriter(devicePatientParameterIsSearchable: true));
+
+        Assert.NotNull(membership);
+        Assert.DoesNotContain("Device", membership.SharedResourceTypes, StringComparer.Ordinal);
+        Assert.All(membership.ConditionalRules, rule => Assert.Equal("Device", rule.ResourceType));
+        Assert.Contains(membership.ConditionalRules, rule => rule.Visibility == SmartCompartmentConditionalVisibility.HasNoReference);
+        Assert.Contains(membership.ConditionalRules, rule => rule.Visibility == SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot);
+    }
+
     private void ConfigureResourceTypeIds()
     {
         var resourceTypeIds = new Dictionary<string, short>(StringComparer.Ordinal)
@@ -660,6 +1244,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             });
 
         ISearchParameterDefinitionManager searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType)
+            .Returns(new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/Resource-type")));
         searchParameterDefinitionManager.TryGetSearchParameter(resourceType, Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
             .Returns(call =>
             {
@@ -691,5 +1277,39 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             compartmentRewriter,
             new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
             Options.Create(new CoreFeatureConfiguration { EnableSmartCompartmentDeviceRestriction = false }));
+    }
+
+    private static SmartCompartmentSearchRewriter CreateDeviceRestrictedSmartRewriter(bool devicePatientParameterIsSearchable)
+    {
+        var devicePatientParameter = new SearchParameterInfo(
+            "patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Device-patient"),
+            null,
+            "Device.patient",
+            ["Patient"])
+        {
+            IsSearchable = devicePatientParameterIsSearchable,
+        };
+
+        ISearchParameterDefinitionManager searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        searchParameterDefinitionManager.TryGetSearchParameter("Device", "patient", out Arg.Any<SearchParameterInfo>())
+            .Returns(call =>
+            {
+                call[2] = devicePatientParameter;
+                return true;
+            });
+
+        ICompartmentDefinitionManager compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
+
+        var compartmentRewriter = new SqlCompartmentSearchRewriter(
+            new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager),
+            new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager));
+
+        return new SmartCompartmentSearchRewriter(
+            compartmentRewriter,
+            new Lazy<ISearchParameterDefinitionManager>(() => searchParameterDefinitionManager),
+            Options.Create(new CoreFeatureConfiguration { EnableSmartCompartmentDeviceRestriction = true }));
     }
 }

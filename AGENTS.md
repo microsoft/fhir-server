@@ -31,6 +31,28 @@ This is the **Microsoft FHIR Server** — an open-source, standards-compliant im
 
 ---
 
+## Debugging
+
+- When fixing an unhandled exception, identify the violated invariant and the earliest point it can be enforced. Prefer rejecting invalid input at the entry point over making downstream code tolerate it. State the intended contract before writing the fix.
+- Tests must assert the intended contract, not the behavior the patched code happens to produce.
+- Don't add or suggest guards for states the contract excludes — they hide violations instead of surfacing them.
+
+---
+
+## Performance Claims
+
+- State per-call cost and call frequency, or don't raise it. "Hot path" and "adds an allocation" are not findings without both.
+- If the total is under ~1% of the operation's duration, drop it.
+- Measure before proposing added indirection. If the measurement kills the rationale, withdraw it — don't re-justify on other grounds.
+
+---
+
+## Response Style
+
+- Prefer concise, direct, review-ready answers by default. Establish the relevant scope and assumptions, then provide only the detail needed to support the conclusion.
+
+---
+
 ## Project Structure
 
 | Path | Purpose |

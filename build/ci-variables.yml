@@ -25,3 +25,8 @@ variables:
     searchParameterCacheRefreshIntervalSeconds: 2
     systemConformanceProviderRefreshIntervalSeconds: 5
     reindexCacheRefreshWaitMultiplier: 6
+    reindexJobsPollingIntervalSec: 1
+
+    # Enables the in-memory $import test source, required by the import performance E2E test.
+    # Test-only hook; only ever set to true for PR/CI test environments.
+    importInMemoryTestEnabled: true

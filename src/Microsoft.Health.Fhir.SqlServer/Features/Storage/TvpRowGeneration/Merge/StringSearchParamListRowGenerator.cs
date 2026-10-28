@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -11,10 +12,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class StringSearchParamListRowGenerator : MergeSearchParameterRowGenerator<StringSearchValue, StringSearchParamListRow>
     {
+        private static readonly IEqualityComparer<StringSearchParamListRow> RowComparer = EqualityComparer<StringSearchParamListRow>.Create(
+            (left, right) =>
+                left.ResourceTypeId == right.ResourceTypeId &&
+                left.ResourceSurrogateId == right.ResourceSurrogateId &&
+                left.SearchParamId == right.SearchParamId &&
+                string.Equals(left.Text, right.Text, StringComparison.Ordinal) &&
+                string.Equals(left.TextOverflow, right.TextOverflow, StringComparison.Ordinal) &&
+                left.IsMin == right.IsMin &&
+                left.IsMax == right.IsMax,
+            row => HashCode.Combine(row.ResourceTypeId, row.ResourceSurrogateId, row.SearchParamId, row.Text, row.TextOverflow, row.IsMin, row.IsMax));
+
         private readonly int _indexedTextMaxLength = (int)VLatest.StringSearchParam.Text.Metadata.MaxLength;
 
         public StringSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
-            : base(model, searchParameterTypeMap)
+            : base(model, searchParameterTypeMap, RowComparer)
         {
         }
 

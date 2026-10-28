@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -76,6 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
             ISqlRetryService sqlRetryService,
+            ResourceIdPolicy resourceIdPolicy,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -94,7 +96,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _mediator = mediator;
             _sqlRetryService = sqlRetryService;
             _logger = logger;
+            ResourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
+
+        /// <summary>
+        /// Gets the resource id policy that the database schema must support.
+        /// </summary>
+        public ResourceIdPolicy ResourceIdPolicy { get; }
 
         public (short lowestId, short highestId) ResourceTypeIdRange
         {

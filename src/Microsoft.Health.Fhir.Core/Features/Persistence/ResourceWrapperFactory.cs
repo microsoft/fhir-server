@@ -23,6 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     /// </summary>
     public class ResourceWrapperFactory : IResourceWrapperFactory
     {
+        /// <summary>
+        /// Request context property that holds the number of search index values extracted for a bundle entry's resource.
+        /// </summary>
+        public const string SearchIndexValuesPropertyName = "Bundle.Entry.SearchIndexValues";
+
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly ISearchIndexer _searchIndexer;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
@@ -84,6 +89,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
+            if (!deleted && fhirRequestContext.ExecutingBatchOrTransaction)
+            {
+                fhirRequestContext.Properties[SearchIndexValuesPropertyName] = searchIndices.Count;
+            }
+
             return new ResourceWrapper(
                 resource,
                 rawResource,
@@ -107,8 +117,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             var resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
             var newIndices = _searchIndexer.Extract(resourceElement);
+            var searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceElement.InstanceType);
             ExtractMinAndMaxValues(newIndices);
-            resourceWrapper.UpdateSearchIndices(newIndices);
+            resourceWrapper.UpdateSearchIndices(newIndices, searchParameterHash);
         }
 
         // A given search parameter can have multiple values. We want to keep track of which

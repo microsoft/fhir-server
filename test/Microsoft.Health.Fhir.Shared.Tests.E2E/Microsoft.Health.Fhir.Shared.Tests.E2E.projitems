@@ -32,9 +32,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\StartupWithTraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\TraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BasicAuthTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\SmartPatientReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleBatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\SmartPatientScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalUpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />
@@ -130,6 +132,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StartupWithStatusInitializationFailure.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\AlwaysFailingSearchParameterStatusDataStore.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\FailingSearchParameterStatusManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortedIncludesTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortedIncludesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />

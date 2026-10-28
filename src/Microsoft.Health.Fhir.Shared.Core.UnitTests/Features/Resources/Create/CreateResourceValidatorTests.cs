@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives;
@@ -48,7 +49,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
 
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
@@ -98,7 +100,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
             var resource = Samples.GetDefaultObservation();
 
             var createResourceRequest = new CreateResourceRequest(resource, bundleResourceContext: null);

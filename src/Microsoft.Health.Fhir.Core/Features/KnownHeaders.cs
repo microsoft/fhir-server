@@ -32,6 +32,11 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string FhirUserHeader = "x-ms-fhiruser";
         public const string QueryLatencyOverEfficiency = "x-ms-query-latency-over-efficiency";
 
+        /// <summary>
+        /// Expanded bundle processing header.
+        /// </summary>
+        public const string ExpandedBundle = "x-expanded-bundle";
+
         // #conditionalQueryParallelism - Header used to activate parallel conditional-query processing.
         public const string ConditionalQueryProcessingLogic = "x-conditionalquery-processing-logic";
 

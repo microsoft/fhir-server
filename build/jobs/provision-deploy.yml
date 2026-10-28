@@ -73,6 +73,7 @@ jobs:
         -SqlElasticPoolName "${{ parameters.sqlElasticPoolName }}"
         -SchemaAutomaticUpdatesEnabled "${{ parameters.schemaAutomaticUpdatesEnabled }}"
         -ReindexEnabled "${{ parameters.reindexEnabled }}"
+        -ImportInMemoryTestEnabled "$(importInMemoryTestEnabled)"
         -MinReplicas $(minReplicas)
         -MaxReplicas $(maxReplicas)
         -ContainerCpu "$(containerCpu)"
@@ -83,3 +84,4 @@ jobs:
         -SearchParameterCacheRefreshIntervalSeconds $(searchParameterCacheRefreshIntervalSeconds)
         -SystemConformanceProviderRefreshIntervalSeconds $(systemConformanceProviderRefreshIntervalSeconds)
         -ReindexCacheRefreshWaitMultiplier $(reindexCacheRefreshWaitMultiplier)
+        -ReindexJobsPollingIntervalSec $(reindexJobsPollingIntervalSec)

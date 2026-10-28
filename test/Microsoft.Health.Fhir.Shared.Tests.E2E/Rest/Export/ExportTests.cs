@@ -10,7 +10,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -20,6 +22,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
@@ -30,12 +33,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly HttpClient _client;
+        private readonly FhirJsonParser _fhirJsonParser;
         private const string PreferHeaderName = "Prefer";
 
         public ExportTests(HttpIntegrationTestFixture fixture)
         {
             _fixture = fixture;
             _client = fixture.HttpClient;
+            _fhirJsonParser = new FhirJsonParser();
         }
 
         [Theory]
@@ -153,11 +158,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPatientSmartScope_WhenCreatingExport_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient patientClient = await CreateSmartHttpClientAsync(TestApplications.SmartPatientA, "patient/Patient.read");
             using HttpRequestMessage exportRequest = GenerateExportRequest(
@@ -167,11 +172,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenUserSmartScope_WhenCreatingExport_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient userClient = await CreateSmartHttpClientAsync(TestApplications.SmartPractitionerA, "user/Patient.read");
             using HttpRequestMessage exportRequest = GenerateExportRequest(
@@ -181,11 +186,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPatientOrUserSmartScope_WhenRequestingSystemExportStatusOrCancel_ThenServerShouldReturnNotFound()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
             Uri contentLocation = await CreateExportJobAsync(systemClient, "Patient");
@@ -206,11 +211,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Accepted, cleanupResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenSystemWildcardScope_WhenCreatingExportWithoutType_ThenServerShouldReturnAccepted()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
             Uri contentLocation = await CreateExportJobAsync(systemClient);
@@ -218,11 +223,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPartialSystemScope_WhenCreatingExportWithoutType_ThenServerShouldReturnAcceptedWithInferredType()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
 
@@ -234,11 +239,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPartialSystemScope_WhenCreatingMatchingOrMismatchingTypeExport_ThenServerShouldAuthorizeEveryRequestedType()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
             Uri contentLocation = await CreateExportJobAsync(systemClient, "Patient");
@@ -253,11 +258,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenExplicitTypeJob_WhenSystemScopeMatchesOrMismatches_ThenStatusAndCancelShouldAuthorizeEveryType()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient matchingClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
             Uri contentLocation = await CreateExportJobAsync(matchingClient, "Patient");
@@ -275,11 +280,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Accepted, matchingCancelResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenJobWithoutExplicitType_WhenSystemScopeIsPartialOrWildcard_ThenWildcardAccessIsRequired()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             using HttpClient wildcardClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
             Uri contentLocation = await CreateExportJobAsync(wildcardClient);
@@ -296,11 +301,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Accepted, wildcardCancelResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenPatientRouteWithoutPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             // Patient/$export requires system/Patient selection access in addition to the explicit output type,
             // independently of whether the output type itself is covered.
@@ -313,11 +318,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenGroupRouteWithoutGroupSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             // Group/{id}/$export requires both system/Group and system/Patient selection access; Patient plus the
             // explicit output type alone is not sufficient.
@@ -332,11 +337,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenGroupRouteWithGroupAndPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnAccepted()
         {
-            Skip.If(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
 
             // Job creation does not synchronously validate that the referenced Group exists, so a nonexistent
             // group id is sufficient to exercise the route authorization requirements in isolation.
@@ -568,6 +573,96 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             using HttpResponseMessage cancelAgainResponse = await _client.SendAsync(cancelAgainRequest);
 
             Assert.Equal(HttpStatusCode.NotFound, cancelAgainResponse.StatusCode);
+        }
+
+        /// <summary>
+        /// Verifies that when an export job is created with an invalid resource type in the _type
+        /// query parameter, the orchestrator validates the types before processing and the job
+        /// fails with a 400 Bad Request (not 500 Internal Server Error).
+        ///
+        /// Steps:
+        ///   1. Request $export with _type=InvalidResourceType → 202 Accepted (job is queued).
+        ///   2. Poll the status endpoint until the job completes or fails.
+        ///   3. Assert the status endpoint returns 400 Bad Request.
+        /// </summary>
+        [Theory]
+        [InlineData("InvalidResourceType", "InvalidResourceType")]
+        [InlineData("Patient,InvalidResourceType", "InvalidResourceType")]
+        [InlineData("Patient,,Observation", "<empty>")]
+        [InlineData("Patient, ,Observation", "<empty>")]
+        public async Task GivenExportWithInvalidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsBadRequest(
+            string resourceTypes,
+            string invalidResourceType)
+        {
+            // Step 1 — Create an export job with an invalid _type query parameter
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Type, resourceTypes },
+                { KnownQueryParameterNames.IsParallel, "true" },
+            };
+            using HttpRequestMessage exportRequest = GenerateExportRequest("$export", queryParams: queryParam);
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            // Step 2 — Poll the status endpoint until the job fails
+            HttpStatusCode statusCode = HttpStatusCode.Accepted;
+            string responseContent = null;
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (DateTime.UtcNow < deadline && statusCode == HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2));
+
+                using HttpRequestMessage statusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+                using HttpResponseMessage statusResponse = await _client.SendAsync(statusRequest);
+                statusCode = statusResponse.StatusCode;
+                responseContent = statusResponse.Content != null ? await statusResponse.Content.ReadAsStringAsync() : null;
+            }
+
+            // Step 3 — Assert the job failed with 400 Bad Request
+            Assert.Equal(HttpStatusCode.BadRequest, statusCode);
+
+            // Step 3a - Make sure the response content is not empty and contains an OperationOutcome with the expected invalid resource type
+            Assert.False(string.IsNullOrEmpty(responseContent));
+            var resource = _fhirJsonParser.Parse<Resource>(responseContent);
+            var operationOutcome = Assert.IsType<OperationOutcome>(resource);
+            Assert.Contains(
+                operationOutcome.Issue,
+                issue =>
+                {
+                    return issue != null
+                        && issue.Severity == OperationOutcome.IssueSeverity.Error
+                        && issue.Diagnostics?.Contains(invalidResourceType) == true;
+                });
+        }
+
+        [Theory]
+        [InlineData(false, "Patient,Observation")]
+        [InlineData(false, " Patient , Observation ")]
+        [InlineData(true, "Patient,Observation")]
+        [InlineData(true, " Patient , Observation ")]
+        public async Task GivenExportWithWhitespacePaddedValidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsOk(
+            bool isParallel,
+            string resourceTypes)
+        {
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Type, resourceTypes },
+                { KnownQueryParameterNames.IsParallel, isParallel.ToString() },
+                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString("O") },
+            };
+            using HttpRequestMessage exportRequest = GenerateExportRequest("$export", queryParams: queryParam);
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            await ExportTestHelper.CheckExportStatus(_fixture.TestFhirClient, contentLocation);
         }
     }
 }

@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private const int _chainedSearchMaxSubqueryItemLimit = 1000;
 
         public FhirCosmosSearchService(
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
+            IModelInfoProvider modelInfoProvider,
             ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -64,6 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
@@ -74,6 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _logger = logger;
             _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
             _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
+            _modelInfoProvider = modelInfoProvider;
 
             _expressionRewriters = new Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>>(() =>
                 new IExpressionVisitorWithInitialContext<object, Expression>[]
@@ -173,7 +178,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 null,
                 cancellationToken);
 
-            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(results, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, smartV2ScopeExpressions, cancellationToken);
+            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(
+                results,
+                includeExpressions,
+                revIncludeExpressions,
+                searchOptions.IncludeCount,
+                smartV2ScopeExpressions,
+                searchOptions.ScopeDataActions,
+                cancellationToken);
 
             SearchResult searchResult = CreateSearchResult(
                 searchOptions,
@@ -215,14 +227,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             bool onlyIds = false,
-            bool isIncludesOperation = false)
+            bool isIncludesOperation = false,
+            DataActions scopeDataActions = DataActions.Read | DataActions.Search)
         {
             if (isIncludesOperation)
             {
                 throw new SearchOperationNotSupportedException(Fhir.Core.Resources.UnsupportedIncludesOperation);
             }
 
-            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
+            return base.SearchAsync(resourceType, queryParameters, cancellationToken, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation, scopeDataActions);
+        }
+
+        public override bool IsValidResourceType(string resourceType)
+        {
+            return _modelInfoProvider.IsKnownResource(resourceType);
         }
 
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
@@ -365,7 +383,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                 Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList()));
         }
 
-        protected override async Task<SearchResult> SearchForReindexInternalAsync(
+        public override async Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken)
@@ -609,6 +627,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             IReadOnlyCollection<IncludeExpression> revIncludeExpressions,
             int maxIncludeCount,
             IReadOnlyList<UnionExpression> smartV2ScopeExpressions,
+            DataActions scopeDataActions,
             CancellationToken cancellationToken)
         {
             if (matches.Count == 0 || (includeExpressions.Count == 0 && revIncludeExpressions.Count == 0))
@@ -641,7 +660,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     foreach (var resourceTypeGroup in referencesToInclude.GroupBy(r => r.ResourceType))
                     {
                         string resourceType = resourceTypeGroup.Key;
-                        Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, resourceType, out bool hasNoAccess);
+                        Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, resourceType, scopeDataActions, out bool hasNoAccess);
 
                         // Skip this resource type if no scope allows access
                         if (hasNoAccess)
@@ -769,7 +788,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // Specific resource type(s) - check scope for each type
                         foreach (string targetResourceType in targetResourceTypes)
                         {
-                            Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, targetResourceType, out bool hasNoAccess);
+                            Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, targetResourceType, scopeDataActions, out bool hasNoAccess);
 
                             // Skip this revinclude if no scope allows access to this resource type
                             if (hasNoAccess)
@@ -962,7 +981,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         /// Returns a special "no access" expression if no scope allows access to this resource type (caller should skip the query).
         /// Returns the filter expression if granular scopes exist for this resource type.
         /// </summary>
-        private Expression GetSmartScopeFilterForResourceType(IReadOnlyList<UnionExpression> smartV2ScopeExpressions, string resourceType, out bool hasNoAccess)
+        private Expression GetSmartScopeFilterForResourceType(
+            IReadOnlyList<UnionExpression> smartV2ScopeExpressions,
+            string resourceType,
+            DataActions scopeDataActions,
+            out bool hasNoAccess)
         {
             hasNoAccess = false;
 
@@ -977,7 +1000,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return null;
             }
 
-            var scopeRestrictions = _requestContextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions;
+            var scopeRestrictions = _requestContextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions
+                ?.Where(scope => scope.AllowsAny(scopeDataActions))
+                .ToList();
             if (scopeRestrictions == null || !scopeRestrictions.Any())
             {
                 return null;
@@ -996,8 +1021,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return null; // No filtering needed for this resource type
             }
 
-            // Find granular scope(s) for this resource type
-            var granularScopes = scopeRestrictions.Where(s => s.Resource == resourceType && s.SearchParameters != null).ToList();
+            // Find granular scope(s) for this resource type (including wildcard scopes with search parameters)
+            var granularScopes = scopeRestrictions.Where(s => (s.Resource == resourceType || s.Resource == KnownResourceTypes.All) && s.SearchParameters != null).ToList();
             if (!granularScopes.Any())
             {
                 // No scope allows access to this resource type - indicate caller should skip the query
@@ -1011,44 +1036,50 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             foreach (var expr in unionExpression.Expressions)
             {
-                // Each expression in the union should be an AND expression containing resource type and search parameters
+                // Each expression in the union should be an AND expression containing resource type and search parameters,
+                // or a wildcard ("all") scope expression containing only search parameters.
                 if (expr is MultiaryExpression andExpr && andExpr.MultiaryOperation == MultiaryOperator.And)
                 {
-                    // Recursively search for the resource type SearchParameterExpression
-                    var resourceTypeExpr = FindResourceTypeExpression(andExpr);
+                    // Collect all resource-type SearchParameterExpressions in this scope leg (a resource-specific scope
+                    // or concrete-type fallback may also include an explicit _type query parameter). Every resource-type
+                    // predicate present in the leg must match the target resourceType.
+                    List<SearchParameterExpression> resourceTypeExprs = FindResourceTypeExpressions(andExpr);
 
-                    if (resourceTypeExpr != null)
+                    if (resourceTypeExprs.All(rte => CheckResourceTypeMatches(rte.Expression, resourceType)))
                     {
-                        // Check if the resource type matches
-                        var matchesResourceType = CheckResourceTypeMatches(resourceTypeExpr.Expression, resourceType);
-                        if (matchesResourceType)
+                        var singleScopeANDExpressions = new List<Expression>();
+
+                        // Extract just the search parameter filters (not the resource type)
+                        // We need to remove the entire sub-expression that contains the resource type filter
+                        foreach (MultiaryExpression child in andExpr.Expressions.OfType<MultiaryExpression>())
                         {
-                            var singleScopeANDExpressions = new List<Expression>();
-
-                            // Extract just the search parameter filters (not the resource type)
-                            // We need to remove the entire sub-expression that contains the resource type filter
-                            foreach (MultiaryExpression child in andExpr.Expressions.OfType<MultiaryExpression>())
+                            var searchParamFilters = child.Expressions.Where(e => !ContainsResourceTypeExpression(e)).ToList();
+                            if (searchParamFilters.Any())
                             {
-                                var searchParamFilters = child.Expressions.Where(e => !ContainsResourceTypeExpression(e)).ToList();
-                                if (searchParamFilters.Any())
-                                {
-                                    singleScopeANDExpressions.Add(searchParamFilters.Count == 1 ? searchParamFilters[0] : Expression.And(searchParamFilters.ToArray()));
-                                }
+                                singleScopeANDExpressions.Add(searchParamFilters.Count == 1 ? searchParamFilters[0] : Expression.And(searchParamFilters.ToArray()));
                             }
-
-                            if (singleScopeANDExpressions.Count == 0)
-                            {
-                                continue;
-                            }
-
-                            resourceTypeFilters.Add(singleScopeANDExpressions.Count == 1 ? singleScopeANDExpressions[0] : Expression.And(singleScopeANDExpressions.ToArray()));
                         }
+
+                        if (singleScopeANDExpressions.Count == 0)
+                        {
+                            // A matching scope leg with no non-type search parameter filters grants unrestricted access to this resource type
+                            return null;
+                        }
+
+                        resourceTypeFilters.Add(singleScopeANDExpressions.Count == 1 ? singleScopeANDExpressions[0] : Expression.And(singleScopeANDExpressions.ToArray()));
                     }
+                }
+                else if (expr is SearchParameterExpression spe &&
+                         (spe.Parameter.Name == "_type" || spe.Parameter.Name == "resourceType") &&
+                         CheckResourceTypeMatches(spe.Expression, resourceType))
+                {
+                    return null;
                 }
             }
 
             if (resourceTypeFilters.Count == 0)
             {
+                hasNoAccess = true;
                 return null;
             }
 
@@ -1057,28 +1088,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         }
 
         /// <summary>
-        /// Recursively searches for a SearchParameterExpression with Parameter.Name == "_type" or "resourceType"
+        /// Recursively collects all SearchParameterExpressions with Parameter.Name == "_type" or "resourceType".
         /// </summary>
-        private static SearchParameterExpression FindResourceTypeExpression(Expression expression)
+        private static List<SearchParameterExpression> FindResourceTypeExpressions(Expression expression)
+        {
+            var results = new List<SearchParameterExpression>();
+            CollectResourceTypeExpressions(expression, results);
+            return results;
+        }
+
+        private static void CollectResourceTypeExpressions(Expression expression, List<SearchParameterExpression> results)
         {
             if (expression is SearchParameterExpression spe && (spe.Parameter.Name == "_type" || spe.Parameter.Name == "resourceType"))
             {
-                return spe;
+                results.Add(spe);
+                return;
             }
 
             if (expression is MultiaryExpression me)
             {
                 foreach (var child in me.Expressions)
                 {
-                    var found = FindResourceTypeExpression(child);
-                    if (found != null)
-                    {
-                        return found;
-                    }
+                    CollectResourceTypeExpressions(child, results);
                 }
             }
-
-            return null;
         }
 
         /// <summary>
@@ -1086,7 +1119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         /// </summary>
         private static bool ContainsResourceTypeExpression(Expression expression)
         {
-            return FindResourceTypeExpression(expression) != null;
+            return FindResourceTypeExpressions(expression).Count > 0;
         }
 
         private static bool CheckResourceTypeMatches(Expression expression, string resourceType)
@@ -1095,6 +1128,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             if (expression is StringExpression strExpr && strExpr.Value == resourceType)
             {
                 return true;
+            }
+
+            if (expression is InExpression<string> inExpr && inExpr.Values.Contains(resourceType, StringComparer.Ordinal))
+            {
+                return true;
+            }
+
+            if (expression is MultiaryExpression multiaryExpr && multiaryExpr.MultiaryOperation == MultiaryOperator.Or)
+            {
+                return multiaryExpr.Expressions.Any(e => CheckResourceTypeMatches(e, resourceType));
             }
 
             return false;

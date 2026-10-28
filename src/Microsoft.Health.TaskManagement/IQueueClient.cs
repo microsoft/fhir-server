@@ -127,5 +127,13 @@ namespace Microsoft.Health.JobManagement
         /// <param name="returnParentOnly">Flag to indicate if we should only return the parent job vs all jobs.</param>
         /// <param name="cancellationToken">Cancellation token</param>
         public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets the most recent job for a given queue type.
+        /// </summary>
+        /// <param name="queueType">The queue type for the job to retrieve.</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>A task representing the asynchronous operation, containing the most recent job information.</returns>
+        public Task<JobInfo> GetMostRecentJobByQueueTypeAsync(byte queueType, CancellationToken cancellationToken);
     }
 }

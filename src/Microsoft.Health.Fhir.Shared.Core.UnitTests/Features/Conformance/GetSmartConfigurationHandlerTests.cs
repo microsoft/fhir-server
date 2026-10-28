@@ -92,6 +92,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/token", response.TokenEndpoint.ToString());
             Assert.Equal(ExpectedBaseCapabilities, response.Capabilities);
+            Assert.Contains("permission-v1", response.Capabilities);
+            Assert.Contains("permission-v2", response.Capabilities);
             Assert.Equal(baseEndpoint + "/v2.0", response.Issuer);
             Assert.Equal(baseEndpoint + "/discovery/v2.0/keys", response.JwksUri);
 

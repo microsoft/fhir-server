@@ -10,6 +10,7 @@ using EnsureThat;
 using Medino;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly ImplementationGuidesConfiguration _implementationGuidesConfiguration;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
+        private readonly ILogger<OperationDefinitionController> _logger;
 
         public OperationDefinitionController(
             IMediator mediator,
@@ -47,7 +49,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IOptions<FeatureConfiguration> featureConfig,
             IOptions<CoreFeatureConfiguration> coreFeatureConfig,
             IOptions<ImplementationGuidesConfiguration> implementationGuidesConfig,
-            IFhirRuntimeConfiguration fhirRuntimeConfiguration)
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration,
+            ILogger<OperationDefinitionController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value, nameof(operationsConfig));
@@ -55,6 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(coreFeatureConfig?.Value, nameof(coreFeatureConfig));
             EnsureArg.IsNotNull(implementationGuidesConfig?.Value, nameof(implementationGuidesConfig));
             EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _operationConfiguration = operationsConfig.Value;
@@ -62,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _coreFeatureConfiguration = coreFeatureConfig.Value;
             _implementationGuidesConfiguration = implementationGuidesConfig.Value;
             _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -203,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             OperationDefinitionResponse response = await _mediator.GetOperationDefinitionAsync(operationName, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
+            return FhirResult.Create(_logger, response.OperationDefinition, HttpStatusCode.OK);
         }
 
         private void CheckIfOperationIsEnabledAndRespond(string operationName)

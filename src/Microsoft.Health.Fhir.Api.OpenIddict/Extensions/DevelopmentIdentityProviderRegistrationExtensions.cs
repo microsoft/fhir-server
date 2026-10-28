@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -18,18 +17,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
 using Microsoft.Health.Fhir.Api.OpenIddict.Controllers;
 using Microsoft.Health.Fhir.Api.OpenIddict.Data;
 using Microsoft.Health.Fhir.Api.OpenIddict.Services;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Models;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
-using static OpenIddict.Server.OpenIddictServerEvents;
 
 namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 {

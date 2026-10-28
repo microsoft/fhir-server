@@ -10,6 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Medino;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -31,13 +32,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly ResourceDeserializer _resourceDeserializer;
+        private readonly ILogger<ValidateController> _logger;
 
-        public ValidateController(IMediator mediator, ResourceDeserializer resourceDeserializer)
+        public ValidateController(IMediator mediator, ResourceDeserializer resourceDeserializer, ILogger<ValidateController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _resourceDeserializer = resourceDeserializer;
+            _logger = logger;
         }
 
         [HttpPost]
@@ -131,7 +135,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private async Task<IActionResult> RunValidationAsync(ResourceElement resource, Uri profile)
         {
             var response = await _mediator.SendAsync<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
-            return FhirResult.Create(new OperationOutcome { Issue = response.Issues.Select(x => x.ToPoco()).ToList() }.ToResourceElement());
+            return FhirResult.Create(_logger, new OperationOutcome { Issue = response.Issues.Select(x => x.ToPoco()).ToList() }.ToResourceElement());
         }
 
         private static Uri GetProfile(string profile)

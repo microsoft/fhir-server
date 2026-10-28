@@ -16,31 +16,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         }
 
         /// <summary>
-        /// Controls the time between queries of resources to be reindexed
+        /// Controls how many resources will be processed by a processing job
         /// </summary>
-        public int QueryDelayIntervalInMilliseconds { get; set; } = 100;
+        public int MaximumNumberOfResourcesPerQuery { get; set; } = 10000;
 
         /// <summary>
-        /// Controls how many resources will be returned in a batch for reindexing
+        /// Controls how many resources will be batched within a processing
         /// </summary>
-        public uint MaximumNumberOfResourcesPerQuery { get; set; } = 10000;
-
-        /// <summary>
-        /// Controls how many resources will be batched to reindex within a job (e.g. Job of 10k will batch 1k at a time to database to reindex)
-        /// </summary>
-        public uint MaximumNumberOfResourcesPerWrite { get; set; } = 1000;
-
-        /// <summary>
-        /// Controls how many reindex jobs are allowed to be running at one time
-        /// currently fixed at 1
-        /// </summary>
-        public ushort MaximumNumberOfConcurrentJobsAllowed { get; internal set; } = 1;
-
-        /// <summary>
-        /// Controls the target percentage of how much of the allocated
-        /// data store resources to use
-        /// </summary>
-        public ushort? TargetDataStoreResourcePercentage { get; set; } = null;
+        public int MaximumNumberOfResourcesPerWrite { get; set; } = 1000;
 
         /// <summary>
         /// Controls the multiplier applied to the SearchParameterCacheRefreshIntervalSeconds
@@ -59,6 +42,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// to determine the time interval to retrieve active host names. Relevant for SQL only.
         /// </summary>
         public int ActiveHostsEventsMultiplier { get; set; } = 9;
+
+        /// <summary>
+        /// Controls orchestrator job info polling interval
+        /// </summary>
+        public int JobsPollingIntervalSec { get; set; } = 30;
+
+        /// <summary>
+        /// Controls number of jobs orchestrator pulls from the database in a single call
+        /// </summary>
+        public int JobsBatchSize { get; set; } = 1000;
 
         /// <summary>
         /// Controls how many surrogate ID ranges are fetched per database call when calculating

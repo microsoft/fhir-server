@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
 
             SearchParameterStateResponse response;
             Hl7.Fhir.Model.Parameters parameters = new Hl7.Fhir.Model.Parameters();
-            IReadOnlyCollection<ResourceSearchParameterStatus> states = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            IReadOnlyCollection<ResourceSearchParameterStatus> states = await _searchParameterStatusManager.GetAllSearchParameterStatuses(cancellationToken);
             foreach (SearchParameterInfo searchParam in searchParameterResult)
             {
                 try

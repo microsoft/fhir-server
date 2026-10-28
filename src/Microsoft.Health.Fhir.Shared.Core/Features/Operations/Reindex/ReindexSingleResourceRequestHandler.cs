@@ -62,7 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
+            await _authorizationService.CheckAccess(
+                DataActions.Reindex | DataActions.Read | DataActions.ReadById,
+                grantedActions =>
+                    (grantedActions & DataActions.Reindex) == DataActions.Reindex &&
+                    (grantedActions & (DataActions.Read | DataActions.ReadById)) != DataActions.None,
+                true,
+                cancellationToken);
 
             var key = new ResourceKey(request.ResourceType, request.ResourceId);
             ResourceWrapper storedResource = await _fhirDataStore.GetAsync(key, cancellationToken);

@@ -34,6 +34,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexOrchestratorJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexProcessingJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ExportOrchestratorJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandlerTests.cs" />
@@ -43,6 +44,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ReferenceRemoverTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ConditionalDeleteResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeletionServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\BulkOperationAuditLogHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandlerTests.cs" />
@@ -131,6 +133,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ExpressionParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchExpressionTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactorySmartScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandlerTests.cs" />

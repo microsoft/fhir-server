@@ -110,7 +110,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 
                 var result = new OperationOutcomeResult(
                     operationOutcome,
-                    exception is ServiceUnavailableException ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.InternalServerError);
+                    exception is ServiceUnavailableException ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.InternalServerError,
+                    _logger);
 
                 doesOperationOutcomeHaveError = true;
 

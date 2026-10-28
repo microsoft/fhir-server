@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -39,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         // not used by the resources in the test must be returned. The goal is then to test if database select logic correctly returns no data (rows).
         private delegate string GetOneParameter<T>(T resource, bool valid = true);
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await Task.CompletedTask;
         }
@@ -575,6 +574,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

@@ -31,5 +31,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Critical error during data processing.
         /// </summary>
         public string ErrorDetails { get; set; }
+
+        /// <summary>
+        /// Elapsed time spent executing this processing job in milliseconds.
+        /// </summary>
+        public long ClockMilliseconds { get; set; }
+
+        /// <summary>
+        /// Elapsed time spent in database calls in milliseconds. Null when a call threw and was retried by the
+        /// data store; retries internal to the SQL retry service stay included in this value.
+        /// </summary>
+        public long? DatabaseMilliseconds { get; set; }
     }
 }

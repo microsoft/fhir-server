@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private readonly FeatureConfiguration _features;
         private readonly IFhirRuntimeConfiguration _fhirConfig;
+        private readonly ILogger<ExportController> _logger;
 
         public ExportController(
             IMediator mediator,
@@ -70,7 +71,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
             IOptions<FeatureConfiguration> features,
-            IFhirRuntimeConfiguration fhirConfig)
+            IFhirRuntimeConfiguration fhirConfig,
+            ILogger<ExportController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -79,6 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
             EnsureArg.IsNotNull(fhirConfig, nameof(fhirConfig));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -88,6 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _artifactStoreConfig = artifactStoreConfig.Value;
             _features = features.Value;
             _fhirConfig = fhirConfig;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -231,12 +235,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ExportResult exportActionResult;
             if (getExportResult.StatusCode == HttpStatusCode.OK)
             {
-                exportActionResult = ExportResult.Ok(getExportResult.JobResult);
+                exportActionResult = ExportResult.Ok(getExportResult.JobResult, _logger);
                 exportActionResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
             }
             else
             {
-                exportActionResult = ExportResult.Accepted();
+                exportActionResult = ExportResult.Accepted(_logger);
             }
 
             return exportActionResult;
@@ -249,7 +253,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CancelExportResponse response = await _mediator.CancelExportAsync(idParameter, HttpContext.RequestAborted);
 
-            return new ExportResult(response.StatusCode);
+            return new ExportResult(response.StatusCode, _logger);
         }
 
         private async Task<IActionResult> SendExportRequest(
@@ -290,7 +294,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 anonymizationConfigFileETag,
                 HttpContext.RequestAborted);
 
-            var exportResult = ExportResult.Accepted();
+            var exportResult = ExportResult.Accepted(_logger);
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
             return exportResult;
         }

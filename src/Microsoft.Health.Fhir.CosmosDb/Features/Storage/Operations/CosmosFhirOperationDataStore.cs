@@ -31,7 +31,7 @@ using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobC
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
-    public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore, ILegacyReindexOperationDataStore
+    public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
     {
         private readonly IScoped<Container> _containerScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -125,47 +125,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         public override async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
         {
-            if (IsLegacyJob(jobId))
-            {
-                // try old job records
-                var oldJobs = (ILegacyReindexOperationDataStore)this;
-                return await oldJobs.GetLegacyReindexJobByIdAsync(jobId, cancellationToken);
-            }
-
             return await base.GetReindexJobByIdAsync(jobId, cancellationToken);
-        }
-
-        async Task<ReindexJobWrapper> ILegacyReindexOperationDataStore.GetLegacyReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
-
-            try
-            {
-                var cosmosReindexJobRecord = await _containerScope.Value.ReadItemAsync<CosmosReindexJobRecordWrapper>(
-                    jobId,
-                    new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
-                    cancellationToken: cancellationToken);
-
-                var outcome = new ReindexJobWrapper(
-                    cosmosReindexJobRecord.Resource.JobRecord,
-                    WeakETag.FromVersionId(cosmosReindexJobRecord.Resource.ETag));
-
-                return outcome;
-            }
-            catch (CosmosException dce)
-            {
-                if (dce.IsRequestRateExceeded())
-                {
-                    throw;
-                }
-                else if (dce.StatusCode == HttpStatusCode.NotFound)
-                {
-                    throw new JobNotFoundException(string.Format(Microsoft.Health.Fhir.Core.Resources.JobNotFound, jobId));
-                }
-
-                _logger.LogError(dce, "Failed to get legacy reindex job by id: {JobId}.", jobId);
-                throw;
-            }
         }
     }
 }

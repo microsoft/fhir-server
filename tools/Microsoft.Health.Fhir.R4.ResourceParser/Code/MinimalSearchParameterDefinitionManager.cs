@@ -222,5 +222,10 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
         {
             throw new NotImplementedException();
         }
+
+        public ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

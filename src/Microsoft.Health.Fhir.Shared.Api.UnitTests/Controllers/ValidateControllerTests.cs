@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -68,7 +69,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             _controller = new ValidateController(
                 _mediator,
-                _resourceDeserializer);
+                _resourceDeserializer,
+                NullLogger<ValidateController>.Instance);
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),
