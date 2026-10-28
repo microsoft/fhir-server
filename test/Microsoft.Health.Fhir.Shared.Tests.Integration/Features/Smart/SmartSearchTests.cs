@@ -5116,7 +5116,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var scopeObservation = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "final")));
             var scopePatient = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
             var scopeDiagnosticReport = new ScopeRestriction("DiagnosticReport", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "final")));
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeObservation, scopePatient, scopeDiagnosticReport }, true);
+            var scopeOrganization = new ScopeRestriction("Organization", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeObservation, scopePatient, scopeDiagnosticReport, scopeOrganization }, true);
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
