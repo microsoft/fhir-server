@@ -241,14 +241,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // scan, and exactly ProbeTableModificationCount rows were added afterwards, so every numeric column has
             // a known and distinct value rather than a coincidentally equal one.
             Assert.NotNull(probeIndexStatistics.LastUpdated);
-            Assert.NotNull(probeIndexStatistics.Rows);
-            Assert.NotNull(probeIndexStatistics.RowsSampled);
-            Assert.NotNull(probeIndexStatistics.ModificationCounter);
-            Assert.Equal((long)ProbeTableRowCount, probeIndexStatistics.Rows.Value);
-            Assert.Equal((long)ProbeTableRowCount, probeIndexStatistics.RowsSampled.Value);
-            Assert.Equal((long)ProbeTableModificationCount, probeIndexStatistics.ModificationCounter.Value);
-            Assert.NotNull(probeIndexStatistics.ModificationPercent);
-            Assert.Equal(ProbeTableModificationCount * 100.0 / ProbeTableRowCount, probeIndexStatistics.ModificationPercent.Value, 6);
+            Assert.Equal((long?)ProbeTableRowCount, probeIndexStatistics.Rows);
+            Assert.Equal((long?)ProbeTableRowCount, probeIndexStatistics.RowsSampled);
+            Assert.Equal((long?)ProbeTableModificationCount, probeIndexStatistics.ModificationCounter);
+            Assert.Equal(ProbeTableModificationCount * 100.0 / ProbeTableRowCount, Assert.IsType<double>(probeIndexStatistics.ModificationPercent), 6);
 
             // Statistics backed by an index report is_from_index, and nothing else.
             Assert.True(probeIndexStatistics.IsFromIndex);

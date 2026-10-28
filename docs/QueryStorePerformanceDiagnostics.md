@@ -11,11 +11,11 @@ This specification **supersedes an earlier pull-based design** in which three st
 FHIR Azure SQL performance investigations currently require privileged, manual access to Query Store plans, runtime metrics, wait statistics, and statistics metadata. Support engineers need a bounded way to:
 
 - identify expensive or regressed query plans;
-- obtain an SSMS-viewable Showplan for a slow plan;
+- obtain a Showplan for a slow plan when collection and sanitization succeed and the plan fits the diagnostic field and destination limits;
 - compare runtime and wait metrics; and
 - inspect statistics freshness, sampling, and cardinality metadata.
 
-Azure SQL diagnostic settings can already export `QueryStoreRuntimeStatistics`, `QueryStoreWaitStatistics`, and `AutomaticTuning` to Log Analytics. What that stream does **not** carry is the Query Store **query text** and the **Showplan XML**, which are the two artifacts an investigation actually needs in order to reason about a regression. This feature closes that gap.
+Azure SQL diagnostic settings can already export `QueryStoreRuntimeStatistics`, `QueryStoreWaitStatistics`, and `AutomaticTuning` to Log Analytics. That stream does not carry the Query Store query text and Showplan XML. This collector can emit both, but truncation or downstream log limits can prevent a complete plan from reaching the destination. It is not a complete plan archive.
 
 Related internal guidance:
 
@@ -31,10 +31,11 @@ A **watchdog** — the repository's existing leased background-worker pattern �
 ```text
 FHIR server instance (lease holder)
   └── QueryStoreDiagnosticsWatchdog        every PeriodSec, default 3600s
-        ├── sys.database_query_store_options      state gate, always primary
-        ├── sys.query_store_*                     slow plans + query text
-        ├── sys.query_store_wait_stats            best effort
-        ├── sys.stats / sys.dm_db_stats_properties
+        ├── dbo.GetQueryStoreDiagnosticsState             state gate, always primary
+        ├── dbo.GetQueryStoreDiagnosticsSlowQueries       slow plans + query text
+        ├── dbo.GetQueryStoreDiagnosticsWaitStatistics   best effort
+        ├── dbo.GetQueryStoreDiagnosticsPlans
+        ├── dbo.GetQueryStoreDiagnosticsStatisticsHealth
         └── QueryPlanSanitizer (C#)               removes specified parameter metadata
               │
               └── ILogger<QueryStoreDiagnosticsWatchdog>   structured log records
