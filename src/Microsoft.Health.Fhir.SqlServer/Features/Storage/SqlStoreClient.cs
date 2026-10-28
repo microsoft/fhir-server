@@ -16,6 +16,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -256,7 +257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = e as SqlException;
-                    if (sqlEx != null && sqlEx.Number == FhirSqlErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
+                    if (sqlEx != null && sqlEx.Number == SqlServerErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
                         throw new RequestRateExceededException(null); // Let the retryAfter header be set to default
                     }

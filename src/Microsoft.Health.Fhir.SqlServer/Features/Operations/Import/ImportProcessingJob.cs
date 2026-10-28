@@ -17,6 +17,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -169,7 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx, false);
             }
-            catch (SqlException ex) when (ex.Number == FhirSqlErrorCodes.SurrogateIdCollision)
+            catch (SqlException ex) when (ex.Number == SqlServerErrorCodes.SurrogateIdCollision)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on Surrogate Id Collision. Most likely reason - too many input resources with the same last updated.");
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
