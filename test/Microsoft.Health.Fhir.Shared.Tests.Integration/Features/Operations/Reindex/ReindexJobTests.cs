@@ -175,9 +175,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Initialize second FHIR service.
             await InitializeSecondFHIRService();
 
-            InitializeJobHosting();
-
-            StartCacheUpdateTask(_backgroundCts.Token);
+            InitializeJobHosting(_fixture.QueueClient);
+            StartCacheUpdateTask(
+                _searchParameterOperations,
+                TimeSpan.FromSeconds(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds));
 
             var cleanupCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
             await DeleteTestResources(cleanupCts.Token);
@@ -191,9 +192,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return;
         }
 
-        private void InitializeJobHosting()
+        internal void InitializeJobHosting(IQueueClient queueClient)
         {
-            _queueClient = _fixture.QueueClient;
+            _queueClient = queueClient;
 
             if (_jobFactory == null)
             {
@@ -303,16 +304,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        private void StartCacheUpdateTask(CancellationToken cancellationToken)
+        internal void StartCacheUpdateTask(ISearchParameterOperations searchParameterOperations, TimeSpan interval)
         {
             _cacheUpdateTask = RefreshSearchParameterCacheAsync(
-                _searchParameterOperations,
+                searchParameterOperations,
                 _fixture.FhirRequestContextAccessor,
-                TimeSpan.FromSeconds(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds),
-                cancellationToken);
+                interval,
+                _backgroundCts.Token);
         }
 
-        internal static async Task RefreshSearchParameterCacheAsync(
+        private static async Task RefreshSearchParameterCacheAsync(
             ISearchParameterOperations searchParameterOperations,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             TimeSpan interval,

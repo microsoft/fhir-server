@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading;
@@ -14,13 +16,16 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex;
+using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -32,16 +37,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class FhirStorageBackgroundTaskTests
     {
         [Theory]
-        [InlineData(DeleteOperation.SoftDelete, SearchParameterStatus.PendingDelete, false)]
-        [InlineData(DeleteOperation.HardDelete, SearchParameterStatus.PendingHardDelete, false)]
-        [InlineData(DeleteOperation.SoftDelete, SearchParameterStatus.PendingDelete, true)]
-        [InlineData(DeleteOperation.HardDelete, SearchParameterStatus.PendingHardDelete, true)]
+        [InlineData(DeleteOperation.SoftDelete, SearchParameterStatus.PendingDelete, false, false)]
+        [InlineData(DeleteOperation.HardDelete, SearchParameterStatus.PendingHardDelete, false, false)]
+        [InlineData(DeleteOperation.SoftDelete, SearchParameterStatus.PendingDelete, true, false)]
+        [InlineData(DeleteOperation.HardDelete, SearchParameterStatus.PendingHardDelete, true, false)]
+        [InlineData(DeleteOperation.SoftDelete, SearchParameterStatus.PendingDelete, false, true)]
+        [InlineData(DeleteOperation.HardDelete, SearchParameterStatus.PendingHardDelete, false, true)]
+        [InlineData(DeleteOperation.SoftDelete, SearchParameterStatus.PendingDelete, true, true)]
+        [InlineData(DeleteOperation.HardDelete, SearchParameterStatus.PendingHardDelete, true, true)]
         public async Task GivenForegroundDelete_WhenDispatchedAcrossAwait_ThenPendingStatusAndExistingAuthorizationArePreserved(
             DeleteOperation deleteOperation,
             SearchParameterStatus expectedStatus,
-            bool hasExplicitContext)
+            bool hasExplicitContext,
+            bool useCosmos)
         {
-            var accessor = new FhirStorageTestRequestContextAccessor();
+            using var fixture = new FhirStorageTestsFixture(useCosmos ? DataStore.CosmosDb : DataStore.SqlServer);
+            var accessor = fixture.FhirRequestContextAccessor;
             IFhirRequestContext explicitContext = null;
             var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("scope", "patient/*.read") }, "SMART"));
             if (hasExplicitContext)
@@ -53,6 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 accessor.RequestContext = explicitContext;
             }
 
+            AccessControlContext accessControlContext = explicitContext?.AccessControlContext;
             var key = new ResourceKey("SearchParameter", "foreground");
             var uri = new Uri("http://example.org/SearchParameter/foreground");
             var rawResource = new RawResource(
@@ -67,16 +79,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return resource;
             });
 
-            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             IFhirRequestContext helperContext = null;
             var operations = Substitute.For<ISearchParameterOperations>();
             operations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
-            operations.GetAndApplySearchParameterUpdates(CancellationToken.None).Returns(_ =>
+            operations.GetAndApplySearchParameterUpdates(CancellationToken.None).Returns(async _ =>
             {
                 helperContext = accessor.RequestContext;
-                entered.SetResult();
-                return release.Task;
+                await Task.Yield();
+                return true;
             });
 
             var handler = Substitute.For<IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>>();
@@ -95,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Assert.Same(principal, context.Principal);
                     Assert.True(context.Principal.Identity.IsAuthenticated);
                     Assert.Equal("patient/*.read", context.Principal.FindFirst("scope")?.Value);
-                    Assert.Same(explicitContext.AccessControlContext, context.AccessControlContext);
+                    Assert.Same(accessControlContext, context.AccessControlContext);
                     Assert.True(context.AccessControlContext.ApplyFineGrainedAccessControl);
                     Assert.Equal("patient/*.read", Assert.Single(context.AccessControlContext.ClinicalScopes));
                 }
@@ -118,114 +128,85 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using ServiceProvider services = collection.BuildServiceProvider();
             var mediator = new Mediator(services);
 
-            Task<DeleteResourceResponse> dispatch = mediator.DeleteResourceAsync(key, deleteOperation);
-            try
-            {
-                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-                Assert.False(dispatch.IsCompleted);
-            }
-            finally
-            {
-                release.SetResult(true);
-            }
-
-            Assert.Equal(key, (await dispatch).ResourceKey);
+            Assert.Equal(key, (await mediator.DeleteResourceAsync(key, deleteOperation)).ResourceKey);
         }
 
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenStorageFixture_WhenBackgroundContextsAreAssigned_ThenRequestStateIsIsolated(bool useCosmos)
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public async Task GivenReindexHostWithStubJobs_WhenDisposing_ThenContextsAreIsolatedAndRefreshIsJoined(bool useCosmos, bool failRefresh)
         {
-            IServiceProvider fixture = useCosmos ? new CosmosDbFhirStorageTestsFixture() : new SqlServerFhirStorageTestsFixture();
-            var accessor = (RequestContextAccessor<IFhirRequestContext>)fixture.GetService(typeof(RequestContextAccessor<IFhirRequestContext>));
+            using var fixture = new FhirStorageTestsFixture(useCosmos ? DataStore.CosmosDb : DataStore.SqlServer);
+            var accessor = fixture.FhirRequestContextAccessor;
             IFhirRequestContext foregroundContext = accessor.RequestContext;
-            var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            int readyCount = 0;
-            Task<IFhirRequestContext>[] workers = Enumerable.Range(0, 2).Select(worker => Task.Run(async () =>
+            var hostContext = new TaskCompletionSource<IFhirRequestContext>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var jobContexts = new ConcurrentBag<IFhirRequestContext>();
+            var jobsCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var queue = new TestQueueClient
             {
-                IFhirRequestContext context = FhirStorageTestRequestContextAccessor.CreateRequestContext();
-                context.Properties["worker"] = worker;
-                accessor.RequestContext = context;
-                if (Interlocked.Increment(ref readyCount) == 2)
+                DequeueFaultAction = () => hostContext.TrySetResult(accessor.RequestContext),
+                CompleteFaultAction = () =>
                 {
-                    ready.SetResult();
-                }
-
-                await release.Task;
-                return accessor.RequestContext;
-            })).ToArray();
-
-            try
-            {
-                await ready.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            }
-            finally
-            {
-                release.SetResult();
-            }
-
-            IFhirRequestContext[] contexts = await Task.WhenAll(workers);
-
-            Assert.Same(foregroundContext, accessor.RequestContext);
-            Assert.NotSame(foregroundContext, contexts[0]);
-            Assert.NotSame(foregroundContext, contexts[1]);
-            Assert.NotSame(contexts[0], contexts[1]);
-            Assert.Equal(0, contexts[0].Properties["worker"]);
-            Assert.Equal(1, contexts[1].Properties["worker"]);
-            Assert.False(foregroundContext.Properties.ContainsKey("worker"));
-        }
-
-        [Fact]
-        public async Task GivenInFlightCacheRefresh_WhenCancelled_ThenTaskWaitsForRefreshAndUsesIndependentContext()
-        {
-            var accessor = new FhirStorageTestRequestContextAccessor();
-            IFhirRequestContext foregroundContext = accessor.RequestContext;
-            IFhirRequestContext cacheContext = null;
-            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    jobContexts.Add(accessor.RequestContext);
+                    if (jobContexts.Count == 2)
+                    {
+                        jobsCompleted.TrySetResult();
+                    }
+                },
+            };
+            await queue.EnqueueAsync((byte)QueueType.Reindex, new[] { "{\"typeId\":0,\"id\":1}", "{\"typeId\":0,\"id\":2}" }, null, false, CancellationToken.None);
+            var cacheContext = new TaskCompletionSource<IFhirRequestContext>(TaskCreationOptions.RunContinuationsAsynchronously);
             var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var operations = Substitute.For<ISearchParameterOperations>();
-            using var cancellation = new CancellationTokenSource();
-            operations.GetAndApplySearchParameterUpdates(cancellation.Token, true).Returns(_ =>
+            operations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>(), true).Returns(_ =>
             {
-                cacheContext = accessor.RequestContext;
-                cacheContext.Properties["cache"] = true;
-                entered.SetResult();
+                cacheContext.TrySetResult(accessor.RequestContext);
                 return release.Task;
             });
-
-            Task refresh = ReindexJobTests.RefreshSearchParameterCacheAsync(operations, accessor, TimeSpan.FromHours(1), cancellation.Token);
+            var runner = new ReindexJobTests(fixture, Substitute.For<ITestOutputHelper>());
+            runner.InitializeJobHosting(queue);
+            runner.StartCacheUpdateTask(operations, TimeSpan.FromHours(1));
+            var failure = new InvalidOperationException("Refresh failed.");
+            Task shutdown = null;
             try
             {
-                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-                cancellation.Cancel();
-
-                Assert.False(refresh.IsCompleted);
-                Assert.NotSame(foregroundContext, cacheContext);
+                await jobsCompleted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                IFhirRequestContext[] contexts =
+                [
+                    foregroundContext,
+                    await hostContext.Task.WaitAsync(TimeSpan.FromSeconds(10)),
+                    await cacheContext.Task.WaitAsync(TimeSpan.FromSeconds(10)),
+                    .. jobContexts,
+                ];
+                Assert.Equal(5, contexts.Length);
+                Assert.Equal(5, contexts.Select(context => context.Properties).Distinct(ReferenceEqualityComparer.Instance).Count());
                 Assert.Same(foregroundContext, accessor.RequestContext);
-                Assert.False(foregroundContext.Properties.ContainsKey("cache"));
+                shutdown = runner.DisposeAsync().AsTask();
+                Assert.False(shutdown.IsCompleted);
             }
             finally
             {
-                cancellation.Cancel();
-                release.SetResult(true);
+                shutdown ??= runner.DisposeAsync().AsTask();
+                if (failRefresh)
+                {
+                    release.SetException(failure);
+                }
+                else
+                {
+                    release.SetResult(true);
+                }
+
+                if (failRefresh)
+                {
+                    Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() => shutdown.WaitAsync(TimeSpan.FromSeconds(10))));
+                }
+                else
+                {
+                    await shutdown.WaitAsync(TimeSpan.FromSeconds(10));
+                }
             }
-
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => refresh);
-        }
-
-        [Fact]
-        public async Task GivenFailedCacheRefresh_WhenAwaitingTask_ThenFailureIsPropagated()
-        {
-            var accessor = new FhirStorageTestRequestContextAccessor();
-            var operations = Substitute.For<ISearchParameterOperations>();
-            var failure = new InvalidOperationException("Refresh failed.");
-            operations.GetAndApplySearchParameterUpdates(CancellationToken.None, true).Returns(Task.FromException<bool>(failure));
-
-            Task refresh = ReindexJobTests.RefreshSearchParameterCacheAsync(operations, accessor, TimeSpan.FromSeconds(1), CancellationToken.None);
-
-            Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() => refresh));
         }
     }
 }
