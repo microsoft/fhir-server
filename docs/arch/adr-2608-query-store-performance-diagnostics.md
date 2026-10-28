@@ -24,13 +24,13 @@ We look to simplify database performance analysis and reduce the possible PHI / 
 
 We chose option 3: a watchdog-style background job inside the FHIR server, off by default, enabled and tuned entirely through configuration.
 
-The deciding argument is that it introduces no new access path. The server is already authenticated to its own database and already runs scheduled background work there, so diagnostics collection is more work on a connection and an identity that both already exist. Options 1 and 2 each need a principal that can reach the data plane from outside. Option 2 is better than option 1, because the agent never holds a credential itself, but the existing action path has no database access today. Choosing it would still mean opening a path that is not there now.
+The deciding argument is that it introduces no new inbound SQL access path. The server is already authenticated to its own database and already runs scheduled background work there, so diagnostics collection is more work on a connection and an identity that both already exist. Options 1 and 2 each need a principal that can reach the data plane from outside. Option 2 is better than option 1, because the agent never holds a credential itself, but the existing action path has no database access today. Choosing it would still mean opening a path that is not there now.
 
 Three things follow from that choice, and each of them reinforced it.
 
-Data leaves by push, as structured log records on the logger the server already writes to, rather than by an inbound query into the data plane. The direction of trust stays the same as it is today.
+Data leaves by push, as structured log records on the logger the server already writes to, rather than by an inbound query into the data plane. This can expose sensitive diagnostic data to log readers who lack database access, so the destination, access controls, retention, and auditing require review.
 
-Plan sanitization moves from T-SQL into C#. It removes and verifies the absence of the specified Showplan parameter metadata by element and attribute name, independent of the Showplan namespace. Invalid XML and failed verification produce no plan XML. This is not a general PHI or PII scrubber: query text, statement text, other literals, and object names can still contain sensitive information.
+Plan sanitization moves from T-SQL into C#. It removes and verifies the absence of the specified Showplan parameter metadata by element and attribute name, independent of the Showplan namespace. Invalid XML and failed verification produce no plan XML. This is not a general PHI or PII scrubber: query text, statement text, other literals, and object names can still contain sensitive information, including values from parameterized queries represented as constants in a plan.
 
 Enablement uses the existing configuration surface, so turning diagnostics on in an environment is an ordinary deployment change rather than a database operation.
 

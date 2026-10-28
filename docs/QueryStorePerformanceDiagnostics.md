@@ -17,13 +17,6 @@ FHIR Azure SQL performance investigations currently require privileged, manual a
 
 Azure SQL diagnostic settings can already export `QueryStoreRuntimeStatistics`, `QueryStoreWaitStatistics`, and `AutomaticTuning` to Log Analytics. That stream does not carry the Query Store query text and Showplan XML. This collector can emit both, but truncation or downstream log limits can prevent a complete plan from reaching the destination. It is not a complete plan archive.
 
-Related internal guidance:
-
-- `Health.wiki/Home/Olympus-Team/DRI/TSGs/SQL-Latency-Issues.md`
-- `Health.wiki/Home/Olympus-Team/Knowledge-Base/Datastore/SQL-DB/SQL-Query-Store---help-with-analyzing-queries.md`
-- `Health.wiki/Home/Olympus-Team/DRI/TSGs/SQL-Latency-Issues/SQL-Statistics-Overview.md`
-- `Health.wiki/Home/Olympus-Team/Development/SQL-Performance-Automation.md`
-
 ## Design
 
 A **watchdog** — the repository's existing leased background-worker pattern — periodically reads Query Store and statistics metadata and writes the results out as **structured log records**. It runs inside the FHIR server process on the server's **existing** SQL identity.
@@ -88,7 +81,7 @@ The shared `dbo.AcquireWatchdogLease` procedure coordinates collection through `
 | `RunStartDate` | `null` (unset) | Inclusive start of the optional run window. Ticks before it collect nothing. `null` means no lower bound. |
 | `RunEndDate` | `null` (unset) | **Exclusive** end of the optional run window. Ticks at or after it collect nothing. `null` means no upper bound. |
 
-The lookback window is `PeriodSec` clamped to `[60, 86400]` seconds, so the collection window tracks the collection interval and a misconfigured value cannot request an unbounded scan.
+The lookback window is `PeriodSec` clamped to `[60, 86400]` seconds. This limits the time range of included intervals, not the number of Query Store rows scanned or the CPU and elapsed time used by collection.
 
 The watchdog warns on every tick where the clamp changed the value, naming the effective window and what the clamp costs, and pointing at `FhirServer:Watchdog:QueryStoreDiagnostics:PeriodSec` as the thing to change. The tick interval itself is **not** clamped, so whenever the clamp bites the interval and the window it covers are permanently decoupled: a period above the cap leaves the excess of every interval unexamined, and one below the floor makes consecutive collections overlap and re-report the same plans.
 
@@ -297,7 +290,7 @@ Step 4 is defence in depth: the plan is never emitted on the strength of the rem
 
 Query text, statement text, scalar expressions, non-parameter constants, object names, missing-index recommendations, warnings, memory grants, and optimizer statistics usage are permitted diagnostic output.
 
-This intentionally accepts that ad hoc or non-parameterized query text and plan constants may contain literal values. The protected content is parameter-value metadata in Showplan `ParameterList` elements, including compiled and runtime values.
+Ad hoc or non-parameterized query text and plan constants may contain literal values. Parameterized queries can also expose values elsewhere in a plan, including as constants in plans compiled with `OPTION (RECOMPILE)`. The sanitizer removes only the specified parameter metadata; it does not establish that a plan is free of sensitive values. A representative FHIR query with a sentinel value must be checked before enabling collection.
 
 Statistics histogram values are never read, because `range_high_key` contains actual indexed-column values.
 
@@ -305,7 +298,7 @@ Statistics histogram values are never read, because `range_high_key` contains ac
 
 The watchdog uses the FHIR server's existing SQL connection and introduces no new database principal or role. The service identity must be able to execute the diagnostics procedures and read the Query Store and statistics views. Required permissions vary by SQL deployment and version and must be verified for the deployed identity. Permission denials are logged rather than being fatal.
 
-Because this is an outbound emission from a process that is already trusted with the data, the previous design's audit requirements do not apply. There is no external caller to attribute, and the emitted log records are themselves the operational record.
+Although there is no external SQL caller, emission can make sensitive data accessible to log readers who do not have database access. Privacy review must approve the destination, reader access, retention, and audit requirements before collection is enabled.
 
 ## Repository ownership
 
@@ -345,6 +338,8 @@ Recorded deliberately; each is a candidate for a follow-up.
 - **Plans are re-emitted every tick.** There is no cross-tick deduplication by `plan_id`, so a persistently slow plan is emitted repeatedly. Accepted for v1; the duplication is bounded by `SlowQueryCount` and the tick interval, and suppression can be added once real emission volume is known.
 - **Slow-query selection is total-duration only.** There is no configuration for selecting by CPU, reads, waits, or regression against a baseline. `MinDurationMilliseconds` and `SlowQueryCount` are the only tuning knobs. Richer selection is the expected first enhancement.
 - **Collection has no independent deadline.** Reads use the shared SQL timeout and retry settings. An optional wait-statistics read can delay runtime emission until its retries finish; cancellation or lease loss is not a per-collection budget.
+- **The request-triggered Query Store lookup is unchanged.** This collector adds background work and does not establish a reduction in lookup CPU.
+- **FHIR query annotation changes SQL text.** The effect on Query Store query identity, history, and forced plans has not been validated and must be checked before rollout.
 - **Truncation is a hard cut.** A plan exceeding 32,768 UTF-16 code units is truncated and flagged. The resulting prefix can be invalid XML. It is not chunked, compressed, or externalized to blob storage.
 - **No actual execution plans.** `sys.query_store_plan.query_plan` is the compile-time Showplan, equivalent to `SET SHOWPLAN_XML ON`. Actual-plan capture via `LAST_QUERY_PLAN_STATS` remains future work.
 - **Plan-type and Parameter Sensitive Plan variant metadata are not read**, because those catalog fields are not stable across the supported Azure SQL fleet.
