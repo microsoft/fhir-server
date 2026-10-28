@@ -70,6 +70,16 @@ public class ExpressionAccessControl
         }
     }
 
+    private static bool ResourceTypeAllowedByClinicalScopes(HashSet<string> validResourceTypes, string resourceType)
+    {
+        if (validResourceTypes != null && (validResourceTypes.Contains(KnownResourceTypes.All) || validResourceTypes.Contains(resourceType)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Walks the whole expression tree so chained/_has and include expressions are checked at any nesting depth.
     /// </summary>
@@ -104,15 +114,5 @@ public class ExpressionAccessControl
         {
             return expression.IsSmartV2UnionExpressionForScopesSearchParameters ? expression : base.VisitUnion(expression, context);
         }
-    }
-
-    private static bool ResourceTypeAllowedByClinicalScopes(HashSet<string> validResourceTypes, string resourceType)
-    {
-        if (validResourceTypes != null && (validResourceTypes.Contains(KnownResourceTypes.All) || validResourceTypes.Contains(resourceType)))
-        {
-            return true;
-        }
-
-        return false;
     }
 }
