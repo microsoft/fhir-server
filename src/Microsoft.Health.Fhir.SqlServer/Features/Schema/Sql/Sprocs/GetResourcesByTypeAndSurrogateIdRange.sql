@@ -51,7 +51,7 @@ BEGIN TRY
   UNION ALL
   SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, IsHistory 
     FROM @SurrogateIds
-         INNER LOOP JOIN dbo.Resource WITH (INDEX = 1, FORCESEEK) ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId -- LOOP keeps @SurrogateIds outer, INDEX + FORCESEEK make each lookup a PK seek. Plan cached for small range can otherwise read all history rows of the type.
+         INNER LOOP JOIN dbo.Resource WITH (FORCESEEK (PKC_Resource (ResourceTypeId, ResourceSurrogateId))) ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId -- LOOP keeps @SurrogateIds outer, FORCESEEK on both PK columns makes each lookup a single-row seek. Plan cached for small range can otherwise read all history rows of the type.
     WHERE IsHistory = 1
       AND (IsDeleted = 0 OR @IncludeDeleted = 1)
     OPTION (MAXDOP 1)
