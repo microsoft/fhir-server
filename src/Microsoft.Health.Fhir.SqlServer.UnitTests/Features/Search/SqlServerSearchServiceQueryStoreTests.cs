@@ -40,6 +40,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData("Patient?name")]
         [InlineData("Observation?code")]
+        [InlineData("Patient?_sort=asc:_type,desc:_lastUpdated&name")]
+        [InlineData("Patient?_querymode=count&_summary")]
         public void GivenShapeOnlyStatement_WhenQueryStoreTextNormalized_ThenShapeIsPreserved(string normalizedQueryShape)
         {
             // Arrange

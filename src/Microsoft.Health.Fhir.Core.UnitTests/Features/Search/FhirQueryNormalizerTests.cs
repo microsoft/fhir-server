@@ -5,6 +5,7 @@
 
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -53,15 +54,75 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             // Arrange
             string[] parameterNames = [new string('a', queryLength - "Patient?".Length)];
             string normalizedQuery = $"Patient?{parameterNames[0]}";
-            string expected = shouldTruncate ? $"{normalizedQuery[..1023]}~" : normalizedQuery;
 
             // Act
             string firstResult = FhirQueryNormalizer.Normalize("Patient", parameterNames);
             string secondResult = FhirQueryNormalizer.Normalize("Patient", parameterNames);
 
             // Assert
-            Assert.Equal(expected, firstResult);
+            Assert.Equal(shouldTruncate ? FhirQueryNormalizer.MaximumLength : queryLength, firstResult.Length);
+            if (shouldTruncate)
+            {
+                Assert.Contains("~", firstResult);
+            }
+            else
+            {
+                Assert.Equal(normalizedQuery, firstResult);
+            }
+
             Assert.Equal(firstResult, secondResult);
+        }
+
+        [Fact]
+        public void GivenLongShapesWithTheSamePrefix_WhenNormalized_ThenTheirIdentitiesRemainDistinct()
+        {
+            // Arrange
+            string prefix = new('a', 1100);
+
+            // Act
+            string firstResult = FhirQueryNormalizer.Normalize("Patient", [prefix + "x"]);
+            string secondResult = FhirQueryNormalizer.Normalize("Patient", [prefix + "y"]);
+
+            // Assert
+            Assert.Equal(FhirQueryNormalizer.MaximumLength, firstResult.Length);
+            Assert.Equal(FhirQueryNormalizer.MaximumLength, secondResult.Length);
+            Assert.NotEqual(firstResult, secondResult);
+        }
+
+        [Fact]
+        public void GivenResolvedSort_WhenNormalized_ThenPriorityAndDirectionArePreserved()
+        {
+            // Arrange
+            var sort = new[]
+            {
+                (new SearchParameterInfo("birthdate", "birthdate"), SortOrder.Ascending),
+                (new SearchParameterInfo("name", "name"), SortOrder.Descending),
+            };
+
+            // Act
+            string result = FhirQueryNormalizer.Normalize("Patient", ["name", "_sort", "_sort"], sort: sort);
+
+            // Assert
+            Assert.Equal("Patient?_sort=asc:birthdate,desc:name&name", result);
+        }
+
+        [Fact]
+        public void GivenUnsafeSortCode_WhenNormalized_ThenCommentDelimitersAreRemoved()
+        {
+            // Arrange
+            var sort = new[]
+            {
+                (new SearchParameterInfo("unsafe", "birth*/--\r\n"), SortOrder.Descending),
+            };
+
+            // Act
+            string result = FhirQueryNormalizer.Normalize("Patient", ["_sort"], sort: sort);
+
+            // Assert
+            Assert.DoesNotContain("*/", result);
+            Assert.DoesNotContain("--", result);
+            Assert.DoesNotContain("\r", result);
+            Assert.DoesNotContain("\n", result);
         }
 
         [Fact]

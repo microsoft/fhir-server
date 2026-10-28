@@ -156,12 +156,14 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.Contains("IsDeleted = 1", _strBuilder.ToString());
     }
 
-    [Fact]
-    public void GivenGeneratedSql_WhenNormalizedQueryShapeAdded_ThenHashCommentContainsSafeQueryShapeWithoutChangingHash()
+    [Theory]
+    [InlineData("Patient?birthdate&name")]
+    [InlineData("Patient?_sort=asc:_type,desc:_lastUpdated&name")]
+    [InlineData("Patient?_querymode=count&_summary")]
+    public void GivenGeneratedSql_WhenNormalizedQueryShapeAdded_ThenHashCommentContainsSafeQueryShapeWithoutChangingHash(string normalizedQuery)
     {
         // Arrange
         const string rawValue = "Alice-Recognizable-Value";
-        const string normalizedQuery = "Patient?birthdate&name";
         var (generator, sqlWithoutAnnotation) = GenerateSqlWithHashedParameter(rawValue);
         var queryHashCalculator = new SqlQueryHashCalculator();
 

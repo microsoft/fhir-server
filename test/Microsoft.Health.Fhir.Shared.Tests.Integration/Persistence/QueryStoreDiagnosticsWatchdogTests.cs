@@ -178,24 +178,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenExistingStaleParameterRows_WhenTheWatchdogInitialises_ThenTheRowsAreReconciledToConfiguration()
+        public async Task GivenExistingStaleParameterRows_WhenTheWatchdogInitialises_ThenTheConfiguredPeriodsAreUsedWithoutChangingTheRows()
         {
             // Arrange
-            // The feature now derives from Watchdog<T>, so it accepts the two dbo.Parameters rows the base class
-            // seeds for its period and lease period. The owner's condition is that those rows stay settable from
-            // configuration, which only a live database can demonstrate: dbo.Parameters carries IGNORE_DUP_KEY, so
-            // the base class's seeding INSERT is a silent no-op when the rows already exist and the base class then
-            // reads the stored value back over the configured one. Without the InitAdditionalParamsAsync override the
-            // stale row below would win; with it, configuration wins.
             const double configuredPeriodSec = 1;
             const double configuredLeasePeriodSec = 123;
             const double staleValue = 999999;
 
             var logger = new CapturingLogger();
 
-            // A one-second period keeps the randomized start-up delay inside the test's own budget. Base
-            // initialization runs to completion under CancellationToken.None before the timer starts, so the rows are
-            // reconciled regardless of when the token below trips.
             var watchdog = CreateWatchdog(logger, enabled: true, periodSec: configuredPeriodSec, leasePeriodSec: configuredLeasePeriodSec);
 
             await using SqlConnection connection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
@@ -212,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Act
             try
             {
-                await watchdog.ExecuteAsync(cancellationTokenSource.Token);
+                await watchdog.ExecuteAsync(Guid.NewGuid(), cancellationTokenSource.Token);
             }
             catch (OperationCanceledException)
             {
@@ -221,12 +212,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             // Assert
-            // Both rows exist and hold the configured values, not the stale ones — the UPDATE in the override forced
-            // the table to mirror configuration. Number is SQL float (IEEE-754 double), so exact equality is correct
-            // here and no epsilon tolerance is warranted.
             Assert.Equal(2, await CountWatchdogParametersAsync(connection, CancellationToken.None));
-            Assert.Equal(configuredPeriodSec, await ReadWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.PeriodSec", CancellationToken.None));
-            Assert.Equal(configuredLeasePeriodSec, await ReadWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.LeasePeriodSec", CancellationToken.None));
+            Assert.Equal(staleValue, await ReadWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.PeriodSec", CancellationToken.None));
+            Assert.Equal(staleValue, await ReadWatchdogParameterAsync(connection, "QueryStoreDiagnosticsWatchdog.LeasePeriodSec", CancellationToken.None));
+            Assert.Equal(configuredPeriodSec, watchdog.PeriodSec);
+            Assert.Equal(configuredLeasePeriodSec, watchdog.LeasePeriodSec);
         }
 
         private static void AssertStatisticsHealthOrdinals(CapturingLogger logger, string probeTableName)
@@ -328,7 +318,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return new QueryStoreDiagnosticsWatchdog(
                 _fixture.SqlRetryService,
                 logger,
-                Options.Create(configuration));
+                Options.Create(configuration),
+                _fixture.SchemaInformation);
         }
 
         private static async Task EnableAndVerifyQueryStoreAsync(SqlConnection connection, CancellationToken cancellationToken)

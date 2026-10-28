@@ -35,25 +35,23 @@ FHIR server instance (lease holder)
         ├── sys.query_store_*                     slow plans + query text
         ├── sys.query_store_wait_stats            best effort
         ├── sys.stats / sys.dm_db_stats_properties
-        └── QueryPlanSanitizer (C#)               strips parameter values
+        └── QueryPlanSanitizer (C#)               removes specified parameter metadata
               │
               └── ILogger<QueryStoreDiagnosticsWatchdog>   structured log records
                     └── the host's existing log pipeline (PaaS -> Geneva / Log Analytics)
 ```
 
-The critical property is that **nothing new connects inbound to the database**. The work is done by the service that already holds a connection, so the feature introduces no new authentication path, no new database principal, and no new grant.
+The feature introduces no new inbound connection or database principal. The existing service identity needs permission to execute the procedures and read the diagnostic views. Deployments must verify those permissions and grant them if needed.
 
 ### Why a watchdog
 
 `WatchdogsBackgroundService` and `WatchdogLease<T>` already provide what this feature needs, and each of these would otherwise have to be reinvented:
 
-- **Single-runner election.** `WatchdogLease<T>` ensures exactly one instance in a multi-instance deployment performs the work, so an eight-instance service does not issue eight concurrent Query Store scans and emit eight copies of every diagnostics line. The lease is invisible runtime coordination rather than configuration: it holds nothing an operator sets, and it lives in `dbo.WatchdogLeases` behind `dbo.AcquireWatchdogLease`, shared with every other watchdog.
+- **Runner coordination.** `WatchdogLease<T>` normally selects one instance to collect. It does not fence an in-progress collection if the lease is lost, so overlapping collectors and duplicate records remain possible. The lease uses `dbo.WatchdogLeases` and `dbo.AcquireWatchdogLease`.
 - **A managed background timer.** `FhirTimer` supplies the randomized start-up stagger that keeps replicas from collecting on the same second, and catches whatever a tick throws so that a failed collection costs one tick rather than the process.
 - **A precedent for emitting SQL telemetry.** `GeoReplicationLagWatchdog` reads a SQL view on a timer and emits what it finds. This feature has the same shape, but emits **logs rather than metric notifications**; see [Why logs rather than metrics](#why-logs-rather-than-metrics). A single lag figure is metric-shaped, and query text and plan XML are not.
 
-**It derives from `Watchdog<T>` like every other watchdog, and keeps configuration authoritative through the one hook the base class provides.** The base class inserts `{Name}.PeriodSec` and `{Name}.LeasePeriodSec` into `dbo.Parameters` on every start and then reads both back **over** the configured values, from a private, non-virtual initialization step. That read-back is not harmless: `dbo.Parameters` is declared `PRIMARY KEY CLUSTERED (Id) WITH (IGNORE_DUP_KEY = ON)`, so on a database that already holds those rows the seeding `INSERT` is a silent no-op — it neither inserts nor errors — and the stored value therefore wins over the environment variable. Verified directly against SQL Server: inserting `3600` and then `60` for the same `Id` reports *"Duplicate key was ignored. (0 rows affected)"* and leaves `3600` in place.
-
-The base class does expose one overridable step, `InitAdditionalParamsAsync`, which runs after that read-back and before the timer is constructed. This watchdog overrides it to `UPDATE` both rows to the configured values and re-assign the two properties, so configuration wins on every database and the rows stay an accurate mirror of the deployment's settings rather than a stale copy that silently contradicts them. An `UPDATE` is used rather than an `INSERT` precisely because `IGNORE_DUP_KEY` would make a re-`INSERT` a no-op. Deriving from the base class means the lease-holder gate, the capped randomized stagger, and the per-tick timing line come from shared code rather than being reproduced here, and no shared file is modified for this feature.
+The watchdog derives from `Watchdog<T>` and sets `AllowDbPeriodOverride` to `false`. The base class then uses the configured periods without seeding or reading period rows in `dbo.Parameters`. Existing rows remain untouched and do not control this watchdog. The lease-holder gate, timer, and per-tick timing come from the shared base class.
 
 ### Enablement
 
@@ -65,11 +63,11 @@ The feature is **off by default** and is gated by one switch, in configuration.
 
 **Every setting for this feature is set in configuration, and configuration always wins.** There is no row to seed or arm before the feature will run: no `IsEnabled` row, and nothing an operator has to write by hand. Turning the feature on, tuning it, and turning it off are configuration changes plus a restart, with no `UPDATE` against a live database required of anyone.
 
-The base class does keep `{Name}.PeriodSec` and `{Name}.LeasePeriodSec` in `dbo.Parameters`, and this watchdog reconciles both rows to the configured values during initialization, so a database can never hold a value that disagrees with the deployment's configuration. The rows are a readable mirror of what the service is running with, not an input to it — editing one changes nothing, because the next start overwrites it.
+This watchdog does not read or write its period rows in `dbo.Parameters`. A row left by an earlier version does not reflect the active configuration.
 
 The watchdog also re-reads `Enabled` at the start of every tick and returns without collecting when it is false. That check cannot be reached with the value false as the host is wired today: `WatchdogsBackgroundService` gates startup on the same configuration snapshot, and `IOptions<T>` does not reload in place. It is kept because the watchdog is registered `AsSelf` and this is the only place the opt-out is enforced at the unit of work, so a future call site that executes a collection directly cannot bypass it. The cost is one boolean read per period.
 
-This feature causes three database rows to exist. Two are its `dbo.Parameters` rows, described above, which mirror configuration rather than drive it. The third is its **lease**, in `dbo.WatchdogLeases` through `dbo.AcquireWatchdogLease`. The lease is what stops every replica collecting and emitting the same diagnostics every period; it holds no configuration and is the same mechanism every other watchdog uses. That shared stored procedure does consult `dbo.Parameters` for the fleet-wide watchdog lease-holder include and exclude patterns, which is noted under [Configuration](#configuration): it is shared framework behaviour that this feature neither sets nor reads for itself.
+The shared `dbo.AcquireWatchdogLease` procedure coordinates collection through `dbo.WatchdogLeases`. It also consults the fleet-wide watchdog lease-holder include and exclude patterns in `dbo.Parameters`, described under [Configuration](#configuration).
 
 ### Configuration
 
@@ -78,8 +76,8 @@ This feature causes three database rows to exist. Two are its `dbo.Parameters` r
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `Enabled` | `false` | The gate described above. |
-| `PeriodSec` | `3600` | Interval between collections, and — clamped to `[60, 86400]` seconds — the Query Store lookback window each collection covers. A non-positive or non-finite value is rejected with a warning and the `3600` default is used, because `PeriodicTimer` would otherwise throw and fault every watchdog in the process. |
-| `LeasePeriodSec` | `600` | How long the single-runner lease is held before it must be renewed. Long enough that a collection cannot outlive it, short enough that a dead replica's lease is picked up promptly. A non-positive or non-finite value is rejected with a warning and the `600` default is used. Most deployments should leave this alone; it is on the configuration surface because the base class stores it in `dbo.Parameters`, and every stored value must be settable from configuration. |
+| `PeriodSec` | `3600` | Interval between collections, and — clamped to `[60, 86400]` seconds — the Query Store lookback window each collection covers. Values outside `[0.001, 4294967.294]` seconds and non-finite values are rejected with a warning and the `3600` default is used, because `PeriodicTimer` would otherwise throw. |
+| `LeasePeriodSec` | `600` | How often the lease is renewed. Values outside `[0.001, 4294967.294]` seconds and non-finite values are rejected with a warning and the `600` default is used. A collection can outlive the lease if renewal fails. |
 | `SlowQueryCount` | `10` | Number of slow plans to report per tick. |
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
@@ -93,7 +91,7 @@ The lookback window is `PeriodSec` clamped to `[60, 86400]` seconds, so the coll
 
 The watchdog warns on every tick where the clamp changed the value, naming the effective window and what the clamp costs, and pointing at `FhirServer:Watchdog:QueryStoreDiagnostics:PeriodSec` as the thing to change. The tick interval itself is **not** clamped, so whenever the clamp bites the interval and the window it covers are permanently decoupled: a period above the cap leaves the excess of every interval unexamined, and one below the floor makes consecutive collections overlap and re-report the same plans.
 
-**Every setting takes effect on restart, on every database.** All binding is through `IOptions<T>` rather than `IOptionsMonitor<T>`, so nothing reloads in place: editing configuration on a running host changes nothing until it restarts. `PeriodSec` and `LeasePeriodSec` are read once, at construction, because they are handed to the timer and the lease for the life of the process; the rest are read from configuration on each tick, which makes no observable difference while the values cannot change underneath. `PeriodSec` and `LeasePeriodSec` are stored in `dbo.Parameters` but never taken from it — initialization overwrites both rows with the configured values — so a deployment behaves identically against a database it created a minute ago and one it has been running against for a year. There is no first-run state for its settings to diverge from.
+**Every setting takes effect on restart.** Binding uses `IOptions<T>` rather than `IOptionsMonitor<T>`, so editing configuration on a running host has no effect until it restarts. Period rows in `dbo.Parameters` do not override the configured periods.
 
 One piece of pre-existing database state can still suppress collection, and it belongs to the shared lease rather than to this feature: `dbo.AcquireWatchdogLease` honours `WatchdogLeaseHolderIncludePattern` and `WatchdogLeaseHolderExcludePattern` rows in `dbo.Parameters`, plus the per-watchdog `...For<name>` variants — where the name is `QueryStoreDiagnosticsWatchdog`. A worker excluded by such a row never becomes lease holder, so its ticks skip and nothing is collected. That applies identically to every watchdog in the process and is not something this feature sets, seeds, or reads itself, but it is the one thing to check on a long-lived database when the feature is enabled and silent.
 
@@ -146,7 +144,7 @@ The payload shapes are `SlowQueryDiagnostics`, `QueryPlanDiagnostics`, and `Stat
 
 One line per slow plan per tick, beginning `QueryStoreDiagnosticsWatchdog slow query.`.
 
-Every field is its own **named** log property, so each lands as its own queryable column in Kusto or Log Analytics rather than inside a serialized blob: `QueryId`, `PlanId`, `ExecutionCount`, `TotalDurationMilliseconds`, `AverageDurationMilliseconds`, `MaxDurationMilliseconds`, `TotalCpuMilliseconds`, `AverageCpuMilliseconds`, `TotalLogicalReads`, `AverageLogicalReads`, `TotalWaitMilliseconds`, `AverageWaitMilliseconds`, `TopWaitCategory`, `WaitStatisticsStatus`, `QueryTextTruncated`, `QueryTextLength`, `IntervalStart`, `IntervalEnd`, `DiagnosticsTimestamp`, and `QueryText`.
+The log record has named properties: `QueryId`, `PlanId`, `ExecutionCount`, `TotalDurationMilliseconds`, `AverageDurationMilliseconds`, `MaxDurationMilliseconds`, `TotalCpuMilliseconds`, `AverageCpuMilliseconds`, `TotalLogicalReads`, `AverageLogicalReads`, `TotalWaitMilliseconds`, `AverageWaitMilliseconds`, `TopWaitCategory`, `WaitStatisticsStatus`, `QueryTextTruncated`, `QueryTextLength`, `IntervalStart`, `IntervalEnd`, `DiagnosticsTimestamp`, and `QueryText`. Their downstream representation depends on the configured exporter and destination.
 
 These lines are **not** batched. At the default `SlowQueryCount` of 10 a line per row is cheap, and column-level queryability is the whole reason to emit structured logs rather than JSON documents. `QueryText` is placed last so that everything an operator scans for is readable ahead of the one unbounded field on the line.
 
@@ -186,11 +184,13 @@ Carrying the totals on **every** line is what lets a reader distinguish a legiti
 
 ### Field size
 
-Query text and sanitized plan XML are capped at **32 KB** per field, matching the field limit of the downstream telemetry pipeline. Values exceeding the cap are truncated and flagged (`QueryTextTruncated`, `QueryPlanTruncated`).
+Query text and sanitized plan XML are capped at **32,768 UTF-16 code units** per field. Values exceeding the cap are truncated and flagged (`QueryTextTruncated`, `QueryPlanTruncated`). This character limit is not a byte limit, and the destination's size limit has not been verified here.
 
 The pre-truncation length is reported alongside each flag so the loss is quantifiable rather than merely visible: `QueryTextLength` for query text, and `SanitizedQueryPlanLength` for plan XML. Plans additionally report `OriginalQueryPlanLength`, the raw length as read from Query Store — the two plan lengths differ by whatever sanitization removed, so reporting only the raw length would overstate how much truncation itself discarded.
 
 Truncation is applied **after** sanitization and verification, never before, so a truncated plan can never be a partially sanitized one.
+
+A truncated plan is only a prefix and may not be well-formed XML. `SanitizationStatus=Sanitized` confirms removal of the specified parameter metadata, not that the emitted plan is complete or can be opened in SSMS.
 
 ## Behaviour
 
@@ -203,6 +203,8 @@ The watchdog reads `sys.database_query_store_options` and proceeds only when `ac
 ### Slow-query aggregation
 
 Runtime statistics are aggregated across every Query Store interval overlapping the lookback window, restricted to `execution_type = 0` so that only regular completed executions contribute. Averages are weighted by `count_executions` before being combined across intervals, because Query Store stores per-interval averages and an unweighted mean across intervals of unequal execution counts is wrong.
+
+The query includes each selected interval in full, including its portion before the lookback start. The current interval may still be accumulating data. Successive collections can therefore include the same executions, and their totals must not be added together. Wait statistics are read separately and are not an atomic snapshot with the runtime statistics.
 
 Query Store records durations and CPU in **microseconds**; the emitted contract is in milliseconds.
 
@@ -244,7 +246,7 @@ One bias is worth knowing when reading the output. Ranking is by *ratio*, so a s
 
 `StatisticsHealthBatchSize` is clamped to 64 rows per line, with a warning naming the configured value when the clamp bites.
 
-The reason is the same one that keeps plan XML out of a batch. Batching trades record count for record size, and a large enough batch recreates exactly the oversized record that batching plans was rejected for: a single line that a sink may truncate or reject, taking every row on it with it. A typical serialized statistics row is a little under 400 bytes, so 64 rows keeps a full page well inside the 32 KB budget the feature already applies to its other large fields.
+The cap limits row count, not serialized bytes. Long or escaped identifiers can produce a large JSON field even at 64 rows. A sink may truncate or reject that record, so the destination limit and effective batch size need validation before rollout.
 
 Clamping never drops rows. A batch size above the cap simply produces more pages, and the pagination properties still account for every row. Extra lines are the cheap thing here, which is the whole reason for preferring logs in the first place.
 
@@ -256,9 +258,9 @@ The missing-view handler spans the whole collection rather than each individual 
 
 That containment covers **per-tick collection**, which is where all of this feature's own collection work happens: `FhirTimer` catches whatever a tick throws and keeps ticking, so a failed collection costs one tick. The lease renewal runs on the lease's own `FhirTimer` with the same per-tick catch.
 
-Deriving from `Watchdog<T>` does add one step outside those catches: `ExecuteAsync` awaits `InitParamsAsync`, which seeds `dbo.Parameters` and then calls this feature's `InitAdditionalParamsAsync`, *before* and *outside* the per-tick catch — so a throw there faults the watchdog task and `WatchdogsBackgroundService` cancels the rest. That exposure is shared with every other watchdog, but this feature narrows its own contribution to it: the reconciling `UPDATE` is wrapped in a catch that logs a warning and continues, and the assignments that make configuration authoritative run outside that try. A diagnostics feature is not permitted to fail the transaction and cleanup watchdogs over a row it writes only so the table reads truthfully, and collection is unaffected when the update fails.
+The watchdog disables the base class's database period initialization, so startup does not seed or reconcile period rows.
 
-What remains outside the catch is the period itself: `PeriodicTimer` throws on a non-positive or non-finite interval, and that throw would happen before the first tick. This is why the configured `PeriodSec` is validated at construction and replaced with the default rather than passed through, and why the run-window check skips a tick rather than ending the timer.
+`PeriodicTimer` also rejects periods outside its supported range before the first tick. Both configured periods are validated at construction and replaced with their defaults when invalid.
 
 ### Reading the primary
 
@@ -266,7 +268,7 @@ Every diagnostics read binds to the **primary**, not to a read-only replica, eve
 
 Query Store state is primary-scoped: on a secondary the database is read-only, so `sys.database_query_store_options.actual_state_desc` reports `READ_ONLY`, the `READ_WRITE` state gate rejects it, and the tick returns having emitted nothing — silently, forever, with the feature enabled and no exception raised. Replica routing is also decided per call against a process-global counter, so a single tick could otherwise check state on the primary and read data from a secondary, harvesting plan identifiers on one server and looking them up on another.
 
-The cost is one collection per period against the primary — hourly by default — which is negligible next to the failure mode it removes.
+The collector runs against the primary once per period, hourly by default. Its CPU cost depends on the Query Store workload and must be measured before rollout.
 
 ### Configuration that disables collection
 
@@ -300,7 +302,7 @@ Statistics histogram values are never read, because `range_high_key` contains ac
 
 ## Security model
 
-The watchdog runs on the FHIR server's existing SQL connection and requires no additional database principal, role, or grant. Reading the Query Store catalog views requires `VIEW DATABASE STATE`, which the service identity already holds; where it does not, the permission denial is contained and logged rather than being fatal.
+The watchdog uses the FHIR server's existing SQL connection and introduces no new database principal or role. The service identity must be able to execute the diagnostics procedures and read the Query Store and statistics views. Required permissions vary by SQL deployment and version and must be verified for the deployed identity. Permission denials are logged rather than being fatal.
 
 Because this is an outbound emission from a process that is already trusted with the data, the previous design's audit requirements do not apply. There is no external caller to attribute, and the emitted log records are themselves the operational record.
 
@@ -308,7 +310,7 @@ Because this is an outbound emission from a process that is already trusted with
 
 ### OSS `fhir-server`
 
-- the watchdog, its inline SQL, and the C# sanitizer;
+- the watchdog, its versioned stored procedures, and the C# sanitizer;
 - the configuration class and its defaults;
 - the three log payload shapes and the structured lines they are emitted on;
 - unit tests for sanitization and integration tests against a live SQL Server; and
@@ -327,20 +329,21 @@ Nothing here is PaaS-specific, and no PaaS identity, storage account, or rollout
 ### Rollout
 
 1. Merge the OSS change. The feature ships disabled.
-2. Confirm the FHIR server log stream is routed where the investigation needs it. There is no handler to bind.
-3. Enable the configuration gate in a test ring and confirm emission volume and field sizes.
-4. Enable it for the deployment under investigation through configuration — bounding it with `RunStartDate` and `RunEndDate` when the investigation is time-boxed — and restart that deployment for the change to take effect.
+2. Upgrade the database to schema version 120 or later and verify the service identity's procedure and view permissions.
+3. Confirm the FHIR server log stream is routed where the investigation needs it. There is no handler to bind.
+4. Enable the configuration gate in a test ring and confirm emission volume and field sizes.
+5. Enable it for the deployment under investigation through configuration, using `RunStartDate` and `RunEndDate` when the investigation is time-boxed. Restart the deployment for the change to take effect.
 
-Because there is **no schema change**, there is no migration ordering dependency and no package/schema-version synchronization step. This is the single largest operational simplification relative to the rejected design. Nothing has to be written to a database to turn the feature on, so there is also no per-database state to seed, clean up, or reconcile against configuration.
+The watchdog skips collection on older or unknown schema versions and checks again on each tick. Configuration remains authoritative for the collection schedule, and the watchdog does not seed or reconcile its period settings in the database.
 
 ## Simplifications and deferred work
 
 Recorded deliberately; each is a candidate for a follow-up.
 
-- **No schema version bump.** The SQL is inline in the watchdog rather than in versioned stored procedures. This removes a schema version, a 944-line migration diff, a database role, migration-sync risk, and the unresolved `dbo.LogEvent` audit-registration question. The cost is that the SQL is not independently hotfixable through a schema migration, and is reviewed as C# rather than as `.sql`. The SQL is kept in clearly formatted, commented `const` blocks to preserve readability.
+- **Stored procedures run under the existing service identity.** The five procedures are part of schema version 120. They do not create an external caller role.
 - **Plans are re-emitted every tick.** There is no cross-tick deduplication by `plan_id`, so a persistently slow plan is emitted repeatedly. Accepted for v1; the duplication is bounded by `SlowQueryCount` and the tick interval, and suppression can be added once real emission volume is known.
 - **Slow-query selection is total-duration only.** There is no configuration for selecting by CPU, reads, waits, or regression against a baseline. `MinDurationMilliseconds` and `SlowQueryCount` are the only tuning knobs. Richer selection is the expected first enhancement.
-- **Truncation is a hard cut.** A plan exceeding 32 KB is truncated to invalid XML and flagged. It is not chunked, compressed, or externalized to blob storage. Compression would likely bring most large plans under the cap and is the obvious next step if truncation proves common.
+- **Truncation is a hard cut.** A plan exceeding 32,768 UTF-16 code units is truncated and flagged. The resulting prefix can be invalid XML. It is not chunked, compressed, or externalized to blob storage.
 - **No actual execution plans.** `sys.query_store_plan.query_plan` is the compile-time Showplan, equivalent to `SET SHOWPLAN_XML ON`. Actual-plan capture via `LAST_QUERY_PLAN_STATS` remains future work.
 - **Plan-type and Parameter Sensitive Plan variant metadata are not read**, because those catalog fields are not stable across the supported Azure SQL fleet.
 - **Statistics are reported at database level.** Incremental statistics are not expanded into partition-level rows.
@@ -354,7 +357,7 @@ It was rejected because it requires an **outside principal to connect to the FHI
 Secondary benefits of the change:
 
 - plan sanitization moves from T-SQL to C#, where it is more reliable and far easier to test;
-- the persistent SQL surface, the database role, and the schema version all disappear; and
+- no separate external database role is introduced; and
 - results are emitted into telemetry continuously rather than requiring someone to be connected and asking at the moment the problem is happening.
 
 ## Testing requirements
@@ -375,7 +378,7 @@ Secondary benefits of the change:
 2. A query-plan line is emitted for that plan with status `Sanitized`.
 3. Statistics-health rows are emitted for user tables, batched and paginated, with page numbers and totals that account for every collected row.
 4. The watchdog performs no work when the configuration gate is off.
-5. Pre-existing `dbo.Parameters` rows holding stale values are reconciled to the configured values during initialization, so configuration wins on a database that already holds them.
+5. Pre-existing `dbo.Parameters` rows holding stale values do not override the configured periods.
 6. A non-`READ_WRITE` Query Store state is handled without error and without emission.
 7. Wait-statistic unavailability degrades to null wait fields while runtime results are still emitted, and `WaitStatisticsStatus` reports which of the three outcomes occurred.
 8. The watchdog does not report its own Query Store queries.

@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             if (_watchdogConfiguration.QueryStoreDiagnostics.Enabled)
             {
-                tasks.Add(_queryStoreDiagnosticsWatchdog.ExecuteAsync(continuationTokenSource.Token));
+                tasks.Add(_queryStoreDiagnosticsWatchdog.ExecuteAsync(_guid, continuationTokenSource.Token));
             }
 
             await Task.WhenAny(tasks);

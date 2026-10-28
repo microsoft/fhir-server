@@ -61,11 +61,15 @@ The shape is created by `SearchOptionsFactory` from the search scope and the par
 already supplied to the search pipeline. Ordinary searches use `Patient?...`, history searches use
 `Patient/_history?...`, and compartment searches omit the compartment ID and use
 `Patient/$compartment/Observation?...`. Names are sorted using ordinal ordering and repeated names are retained,
-so changing parameter values or query-string order does not change the annotation. Parameter values and
-compartment IDs are never included. Unsafe comment/control characters are replaced, and output longer than 1024
-characters is truncated to 1023 characters plus `~`.
+except that equivalent sort parameters are represented once. Changing ordinary search values or parameter
+ordering does not change the annotation; changing the priority of sort fields does. Ordinary search values and
+compartment IDs are never included. Unsafe comment/control characters are replaced. Output longer than 1024
+characters is truncated and includes `~` followed by a SHA-256 digest of the complete normalized shape.
 
 This SQL generation path is used by ordinary, compartment, and history searches, including the internal
 search phases used by Patient `$everything`. The annotation describes the generated target-resource query
-shape; it does not attempt to identify the originating HTTP operation. Include and reverse-include syntax is
-preserved when those parameter names are present.
+shape; it does not attempt to identify the originating HTTP operation. Validated sort fields are included in
+priority order with explicit `asc:` or `desc:` directions, for example
+`Patient?_sort=desc:_lastUpdated&name`. Count-only searches add `_querymode=count`. These describe the requested
+search options, not a unique physical SQL plan. Include and reverse-include syntax is preserved when those
+parameter names are present, but their values are not included.

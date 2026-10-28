@@ -26,9 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Gets or sets the lease renewal interval, in seconds, used to elect the single replica that collects each
-        /// period. Must be positive: it is handed to the lease timer, which rejects a non-positive value. The
-        /// watchdog base class writes this value into <c>dbo.Parameters</c>, so it is exposed here to keep the
-        /// stored row settable from an environment variable.
+        /// period. The lease timer accepts values from 0.001 through 4294967.294 seconds.
         /// </summary>
         public double LeasePeriodSec { get; set; } = 600;
 

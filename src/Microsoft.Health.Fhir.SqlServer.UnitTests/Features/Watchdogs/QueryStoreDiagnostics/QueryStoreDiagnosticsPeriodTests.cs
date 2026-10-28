@@ -7,14 +7,17 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -39,6 +42,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
         [InlineData(-3600d)]
         [InlineData(double.NaN)]
         [InlineData(double.PositiveInfinity)]
+        [InlineData(0.0001d)]
+        [InlineData(4294968d)]
+        [InlineData(double.MaxValue)]
         public void GivenAnUnusableConfiguredPeriod_WhenConstructed_ThenTheDefaultIsUsedAndTheValueIsReported(double configuredPeriodSec)
         {
             // Arrange
@@ -51,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             // The period must never reach PeriodicTimer in this state: it throws there, which faults this watchdog's
             // task and causes WatchdogsBackgroundService to cancel the token every other watchdog shares.
             Assert.Equal(DefaultPeriodSec, watchdog.PeriodSec);
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(watchdog.PeriodSec));
 
             string warning = Assert.Single(logger.WarningMessages);
             Assert.Contains(Format(configuredPeriodSec), warning, StringComparison.Ordinal);
@@ -61,6 +68,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
         [InlineData(1d)]
         [InlineData(900d)]
         [InlineData(86400d)]
+        [InlineData(0.001d)]
+        [InlineData(4294967.294d)]
         public void GivenAUsableConfiguredPeriod_WhenConstructed_ThenItIsUsedUnchangedAndNothingIsReported(double configuredPeriodSec)
         {
             // Arrange
@@ -71,6 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
 
             // Assert
             Assert.Equal(configuredPeriodSec, watchdog.PeriodSec);
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(watchdog.PeriodSec));
             Assert.Empty(logger.WarningMessages);
         }
 
@@ -95,7 +105,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             Assert.Contains(Format(86400d), warning, StringComparison.Ordinal);
             Assert.Contains(Format(configuredPeriodSec - 86400d), warning, StringComparison.Ordinal);
 
-            // The remedy names the configuration key, because there is no longer a database row to update.
             Assert.Contains(QueryStoreDiagnosticsWatchdog.PeriodSecConfigurationKey, warning, StringComparison.Ordinal);
         }
 
@@ -147,7 +156,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             return new QueryStoreDiagnosticsWatchdog(
                 Substitute.For<ISqlRetryService>(),
                 logger,
-                Options.Create(configuration));
+                Options.Create(configuration),
+                new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max });
         }
 
         // The logging infrastructure formats message arguments with the invariant culture, so expected values are

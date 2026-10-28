@@ -30,9 +30,11 @@ Three things follow from that choice, and each of them reinforced it.
 
 Data leaves by push, as structured log records on the logger the server already writes to, rather than by an inbound query into the data plane. The direction of trust stays the same as it is today.
 
-Plan sanitization moves from T-SQL into C#. There it is unit tested, it matches on element and attribute names rather than on a Showplan namespace that changes between SQL versions, and it fails closed by verifying its own output before anything is emitted.
+Plan sanitization moves from T-SQL into C#. It removes and verifies the absence of the specified Showplan parameter metadata by element and attribute name, independent of the Showplan namespace. Invalid XML and failed verification produce no plan XML. This is not a general PHI or PII scrubber: query text, statement text, other literals, and object names can still contain sensitive information.
 
 Enablement uses the existing configuration surface, so turning diagnostics on in an environment is an ordinary deployment change rather than a database operation.
+
+The watchdog calls five versioned stored procedures using the existing service identity. This replaces the earlier inline SQL design to follow the repository's stored-procedure convention. Separate procedures preserve independent retries and keep a wait-statistics failure from suppressing slow-query records. The tradeoff is a schema migration and a rollout dependency. Schema version 120 installs them. On an older or unknown schema version, collection is skipped and retried on the next tick. A deployment must verify that the service identity can execute the procedures and read the required Query Store and statistics views.
 
 We also decided to emit the diagnostics as logs rather than as metric events. Three reasons, in order of weight.
 
@@ -42,13 +44,11 @@ The data was never metric shaped. Query text is unbounded free text, a sanitized
 
 Logs are also the cheap place to start. If a specific number later turns out to be worth alerting on, promoting it to a metric is a small change. Recovering a throttled metric account is not.
 
-The statistics health rows are the one payload that is batched. They are small, uniform, and free of free text, so several of them fit on one line as a JSON array without any risk of an oversized record. Each line carries its page number, the page count, and the total row count, so a reader can tell a short final page from a set that was cut short. The slow query and plan lines are not batched. Each field there is its own named log property, which is what keeps it queryable as a column, and plan XML is large enough that batching it would risk a single oversized record.
+The statistics health rows are batched as a JSON array. Each line carries its page number, page count, and total row count, so a reader can detect a missing page. The row-count cap does not guarantee a byte limit. Long identifiers can still produce an oversized record. Slow query and plan records are not batched; their named properties remain subject to the destination's mapping and size limits.
 
 We also decided that every setting is set in configuration, and that configuration always wins over `dbo.Parameters`. The first iteration followed the existing watchdog convention of keeping runtime values in that table. That meant an operator had to run an `UPDATE` to arm the feature, and the collection period was read back from the database over the top of the configured value. Both work against the goal: a feature whose purpose is to remove the need for database access should not require a write to the database to switch on, and configuration that is silently overridden by a stored row is not really configuration.
 
-That second problem is sharper than it first appears. `dbo.Parameters` is declared `WITH (IGNORE_DUP_KEY = ON)`, so the base class's seeding `INSERT` is a silent no-op on any database that already holds the row — it neither inserts nor errors — and the value stored on some earlier deployment then wins over the environment variable indefinitely. We reproduced this directly against SQL Server: seeding `3600` and then `60` for the same key reports *"Duplicate key was ignored. (0 rows affected)"* and leaves `3600` in place. A fresh database appears to honor configuration while an upgraded one quietly does not.
-
-An interim iteration avoided the whole mechanism by not deriving from `Watchdog<T>` at all. We reverted that in favor of keeping the shared base class and using `InitAdditionalParamsAsync`, the one initialization step the base class does make overridable, to `UPDATE` both rows to the configured values and re-assign the properties before the timer is built. Configuration is authoritative on every database, the rows become a readable mirror of what the service is running with rather than an input to it, and no shared file is modified. The distributed lease that stops every replica collecting the same data was kept throughout.
+The watchdog uses the shared `AllowDbPeriodOverride` switch to keep configuration authoritative without reading or writing its period rows in `dbo.Parameters`. Existing rows, if any, remain untouched. The watchdog still uses the shared timer and distributed lease.
 
 ## Consequences
 
@@ -56,19 +56,21 @@ An interim iteration avoided the whole mechanism by not deriving from `Watchdog<
 
 - No new principal, role, firewall exception, or credential to provision, rotate, or audit. Nothing outside the service gains data-plane access.
 - Diagnostics are enabled and tuned per environment through normal configuration, including an optional run window, and are off by default.
-- The PHI boundary is enforced in C#, is covered by unit tests, and fails closed rather than emitting an unverified plan.
-- Collection is single-instance through the existing lease, so the emitted lines are not multiplied by replica count.
-- The feature modifies no shared file. It derives from the same `Watchdog<T>` base class as every other watchdog, so it inherits the shared timer, lease orchestration, and any future improvement to them.
+- Parameter metadata removal is covered by unit tests, and a plan that fails verification is not emitted.
+- The existing lease normally coordinates collection across replicas.
+- The watchdog derives from `Watchdog<T>` and uses the shared timer and lease orchestration.
 - Emission costs a log record rather than a charged metric event, so enabling the feature does not add load to the metrics pipeline.
 
 ### Adverse effects
 
 - Diagnostics cannot be pulled on demand. Data appears on the collection period, hourly by default, so an incident is served by data that was already being collected rather than by an engineer asking a question and getting an answer straight away. A run window has to be configured in advance.
+- Query text and sanitized plans can still contain sensitive literals or object names. A deployment must approve the destination, access controls, and retention before enabling collection.
+- The lease does not fence an in-progress collection. Lease loss can lead to overlapping collectors and duplicate log records.
 - Settings bind through `IOptions<T>`, so changing them on a running host requires a restart.
 - Logs are not aggregated for you. Nothing here arrives as a pre-computed time series, so trend questions need a query over the emitted lines rather than a metric chart.
-- This watchdog still writes two rows to `dbo.Parameters`, because the shared base class does so during initialization and we chose to keep that base class rather than fork it. The rows are reconciled to configuration on every start, so they cannot override it, but a reader who inspects the table between a configuration change and the next restart will see values that are briefly out of date.
-- The reconciliation is one extra `UPDATE` per process start. It is wrapped in a catch that logs and continues, because it runs inside the base class's initialization, outside the per-tick catch, where an unhandled throw would fault this watchdog's task and cause `WatchdogsBackgroundService` to cancel every other watchdog with it.
+- Stale period rows from an earlier version remain in `dbo.Parameters`, but the watchdog ignores them. Configuration is the source of the active periods.
 - Collection depends on Query Store being enabled and in `READ_WRITE` state on the database. Otherwise the job reports why it cannot collect and does nothing.
+- Collection also requires schema version 120 and the required SQL permissions. Earlier supported schemas continue to run the service, but do not collect these diagnostics.
 - One piece of pre-existing database state can still suppress collection silently. `dbo.AcquireWatchdogLease` honors watchdog lease include and exclude patterns held in `dbo.Parameters`. A worker excluded by such a row never becomes lease holder, so the feature can be enabled and stay quiet. This applies to every watchdog in the process and is not something this feature sets or reads, but it is the first thing to check on a long-lived database.
 
 ### Neutral effects

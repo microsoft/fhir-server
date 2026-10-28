@@ -10,11 +10,13 @@ using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -171,7 +173,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             watchdog.IsWithinRunWindow(Parse("2026-03-10T00:00:00Z"));
 
             // Assert
-            // Three transitions across six ticks: not open yet, open, closed.
             Assert.Equal(3, logger.InformationMessages.Count);
             Assert.Contains("has not opened yet", logger.InformationMessages[0], StringComparison.Ordinal);
             Assert.Contains("within the configured run window", logger.InformationMessages[1], StringComparison.Ordinal);
@@ -270,7 +271,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             var watchdog = new QueryStoreDiagnosticsWatchdog(
                 Substitute.For<ISqlRetryService>(),
                 logger,
-                Options.Create(configuration));
+                Options.Create(configuration),
+                new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max });
 
             // Constructing the watchdog constructs its WatchdogLease, which logs through this same logger, so
             // construction is not silent. Dropping that here keeps every assertion below a statement about what the

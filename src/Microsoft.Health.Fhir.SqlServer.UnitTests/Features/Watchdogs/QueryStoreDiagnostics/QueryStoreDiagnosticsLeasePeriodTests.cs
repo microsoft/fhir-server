@@ -7,12 +7,15 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -38,6 +41,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
         [InlineData(-600d)]
         [InlineData(double.NaN)]
         [InlineData(double.PositiveInfinity)]
+        [InlineData(0.0001d)]
+        [InlineData(4294968d)]
+        [InlineData(double.MaxValue)]
         public void GivenAnUnusableConfiguredLeasePeriod_WhenConstructed_ThenTheDefaultIsUsedAndTheValueIsReported(double configuredLeasePeriodSec)
         {
             // Arrange
@@ -50,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             // The lease period must never reach PeriodicTimer in this state: it throws there, which faults this
             // watchdog's task and causes WatchdogsBackgroundService to cancel the token every other watchdog shares.
             Assert.Equal(DefaultLeasePeriodSec, watchdog.LeasePeriodSec);
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(watchdog.LeasePeriodSec));
 
             string warning = Assert.Single(logger.WarningMessages);
             Assert.Contains(Format(configuredLeasePeriodSec), warning, StringComparison.Ordinal);
@@ -62,6 +69,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
         [InlineData(300d)]
         [InlineData(600d)]
         [InlineData(3600d)]
+        [InlineData(0.001d)]
+        [InlineData(4294967.294d)]
         public void GivenAUsableConfiguredLeasePeriod_WhenConstructed_ThenItIsUsedUnchangedAndNothingIsReported(double configuredLeasePeriodSec)
         {
             // Arrange
@@ -72,6 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
 
             // Assert
             Assert.Equal(configuredLeasePeriodSec, watchdog.LeasePeriodSec);
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(watchdog.LeasePeriodSec));
             Assert.Empty(logger.WarningMessages);
         }
 
@@ -87,7 +97,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             return new QueryStoreDiagnosticsWatchdog(
                 Substitute.For<ISqlRetryService>(),
                 logger,
-                Options.Create(configuration));
+                Options.Create(configuration),
+                new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max });
         }
 
         // The logging infrastructure formats message arguments with the invariant culture, so expected values are

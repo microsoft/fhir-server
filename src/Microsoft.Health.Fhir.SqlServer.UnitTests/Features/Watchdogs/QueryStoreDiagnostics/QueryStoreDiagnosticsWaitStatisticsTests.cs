@@ -12,12 +12,14 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models;
 using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -33,10 +35,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
     [Trait(Traits.Category, Categories.Operations)]
     public class QueryStoreDiagnosticsWaitStatisticsTests
     {
-        private const int DeadlockErrorNumber = 1205;
-
-        [Fact]
-        public async Task GivenAFailingWaitStatisticsRead_WhenCollecting_ThenSlowQueriesAreLoggedWithFailedWaitStatus()
+        [Theory]
+        [InlineData(1205, "wait statistics could not be read")]
+        [InlineData(2812, "wait statistics stored procedure is missing")]
+        public async Task GivenAFailingWaitStatisticsRead_WhenCollecting_ThenSlowQueriesAreLoggedWithFailedWaitStatus(int errorNumber, string expectedWarning)
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -78,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
                     Arg.Any<CancellationToken>(),
                     Arg.Any<bool>())
                 .Returns<IReadOnlyList<QueryStoreDiagnosticsWatchdog.WaitStatistics>>(
-                    _ => throw SqlExceptionFactory.GetSqlException(DeadlockErrorNumber, "Transaction was deadlocked on lock resources."));
+                    _ => throw SqlExceptionFactory.GetSqlException(errorNumber, "Wait statistics read failed."));
 
             QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(sqlRetryService, logger);
 
@@ -106,7 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             // someone who thought to look at the status field.
             Assert.Contains(
                 logger.WarningMessages,
-                message => message.Contains("wait statistics could not be read", StringComparison.Ordinal));
+                message => message.Contains(expectedWarning, StringComparison.Ordinal));
         }
 
         private static QueryStoreDiagnosticsWatchdog CreateWatchdog(ISqlRetryService sqlRetryService, ILogger<QueryStoreDiagnosticsWatchdog> logger)
@@ -124,7 +126,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             return new QueryStoreDiagnosticsWatchdog(
                 sqlRetryService,
                 logger,
-                Options.Create(configuration));
+                Options.Create(configuration),
+                new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max });
         }
 
         /// <summary>

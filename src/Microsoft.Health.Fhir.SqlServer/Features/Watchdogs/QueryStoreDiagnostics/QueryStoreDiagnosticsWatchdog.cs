@@ -15,21 +15,15 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models;
+using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics
 {
     /// <summary>
-    /// Collects Azure SQL Query Store and statistics diagnostics on a timer and emits them as structured log lines.
-    /// Logs rather than metric events: the payload is not metric-shaped — query text and plan XML are unbounded
-    /// free text and wait categories are high cardinality — and metric events are charged on receipt, which
-    /// <c>docs/arch/adr-2605-metric-emission-rate-limiting.md</c> records as having throttled a shared metric
-    /// account. Derives from <see cref="Watchdog{T}"/> for its timer and its single-replica lease, and so accepts
-    /// the two <c>dbo.Parameters</c> rows the base class seeds for its period and lease period. Configuration stays
-    /// authoritative over those rows: the base class re-reads them over the configured values during
-    /// initialization, and <see cref="InitAdditionalParamsAsync"/> is overridden to reconcile them back to
-    /// configuration before the timer starts, so an environment variable always wins over a stale stored row.
+    /// Collects Azure SQL Query Store and statistics diagnostics on a timer and emits them as structured logs.
     /// </summary>
     internal sealed class QueryStoreDiagnosticsWatchdog : Watchdog<QueryStoreDiagnosticsWatchdog>
     {
@@ -47,18 +41,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         /// </summary>
         internal const string LeasePeriodSecConfigurationKey = "FhirServer:Watchdog:QueryStoreDiagnostics:LeasePeriodSec";
 
-        /// <summary>
-        /// The statement that reconciles the two <c>dbo.Parameters</c> rows the base class seeds — the period and the
-        /// lease period — back to the configured values. An <c>UPDATE</c> rather than an <c>INSERT</c> on purpose:
-        /// the base class's seeding <c>INSERT</c> already guarantees the rows exist, and <c>dbo.Parameters</c> carries
-        /// <c>IGNORE_DUP_KEY = ON</c>, so a re-<c>INSERT</c> of an existing row is silently ignored and would leave a
-        /// stale value overriding configuration. Exposed as internal so a unit test can pin that shape without a
-        /// database, because the reconciliation is otherwise only exercised against a live one.
-        /// </summary>
-        internal const string ReconcileParametersSql = @"
-UPDATE dbo.Parameters SET Number = @PeriodSec WHERE Id = @PeriodSecId
-UPDATE dbo.Parameters SET Number = @LeasePeriodSec WHERE Id = @LeasePeriodSecId";
-
         /// <summary>Wait statistics were read for the plan.</summary>
         internal const string WaitStatisticsAvailableStatus = "Available";
 
@@ -74,6 +56,9 @@ UPDATE dbo.Parameters SET Number = @LeasePeriodSec WHERE Id = @LeasePeriodSecId"
         /// <summary>The lease renewal interval used when configuration does not supply a usable one.</summary>
         private const double DefaultLeasePeriodSec = 600;
 
+        private const double MinTimerPeriodSec = 0.001;
+        private const double MaxTimerPeriodSec = 4294967.294;
+
         /// <summary>
         /// The statistics-health batch size used when configuration does not supply a usable one. Mirrors the class
         /// default on <see cref="QueryStoreDiagnosticsConfiguration.StatisticsHealthBatchSize"/>.
@@ -81,11 +66,7 @@ UPDATE dbo.Parameters SET Number = @LeasePeriodSec WHERE Id = @LeasePeriodSecId"
         private const int DefaultStatisticsHealthBatchSize = 20;
 
         /// <summary>
-        /// The largest number of statistics rows packed into one log line. Batching exists to reduce record count,
-        /// but an unbounded batch would recreate the single oversized record that is the reason plan XML is not
-        /// batched at all. A typical serialized row is a little under 400 bytes, so this keeps a full page well
-        /// inside the <see cref="MaxFieldLength"/> budget the feature already applies to its other large fields.
-        /// Rows above the cap are not dropped; they move to the next page.
+        /// The largest number of statistics rows packed into one log line. This limits row count, not byte size.
         /// </summary>
         private const int MaxStatisticsHealthBatchSize = 64;
 
@@ -95,170 +76,10 @@ UPDATE dbo.Parameters SET Number = @LeasePeriodSec WHERE Id = @LeasePeriodSecId"
         /// <summary>The longest lookback window a collection is allowed to use.</summary>
         private const double MaxLookbackPeriodSec = 86400;
 
-        private const string QueryStoreStateSql = @"
--- readonly_reason is a bitmask, and it is int here while neighbouring Query Store columns (query_id, plan_id,
--- count_executions, rows, rows_sampled, modification_counter) are bigint. That inconsistency is the trap: reading
--- this column with GetInt64 throws InvalidCastException at runtime, which no compiler or unit test will catch.
-SELECT actual_state_desc, readonly_reason
-FROM sys.database_query_store_options;";
-
-        private const string SlowQueriesSql = @"
--- Query Store duration and CPU values are recorded in MICROSECONDS while the emitted contract is in MILLISECONDS,
--- which is what every /1000.0 below is for. Query Store also stores PER-INTERVAL averages, so combining intervals
--- requires weighting each interval average by its count_executions first; an unweighted mean across intervals with
--- unequal execution counts is mathematically wrong.
-;WITH PlanRuntimeStatistics AS
-(
-    SELECT
-        runtimeStatistics.plan_id,
-        SUM(runtimeStatistics.count_executions) AS execution_count,
-        SUM(CONVERT(float, runtimeStatistics.avg_duration) * runtimeStatistics.count_executions) AS total_duration_microseconds,
-        MAX(CONVERT(float, runtimeStatistics.max_duration)) AS max_duration_microseconds,
-        SUM(CONVERT(float, runtimeStatistics.avg_cpu_time) * runtimeStatistics.count_executions) AS total_cpu_microseconds,
-        SUM(CONVERT(float, runtimeStatistics.avg_logical_io_reads) * runtimeStatistics.count_executions) AS total_logical_reads,
-        MIN(runtimeStatisticsInterval.start_time) AS interval_start,
-        MAX(runtimeStatisticsInterval.end_time) AS interval_end
-    FROM sys.query_store_runtime_stats AS runtimeStatistics
-    INNER JOIN sys.query_store_runtime_stats_interval AS runtimeStatisticsInterval
-        ON runtimeStatistics.runtime_stats_interval_id = runtimeStatisticsInterval.runtime_stats_interval_id
-    WHERE runtimeStatisticsInterval.end_time >= @StartTime
-        AND runtimeStatistics.execution_type = 0 -- regular completed executions only
-    GROUP BY runtimeStatistics.plan_id
-)
-SELECT TOP (@Top)
-    queryStoreQuery.query_id,
-    queryStorePlan.plan_id,
-    runtimeRollup.execution_count,
-    runtimeRollup.total_duration_microseconds / 1000.0 AS total_duration_milliseconds,
-    runtimeRollup.total_duration_microseconds / runtimeRollup.execution_count / 1000.0 AS average_duration_milliseconds,
-    runtimeRollup.max_duration_microseconds / 1000.0 AS max_duration_milliseconds,
-    runtimeRollup.total_cpu_microseconds / 1000.0 AS total_cpu_milliseconds,
-    runtimeRollup.total_cpu_microseconds / runtimeRollup.execution_count / 1000.0 AS average_cpu_milliseconds,
-    runtimeRollup.total_logical_reads,
-    runtimeRollup.total_logical_reads / runtimeRollup.execution_count AS average_logical_reads,
-    queryText.query_sql_text,
-    runtimeRollup.interval_start,
-    runtimeRollup.interval_end
--- 'statistics' is a RESERVED T-SQL keyword and cannot be used as a table alias, which is why the rollup CTE is
--- aliased runtimeRollup rather than statistics.
-FROM PlanRuntimeStatistics AS runtimeRollup
-INNER JOIN sys.query_store_plan AS queryStorePlan
-    ON runtimeRollup.plan_id = queryStorePlan.plan_id
-INNER JOIN sys.query_store_query AS queryStoreQuery
-    ON queryStorePlan.query_id = queryStoreQuery.query_id
-INNER JOIN sys.query_store_query_text AS queryText
-    ON queryStoreQuery.query_text_id = queryText.query_text_id
-WHERE runtimeRollup.execution_count > 0
-    AND runtimeRollup.total_duration_microseconds / runtimeRollup.execution_count / 1000.0 >= @MinDurationMilliseconds
-    -- Query Store does NOT preserve comments in query_sql_text, so a marker comment cannot be used to identify a
-    -- statement. The watchdog therefore excludes its own statements by catalog name, and the integration tests
-    -- identify their probe query by a GUID-derived result-column alias, which Query Store does preserve.
-    -- The explicit case-insensitive collation also keeps the comparison correct on case-sensitive databases.
-    AND queryText.query_sql_text COLLATE Latin1_General_CI_AS NOT LIKE N'%query_store%'
-    AND queryText.query_sql_text COLLATE Latin1_General_CI_AS NOT LIKE N'%dm_db_stats_properties%'
-ORDER BY
-    runtimeRollup.total_duration_microseconds DESC,
-    queryStoreQuery.query_id,
-    queryStorePlan.plan_id;";
-
-        private const string WaitStatisticsSql = @"
--- Wait statistics are collected independently so unavailable wait capture does not suppress the slow-query lines.
-;WITH WaitsByCategory AS
-(
-    SELECT
-        waitStatistics.plan_id,
-        waitStatistics.wait_category_desc,
-        SUM(CONVERT(float, waitStatistics.total_query_wait_time_ms)) AS total_wait_milliseconds
-    FROM sys.query_store_wait_stats AS waitStatistics
-    INNER JOIN sys.query_store_runtime_stats_interval AS runtimeStatisticsInterval
-        ON waitStatistics.runtime_stats_interval_id = runtimeStatisticsInterval.runtime_stats_interval_id
-    WHERE runtimeStatisticsInterval.end_time >= @StartTime
-        AND waitStatistics.execution_type = 0 -- regular completed executions only
-        AND waitStatistics.plan_id IN
-        (
-            SELECT CONVERT(bigint, [value])
-            FROM STRING_SPLIT(@PlanIds, ',')
-        )
-    GROUP BY waitStatistics.plan_id, waitStatistics.wait_category_desc
-),
-RankedWaits AS
-(
-    SELECT
-        plan_id,
-        SUM(total_wait_milliseconds) OVER (PARTITION BY plan_id) AS total_wait_milliseconds,
-        wait_category_desc,
-        ROW_NUMBER() OVER
-        (
-            PARTITION BY plan_id
-            ORDER BY total_wait_milliseconds DESC, wait_category_desc
-        ) AS wait_category_rank
-    FROM WaitsByCategory
-)
-SELECT plan_id, total_wait_milliseconds, wait_category_desc
-FROM RankedWaits
-WHERE wait_category_rank = 1;";
-
-        private const string QueryPlansSql = @"
-SELECT plan_id, query_plan
-FROM sys.query_store_plan
-WHERE plan_id IN
-(
-    SELECT CONVERT(bigint, [value])
-    FROM STRING_SPLIT(@PlanIds, ',')
-);";
-
-        private const string StatisticsHealthSql = @"
-SELECT TOP (@Top)
-    SCHEMA_NAME(queryObject.schema_id) AS schema_name,
-    queryObject.name AS table_name,
-    statisticsObject.name AS statistics_name,
-    TODATETIMEOFFSET(statisticsProperties.last_updated, '+00:00') AS last_updated,
-    statisticsProperties.rows,
-    statisticsProperties.rows_sampled,
-    statisticsProperties.modification_counter,
-    CASE
-        WHEN statisticsProperties.rows IS NULL OR statisticsProperties.rows = 0 THEN NULL
-        ELSE CONVERT(float, statisticsProperties.modification_counter) * 100.0 / statisticsProperties.rows
-    END AS modification_percent,
-    statisticsObject.auto_created,
-    statisticsObject.user_created,
-    CONVERT(bit, CASE WHEN queryIndex.index_id IS NULL THEN 0 ELSE 1 END) AS is_from_index,
-    statisticsObject.has_filter
--- 'statistics' is a RESERVED T-SQL keyword and cannot be used as a table alias, which is why sys.stats is
--- aliased statisticsObject rather than statistics.
-FROM sys.stats AS statisticsObject
-INNER JOIN sys.objects AS queryObject
-    ON statisticsObject.object_id = queryObject.object_id
-INNER JOIN sys.tables AS queryTable
-    ON queryObject.object_id = queryTable.object_id
-LEFT JOIN sys.indexes AS queryIndex
-    ON statisticsObject.object_id = queryIndex.object_id
-        AND statisticsObject.stats_id = queryIndex.index_id
-OUTER APPLY sys.dm_db_stats_properties(statisticsObject.object_id, statisticsObject.stats_id) AS statisticsProperties
-WHERE queryObject.is_ms_shipped = 0
-    AND queryObject.type = 'U'
-    AND queryTable.temporal_type <> 1 -- exclude temporal history tables
-ORDER BY
-    CASE
-        WHEN statisticsProperties.rows IS NULL OR statisticsProperties.rows = 0 THEN NULL
-        ELSE CONVERT(float, statisticsProperties.modification_counter) / statisticsProperties.rows
-    END DESC,
-    statisticsProperties.modification_counter DESC,
-    SCHEMA_NAME(queryObject.schema_id),
-    queryObject.name,
-    statisticsObject.name;";
-
         private readonly QueryStoreDiagnosticsConfiguration _configuration;
         private readonly ILogger<QueryStoreDiagnosticsWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
-
-        // The validated collection interval and lease renewal interval, resolved from configuration once at
-        // construction. Held separately from the PeriodSec and LeasePeriodSec properties because the base class
-        // overwrites those properties with the values it reads back out of dbo.Parameters during initialization;
-        // InitAdditionalParamsAsync reconciles the table and the properties back to these fields so configuration
-        // stays authoritative.
-        private readonly double _effectivePeriodSec;
-        private readonly double _effectiveLeasePeriodSec;
+        private readonly SchemaInformation _schemaInformation;
 
         // The run-window state observed on the previous tick, used to log only when the state changes. Null until the
         // first observation, so that the state a process starts in is always reported once and an operator never has
@@ -270,56 +91,53 @@ ORDER BY
         public QueryStoreDiagnosticsWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<QueryStoreDiagnosticsWatchdog> logger,
-            IOptions<WatchdogConfiguration> watchdogConfiguration)
+            IOptions<WatchdogConfiguration> watchdogConfiguration,
+            SchemaInformation schemaInformation)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration)).QueryStoreDiagnostics;
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
-            // PeriodSec reaches PeriodicTimer through the base class timer (Watchdog<T>.ExecuteAsync ->
-            // FhirTimer.ExecuteAsync -> new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec))), which rejects a
-            // non-positive period. That rejection is not contained: it faults this watchdog's task, and
-            // WatchdogsBackgroundService cancels the token shared by every watchdog as soon as one of their tasks
-            // completes — so a single mistyped value in an off-by-default diagnostics feature would still take the
-            // transaction and cleanup watchdogs down with it. A diagnostics feature degrades instead of failing the
-            // host: keep the class default and name the rejected value. Non-finite values are rejected on the same
-            // grounds, because TimeSpan.FromSeconds rejects them for the same reason and with the same blast radius.
-            if (_configuration.PeriodSec > 0 && double.IsFinite(_configuration.PeriodSec))
+            // PeriodicTimer accepts periods from one millisecond through 4,294,967,294 milliseconds.
+            if (_configuration.PeriodSec >= MinTimerPeriodSec && _configuration.PeriodSec <= MaxTimerPeriodSec)
             {
-                _effectivePeriodSec = _configuration.PeriodSec;
+                PeriodSec = _configuration.PeriodSec;
             }
             else
             {
-                _effectivePeriodSec = DefaultPeriodSec;
+                PeriodSec = DefaultPeriodSec;
                 _logger.LogWarning(
-                    "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec}, which is not a usable collection interval. Falling back to {FallbackPeriodSec} seconds. Configure a positive value in '{PeriodSecConfigurationKey}' to change the interval.",
+                    "QueryStoreDiagnosticsWatchdog: configured PeriodSec is {ConfiguredPeriodSec}, which is not a usable collection interval. Falling back to {FallbackPeriodSec} seconds. Configure '{PeriodSecConfigurationKey}' between {MinTimerPeriodSec} and {MaxTimerPeriodSec} seconds.",
                     _configuration.PeriodSec,
                     DefaultPeriodSec,
-                    PeriodSecConfigurationKey);
+                    PeriodSecConfigurationKey,
+                    MinTimerPeriodSec,
+                    MaxTimerPeriodSec);
             }
 
-            // The lease renewal interval reaches PeriodicTimer through the base class the same way the period does,
-            // and a non-positive or non-finite value faults the watchdog with the same shared-token blast radius, so
-            // it is validated identically and falls back to the class default rather than failing the host.
-            if (_configuration.LeasePeriodSec > 0 && double.IsFinite(_configuration.LeasePeriodSec))
+            if (_configuration.LeasePeriodSec >= MinTimerPeriodSec && _configuration.LeasePeriodSec <= MaxTimerPeriodSec)
             {
-                _effectiveLeasePeriodSec = _configuration.LeasePeriodSec;
+                LeasePeriodSec = _configuration.LeasePeriodSec;
             }
             else
             {
-                _effectiveLeasePeriodSec = DefaultLeasePeriodSec;
+                LeasePeriodSec = DefaultLeasePeriodSec;
                 _logger.LogWarning(
-                    "QueryStoreDiagnosticsWatchdog: configured LeasePeriodSec is {ConfiguredLeasePeriodSec}, which is not a usable lease renewal interval. Falling back to {FallbackLeasePeriodSec} seconds. Configure a positive value in '{LeasePeriodSecConfigurationKey}' to change the interval.",
+                    "QueryStoreDiagnosticsWatchdog: configured LeasePeriodSec is {ConfiguredLeasePeriodSec}, which is not a usable lease renewal interval. Falling back to {FallbackLeasePeriodSec} seconds. Configure '{LeasePeriodSecConfigurationKey}' between {MinTimerPeriodSec} and {MaxTimerPeriodSec} seconds.",
                     _configuration.LeasePeriodSec,
                     DefaultLeasePeriodSec,
-                    LeasePeriodSecConfigurationKey);
+                    LeasePeriodSecConfigurationKey,
+                    MinTimerPeriodSec,
+                    MaxTimerPeriodSec);
             }
 
-            // Assigned here as well as in InitAdditionalParamsAsync so a unit test that never calls ExecuteAsync —
-            // and so never runs base initialization — still observes the configured values on these properties.
-            PeriodSec = _effectivePeriodSec;
-            LeasePeriodSec = _effectiveLeasePeriodSec;
+            AllowDbPeriodOverride = false;
+            if (_configuration.Enabled)
+            {
+                ReportConfiguredRunWindow();
+            }
         }
 
         /// <summary>
@@ -340,16 +158,12 @@ ORDER BY
         }
 
         /// <summary>
-        /// Gets or sets the interval, in seconds, between collections. Overrides the base class property so the base
-        /// timer uses it; set from configuration at construction and reconciled back to configuration in
-        /// <see cref="InitAdditionalParamsAsync"/> after the base class reads it out of <c>dbo.Parameters</c>.
+        /// Gets or sets the interval, in seconds, between collections.
         /// </summary>
         public override double PeriodSec { get; internal set; }
 
         /// <summary>
-        /// Gets or sets the lease renewal interval, in seconds. Overrides the base class property so the base lease
-        /// uses it; set from configuration at construction and reconciled back to configuration in
-        /// <see cref="InitAdditionalParamsAsync"/> after the base class reads it out of <c>dbo.Parameters</c>.
+        /// Gets or sets the lease renewal interval, in seconds.
         /// </summary>
         public override double LeasePeriodSec { get; internal set; }
 
@@ -365,75 +179,6 @@ ORDER BY
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         internal Task RunWorkForTestingAsync(CancellationToken cancellationToken) => RunWorkAsync(cancellationToken);
-
-        /// <summary>
-        /// Reconciles the two <c>dbo.Parameters</c> rows the base class seeds — the period and the lease period — back
-        /// to configuration, and reports the configured run window. Runs after the base class has seeded those rows
-        /// and read them back over the configured values, and before the base class starts the timer, so the values
-        /// the timer and the lease run at are the configured ones.
-        /// <para>
-        /// This override is the mechanism that keeps configuration authoritative. <c>dbo.Parameters</c> has
-        /// <c>PRIMARY KEY CLUSTERED (Id) WITH (IGNORE_DUP_KEY = ON)</c>, so on a database that already holds these
-        /// rows the base class's seeding <c>INSERT</c> is a silent no-op — it neither inserts nor errors — and the
-        /// base class then reads the stale stored value back over the configured one. Without this override an
-        /// environment variable would be silently overridden by whatever was first stored. The <c>UPDATE</c> forces
-        /// the stored rows to the configured values, so the table stays an accurate mirror of configuration rather
-        /// than a misleading stale copy, and the properties are then re-assigned to undo the base class's read-back.
-        /// An <c>UPDATE</c> is used rather than an <c>INSERT</c> precisely because <c>IGNORE_DUP_KEY</c> would make a
-        /// re-<c>INSERT</c> a no-op; the base class's seeding <c>INSERT</c> already guarantees the rows exist by the
-        /// time this hook runs.
-        /// </para>
-        /// <para>
-        /// A failure of the reconciling <c>UPDATE</c> is reported and swallowed. This hook runs inside the base
-        /// class's initialization, before and outside the per-tick catch, so a throw here would fault this
-        /// watchdog's task and cause <c>WatchdogsBackgroundService</c> to cancel every other watchdog with it. The
-        /// property assignments that make configuration authoritative are therefore performed outside the try, so
-        /// that the functional guarantee does not depend on the cosmetic one.
-        /// </para>
-        /// </summary>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        protected override async Task InitAdditionalParamsAsync()
-        {
-            try
-            {
-                await using var cmd = new SqlCommand(ReconcileParametersSql);
-                cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
-                cmd.Parameters.AddWithValue("@PeriodSec", _effectivePeriodSec);
-                cmd.Parameters.AddWithValue("@LeasePeriodSecId", LeasePeriodSecId);
-                cmd.Parameters.AddWithValue("@LeasePeriodSec", _effectiveLeasePeriodSec);
-                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None, "InitAdditionalParamsAsync failed.");
-            }
-            catch (Exception exception)
-            {
-                // Reported and swallowed rather than propagated, and deliberately so. This runs inside
-                // Watchdog<T>.ExecuteAsync's initialization, which is before and outside FhirTimer's per-tick catch,
-                // so a throw here faults this watchdog's task — and WatchdogsBackgroundService cancels the token
-                // shared by EVERY watchdog as soon as one task completes. Letting an off-by-default diagnostics
-                // feature fail the transaction and cleanup watchdogs over a cosmetic row update is the wrong trade.
-                // Nothing about the collection depends on the update succeeding: the rows are a mirror of
-                // configuration, not an input to it, and the assignments below make configuration authoritative in
-                // this process whether or not the mirror was written. The cost of failure is a stale pair of rows
-                // that disagree with the running configuration, which is what this warning names.
-                _logger.LogWarning(
-                    exception,
-                    "{WatchdogName}: could not reconcile the {PeriodSecId} and {LeasePeriodSecId} rows in dbo.Parameters to the configured values. Collection is unaffected and continues to run at the configured period, but those rows may now disagree with configuration and should not be read as the values in use.",
-                    Name,
-                    PeriodSecId,
-                    LeasePeriodSecId);
-            }
-
-            // Undo the base class's read-back of the (now reconciled) stored values, so the properties match
-            // configuration exactly even if the UPDATE and a concurrent write were to race.
-            PeriodSec = _effectivePeriodSec;
-            LeasePeriodSec = _effectiveLeasePeriodSec;
-
-            // Reported once per process rather than once per tick, and from here — after seeding, before the timer
-            // starts — because that is where the base class initialization lifecycle now provides a single hook. A
-            // mistyped window collects nothing and raises nothing, which is indistinguishable from a window that has
-            // simply not opened yet, so it has to be stated at startup; repeating it hourly for the weeks until the
-            // window was meant to open would bury it.
-            ReportConfiguredRunWindow();
-        }
 
         /// <summary>
         /// Reports the configured run window at startup: a window that can never open as a warning, and any
@@ -620,6 +365,15 @@ ORDER BY
                     return;
                 }
 
+                if (!_schemaInformation.Current.HasValue || _schemaInformation.Current.Value < SchemaVersionConstants.QueryStoreDiagnosticsVersion)
+                {
+                    _logger.LogWarning(
+                        "QueryStoreDiagnosticsWatchdog: diagnostics require schema version {RequiredSchemaVersion} or later; the current version is {CurrentSchemaVersion}. Collection will retry on the next tick after the schema is available.",
+                        SchemaVersionConstants.QueryStoreDiagnosticsVersion,
+                        _schemaInformation.Current);
+                    return;
+                }
+
                 var lookbackPeriodSec = GetLookbackPeriodSec(PeriodSec);
                 var startTime = collectionTime.AddSeconds(-lookbackPeriodSec);
                 var queryStoreState = await GetQueryStoreStateAsync(cancellationToken);
@@ -653,7 +407,11 @@ ORDER BY
                 // partial tick as well as of one that emitted nothing.
                 _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: collection was aborted because a required Query Store or statistics view is unavailable. Any diagnostics already emitted during this collection were still logged.");
             }
-            catch (SqlException ex) when (ex.Number == 229 || ex.Number == 262)
+            catch (SqlException ex) when (ex.Number == 2812)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: a required diagnostics stored procedure is missing. Verify that schema version {RequiredSchemaVersion} is fully installed. Any diagnostics already emitted during this collection were still logged.", SchemaVersionConstants.QueryStoreDiagnosticsVersion);
+            }
+            catch (SqlException ex) when (ex.Number == 229 || ex.Number == 262 || ex.Number == 297 || ex.Number == 300)
             {
                 _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: SQL permissions do not allow diagnostics collection.");
             }
@@ -759,13 +517,13 @@ ORDER BY
 
         private async Task<QueryStoreState> GetQueryStoreStateAsync(CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand(QueryStoreStateSql);
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsState") { CommandType = CommandType.StoredProcedure };
 
             // Every diagnostics read binds to the primary: isReadOnly would route to a read-only secondary when
             // SupportsSqlReplicas is on, and Query Store state is primary-scoped, so a secondary reports READ_ONLY
             // and the state gate below would silently disable collection forever. Replica routing is also decided
             // per call, so the state check and the data reads could otherwise land on different servers and produce
-            // torn results. The cost is negligible: one collection per period, hourly by default.
+            // torn results.
             var states = await _sqlRetryService.ExecuteReaderAsync(
                 command,
                 reader => new QueryStoreState(
@@ -780,7 +538,7 @@ ORDER BY
 
         private async Task<IReadOnlyList<SlowQueryResult>> GetSlowQueriesAsync(DateTimeOffset startTime, CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand(SlowQueriesSql);
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsSlowQueries") { CommandType = CommandType.StoredProcedure };
             var minDurationMilliseconds = Math.Max(0, _configuration.MinDurationMilliseconds);
             if (_configuration.MinDurationMilliseconds < 0)
             {
@@ -831,7 +589,7 @@ ORDER BY
 
             try
             {
-                await using var command = new SqlCommand(WaitStatisticsSql);
+                await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsWaitStatistics") { CommandType = CommandType.StoredProcedure };
                 command.Parameters.Add("@StartTime", SqlDbType.DateTimeOffset).Value = startTime;
                 command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
 
@@ -847,6 +605,11 @@ ORDER BY
 
                 return (waits.ToDictionary(wait => wait.PlanId), false);
             }
+            catch (SqlException ex) when (ex.Number == 2812)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the wait statistics stored procedure is missing. Verify that schema version {RequiredSchemaVersion} is fully installed. Wait fields will be empty.", SchemaVersionConstants.QueryStoreDiagnosticsVersion);
+                return (new Dictionary<long, WaitStatistics>(), true);
+            }
             catch (SqlException ex)
             {
                 // SqlException is caught broadly on purpose: a transient wait-query failure must never abort the tick
@@ -860,7 +623,7 @@ ORDER BY
 
         private async Task<int> EmitQueryPlansAsync(IReadOnlyList<SlowQueryResult> slowQueries, CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand(QueryPlansSql);
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsPlans") { CommandType = CommandType.StoredProcedure };
             command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
 
             var plans = await _sqlRetryService.ExecuteReaderAsync(
@@ -915,11 +678,9 @@ ORDER BY
 
         private async Task<int> EmitStatisticsHealthAsync(CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand(StatisticsHealthSql);
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsStatisticsHealth") { CommandType = CommandType.StoredProcedure };
             command.Parameters.Add("@Top", SqlDbType.Int).Value = _configuration.StatisticsHealthCount;
 
-            // The reader projects straight into the emitted payload shape: an intermediate DTO here would be a
-            // property-for-property copy of it and nothing else.
             var statisticsHealth = await _sqlRetryService.ExecuteReaderAsync(
                 command,
                 reader => new StatisticsHealthDiagnostics
@@ -947,12 +708,7 @@ ORDER BY
         }
 
         /// <summary>
-        /// Emits the collected statistics rows as JSON batches, one log line per page. Batched where the slow-query
-        /// and plan payloads are not because these rows are small, uniform and free of free text, so a batch has a
-        /// predictable size; a batch of plan XML could not make that promise and would risk one oversized record.
-        /// The cost of batching is that the rows are a serialized blob rather than queryable columns, which is
-        /// affordable here precisely because the fields are uniform and cheap to re-parse. Exposed as internal only
-        /// for unit testing.
+        /// Emits the collected statistics rows as JSON batches, one log line per page.
         /// </summary>
         /// <param name="statisticsHealth">The collected rows, already capped at StatisticsHealthCount.</param>
         internal void LogStatisticsHealthBatches(IReadOnlyList<StatisticsHealthDiagnostics> statisticsHealth)

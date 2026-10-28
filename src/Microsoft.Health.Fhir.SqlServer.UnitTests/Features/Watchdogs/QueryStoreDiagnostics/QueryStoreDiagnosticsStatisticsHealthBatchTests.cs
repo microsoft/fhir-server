@@ -11,11 +11,13 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnostics.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -62,7 +64,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
         public void GivenAPartialFinalPage_WhenEmitting_ThenTheLastLineReportsOnlyTheRowsItCarries()
         {
             // Arrange
-            // Twelve rows at a batch size of five is two full pages and a final page of two.
             var logger = new CapturingLogger();
             QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(logger, batchSize: 5);
 
@@ -216,7 +217,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
             return new QueryStoreDiagnosticsWatchdog(
                 Substitute.For<ISqlRetryService>(),
                 logger,
-                Options.Create(configuration));
+                Options.Create(configuration),
+                new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max });
         }
 
         /// <summary>
