@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return;
         }
 
-        internal void InitializeJobHosting(IQueueClient queueClient)
+        internal void InitializeJobHosting(IQueueClient queueClient, IJob fallbackJob = null)
         {
             _queueClient = queueClient;
 
@@ -202,8 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _jobFactory = Substitute.For<IJobFactory>();
                 _jobFactory.Create(Arg.Any<JobInfo>()).Returns(info =>
                 {
-                    // AsyncLocal flows into child tasks; each job must replace its inherited context.
-                    _fixture.FhirRequestContextAccessor.RequestContext = FhirStorageTestRequestContextAccessor.CreateRequestContext();
+                    _fixture.FhirRequestContextAccessor.RequestContext = null;
                     var jobInfo = info.ArgAt<JobInfo>(0);
 
                     // Deserialize the job definition to get the TypeId
@@ -247,14 +246,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                     else
                     {
-                        // Fallback to a default mock
-                        job = Substitute.For<IJob>();
-                        job.ExecuteAsync(Arg.Any<JobInfo>(), Arg.Any<CancellationToken>())
-                            .Returns(Task.FromResult("Success"));
+                        job = fallbackJob;
+                        if (job == null)
+                        {
+                            job = Substitute.For<IJob>();
+                            job.ExecuteAsync(Arg.Any<JobInfo>(), Arg.Any<CancellationToken>())
+                                .Returns(Task.FromResult("Success"));
+                        }
                     }
 
                     var scopedJob = Substitute.For<IScoped<IJob>>();
-                    scopedJob.Value.Returns(job);
+                    scopedJob.Value.Returns(new JobWithRequestContext(job, _fixture.FhirRequestContextAccessor));
                     return scopedJob;
                 });
             }
@@ -275,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Run this on a separate thread to avoid blocking the test
             _jobHostingTask = Task.Run(() =>
             {
-                _fixture.FhirRequestContextAccessor.RequestContext = FhirStorageTestRequestContextAccessor.CreateRequestContext();
+                _fixture.FhirRequestContextAccessor.RequestContext = null;
                 return _jobHosting.ExecuteAsync(
                     (byte)QueueType.Reindex,
                     runningJobCount: 2,
@@ -1494,6 +1496,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
 
             _output.WriteLine("DeleteTestResources completed.");
+        }
+
+        private sealed class JobWithRequestContext : IJob
+        {
+            private readonly IJob _job;
+            private readonly RequestContextAccessor<IFhirRequestContext> _accessor;
+
+            internal JobWithRequestContext(IJob job, RequestContextAccessor<IFhirRequestContext> accessor)
+            {
+                _job = job;
+                _accessor = accessor;
+            }
+
+            /// <inheritdoc/>
+            public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+            {
+                _accessor.RequestContext = FhirStorageTestRequestContextAccessor.CreateRequestContext();
+                return await _job.ExecuteAsync(jobInfo, cancellationToken);
+            }
         }
     }
 }
