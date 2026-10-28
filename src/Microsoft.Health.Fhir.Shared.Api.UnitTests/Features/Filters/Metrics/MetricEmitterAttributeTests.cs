@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
@@ -30,7 +31,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
             ISearchMetricHandler metricHandler = Substitute.For<ISearchMetricHandler>();
             metricHandler.EmitLatency(Arg.Any<SearchMetricNotification>());
 
-            var attribute = new SearchEndpointMetricEmitterAttribute(metricHandler);
+            var attribute = new SearchEndpointMetricEmitterAttribute(
+                metricHandler,
+                NullLogger<SearchEndpointMetricEmitterAttribute>.Instance);
 
             attribute.OnActionExecuting(null);
             await Task.Delay(100);

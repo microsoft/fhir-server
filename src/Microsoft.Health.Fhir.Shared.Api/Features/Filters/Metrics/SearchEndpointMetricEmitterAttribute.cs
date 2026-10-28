@@ -20,11 +20,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
         private readonly ISearchMetricHandler _metricHandler;
         private readonly ILogger<SearchEndpointMetricEmitterAttribute> _logger;
 
-        public SearchEndpointMetricEmitterAttribute(ISearchMetricHandler metricHandler)
-            : this(metricHandler, NullLogger<SearchEndpointMetricEmitterAttribute>.Instance)
-        {
-        }
-
         public SearchEndpointMetricEmitterAttribute(
             ISearchMetricHandler metricHandler,
             ILogger<SearchEndpointMetricEmitterAttribute> logger)
