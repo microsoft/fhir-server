@@ -77,7 +77,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 - [ ] Collect explicitly identified closed Query Store intervals. Report their actual boundaries, capture gaps, execution types, and incomplete sections.
 - [ ] Validate both timer periods against the real timer and conversion limits. Cover the sibling-task lifecycle instead of testing positive numbers alone.
 - [ ] Add an end-to-end deadline, diagnostic-specific timeout and retry limits, and byte-aware log batching. Report budget exhaustion and failed sections explicitly.
-- [ ] Replace catalog-name self-exclusion with a tested collector-specific internal marker. Preserve visibility of legacy diagnostic lookups as separately classified overhead.
+- [ ] Verify collector-procedure identity exclusion, including metadata visibility and historical entries, or replace it with a tested collector-specific marker. Classify legacy diagnostic lookups separately as overhead.
 - [ ] Treat the lease as coordination, not fencing. Make output idempotent across retries, restarts, and overlapping lease holders.
 
 **You see.**
@@ -98,7 +98,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 - [ ] Lane 6. Delay a SQL read beyond the deadline. Save `artifacts/query-store/QS-01/lane-6/deadline.json`. Pass when cancellation stops collection and the manifest reports failure.
 - [ ] Lane 7. Generate long multibyte statistics identifiers. Save `artifacts/query-store/QS-01/lane-7/bytes.json`. Pass when every serialized record respects the accepted byte budget.
 - [ ] Lane 8. Lose the lease during collection and start another holder. Save `artifacts/query-store/QS-01/lane-8/lease.json`. Pass when duplicate output cannot create duplicate logical records.
-- [ ] Lane 9. Run collector SQL and legacy lookup SQL. Save `artifacts/query-store/QS-01/lane-9/exclusion.json`. Pass when only collector-marked work is excluded from workload rankings and its cost remains independently measurable.
+- [ ] Lane 9. Run collector SQL and legacy lookup SQL. Save `artifacts/query-store/QS-01/lane-9/exclusion.json`. Pass when only identified collector work is excluded from workload rankings and its cost remains independently measurable.
 - [ ] Lane 10. Exercise disabled, READ_ONLY, unavailable, and permission-denied Query Store states. Save `artifacts/query-store/QS-01/lane-10/states.json`. Pass when readable history is collected where supported and every unavailable case has an explicit status.
 
 **Verify, perf.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.

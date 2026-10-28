@@ -213,7 +213,7 @@ Results are ordered by total duration descending and limited to `SlowQueryCount`
 
 ### Self-exclusion
 
-The watchdog's own Query Store reads are excluded by filtering out query text referencing the Query Store catalog views. An earlier iteration attempted to tag the queries with a marker comment; SQL Server does **not** preserve those comments in `query_sql_text`, so text matching on the view names is the pragmatic mechanism.
+The watchdog excludes statements belonging to its five diagnostics procedures by their Query Store `object_id`. This leaves other catalog queries visible, including the request-triggered Query Store lookups. Ad hoc statements have no containing procedure and are not excluded. Procedure metadata must be visible to the service identity for `OBJECT_ID` to resolve; historical entries from a dropped and recreated procedure may also remain visible.
 
 ### Wait statistics
 
@@ -344,6 +344,7 @@ Recorded deliberately; each is a candidate for a follow-up.
 - **Stored procedures run under the existing service identity.** The five procedures are part of schema version 120. They do not create an external caller role.
 - **Plans are re-emitted every tick.** There is no cross-tick deduplication by `plan_id`, so a persistently slow plan is emitted repeatedly. Accepted for v1; the duplication is bounded by `SlowQueryCount` and the tick interval, and suppression can be added once real emission volume is known.
 - **Slow-query selection is total-duration only.** There is no configuration for selecting by CPU, reads, waits, or regression against a baseline. `MinDurationMilliseconds` and `SlowQueryCount` are the only tuning knobs. Richer selection is the expected first enhancement.
+- **Collection has no independent deadline.** Reads use the shared SQL timeout and retry settings. An optional wait-statistics read can delay runtime emission until its retries finish; cancellation or lease loss is not a per-collection budget.
 - **Truncation is a hard cut.** A plan exceeding 32,768 UTF-16 code units is truncated and flagged. The resulting prefix can be invalid XML. It is not chunked, compressed, or externalized to blob storage.
 - **No actual execution plans.** `sys.query_store_plan.query_plan` is the compile-time Showplan, equivalent to `SET SHOWPLAN_XML ON`. Actual-plan capture via `LAST_QUERY_PLAN_STATS` remains future work.
 - **Plan-type and Parameter Sensitive Plan variant metadata are not read**, because those catalog fields are not stable across the supported Azure SQL fleet.

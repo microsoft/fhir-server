@@ -47,8 +47,20 @@ BEGIN
         ON queryStoreQuery.query_text_id = queryText.query_text_id
     WHERE runtimeRollup.execution_count > 0
         AND runtimeRollup.total_duration_microseconds / runtimeRollup.execution_count / 1000.0 >= @MinDurationMilliseconds
-        AND queryText.query_sql_text COLLATE Latin1_General_CI_AS NOT LIKE N'%query_store%'
-        AND queryText.query_sql_text COLLATE Latin1_General_CI_AS NOT LIKE N'%dm_db_stats_properties%'
+        AND NOT EXISTS
+        (
+            SELECT 1
+            FROM
+            (
+                VALUES
+                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsState')),
+                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsSlowQueries')),
+                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsWaitStatistics')),
+                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsPlans')),
+                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStatisticsHealth'))
+            ) AS diagnosticsProcedures(object_id)
+            WHERE diagnosticsProcedures.object_id = queryStoreQuery.object_id
+        )
     ORDER BY
         runtimeRollup.total_duration_microseconds DESC,
         queryStoreQuery.query_id,

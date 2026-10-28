@@ -143,11 +143,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 AssertStatisticsHealthOrdinals(logger, tableName);
 
-                foreach (SlowQueryDiagnostics slowQuery in logger.SlowQueries)
+                // Confirm that the collector is present in Query Store before testing its exclusion.
+                DateTimeOffset startTime = DateTimeOffset.UtcNow.AddHours(-1);
+                await WaitForCollectorQueryCaptureAsync(connection, startTime, CancellationToken.None);
+                var returnedQueryIds = new HashSet<long>();
+                bool returnedProbe = false;
+                await using (SqlCommand command = connection.CreateCommand())
                 {
-                    Assert.DoesNotContain("query_store", slowQuery.QueryText, StringComparison.OrdinalIgnoreCase);
-                    Assert.DoesNotContain("dm_db_stats_properties", slowQuery.QueryText, StringComparison.OrdinalIgnoreCase);
+                    command.CommandText = "dbo.GetQueryStoreDiagnosticsSlowQueries";
+                    command.CommandType = CommandType.StoredProcedure;
+                    command.Parameters.Add("@StartTime", SqlDbType.DateTimeOffset).Value = startTime;
+                    command.Parameters.Add("@Top", SqlDbType.Int).Value = int.MaxValue;
+                    command.Parameters.Add("@MinDurationMilliseconds", SqlDbType.Int).Value = 0;
+
+                    await using SqlDataReader reader = await command.ExecuteReaderAsync(CancellationToken.None);
+                    while (await reader.ReadAsync(CancellationToken.None))
+                    {
+                        returnedQueryIds.Add(reader.GetInt64(0));
+                        returnedProbe |= !reader.IsDBNull(10) && reader.GetString(10).Contains(queryAlias, StringComparison.Ordinal);
+                    }
                 }
+
+                HashSet<long> collectorQueryIds = await WaitForCollectorQueryCaptureAsync(connection, startTime, CancellationToken.None);
+                Assert.True(returnedProbe);
+                Assert.Empty(returnedQueryIds.Intersect(collectorQueryIds));
             }
             finally
             {
@@ -414,7 +433,7 @@ INSERT INTO dbo.[{tableName}] (Id) SELECT TOP ({ProbeTableModificationCount}) {P
             for (int execution = 0; execution < QueryExecutionCount; execution++)
             {
                 await using SqlCommand command = connection.CreateCommand();
-                command.CommandText = $"SELECT SUM(CONVERT(bigint, firstProbe.Id) * secondProbe.Id * thirdProbe.Id) AS [{queryAlias}] FROM dbo.[{tableName}] AS firstProbe CROSS JOIN dbo.[{tableName}] AS secondProbe CROSS JOIN dbo.[{tableName}] AS thirdProbe OPTION (MAXDOP 1);";
+                command.CommandText = $"SELECT SUM(CONVERT(bigint, firstProbe.Id) * secondProbe.Id * thirdProbe.Id) AS [{queryAlias}] FROM dbo.[{tableName}] AS firstProbe CROSS JOIN dbo.[{tableName}] AS secondProbe CROSS JOIN dbo.[{tableName}] AS thirdProbe WHERE (SELECT COUNT_BIG(*) FROM sys.query_store_runtime_stats) >= 0 OPTION (MAXDOP 1);";
                 object result = await command.ExecuteScalarAsync(cancellationToken);
                 Assert.NotNull(result);
             }
@@ -456,6 +475,55 @@ WHERE queryText.query_sql_text LIKE @QueryTextPattern
             }
 
             Assert.Fail("Query Store did not persist regular runtime statistics for every execution of the GUID-alias probe query after the supported flush and polling window.");
+        }
+
+        private static async Task<HashSet<long>> WaitForCollectorQueryCaptureAsync(SqlConnection connection, DateTimeOffset startTime, CancellationToken cancellationToken)
+        {
+            for (int attempt = 0; attempt < QueryStorePollAttempts; attempt++)
+            {
+                await ExecuteNonQueryAsync(connection, "EXEC sys.sp_query_store_flush_db;", cancellationToken);
+
+                await using SqlCommand command = connection.CreateCommand();
+                command.CommandText = @"
+SELECT DISTINCT queryStoreQuery.query_id,
+    CASE WHEN queryStoreQuery.object_id = OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsSlowQueries') THEN 1 ELSE 0 END
+FROM sys.query_store_query AS queryStoreQuery
+INNER JOIN sys.query_store_plan AS queryStorePlan ON queryStorePlan.query_id = queryStoreQuery.query_id
+INNER JOIN sys.query_store_runtime_stats AS runtimeStatistics ON runtimeStatistics.plan_id = queryStorePlan.plan_id
+INNER JOIN sys.query_store_runtime_stats_interval AS runtimeInterval ON runtimeInterval.runtime_stats_interval_id = runtimeStatistics.runtime_stats_interval_id
+WHERE queryStoreQuery.object_id IN
+(
+    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsState'),
+    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsSlowQueries'),
+    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsWaitStatistics'),
+    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsPlans'),
+    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStatisticsHealth')
+)
+    AND runtimeStatistics.execution_type = 0
+    AND runtimeStatistics.count_executions > 0
+    AND runtimeInterval.end_time >= @StartTime;";
+                command.Parameters.Add("@StartTime", SqlDbType.DateTimeOffset).Value = startTime;
+
+                var queryIds = new HashSet<long>();
+                bool capturedSlowQueriesProcedure = false;
+                await using (SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken))
+                {
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        queryIds.Add(reader.GetInt64(0));
+                        capturedSlowQueriesProcedure |= reader.GetInt32(1) == 1;
+                    }
+                }
+
+                if (capturedSlowQueriesProcedure)
+                {
+                    return queryIds;
+                }
+
+                await Task.Delay(QueryStorePollInterval, cancellationToken);
+            }
+
+            throw new InvalidOperationException("Query Store did not capture the diagnostics slow-query procedure after the supported flush and polling window.");
         }
 
         private static async Task ExecuteNonQueryAsync(SqlConnection connection, string commandText, CancellationToken cancellationToken)
