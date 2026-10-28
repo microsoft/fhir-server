@@ -52,6 +52,7 @@ BEGIN TRY
   SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, IsHistory 
     FROM @SurrogateIds
          JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
+                          AND ResourceSurrogateId BETWEEN @StartId AND @EndId
     WHERE IsHistory = 1
       AND (IsDeleted = 0 OR @IncludeDeleted = 1)
       OPTION (MAXDOP 1)
