@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
         private readonly FhirTimer _fhirTimer;
+        private bool _supportsLastRunTime;
+        private bool _useLastRunTime;
 
         protected Watchdog(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -64,8 +66,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             await InitParamsAsync();
 
+            if (PeriodSec > LeasePeriodSec) // only use last run time logic for large periods.
+            {
+                _useLastRunTime = true;
+            }
+
             await Task.WhenAll(
-                _fhirTimer.ExecuteAsync(Name, GetPeriodSec(PeriodSec, LeasePeriodSec), OnNextTickAsync, cancellationToken),
+                _fhirTimer.ExecuteAsync(Name, GetPeriod(PeriodSec, LeasePeriodSec), OnNextTickAsync, cancellationToken),
                 _watchdogLease.ExecuteAsync($"{Name}Lease", AllowRebalance, LeasePeriodSec, guid, cancellationToken));
 
             _logger.LogInformation($"{Name}.ExecuteAsync: completed.");
@@ -81,21 +88,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            var supportsLastRunTime = await SupportsLastRunTimeAsync(cancellationToken);
+            _supportsLastRunTime = await SupportsLastRunTimeAsync(cancellationToken);
 
-            if (!await IsRunDueAsync(supportsLastRunTime, cancellationToken))
+            if (!await IsRunDueAsync(cancellationToken))
             {
                 _logger.LogDebug($"{Name}.OnNextTickAsync: Skipping because the most recent run is newer than the watchdog period.");
                 return;
             }
 
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
+            var stopwatch = Stopwatch.StartNew();
 
             await RunWorkAsync(cancellationToken);
-            await UpdateLastRunTimeAsync(supportsLastRunTime, cancellationToken);
+            await UpdateLastRunTimeAsync(cancellationToken);
 
-            _logger.LogInformation($"{Name}.OnNextTickAsync ran in {stopwatch.ElapsedMilliseconds}");
+            _logger.LogInformation($"{Name}.OnNextTickAsync ran in milliseconds={stopwatch.ElapsedMilliseconds}");
         }
 
         internal static bool ShouldRun(DateTime utcNow, DateTime lastRunTime, TimeSpan period)
@@ -103,25 +109,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return utcNow - lastRunTime >= period;
         }
 
-        internal static double GetPeriodSec(double periodSec, double leasePeriodSec)
+        internal static double GetPeriod(double periodSec, double leasePeriodSec)
         {
             return Math.Min(periodSec, leasePeriodSec);
         }
 
-        private async Task<bool> IsRunDueAsync(bool supportsLastRunTime, CancellationToken cancellationToken)
+        private async Task<bool> IsRunDueAsync(CancellationToken cancellationToken)
         {
-            if (!supportsLastRunTime)
-            {
-                _logger.LogDebug($"{Name}.IsRunDueAsync: Legacy schema detected; skipping persisted last-run checks.");
-                return true;
-            }
-
             var lastRunTime = await GetLastRunTimeAsync(cancellationToken);
             return ShouldRun(DateTime.UtcNow, lastRunTime, TimeSpan.FromSeconds(PeriodSec));
         }
 
         private async Task<bool> SupportsLastRunTimeAsync(CancellationToken cancellationToken)
         {
+            if (!_useLastRunTime)
+            {
+                return false;
+            }
+
             await using var cmd = new SqlCommand("SELECT CASE WHEN object_id('dbo.GetWatchdogLeasesLastRunTime') IS NOT NULL THEN 1 ELSE 0 END");
             var result = (int)await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancellationToken);
             return result == 1;
@@ -129,6 +134,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<DateTime> GetLastRunTimeAsync(CancellationToken cancellationToken)
         {
+            if (!_useLastRunTime || !_supportsLastRunTime)
+            {
+                return DateTime.MinValue;
+            }
+
             await using var cmd = new SqlCommand("dbo.GetWatchdogLeasesLastRunTime") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Watchdog", Name);
 
@@ -146,9 +156,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return (DateTime)value;
         }
 
-        private async Task UpdateLastRunTimeAsync(bool supportsLastRunTime, CancellationToken cancellationToken)
+        private async Task UpdateLastRunTimeAsync(CancellationToken cancellationToken)
         {
-            if (!supportsLastRunTime)
+            if (!_useLastRunTime || !_supportsLastRunTime)
             {
                 return;
             }

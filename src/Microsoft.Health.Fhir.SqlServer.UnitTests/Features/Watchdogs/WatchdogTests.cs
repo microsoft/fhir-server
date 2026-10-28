@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         [InlineData(30, 30, 30)]
         public void GivenLeasePeriodShorterThanWatchdogPeriod_WhenCalculatingTimerPeriod_ThenTimerUsesShorterInterval(int periodSeconds, int leasePeriodSeconds, int expectedTimerPeriodSeconds)
         {
-            Assert.Equal(expectedTimerPeriodSeconds, Watchdog<ExpiredResourceCleanupWatchdog>.GetPeriodSec(periodSeconds, leasePeriodSeconds));
+            Assert.Equal(expectedTimerPeriodSeconds, Watchdog<ExpiredResourceCleanupWatchdog>.GetPeriod(periodSeconds, leasePeriodSeconds));
         }
 
         [Fact]
