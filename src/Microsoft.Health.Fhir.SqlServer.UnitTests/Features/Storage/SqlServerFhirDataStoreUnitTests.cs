@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var sqlException = SqlExceptionFactory.GetSqlException(FhirSqlErrorCodes.SurrogateIdCollision, "Surrogate Id Collision.");
+            var sqlException = SqlExceptionFactory.GetSqlException(SqlServerErrorCodes.SurrogateIdCollision, "Surrogate Id Collision.");
             using var cts = new CancellationTokenSource();
 
             sqlRetryService.ExecuteReaderAsync(

@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
                         }
-                        else if (sqlEx.Number == FhirSqlErrorCodes.SurrogateIdCollision && retries++ < maxRetries)
+                        else if (sqlEx.Number == SqlServerErrorCodes.SurrogateIdCollision && retries++ < maxRetries)
                         {
                             _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (SurrogateIdCollision)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
@@ -546,7 +546,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     databaseMilliseconds = null; // do not report a partial/inflated duration on exception
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
-                    if (sqlEx != null && sqlEx.Number == FhirSqlErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
+                    if (sqlEx != null && sqlEx.Number == SqlServerErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
                         var delayMs = RandomNumberGenerator.GetInt32(1000, 5000);
                         _logger.LogWarning(e, $"Throttling detected on {nameof(ImportResourcesInternalAsync)}, backing off for {{DelayMs}}ms resources={{Resources}}", delayMs, resources.Count);
@@ -554,7 +554,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    if (sqlEx != null && (sqlEx.Number == SqlErrorCodes.Conflict || sqlEx.Number == FhirSqlErrorCodes.SurrogateIdCollision) && retries++ < maxRetries)
+                    if (sqlEx != null && (sqlEx.Number == SqlErrorCodes.Conflict || sqlEx.Number == SqlServerErrorCodes.SurrogateIdCollision) && retries++ < maxRetries)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}} error={{SqlErrorCode}}", retries, resources.Count, sqlEx.Number);
                         await Task.Delay(retries > 3 ? 10 : 1000, cancellationToken); // if >3 assume that it is id generation problem

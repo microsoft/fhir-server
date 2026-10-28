@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string DataSourceValidation = nameof(DataSourceValidation);
 
         public const string DomainLogicValidation = nameof(DomainLogicValidation);
+        public const string ExceptionHandling = nameof(ExceptionHandling);
 
         public const string Export = nameof(Export);
 

@@ -83,17 +83,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static bool IsCustomerManagedKeyException(this Exception e)
         {
-            const int keyVaultCriticalError = 40981;
-            const int keyVaultEncounteredError = 33183;
-            const int keyVaultErrorObtainingInfo = 33184;
-            const int cannotConnectToDBInCurrentState = 40925;
-
             if (e is SqlException sqlEx)
             {
-                if (sqlEx.ErrorCode == keyVaultCriticalError ||
-                    sqlEx.ErrorCode == keyVaultEncounteredError ||
-                    sqlEx.ErrorCode == keyVaultErrorObtainingInfo ||
-                    sqlEx.ErrorCode == cannotConnectToDBInCurrentState)
+                if (SqlServerErrorCodes.CustomerManagedKeyErrorCodes.Contains(sqlEx.Number))
                 {
                     return true;
                 }

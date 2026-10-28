@@ -163,11 +163,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHash, false, _cancellationToken, true);
             }
-            catch (SqlException ex) when (ex.IsCustomerManagedKeyException())
-            {
-                _logger.LogJobError(ex, _jobInfo, "Key Vault Error running reindex query for resource type {ResourceType}.", _definition.ResourceType);
-                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, isCustomerCaused: true);
-            }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _definition.ResourceType);
