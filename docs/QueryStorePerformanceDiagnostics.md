@@ -73,6 +73,7 @@ The shared `dbo.AcquireWatchdogLease` procedure coordinates collection through `
 | `PeriodSec` | `3600` | Interval between collections, and — clamped to `[60, 86400]` seconds — the Query Store lookback window each collection covers. Values outside `[0.001, 4294967.294]` seconds and non-finite values are rejected with a warning and the `3600` default is used, because `PeriodicTimer` would otherwise throw. |
 | `LeasePeriodSec` | `600` | How often the lease is renewed. Values outside `[0.001, 4294967.294]` seconds and non-finite values are rejected with a warning and the `600` default is used. A collection can outlive the lease if renewal fails. |
 | `CollectionTimeoutSec` | `30` | Cooperative deadline for collection, starting before the Query Store state read. Values outside `1` to `86400` seconds fall back to `30` with a warning. |
+| `CommandTimeoutSec` | `5` | Cooperative deadline for each SQL read, including retries. Values outside `1` to `86400` seconds fall back to `5` with a warning. |
 | `WaitStatisticsTimeoutSec` | `5` | Cooperative deadline for the optional wait-statistics read, including retries. Values outside `1` to `86400` seconds fall back to `5` with a warning. The collection deadline can expire first. |
 | `SlowQueryCount` | `10` | Number of slow plans to report per tick. |
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
@@ -160,7 +161,7 @@ A line is emitted for unsuccessful sanitization as well, with null XML and a sta
 
 Emitted in **batches**, beginning `QueryStoreDiagnosticsWatchdog statistics health.`. Each line carries `StatisticsHealthBatchSize` rows serialized as a compact JSON array in a single log property, `StatisticsHealthRows`, alongside the pagination properties described below.
 
-These rows are batched where the other two payloads are not because they are small, uniform, and contain no free text, so a batch of them has a predictable size. The cost of batching is that the rows arrive as a serialized blob rather than as queryable columns, which is affordable precisely because the fields are few, uniform, and cheap to re-parse; it would not be affordable for query text or plan XML.
+These rows are batched where the other two payloads are not because their fields are relatively small and uniform. Batch size limits row count, not bytes: long identifiers can still make a record too large. The cost of batching is that the rows arrive as a serialized blob rather than as queryable columns; they must be parsed to inspect individual rows.
 
 Each row carries schema, table, and statistics name, last-updated timestamp, rows, rows sampled, modification counter, modification percentage, the auto-created / user-created / from-index / filtered flags, and the collection timestamp. The timestamp is on the row rather than only on the line so that a row stays self-describing once it is lifted out of the batch it arrived in.
 
@@ -214,11 +215,13 @@ The watchdog excludes statements belonging to its five diagnostics procedures by
 
 Wait statistics are collected by a **separate, best-effort** query and merged in C#. A caught `SqlException` — the wait view being unavailable, a timeout, a deadlock, or a permission denial — is logged as a warning, leaves the wait fields null, and sets `WaitStatisticsStatus` to `Failed`. Runtime results are still emitted.
 
-`Failed` is reserved for that case: a wait read that actually broke. The ordinary outcomes of wait capture being turned off, or of no waits having accrued for a plan inside the window, are an empty result set rather than a failure — those plans carry `WaitStatisticsStatus` of `Unavailable`, with null wait fields and no warning logged.
+`Failed` indicates a failed or timed-out wait read. The ordinary outcomes of wait capture being turned off, or of no waits having accrued for a plan inside the window, are an empty result set rather than a failure — those plans carry `WaitStatisticsStatus` of `Unavailable`, with null wait fields and no warning logged.
 
 `SqlException` is caught broadly there on purpose, so that a transient wait-query failure cannot abort the tick and suppress the runtime statistics. The trade-off accepted is that timeouts, deadlocks, permission denials and missing views are not distinguished from one another at that point; the warning carries the exception, and the slow-query line carries the status.
 
-Each diagnostics SQL command has a five-second per-attempt timeout. The wait read also has its own deadline, while a collection-wide deadline covers the state read and subsequent sections, including retries. A wait deadline produces `Failed` wait status and preserves the runtime records. If the collection deadline expires during that wait, runtime records are emitted before the tick reports an incomplete collection. Host shutdown cancellation propagates instead.
+Each diagnostics SQL read has a configurable deadline across its attempts and retry delays, plus a SQL command timeout for each attempt. The wait read also has its own deadline, while a collection-wide deadline covers the state read and subsequent sections. If the configured SQL read budget is exactly 30 seconds, the SQL command timeout is set to 31 seconds to avoid substitution by the shared retry service; the cancellation token still requests cancellation at 30 seconds. A wait deadline produces `Failed` wait status and preserves the runtime records. If the collection deadline expires during that wait, runtime records are emitted before the tick reports an incomplete collection. Host shutdown cancellation propagates instead.
+
+An independent SQL failure or read timeout in the plan or statistics-health section logs a warning without suppressing the other section. The collection summary reports `QueryPlansFailed` and `StatisticsHealthFailed` alongside the section counts and `WaitStatisticsFailed`.
 
 These are cooperative cancellation requests, not guaranteed server-side CPU limits: cancellation and synchronous work such as plan sanitization may take additional time. SQL retries remain governed by the shared retry service within these deadlines. The collection deadline is reported as a failed tick, and a successful completion log is not written.
 

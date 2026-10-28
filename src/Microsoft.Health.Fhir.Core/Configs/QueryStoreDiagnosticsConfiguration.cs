@@ -36,6 +36,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int CollectionTimeoutSec { get; set; } = 30;
 
         /// <summary>
+        /// Gets or sets the maximum elapsed time, in seconds, for a diagnostics SQL read including retries.
+        /// </summary>
+        public int CommandTimeoutSec { get; set; } = 5;
+
+        /// <summary>
         /// Gets or sets the maximum elapsed time, in seconds, for the optional wait-statistics read.
         /// </summary>
         public int WaitStatisticsTimeoutSec { get; set; } = 5;

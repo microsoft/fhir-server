@@ -59,9 +59,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         private const double MinTimerPeriodSec = 0.001;
         private const double MaxTimerPeriodSec = 4294967.294;
         private const int DefaultCollectionTimeoutSec = 30;
+        private const int DefaultCommandTimeoutSec = 5;
         private const int DefaultWaitStatisticsTimeoutSec = 5;
         private const int MaxCollectionTimeoutSec = 86400;
-        private const int CommandTimeoutSec = 5;
 
         /// <summary>
         /// The statistics-health batch size used when configuration does not supply a usable one. Mirrors the class
@@ -85,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SchemaInformation _schemaInformation;
         private readonly int _collectionTimeoutSec;
+        private readonly int _commandTimeoutSec;
         private readonly int _waitStatisticsTimeoutSec;
 
         // The run-window state observed on the previous tick, used to log only when the state changes. Null until the
@@ -106,6 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration)).QueryStoreDiagnostics;
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _collectionTimeoutSec = GetTimeoutSec(_configuration.CollectionTimeoutSec, DefaultCollectionTimeoutSec, nameof(_configuration.CollectionTimeoutSec));
+            _commandTimeoutSec = GetTimeoutSec(_configuration.CommandTimeoutSec, DefaultCommandTimeoutSec, nameof(_configuration.CommandTimeoutSec));
             _waitStatisticsTimeoutSec = GetTimeoutSec(_configuration.WaitStatisticsTimeoutSec, DefaultWaitStatisticsTimeoutSec, nameof(_configuration.WaitStatisticsTimeoutSec));
 
             // PeriodicTimer accepts periods from one millisecond through 4,294,967,294 milliseconds.
@@ -425,8 +427,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             }
             catch (OperationCanceledException ex) when (collectionCancellation.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
-                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: collection exceeded its {CollectionTimeoutSec}-second deadline. Any diagnostics already emitted were still logged.", _collectionTimeoutSec);
-                throw new TimeoutException("Query Store diagnostics collection exceeded its deadline.", ex);
+                throw CreateCollectionTimeoutException(ex);
+            }
+            catch (TimeoutException ex) when (collectionCancellation.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                throw CreateCollectionTimeoutException(ex);
             }
             catch (SqlException ex) when (ex.Number == 208)
             {
@@ -448,6 +453,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                 _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: SQL permissions do not allow diagnostics collection.");
             }
         }
+
+        private TimeoutException CreateCollectionTimeoutException(Exception innerException) =>
+            new TimeoutException($"QueryStoreDiagnosticsWatchdog: collection exceeded its {_collectionTimeoutSec}-second deadline. Any diagnostics already emitted were still logged.", innerException);
 
         /// <summary>
         /// Runs the collection itself, once the configuration, run-window and Query Store state gates have all
@@ -513,16 +521,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
             cancellationToken.ThrowIfCancellationRequested();
             var queryPlanCount = 0;
+            var queryPlansFailed = false;
             if (!_configuration.IncludeQueryPlans)
             {
                 _logger.LogInformation("QueryStoreDiagnosticsWatchdog: query plan collection is turned off by configuration (IncludeQueryPlans).");
             }
             else if (slowQueries.Count > 0)
             {
-                queryPlanCount = await EmitQueryPlansAsync(slowQueries, cancellationToken);
+                (queryPlanCount, queryPlansFailed) = await CollectOptionalSectionAsync(
+                    token => EmitQueryPlansAsync(slowQueries, token),
+                    "query plans",
+                    cancellationToken);
             }
 
             var statisticsHealthCount = 0;
+            var statisticsHealthFailed = false;
             if (!_configuration.IncludeStatisticsHealth)
             {
                 _logger.LogInformation("QueryStoreDiagnosticsWatchdog: statistics health collection is turned off by configuration (IncludeStatisticsHealth).");
@@ -535,7 +548,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             }
             else
             {
-                statisticsHealthCount = await EmitStatisticsHealthAsync(cancellationToken);
+                (statisticsHealthCount, statisticsHealthFailed) = await CollectOptionalSectionAsync(
+                    EmitStatisticsHealthAsync,
+                    "statistics health",
+                    cancellationToken);
             }
 
             // A completed tick logs unconditionally, including zero counts: without this, "the watchdog has been
@@ -544,30 +560,85 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             // whenever Query Store had no plan for a query or sanitization rejected one.
             cancellationToken.ThrowIfCancellationRequested();
             _logger.LogInformation(
-                "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}",
+                "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}, QueryPlansFailed={QueryPlansFailed}, StatisticsHealthFailed={StatisticsHealthFailed}",
                 startTime,
                 collectionTime,
                 slowQueries.Count,
                 queryPlanCount,
                 statisticsHealthCount,
-                waitStatisticsFailed);
+                waitStatisticsFailed,
+                queryPlansFailed,
+                statisticsHealthFailed);
+        }
+
+        private async Task<(int Count, bool Failed)> CollectOptionalSectionAsync(Func<CancellationToken, Task<int>> collect, string section, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return (await collect(cancellationToken), false);
+            }
+            catch (SqlException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the {Section} section failed.", section);
+                return (0, true);
+            }
+            catch (TimeoutException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the {Section} section exceeded its SQL read budget.", section);
+                return (0, true);
+            }
+        }
+
+        private SqlCommand ConfigureDiagnosticsCommand(SqlCommand command)
+        {
+            // The retry service substitutes its shared timeout for 30; the read token enforces the exact budget.
+            command.CommandType = CommandType.StoredProcedure;
+            command.CommandTimeout = _commandTimeoutSec == 30 ? 31 : _commandTimeoutSec;
+            return command;
+        }
+
+        private async Task<IReadOnlyList<TResult>> ExecuteDiagnosticsReaderAsync<TResult>(
+            SqlCommand command,
+            Func<SqlDataReader, TResult> readerToResult,
+            string message,
+            CancellationToken cancellationToken)
+        {
+            using var readCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            readCancellation.CancelAfter(TimeSpan.FromSeconds(_commandTimeoutSec));
+            try
+            {
+                readCancellation.Token.ThrowIfCancellationRequested();
+                return await _sqlRetryService.ExecuteReaderAsync(command, readerToResult, _logger, message, readCancellation.Token);
+            }
+            catch (OperationCanceledException ex) when (readCancellation.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException($"QueryStoreDiagnosticsWatchdog: {command.CommandText} exceeded its {_commandTimeoutSec}-second SQL read budget.", ex);
+            }
+            catch (SqlException ex) when (readCancellation.IsCancellationRequested)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException("Query Store diagnostics SQL read was cancelled.", ex, cancellationToken);
+                }
+
+                throw new TimeoutException($"QueryStoreDiagnosticsWatchdog: {command.CommandText} exceeded its {_commandTimeoutSec}-second SQL read budget.", ex);
+            }
         }
 
         private async Task<QueryStoreState> GetQueryStoreStateAsync(CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsState") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
+            await using var command = ConfigureDiagnosticsCommand(new SqlCommand("dbo.GetQueryStoreDiagnosticsState"));
 
             // Every diagnostics read binds to the primary: isReadOnly would route to a read-only secondary when
             // SupportsSqlReplicas is on, and Query Store state is primary-scoped, so a secondary reports READ_ONLY
             // and the state gate below would silently disable collection forever. Replica routing is also decided
             // per call, so the state check and the data reads could otherwise land on different servers and produce
             // torn results.
-            var states = await _sqlRetryService.ExecuteReaderAsync(
+            var states = await ExecuteDiagnosticsReaderAsync(
                 command,
                 reader => new QueryStoreState(
                     reader.IsDBNull(0) ? null : reader.GetString(0),
-                    reader.IsDBNull(1) ? (int?)null : reader.GetInt32(1)),
-                _logger,
+                    reader.IsDBNull(1) ? null : reader.GetInt32(1)),
                 "Failed to read Query Store state",
                 cancellationToken);
 
@@ -576,7 +647,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private async Task<IReadOnlyList<SlowQueryResult>> GetSlowQueriesAsync(DateTimeOffset startTime, CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsSlowQueries") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
+            await using var command = ConfigureDiagnosticsCommand(new SqlCommand("dbo.GetQueryStoreDiagnosticsSlowQueries"));
             var minDurationMilliseconds = Math.Max(0, _configuration.MinDurationMilliseconds);
             if (_configuration.MinDurationMilliseconds < 0)
             {
@@ -592,7 +663,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             command.Parameters.Add("@Top", SqlDbType.Int).Value = Math.Max(0, _configuration.SlowQueryCount);
             command.Parameters.Add("@MinDurationMilliseconds", SqlDbType.Int).Value = minDurationMilliseconds;
 
-            return await _sqlRetryService.ExecuteReaderAsync(
+            return await ExecuteDiagnosticsReaderAsync(
                 command,
                 reader => new SlowQueryResult
                 {
@@ -610,7 +681,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                     IntervalStart = reader.GetDateTimeOffset(11),
                     IntervalEnd = reader.GetDateTimeOffset(12),
                 },
-                _logger,
                 "Failed to read Query Store slow queries",
                 cancellationToken);
         }
@@ -631,17 +701,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             try
             {
                 waitCancellation.Token.ThrowIfCancellationRequested();
-                await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsWaitStatistics") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
+                await using var command = ConfigureDiagnosticsCommand(new SqlCommand("dbo.GetQueryStoreDiagnosticsWaitStatistics"));
                 command.Parameters.Add("@StartTime", SqlDbType.DateTimeOffset).Value = startTime;
                 command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
 
-                var waits = await _sqlRetryService.ExecuteReaderAsync(
+                var waits = await ExecuteDiagnosticsReaderAsync(
                     command,
                     reader => new WaitStatistics(
                         reader.GetInt64(0),
                         reader.GetDouble(1),
                         reader.IsDBNull(2) ? null : reader.GetString(2)),
-                    _logger,
                     "Failed to read Query Store wait statistics",
                     waitCancellation.Token);
 
@@ -650,6 +719,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             catch (OperationCanceledException ex) when (waitCancellation.IsCancellationRequested && !shutdownToken.IsCancellationRequested)
             {
                 _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the wait statistics read exceeded its budget or the collection deadline. Wait fields will be empty.");
+                return (new Dictionary<long, WaitStatistics>(), true);
+            }
+            catch (TimeoutException ex) when (!shutdownToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the wait statistics read exceeded its SQL read budget. Wait fields will be empty.");
                 return (new Dictionary<long, WaitStatistics>(), true);
             }
             catch (SqlException ex) when (ex.Number == 2812)
@@ -670,13 +744,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private async Task<int> EmitQueryPlansAsync(IReadOnlyList<SlowQueryResult> slowQueries, CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsPlans") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
+            await using var command = ConfigureDiagnosticsCommand(new SqlCommand("dbo.GetQueryStoreDiagnosticsPlans"));
             command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
 
-            var plans = await _sqlRetryService.ExecuteReaderAsync(
+            var plans = await ExecuteDiagnosticsReaderAsync(
                 command,
                 reader => (PlanId: reader.GetInt64(0), QueryPlanXml: reader.IsDBNull(1) ? null : reader.GetString(1)),
-                _logger,
                 "Failed to read Query Store plans",
                 cancellationToken);
 
@@ -726,27 +799,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private async Task<int> EmitStatisticsHealthAsync(CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsStatisticsHealth") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
+            await using var command = ConfigureDiagnosticsCommand(new SqlCommand("dbo.GetQueryStoreDiagnosticsStatisticsHealth"));
             command.Parameters.Add("@Top", SqlDbType.Int).Value = _configuration.StatisticsHealthCount;
 
-            var statisticsHealth = await _sqlRetryService.ExecuteReaderAsync(
+            var statisticsHealth = await ExecuteDiagnosticsReaderAsync(
                 command,
                 reader => new StatisticsHealthDiagnostics
                 {
                     SchemaName = reader.GetString(0),
                     TableName = reader.GetString(1),
                     StatisticsName = reader.GetString(2),
-                    LastUpdated = reader.IsDBNull(3) ? (DateTimeOffset?)null : reader.GetDateTimeOffset(3),
-                    Rows = reader.IsDBNull(4) ? (long?)null : reader.GetInt64(4),
-                    RowsSampled = reader.IsDBNull(5) ? (long?)null : reader.GetInt64(5),
-                    ModificationCounter = reader.IsDBNull(6) ? (long?)null : reader.GetInt64(6),
-                    ModificationPercent = reader.IsDBNull(7) ? (double?)null : reader.GetDouble(7),
+                    LastUpdated = reader.IsDBNull(3) ? null : reader.GetDateTimeOffset(3),
+                    Rows = reader.IsDBNull(4) ? null : reader.GetInt64(4),
+                    RowsSampled = reader.IsDBNull(5) ? null : reader.GetInt64(5),
+                    ModificationCounter = reader.IsDBNull(6) ? null : reader.GetInt64(6),
+                    ModificationPercent = reader.IsDBNull(7) ? null : reader.GetDouble(7),
                     IsAutoCreated = reader.GetBoolean(8),
                     IsUserCreated = reader.GetBoolean(9),
                     IsFromIndex = reader.GetBoolean(10),
                     HasFilter = reader.GetBoolean(11),
                 },
-                _logger,
                 "Failed to read statistics health",
                 cancellationToken);
 

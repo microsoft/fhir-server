@@ -28,33 +28,33 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
     [Trait(Traits.Category, Categories.Operations)]
     public class QueryStoreDiagnosticsSchemaTests
     {
-        [Fact]
-        public async Task GivenAStalledStateRead_WhenTheCollectionDeadlineExpires_ThenTheTickReportsTheTimeout()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAStalledStateRead_WhenTheCollectionDeadlineExpires_ThenTheTickReportsTheTimeout(bool sqlExceptionOnCancellation)
         {
             var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
-            var sql = new CapturingSqlRetryService { StallRead = true };
+            var sql = new CapturingSqlRetryService { StallRead = true, SqlExceptionOnCancellation = sqlExceptionOnCancellation };
             var logger = Substitute.For<ILogger<QueryStoreDiagnosticsWatchdog>>();
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.Enabled = true;
             configuration.QueryStoreDiagnostics.CollectionTimeoutSec = 1;
             var watchdog = new QueryStoreDiagnosticsWatchdog(sql, logger, Options.Create(configuration), schema);
 
-            await Assert.ThrowsAsync<TimeoutException>(() => watchdog.RunWorkForTestingAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(7)));
+            TimeoutException exception = await Assert.ThrowsAsync<TimeoutException>(() => watchdog.RunWorkForTestingAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(7)));
 
             Assert.Equal(1, sql.ReadCount);
             Assert.Equal(5, sql.CommandTimeout);
-            Assert.Contains(
-                logger.ReceivedCalls(),
-                call => call.GetMethodInfo().Name == nameof(ILogger.Log)
-                    && (LogLevel)call.GetArguments()[0] == LogLevel.Warning
-                    && call.GetArguments()[2].ToString().Contains("collection exceeded", StringComparison.Ordinal));
+            Assert.Contains("collection exceeded", exception.Message, StringComparison.Ordinal);
         }
 
-        [Fact]
-        public async Task GivenAStalledStateRead_WhenTheHostCancels_ThenCancellationPropagates()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAStalledStateRead_WhenTheHostCancels_ThenCancellationPropagates(bool sqlExceptionOnCancellation)
         {
             var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
-            var sql = new CapturingSqlRetryService { StallRead = true };
+            var sql = new CapturingSqlRetryService { StallRead = true, SqlExceptionOnCancellation = sqlExceptionOnCancellation };
             var logger = Substitute.For<ILogger<QueryStoreDiagnosticsWatchdog>>();
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.Enabled = true;
@@ -74,15 +74,52 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
         }
 
         [Theory]
-        [InlineData(0, 0)]
-        [InlineData(-1, 86401)]
-        public void GivenInvalidTimeouts_WhenConstructed_ThenDefaultsAreReported(int collectionTimeoutSec, int waitStatisticsTimeoutSec)
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAStalledStateRead_WhenItsSqlReadBudgetExpires_ThenTheTickReportsTheReadTimeout(bool sqlExceptionOnCancellation)
+        {
+            var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
+            var sql = new CapturingSqlRetryService { StallRead = true, SqlExceptionOnCancellation = sqlExceptionOnCancellation };
+            var logger = Substitute.For<ILogger<QueryStoreDiagnosticsWatchdog>>();
+            var configuration = new WatchdogConfiguration();
+            configuration.QueryStoreDiagnostics.Enabled = true;
+            configuration.QueryStoreDiagnostics.CommandTimeoutSec = 1;
+            var watchdog = new QueryStoreDiagnosticsWatchdog(sql, logger, Options.Create(configuration), schema);
+
+            TimeoutException exception = await Assert.ThrowsAsync<TimeoutException>(() => watchdog.RunWorkForTestingAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(7)));
+
+            Assert.Equal(1, sql.CommandTimeout);
+            Assert.Contains("SQL read budget", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenAThirtySecondSqlReadBudget_WhenCollecting_ThenTheCommandAvoidsTheSharedTimeoutSentinel()
+        {
+            var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
+            var sql = new CapturingSqlRetryService();
+            var logger = Substitute.For<ILogger<QueryStoreDiagnosticsWatchdog>>();
+            var configuration = new WatchdogConfiguration();
+            configuration.QueryStoreDiagnostics.Enabled = true;
+            configuration.QueryStoreDiagnostics.CommandTimeoutSec = 30;
+            var watchdog = new QueryStoreDiagnosticsWatchdog(sql, logger, Options.Create(configuration), schema);
+
+            await watchdog.RunWorkForTestingAsync(CancellationToken.None);
+
+            Assert.Equal(31, sql.CommandTimeout);
+            Assert.True(sql.ReadTokenCanBeCanceled);
+        }
+
+        [Theory]
+        [InlineData(0, 0, 0)]
+        [InlineData(-1, 86401, -1)]
+        public void GivenInvalidTimeouts_WhenConstructed_ThenDefaultsAreReported(int collectionTimeoutSec, int waitStatisticsTimeoutSec, int commandTimeoutSec)
         {
             var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
             var logger = Substitute.For<ILogger<QueryStoreDiagnosticsWatchdog>>();
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.CollectionTimeoutSec = collectionTimeoutSec;
             configuration.QueryStoreDiagnostics.WaitStatisticsTimeoutSec = waitStatisticsTimeoutSec;
+            configuration.QueryStoreDiagnostics.CommandTimeoutSec = commandTimeoutSec;
 
             _ = new QueryStoreDiagnosticsWatchdog(new CapturingSqlRetryService(), logger, Options.Create(configuration), schema);
 
@@ -97,6 +134,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
                 call => call.GetMethodInfo().Name == nameof(ILogger.Log)
                     && (LogLevel)call.GetArguments()[0] == LogLevel.Warning
                     && call.GetArguments()[2].ToString().Contains("WaitStatisticsTimeoutSec", StringComparison.Ordinal)
+                    && call.GetArguments()[2].ToString().Contains("5", StringComparison.Ordinal));
+            Assert.Contains(
+                logger.ReceivedCalls(),
+                call => call.GetMethodInfo().Name == nameof(ILogger.Log)
+                    && (LogLevel)call.GetArguments()[0] == LogLevel.Warning
+                    && call.GetArguments()[2].ToString().Contains("CommandTimeoutSec", StringComparison.Ordinal)
                     && call.GetArguments()[2].ToString().Contains("5", StringComparison.Ordinal));
         }
 
@@ -188,6 +231,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
 
             public bool StallRead { get; set; }
 
+            public bool SqlExceptionOnCancellation { get; set; }
+
+            public bool ReadTokenCanBeCanceled { get; private set; }
+
             public TaskCompletionSource<bool> ReadStarted { get; } = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult>(SqlCommand command, Func<SqlDataReader, TResult> readerToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
@@ -196,6 +243,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
                 CommandText = command.CommandText;
                 CommandType = command.CommandType;
                 CommandTimeout = command.CommandTimeout;
+                ReadTokenCanBeCanceled = cancellationToken.CanBeCanceled;
                 IsReadOnly = isReadOnly;
                 if (ErrorNumber.HasValue)
                 {
@@ -205,15 +253,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
                 if (StallRead)
                 {
                     ReadStarted.TrySetResult(true);
-                    return WaitUntilCancelledAsync<TResult>(cancellationToken);
+                    return WaitUntilCancelledAsync<TResult>(cancellationToken, SqlExceptionOnCancellation);
                 }
 
                 return Task.FromResult<IReadOnlyList<TResult>>(Array.Empty<TResult>());
             }
 
-            private static async Task<IReadOnlyList<TResult>> WaitUntilCancelledAsync<TResult>(CancellationToken cancellationToken)
+            private static async Task<IReadOnlyList<TResult>> WaitUntilCancelledAsync<TResult>(CancellationToken cancellationToken, bool sqlExceptionOnCancellation)
             {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException) when (sqlExceptionOnCancellation)
+                {
+                    throw SqlExceptionFactory.GetSqlException(0, "Operation cancelled by user.");
+                }
+
                 return Array.Empty<TResult>();
             }
 
