@@ -16,7 +16,7 @@
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>10.0.13</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>7.7.1</OpenIddictPackageVersion>
-    <IgnixaPackageVersion>0.6.74</IgnixaPackageVersion>
+    <IgnixaPackageVersion>0.6.82</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
@@ -60,7 +60,7 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.0.2" />
     <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.2.25" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
+    <PackageVersion Include="FluentValidation" Version="12.2.0" />
     <PackageVersion Include="Hl7.Fhir.Base" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
@@ -81,6 +81,7 @@
     <PackageVersion Include="Ignixa.Abstractions" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Extensions.FirelySdk5" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.FhirPath" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.PackageManagement" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Serialization" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Specification" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Medino" Version="3.0.9" />
@@ -141,7 +142,7 @@
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Server.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="$(OpenIddictPackageVersion)" />
-    <PackageVersion Include="Polly" Version="8.5.2" />
+    <PackageVersion Include="Polly" Version="8.6.6" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="3.1.0" />
