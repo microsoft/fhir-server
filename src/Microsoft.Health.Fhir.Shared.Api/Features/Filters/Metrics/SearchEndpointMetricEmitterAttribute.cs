@@ -9,6 +9,8 @@ using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -74,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
                     return SearchComplexity.Medium;
                 }
 
-                // Searches with multiple _include/_revinclude require additional DB round-trips — Medium.
+                // Searches with multiple _include/_revinclude are complex
                 if (context.HttpContext?.Request?.Query != null)
                 {
                     int includeCount = 0;
@@ -86,6 +88,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
                     }
 
                     if (includeCount > 1)
+                    {
+                        return SearchComplexity.Medium;
+                    }
+
+                    // Sorted searches can need a second DB query
+                    if (context.HttpContext.Request.Query.TryGetValue(KnownQueryParameterNames.Sort, out StringValues sortValues) &&
+                        sortValues.Any(v => !string.IsNullOrWhiteSpace(v)))
                     {
                         return SearchComplexity.Medium;
                     }

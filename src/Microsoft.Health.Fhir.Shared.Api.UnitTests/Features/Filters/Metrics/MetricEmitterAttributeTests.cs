@@ -133,5 +133,58 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
 
             Assert.Equal(SearchComplexity.Low, result);
         }
+
+        [Theory]
+        [InlineData("?_sort=birthdate")]
+        [InlineData("?_sort=-birthdate")]
+        [InlineData("?_sort=_lastUpdated")]
+        [InlineData("?_sort=-_lastUpdated")]
+        [InlineData("?_sort=_id")]
+        [InlineData("?_sort=birthdate,_lastUpdated")]
+        [InlineData("?name=smith&_sort=family")]
+        public void DetermineComplexity_GivenSortParameter_ReturnsMedium(string queryString)
+        {
+            ActionExecutedContext context = CreateContext("FhirController", "SearchByResourceType", queryString);
+
+            SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(context);
+
+            Assert.Equal(SearchComplexity.Medium, result);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("?name=smith")]
+        [InlineData("?_sort=")]
+        public void DetermineComplexity_GivenNoSortParameter_ReturnsLow(string queryString)
+        {
+            ActionExecutedContext context = CreateContext("FhirController", "SearchByResourceType", queryString);
+
+            SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(context);
+
+            Assert.Equal(SearchComplexity.Low, result);
+        }
+
+        [Fact]
+        public void DetermineComplexity_GivenSystemHistoryWithSort_ReturnsHigh()
+        {
+            ActionExecutedContext context = CreateContext("FhirController", "SystemHistory", "?_sort=_lastUpdated");
+
+            SearchComplexity result = SearchEndpointMetricEmitterAttribute.DetermineComplexity(context);
+
+            Assert.Equal(SearchComplexity.High, result);
+        }
+
+        private static ActionExecutedContext CreateContext(string controller, string action, string queryString)
+        {
+            var actionDescriptor = new ActionDescriptor();
+            actionDescriptor.RouteValues["controller"] = controller;
+            actionDescriptor.RouteValues["action"] = action;
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString(queryString);
+
+            var actionContext = new ActionContext(httpContext, new RouteData(), actionDescriptor);
+            return new ActionExecutedContext(actionContext, new List<IFilterMetadata>(), controller: null);
+        }
     }
 }
