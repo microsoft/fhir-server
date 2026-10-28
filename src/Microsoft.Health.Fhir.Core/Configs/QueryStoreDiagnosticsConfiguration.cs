@@ -31,6 +31,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public double LeasePeriodSec { get; set; } = 600;
 
         /// <summary>
+        /// Gets or sets the maximum elapsed time, in seconds, for a diagnostics collection.
+        /// </summary>
+        public int CollectionTimeoutSec { get; set; } = 30;
+
+        /// <summary>
+        /// Gets or sets the maximum elapsed time, in seconds, for the optional wait-statistics read.
+        /// </summary>
+        public int WaitStatisticsTimeoutSec { get; set; } = 5;
+
+        /// <summary>
         /// Gets or sets the maximum number of slow query plans reported per collection.
         /// </summary>
         public int SlowQueryCount { get; set; } = 10;

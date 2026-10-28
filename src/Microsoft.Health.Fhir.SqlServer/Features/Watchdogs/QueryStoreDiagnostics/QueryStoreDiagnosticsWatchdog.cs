@@ -58,6 +58,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private const double MinTimerPeriodSec = 0.001;
         private const double MaxTimerPeriodSec = 4294967.294;
+        private const int DefaultCollectionTimeoutSec = 30;
+        private const int DefaultWaitStatisticsTimeoutSec = 5;
+        private const int MaxCollectionTimeoutSec = 86400;
+        private const int CommandTimeoutSec = 5;
 
         /// <summary>
         /// The statistics-health batch size used when configuration does not supply a usable one. Mirrors the class
@@ -80,6 +84,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         private readonly ILogger<QueryStoreDiagnosticsWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SchemaInformation _schemaInformation;
+        private readonly int _collectionTimeoutSec;
+        private readonly int _waitStatisticsTimeoutSec;
 
         // The run-window state observed on the previous tick, used to log only when the state changes. Null until the
         // first observation, so that the state a process starts in is always reported once and an operator never has
@@ -99,6 +105,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration)).QueryStoreDiagnostics;
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            _collectionTimeoutSec = GetTimeoutSec(_configuration.CollectionTimeoutSec, DefaultCollectionTimeoutSec, nameof(_configuration.CollectionTimeoutSec));
+            _waitStatisticsTimeoutSec = GetTimeoutSec(_configuration.WaitStatisticsTimeoutSec, DefaultWaitStatisticsTimeoutSec, nameof(_configuration.WaitStatisticsTimeoutSec));
 
             // PeriodicTimer accepts periods from one millisecond through 4,294,967,294 milliseconds.
             if (_configuration.PeriodSec >= MinTimerPeriodSec && _configuration.PeriodSec <= MaxTimerPeriodSec)
@@ -179,6 +187,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         internal Task RunWorkForTestingAsync(CancellationToken cancellationToken) => RunWorkAsync(cancellationToken);
+
+        private int GetTimeoutSec(int configuredValue, int defaultValue, string setting)
+        {
+            if (configuredValue >= 1 && configuredValue <= MaxCollectionTimeoutSec)
+            {
+                return configuredValue;
+            }
+
+            _logger.LogWarning(
+                "QueryStoreDiagnosticsWatchdog: configured {Setting} is {ConfiguredValue}, outside the range 1 to {MaximumValue} seconds. Falling back to {DefaultValue} seconds.",
+                setting,
+                configuredValue,
+                MaxCollectionTimeoutSec,
+                defaultValue);
+            return defaultValue;
+        }
 
         /// <summary>
         /// Reports the configured run window at startup: a window that can never open as a warning, and any
@@ -337,6 +361,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
+            using var collectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             try
             {
                 if (!_configuration.Enabled)
@@ -376,7 +401,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
                 var lookbackPeriodSec = GetLookbackPeriodSec(PeriodSec);
                 var startTime = collectionTime.AddSeconds(-lookbackPeriodSec);
-                var queryStoreState = await GetQueryStoreStateAsync(cancellationToken);
+                collectionCancellation.CancelAfter(TimeSpan.FromSeconds(_collectionTimeoutSec));
+                var queryStoreState = await GetQueryStoreStateAsync(collectionCancellation.Token);
+                collectionCancellation.Token.ThrowIfCancellationRequested();
                 if (queryStoreState == null)
                 {
                     _logger.LogWarning(
@@ -394,7 +421,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                     return;
                 }
 
-                await CollectDiagnosticsAsync(startTime, collectionTime, cancellationToken);
+                await CollectDiagnosticsAsync(startTime, collectionTime, collectionCancellation.Token, cancellationToken);
+            }
+            catch (OperationCanceledException ex) when (collectionCancellation.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: collection exceeded its {CollectionTimeoutSec}-second deadline. Any diagnostics already emitted were still logged.", _collectionTimeoutSec);
+                throw new TimeoutException("Query Store diagnostics collection exceeded its deadline.", ex);
             }
             catch (SqlException ex) when (ex.Number == 208)
             {
@@ -426,7 +458,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         /// <param name="collectionTime">The end of the collection window.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        internal async Task CollectDiagnosticsAsync(DateTimeOffset startTime, DateTimeOffset collectionTime, CancellationToken cancellationToken)
+        internal Task CollectDiagnosticsAsync(DateTimeOffset startTime, DateTimeOffset collectionTime, CancellationToken cancellationToken) =>
+            CollectDiagnosticsAsync(startTime, collectionTime, cancellationToken, cancellationToken);
+
+        private async Task CollectDiagnosticsAsync(DateTimeOffset startTime, DateTimeOffset collectionTime, CancellationToken cancellationToken, CancellationToken shutdownToken)
         {
             IReadOnlyList<SlowQueryResult> slowQueries = Array.Empty<SlowQueryResult>();
             var waitStatisticsFailed = false;
@@ -441,11 +476,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             else
             {
                 slowQueries = await GetSlowQueriesAsync(startTime, cancellationToken);
-                var waitStatistics = await GetWaitStatisticsAsync(startTime, slowQueries, cancellationToken);
+                var waitStatistics = await GetWaitStatisticsAsync(startTime, slowQueries, cancellationToken, shutdownToken);
                 waitStatisticsFailed = waitStatistics.Failed;
 
                 foreach (var slowQuery in slowQueries)
                 {
+                    shutdownToken.ThrowIfCancellationRequested();
                     waitStatistics.Waits.TryGetValue(slowQuery.PlanId, out var wait);
                     var queryText = slowQuery.QueryText;
                     var queryTextTruncated = queryText.Length > MaxFieldLength;
@@ -475,6 +511,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var queryPlanCount = 0;
             if (!_configuration.IncludeQueryPlans)
             {
@@ -505,6 +542,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             // dead for three days" and "there were no slow queries" are indistinguishable downstream. QueryPlans
             // counts the plans that actually carried sanitized XML, so it is deliberately lower than SlowQueries
             // whenever Query Store had no plan for a query or sanitization rejected one.
+            cancellationToken.ThrowIfCancellationRequested();
             _logger.LogInformation(
                 "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}",
                 startTime,
@@ -517,7 +555,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private async Task<QueryStoreState> GetQueryStoreStateAsync(CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsState") { CommandType = CommandType.StoredProcedure };
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsState") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
 
             // Every diagnostics read binds to the primary: isReadOnly would route to a read-only secondary when
             // SupportsSqlReplicas is on, and Query Store state is primary-scoped, so a secondary reports READ_ONLY
@@ -538,7 +576,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private async Task<IReadOnlyList<SlowQueryResult>> GetSlowQueriesAsync(DateTimeOffset startTime, CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsSlowQueries") { CommandType = CommandType.StoredProcedure };
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsSlowQueries") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
             var minDurationMilliseconds = Math.Max(0, _configuration.MinDurationMilliseconds);
             if (_configuration.MinDurationMilliseconds < 0)
             {
@@ -580,16 +618,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
         private async Task<(Dictionary<long, WaitStatistics> Waits, bool Failed)> GetWaitStatisticsAsync(
             DateTimeOffset startTime,
             IReadOnlyList<SlowQueryResult> slowQueries,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            CancellationToken shutdownToken)
         {
             if (slowQueries.Count == 0)
             {
                 return (new Dictionary<long, WaitStatistics>(), false);
             }
 
+            using var waitCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            waitCancellation.CancelAfter(TimeSpan.FromSeconds(_waitStatisticsTimeoutSec));
             try
             {
-                await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsWaitStatistics") { CommandType = CommandType.StoredProcedure };
+                waitCancellation.Token.ThrowIfCancellationRequested();
+                await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsWaitStatistics") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
                 command.Parameters.Add("@StartTime", SqlDbType.DateTimeOffset).Value = startTime;
                 command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
 
@@ -601,9 +643,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                         reader.IsDBNull(2) ? null : reader.GetString(2)),
                     _logger,
                     "Failed to read Query Store wait statistics",
-                    cancellationToken);
+                    waitCancellation.Token);
 
                 return (waits.ToDictionary(wait => wait.PlanId), false);
+            }
+            catch (OperationCanceledException ex) when (waitCancellation.IsCancellationRequested && !shutdownToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the wait statistics read exceeded its budget or the collection deadline. Wait fields will be empty.");
+                return (new Dictionary<long, WaitStatistics>(), true);
             }
             catch (SqlException ex) when (ex.Number == 2812)
             {
@@ -623,7 +670,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private async Task<int> EmitQueryPlansAsync(IReadOnlyList<SlowQueryResult> slowQueries, CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsPlans") { CommandType = CommandType.StoredProcedure };
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsPlans") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
             command.Parameters.Add("@PlanIds", SqlDbType.NVarChar, -1).Value = string.Join(',', slowQueries.Select(query => query.PlanId));
 
             var plans = await _sqlRetryService.ExecuteReaderAsync(
@@ -640,6 +687,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
             foreach (var slowQuery in slowQueries)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 plansById.TryGetValue(slowQuery.PlanId, out var queryPlan);
                 var sanitizedPlan = QueryPlanSanitizer.Sanitize(queryPlan, MaxFieldLength);
                 if (!string.Equals(sanitizedPlan.Status, QueryPlanSanitizer.SanitizedStatus, StringComparison.Ordinal))
@@ -678,7 +726,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
 
         private async Task<int> EmitStatisticsHealthAsync(CancellationToken cancellationToken)
         {
-            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsStatisticsHealth") { CommandType = CommandType.StoredProcedure };
+            await using var command = new SqlCommand("dbo.GetQueryStoreDiagnosticsStatisticsHealth") { CommandType = CommandType.StoredProcedure, CommandTimeout = CommandTimeoutSec };
             command.Parameters.Add("@Top", SqlDbType.Int).Value = _configuration.StatisticsHealthCount;
 
             var statisticsHealth = await _sqlRetryService.ExecuteReaderAsync(
@@ -923,7 +971,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             internal DateTimeOffset IntervalEnd { get; set; }
         }
 
-        private sealed class QueryStoreState
+        internal sealed class QueryStoreState
         {
             // Trap: sys.database_query_store_options.readonly_reason is int, NOT bigint, even though the neighbouring
             // Query Store columns this watchdog reads (query_id, plan_id, SUM(count_executions), rows, rows_sampled,

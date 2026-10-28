@@ -76,7 +76,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 - [ ] Add versioned collection and interval identities from Appendix E. Prove that repeated reads cannot become additive duplicate CPU totals.
 - [ ] Collect explicitly identified closed Query Store intervals. Report their actual boundaries, capture gaps, execution types, and incomplete sections.
 - [ ] Validate both timer periods against the real timer and conversion limits. Cover the sibling-task lifecycle instead of testing positive numbers alone.
-- [ ] Add an end-to-end deadline, diagnostic-specific timeout and retry limits, and byte-aware log batching. Report budget exhaustion and failed sections explicitly.
+- [ ] Validate the cooperative collection and wait deadlines against live SQL; add diagnostic-specific retry limits and byte-aware log batching. Report budget exhaustion and failed sections explicitly.
 - [ ] Verify collector-procedure identity exclusion, including metadata visibility and historical entries, or replace it with a tested collector-specific marker. Classify legacy diagnostic lookups separately as overhead.
 - [ ] Treat the lease as coordination, not fencing. Make output idempotent across retries, restarts, and overlapping lease holders.
 

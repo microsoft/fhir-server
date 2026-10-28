@@ -35,6 +35,160 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
     [Trait(Traits.Category, Categories.Operations)]
     public class QueryStoreDiagnosticsWaitStatisticsTests
     {
+        [Fact]
+        public async Task GivenAStalledWaitRead_WhenCollecting_ThenRuntimeStatisticsAreEmitted()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var logger = new CapturingLogger();
+            var slowQuery = new QueryStoreDiagnosticsWatchdog.SlowQueryResult
+            {
+                QueryId = 11,
+                PlanId = 22,
+                ExecutionCount = 1,
+                QueryText = "SELECT 1",
+                IntervalStart = DateTimeOffset.UtcNow.AddMinutes(-5),
+                IntervalEnd = DateTimeOffset.UtcNow,
+            };
+
+            ConfigureSlowQuery(sqlRetryService, slowQuery);
+            ConfigureStalledWait(sqlRetryService);
+
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(sqlRetryService, logger, waitStatisticsTimeoutSec: 1);
+            using var cancellation = new CancellationTokenSource();
+
+            try
+            {
+                await watchdog.CollectDiagnosticsAsync(DateTimeOffset.UtcNow.AddHours(-1), DateTimeOffset.UtcNow, cancellation.Token)
+                    .WaitAsync(TimeSpan.FromSeconds(7));
+            }
+            finally
+            {
+                cancellation.Cancel();
+            }
+
+            CapturingLogger.LogEntry entry = Assert.Single(logger.SlowQueryEntries);
+            Assert.Equal(slowQuery.QueryId, entry.Properties["QueryId"]);
+            Assert.Equal(QueryStoreDiagnosticsWatchdog.WaitStatisticsFailedStatus, entry.Properties["WaitStatisticsStatus"]);
+        }
+
+        [Fact]
+        public async Task GivenAStalledWaitRead_WhenTheCollectionDeadlineExpires_ThenRuntimeStatisticsAreEmittedAndTheTickIsIncomplete()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var logger = new CapturingLogger();
+            var slowQuery = new QueryStoreDiagnosticsWatchdog.SlowQueryResult
+            {
+                QueryId = 11,
+                PlanId = 22,
+                ExecutionCount = 1,
+                QueryText = "SELECT 1",
+                IntervalStart = DateTimeOffset.UtcNow.AddMinutes(-5),
+                IntervalEnd = DateTimeOffset.UtcNow,
+            };
+            int commandTimeout = 0;
+            sqlRetryService
+                .ExecuteReaderAsync(
+                    Arg.Any<SqlCommand>(),
+                    Arg.Any<Func<SqlDataReader, QueryStoreDiagnosticsWatchdog.QueryStoreState>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                .Returns(call =>
+                {
+                    commandTimeout = call.ArgAt<SqlCommand>(0).CommandTimeout;
+                    return new List<QueryStoreDiagnosticsWatchdog.QueryStoreState> { new QueryStoreDiagnosticsWatchdog.QueryStoreState("READ_WRITE", null) };
+                });
+            ConfigureSlowQuery(sqlRetryService, slowQuery);
+            ConfigureStalledWait(sqlRetryService);
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(sqlRetryService, logger, collectionTimeoutSec: 1, waitStatisticsTimeoutSec: 5);
+
+            await Assert.ThrowsAsync<TimeoutException>(() => watchdog.RunWorkForTestingAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(7)));
+
+            CapturingLogger.LogEntry entry = Assert.Single(logger.SlowQueryEntries);
+            Assert.Equal(slowQuery.QueryId, entry.Properties["QueryId"]);
+            Assert.Equal(QueryStoreDiagnosticsWatchdog.WaitStatisticsFailedStatus, entry.Properties["WaitStatisticsStatus"]);
+            Assert.Equal(5, commandTimeout);
+            Assert.Contains(logger.WarningMessages, message => message.Contains("collection exceeded", StringComparison.Ordinal));
+            Assert.DoesNotContain(logger.Messages, message => message.Contains("completed a collection", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task GivenRuntimeResultsArriveAfterTheDeadline_WhenCollecting_ThenNoWaitReadStarts()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var logger = new CapturingLogger();
+            var slowQuery = new QueryStoreDiagnosticsWatchdog.SlowQueryResult
+            {
+                QueryId = 11,
+                PlanId = 22,
+                ExecutionCount = 1,
+                QueryText = "SELECT 1",
+                IntervalStart = DateTimeOffset.UtcNow.AddMinutes(-5),
+                IntervalEnd = DateTimeOffset.UtcNow,
+            };
+            sqlRetryService
+                .ExecuteReaderAsync(
+                    Arg.Any<SqlCommand>(),
+                    Arg.Any<Func<SqlDataReader, QueryStoreDiagnosticsWatchdog.QueryStoreState>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                .Returns(new List<QueryStoreDiagnosticsWatchdog.QueryStoreState> { new QueryStoreDiagnosticsWatchdog.QueryStoreState("READ_WRITE", null) });
+            sqlRetryService
+                .ExecuteReaderAsync(
+                    Arg.Any<SqlCommand>(),
+                    Arg.Any<Func<SqlDataReader, QueryStoreDiagnosticsWatchdog.SlowQueryResult>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                .Returns(async _ =>
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(1500));
+                    IReadOnlyList<QueryStoreDiagnosticsWatchdog.SlowQueryResult> results = new[] { slowQuery };
+                    return results;
+                });
+            var waitStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ConfigureStalledWait(sqlRetryService, waitStarted);
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(sqlRetryService, logger, collectionTimeoutSec: 1, waitStatisticsTimeoutSec: 5);
+
+            await Assert.ThrowsAsync<TimeoutException>(() => watchdog.RunWorkForTestingAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(7)));
+
+            Assert.False(waitStarted.Task.IsCompleted);
+            CapturingLogger.LogEntry entry = Assert.Single(logger.SlowQueryEntries);
+            Assert.Equal(slowQuery.QueryId, entry.Properties["QueryId"]);
+            Assert.Equal(QueryStoreDiagnosticsWatchdog.WaitStatisticsFailedStatus, entry.Properties["WaitStatisticsStatus"]);
+        }
+
+        [Fact]
+        public async Task GivenAStalledWaitRead_WhenTheHostCancels_ThenCancellationPropagatesWithoutEmittingRuntimeStatistics()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var logger = new CapturingLogger();
+            var slowQuery = new QueryStoreDiagnosticsWatchdog.SlowQueryResult
+            {
+                QueryId = 11,
+                PlanId = 22,
+                ExecutionCount = 1,
+                QueryText = "SELECT 1",
+            };
+            var waitStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ConfigureSlowQuery(sqlRetryService, slowQuery);
+            ConfigureStalledWait(sqlRetryService, waitStarted);
+            QueryStoreDiagnosticsWatchdog watchdog = CreateWatchdog(sqlRetryService, logger);
+            using var cancellation = new CancellationTokenSource();
+
+            Task collection = watchdog.CollectDiagnosticsAsync(DateTimeOffset.UtcNow.AddHours(-1), DateTimeOffset.UtcNow, cancellation.Token);
+            await waitStarted.Task.WaitAsync(TimeSpan.FromSeconds(7));
+            cancellation.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => collection);
+            Assert.Empty(logger.SlowQueryEntries);
+            Assert.Empty(logger.WarningMessages);
+        }
+
         [Theory]
         [InlineData(1205, "wait statistics could not be read")]
         [InlineData(2812, "wait statistics stored procedure is missing")]
@@ -111,12 +265,47 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
                 message => message.Contains(expectedWarning, StringComparison.Ordinal));
         }
 
-        private static QueryStoreDiagnosticsWatchdog CreateWatchdog(ISqlRetryService sqlRetryService, ILogger<QueryStoreDiagnosticsWatchdog> logger)
+        private static void ConfigureSlowQuery(ISqlRetryService sqlRetryService, QueryStoreDiagnosticsWatchdog.SlowQueryResult slowQuery)
+        {
+            sqlRetryService
+                .ExecuteReaderAsync(
+                    Arg.Any<SqlCommand>(),
+                    Arg.Any<Func<SqlDataReader, QueryStoreDiagnosticsWatchdog.SlowQueryResult>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                .Returns(new List<QueryStoreDiagnosticsWatchdog.SlowQueryResult> { slowQuery });
+        }
+
+        private static void ConfigureStalledWait(ISqlRetryService sqlRetryService, TaskCompletionSource<bool> waitStarted = null)
+        {
+            sqlRetryService
+                .ExecuteReaderAsync(
+                    Arg.Any<SqlCommand>(),
+                    Arg.Any<Func<SqlDataReader, QueryStoreDiagnosticsWatchdog.WaitStatistics>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                .Returns(call => WaitUntilCancelledAsync(call.ArgAt<CancellationToken>(4), waitStarted));
+        }
+
+        private static async Task<IReadOnlyList<QueryStoreDiagnosticsWatchdog.WaitStatistics>> WaitUntilCancelledAsync(CancellationToken cancellationToken, TaskCompletionSource<bool> waitStarted)
+        {
+            waitStarted?.TrySetResult(true);
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return Array.Empty<QueryStoreDiagnosticsWatchdog.WaitStatistics>();
+        }
+
+        private static QueryStoreDiagnosticsWatchdog CreateWatchdog(ISqlRetryService sqlRetryService, ILogger<QueryStoreDiagnosticsWatchdog> logger, int collectionTimeoutSec = 30, int waitStatisticsTimeoutSec = 5)
         {
             var configuration = new WatchdogConfiguration();
             configuration.QueryStoreDiagnostics.Enabled = true;
             configuration.QueryStoreDiagnostics.SlowQueryCount = 10;
             configuration.QueryStoreDiagnostics.MinDurationMilliseconds = 1;
+            configuration.QueryStoreDiagnostics.CollectionTimeoutSec = collectionTimeoutSec;
+            configuration.QueryStoreDiagnostics.WaitStatisticsTimeoutSec = waitStatisticsTimeoutSec;
 
             // The plan and statistics sections are turned off so that the only reads this test has to stand up are
             // the two it is about.
@@ -140,6 +329,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs.QueryStor
 
             internal IReadOnlyList<string> WarningMessages =>
                 _entries.Where(entry => entry.Level == LogLevel.Warning).Select(entry => entry.Message).ToList();
+
+            internal IReadOnlyList<string> Messages => _entries.Select(entry => entry.Message).ToList();
 
             internal IReadOnlyList<LogEntry> SlowQueryEntries =>
                 _entries.Where(entry => entry.Message.StartsWith("QueryStoreDiagnosticsWatchdog slow query.", StringComparison.Ordinal)).ToList();

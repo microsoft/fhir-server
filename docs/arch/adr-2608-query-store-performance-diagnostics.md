@@ -36,6 +36,8 @@ Enablement uses the existing configuration surface, so turning diagnostics on in
 
 The watchdog calls five versioned stored procedures using the existing service identity. This replaces the earlier inline SQL design to follow the repository's stored-procedure convention. Separate procedures preserve independent retries and keep a wait-statistics failure from suppressing slow-query records. The tradeoff is a schema migration and a rollout dependency. Schema version 120 installs them. On an older or unknown schema version, collection is skipped and retried on the next tick. A deployment must verify that the service identity can execute the procedures and read the required Query Store and statistics views.
 
+Collection has a configurable cooperative deadline, and the optional wait read has a shorter independent deadline by default. Each SQL attempt uses a five-second command timeout. Runtime records are retained when the wait read times out, but cancellation cannot guarantee an immediate server-side stop or fence an expired lease. These proposed defaults require validation on a representative workload before enablement.
+
 We also decided to emit the diagnostics as logs rather than as metric events. Three reasons, in order of weight.
 
 Metric events are charged when they are received, and the volume here is not small. `docs/arch/adr-2605-metric-emission-rate-limiting.md` records a high volume emission pattern that throttled a shared metric account and degraded monitoring for both the FHIR and DICOM services. That is an availability problem as well as a bill, and it is the kind of problem that is easier to avoid than to recover from.

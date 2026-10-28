@@ -72,6 +72,8 @@ The shared `dbo.AcquireWatchdogLease` procedure coordinates collection through `
 | `Enabled` | `false` | The gate described above. |
 | `PeriodSec` | `3600` | Interval between collections, and — clamped to `[60, 86400]` seconds — the Query Store lookback window each collection covers. Values outside `[0.001, 4294967.294]` seconds and non-finite values are rejected with a warning and the `3600` default is used, because `PeriodicTimer` would otherwise throw. |
 | `LeasePeriodSec` | `600` | How often the lease is renewed. Values outside `[0.001, 4294967.294]` seconds and non-finite values are rejected with a warning and the `600` default is used. A collection can outlive the lease if renewal fails. |
+| `CollectionTimeoutSec` | `30` | Cooperative deadline for collection, starting before the Query Store state read. Values outside `1` to `86400` seconds fall back to `30` with a warning. |
+| `WaitStatisticsTimeoutSec` | `5` | Cooperative deadline for the optional wait-statistics read, including retries. Values outside `1` to `86400` seconds fall back to `5` with a warning. The collection deadline can expire first. |
 | `SlowQueryCount` | `10` | Number of slow plans to report per tick. |
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
@@ -216,6 +218,10 @@ Wait statistics are collected by a **separate, best-effort** query and merged in
 
 `SqlException` is caught broadly there on purpose, so that a transient wait-query failure cannot abort the tick and suppress the runtime statistics. The trade-off accepted is that timeouts, deadlocks, permission denials and missing views are not distinguished from one another at that point; the warning carries the exception, and the slow-query line carries the status.
 
+Each diagnostics SQL command has a five-second per-attempt timeout. The wait read also has its own deadline, while a collection-wide deadline covers the state read and subsequent sections, including retries. A wait deadline produces `Failed` wait status and preserves the runtime records. If the collection deadline expires during that wait, runtime records are emitted before the tick reports an incomplete collection. Host shutdown cancellation propagates instead.
+
+These are cooperative cancellation requests, not guaranteed server-side CPU limits: cancellation and synchronous work such as plan sanitization may take additional time. SQL retries remain governed by the shared retry service within these deadlines. The collection deadline is reported as a failed tick, and a successful completion log is not written.
+
 Wait capture is retained locally, rather than deferred entirely to the `QueryStoreWaitStatistics` Log Analytics stream, so that a single emitted slow-query line is self-contained: runtime statistics, waits, query text, and plan identity arrive together without a join against a second telemetry source.
 
 ### Statistics health
@@ -337,7 +343,7 @@ Recorded deliberately; each is a candidate for a follow-up.
 - **Stored procedures run under the existing service identity.** The five procedures are part of schema version 120. They do not create an external caller role.
 - **Plans are re-emitted every tick.** There is no cross-tick deduplication by `plan_id`, so a persistently slow plan is emitted repeatedly. Accepted for v1; the duplication is bounded by `SlowQueryCount` and the tick interval, and suppression can be added once real emission volume is known.
 - **Slow-query selection is total-duration only.** There is no configuration for selecting by CPU, reads, waits, or regression against a baseline. `MinDurationMilliseconds` and `SlowQueryCount` are the only tuning knobs. Richer selection is the expected first enhancement.
-- **Collection has no independent deadline.** Reads use the shared SQL timeout and retry settings. An optional wait-statistics read can delay runtime emission until its retries finish; cancellation or lease loss is not a per-collection budget.
+- **Cancellation is not fencing or a CPU quota.** A deadline requests cancellation, but does not guarantee immediate termination of SQL work or plan sanitization. Lease loss can still allow overlapping collectors.
 - **The request-triggered Query Store lookup is unchanged.** This collector adds background work and does not establish a reduction in lookup CPU.
 - **FHIR query annotation changes SQL text.** The effect on Query Store query identity, history, and forced plans has not been validated and must be checked before rollout.
 - **Truncation is a hard cut.** A plan exceeding 32,768 UTF-16 code units is truncated and flagged. The resulting prefix can be invalid XML. It is not chunked, compressed, or externalized to blob storage.
