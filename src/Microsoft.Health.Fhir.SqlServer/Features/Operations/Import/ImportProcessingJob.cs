@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobWarning(ex, jobInfo, "Invalid input. Import processing operation failed.");
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex, false);
+                throw new JobExecutionException(ex.Message, error, ex, true);
             }
             catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name contains invalid characters", StringComparison.OrdinalIgnoreCase))
             {
