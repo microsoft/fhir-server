@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private const string HttpGetName = "GET";
         private const string HttpPostName = "POST";
+        private const DataActions ReindexAndReadActions = DataActions.Reindex | DataActions.Read | DataActions.ReadById;
 
         public ReindexSingleResourceRequestHandlerTests()
         {
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _resourceDeserializer = Substitute.For<IResourceDeserializer>();
             _cancellationToken = CancellationToken.None;
 
-            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(ReindexAndReadActions);
 
             var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
@@ -68,10 +69,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenUserDoesNotHavePermissionForReindex_WhenHandle_ThenUnauthorizedExceptionIsThrown()
         {
-            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(DataActions.Read | DataActions.ReadById);
             var request = GetReindexRequest(HttpGetName);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
+        }
+
+        [Fact]
+        public async Task GivenUserDoesNotHaveReadOrReadByIdPermission_WhenHandle_ThenUnauthorizedExceptionIsThrown()
+        {
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
+            var request = GetReindexRequest(HttpGetName);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
+            await _fhirDataStore.DidNotReceive().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(DataActions.Read)]
+        [InlineData(DataActions.ReadById)]
+        public async Task GivenUserHasReadOrReadByIdPermission_WhenHandle_ThenAccessIsAllowed(DataActions readAction)
+        {
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex | readAction);
+            SetupDataStoreToReturnDummyResourceWrapper();
+            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(Samples.GetDefaultPatient());
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(Array.Empty<SearchIndexEntry>());
+
+            await _reindexHandler.HandleAsync(GetReindexRequest(HttpGetName), _cancellationToken);
+
+            await _authorizationService.Received(1).CheckAccess(ReindexAndReadActions, _cancellationToken);
         }
 
         [Fact]

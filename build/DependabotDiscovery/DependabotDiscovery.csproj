@@ -75,6 +75,7 @@
     <PackageReference Include="Ignixa.Abstractions" />
     <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
     <PackageReference Include="Ignixa.FhirPath" />
+    <PackageReference Include="Ignixa.PackageManagement" />
     <PackageReference Include="Ignixa.Serialization" />
     <PackageReference Include="Ignixa.Specification" />
     <PackageReference Include="Medino" />
@@ -126,6 +127,7 @@
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" />
     <PackageReference Include="Microsoft.Identity.Web" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.Rest.ClientRuntime" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" />
     <PackageReference Include="Microsoft.SqlServer.DACFx" />
@@ -162,6 +164,7 @@
     <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="System.Text.Encodings.Web" />
     <PackageReference Include="System.Text.RegularExpressions" />
+    <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="xunit.v3.assert" />
     <PackageReference Include="xunit.v3.extensibility.core" />
     <PackageReference Include="xunit.v3.mtp-v2" />

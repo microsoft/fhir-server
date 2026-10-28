@@ -113,6 +113,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             Assert.Contains(
                 deviceLeg.Expressions,
                 e => e is StringExpression se && se.FieldName == FieldName.ReferenceResourceId && se.Value == "patient-A");
+            Assert.Contains(
+                deviceLeg.Expressions,
+                e => e is MissingFieldExpression missing && missing.FieldName == FieldName.ReferenceBaseUri);
+        }
+
+        [Theory]
+        [InlineData(CompartmentType.Patient)]
+        [InlineData(CompartmentType.Practitioner)]
+        public void GivenFormalCompartmentMembership_WhenRewritten_ThenReferenceMustBeLocal(CompartmentType compartmentType)
+        {
+            var subjectParameter = new SearchParameterInfo("subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+            _compartmentDefinitionManager
+                .TryGetResourceTypes(compartmentType, out Arg.Any<HashSet<string>>())
+                .Returns(call =>
+                {
+                    call[1] = new HashSet<string> { KnownResourceTypes.Observation };
+                    return true;
+                });
+            _compartmentDefinitionManager
+                .TryGetSearchParams(KnownResourceTypes.Observation, compartmentType, out Arg.Any<HashSet<string>>())
+                .Returns(call =>
+                {
+                    call[2] = new HashSet<string> { "subject" };
+                    return true;
+                });
+            _searchParameterDefinitionManager
+                .TryGetSearchParameter(KnownResourceTypes.Observation, "subject", out Arg.Any<SearchParameterInfo>())
+                .Returns(call =>
+                {
+                    call[2] = subjectParameter;
+                    return true;
+                });
+
+            UnionExpression union = Rewrite(CreateRewriter(flagEnabled: false), compartmentType.ToString());
+
+            MultiaryExpression membership = union.Expressions.OfType<MultiaryExpression>()
+                .Single(leg => leg.Expressions.OfType<MissingFieldExpression>().Any());
+            Assert.Equal(MultiaryOperator.And, membership.MultiaryOperation);
+            Assert.Contains(membership.Expressions, e => e is MissingFieldExpression missing && missing.FieldName == FieldName.ReferenceBaseUri);
+            Assert.Contains(membership.Expressions, e => e is StringExpression value && value.FieldName == FieldName.ReferenceResourceType && value.Value == compartmentType.ToString());
+            Assert.Contains(membership.Expressions, e => e is StringExpression value && value.FieldName == FieldName.ReferenceResourceId && value.Value == "patient-A");
         }
 
         [Fact]

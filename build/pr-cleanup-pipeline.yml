@@ -1,6 +1,6 @@
 # DESCRIPTION: 	
-# Cleans up Azure resources after a successful PR Build & Deploy pipeline run.
-# This pipeline is triggered automatically when the PR pipeline completes successfully.
+# Cleans up shared Azure resources after the owned test and SQL cleanup stages succeed.
+# Runs separately so resource group deletion does not delay PR validation.
 
 trigger: none
 pr: none
@@ -12,12 +12,14 @@ resources:
     trigger:
       branches:
         include:
-          - '*'
+        - '*'
+      # All listed stages must succeed. Wait for SQL cleanup to avoid racing whole-RG deletion.
       stages:
-        - testStu3
-        - testR4
-        - testR4B
-        - testR5
+      - testStu3Cosmos
+      - cleanup_testStu3Sql
+      - testR4Cosmos
+      - cleanup_testR4Sql
+      - cleanup_testR5Sql
 
 variables:
 - template: pr-variables.yml
