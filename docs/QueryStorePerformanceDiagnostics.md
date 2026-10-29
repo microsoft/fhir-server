@@ -331,11 +331,13 @@ Nothing here is PaaS-specific, and no PaaS identity, storage account, or rollout
 
 ### Rollout
 
-1. Merge the OSS change. The feature ships disabled.
-2. Upgrade the database to schema version 120 or later and verify the service identity's procedure and view permissions.
-3. Confirm the FHIR server log stream is routed where the investigation needs it. There is no handler to bind.
-4. Enable the configuration gate in a test ring and confirm emission volume and field sizes.
-5. Enable it for the deployment under investigation through configuration, using `RunStartDate` and `RunEndDate` when the investigation is time-boxed. Restart the deployment for the change to take effect.
+1. Before enabling the feature, validate schema installation, service-identity permissions, collector behavior, and the effect of the FHIR annotation changes on Query Store identity and forced plans on an isolated compatible SQL instance.
+2. Obtain approval for the log destination, reader access, retention, and audit requirements. Every slow-query record includes SQL query text when the collector is enabled. Setting `IncludeQueryPlans` to `false` does not suppress query text.
+3. Confirm that the FHIR server log stream reaches the intended destination and that query and plan identifiers can be associated with the right database.
+4. Start with a test ring and a bounded run window. Set `Enabled` to `true`, `IncludeQueryPlans` to `false`, and `IncludeStatisticsHealth` to `false` for the first collection. Query plans and statistics health both default to `true` when the collector is enabled, so set these explicitly. Restart the host after changing configuration.
+5. Verify the records and section statuses in the destination. Check log volume, field truncation, wait-read failures, and whether the duration-ranked results identify queries useful to the investigation. Do not add successive snapshots together: their Query Store intervals can overlap.
+6. Measure collector CPU and elapsed time against the same representative workload with the collector disabled. The `TotalCpuMilliseconds` field describes the selected queries, not the CPU used by the collector. Set acceptable overhead and failure criteria before expanding the ring.
+7. Enable statistics health and then plans only after their separate permissions, disclosure, payload-size, and overhead checks pass. To stop collection, set `Enabled` to `false` and restart the host.
 
 The watchdog skips collection on older or unknown schema versions and checks again on each tick. Configuration remains authoritative for the collection schedule, and the watchdog does not seed or reconcile its period settings in the database.
 
