@@ -102,10 +102,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var definitionManager = new SearchParameterDefinitionManager(
                 modelInfoProvider,
                 mediator,
-                searchService.CreateMockScopeFactory(),
+                searchService.CreateMockScopeProvider(),
                 searchParameterComparer,
-                statusDataStore.CreateMockScopeFactory(),
-                fhirDataStore.CreateMockScopeFactory(),
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -132,10 +132,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var definitionManager = new SearchParameterDefinitionManager(
                 modelInfoProvider,
                 mediator,
-                searchService.CreateMockScopeFactory(),
+                searchService.CreateMockScopeProvider(),
                 searchParameterComparer,
-                statusDataStore.CreateMockScopeFactory(),
-                fhirDataStore.CreateMockScopeFactory(),
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 

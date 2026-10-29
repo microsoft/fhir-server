@@ -9,9 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -26,15 +27,15 @@ public class JobFactoryTests
     public void GivenKnownJob_WhenCreated_ThenCallerOwnsExecutionScope()
     {
         IJob job = new TestJob();
-        IOwnedScope<IEnumerable<Func<IJob>>> discovery = CreateScope(() => job);
-        IOwnedScope<IEnumerable<Func<IJob>>> execution = CreateScope(() => job);
-        var factory = Substitute.For<IOwnedScopeFactory<IEnumerable<Func<IJob>>>>();
-        factory.Create().Returns(discovery, execution);
+        IScoped<IEnumerable<Func<IJob>>> discovery = CreateScope(() => job);
+        IScoped<IEnumerable<Func<IJob>>> execution = CreateScope(() => job);
+        var factory = Substitute.For<IScopeProvider<IEnumerable<Func<IJob>>>>();
+        factory.Invoke().Returns(discovery, execution);
         IJobFactory jobFactory = new JobFactory(factory, NullLogger<JobFactory>.Instance);
 
-        using IJobScope scope = jobFactory.Create(CreateJobInfo());
+        using IScoped<IJob> scope = jobFactory.Create(CreateJobInfo());
 
-        Assert.Same(job, scope.Job);
+        Assert.Same(job, scope.Value);
         discovery.Received(1).Dispose();
         execution.DidNotReceive().Dispose();
         scope.Dispose();
@@ -44,10 +45,10 @@ public class JobFactoryTests
     [Fact]
     public void GivenExecutionActivationFailure_WhenCreatingJob_ThenExecutionScopeIsDisposed()
     {
-        IOwnedScope<IEnumerable<Func<IJob>>> discovery = CreateScope(() => new TestJob());
-        IOwnedScope<IEnumerable<Func<IJob>>> execution = CreateScope(() => throw new InvalidOperationException("Activation failed."));
-        var factory = Substitute.For<IOwnedScopeFactory<IEnumerable<Func<IJob>>>>();
-        factory.Create().Returns(discovery, execution);
+        IScoped<IEnumerable<Func<IJob>>> discovery = CreateScope(() => new TestJob());
+        IScoped<IEnumerable<Func<IJob>>> execution = CreateScope(() => throw new InvalidOperationException("Activation failed."));
+        var factory = Substitute.For<IScopeProvider<IEnumerable<Func<IJob>>>>();
+        factory.Invoke().Returns(discovery, execution);
         IJobFactory jobFactory = new JobFactory(factory, NullLogger<JobFactory>.Instance);
 
         Assert.Throws<InvalidOperationException>(() => jobFactory.Create(CreateJobInfo()));
@@ -58,7 +59,7 @@ public class JobFactoryTests
     [Fact]
     public void GivenDiscoveryActivationFailure_WhenConstructingFactory_ThenDiscoveryScopeIsDisposed()
     {
-        IOwnedScope<IEnumerable<Func<IJob>>> discovery = CreateScope(() => throw new InvalidOperationException("Activation failed."));
+        IScoped<IEnumerable<Func<IJob>>> discovery = CreateScope(() => throw new InvalidOperationException("Activation failed."));
         var factory = CreateFactory(discovery);
 
         Assert.Throws<InvalidOperationException>(() => new JobFactory(factory, NullLogger<JobFactory>.Instance));
@@ -69,26 +70,26 @@ public class JobFactoryTests
     [Fact]
     public void GivenUnknownJob_WhenCreatingJob_ThenNoExecutionScopeIsCreated()
     {
-        IOwnedScope<IEnumerable<Func<IJob>>> discovery = CreateScope(() => new TestJob());
+        IScoped<IEnumerable<Func<IJob>>> discovery = CreateScope(() => new TestJob());
         var factory = CreateFactory(discovery);
         IJobFactory jobFactory = new JobFactory(factory, NullLogger<JobFactory>.Instance);
 
         Assert.Throws<NotSupportedException>(() => jobFactory.Create(new JobInfo { Definition = "{\"typeId\":-1}" }));
 
-        factory.Received(1).Create();
+        factory.Received(1).Invoke();
     }
 
-    private static IOwnedScope<IEnumerable<Func<IJob>>> CreateScope(Func<IJob> createJob)
+    private static IScoped<IEnumerable<Func<IJob>>> CreateScope(Func<IJob> createJob)
     {
-        var scope = Substitute.For<IOwnedScope<IEnumerable<Func<IJob>>>>();
+        var scope = Substitute.For<IScoped<IEnumerable<Func<IJob>>>>();
         scope.Value.Returns(new[] { createJob });
         return scope;
     }
 
-    private static IOwnedScopeFactory<IEnumerable<Func<IJob>>> CreateFactory(IOwnedScope<IEnumerable<Func<IJob>>> scope)
+    private static IScopeProvider<IEnumerable<Func<IJob>>> CreateFactory(IScoped<IEnumerable<Func<IJob>>> scope)
     {
-        var factory = Substitute.For<IOwnedScopeFactory<IEnumerable<Func<IJob>>>>();
-        factory.Create().Returns(scope);
+        var factory = Substitute.For<IScopeProvider<IEnumerable<Func<IJob>>>>();
+        factory.Invoke().Returns(scope);
         return factory;
     }
 

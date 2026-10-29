@@ -29,7 +29,6 @@ using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -50,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Lazy<IConformanceProvider> _conformanceProvider;
         private readonly IDeletionServiceDataStoreFactory _dataStoreFactory;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -72,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IResourceWrapperFactory resourceWrapperFactory,
             Lazy<IConformanceProvider> conformanceProvider,
             IDeletionServiceDataStoreFactory dataStoreFactory,
-            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ResourceIdProvider resourceIdProvider,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IAuditLogger auditLogger,
@@ -183,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IReadOnlyCollection<SearchResultEntry> results;
             string ct;
             string ict;
-            using (var searchService = _searchServiceFactory.Create())
+            using (var searchService = _searchServiceFactory.Invoke())
             {
                 (results, ct, ict) = await searchService.Value.ConditionalSearchAsync(
                     request.ResourceType,
@@ -290,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     if (!string.IsNullOrEmpty(ct) && (request.DeleteAll || (int)(request.MaxDeleteCount - numQueuedForDeletion) > 0))
                     {
-                        using (var searchService = _searchServiceFactory.Create())
+                        using (var searchService = _searchServiceFactory.Invoke())
                         {
                             (results, ct, ict) = await searchService.Value.ConditionalSearchAsync(
                                 request.ResourceType,
@@ -737,7 +736,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private async Task RemoveReferences(SearchResultEntry resource, ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            using (var searchService = _searchServiceFactory.Create())
+            using (var searchService = _searchServiceFactory.Invoke())
             {
                 var parameters = new List<Tuple<string, string>>()
                 {

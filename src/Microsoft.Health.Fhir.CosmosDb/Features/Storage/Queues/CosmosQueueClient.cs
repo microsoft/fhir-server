@@ -20,10 +20,10 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Polly;
 using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 
 public class CosmosQueueClient : IQueueClient
 {
-    private readonly IOwnedScopeFactory<Container> _containerFactory;
+    private readonly IScopeProvider<Container> _containerFactory;
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -39,7 +39,7 @@ public class CosmosQueueClient : IQueueClient
     private readonly ILogger<CosmosQueueClient> _logger;
 
     public CosmosQueueClient(
-        IOwnedScopeFactory<Container> containerFactory,
+        IScopeProvider<Container> containerFactory,
         ICosmosQueryFactory queryFactory,
         ICosmosDbDistributedLockFactory distributedLockFactory,
         RetryExceptionPolicyFactory retryExceptionPolicyFactory,
@@ -92,7 +92,7 @@ public class CosmosQueueClient : IQueueClient
         var id = GetLongId();
         var jobInfos = new List<JobInfo>();
 
-        using IOwnedScope<Container> container = _containerFactory.Create();
+        using IScoped<Container> container = _containerFactory.Invoke();
 
         // Check if there are any existing jobs with the same definition
         var definitionHashes = definitions
@@ -207,7 +207,7 @@ public class CosmosQueueClient : IQueueClient
             jobInfo.Definitions.Add(definitionInfo);
         }
 
-        using IOwnedScope<Container> container = _containerFactory.Create();
+        using IScoped<Container> container = _containerFactory.Invoke();
         ItemResponse<JobGroupWrapper> result = await _retryPolicy.ExecuteAsync(async () => await container.Value.CreateItemAsync(jobInfo, new PartitionKey(jobInfo.PartitionKey), cancellationToken: cancellationToken));
 
         return result.Resource.ToJobInfo().ToList();
@@ -626,11 +626,11 @@ public class CosmosQueueClient : IQueueClient
 
     private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int? itemCount, byte queueType, CancellationToken cancellationToken)
     {
-        IOwnedScope<Container> container = null;
+        IScoped<Container> container = null;
 
         try
         {
-            container = _containerFactory.Create();
+            container = _containerFactory.Invoke();
         }
         catch (ObjectDisposedException ode)
         {
@@ -665,7 +665,7 @@ public class CosmosQueueClient : IQueueClient
 
     private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken, bool ignoreEtag = false)
     {
-        using IOwnedScope<Container> container = _containerFactory.Create();
+        using IScoped<Container> container = _containerFactory.Invoke();
 
         try
         {

@@ -11,11 +11,12 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
 {
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
     /// </summary>
     public class ListSearchPipeBehavior : IPipelineBehavior<SearchResourceRequest, SearchResourceResponse>
     {
-        private readonly IOwnedScopeFactory<IFhirDataStore> _dataStore;
+        private readonly IScopeProvider<IFhirDataStore> _dataStore;
         private readonly ResourceDeserializer _deserializer;
         private readonly IBundleFactory _bundleFactory;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
         public ListSearchPipeBehavior(
             ISearchOptionsFactory searchOptionsFactory,
             IBundleFactory bundleFactory,
-            IOwnedScopeFactory<IFhirDataStore> dataStore,
+            IScopeProvider<IFhirDataStore> dataStore,
             ResourceDeserializer deserializer,
             IReferenceSearchValueParser referenceSearchValueParser)
         {
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             }
 
             ResourceWrapper listWrapper;
-            using (IOwnedScope<IFhirDataStore> dataStore = _dataStore.Create())
+            using (IScoped<IFhirDataStore> dataStore = _dataStore.Invoke())
             {
                 listWrapper = await dataStore.Value.GetAsync(new ResourceKey<Hl7.Fhir.Model.List>(listParameter.Item2), cancellationToken);
             }

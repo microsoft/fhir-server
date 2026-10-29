@@ -6,10 +6,11 @@
 using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Scoping;
 
-namespace Microsoft.Health.Fhir.Core.Features.Scoping;
+namespace Microsoft.Health.Fhir.Core.Features.Operations;
 
-internal sealed class ScopedComponent<T> : IOwnedScope<T>
+internal sealed class ScopedComponent<T> : IScoped<T>
 {
     private bool _isDisposed;
     private IServiceScope _serviceScope;

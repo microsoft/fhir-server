@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -19,6 +18,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -32,8 +32,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
     public class ReindexSearchTests : IClassFixture<FhirStorageTestsFixture>
     {
-        private readonly IOwnedScope<IFhirDataStore> _scopedDataStore;
-        private readonly IOwnedScope<ISearchService> _searchService;
+        private readonly IScoped<IFhirDataStore> _scopedDataStore;
+        private readonly IScoped<ISearchService> _searchService;
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {

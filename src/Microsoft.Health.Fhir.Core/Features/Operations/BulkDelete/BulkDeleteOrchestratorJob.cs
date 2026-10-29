@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -21,12 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     public class BulkDeleteOrchestratorJob : IJob
     {
         private readonly IQueueClient _queueClient;
-        private readonly IOwnedScopeFactory<ISearchService> _searchService;
+        private readonly IScopeProvider<ISearchService> _searchService;
         private const string OperationCompleted = "Completed";
 
         public BulkDeleteOrchestratorJob(
             IQueueClient queueClient,
-            IOwnedScopeFactory<ISearchService> searchService)
+            IScopeProvider<ISearchService> searchService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
@@ -43,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             BulkDeleteDefinition processingDefinition = null;
 
-            using var searchService = _searchService.Create();
+            using var searchService = _searchService.Invoke();
             if (string.IsNullOrEmpty(definition.Type))
             {
                 IReadOnlyList<string> resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);

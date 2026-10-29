@@ -6,7 +6,8 @@
 using System;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Scoping;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Common
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// <param name="caseName">The service name included in a retention failure.</param>
         public static void NotRetainedByRoot<T>(IServiceProvider root, string caseName)
         {
-            IOwnedScopeFactory<T> factory = root.GetRequiredService<IOwnedScopeFactory<T>>();
+            IScopeProvider<T> factory = root.GetRequiredService<IScopeProvider<T>>();
             WeakReference reference = CreateDisposedScope(factory);
 
             GC.Collect();
@@ -37,9 +38,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static WeakReference CreateDisposedScope<T>(IOwnedScopeFactory<T> factory)
+        private static WeakReference CreateDisposedScope<T>(IScopeProvider<T> factory)
         {
-            using IOwnedScope<T> scope = factory.Create();
+            using IScoped<T> scope = factory.Invoke();
             Assert.NotNull(scope.Value);
             return new WeakReference(scope);
         }

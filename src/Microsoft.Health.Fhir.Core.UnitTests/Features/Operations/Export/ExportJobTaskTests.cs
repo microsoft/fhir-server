@@ -28,7 +28,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -1533,7 +1532,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScopeFactory());
+            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScopeProvider());
 
             await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -1558,7 +1557,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeFactory());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeProvider());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -1595,7 +1594,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeFactory());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeProvider());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -2307,7 +2306,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportJobTask CreateExportJobTask(
             ExportJobConfiguration exportJobConfiguration = null,
             IExportDestinationClient exportDestinationClient = null,
-            IOwnedScopeFactory<IAnonymizerFactory> anonymizerFactory = null,
+            IScopeProvider<IAnonymizerFactory> anonymizerFactory = null,
             ILogger<ExportJobTask> logger = null)
         {
             _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x => x.ArgAt<ResourceElement>(0).Instance.Value.ToString());
@@ -2316,9 +2315,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
             return new ExportJobTask(
-                _fhirOperationDataStore.CreateMockScopeFactory(),
+                _fhirOperationDataStore.CreateMockScopeProvider(),
                 Options.Create(exportJobConfiguration == null ? _exportJobConfiguration : exportJobConfiguration),
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 exportDestinationClient == null ? _inMemoryDestinationClient : exportDestinationClient,

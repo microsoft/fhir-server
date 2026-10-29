@@ -14,15 +14,15 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using NSubstitute;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
@@ -33,12 +33,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private readonly string _progressToken = "progress token";
 
-        private static IOwnedScopeFactory<ISearchService> CreateMockSearchServiceFactory()
+        private static IScopeProvider<ISearchService> CreateMockSearchServiceFactory()
         {
             var searchService = Substitute.For<ISearchService>();
-            var scoped = Substitute.For<IOwnedScope<ISearchService>>();
+            var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            return scoped.CreateMockScopeFactoryFromScope();
+            return scoped.CreateMockScopeProviderFromScoped();
         }
 
         [Fact]
@@ -282,9 +282,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     (150, 200, 50),
                 });
 
-            var scoped = Substitute.For<IOwnedScope<ISearchService>>();
+            var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            IOwnedScopeFactory<ISearchService> factory = scoped.CreateMockScopeFactoryFromScope();
+            IScopeProvider<ISearchService> factory = scoped.CreateMockScopeProviderFromScoped();
 
             var processingJob = new ExportProcessingJob(MakeMockJobThatAlwaysOoms, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var jobRecord = GenerateJobRecord(OperationStatus.Completed, resourceType: "Patient", startSurrogateId: startSurrogateId, endSurrogateId: endSurrogateId, maximumNumberOfResourcesPerQuery: maxCount);
@@ -346,9 +346,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     (100, 200, 100),
                 });
 
-            var scoped = Substitute.For<IOwnedScope<ISearchService>>();
+            var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            IOwnedScopeFactory<ISearchService> factory = scoped.CreateMockScopeFactoryFromScope();
+            IScopeProvider<ISearchService> factory = scoped.CreateMockScopeProviderFromScoped();
 
             var processingJob = new ExportProcessingJob(MakeMockJobCapturingBatchSize, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var jobRecord = GenerateJobRecord(OperationStatus.Completed, resourceType: "Patient", startSurrogateId: startSurrogateId, endSurrogateId: endSurrogateId);
@@ -447,9 +447,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     (parsedStartId, parsedEndId, 50),
                 });
 
-            var scoped = Substitute.For<IOwnedScope<ISearchService>>();
+            var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            IOwnedScopeFactory<ISearchService> factory = scoped.CreateMockScopeFactoryFromScope();
+            IScopeProvider<ISearchService> factory = scoped.CreateMockScopeProviderFromScoped();
 
             var processingJob = new ExportProcessingJob(MakeMockJobWithOomOnFirstRange, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var jobRecord = GenerateJobRecord(OperationStatus.Completed, exportJobType: exportJobType, resourceType: resourceType, startSurrogateId: startId, endSurrogateId: endId);

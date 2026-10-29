@@ -18,10 +18,11 @@ using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Health;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         private const string DegradedDescription = "The health of the store has degraded.";
         private const string CMKErrorDescription = "Connection to the data store was unsuccesful because the client's customer-managed key is not available.";
 
-        private readonly IOwnedScopeFactory<Container> _container;
+        private readonly IScopeProvider<Container> _container;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly ICosmosClientTestProvider _testProvider;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
         public CosmosDbHealthCheck(
-            IOwnedScopeFactory<Container> container,
+            IScopeProvider<Container> container,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosClientTestProvider testProvider,
@@ -101,7 +102,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 {
                     using var timeBasedTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(maxExecutionTimeInSeconds));
                     using var operationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeBasedTokenSource.Token);
-                    using IOwnedScope<Container> scope = _container.Create();
+                    using IScoped<Container> scope = _container.Invoke();
                     await _testProvider.PerformTestAsync(scope.Value, operationTokenSource.Token);
                     return HealthCheckResult.Healthy("Successfully connected.");
                 }

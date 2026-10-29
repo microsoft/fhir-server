@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             return new ReindexOrchestratorJob(
                 _queueClient,
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 _searchDefinitionManager,
                 _searchParameterStatusManager,
                 _searchParameterOperations,

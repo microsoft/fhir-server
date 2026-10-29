@@ -13,9 +13,9 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -24,12 +24,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class GroupMemberExtractor : IGroupMemberExtractor
     {
-        private readonly IOwnedScopeFactory<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly ResourceDeserializer _resourceDeserializer;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
 
         public GroupMemberExtractor(
-            IOwnedScopeFactory<IFhirDataStore> fhirDataStoreFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
             ResourceDeserializer resourceDeserializer,
             IReferenceToElementResolver referenceToElementResolver)
         {
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
             ResourceWrapper groupResource;
-            using (IOwnedScope<IFhirDataStore> dataStore = _fhirDataStoreFactory.Create())
+            using (IScoped<IFhirDataStore> dataStore = _fhirDataStoreFactory.Invoke())
             {
                 groupResource = await dataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
             }

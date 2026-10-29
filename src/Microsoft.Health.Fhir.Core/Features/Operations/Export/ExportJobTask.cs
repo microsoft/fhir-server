@@ -25,9 +25,9 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Scoping;
 using Polly;
 using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
@@ -36,10 +36,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportJobTask : IExportJobTask
     {
-        private readonly IOwnedScopeFactory<IFhirOperationDataStore> _fhirOperationDataStoreFactory;
-        private readonly IOwnedScopeFactory<IAnonymizerFactory> _anonymizerFactory;
+        private readonly IScopeProvider<IFhirOperationDataStore> _fhirOperationDataStoreFactory;
+        private readonly IScopeProvider<IAnonymizerFactory> _anonymizerFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IGroupMemberExtractor _groupMemberExtractor;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
@@ -54,14 +54,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly AsyncRetryPolicy _exportSearchRetryPolicy;
 
         public ExportJobTask(
-            IOwnedScopeFactory<IFhirOperationDataStore> fhirOperationDataStoreFactory,
+            IScopeProvider<IFhirOperationDataStore> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
-            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             IGroupMemberExtractor groupMemberExtractor,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
             IResourceDeserializer resourceDeserializer,
-            IOwnedScopeFactory<IAnonymizerFactory> anonymizerFactory,
+            IScopeProvider<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILogger<ExportJobTask> logger)
@@ -407,7 +407,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
         {
-            using (IOwnedScope<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory.Create())
+            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory.Invoke())
             {
                 return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, false, cancellationToken);
             }
@@ -440,7 +440,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            using IOwnedScope<IAnonymizerFactory> anonymizerFactory = IsAnonymizedExportJob() ? _anonymizerFactory.Create() : null;
+            using IScoped<IAnonymizerFactory> anonymizerFactory = IsAnonymizedExportJob() ? _anonymizerFactory.Invoke() : null;
             IAnonymizer anonymizer = anonymizerFactory != null
                 ? await anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord, cancellationToken)
                 : null;
@@ -546,7 +546,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     case ExportJobType.All:
                     case ExportJobType.Patient:
-                        using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
+                        using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
                         {
                             searchResult = await searchService.Value.SearchAsync(
                                 resourceType: resourceType,
@@ -755,7 +755,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 SearchResult searchResult = null;
 
                 // Search and process the results.
-                using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
+                using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
                 {
                     searchResult = await searchService.Value.SearchCompartmentAsync(
                         compartmentType: KnownResourceTypes.Patient,
@@ -909,7 +909,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
             }
 
-            using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 return await searchService.Value.SearchAsync(
                                resourceType: KnownResourceTypes.Patient,

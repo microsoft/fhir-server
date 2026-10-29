@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Scoping;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement
@@ -178,13 +179,13 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
 
-            using IJobScope job = _jobFactory.Create(jobInfo);
+            using IScoped<IJob> job = _jobFactory.Create(jobInfo);
 
             // jobMetric can be null if the job type is not registered in the JobMetricFactory.
             // Not all types of jobs emit metrics to avoid duplicates.
             IJobMetric jobMetric = _jobMetricFactory.Create(jobInfo);
 
-            if (job?.Job == null)
+            if (job?.Value == null)
             {
                 _logger.LogJobWarning(jobInfo, "Not supported job type.", jobInfo.Id);
                 return;
@@ -205,7 +206,7 @@ namespace Microsoft.Health.JobManagement
                                     jobInfo.QueueType,
                                     jobInfo.Id,
                                     jobInfo.Version,
-                                    cancellationSource => job.Job.ExecuteAsync(jobInfo, cancellationSource.Token),
+                                    cancellationSource => job.Value.ExecuteAsync(jobInfo, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
 

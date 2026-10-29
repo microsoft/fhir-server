@@ -30,9 +30,9 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Scoping;
 using Microsoft.IO;
 using Polly;
 using Task = System.Threading.Tasks.Task;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly ReplaceSingleResource _replaceSingleResource = new();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
 
-        private readonly IOwnedScopeFactory<Container> _containerScope;
+        private readonly IScopeProvider<Container> _containerScope;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="searchParameterStatusDataStore">The search parameter status data store used to persist queued search parameter status updates.</param>
         /// <param name="requestContextAccessor">Accessor for request-scoped context properties, including pending search parameter status updates.</param>
         public CosmosFhirDataStore(
-            IOwnedScopeFactory<Container> containerScope,
+            IScopeProvider<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosQueryFactory cosmosQueryFactory,
@@ -306,7 +307,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CancellationToken cancellationToken,
             bool requireETagOnUpdate = false)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -562,7 +563,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -596,7 +597,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -644,7 +645,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
@@ -701,7 +702,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <returns>The results and possible continuation token</returns>
         internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, FeedRange feedRange = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutOverride = default, CancellationToken cancellationToken = default)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -817,7 +818,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         internal async Task<IReadOnlyList<FeedRange>> GetFeedRanges(CancellationToken cancellationToken = default)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
@@ -830,7 +831,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         // This method should only be called by async jobs as some queries could take a long time to traverse all pages.
         internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -969,7 +970,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
-            using IOwnedScope<Container> containerScope = _containerScope.Create();
+            using IScoped<Container> containerScope = _containerScope.Invoke();
 
             try
             {

@@ -25,7 +25,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -36,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private readonly Lazy<IConformanceProvider> _conformanceProvider = new Lazy<IConformanceProvider>(() => Substitute.For<IConformanceProvider>());
         private readonly IDeletionServiceDataStoreFactory _dataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory = Substitute.For<IOwnedScopeFactory<ISearchService>>();
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory = Substitute.For<IScopeProvider<ISearchService>>();
         private readonly ResourceIdProvider _resourceIdProvider = Substitute.For<ResourceIdProvider>();
         private readonly FhirRequestContextAccessor _contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
@@ -124,9 +124,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: false);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             var entries = new List<SearchResultEntry>();
             for (int i = 0; i < 3; i++)
@@ -200,9 +200,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 maxDeleteCount: null,
                 deleteAll: true);
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
             searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
@@ -256,9 +256,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 maxDeleteCount: null,
                 deleteAll: true);
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
             searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
@@ -312,9 +312,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: false);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             var entries = new List<SearchResultEntry>
             {
@@ -357,9 +357,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: false);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             var entries = new List<SearchResultEntry>
             {
@@ -405,9 +405,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: true);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             var firstPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match) };
             var secondPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Match) };
@@ -477,9 +477,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: true);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             var primaryPage = new SearchResult(
                 new List<SearchResultEntry> { CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match) },
@@ -571,9 +571,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: false);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param" };
             var resource = searchParameter.ToResourceElement();
@@ -633,9 +633,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: false);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param" };
             var resource = searchParameter.ToResourceElement();
@@ -687,9 +687,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 deleteAll: false);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Create().Returns(scopedSearchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
 
             // First page of results - returns 5 entries with a continuation token
             var firstPageEntries = new List<SearchResultEntry>();

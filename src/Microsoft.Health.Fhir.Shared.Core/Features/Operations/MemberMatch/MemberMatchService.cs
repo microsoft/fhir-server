@@ -15,11 +15,11 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Scoping;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
 {
     public sealed class MemberMatchService : IMemberMatchService
     {
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ISearchIndexer _searchIndexer;
         private readonly IExpressionParser _expressionParser;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
         private readonly ILogger<MemberMatchService> _logger;
 
         public MemberMatchService(
-            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             IResourceDeserializer resourceDeserializer,
             ISearchIndexer searchIndexer,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             SearchResult results = null;
             try
             {
-                using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
+                using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
                 results = await search.Value.SearchAsync(searchOptions, cancellationToken);
             }
             catch (InvalidSearchOperationException ex)

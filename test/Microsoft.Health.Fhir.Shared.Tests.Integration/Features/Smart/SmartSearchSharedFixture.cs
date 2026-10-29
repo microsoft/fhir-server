@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -28,6 +27,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
     {
         private readonly DataStore _dataStore;
         private FhirStorageTestsFixture _fixture;
-        private IOwnedScope<IFhirDataStore> _scopedDataStore;
+        private IScoped<IFhirDataStore> _scopedDataStore;
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private ISearchIndexer _searchIndexer;
 

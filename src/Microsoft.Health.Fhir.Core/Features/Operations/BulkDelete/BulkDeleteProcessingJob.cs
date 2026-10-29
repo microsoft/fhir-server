@@ -17,12 +17,12 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Newtonsoft.Json;
 using FhirJobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
@@ -31,17 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     [JobTypeId((int)JobType.BulkDeleteProcessing)]
     public class BulkDeleteProcessingJob : IJob
     {
-        private readonly IOwnedScopeFactory<IDeletionService> _deleterFactory;
+        private readonly IScopeProvider<IDeletionService> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
-        private readonly IOwnedScopeFactory<ISearchService> _searchService;
+        private readonly IScopeProvider<ISearchService> _searchService;
         private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
-            IOwnedScopeFactory<IDeletionService> deleterFactory,
+            IScopeProvider<IDeletionService> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
-            IOwnedScopeFactory<ISearchService> searchService,
+            IScopeProvider<ISearchService> searchService,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
                 IDictionary<string, long> resourcesDeleted = new Dictionary<string, long>();
-                using IOwnedScope<IDeletionService> deleter = _deleterFactory.Create();
+                using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 if (types.Count > 1)
                 {
                     types.RemoveAt(0);
-                    using var searchService = _searchService.Create();
+                    using var searchService = _searchService.Invoke();
                     BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(jobInfo, definition, searchService.Value, types, cancellationToken);
 
                     if (processingDefinition != null)

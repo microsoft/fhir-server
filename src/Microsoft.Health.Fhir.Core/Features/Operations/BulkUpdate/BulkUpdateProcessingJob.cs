@@ -19,9 +19,9 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
     {
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IOwnedScopeFactory<IBulkUpdateService> _updateFactory;
+        private readonly IScopeProvider<IBulkUpdateService> _updateFactory;
         private readonly IMediator _mediator;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<BulkUpdateProcessingJob> _logger;
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         public BulkUpdateProcessingJob(
             IQueueClient queueClient,
-            IOwnedScopeFactory<IBulkUpdateService> updateFactory,
+            IScopeProvider<IBulkUpdateService> updateFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISupportedProfilesStore supportedProfiles,
             IMediator mediator,
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 };
 
                 _contextAccessor.RequestContext = fhirRequestContext;
-                using IOwnedScope<IBulkUpdateService> upsertService = _updateFactory.Create();
+                using IScoped<IBulkUpdateService> upsertService = _updateFactory.Invoke();
                 Exception exception = null;
                 uint readUpto = 0;
 

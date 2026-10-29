@@ -17,12 +17,12 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
+using Microsoft.Health.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public IOwnedScope<Container> CreateContainerScope()
+        public IScoped<Container> CreateContainerScope()
         {
             if (!_initializationOperation.IsInitialized)
             {

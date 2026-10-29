@@ -28,7 +28,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -39,6 +38,7 @@ using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly CosmosFhirDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration();
-        private readonly IOwnedScope<Container> _container;
+        private readonly IScoped<Container> _container;
         private readonly IBundleOrchestrator _bundleOrchestrator;
 
         public CosmosFhirDataStoreTests()
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
 
             _dataStore = new CosmosFhirDataStore(
-                _container.CreateMockScopeFactoryFromScope(),
+                _container.CreateMockScopeProviderFromScoped(),
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             var searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             var dataStore = new CosmosFhirDataStore(
-                _container.CreateMockScopeFactoryFromScope(),
+                _container.CreateMockScopeProviderFromScoped(),
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,

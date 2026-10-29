@@ -38,7 +38,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -64,8 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Lazy<IConformanceProvider> _conformanceProvider;
-        private readonly IOwnedScopeFactory<IFhirDataStore> _fhirDataStoreFactory;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
@@ -76,8 +75,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public BulkUpdateService(
             IResourceWrapperFactory resourceWrapperFactory,
             Lazy<IConformanceProvider> conformanceProvider,
-            IOwnedScopeFactory<IFhirDataStore> fhirDataStoreFactory,
-            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
@@ -322,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// </summary>
         private async Task<SearchResult> Search(string resourceType, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
         {
-            using (var searchService = _searchServiceFactory.Create())
+            using (var searchService = _searchServiceFactory.Invoke())
             {
                 var searchResults = await searchService.Value.SearchAsync(
                     resourceType,
@@ -588,7 +587,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var partialResults = new List<(string, string, bool)>();
             try
             {
-                using var fhirDataStore = _fhirDataStoreFactory.Create();
+                using var fhirDataStore = _fhirDataStoreFactory.Invoke();
 
                 // Update includes first so that the reference for match result remains intact for next pages
                 if (wrapperOperationsIncludes.Any())

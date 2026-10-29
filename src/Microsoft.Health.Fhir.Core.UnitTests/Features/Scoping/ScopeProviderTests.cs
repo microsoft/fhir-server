@@ -6,8 +6,9 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Scoping;
 
 [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
 [Trait(Traits.Category, Categories.Validate)]
-public class OwnedScopeFactoryTests
+public class ScopeProviderTests
 {
     [Fact]
     public void GivenFactory_WhenCreatingScopes_ThenEachCallerOwnsAnIndependentLifetime()
@@ -25,10 +26,10 @@ public class OwnedScopeFactoryTests
         services.AddOwnedScopes();
         services.AddScoped(_ => Substitute.For<IDisposable>());
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
-        IOwnedScopeFactory<IDisposable> factory = provider.GetRequiredService<IOwnedScopeFactory<IDisposable>>();
+        IScopeProvider<IDisposable> factory = provider.GetRequiredService<IScopeProvider<IDisposable>>();
 
-        using IOwnedScope<IDisposable> first = factory.Create();
-        using IOwnedScope<IDisposable> second = factory.Create();
+        using IScoped<IDisposable> first = factory.Invoke();
+        using IScoped<IDisposable> second = factory.Invoke();
         IDisposable firstValue = first.Value;
         IDisposable secondValue = second.Value;
         first.Dispose();
@@ -59,10 +60,10 @@ public class OwnedScopeFactoryTests
         services.AddOwnedScopes();
         services.AddScoped(_ => Substitute.For<IDisposable>());
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
-        IOwnedScope<IDisposable> owned;
+        IScoped<IDisposable> owned;
         using (IServiceScope resolvingScope = provider.CreateScope())
         {
-            owned = resolvingScope.ServiceProvider.GetRequiredService<IOwnedScopeFactory<IDisposable>>().Create();
+            owned = resolvingScope.ServiceProvider.GetRequiredService<IScopeProvider<IDisposable>>().Invoke();
         }
 
         using (owned)
@@ -79,9 +80,9 @@ public class OwnedScopeFactoryTests
         var services = new ServiceCollection();
         services.AddOwnedScopes();
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
-        IOwnedScopeFactory<IDisposable> factory = provider.GetRequiredService<IOwnedScopeFactory<IDisposable>>();
+        IScopeProvider<IDisposable> factory = provider.GetRequiredService<IScopeProvider<IDisposable>>();
 
-        Assert.Throws<InvalidOperationException>(() => factory.Create());
+        Assert.Throws<InvalidOperationException>(() => factory.Invoke());
     }
 
     [Fact]
@@ -97,9 +98,9 @@ public class OwnedScopeFactoryTests
             throw new InvalidOperationException("Activation failed.");
         });
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
-        IOwnedScopeFactory<object> factory = provider.GetRequiredService<IOwnedScopeFactory<object>>();
+        IScopeProvider<object> factory = provider.GetRequiredService<IScopeProvider<object>>();
 
-        Assert.Throws<InvalidOperationException>(() => factory.Create());
+        Assert.Throws<InvalidOperationException>(() => factory.Invoke());
 
         dependency.Received(1).Dispose();
     }
@@ -112,6 +113,6 @@ public class OwnedScopeFactoryTests
         services.AddOwnedScopes();
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        Assert.Single(provider.GetServices<IOwnedScopeFactory<object>>());
+        Assert.Single(provider.GetServices<IScopeProvider<object>>());
     }
 }

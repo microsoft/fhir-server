@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 .Returns(Task.FromResult(new SearchResult(5, new List<Tuple<string, string>>())));
             _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
-            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeFactory(), _queueClient);
+            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeProvider(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeProvider(), _queueClient);
         }
 
         [Fact]

@@ -13,14 +13,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -35,8 +36,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
     public class MemberMatchServiceTests
     {
         private readonly ISearchService _searchService;
-        private readonly IOwnedScope<ISearchService> _scopedSearchService;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScoped<ISearchService> _scopedSearchService;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ISearchIndexer _searchIndexer;
         private readonly ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver _searchParameterDefinitionManagerResolver;
@@ -47,9 +48,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
         public MemberMatchServiceTests()
         {
             _searchService = Substitute.For<ISearchService>();
-            _scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            _scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             _scopedSearchService.Value.Returns(_searchService);
-            _searchServiceFactory = _scopedSearchService.CreateMockScopeFactoryFromScope();
+            _searchServiceFactory = _scopedSearchService.CreateMockScopeProviderFromScoped();
             _resourceDeserializer = Substitute.For<IResourceDeserializer>();
             _searchIndexer = Substitute.For<ISearchIndexer>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();

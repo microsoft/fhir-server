@@ -18,7 +18,6 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -27,8 +26,8 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using NSubstitute;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reindex
@@ -50,11 +49,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
         public ReindexProcessingJobTests()
         {
-            IOwnedScopeFactory<IFhirDataStore> fhirDataStoreScope = _fhirDataStore.CreateMockScopeFactory();
+            IScopeProvider<IFhirDataStore> fhirDataStoreScope = _fhirDataStore.CreateMockScopeProvider();
             _cancellationToken = _cancellationTokenSource.Token;
             _reindexProcessingJobTaskFactory = () =>
                  new ReindexProcessingJob(
-                     _searchService.CreateMockScopeFactory(),
+                     _searchService.CreateMockScopeProvider(),
                      fhirDataStoreScope,
                      _resourceWrapperFactory,
                      _searchParameterOperations,

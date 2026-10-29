@@ -5,14 +5,14 @@
 
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
     /// A handle that leaves the shared container's lifetime with its owner.
     /// </summary>
-    public sealed class NonDisposingScope : IOwnedScope<Container>
+    public sealed class NonDisposingScope : IScoped<Container>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="NonDisposingScope"/> class.

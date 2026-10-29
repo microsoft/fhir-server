@@ -169,10 +169,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 _mediator,
-                CreateMockedScopeExtensions.CreateMockScopeFactory(() => _searchService),
+                CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService),
                 searchParameterComparer,
-                statusDataStore.CreateMockScopeFactory(),
-                fhirDataStore.CreateMockScopeFactory(),
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterDefinitionManager,
                 () => _filebasedSearchParameterStatusDataStore,
                 Options.Create(securityConfiguration),
-                SqlConnectionWrapperFactory.CreateMockScopeFactory(),
+                SqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 SqlRetryService,
                 ResourceIdPolicy.Standard,

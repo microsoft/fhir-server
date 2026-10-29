@@ -15,13 +15,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -35,8 +36,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
     {
         private readonly IHostApplicationLifetime _hostApplicationLifetime;
         private readonly ISearchService _searchService;
-        private readonly IOwnedScope<ISearchService> _scopedSearchService;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScoped<ISearchService> _scopedSearchService;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IMediator _mediator;
         private readonly IOptions<ValidateOperationConfiguration> _options;
         private readonly ServerProvideProfileValidation _serverProvideProfileValidation;
@@ -46,9 +47,9 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
             _hostApplicationLifetime = Substitute.For<IHostApplicationLifetime>();
             _hostApplicationLifetime.ApplicationStopping.Returns(CancellationToken.None);
             _searchService = Substitute.For<ISearchService>();
-            _scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
+            _scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             _scopedSearchService.Value.Returns(_searchService);
-            _searchServiceFactory = _scopedSearchService.CreateMockScopeFactoryFromScope();
+            _searchServiceFactory = _scopedSearchService.CreateMockScopeProviderFromScoped();
             _mediator = Substitute.For<IMediator>();
 
             var config = new ValidateOperationConfiguration

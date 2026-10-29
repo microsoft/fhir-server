@@ -25,7 +25,6 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -130,10 +129,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 _mediator,
-                CreateMockedScopeExtensions.CreateMockScopeFactory(() => _searchService),
+                CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService),
                 searchParameterComparer,
-                statusDataStore.CreateMockScopeFactory(),
-                fhirDataStore.CreateMockScopeFactory(),
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
@@ -180,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     NullFhirCosmosQueryLogger.Instance),
                 _cosmosDataStoreConfiguration);
 
-            var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<IOwnedScopeFactory<Container>>(), NullLogger<CosmosDbDistributedLock>.Instance);
+            var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<IScopeProvider<Container>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
             var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             ICosmosClientTestProvider testProvider = new CosmosClientReadWriteTestProvider();
@@ -191,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             cosmosAccessor.TokenCredential.Returns(GetTokenCredential());
 
             var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, _cosmosDataStoreConfiguration, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
-            var handler = new FhirCosmosResponseHandler(_container.CreateMockScopeFactory(), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
+            var handler = new FhirCosmosResponseHandler(_container.CreateMockScopeProvider(), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance);
             var documentClientInitializer = new FhirCosmosClientInitializer(
                 testProvider,
@@ -248,7 +247,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosDocumentQueryFactory = new CosmosQueryFactory(cosmosResponseProcessor, NullFhirCosmosQueryLogger.Instance);
 
-            var documentClient = _container.CreateMockScopeFactory();
+            var documentClient = _container.CreateMockScopeProvider();
 
             var mockQueueClientForSearchParams = Substitute.For<IQueueClient>();
             mockQueueClientForSearchParams.GetActiveJobsByQueueTypeAsync(Arg.Any<byte>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
@@ -258,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 documentClient,
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
-                mockQueueClientForSearchParams.CreateMockScopeFactory());
+                mockQueueClientForSearchParams.CreateMockScopeProvider());
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
@@ -293,9 +292,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor);
 
             _queueClient = new CosmosQueueClient(
-                _container.CreateMockScopeFactory(),
+                _container.CreateMockScopeProvider(),
                 new CosmosQueryFactory(Substitute.For<ICosmosResponseProcessor>(), Substitute.For<ICosmosQueryLogger>()),
-                new CosmosDbDistributedLockFactory(_container.CreateMockScopeFactory(), NullLogger<CosmosDbDistributedLock>.Instance),
+                new CosmosDbDistributedLockFactory(_container.CreateMockScopeProvider(), NullLogger<CosmosDbDistributedLock>.Instance),
                 retryExceptionPolicyFactory,
                 NullLogger<CosmosQueueClient>.Instance);
 
@@ -421,9 +420,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return _searchService;
             }
 
-            if (serviceType == typeof(IOwnedScopeFactory<ISearchService>))
+            if (serviceType == typeof(IScopeProvider<ISearchService>))
             {
-                return _searchService.CreateMockScopeFactory();
+                return _searchService.CreateMockScopeProvider();
             }
 
             if (serviceType == typeof(SearchParameterDefinitionManager))

@@ -21,11 +21,11 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.LegacyExport;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Newtonsoft.Json;
 using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
     {
-        private readonly IOwnedScopeFactory<Container> _containerScope;
+        private readonly IScopeProvider<Container> _containerScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly ILogger _logger;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         /// <param name="loggerFactory">The Logger Factory.</param>
         public CosmosFhirOperationDataStore(
             IQueueClient queueClient,
-            IOwnedScopeFactory<Container> containerScope,
+            IScopeProvider<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                using IOwnedScope<Container> scope = _containerScope.Create();
+                using IScoped<Container> scope = _containerScope.Invoke();
                 ItemResponse<CosmosLegacyExportJobRecordWrapper> cosmosExportJobRecord = await scope.Value.ReadItemAsync<CosmosLegacyExportJobRecordWrapper>(
                     id,
                     new PartitionKey(CosmosDbLegacyExportConstants.ExportJobPartitionKey),

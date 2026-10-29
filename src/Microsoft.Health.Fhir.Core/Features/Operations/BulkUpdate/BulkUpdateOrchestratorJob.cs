@@ -20,10 +20,10 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
     {
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IOwnedScopeFactory<ISearchService> _searchService;
+        private readonly IScopeProvider<ISearchService> _searchService;
         private readonly ILogger<BulkUpdateOrchestratorJob> _logger;
         private const int CoordinatorMaxDegreeOfParallelization = 4;
         private const int NumberOfParallelRecordRanges = 100;
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         public BulkUpdateOrchestratorJob(
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IOwnedScopeFactory<ISearchService> searchService,
+            IScopeProvider<ISearchService> searchService,
             ILogger<BulkUpdateOrchestratorJob> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 }
 
                 // For Parallel bulk update, when there are no SearchParameters then create sub jobs by resourceType-surrogateId ranges
-                using var searchService = _searchService.Create();
+                using var searchService = _searchService.Invoke();
                 if (definition.IsParallel && noOtherSearchParameters)
                 {
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             };
         }
 
-        private static async Task<SearchResult> Search(BulkUpdateDefinition definition, IOwnedScope<ISearchService> searchService, List<Tuple<string, string>> searchParams, CancellationToken cancellationToken)
+        private static async Task<SearchResult> Search(BulkUpdateDefinition definition, IScoped<ISearchService> searchService, List<Tuple<string, string>> searchParams, CancellationToken cancellationToken)
         {
             return await searchService.Value.SearchAsync(
                 definition.Type,

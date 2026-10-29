@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -45,7 +45,7 @@ public class CosmosQueueClientTests
         _retryPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _requestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance);
 
         _cosmosQueueClient = new CosmosQueueClient(
-            Substitute.For<IOwnedScopeFactory<Container>>(),
+            Substitute.For<IScopeProvider<Container>>(),
             _cosmosQueryFactory,
             _distributedLockFactory,
             _retryPolicyFactory,

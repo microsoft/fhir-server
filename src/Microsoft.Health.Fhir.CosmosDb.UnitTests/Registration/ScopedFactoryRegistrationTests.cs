@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -65,9 +66,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
 
             ScopedFactoryAssert.NotRetainedByRoot<Container>(provider, nameof(Container));
 
-            IOwnedScopeFactory<Container> factory = provider.GetRequiredService<IOwnedScopeFactory<Container>>();
-            using (IOwnedScope<Container> first = factory.Create())
-            using (IOwnedScope<Container> second = factory.Create())
+            IScopeProvider<Container> factory = provider.GetRequiredService<IScopeProvider<Container>>();
+            using (IScoped<Container> first = factory.Invoke())
+            using (IScoped<Container> second = factory.Invoke())
             {
                 Assert.NotSame(first, second);
                 Assert.Same(container, first.Value);
@@ -95,9 +96,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
         {
             IServiceCollection services = CreateServices();
             using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
-            IOwnedScopeFactory<IQueueClient> factory = provider.GetRequiredService<IOwnedScopeFactory<IQueueClient>>();
-            using IOwnedScope<IQueueClient> first = factory.Create();
-            using IOwnedScope<IQueueClient> second = factory.Create();
+            IScopeProvider<IQueueClient> factory = provider.GetRequiredService<IScopeProvider<IQueueClient>>();
+            using IScoped<IQueueClient> first = factory.Invoke();
+            using IScoped<IQueueClient> second = factory.Invoke();
             CosmosQueueClient firstPayload = Assert.IsType<CosmosQueueClient>(first.Value);
             CosmosQueueClient secondPayload = Assert.IsType<CosmosQueueClient>(second.Value);
 

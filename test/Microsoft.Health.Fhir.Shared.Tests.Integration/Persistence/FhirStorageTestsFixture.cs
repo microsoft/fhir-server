@@ -354,15 +354,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 searchParameterSupportResolver,
                 dataStoreSearchParameterValidator,
-                SearchService.CreateMockScopeFactory(),
-                DataStore.CreateMockScopeFactory(),
+                SearchService.CreateMockScopeProvider(),
+                DataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterOperations>.Instance);
 
             var deleter = new DeletionService(
                 resourceWrapperFactory,
                 new Lazy<IConformanceProvider>(() => ConformanceProvider),
                 deletionServiceDataStoreFactory,
-                SearchService.CreateMockScopeFactory(),
+                SearchService.CreateMockScopeProvider(),
                 _resourceIdProvider,
                 FhirRequestContextAccessor,
                 auditLogger,

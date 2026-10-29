@@ -11,8 +11,8 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 
@@ -25,13 +25,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private const string _sessionTokenHeaderName = "x-ms-session-token";
 
         private static readonly string _validConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames<ConsistencyLevel>().Select(v => $"'{v}'"));
-        private readonly IOwnedScopeFactory<Container> _client;
+        private readonly IScopeProvider<Container> _client;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
         public FhirCosmosResponseHandler(
-            IOwnedScopeFactory<Container> client,
+            IScopeProvider<Container> client,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             ICosmosResponseProcessor cosmosResponseProcessor)
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     throw new BadRequestException(string.Format(CultureInfo.CurrentCulture, Resources.UnrecognizedConsistencyLevel, values, _validConsistencyLevelsForErrorMessage));
                 }
 
-                using var client = _client.Create();
+                using var client = _client.Invoke();
                 if (parsedLevel != client.Value.Database.Client.ClientOptions.ConsistencyLevel)
                 {
                     if (!ValidateConsistencyLevel(parsedLevel))
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         private bool ValidateConsistencyLevel(ConsistencyLevel desiredConsistency)
         {
-            using var client = _client.Create();
+            using var client = _client.Invoke();
             switch (client.Value.Database.Client.ClientOptions.ConsistencyLevel)
             {
                 case ConsistencyLevel.Strong:

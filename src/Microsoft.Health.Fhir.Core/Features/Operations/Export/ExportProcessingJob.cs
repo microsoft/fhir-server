@@ -15,10 +15,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Newtonsoft.Json;
 using Polly;
 using Polly.Retry;
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportProcessingJob : IJob
     {
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IQueueClient _queueClient;
         private readonly ILogger<ExportProcessingJob> _logger;
 
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public ExportProcessingJob(
             Func<IExportJobTask> exportJobTaskFactory,
-            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             IQueueClient queueClient,
             ILogger<ExportProcessingJob> logger)
         {
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             IReadOnlyList<(long StartId, long EndId, int Count)> subRanges;
-            using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 subRanges = await searchService.Value.GetSurrogateIdRanges(
                     resourceType,

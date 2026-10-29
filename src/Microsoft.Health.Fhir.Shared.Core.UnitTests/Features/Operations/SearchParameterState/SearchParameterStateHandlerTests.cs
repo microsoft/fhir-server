@@ -68,10 +68,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(
                 ModelInfoProvider.Instance,
                 _mediator,
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 _searchParameterComparer,
-                _searchParameterStatusDataStore.CreateMockScopeFactory(),
-                _fhirDataStore.CreateMockScopeFactory(),
+                _searchParameterStatusDataStore.CreateMockScopeProvider(),
+                _fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterHandler = new SearchParameterStateHandler(_authorizationService, _searchParameterDefinitionManager, _searchParameterStatusManager);

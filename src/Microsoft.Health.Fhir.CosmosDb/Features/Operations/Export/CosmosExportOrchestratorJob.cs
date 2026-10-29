@@ -12,7 +12,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -24,12 +23,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : ExportOrchestratorJob
     {
         private readonly IQueueClient _queueClient;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceScopeFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceScopeFactory;
         private readonly ILogger<CosmosExportOrchestratorJob> _logger;
 
         public CosmosExportOrchestratorJob(
             IQueueClient queueClient,
-            IOwnedScopeFactory<ISearchService> searchServiceScopeFactory,
+            IScopeProvider<ISearchService> searchServiceScopeFactory,
             ILogger<CosmosExportOrchestratorJob> logger)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -49,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             // Parallel system level export is parallelized by resource type and CosmosDB physical partitions feed range.
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
             {
-                using var searchService = _searchServiceScopeFactory.Create();
+                using var searchService = _searchServiceScopeFactory.Invoke();
 
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                  ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))

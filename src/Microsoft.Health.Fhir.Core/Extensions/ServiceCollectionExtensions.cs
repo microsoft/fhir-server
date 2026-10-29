@@ -7,7 +7,7 @@ using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Extensions;
 
@@ -22,7 +22,7 @@ public static class ServiceCollectionExtensions
     {
         EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
 
-        serviceCollection.TryAddTransient(typeof(IOwnedScopeFactory<>), typeof(OwnedScopeFactory<>));
+        serviceCollection.TryAddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
 
         return serviceCollection;
     }

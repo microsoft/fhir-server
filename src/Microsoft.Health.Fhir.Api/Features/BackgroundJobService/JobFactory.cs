@@ -10,8 +10,8 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 {
@@ -20,18 +20,18 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     /// </summary>
     public class JobFactory : IJobFactory
     {
-        private readonly IOwnedScopeFactory<IEnumerable<Func<IJob>>> _jobFactories;
+        private readonly IScopeProvider<IEnumerable<Func<IJob>>> _jobFactories;
         private readonly ILogger<JobFactory> _logger;
         private readonly Dictionary<int, int> _jobFactoryLookup;
 
-        public JobFactory(IOwnedScopeFactory<IEnumerable<Func<IJob>>> jobFactories, ILogger<JobFactory> logger)
+        public JobFactory(IScopeProvider<IEnumerable<Func<IJob>>> jobFactories, ILogger<JobFactory> logger)
         {
             EnsureArg.IsNotNull(jobFactories, nameof(jobFactories));
             _jobFactories = jobFactories;
             _logger = logger;
             _jobFactoryLookup = new Dictionary<int, int>();
 
-            using IOwnedScope<IEnumerable<Func<IJob>>> jobs = jobFactories.Create();
+            using IScoped<IEnumerable<Func<IJob>>> jobs = jobFactories.Invoke();
             foreach ((Func<IJob> Instance, int Index) jobFunc in jobs.Value.Select((lazy, i) => (Instance: lazy, Index: i)))
             {
                 try
@@ -55,13 +55,13 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
         }
 
         /// <inheritdoc />
-        public IJobScope Create(JobInfo jobInfo)
+        public IScoped<IJob> Create(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             if (_jobFactoryLookup.TryGetValue(jobInfo.GetJobTypeId() ?? -1, out var index))
             {
-                IOwnedScope<IEnumerable<Func<IJob>>> scope = _jobFactories.Create();
+                IScoped<IEnumerable<Func<IJob>>> scope = _jobFactories.Invoke();
                 try
                 {
                     IJob instance = scope.Value.ElementAt(index).Invoke();
@@ -78,11 +78,11 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             throw new NotSupportedException($"Unknown task definition. ID: {jobInfo.Id}, Type: {jobInfo.GetJobTypeId()}");
         }
 
-        private class ScopedJob(IJob value, IDisposable disposableScope) : IJobScope
+        private class ScopedJob(IJob value, IDisposable disposableScope) : IScoped<IJob>
         {
             private readonly IDisposable _disposableScope = EnsureArg.IsNotNull(disposableScope, nameof(disposableScope));
 
-            public IJob Job { get; } = EnsureArg.IsNotNull(value, nameof(value));
+            public IJob Value { get; } = EnsureArg.IsNotNull(value, nameof(value));
 
             public void Dispose()
             {

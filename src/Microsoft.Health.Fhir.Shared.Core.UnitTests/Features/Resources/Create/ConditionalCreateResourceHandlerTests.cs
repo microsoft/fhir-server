@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -42,7 +41,7 @@ public class ConditionalCreateResourceHandlerTests
     private readonly ConditionalCreateResourceHandler _conditionalCreateHandler;
     private readonly IAuthorizationService<DataActions> _authService;
     private readonly ISearchService _searchService;
-    private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+    private readonly IScopeProvider<ISearchService> _searchServiceFactory;
     private readonly IMediator _mediator;
 
     public ConditionalCreateResourceHandlerTests()
@@ -50,7 +49,7 @@ public class ConditionalCreateResourceHandlerTests
         _authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
         _searchService = Substitute.For<ISearchService>();
-        _searchServiceFactory = Substitute.For<IOwnedScopeFactory<ISearchService>>();
+        _searchServiceFactory = Substitute.For<IScopeProvider<ISearchService>>();
         _mediator = Substitute.For<IMediator>();
         Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
         IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();

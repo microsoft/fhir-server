@@ -12,11 +12,12 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -54,11 +55,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                     return Parser.Parse(data).ToResourceElement();
                 })));
 
-            var scoped = Substitute.For<IOwnedScope<ISearchService>>();
+            var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(_searchService);
 
-            var factory = Substitute.For<IOwnedScopeFactory<ISearchService>>();
-            factory.Create().Returns(scoped);
+            var factory = Substitute.For<IScopeProvider<ISearchService>>();
+            factory.Invoke().Returns(scoped);
 
             _capability = new USCoreInstantiateCapability(
                 factory,

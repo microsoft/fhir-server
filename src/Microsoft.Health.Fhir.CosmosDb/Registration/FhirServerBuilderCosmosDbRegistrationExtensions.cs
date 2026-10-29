@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -106,7 +105,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            services.AddTransient<IOwnedScopeFactory<Container>, CosmosContainerScopeFactory>();
+            services.AddTransient<IScopeProvider<Container>, CosmosContainerScopeProvider>();
 
             services.Add<CosmosQueryFactory>()
                 .Singleton()

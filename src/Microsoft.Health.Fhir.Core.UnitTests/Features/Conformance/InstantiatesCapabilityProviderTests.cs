@@ -11,9 +11,9 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -30,11 +30,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public InstantiatesCapabilityProviderTests()
         {
             _capabilities = new List<IInstantiateCapability>();
-            var s = Substitute.For<IOwnedScope<IEnumerable<IInstantiateCapability>>>();
+            var s = Substitute.For<IScoped<IEnumerable<IInstantiateCapability>>>();
             s.Value.Returns(_capabilities);
 
             _provider = new InstantiatesCapabilityProvider(
-                s.CreateMockScopeFactoryFromScope(),
+                s.CreateMockScopeProviderFromScoped(),
                 Substitute.For<ILogger<InstantiatesCapabilityProvider>>());
         }
 

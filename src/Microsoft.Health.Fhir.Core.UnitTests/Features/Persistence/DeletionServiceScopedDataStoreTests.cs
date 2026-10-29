@@ -6,8 +6,8 @@
 using System;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -29,14 +29,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [Fact]
         public void DataStore_ReturnsScopedValue()
         {
-            var scopeProvider = Substitute.For<IOwnedScopeFactory<IFhirDataStore>>();
+            var scopeProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
             var deletionServiceScopedDataStore = new DeletionServiceScopedDataStore(scopeProvider);
 
             var dataStore = Substitute.For<IFhirDataStore>();
-            var scopedDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
+            var scopedDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedDataStore.Value.Returns(dataStore);
 
-            scopeProvider.Create().Returns(scopedDataStore);
+            scopeProvider.Invoke().Returns(scopedDataStore);
 
             var result1 = deletionServiceScopedDataStore.GetDataStore();
             Assert.Same(dataStore, result1);
@@ -61,9 +61,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [Fact]
         public void Dispose_DisposesScopedDataStore()
         {
-            var scopedDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
-            var scopeProvider = Substitute.For<IOwnedScopeFactory<IFhirDataStore>>();
-            scopeProvider.Create().Returns(scopedDataStore);
+            var scopedDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            var scopeProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
+            scopeProvider.Invoke().Returns(scopedDataStore);
 
             var deletionServiceScopedDataStore = new DeletionServiceScopedDataStore(scopeProvider);
 

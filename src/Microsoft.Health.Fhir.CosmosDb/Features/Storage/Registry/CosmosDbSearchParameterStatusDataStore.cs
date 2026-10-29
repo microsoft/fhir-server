@@ -13,25 +13,25 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
     public sealed class CosmosDbSearchParameterStatusDataStore : ISearchParameterStatusDataStore, IDisposable
     {
-        private readonly IOwnedScopeFactory<Container> _containerScopeFactory;
+        private readonly IScopeProvider<Container> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
-        private readonly IOwnedScopeFactory<IQueueClient> _queueClientScopeFactory;
+        private readonly IScopeProvider<IQueueClient> _queueClientScopeFactory;
         private readonly SemaphoreSlim _statusListSemaphore = new(1, 1);
 
         public CosmosDbSearchParameterStatusDataStore(
-            IOwnedScopeFactory<Container> containerScopeFactory,
+            IScopeProvider<Container> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosQueryFactory queryFactory,
-            IOwnedScopeFactory<IQueueClient> queueClientScopeFactory)
+            IScopeProvider<IQueueClient> queueClientScopeFactory)
         {
             EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
-            using IOwnedScope<Container> clientScope = _containerScopeFactory.Create();
+            using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
             using var retryDelayToken = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             var lastUpdated = startLastUpdated.HasValue ? startLastUpdated.Value : DateTimeOffset.MinValue;
 
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             // Check for active reindex jobs unless this call is from a reindex job itself
             if (!reindexId.HasValue || reindexId.Value <= 0)
             {
-                using IOwnedScope<IQueueClient> queueClientScope = _queueClientScopeFactory.Create();
+                using IScoped<IQueueClient> queueClientScope = _queueClientScopeFactory.Invoke();
                 var activeJobs = await queueClientScope.Value.GetActiveJobsByQueueTypeAsync((byte)QueueType.Reindex, returnParentOnly: true, cancellationToken);
                 if (activeJobs.Count > 0)
                 {
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
             foreach (IEnumerable<ResourceSearchParameterStatus> statusBatch in statuses.TakeBatch(100))
             {
-                using IOwnedScope<Container> clientScope = _containerScopeFactory.Create();
+                using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
                 TransactionalBatch batch = clientScope.Value.CreateTransactionalBatch(new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey));
 
                 foreach (SearchParameterStatusWrapper status in statusBatch.Select(x => x.ToSearchParameterStatusWrapper()))

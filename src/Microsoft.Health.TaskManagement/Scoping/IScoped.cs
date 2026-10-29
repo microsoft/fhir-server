@@ -5,16 +5,16 @@
 
 using System;
 
-namespace Microsoft.Health.JobManagement;
+namespace Microsoft.Health.Scoping;
 
 /// <summary>
-/// Owns the lifetime of a job and its execution dependencies.
-/// The caller must dispose the scope after execution completes.
+/// A service handle owned and disposed by its caller, never by the container resolving its factory.
 /// </summary>
-public interface IJobScope : IDisposable
+/// <typeparam name="T">The service held by the scope.</typeparam>
+public interface IScoped<out T> : IDisposable
 {
     /// <summary>
-    /// Gets the job to execute.
+    /// Gets the service held by this scope.
     /// </summary>
-    IJob Job { get; }
+    T Value { get; }
 }

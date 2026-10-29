@@ -20,10 +20,10 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Scoping;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
@@ -41,14 +41,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     public class PatientEverythingService : IPatientEverythingService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IUrlResolver _urlResolver;
-        private readonly IOwnedScopeFactory<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
@@ -56,14 +56,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         public PatientEverythingService(
             IModelInfoProvider modelInfoProvider,
-            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ISearchOptionsFactory searchOptionsFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ICompartmentDefinitionManager compartmentDefinitionManager,
             IReferenceSearchValueParser referenceSearchValueParser,
             IResourceDeserializer resourceDeserializer,
             IUrlResolver urlResolver,
-            IOwnedScopeFactory<IFhirDataStore> fhirDataStoreFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
-            using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             var searchResultEntries = new List<SearchResultEntry>();
 
             // Build the search parameters to add to the query.
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             ResourceWrapper parentPatientResource;
 
-            using (IOwnedScope<IFhirDataStore> store = _fhirDataStoreFactory.Create())
+            using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
             {
                 // Get the version of the parent patient we recorded in the first $everything operation API call.
                 parentPatientResource = await store.Value.GetAsync(new ResourceKey(KnownResourceTypes.Patient, parentPatientId, token.ParentPatientVersionId), cancellationToken);
@@ -459,7 +459,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             // We do not use Patient?_revinclude here since it depends on the existence of the parent resource
-            using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             SearchOptions searchOptions = _searchOptionsFactory.Create(_revinclude.resourceType, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
@@ -508,7 +508,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
-            using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
@@ -554,7 +554,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             CheckForParentPatientDuplicate(parentPatientId, token, searchParameters);
 
-            using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
@@ -593,7 +593,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             CheckForParentPatientDuplicate(parentPatientId, token, searchParameters);
 
-            using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }

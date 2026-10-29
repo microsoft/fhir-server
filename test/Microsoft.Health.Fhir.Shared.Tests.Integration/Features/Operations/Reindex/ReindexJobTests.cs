@@ -31,7 +31,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -49,9 +48,10 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using NSubstitute;
+using Newtonsoft.Json;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private readonly FhirStorageTestsFixture _fixture;
         private IFhirOperationDataStore _fhirOperationDataStore;
-        private IOwnedScope<IFhirDataStore> _scopedDataStore;
+        private IScoped<IFhirDataStore> _scopedDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
         private readonly ITestOutputHelper _output;
-        private IOwnedScope<ISearchService> _searchService;
+        private IScoped<ISearchService> _searchService;
 
         private ISearchParameterOperations _searchParameterOperations = null;
         private ISearchParameterOperations _searchParameterOperations2 = null;
@@ -147,8 +147,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
-                _searchService.CreateMockScopeFactoryFromScope(),
-                _scopedDataStore.CreateMockScopeFactoryFromScope(),
+                _searchService.CreateMockScopeProviderFromScoped(),
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
                 NullLogger<SearchParameterOperations>.Instance);
 
             // Start background service so it triggers GetAndApplySearchParameterUpdates which signals the TCS.
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     {
                         job = new ReindexOrchestratorJob(
                             _queueClient,
-                            _searchService.CreateMockScopeFactoryFromScope(),
+                            _searchService.CreateMockScopeProviderFromScoped(),
                             _searchParameterDefinitionManager,
                             _searchParameterStatusManager,
                             _searchParameterOperations,
@@ -234,9 +234,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
-                        IOwnedScopeFactory<IFhirDataStore> fhirDataStoreScope = _scopedDataStore.Value.CreateMockScopeFactory();
+                        IScopeProvider<IFhirDataStore> fhirDataStoreScope = _scopedDataStore.Value.CreateMockScopeProvider();
                         job = new ReindexProcessingJob(
-                            _searchService.CreateMockScopeFactoryFromScope(),
+                            _searchService.CreateMockScopeProviderFromScoped(),
                             fhirDataStoreScope,
                             _resourceWrapperFactory,
                             _searchParameterOperations,
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             .Returns(Task.FromResult("Success"));
                     }
 
-                    var scopedJob = Substitute.For<IJobScope>();
+                    var scopedJob = Substitute.For<IScoped<IJob>>();
                     scopedJob.Job.Returns(job);
                     return scopedJob;
                 });
@@ -1065,7 +1065,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var orchestrator = new ReindexOrchestratorJob(
                 _queueClient,
-                searchService.CreateMockScopeFactory(),
+                searchService.CreateMockScopeProvider(),
                 _searchParameterDefinitionManager,
                 _searchParameterStatusManager,
                 _searchParameterOperations,
@@ -1423,10 +1423,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 mediator,
-                _fixture.SearchService.CreateMockScopeFactory(),
+                _fixture.SearchService.CreateMockScopeProvider(),
                 searchParameterComparer,
-                _fixture.SearchParameterStatusDataStore.CreateMockScopeFactory(),
-                _fixture.DataStore.CreateMockScopeFactory(),
+                _fixture.SearchParameterStatusDataStore.CreateMockScopeProvider(),
+                _fixture.DataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
 
@@ -1439,8 +1439,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
-                _searchService.CreateMockScopeFactoryFromScope(),
-                _scopedDataStore.CreateMockScopeFactoryFromScope(),
+                _searchService.CreateMockScopeProviderFromScoped(),
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

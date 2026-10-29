@@ -4,7 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Scoping;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
@@ -17,9 +18,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         /// <typeparam name="T">The service type.</typeparam>
         /// <param name="obj">The service returned by the handle.</param>
         /// <returns>A substitute caller-owned handle.</returns>
-        public static IOwnedScope<T> CreateMockScope<T>(this T obj)
+        public static IScoped<T> CreateMockScope<T>(this T obj)
         {
-            var scope = Substitute.For<IOwnedScope<T>>();
+            var scope = Substitute.For<IScoped<T>>();
             scope.Value.Returns(obj);
             return scope;
         }
@@ -30,10 +31,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         /// <typeparam name="T">The service type.</typeparam>
         /// <param name="obj">The handle returned by the factory.</param>
         /// <returns>A substitute scope factory.</returns>
-        public static IOwnedScopeFactory<T> CreateMockScopeFactoryFromScope<T>(this IOwnedScope<T> obj)
+        public static IScopeProvider<T> CreateMockScopeProviderFromScoped<T>(this IScoped<T> obj)
         {
-            IOwnedScopeFactory<T> provider = Substitute.For<IOwnedScopeFactory<T>>();
-            provider.Create().Returns(obj);
+            IScopeProvider<T> provider = Substitute.For<IScopeProvider<T>>();
+            provider.Invoke().Returns(obj);
             return provider;
         }
 
@@ -43,11 +44,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         /// <typeparam name="T">The service type.</typeparam>
         /// <param name="obj">The service returned within each handle.</param>
         /// <returns>A substitute scope factory.</returns>
-        public static IOwnedScopeFactory<T> CreateMockScopeFactory<T>(this T obj)
+        public static IScopeProvider<T> CreateMockScopeProvider<T>(this T obj)
         {
             return obj
                 .CreateMockScope()
-                .CreateMockScopeFactoryFromScope();
+                .CreateMockScopeProviderFromScoped();
         }
 
         /// <summary>
@@ -56,10 +57,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         /// <typeparam name="T">The service type.</typeparam>
         /// <param name="obj">The service creation delegate.</param>
         /// <returns>A substitute scope factory.</returns>
-        public static IOwnedScopeFactory<T> CreateMockScopeFactory<T>(this Func<T> obj)
+        public static IScopeProvider<T> CreateMockScopeProvider<T>(this Func<T> obj)
         {
-            IOwnedScopeFactory<T> provider = Substitute.For<IOwnedScopeFactory<T>>();
-            provider.Create().Returns(_ => obj.Invoke().CreateMockScope());
+            IScopeProvider<T> provider = Substitute.For<IScopeProvider<T>>();
+            provider.Invoke().Returns(_ => obj.Invoke().CreateMockScope());
             return provider;
         }
     }

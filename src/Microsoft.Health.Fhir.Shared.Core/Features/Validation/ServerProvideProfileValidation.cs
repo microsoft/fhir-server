@@ -24,11 +24,12 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Scoping;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Scoping;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly Task _backgroundTask;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
-        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly FhirMemoryCache<Resource> _resourcesByUri;
         private readonly IMediator _mediator;
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private ILogger<ServerProvideProfileValidation> _logger;
 
         public ServerProvideProfileValidation(
-            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             IOptions<ValidateOperationConfiguration> options,
             IMediator mediator,
             IHostApplicationLifetime hostApplicationLifetime,
@@ -239,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private async Task<List<ArtifactSummary>> GetSummariesAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, ArtifactSummary>();
-            using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 foreach (var type in _supportedTypes)
                 {
@@ -367,7 +368,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             StringBuilder hashBuilder = new StringBuilder();
 
             long totalCountOfProfiles = 0;
-            using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 foreach (var type in _supportedTypes)
                 {

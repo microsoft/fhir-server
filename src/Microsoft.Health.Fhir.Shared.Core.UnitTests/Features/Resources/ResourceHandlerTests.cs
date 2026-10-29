@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 _resourceWrapperFactory,
                 lazyConformanceProvider,
                 deletionServiceDataStoreFactory,
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 _resourceIdProvider,
                 contextAccessor,
                 auditLogger,
