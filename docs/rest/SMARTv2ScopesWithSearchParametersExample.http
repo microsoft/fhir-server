@@ -5,6 +5,14 @@
 # FhirServer:Security:Authorization:ScopesClaim = "scope"
 # Due to the in-memory Identity Provider using "scope"
 # as the claim name for scopes, which is not the default
+#
+# Encoding of scopes with search parameters:
+# The token requests below send the scope in an application/x-www-form-urlencoded body, so '&' between
+# search parameters is written as %26 there. The identity provider decodes the form body once, and the
+# scope the FHIR server receives contains a raw '&' (for example ...?code=http://loinc.org|55233-1&status=final).
+# In the scope itself, only a raw '&' separates search parameters and only a raw '=' separates a name from its
+# value. An encoded %26 or %3D inside the scope is a literal character of the value, exactly as in a FHIR search
+# URL. To put %26 into the scope from a form body, encode the '%' as well (%2526). See the last section of this file.
 
 @hostname = localhost:44348
 
@@ -403,13 +411,13 @@ content-type: application/x-www-form-urlencoded
 grant_type=client_credentials
 &client_id=smartUserClient
 &client_secret=smartUserClient
-&scope=patient/*.s?_type=Observation,DiagnosticReport%26tag=8d245743-e7ff-425d-b065-33e8886c60e8
+&scope=patient/*.s?_type=Observation,DiagnosticReport%26_tag=8d245743-e7ff-425d-b065-33e8886c60e8
 
 ### Should succeed and return only DiagnosticReport,Observation
 GET https://{{hostname}}?_count=100
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
-### Should succeed and return all Observations in compartment resources for smartUserClient
+### Should succeed and return only the Observations in the smartUserClient compartment that have the tag (none in the sample data)
 GET https://{{hostname}}/Observation
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
@@ -685,3 +693,148 @@ Authorization: Bearer {{searchBearer.response.body.access_token}}
 ### Should return 1 DiagnosticReport
 GET https://{{hostname}}/DiagnosticReport?subject:Patient._type=Patient&subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
 Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Encoded '&' and '=' in scope search parameter values
+### A raw '&' in a scope separates two constraints (ANDed). An encoded %26 or %3D is a literal character inside one
+### value, the same as in a FHIR search URL. Each token request below shows the scope as the FHIR server receives it;
+### the form body adds one more level of encoding ('&' -> %26, '%' -> %25).
+#############################################################################################################################################
+
+### Create three Observations in the smartUserClient compartment, all with status=final. They use their own code so they don't
+### change the results of the sections above; the last request in this file deletes them.
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-observation-encoded-literal",
+                "identifier": [ { "value": "ABC&status=final" } ],
+                "status": "final",
+                "code": { "coding": [ { "system": "http://example.org/codes", "code": "encoded-delimiters" } ] },
+                "subject": { "reference": "Patient/smartUserClient" }
+            },
+            "request": { "method": "PUT", "url": "Observation/smart-observation-encoded-literal" }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-observation-encoded-abc",
+                "identifier": [ { "value": "ABC" } ],
+                "status": "final",
+                "code": { "coding": [ { "system": "http://example.org/codes", "code": "encoded-delimiters" } ] },
+                "subject": { "reference": "Patient/smartUserClient" }
+            },
+            "request": { "method": "PUT", "url": "Observation/smart-observation-encoded-abc" }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-observation-encoded-other",
+                "identifier": [ { "value": "OTHER" } ],
+                "status": "final",
+                "code": { "coding": [ { "system": "http://example.org/codes", "code": "encoded-delimiters" } ] },
+                "subject": { "reference": "Patient/smartUserClient" }
+            },
+            "request": { "method": "PUT", "url": "Observation/smart-observation-encoded-other" }
+        }
+    ]
+}
+
+### Admin control: FHIR search reads %26 and %3D as part of the value. Should return only smart-observation-encoded-literal
+GET https://{{hostname}}/Observation?identifier=ABC%26status%3Dfinal
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### Admin control: Should return only smart-observation-encoded-abc
+GET https://{{hostname}}/Observation?identifier=ABC
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Scope received by the FHIR server: patient/Observation.rs?identifier=ABC&status=final
+### Raw '&': two constraints, identifier=ABC AND status=final
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.rs?identifier=ABC%26status=final
+
+### Should return only smart-observation-encoded-abc
+GET https://{{hostname}}/Observation?_id=smart-observation-encoded-literal,smart-observation-encoded-abc,smart-observation-encoded-other
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed (200)
+GET https://{{hostname}}/Observation/smart-observation-encoded-abc
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 404, identifier does not match ABC
+GET https://{{hostname}}/Observation/smart-observation-encoded-literal
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Scope received by the FHIR server: patient/Observation.rs?identifier=ABC%26status%3Dfinal
+### Encoded %26 and %3D: one constraint, identifier = "ABC&status=final" (MSRC 165509)
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.rs?identifier=ABC%2526status%253Dfinal
+
+### Should return only smart-observation-encoded-literal
+GET https://{{hostname}}/Observation?_id=smart-observation-encoded-literal,smart-observation-encoded-abc,smart-observation-encoded-other
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed (200), the identifier granted by the scope
+GET https://{{hostname}}/Observation/smart-observation-encoded-literal
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 404. Before the fix the scope was split into identifier=ABC AND status=final and this returned 200
+GET https://{{hostname}}/Observation/smart-observation-encoded-abc
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 404
+GET https://{{hostname}}/Observation/smart-observation-encoded-other
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Scope received by the FHIR server: patient/Observation.rs?identifier=ABC%26status=final
+### Malformed: after splitting on the raw '&', the value still contains a raw '='
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.rs?identifier=ABC%2526status=final
+
+### Should return 400 Bad Request
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Clean up the Observations created for this section
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        { "request": { "method": "DELETE", "url": "Observation/smart-observation-encoded-literal" } },
+        { "request": { "method": "DELETE", "url": "Observation/smart-observation-encoded-abc" } },
+        { "request": { "method": "DELETE", "url": "Observation/smart-observation-encoded-other" } }
+    ]
+}
