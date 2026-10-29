@@ -138,6 +138,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             }
             else if (!inFlightJobsExist) // no failures here
             {
+                var issueKeys = new HashSet<string>(record.Issues.Select(issue => JsonConvert.SerializeObject(issue)), StringComparer.Ordinal);
                 foreach (var job in groupJobs.Where(_ => _.Id != jobInfo.Id))
                 {
                     if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
@@ -153,6 +154,11 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                             {
                                 record.Output.Add(output.Key, output.Value);
                             }
+                        }
+
+                        foreach (var issue in processResult.Issues.Where(issue => issueKeys.Add(JsonConvert.SerializeObject(issue))))
+                        {
+                            record.Issues.Add(issue);
                         }
                     }
                 }

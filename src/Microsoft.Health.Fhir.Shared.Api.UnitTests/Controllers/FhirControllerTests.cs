@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -146,6 +146,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SystemHistory", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
+
+            // Controllers outside FhirController that should also have the search metric emitter.
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "PatientEverythingById", typeof(EverythingController));
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Search", typeof(IncludesController));
+
+            // DocRefController GET Search only (POST overload does not emit search latency).
+            var docRefGetSearch = typeof(DocRefController).GetMethod("Search", Type.EmptyTypes);
+            Assert.True(docRefGetSearch != null, "DocRefController.Search() (GET) method not found.");
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, docRefGetSearch);
         }
 
         [Fact]
@@ -1538,12 +1547,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             MethodInfo bundleMethodInfo = targetClassType.GetMethod(methodName);
             Assert.True(bundleMethodInfo != null, $"The method '{methodName}' was not found in '{targetClassType.Name}'. Was it renamed or removed?");
 
-            TypeFilterAttribute latencyFilter = Attribute.GetCustomAttributes(bundleMethodInfo, typeof(TypeFilterAttribute))
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttributeType, bundleMethodInfo);
+        }
+
+        private static void TestIfTargetMethodContainsCustomAttribute(Type expectedCustomAttributeType, MethodInfo methodInfo)
+        {
+            TypeFilterAttribute latencyFilter = Attribute.GetCustomAttributes(methodInfo, typeof(TypeFilterAttribute))
                 .Select(a => a as TypeFilterAttribute)
                 .Where(a => a.ImplementationType == expectedCustomAttributeType)
                 .SingleOrDefault();
 
-            Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodName}' from '{targetClassType.Name}'.");
+            Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodInfo.Name}' from '{methodInfo.DeclaringType?.Name}'.");
         }
 
         [Fact]
