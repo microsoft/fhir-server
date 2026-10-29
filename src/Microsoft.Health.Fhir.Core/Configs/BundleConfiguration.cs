@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Configs
@@ -10,6 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class BundleConfiguration
     {
         public const int DefaultConditionalOperationGroupSize = 50;
+
+        public const long DefaultMaxBundleSizeBytes = 50 * 1024 * 1024;
+
+        public const long DefaultMaxResourceSizeBytes = 10 * 1024 * 1024;
+
+        public const int DefaultMaxSearchIndexValuesPerResource = 100;
 
         public int EntryLimit { get; set; } = 500;
 
@@ -47,5 +54,47 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the pacing delay, in milliseconds, between groups of conditional operations.
         /// </summary>
         public int ConditionalOperationGroupDelayInMilliseconds { get; set; } = 15;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether bundles exceeding the size and search parameter limits are rejected.
+        /// Bundle statistics are logged regardless of this value.
+        /// </summary>
+        public bool EnableSizeRestrictions { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum bundle request body size, in bytes. Zero disables the limit.
+        /// </summary>
+        public long MaxBundleSizeBytes { get; set; } = DefaultMaxBundleSizeBytes;
+
+        /// <summary>
+        /// Gets or sets the maximum serialized size of a single bundle entry resource, in bytes. Zero disables the limit.
+        /// </summary>
+        public long MaxResourceSizeBytes { get; set; } = DefaultMaxResourceSizeBytes;
+
+        /// <summary>
+        /// Gets or sets the maximum number of search index values per bundle entry resource. Zero disables the limit.
+        /// </summary>
+        public int MaxSearchIndexValuesPerResource { get; set; } = DefaultMaxSearchIndexValuesPerResource;
+
+        /// <summary>
+        /// Throws when a bundle limit is configured with an invalid value.
+        /// </summary>
+        public void Validate()
+        {
+            if (MaxBundleSizeBytes < 0)
+            {
+                throw new InvalidOperationException($"FhirServer:Bundle:{nameof(MaxBundleSizeBytes)} must be zero or greater. Value: {MaxBundleSizeBytes}.");
+            }
+
+            if (MaxResourceSizeBytes < 0)
+            {
+                throw new InvalidOperationException($"FhirServer:Bundle:{nameof(MaxResourceSizeBytes)} must be zero or greater. Value: {MaxResourceSizeBytes}.");
+            }
+
+            if (MaxSearchIndexValuesPerResource < 0)
+            {
+                throw new InvalidOperationException($"FhirServer:Bundle:{nameof(MaxSearchIndexValuesPerResource)} must be zero or greater. Value: {MaxSearchIndexValuesPerResource}.");
+            }
+        }
     }
 }
