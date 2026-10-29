@@ -56,8 +56,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public abstract double PeriodSec { get; internal set; }
 
-        public bool AllowDbPeriodOverride { get; internal set; } = true;
-
         public bool IsInitialized { get; private set; }
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -171,29 +169,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task InitParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
         {
-            if (AllowDbPeriodOverride)
+            using (_logger.BeginTimedScope($"{Name}.InitParamsAsync"))
             {
-                using (_logger.BeginTimedScope($"{Name}.InitParamsAsync"))
-                {
-                    // Offset for other instances running init
-                    await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), CancellationToken.None);
+                // Offset for other instances running init
+                await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), CancellationToken.None);
 
-                    await using var cmd = new SqlCommand(
-                        @"
+                await using var cmd = new SqlCommand(
+                    @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, @PeriodSec
 INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
-                        ");
-                    cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
-                    cmd.Parameters.AddWithValue("@PeriodSec", PeriodSec);
-                    cmd.Parameters.AddWithValue("@LeasePeriodSecId", LeasePeriodSecId);
-                    cmd.Parameters.AddWithValue("@LeasePeriodSec", LeasePeriodSec);
-                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
+                    ");
+                cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
+                cmd.Parameters.AddWithValue("@PeriodSec", PeriodSec);
+                cmd.Parameters.AddWithValue("@LeasePeriodSecId", LeasePeriodSecId);
+                cmd.Parameters.AddWithValue("@LeasePeriodSec", LeasePeriodSec);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
 
-                    PeriodSec = await GetPeriodAsync(CancellationToken.None);
-                    LeasePeriodSec = await GetLeasePeriodAsync(CancellationToken.None);
+                PeriodSec = await GetPeriodAsync(CancellationToken.None);
+                LeasePeriodSec = await GetLeasePeriodAsync(CancellationToken.None);
 
-                    await InitAdditionalParamsAsync();
-                }
+                await InitAdditionalParamsAsync();
             }
 
             IsInitialized = true;
