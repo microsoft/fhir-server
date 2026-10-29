@@ -40,6 +40,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\BackgroundJobService\HostingBackgroundServiceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\BackgroundJobService\JobFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\BackgroundJobService\JobMetricFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Binders\DictionaryExpansionConfigurationProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerComplexityCalculatorTests.cs" />

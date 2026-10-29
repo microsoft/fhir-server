@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Core.Features.Scoping;
-using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -59,7 +59,7 @@ public class JobFactoryTests
     public void GivenDiscoveryActivationFailure_WhenConstructingFactory_ThenDiscoveryScopeIsDisposed()
     {
         IOwnedScope<IEnumerable<Func<IJob>>> discovery = CreateScope(() => throw new InvalidOperationException("Activation failed."));
-        var factory = discovery.CreateMockScopeFactoryFromScope();
+        var factory = CreateFactory(discovery);
 
         Assert.Throws<InvalidOperationException>(() => new JobFactory(factory, NullLogger<JobFactory>.Instance));
 
@@ -70,7 +70,7 @@ public class JobFactoryTests
     public void GivenUnknownJob_WhenCreatingJob_ThenNoExecutionScopeIsCreated()
     {
         IOwnedScope<IEnumerable<Func<IJob>>> discovery = CreateScope(() => new TestJob());
-        var factory = discovery.CreateMockScopeFactoryFromScope();
+        var factory = CreateFactory(discovery);
         IJobFactory jobFactory = new JobFactory(factory, NullLogger<JobFactory>.Instance);
 
         Assert.Throws<NotSupportedException>(() => jobFactory.Create(new JobInfo { Definition = "{\"typeId\":-1}" }));
@@ -78,8 +78,19 @@ public class JobFactoryTests
         factory.Received(1).Create();
     }
 
-    private static IOwnedScope<IEnumerable<Func<IJob>>> CreateScope(Func<IJob> createJob) =>
-        ((IEnumerable<Func<IJob>>)new[] { createJob }).CreateMockScope();
+    private static IOwnedScope<IEnumerable<Func<IJob>>> CreateScope(Func<IJob> createJob)
+    {
+        var scope = Substitute.For<IOwnedScope<IEnumerable<Func<IJob>>>>();
+        scope.Value.Returns(new[] { createJob });
+        return scope;
+    }
+
+    private static IOwnedScopeFactory<IEnumerable<Func<IJob>>> CreateFactory(IOwnedScope<IEnumerable<Func<IJob>>> scope)
+    {
+        var factory = Substitute.For<IOwnedScopeFactory<IEnumerable<Func<IJob>>>>();
+        factory.Create().Returns(scope);
+        return factory;
+    }
 
     private static JobInfo CreateJobInfo() => new JobInfo { Definition = "{\"typeId\":999}" };
 
