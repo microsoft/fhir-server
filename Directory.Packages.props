@@ -37,10 +37,11 @@
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
     <PackageVersion Include="Microsoft.Bcl.Memory" Version="9.0.17" />
     <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore -->
-    <PackageVersion Include="OpenTelemetry.Api" Version="1.16.0" />
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
-    <!--CVE-2023-29331-->
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.20.1" />
+    <!-- GHSA-7hqp-7c5m-4vq6, GHSA-c399-9853-6jmj, GHSA-r955-8q5j-3h83 -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.13" />
+    <!-- GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <!-- CVE-2021-26701 -->
     <PackageVersion Include="System.Text.Encodings.Web" Version="$(DotNetSdkPackageVersion)" />
     <!-- CVE-2020-1045 -->
@@ -140,6 +141,9 @@
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Server.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="$(OpenIddictPackageVersion)" />
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.EventCounters" Version="1.20.1-alpha.1" />
     <PackageVersion Include="Polly" Version="8.5.2" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
