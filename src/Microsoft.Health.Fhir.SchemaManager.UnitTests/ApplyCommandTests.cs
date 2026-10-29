@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.CommandLine;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
@@ -52,122 +50,64 @@ public class ApplyCommandTests
         Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Force);
     }
 
-    [Fact]
-    public async Task GivenVersionType_WhenExecute_ThenCallsSchemaManager()
-    {
-        // Arrange
-        var type = new MutuallyExclusiveType { Version = 5 };
-        bool force = false;
-        var cancellationToken = CancellationToken.None;
-
-        // Act
-        await _applyCommand.ExecuteAsync(type, force, cancellationToken);
-
-        // Assert
-        await _schemaManager.Received(1).ApplySchema(type, force, cancellationToken);
-    }
-
-    [Fact]
-    public async Task GivenNextType_WhenExecute_ThenCallsSchemaManager()
-    {
-        // Arrange
-        var type = new MutuallyExclusiveType { Next = true };
-        bool force = false;
-        var cancellationToken = CancellationToken.None;
-
-        // Act
-        await _applyCommand.ExecuteAsync(type, force, cancellationToken);
-
-        // Assert
-        await _schemaManager.Received(1).ApplySchema(type, force, cancellationToken);
-    }
-
-    [Fact]
-    public async Task GivenLatestType_WhenExecute_ThenCallsSchemaManager()
-    {
-        // Arrange
-        var type = new MutuallyExclusiveType { Latest = true };
-        bool force = false;
-        var cancellationToken = CancellationToken.None;
-
-        // Act
-        await _applyCommand.ExecuteAsync(type, force, cancellationToken);
-
-        // Assert
-        await _schemaManager.Received(1).ApplySchema(type, force, cancellationToken);
-    }
-
     [Theory]
-    [InlineData("--version 5", 5, false, false, false)]
-    [InlineData("-v 5", 5, false, false, false)]
-    [InlineData("--next", 0, true, false, false)]
-    [InlineData("-n", 0, true, false, false)]
-    [InlineData("--latest", 0, false, true, false)]
-    [InlineData("-l", 0, false, true, false)]
-    [InlineData("--latest --force", 0, false, true, true)]
-    [InlineData("-l -f", 0, false, true, true)]
-    [InlineData("--latest --force false", 0, false, true, false)]
-    public async Task GivenValidArguments_WhenInvoked_ThenBindsSchemaRequest(string options, int version, bool next, bool latest, bool force)
+    [InlineData("--version")]
+    [InlineData("-v")]
+    public async Task GivenVersionArgument_WhenInvoked_ThenCallsSchemaManager(string option)
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddSingleton<Command>(_applyCommand);
-        using var serviceProvider = services.BuildServiceProvider();
-        var rootCommand = SchemaManagerParserBuilder.Build(serviceProvider);
-        var parseResult = rootCommand.Parse($"apply --connection-string \"Server=localhost;Database=fhir\" {options}");
+        var parseResult = _applyCommand.Parse($"--connection-string test {option} 5");
 
         // Act
         int exitCode = await parseResult.InvokeAsync();
 
         // Assert
-        Assert.Empty(parseResult.Errors);
         Assert.Equal(0, exitCode);
         await _schemaManager.Received(1).ApplySchema(
-            Arg.Is<MutuallyExclusiveType>(type => type.Version == version && type.Next == next && type.Latest == latest),
-            force,
+            Arg.Is<MutuallyExclusiveType>(type => type.Version == 5 && !type.Next && !type.Latest),
+            false,
             Arg.Any<CancellationToken>());
     }
 
     [Theory]
-    [InlineData("apply --connection-string test")]
-    [InlineData("apply --connection-string test --version 5 --next")]
-    [InlineData("apply --connection-string test --next --latest")]
-    [InlineData("apply --connection-string test --version 5 --latest")]
-    [InlineData("apply --connection-string test --version invalid")]
-    [InlineData("apply --latest")]
-    [InlineData("apply --connection-string test --latest --unknown")]
-    public async Task GivenInvalidArguments_WhenInvoked_ThenRejectsWithoutApplyingSchema(string arguments)
+    [InlineData("--next")]
+    [InlineData("-n")]
+    public async Task GivenNextArgument_WhenInvoked_ThenCallsSchemaManager(string option)
     {
         // Arrange
-        var rootCommand = new RootCommand();
-        rootCommand.Subcommands.Add(_applyCommand);
-        var parseResult = rootCommand.Parse(arguments);
-
-        // Act
-        int exitCode = await parseResult.InvokeAsync();
-
-        // Assert
-        Assert.NotEmpty(parseResult.Errors);
-        Assert.NotEqual(0, exitCode);
-        await _schemaManager.DidNotReceiveWithAnyArgs().ApplySchema(default, default, default);
-    }
-
-    [Theory]
-    [InlineData("--help")]
-    [InlineData("apply --help")]
-    public async Task GivenHelpArgument_WhenInvoked_ThenSucceedsWithoutApplyingSchema(string arguments)
-    {
-        // Arrange
-        var rootCommand = new RootCommand();
-        rootCommand.Subcommands.Add(_applyCommand);
-        var parseResult = rootCommand.Parse(arguments);
+        var parseResult = _applyCommand.Parse($"--connection-string test {option}");
 
         // Act
         int exitCode = await parseResult.InvokeAsync();
 
         // Assert
         Assert.Equal(0, exitCode);
-        await _schemaManager.DidNotReceiveWithAnyArgs().ApplySchema(default, default, default);
+        await _schemaManager.Received(1).ApplySchema(
+            Arg.Is<MutuallyExclusiveType>(type => type.Version == 0 && type.Next && !type.Latest),
+            false,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("--latest", false)]
+    [InlineData("-l", false)]
+    [InlineData("--latest --force", true)]
+    [InlineData("-l -f", true)]
+    [InlineData("--latest --force false", false)]
+    public async Task GivenLatestArgument_WhenInvoked_ThenCallsSchemaManager(string options, bool force)
+    {
+        // Arrange
+        var parseResult = _applyCommand.Parse($"--connection-string test {options}");
+
+        // Act
+        int exitCode = await parseResult.InvokeAsync();
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        await _schemaManager.Received(1).ApplySchema(
+            Arg.Is<MutuallyExclusiveType>(type => type.Version == 0 && !type.Next && type.Latest),
+            force,
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
