@@ -174,6 +174,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string SmartRequest = "smartRequest";
 
+        public const string AuthorizedIncludeResourceTypes = "authorizedIncludeResourceTypes";
+
         public const string DeleteOperation = "deleteOperation";
 
         public const string SearchParameters = "searchParameters";

@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
@@ -450,6 +451,121 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
+        [Theory]
+        [InlineData(false, false, true)]
+        [InlineData(true, false, true)]
+        [InlineData(false, true, true)]
+        [InlineData(false, false, false)]
+        public async Task GivenIncludedSearchResults_WhenExecuted_ThenOnlyAuthorizedInclusionsAreWritten(
+            bool resumed,
+            bool patientAuthorized,
+            bool smartRequest)
+        {
+            // Arrange
+            var authorizedTypes = patientAuthorized
+                ? new[] { KnownResourceTypes.Observation, KnownResourceTypes.Patient }
+                : new[] { KnownResourceTypes.Observation };
+            var job = CreateExportJobRecord(
+                exportJobType: ExportJobType.All,
+                resourceType: KnownResourceTypes.Observation,
+                smartRequest: smartRequest,
+                authorizedIncludeResourceTypes: authorizedTypes,
+                filters: new List<ExportJobFilter>
+                {
+                    new ExportJobFilter(KnownResourceTypes.Observation, new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_include", "Observation:subject"),
+                    }),
+                });
+            if (resumed)
+            {
+                job.Progress = new ExportJobProgress(null, 0);
+                job.Progress.SetFilter(job.Filters[0]);
+                if (smartRequest && !patientAuthorized)
+                {
+                    job.Issues.Add(new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Forbidden,
+                        "Included resources of type 'Patient' were excluded because the caller does not have the required SMART export permissions for this resource type."));
+                }
+            }
+
+            job = JsonConvert.DeserializeObject<ExportJobRecord>(JsonConvert.SerializeObject(job));
+            SetupExportJobRecordAndOperationDataStore(job);
+            _searchService.SearchAsync(
+                KnownResourceTypes.Observation,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("observation-1", KnownResourceTypes.Observation),
+                    CreateSearchResultEntry("patient-secret", KnownResourceTypes.Patient, SearchEntryMode.Include),
+                    CreateSearchResultEntry("patient-secret-2", KnownResourceTypes.Patient, SearchEntryMode.Include),
+                }));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Null(job.FailureDetails);
+            Assert.Equal("observation-1", _inMemoryDestinationClient.GetExportedData(ObservationFileName));
+            if (patientAuthorized || !smartRequest)
+            {
+                Assert.Equal("patient-secretpatient-secret-2", _inMemoryDestinationClient.GetExportedData(PatientFileName));
+                Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+                Assert.Empty(job.Issues);
+            }
+            else
+            {
+                Assert.Null(_inMemoryDestinationClient.GetExportedData(PatientFileName));
+                Assert.False(job.Output.ContainsKey(KnownResourceTypes.Patient));
+                Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+                var warning = Assert.Single(job.Issues);
+                Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, warning.Severity);
+                Assert.Equal(OperationOutcomeConstants.IssueType.Forbidden, warning.Code);
+                Assert.Equal(
+                    "Included resources of type 'Patient' were excluded because the caller does not have the required SMART export permissions for this resource type.",
+                    warning.Diagnostics);
+                Assert.DoesNotContain("patient-secret", warning.Diagnostics);
+                _resourceDeserializer.DidNotReceive().Deserialize(Arg.Is<ResourceWrapper>(r => r.ResourceTypeName == KnownResourceTypes.Patient));
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public async Task GivenSmartJobWithWildcardOrMissingIncludePermissions_WhenExecuted_ThenIncludesFailClosedUnlessWildcardIsGranted(
+            bool wildcard,
+            bool missingPermissions)
+        {
+            // Arrange
+            var job = CreateExportJobRecord(
+                smartRequest: true,
+                authorizedIncludeResourceTypes: missingPermissions ? null : wildcard ? new[] { KnownResourceTypes.All } : Array.Empty<string>());
+            SetupExportJobRecordAndOperationDataStore(job);
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("observation-1", KnownResourceTypes.Observation),
+                    CreateSearchResultEntry("patient-secret", KnownResourceTypes.Patient, SearchEntryMode.Include),
+                }));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Completed, job.Status);
+            Assert.Equal("observation-1", _inMemoryDestinationClient.GetExportedData(ObservationFileName));
+            Assert.Equal(wildcard ? "patient-secret" : null, _inMemoryDestinationClient.GetExportedData(PatientFileName));
+        }
+
         [Fact]
         public async Task GivenSearchFailed_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
@@ -506,6 +622,76 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Canceled, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
+        }
+
+        [Theory]
+        [InlineData(ExportJobType.Patient)]
+        [InlineData(ExportJobType.Group)]
+        public async Task GivenSmartCompartmentExportWithUnauthorizedIncludes_WhenExecuted_ThenIncludesAreNeitherExportedNorUsedForCompartmentSelection(ExportJobType exportType)
+        {
+            // Arrange
+            var job = CreateExportJobRecord(
+                exportJobType: exportType,
+                resourceType: KnownResourceTypes.Observation,
+                groupId: "group-1",
+                smartRequest: true,
+                authorizedIncludeResourceTypes: new[] { KnownResourceTypes.Patient, KnownResourceTypes.Observation });
+            SetupExportJobRecordAndOperationDataStore(job);
+            _groupMemberExtractor.GetGroupPatientIds(Arg.Any<string>(), Arg.Any<DateTimeOffset>(), _cancellationToken)
+                .Returns(new HashSet<string> { "patient-1" });
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("patient-1", KnownResourceTypes.Patient),
+                    CreateSearchResultEntry("unauthorized-compartment", KnownResourceTypes.Encounter, SearchEntryMode.Include),
+                }));
+            _searchService.SearchCompartmentAsync(
+                KnownResourceTypes.Patient,
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("observation-1", KnownResourceTypes.Observation),
+                    CreateSearchResultEntry("encounter-secret", KnownResourceTypes.Encounter, SearchEntryMode.Include),
+                }));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Completed, job.Status);
+            Assert.Equal("observation-1", _inMemoryDestinationClient.GetExportedData(ObservationFileName));
+            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+            var warning = Assert.Single(job.Issues);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, warning.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Forbidden, warning.Code);
+            Assert.Equal(
+                "Included resources of type 'Encounter' were excluded because the caller does not have the required SMART export permissions for this resource type.",
+                warning.Diagnostics);
+            await _searchService.Received(1).SearchCompartmentAsync(
+                KnownResourceTypes.Patient,
+                "patient-1",
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true,
+                true);
+            await _searchService.DidNotReceive().SearchCompartmentAsync(
+                Arg.Any<string>(),
+                "unauthorized-compartment",
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
         }
 
         [Fact]
@@ -2392,7 +2578,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileEtag = null,
             bool includeHistory = false,
-            bool includeDeleted = false)
+            bool includeDeleted = false,
+            bool smartRequest = false,
+            IReadOnlyCollection<string> authorizedIncludeResourceTypes = null)
         {
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
@@ -2413,7 +2601,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 anonymizationConfigurationLocation: anonymizationConfigurationLocation,
                 anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag,
                 includeHistory: includeHistory,
-                includeDeleted: includeDeleted);
+                includeDeleted: includeDeleted,
+                smartRequest: smartRequest,
+                authorizedIncludeResourceTypes: authorizedIncludeResourceTypes);
         }
 
         private ExportJobTask CreateExportJobTask(
@@ -2451,7 +2641,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return new SearchResult(resourceWrappers, continuationToken, null, new Tuple<string, string>[0]);
         }
 
-        private SearchResultEntry CreateSearchResultEntry(string id, string type)
+        private SearchResultEntry CreateSearchResultEntry(string id, string type, SearchEntryMode searchEntryMode = SearchEntryMode.Match)
         {
             return new SearchResultEntry(
                             new ResourceWrapper(
@@ -2464,7 +2654,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 false,
                                 null,
                                 null,
-                                null));
+                                null),
+                            searchEntryMode);
         }
 
         private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null, CancellationToken? token = null)
