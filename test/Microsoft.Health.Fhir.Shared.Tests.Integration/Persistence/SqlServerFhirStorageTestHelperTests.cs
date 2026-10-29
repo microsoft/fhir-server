@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
+    [CollectionDefinition(nameof(SqlServerFhirStorageTestHelperTests), DisableParallelization = true)]
+    [Collection(nameof(SqlServerFhirStorageTestHelperTests))]
     public class SqlServerFhirStorageTestHelperTests
     {
         [Fact]
