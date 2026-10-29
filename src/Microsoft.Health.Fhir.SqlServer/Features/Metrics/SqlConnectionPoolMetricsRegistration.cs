@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Data.SqlClient;
 using OpenTelemetry.Metrics;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Metrics
@@ -20,6 +21,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Metrics
         /// <returns>The metrics builder.</returns>
         public static MeterProviderBuilder AddSqlConnectionPoolMetrics(this MeterProviderBuilder builder, int refreshIntervalSeconds = 10)
         {
+            // Work around SqlClient 7.1.0 by initializing its metrics callback before enabling EventCounters.
+            new SqlConnection().Dispose();
+
             return builder
                 .AddMeter(SqlConnectionPoolConfigurationMetrics.MeterName)
                 .AddEventCountersInstrumentation(options =>
