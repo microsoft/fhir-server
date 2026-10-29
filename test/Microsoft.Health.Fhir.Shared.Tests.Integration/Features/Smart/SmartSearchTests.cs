@@ -5225,8 +5225,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var query = new List<Tuple<string, string>> { new("_has:Observation:subject:_has:Provenance:target:agent", "Practitioner/smart-practitioner-A") };
 
-            await Assert.ThrowsAsync<InvalidSearchOperationException>(
+            var exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
                 () => _searchService.Value.SearchAsync("Patient", query, CancellationToken.None));
+            Assert.Contains("Provenance", exception.Message);
         }
 
         [Fact]
