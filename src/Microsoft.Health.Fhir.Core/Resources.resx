@@ -888,6 +888,45 @@
   <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
   </data>
+  <data name="FhirPackageRejected" xml:space="preserve">
+    <value>The FHIR package was rejected. Nothing from the package was installed.</value>
+  </data>
+  <data name="FhirPackageIntegrityInvalid" xml:space="preserve">
+    <value>The expected package integrity must be a single sha512 Subresource Integrity value, as reported in npm &apos;dist.integrity&apos;.</value>
+  </data>
+  <data name="FhirPackageIntegrityMismatch" xml:space="preserve">
+    <value>The package archive doesn&apos;t match its expected sha512 integrity.</value>
+  </data>
+  <data name="FhirPackageCompressedSizeExceeded" xml:space="preserve">
+    <value>The package archive is larger than the {0}-byte limit.</value>
+  </data>
+  <data name="FhirPackageArchiveRejected" xml:space="preserve">
+    <value>The package archive was rejected: {0}.</value>
+  </data>
+  <data name="FhirPackageArchiveEntryDetail" xml:space="preserve">
+    <value> at archive entry {0}</value>
+  </data>
+  <data name="FhirPackageArchiveLimitDetail" xml:space="preserve">
+    <value> (limit {0})</value>
+  </data>
+  <data name="FhirPackageExpansionRatioExceeded" xml:space="preserve">
+    <value>The package archive expands to {0} bytes from {1} compressed bytes, which exceeds the {2}:1 expansion limit.</value>
+  </data>
+  <data name="FhirPackageIdentityMismatch" xml:space="preserve">
+    <value>The package manifest declares &apos;{0}&apos; version &apos;{1}&apos;, but &apos;{2}&apos; version &apos;{3}&apos; was expected.</value>
+  </data>
+  <data name="FhirPackageFhirVersionMismatch" xml:space="preserve">
+    <value>The package declares FHIR version &apos;{0}&apos;, but this server supports only FHIR version &apos;{1}&apos;.</value>
+  </data>
+  <data name="FhirPackageCoreDependencyMissing" xml:space="preserve">
+    <value>The package doesn&apos;t declare a dependency on &apos;{0}&apos;. Packages for this server must depend on &apos;{0}&apos; version &apos;{1}&apos;.</value>
+  </data>
+  <data name="FhirPackageCoreDependencyMismatch" xml:space="preserve">
+    <value>The package depends on &apos;{0}&apos; version &apos;{1}&apos;, but this server supports only &apos;{2}&apos; version &apos;{3}&apos;.</value>
+  </data>
+  <data name="FhirPackageManifestInvalid" xml:space="preserve">
+    <value>The package manifest is not valid: {0}</value>
+  </data>
   <data name="SmartScopeSearchParameterNotEnforceable" xml:space="preserve">
     <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
     <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>

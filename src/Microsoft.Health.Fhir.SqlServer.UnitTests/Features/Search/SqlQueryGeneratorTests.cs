@@ -835,6 +835,39 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
 
+    [Fact]
+    public void GivenCompartmentMembership_WhenSqlGenerated_ThenReferenceIdentityUsesTheSameLocalIndexRow()
+    {
+        var subject = new SearchParameterInfo(
+            "subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+        SqlCompartmentSearchRewriter rewriter = CreateCompartmentRewriter(
+            "Observation",
+            new HashSet<string> { "subject" },
+            new Dictionary<string, SearchParameterInfo> { ["subject"] = subject });
+        _fhirModel.TryGetResourceTypeId(Arg.Any<string>(), out Arg.Any<short>())
+            .Returns(call =>
+            {
+                call[1] = (short)1;
+                return true;
+            });
+        _fhirModel.GetSearchParamId(subject.Url).Returns((short)100);
+        Expression predicate = Assert.Single(rewriter.BuildCompartmentSearchExpressionsGroup(
+            Expression.CompartmentSearch("Patient", "patient-a", new[] { "Observation" })));
+        var generator = predicate.AcceptVisitor(_queryGeneratorFactory);
+        SqlRootExpression root = new([new(generator, predicate, SearchParamTableExpressionKind.Normal)], []);
+
+        _queryGenerator.VisitSqlRoot(root, new SearchOptions { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest });
+
+        string sql = _strBuilder.ToString();
+        Match referenceRow = Regex.Match(sql, @"FROM dbo\.ReferenceSearchParam\r?\n(?<predicate>[\s\S]*?)\r?\n\)");
+        Assert.True(referenceRow.Success, sql);
+        string predicateSql = referenceRow.Groups["predicate"].Value;
+        Assert.Contains("AND BaseUri IS NULL", predicateSql);
+        Assert.Contains("AND ReferenceResourceTypeId = ", predicateSql);
+        Assert.Contains("AND ReferenceResourceId = ", predicateSql);
+        Assert.Contains("SearchParamId = ", predicateSql);
+    }
+
     [Theory]
     [InlineData(null, true)]
     [InlineData("true", true)]
@@ -1624,6 +1657,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             });
 
         ISearchParameterDefinitionManager searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType)
+            .Returns(new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/Resource-type")));
         searchParameterDefinitionManager.TryGetSearchParameter(resourceType, Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
             .Returns(call =>
             {

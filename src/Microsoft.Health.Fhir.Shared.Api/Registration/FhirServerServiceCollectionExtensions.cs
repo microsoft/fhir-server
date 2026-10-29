@@ -85,6 +85,9 @@ namespace Microsoft.Extensions.DependencyInjection
             configureAction?.Invoke(fhirServerConfiguration);
 
             fhirServerConfiguration.CoreFeatures.VectorSearch.Validate();
+            fhirServerConfiguration.Bundle.Validate();
+            fhirServerConfiguration.CircuitBreaker.Validate();
+
             services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds));
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
@@ -103,6 +106,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Terminology));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CircuitBreaker));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Watchdog));
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();

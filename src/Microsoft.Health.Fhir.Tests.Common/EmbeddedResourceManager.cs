@@ -38,5 +38,23 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 }
             }
         }
+
+        /// <summary>
+        /// Gets the bytes of a version-specific embedded test file, for binary fixtures such as package tarballs.
+        /// </summary>
+        /// <param name="embeddedResourceSubNamespace">The sub-namespace (folder) holding the file, for example <c>TestFiles</c>.</param>
+        /// <param name="fileName">The file name without its extension.</param>
+        /// <param name="extension">The file extension.</param>
+        /// <returns>The file contents.</returns>
+        public static byte[] GetBytesContent(string embeddedResourceSubNamespace, string fileName, string extension)
+        {
+            string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{ModelInfoProvider.Version}.{fileName}.{extension}";
+
+            using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                ?? throw new FileNotFoundException($"Embedded test file '{resourceName}' was not found.");
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+            return buffer.ToArray();
+        }
     }
 }
