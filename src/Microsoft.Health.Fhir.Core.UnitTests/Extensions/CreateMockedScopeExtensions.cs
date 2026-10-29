@@ -5,7 +5,7 @@
 
 using System;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Scoping;
+using Microsoft.Health.Fhir.Scoping;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions

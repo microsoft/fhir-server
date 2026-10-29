@@ -7,7 +7,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Scoping;
+using Microsoft.Health.Fhir.Scoping;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Common

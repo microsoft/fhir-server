@@ -9,7 +9,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
-using Microsoft.Health.Scoping;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {

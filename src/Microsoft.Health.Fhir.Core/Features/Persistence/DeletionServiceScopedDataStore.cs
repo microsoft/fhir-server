@@ -6,7 +6,7 @@
 using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Scoping;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {

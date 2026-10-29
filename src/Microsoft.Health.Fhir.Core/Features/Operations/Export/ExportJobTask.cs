@@ -27,7 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Scoping;
+using Microsoft.Health.Fhir.Scoping;
 using Polly;
 using Polly.Retry;
 using Task = System.Threading.Tasks.Task;

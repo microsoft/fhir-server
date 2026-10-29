@@ -5,7 +5,7 @@
 
 using System;
 
-namespace Microsoft.Health.Scoping;
+namespace Microsoft.Health.Fhir.Scoping;
 
 /// <summary>
 /// A service handle owned and disposed by its caller, never by the container resolving its factory.

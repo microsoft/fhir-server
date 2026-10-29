@@ -7,7 +7,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Scoping;
+using Microsoft.Health.Fhir.Scoping;
 using NSubstitute;
 using Xunit;
 
