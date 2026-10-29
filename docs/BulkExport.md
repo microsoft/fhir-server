@@ -6,6 +6,16 @@ This feature allows data from the FHIR server to be exported. More details can b
 
 SMART system scopes are authorized for export creation, status, and cancellation by default. To temporarily restore the prior behavior without SMART export scope authorization, set `FhirServer:CoreFeatures:EnableSmartExportScopeAuthorization` to `false`. For containerized deployments, use `FhirServer__CoreFeatures__EnableSmartExportScopeAuthorization=false`.
 
+## Type filters
+
+Existing `_include` and `_revinclude` behavior inside `_typeFilter`, including modifier forms, is retained for compatibility. SMART exports omit included resources that the caller is not authorized to export and complete with the permitted resources. Authorized inclusions and non-SMART exports are unchanged. This restriction also applies with `Prefer: handling=lenient` and when `EnableSmartExportScopeAuthorization` is disabled.
+
+The caller's unconstrained system scopes with complete export-read access are captured on the job at creation and propagated to processing jobs. Included resources are checked before serialization or writing to storage, and before they can trigger patient compartment searches. For each excluded resource type, the export result includes a warning explaining the missing permission, for example: "Included resources of type 'Patient' were excluded because the caller does not have the required SMART export permissions for this resource type." Identical warnings are reported once across processing jobs and job resumptions. The warning does not disclose resource IDs or contents.
+
+Legacy SMART jobs without the captured permissions omit all included resources because their authorization cannot be established. Resubmit those jobs to retain authorized inclusions. Previously exported files are not removed.
+
+This preserves an existing extension; the [Bulk Data specification](https://hl7.org/fhir/uv/bulkdata/STU2/export.html#_typefilter-experimental-query-parameter) prohibits search response parameters such as `_include` in `_typeFilter`.
+
 ## Specifying destination
 
 There are two ways by which one can set the destination storage account to export data to. One way would be to use the connection string for the storage account and update the `FhirServer:Operations:Export:StorageAccountConnection` setting. The fhir-server will use the connection string to connect to the storage account and export data.

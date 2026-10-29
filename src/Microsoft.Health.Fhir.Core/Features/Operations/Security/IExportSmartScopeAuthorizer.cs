@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 
@@ -22,6 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         /// types when SMART scope authorization does not apply.
         /// </returns>
         string AuthorizeCreateAndResolveResourceType(CreateExportRequest request);
+
+        /// <summary>
+        /// Gets the resource types that the current SMART caller can export through search inclusions.
+        /// </summary>
+        /// <returns>
+        /// Authorized resource types, including "*" for unrestricted system access, or null for a non-SMART request.
+        /// </returns>
+        IReadOnlyCollection<string> GetAuthorizedIncludeResourceTypes();
 
         /// <summary>
         /// Authorizes access to an existing export job when SMART scope authorization applies.
