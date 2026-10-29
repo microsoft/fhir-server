@@ -296,6 +296,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         [Theory]
         [InlineData("gender", true)]
         [InlineData("gender.(", false)]
+        [InlineData("gender.where(unknownFunction())", false)]
         public async Task GivenACompositeComponentExpression_WhenValidatingWithTheRealSupportResolver_ThenTheComponentExpressionItselfIsParsed(string componentExpression, bool valid)
         {
             // Arrange
@@ -718,12 +719,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.Contains("Not supported by this data store.", issue.Diagnostics, StringComparison.Ordinal);
         }
 
-        [Fact]
-        public async Task GivenAnExpressionThatCannotBeParsed_WhenValidating_ThenItIsRejectedAsInvalid()
+        [Theory]
+        [InlineData("Patient.(", "Patient.(")]
+        [InlineData("Patient.name.where(unknownFunction())", "unknownFunction")]
+        [InlineData("Patient.name.where(given.substring())", "substring")]
+        public async Task GivenAnExpressionThatDoesNotCompile_WhenValidating_ThenItIsRejectedAsInvalidBeforeSupportIsResolved(string expression, string expectedDetail)
         {
             // Arrange
-            _supportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns(_ => throw new FormatException("bad expression"));
-            var entries = new[] { Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a", expression: "Patient.(")) };
+            var entries = new[] { Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a", type: "string", expression: expression)) };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains(expectedDetail, issue.Diagnostics, StringComparison.Ordinal);
+            _supportResolver.DidNotReceiveWithAnyArgs().IsSearchParameterSupported(default);
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
+        }
+
+        [Fact]
+        public async Task GivenAnExpressionTheModelCannotResolve_WhenValidating_ThenItIsRejectedAsInvalid()
+        {
+            // Arrange
+            _supportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns(_ => throw new NotSupportedException("bad expression"));
+            var entries = new[] { Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a")) };
 
             // Act
             FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
@@ -733,6 +755,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             OperationOutcomeIssue issue = Assert.Single(exception.Issues);
             Assert.Equal("Invalid", issue.Code);
             Assert.Contains("bad expression", issue.Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenExpressionsTheRealSupportResolverCannotFollow_WhenValidating_ThenEachIsReportedAndTheRestOfTheSetIsStillChecked()
+        {
+            // Arrange
+            var supportResolver = new SearchParameterSupportResolver(await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync());
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-last.json", SearchParameterJson("http://example.org/fhir/SearchParameter/patient-last", "last", type: "string", expression: "Patient.name.last()")),
+                Entry("package/SearchParameter-select.json", SearchParameterJson("http://example.org/fhir/SearchParameter/patient-select", "select", type: "string", expression: "Patient.name.select(given)")),
+                Entry("package/SearchParameter-unknown-type.json", SearchParameterJson("http://example.org/fhir/SearchParameter/patient-unknown-type", "unknown-type", type: "string", expression: "Patient.name.as(NotAType)")),
+                Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a", type: "string", expression: "Patient.name")),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler(supportResolver).ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            Assert.Collection(
+                exception.Issues,
+                issue =>
+                {
+                    Assert.Equal("NotSupported", issue.Code);
+                    Assert.Contains("package/SearchParameter-last.json", issue.Diagnostics, StringComparison.Ordinal);
+                },
+                issue =>
+                {
+                    Assert.Equal("NotSupported", issue.Code);
+                    Assert.Contains("package/SearchParameter-select.json", issue.Diagnostics, StringComparison.Ordinal);
+                },
+                issue =>
+                {
+                    Assert.Equal("Invalid", issue.Code);
+                    Assert.Contains("package/SearchParameter-unknown-type.json", issue.Diagnostics, StringComparison.Ordinal);
+                    Assert.Contains("'NotAType'", issue.Diagnostics, StringComparison.Ordinal);
+                });
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
         }
 
         private SearchParameterPackageHandler CreateHandler(ISearchParameterSupportResolver supportResolver = null) =>

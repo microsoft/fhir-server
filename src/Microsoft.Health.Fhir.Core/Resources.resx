@@ -941,7 +941,16 @@
     <value>The expression can be indexed for only some of its target types, so searches would silently miss data.</value>
   </data>
   <data name="FhirPackageSearchParameterInvalidExpression" xml:space="preserve">
-    <value>The expression can&apos;t be parsed: {0}</value>
+    <value>The expression &apos;{0}&apos; is not valid FHIRPath: {1}</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnresolvableExpression" xml:space="preserve">
+    <value>The expression can&apos;t be resolved against the FHIR model: {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnsupportedExpression" xml:space="preserve">
+    <value>The server can&apos;t determine which element types the expression or a component expression selects, so it can&apos;t index them. Use element paths combined with where(), first(), exists(), extension(), as(), is(), ofType(), indexers, and the &apos;|&apos; union operator.</value>
+  </data>
+  <data name="UnknownTypeInExpression" xml:space="preserve">
+    <value>The type &apos;{0}&apos; is not a known FHIR type.</value>
   </data>
   <data name="FhirPackageSearchParameterIneligibleComponent" xml:space="preserve">
     <value>Component {0} references &apos;{1}&apos;, whose status is &apos;{2}&apos;. A component outside the package must reference a SearchParameter whose status is Enabled or Supported.</value>

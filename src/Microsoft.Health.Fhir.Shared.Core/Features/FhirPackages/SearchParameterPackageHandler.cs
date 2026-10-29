@@ -13,6 +13,7 @@ using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -45,6 +46,9 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         };
 
         private static readonly FhirJsonParser Parser = new FhirJsonParser();
+
+        // Same configuration as TypedElementSearchIndexer's compiler, so an expression that compiles here also compiles at indexing time.
+        private static readonly FhirPathCompiler Compiler = new FhirPathCompiler();
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -371,7 +375,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 
             foreach (Candidate candidate in candidates)
             {
-                if (!ResolveComponents(candidate, packageDefinitions, issues))
+                if (!CheckExpressionsCompile(candidate, issues) || !ResolveComponents(candidate, packageDefinitions, issues))
                 {
                     continue;
                 }
@@ -383,12 +387,23 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 }
                 catch (Exception ex) when (ex is FormatException or NotSupportedException)
                 {
-                    // FHIRPath syntax errors in the expression or a component expression, or no resolvable target types.
+                    // A path, type, or target the FHIR model doesn't define.
                     AddIssue(
                         issues,
                         candidate,
                         OperationOutcomeConstants.IssueType.Invalid,
-                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterInvalidExpression, ex.Message));
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterUnresolvableExpression, ex.Message));
+                    continue;
+                }
+                catch (NotImplementedException)
+                {
+                    // Valid FHIRPath that the type resolver can't follow (for example last(), select(), or arithmetic),
+                    // so the server can't tell which element types the expression selects or how to index them.
+                    AddIssue(
+                        issues,
+                        candidate,
+                        OperationOutcomeConstants.IssueType.NotSupported,
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterNotSupported, Core.Resources.FhirPackageSearchParameterUnsupportedExpression));
                     continue;
                 }
 
@@ -414,6 +429,41 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                         candidate,
                         OperationOutcomeConstants.IssueType.NotSupported,
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterNotSupported, errorMessage));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Compiles the expression and every component expression exactly as indexing will. Compilation binds every
+        /// function, including those inside predicates such as where(), which the support resolver doesn't inspect.
+        /// </summary>
+        private static bool CheckExpressionsCompile(Candidate candidate, List<OperationOutcomeIssue> issues)
+        {
+            bool compiled = TryCompile(candidate.SearchParameter.Expression);
+
+            foreach (SearchParameter.ComponentComponent component in candidate.SearchParameter.Component)
+            {
+                compiled &= TryCompile(component.Expression);
+            }
+
+            return compiled;
+
+            bool TryCompile(string expression)
+            {
+                try
+                {
+                    Compiler.Compile(expression);
+                    return true;
+                }
+                catch (Exception ex) when (ex is FormatException or ArgumentException)
+                {
+                    // FormatException: syntax error. ArgumentException: unknown function or wrong arguments.
+                    AddIssue(
+                        issues,
+                        candidate,
+                        OperationOutcomeConstants.IssueType.Invalid,
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterInvalidExpression, expression, ex.Message));
+                    return false;
                 }
             }
         }

@@ -2322,11 +2322,38 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The expression can&apos;t be parsed: {0}.
+        ///   Looks up a localized string similar to The expression &apos;{0}&apos; is not valid FHIRPath: {1}.
         /// </summary>
         internal static string FhirPackageSearchParameterInvalidExpression {
             get {
                 return ResourceManager.GetString("FhirPackageSearchParameterInvalidExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The expression can&apos;t be resolved against the FHIR model: {0}.
+        /// </summary>
+        internal static string FhirPackageSearchParameterUnresolvableExpression {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterUnresolvableExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The server can&apos;t determine which element types the expression or a component expression selects, so it can&apos;t index them. Use element paths combined with where(), first(), exists(), extension(), as(), is(), ofType(), indexers, and the &apos;|&apos; union operator..
+        /// </summary>
+        internal static string FhirPackageSearchParameterUnsupportedExpression {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterUnsupportedExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The type &apos;{0}&apos; is not a known FHIR type..
+        /// </summary>
+        internal static string UnknownTypeInExpression {
+            get {
+                return ResourceManager.GetString("UnknownTypeInExpression", resourceCulture);
             }
         }
         
