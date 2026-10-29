@@ -412,6 +412,79 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         };
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void GivenSemanticIncludes_WhenSqlGenerated_ThenRankingAndPagePrecedeIncludeExpansion(bool approximate, bool reversed)
+    {
+        // Arrange
+        SearchParameterInfo vectorSearchParameter = CreateSemanticSearchParameter();
+        var referenceParameter = new SearchParameterInfo(
+            "subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+        var include = new IncludeExpression(["Patient"], referenceParameter, "Observation", "Patient", null, reversed, false, false);
+        var tables = CreatePatientTypeCandidates().SearchParamTableExpressions.ToList();
+        tables.Add(new SearchParamTableExpression(IncludeQueryGenerator.Instance, include, SearchParamTableExpressionKind.Include));
+        SqlSearchOptions options = CreateVectorSearchOptions(vectorSearchParameter, [], approximate ? 5 : null);
+        var expression = (SqlRootExpression)new SqlRootExpression(tables, [])
+            .AcceptVisitor(TopRewriter.Instance, options)
+            .AcceptVisitor(IncludeRewriter.Instance);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(expression, options);
+        string sql = _strBuilder.ToString();
+
+        // Assert
+        int persist = sql.IndexOf("INSERT INTO @FilteredData", StringComparison.Ordinal);
+        string matchSql = sql[..persist];
+        string includeSql = sql[persist..];
+        Assert.Contains("SemanticDistance", matchSql, StringComparison.Ordinal);
+        Assert.Contains("ROW_NUMBER() OVER (ORDER BY SemanticDistance ASC, T1 ASC, Sid1 ASC)", matchSql, StringComparison.Ordinal);
+        Assert.Contains("CAST(IsMatch AS bit) AS IsMatch", includeSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("VECTOR_SEARCH(", includeSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("VECTOR_DISTANCE(", includeSql, StringComparison.Ordinal);
+        Assert.DoesNotContain(") * FROM (", includeSql, StringComparison.Ordinal);
+        Assert.Contains("NULL AS SemanticDistance", includeSql, StringComparison.Ordinal);
+        if (approximate)
+        {
+            Assert.Contains("WITH APPROXIMATE", matchSql, StringComparison.Ordinal);
+            Assert.Contains("EXISTS (SELECT 1 FROM cte0 AS f", matchSql, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("CROSS APPLY", matchSql, StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenSemanticCountOnly_WhenSqlGenerated_ThenSingleSelectCountsDistinctResources(bool withStructuredCandidates)
+    {
+        // Arrange
+        SearchParameterInfo vectorSearchParameter = CreateSemanticSearchParameter();
+        SqlRootExpression sqlExpression = withStructuredCandidates
+            ? CreatePatientTypeCandidates()
+            : SqlRootExpression.WithResourceTableExpressions(
+                new SearchParameterExpression(
+                    new SearchParameterInfo("_type", "_type"),
+                    new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false)));
+
+        // Approximate retrieval is configured but must not be used: a count sees every match.
+        SqlSearchOptions searchOptions = CreateVectorSearchOptions(vectorSearchParameter, [], approximateCandidateMultiplier: 5, countOnly: true);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        string generatedSql = _strBuilder.ToString();
+
+        // Assert
+        Assert.DoesNotMatch(@"\bSELECT\s+SELECT\b", generatedSql);
+        Assert.Contains("SELECT count_big(DISTINCT r.ResourceSurrogateId)", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("CROSS APPLY", generatedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("WITH APPROXIMATE", generatedSql, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void GivenApproximateVectorSearchAndStructuredCandidates_WhenSqlGenerated_ThenFiltersAreAppliedInsideTheApproximateSearch()
     {

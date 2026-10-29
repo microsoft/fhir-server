@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private const string _joinShift = "     ";
         private const string ApproximateQueryVariable = "@SemanticQuery";
+        private const string SemanticDistanceColumnName = "SemanticDistance";
         internal const string ParametersHashStart = "/* HASH ";
         internal const string ParametersHashEnd = " */";
 
@@ -66,6 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
         private bool _isAsyncOperation;
+        private bool _semanticMatchesRankedInTop;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
         private readonly bool _enableChainSourceDeduplication;
@@ -125,6 +127,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int approximateCandidateMultiplier = 0;
             bool isApproximateVectorSearch = isVectorSearch && UsesApproximateVectorSearch(sqlSearchOptions, out approximateCandidateMultiplier);
 
+            // _include/_revinclude expand only the returned semantic matches, so the Top CTE ranks and pages them before
+            // the include CTEs run; the final select then reads their distance instead of searching vectors again.
+            _semanticMatchesRankedInTop = TopRewriter.SemanticMatchesExpandIncludes(expression, context)
+                && expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Top);
+
             if (isApproximateVectorSearch)
             {
                 // VECTOR_SEARCH accepts only a variable as the query vector, so it cannot be cast inline.
@@ -177,6 +184,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         StringBuilder.Append($"({sortContext.SortColumnName.Metadata.MaxLength})");
                     }
+                }
+
+                if (_semanticMatchesRankedInTop)
+                {
+                    StringBuilder.Append(", ").Append(SemanticDistanceColumnName).Append(" float");
                 }
 
                 if (!isIncludesCount)
@@ -233,7 +245,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
                             AddParametersHash(); // hash is required in upper SQL
-                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
+                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue" : string.Empty)}{(_semanticMatchesRankedInTop ? $", {SemanticDistanceColumnName}" : string.Empty)} FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
 
                             if (_smartV2UnionVisited)
@@ -295,7 +307,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (isVectorSearch)
                 {
                     selectingFromResourceTable = true;
-                    StringBuilder.Append("SELECT count_big(DISTINCT ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(")");
+
+                    // SELECT is already written above; each resource contributes at most one row (its best chunk).
+                    StringBuilder.Append("count_big(DISTINCT ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(")");
                 }
                 else if (expression.SearchParamTableExpressions.Count > 0)
                 {
@@ -322,7 +336,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // to ensure pagination works correctly. Previously TOP was in the inner subquery without ORDER BY,
                 // causing SQL Server to return arbitrary rows before the outer ORDER BY reordered them.
                 // Fix for pagination bug introduced in commit 6dd540c7d.
-                if (expression.SearchParamTableExpressions.Count == 0 || isVectorSearch)
+                // When the Top CTE pages semantic matches for includes, the result also holds included resources, so it is not limited here.
+                if ((expression.SearchParamTableExpressions.Count == 0 || isVectorSearch) && !_semanticMatchesRankedInTop)
                 {
                     StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") * FROM (");
                 }
@@ -342,8 +357,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.RequestMethod, resourceTableAlias).Append(", ");
 
                 // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match.
-                // Vector search suppresses the Top CTE that carries IsMatch/IsPartial, and every ranked row is a match.
-                bool selectMatchBitFromCte = expression.SearchParamTableExpressions.Count > 0 && !isVectorSearch;
+                // Vector search suppresses the Top CTE that carries IsMatch/IsPartial, and every ranked row is a match,
+                // unless includes are expanded, in which case Top ranks the matches and the CTE marks them.
+                bool selectMatchBitFromCte = expression.SearchParamTableExpressions.Count > 0 && (!isVectorSearch || _semanticMatchesRankedInTop);
                 StringBuilder.Append(selectMatchBitFromCte ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
                 StringBuilder.Append(selectMatchBitFromCte ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
@@ -356,7 +372,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
 
-                if (isVectorSearch)
+                if (_semanticMatchesRankedInTop)
+                {
+                    // Matches carry the distance ranked by Top; included resources carry NULL.
+                    StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append('.').Append(SemanticDistanceColumnName);
+                }
+                else if (isVectorSearch)
                 {
                     StringBuilder.Append(", semantic.SemanticDistance");
                 }
@@ -396,16 +417,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
                 }
 
-                if (isVectorSearch)
+                if (isVectorSearch && !_semanticMatchesRankedInTop)
                 {
-                    if (isApproximateVectorSearch)
-                    {
-                        AppendApproximateVectorSearchJoin(sqlSearchOptions, approximateCandidateMultiplier, expression, resourceTableAlias);
-                    }
-                    else
-                    {
-                        AppendVectorSearchApply(sqlSearchOptions.PreparedVectorQuery, resourceTableAlias);
-                    }
+                    AppendSemanticSearch(sqlSearchOptions, isApproximateVectorSearch, approximateCandidateMultiplier, expression, resourceTableAlias, TableExpressionName(_tableExpressionCounter));
                 }
 
                 using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
@@ -420,26 +434,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
 
-                    if (isVectorSearch && sqlSearchOptions.SemanticContinuationToken is { } continuationToken)
+                    if (isVectorSearch && !_semanticMatchesRankedInTop)
                     {
-                        object distanceParameter = Parameters.AddParameter(continuationToken.Distance, includeInHash: false);
-                        object resourceTypeParameter = Parameters.AddParameter(continuationToken.ResourceTypeId, includeInHash: false);
-                        object surrogateIdParameter = Parameters.AddParameter(continuationToken.ResourceSurrogateId, includeInHash: false);
-
-                        delimitedClause.BeginDelimitedElement();
-                        StringBuilder
-                            .Append("(semantic.SemanticDistance > ").Append(distanceParameter)
-                            .Append(" OR (semantic.SemanticDistance = ").Append(distanceParameter).Append(" AND (")
-                            .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" > ").Append(resourceTypeParameter)
-                            .Append(" OR (").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(resourceTypeParameter)
-                            .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" > ").Append(surrogateIdParameter)
-                            .Append("))))");
-
-                        if (isApproximateVectorSearch)
-                        {
-                            delimitedClause.BeginDelimitedElement();
-                            AppendApproximateContinuationDuplicateGuard(sqlSearchOptions.PreparedVectorQuery, resourceTableAlias, distanceParameter);
-                        }
+                        AppendSemanticContinuation(delimitedClause, sqlSearchOptions, isApproximateVectorSearch, resourceTableAlias);
                     }
                 }
 
@@ -544,6 +541,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
+        // Attaches the best-chunk SemanticDistance of each candidate resource as "semantic". Candidates are restricted to
+        // filterCte, the CTE holding the structured filter results, when one exists.
+        private void AppendSemanticSearch(SqlSearchOptions options, bool isApproximate, int candidateMultiplier, SqlRootExpression expression, string resourceTableAlias, string filterCte)
+        {
+            if (isApproximate)
+            {
+                AppendApproximateVectorSearchJoin(options, candidateMultiplier, expression, resourceTableAlias, filterCte);
+            }
+            else
+            {
+                AppendVectorSearchApply(options.PreparedVectorQuery, resourceTableAlias);
+            }
+        }
+
+        // Resumes after the last (distance, resource) returned by the previous page.
+        private void AppendSemanticContinuation(in IndentedStringBuilder.DelimitedScope delimitedClause, SqlSearchOptions options, bool isApproximate, string resourceTableAlias)
+        {
+            if (options.SemanticContinuationToken is not { } continuationToken)
+            {
+                return;
+            }
+
+            object distanceParameter = Parameters.AddParameter(continuationToken.Distance, includeInHash: false);
+            object resourceTypeParameter = Parameters.AddParameter(continuationToken.ResourceTypeId, includeInHash: false);
+            object surrogateIdParameter = Parameters.AddParameter(continuationToken.ResourceSurrogateId, includeInHash: false);
+
+            delimitedClause.BeginDelimitedElement();
+            StringBuilder
+                .Append("(semantic.SemanticDistance > ").Append(distanceParameter)
+                .Append(" OR (semantic.SemanticDistance = ").Append(distanceParameter).Append(" AND (")
+                .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" > ").Append(resourceTypeParameter)
+                .Append(" OR (").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(resourceTypeParameter)
+                .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" > ").Append(surrogateIdParameter)
+                .Append("))))");
+
+            if (isApproximate)
+            {
+                delimitedClause.BeginDelimitedElement();
+                AppendApproximateContinuationDuplicateGuard(options.PreparedVectorQuery, resourceTableAlias, distanceParameter);
+            }
+        }
+
         private void AppendVectorSearchApply(PreparedVectorSearchQuery preparedQuery, string resourceTableAlias)
         {
             const string vectorTableAlias = "v";
@@ -594,7 +633,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         // approximate block so that they are applied while the index is searched (iterative filtering) rather than
         // after a fixed number of nearest neighbors was returned. Chunks are then reduced to the best one per resource.
         // The outer query keeps every predicate, so this only narrows which candidates the index examines.
-        private void AppendApproximateVectorSearchJoin(SqlSearchOptions options, int candidateMultiplier, SqlRootExpression expression, string resourceTableAlias)
+        private void AppendApproximateVectorSearchJoin(SqlSearchOptions options, int candidateMultiplier, SqlRootExpression expression, string resourceTableAlias, string filterCte)
         {
             const string candidateAlias = "c";
             const string vectorTableAlias = "v";
@@ -643,7 +682,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (expression.SearchParamTableExpressions.Count > 0)
             {
-                string filterCte = TableExpressionName(_tableExpressionCounter);
                 StringBuilder.Append("               AND EXISTS (SELECT 1 FROM ").Append(filterCte).Append(" AS ").Append(cteFilterAlias)
                     .Append(" WHERE ").Append(cteFilterAlias).Append(".T1 = ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias)
                     .Append(" AND ").Append(cteFilterAlias).Append(".Sid1 = ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).AppendLine(")");
@@ -1120,6 +1158,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             var sortExpression = IsSortValueNeeded(context) ? $"{tableExpressionName}.SortValue" : null;
 
+            if (_semanticMatchesRankedInTop)
+            {
+                HandleSemanticTop(context, tableExpressionName, sortExpression != null, AppendOrderBy);
+                return;
+            }
+
             bool hasIncludeExpression = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
 
             IndentedStringBuilder.IndentedScope indentedScope = default;
@@ -1180,6 +1224,67 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 else
                 {
                     StringBuilder.Append("Sid1 ASC");
+                }
+            }
+        }
+
+        // Ranks and pages the semantic matches before _include/_revinclude expands them. Only resources with an embedding
+        // within the score threshold are matches, and only the returned page (Row < MaxItemCount + 1, so not the lookahead
+        // row) seeds the includes. Each match carries its best-chunk distance, which the final select returns as its score.
+        private void HandleSemanticTop(SearchOptions context, string filterCte, bool sortValueNeeded, Action appendStructuredOrderBy)
+        {
+            const string resourceTableAlias = "r";
+            const string candidateAlias = "p";
+
+            var sqlSearchOptions = (SqlSearchOptions)context;
+            bool isApproximate = UsesApproximateVectorSearch(sqlSearchOptions, out int candidateMultiplier);
+            bool rankByDistance = context.Sort.Count == 0 || IsScoreSort(context);
+
+            StringBuilder.Append("SELECT ROW_NUMBER() OVER (");
+            AppendOrderBy();
+            StringBuilder.AppendLine(") AS Row, *")
+                .AppendLine("FROM")
+                .AppendLine("(");
+
+            using (StringBuilder.Indent())
+            {
+                StringBuilder.Append("SELECT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ")
+                    .Append(candidateAlias).Append(".T1, ").Append(candidateAlias).Append(".Sid1, 1 AS IsMatch, 0 AS IsPartial")
+                    .Append(sortValueNeeded ? $", {candidateAlias}.SortValue" : string.Empty)
+                    .Append(", semantic.").AppendLine(SemanticDistanceColumnName)
+                    .Append("FROM (SELECT DISTINCT T1, Sid1").Append(sortValueNeeded ? ", SortValue" : string.Empty)
+                    .Append(" FROM ").Append(filterCte).Append(") AS ").AppendLine(candidateAlias)
+                    .Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(resourceTableAlias).Append(" ON ")
+                    .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(candidateAlias).Append(".T1 AND ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(candidateAlias).AppendLine(".Sid1");
+
+                AppendSemanticSearch(sqlSearchOptions, isApproximate, candidateMultiplier, _rootExpression, resourceTableAlias, filterCte);
+
+                using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
+                {
+                    AppendHistoryClause(delimitedClause, context.ResourceVersionTypes, tableAlias: resourceTableAlias);
+                    AppendDeletedClause(delimitedClause, context.ResourceVersionTypes, resourceTableAlias);
+                    AppendSemanticContinuation(delimitedClause, sqlSearchOptions, isApproximate, resourceTableAlias);
+                }
+
+                AppendOrderBy();
+                StringBuilder.AppendLine();
+            }
+
+            StringBuilder.AppendLine(") t");
+
+            // The includes join on the ranked matches.
+            _cteMainSelect = TableExpressionName(_tableExpressionCounter);
+
+            void AppendOrderBy()
+            {
+                if (rankByDistance)
+                {
+                    StringBuilder.Append("ORDER BY ").Append(SemanticDistanceColumnName).Append(" ASC, T1 ASC, Sid1 ASC");
+                }
+                else
+                {
+                    appendStructuredOrderBy();
                 }
             }
         }
@@ -1850,12 +1955,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // The includes operation does not contain matched resources, so no sort value is needed.
             if (sortValueNeeded && !context.IsIncludesOperation)
             {
-                StringBuilder.AppendLine(", SortValue");
+                StringBuilder.Append(", SortValue");
             }
-            else
+
+            if (_semanticMatchesRankedInTop)
             {
-                StringBuilder.AppendLine();
+                StringBuilder.Append(", ").Append(SemanticDistanceColumnName);
             }
+
+            StringBuilder.AppendLine();
 
             // Excluding a cte for matched resources for $includes operation.
             var rootCte = _cteMainSelect;
@@ -1874,12 +1982,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial");
                 if (sortValueNeeded && !context.IsIncludesOperation)
                 {
-                    StringBuilder.AppendLine(", NULL as SortValue ");
+                    StringBuilder.Append(", NULL as SortValue ");
                 }
-                else
+
+                if (_semanticMatchesRankedInTop)
                 {
-                    StringBuilder.AppendLine();
+                    // Included resources are not semantic matches and have no score.
+                    StringBuilder.Append(", NULL AS ").Append(SemanticDistanceColumnName);
                 }
+
+                StringBuilder.AppendLine();
 
                 // Matched results should be excluded from included CTEs
                 StringBuilder.Append("FROM ").Append(includeCte)

@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public sealed class SemanticSearchTests : IClassFixture<SemanticSearchTestFixture>
     {
         private const string Query = "difficulty breathing after exercise";
+        private const string UnrelatedText = "routine follow-up for a sprained ankle";
         private readonly string _testTag = Guid.NewGuid().ToString();
         private readonly SemanticSearchTestFixture _fixture;
         private readonly TestFhirClient _client;
@@ -226,6 +227,140 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(1m, match.Search.Score);
         }
 
+        [Fact]
+        public async Task GivenSemanticSearchWithInclude_WhenPaging_ThenIncludesFollowTheRankedPageOfMatches()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
+            await EnsureObservationSemanticSearchParameterAsync();
+
+            // Patients have no semantic text, so they have no embeddings and can only appear as included resources.
+            Patient farPatient = await CreateAsync(new Patient { Active = true });
+            Patient nearPatient = await CreateAsync(new Patient { Active = true });
+
+            // The weaker match is written first so that relevance order differs from storage order.
+            Observation far = await CreateAsync(CreateObservation(UnrelatedText, ObservationStatus.Final, farPatient.Id));
+            Observation near = await CreateAsync(CreateObservation(Query, ObservationStatus.Final, nearPatient.Id));
+
+            Bundle firstPage = await SearchStrictAsync(
+                $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&_include=Observation:subject&_count=1");
+
+            Bundle.EntryComponent firstMatch = Assert.Single(firstPage.Entry, entry => entry.Search.Mode == Bundle.SearchEntryMode.Match);
+            Assert.Equal(near.Id, firstMatch.Resource.Id);
+            Assert.Equal(1m, firstMatch.Search.Score);
+            Bundle.EntryComponent firstInclude = Assert.Single(firstPage.Entry, entry => entry.Search.Mode == Bundle.SearchEntryMode.Include);
+            Assert.Equal(nearPatient.Id, firstInclude.Resource.Id);
+            Assert.Null(firstInclude.Search.Score);
+            Assert.Equal(2, firstPage.Entry.Count);
+            Assert.NotNull(firstPage.NextLink);
+
+            Bundle secondPage = await SearchStrictAsync(firstPage.NextLink.ToString());
+
+            Bundle.EntryComponent secondMatch = Assert.Single(secondPage.Entry, entry => entry.Search.Mode == Bundle.SearchEntryMode.Match);
+            Assert.Equal(far.Id, secondMatch.Resource.Id);
+            Assert.NotNull(secondMatch.Search.Score);
+            Assert.True(secondMatch.Search.Score < firstMatch.Search.Score);
+            Bundle.EntryComponent secondInclude = Assert.Single(secondPage.Entry, entry => entry.Search.Mode == Bundle.SearchEntryMode.Include);
+            Assert.Equal(farPatient.Id, secondInclude.Resource.Id);
+            Assert.Equal(2, secondPage.Entry.Count);
+        }
+
+        [Fact]
+        public async Task GivenSemanticSearchWithRevinclude_WhenSearching_ThenReferencingResourcesWithoutEmbeddingsAreIncluded()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
+            await EnsureObservationSemanticSearchParameterAsync();
+
+            Observation far = await CreateAsync(CreateObservation(UnrelatedText, ObservationStatus.Final));
+            Observation near = await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+
+            // The reports have no conclusion, so they have no embeddings.
+            DiagnosticReport farReport = await CreateAsync(CreateDiagnosticReport(far.Id));
+            DiagnosticReport nearReport = await CreateAsync(CreateDiagnosticReport(near.Id));
+
+            Bundle bundle = await SearchStrictAsync(
+                $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&_revinclude=DiagnosticReport:result&_count=10");
+
+            Bundle.EntryComponent[] matches = bundle.Entry.Where(entry => entry.Search.Mode == Bundle.SearchEntryMode.Match).ToArray();
+            Assert.Equal(new[] { near.Id, far.Id }, matches.Select(entry => entry.Resource.Id));
+            Assert.Equal(1m, matches[0].Search.Score);
+            Assert.True(matches[1].Search.Score < matches[0].Search.Score);
+
+            Bundle.EntryComponent[] includes = bundle.Entry.Where(entry => entry.Search.Mode == Bundle.SearchEntryMode.Include).ToArray();
+            Assert.Equal(
+                new[] { farReport.Id, nearReport.Id }.OrderBy(id => id, StringComparer.Ordinal),
+                includes.Select(entry => entry.Resource.Id).OrderBy(id => id, StringComparer.Ordinal));
+            Assert.All(includes, entry => Assert.Null(entry.Search.Score));
+            Assert.Equal(4, bundle.Entry.Count);
+        }
+
+        [Fact]
+        public async Task GivenSemanticSearchWithIncludeOfAnotherMatch_WhenSearching_ThenTheResourceIsReturnedOnceAsAMatch()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
+            await EnsureObservationSemanticSearchParameterAsync();
+
+            Observation member = await CreateAsync(CreateObservation(UnrelatedText, ObservationStatus.Final));
+            Observation panel = CreateObservation(Query, ObservationStatus.Final);
+            panel.HasMember.Add(new ResourceReference($"Observation/{member.Id}"));
+            panel = await CreateAsync(panel);
+
+            Bundle bundle = await SearchStrictAsync(
+                $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&_include=Observation:has-member&_count=10");
+
+            Assert.Equal(new[] { panel.Id, member.Id }, bundle.Entry.Select(entry => entry.Resource.Id));
+            Assert.All(bundle.Entry, entry => Assert.Equal(Bundle.SearchEntryMode.Match, entry.Search.Mode));
+            Assert.Equal(1m, bundle.Entry[0].Search.Score);
+            Assert.True(bundle.Entry[1].Search.Score < bundle.Entry[0].Search.Score);
+        }
+
+        [Fact]
+        public async Task GivenSemanticSearchWithSummaryCount_WhenSearching_ThenDistinctMatchedResourcesAreCounted()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
+            await EnsureObservationSemanticSearchParameterAsync();
+
+            Patient patient = await CreateAsync(new Patient { Active = true });
+
+            // Two notes produce two vector rows for one resource; the count must not count rows.
+            Observation multipleNotes = CreateObservation(Query, ObservationStatus.Final, patient.Id);
+            multipleNotes.Note.Add(new Annotation { Text = UnrelatedText });
+            await CreateAsync(multipleNotes);
+            await CreateAsync(CreateObservation(UnrelatedText, ObservationStatus.Final, patient.Id));
+            await CreateAsync(CreateObservation(Query, ObservationStatus.Preliminary, patient.Id));
+
+            Bundle count = await SearchStrictAsync(
+                $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&status=final&_summary=count");
+
+            Assert.Equal(2, count.Total);
+            Assert.Empty(count.Entry);
+
+            Bundle countWithInclude = await SearchStrictAsync(
+                $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}&_include=Observation:subject&_summary=count");
+
+            Assert.Equal(3, countWithInclude.Total);
+            Assert.Empty(countWithInclude.Entry);
+        }
+
+        private Task EnsureObservationSemanticSearchParameterAsync()
+        {
+            return EnsureSearchParameterIsEnabledAsync(
+                "observation-semantic",
+                SemanticSearchTestParameterResolver.ObservationCanonical,
+                "ObservationSemantic",
+                ResourceType.Observation,
+                "Observation.note.text");
+        }
+
+        private async Task<Bundle> SearchStrictAsync(string url)
+        {
+            using FhirResponse<Bundle> response = await _client.SearchAsync(url, Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
+            return response.Resource;
+        }
+
         private async Task EnsureSearchParameterIsEnabledAsync(
             string id,
             Uri canonical,
@@ -302,13 +437,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Fail("Coverage SearchParameter reindex did not complete within two minutes.");
         }
 
-        private static Observation CreateObservation(string text, ObservationStatus status)
+        private static Observation CreateObservation(string text, ObservationStatus status, string patientId = null)
         {
             return new Observation
             {
                 Status = status,
                 Code = new CodeableConcept("http://loinc.org", "75325-1", "Symptom"),
+                Subject = patientId == null ? null : new ResourceReference($"Patient/{patientId}"),
                 Note = { new Annotation { Text = text } },
+            };
+        }
+
+        private static DiagnosticReport CreateDiagnosticReport(string observationId)
+        {
+            return new DiagnosticReport
+            {
+                Status = DiagnosticReport.DiagnosticReportStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "11502-2", "Laboratory report"),
+                Result = { new ResourceReference($"Observation/{observationId}") },
             };
         }
 

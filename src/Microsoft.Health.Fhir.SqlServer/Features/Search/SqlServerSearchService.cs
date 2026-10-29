@@ -1888,7 +1888,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             rawResourceBytes = reader.GetSqlBytes(10).Value;
             isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
             isHistory = readIsHistory && reader.FieldCount > 11 ? reader.Read(VLatest.Resource.IsHistory, 11) : false;
-            semanticDistance = readSemanticScore ? Convert.ToDouble(reader.GetValue(SemanticDistanceColumnName), CultureInfo.InvariantCulture) : null;
+
+            // Resources returned by _include/_revinclude are not semantic matches and have no distance.
+            semanticDistance = readSemanticScore && reader.GetValue(SemanticDistanceColumnName) is var distance and not DBNull
+                ? Convert.ToDouble(distance, CultureInfo.InvariantCulture)
+                : null;
         }
 
         private static decimal NormalizeCosineDistance(double distance)

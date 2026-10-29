@@ -168,6 +168,64 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
+        public void GivenPreparedVectorQueryWithIncludes_WhenVisited_ThenAddsTopToRankMatchesBeforeIncludes()
+        {
+            // Arrange
+            var searchParamExpression = new SearchParameterExpression(
+                TestSearchParam,
+                Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false));
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Include));
+
+            // Act
+            var result = (SqlRootExpression)TopRewriter.Instance.VisitSqlRoot(sqlRoot, CreateVectorSearchOptions(countOnly: false));
+
+            // Assert - the include table expressions join on the main CTE, which only Top assigns.
+            Assert.Equal(
+                new[] { SearchParamTableExpressionKind.Normal, SearchParamTableExpressionKind.Include, SearchParamTableExpressionKind.Top },
+                result.SearchParamTableExpressions.Select(t => t.Kind));
+        }
+
+        [Fact]
+        public void GivenCountOnlyPreparedVectorQueryWithIncludes_WhenVisited_ThenReturnsUnchanged()
+        {
+            // Arrange
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Include));
+
+            // Act
+            Expression result = TopRewriter.Instance.VisitSqlRoot(sqlRoot, CreateVectorSearchOptions(countOnly: true));
+
+            // Assert - a count reads the final select only; it never expands includes.
+            Assert.Same(sqlRoot, result);
+        }
+
+        private static SqlSearchOptions CreateVectorSearchOptions(bool countOnly)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+
+            return new SqlSearchOptions(new SearchOptions
+            {
+                CountOnly = countOnly,
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            })
+            {
+                PreparedVectorQuery = new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 1,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray()),
+            };
+        }
+
+        [Fact]
         public void GivenQueryWithMultipleExpressions_WhenVisited_ThenAddsTopExpressionAtEnd()
         {
             // Arrange
