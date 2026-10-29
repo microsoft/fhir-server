@@ -10,45 +10,42 @@ namespace Microsoft.Health.Fhir.SchemaManager;
 
 public static class CommandOptions
 {
-    public static Option ConnectionStringOption()
+    public static Option<string> ConnectionStringOption()
     {
         var connectionStringOption = new Option<string>(
             name: OptionAliases.ConnectionString,
-            description: Resources.ConnectionStringOptionDescription)
+            aliases: [OptionAliases.ConnectionStringShort])
         {
+            Description = Resources.ConnectionStringOptionDescription,
             Arity = ArgumentArity.ExactlyOne,
-            IsRequired = true,
+            Required = true,
         };
-
-        connectionStringOption.AddAlias(OptionAliases.ConnectionStringShort);
 
         return connectionStringOption;
     }
 
-    public static Option ManagedIdentityClientIdOption()
+    public static Option<string> ManagedIdentityClientIdOption()
     {
         var managedIdentityClientIdOption = new Option<string>(
             name: OptionAliases.ManagedIdentityClientId,
-            description: Resources.ManagedIdentityClientIdDescription)
+            aliases: [OptionAliases.ManagedIdentityClientIdShort])
         {
+            Description = Resources.ManagedIdentityClientIdDescription,
             Arity = ArgumentArity.ZeroOrOne,
         };
-
-        managedIdentityClientIdOption.AddAlias(OptionAliases.ManagedIdentityClientIdShort);
 
         return managedIdentityClientIdOption;
     }
 
-    public static Option AuthenticationTypeOption()
+    public static Option<string> AuthenticationTypeOption()
     {
         var authenticationTypeOption = new Option<string>(
             name: OptionAliases.AuthenticationType,
-            description: Resources.AuthenticationTypeDescription)
+            aliases: [OptionAliases.AuthenticationTypeShort])
         {
+            Description = Resources.AuthenticationTypeDescription,
             Arity = ArgumentArity.ZeroOrOne,
         };
-
-        authenticationTypeOption.AddAlias(OptionAliases.AuthenticationTypeShort);
 
         return authenticationTypeOption;
     }
@@ -57,68 +54,63 @@ public static class CommandOptions
     {
         var enableWorkloadIdentityOptions = new Option<string>(
             name: OptionAliases.EnableWorkloadIdentity,
-            description: Resources.EnableWorkloadIdentityDescription)
+            aliases: [OptionAliases.EnableWorkloadIdentityShort])
         {
+            Description = Resources.EnableWorkloadIdentityDescription,
             Arity = ArgumentArity.ZeroOrOne,
         };
-
-        enableWorkloadIdentityOptions.AddAlias(OptionAliases.EnableWorkloadIdentityShort);
 
         return enableWorkloadIdentityOptions;
     }
 
-    public static Option VersionOption()
+    public static Option<int> VersionOption()
     {
         var versionOption = new Option<int>(
             name: OptionAliases.Version,
-            description: Resources.VersionOptionDescription)
+            aliases: [OptionAliases.VersionShort])
         {
+            Description = Resources.VersionOptionDescription,
             Arity = ArgumentArity.ZeroOrOne,
         };
-
-        versionOption.AddAlias(OptionAliases.VersionShort);
 
         return versionOption;
     }
 
-    public static Option NextOption()
+    public static Option<bool> NextOption()
     {
         var nextOption = new Option<bool>(
             name: OptionAliases.Next,
-            description: Resources.NextOptionDescription)
+            aliases: [OptionAliases.NextShort])
         {
+            Description = Resources.NextOptionDescription,
             Arity = ArgumentArity.ZeroOrOne,
         };
-
-        nextOption.AddAlias(OptionAliases.NextShort);
 
         return nextOption;
     }
 
-    public static Option LatestOption()
+    public static Option<bool> LatestOption()
     {
         var latestOption = new Option<bool>(
             name: OptionAliases.Latest,
-            description: Resources.LatestOptionDescription)
+            aliases: [OptionAliases.LatestShort])
         {
+            Description = Resources.LatestOptionDescription,
             Arity = ArgumentArity.ZeroOrOne,
         };
-
-        latestOption.AddAlias(OptionAliases.LatestShort);
 
         return latestOption;
     }
 
-    public static Option ForceOption()
+    public static Option<bool> ForceOption()
     {
         var forceOption = new Option<bool>(
             name: OptionAliases.Force,
-            description: Resources.ForceOptionDescription)
+            aliases: [OptionAliases.ForceShort])
         {
+            Description = Resources.ForceOptionDescription,
             Arity = ArgumentArity.ZeroOrOne,
         };
-
-        forceOption.AddAlias(OptionAliases.ForceShort);
 
         return forceOption;
     }
