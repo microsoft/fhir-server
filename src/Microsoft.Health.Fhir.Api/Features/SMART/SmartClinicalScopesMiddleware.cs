@@ -190,6 +190,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                    || baseName.Equals("_revinclude", StringComparison.OrdinalIgnoreCase);
         }
 
+        // Percent-decodes only the part of each whitespace-separated scope before its first raw '?' (for example
+        // "patient%2fObservation.rs" -> "patient/Observation.rs") and keeps the search-parameter query encoded, so
+        // the query can be split on its raw '&' and '=' delimiters before each value is decoded. Returns false when a
+        // decoded prefix forms or hides a clinical scope through an encoded delimiter: an encoded '?' (a fully encoded
+        // scope such as "patient%2fObservation.rs%3Fcode%3D1"), or encoded whitespace (one scope value expanding into
+        // several scopes, such as "patient%2fObservation.rs%20patient%2fPatient.rs").
+        private static bool TryDecodeScopePrefixes(string scopeClaims, out string decodedScopeClaims)
+        {
+            var builder = new StringBuilder();
+
+            foreach (string scope in scopeClaims.Split((char[])null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int queryStart = scope.IndexOf('?', StringComparison.Ordinal);
+                string prefix = queryStart < 0 ? scope : scope.Substring(0, queryStart);
+                string decodedPrefix = System.Uri.UnescapeDataString(prefix);
+
+                if (decodedPrefix.Any(c => c == '?' || c == '&' || c == '=' || char.IsWhiteSpace(c))
+                    && ClinicalScopeRegEx.IsMatch(decodedPrefix))
+                {
+                    decodedScopeClaims = null;
+                    return false;
+                }
+
+                builder.Append(' ').Append(decodedPrefix);
+                if (queryStart >= 0)
+                {
+                    builder.Append(scope, queryStart, scope.Length - queryStart);
+                }
+            }
+
+            decodedScopeClaims = builder.ToString();
+            return true;
+        }
+
         public async Task Invoke(
             HttpContext context,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -251,16 +285,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         scopeClaims = scopeClaimsBuilder.ToString();
                     }
 
-                    // Decode URL-encoded forward slashes (%2f) to support Azure Entra ID scopes
-                    // Azure Entra ID doesn't allow '/' in scopes, so users encode them as '%2f'
-                    // We decode them here before processing with the regex. Uri.UnescapeDataString is lenient
-                    // on malformed percent-encoding (it leaves invalid sequences as-is), but guard defensively
-                    // so any decode failure surfaces as a BadRequest rather than an unhandled 500.
+                    // Azure Entra ID doesn't allow '/' in scopes, so users encode them as '%2f'. Only the part of
+                    // each scope before the first raw '?' is decoded here; the search parameters stay encoded until
+                    // they are split on the raw '&' and '=' delimiters (see below). Uri.UnescapeDataString is lenient
+                    // on malformed percent-encoding (it leaves invalid sequences as-is), but guard defensively so
+                    // any decode failure surfaces as a BadRequest rather than an unhandled 500.
                     try
                     {
-                        scopeClaims = System.Uri.UnescapeDataString(scopeClaims);
+                        if (!TryDecodeScopePrefixes(scopeClaims, out string decodedScopeClaims))
+                        {
+                            var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, scopeClaims);
+                            _logger.LogWarning(error);
+                            await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                            return;
+                        }
+
+                        scopeClaims = decodedScopeClaims;
                     }
-                    catch (Exception ex) when (ex is UriFormatException || ex is FormatException || ex is ArgumentException)
+                    catch (Exception ex) when (ex is UriFormatException || ex is FormatException || ex is ArgumentException || ex is RegexMatchTimeoutException)
                     {
                         var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, scopeClaims);
                         _logger.LogWarning(ex, error);
@@ -391,6 +433,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             {
                                 smartScopeSearchParameters = new SearchParams();
                                 var searchParamsString = match.Groups["searchParams"].Value;
+
+                                // The query is still percent-encoded here, so only raw '&' separates constraints.
                                 var searchParamsPairs = searchParamsString.Split('&');
 
                                 // iterate through each key-value pair and add them to the SearchParams
@@ -440,7 +484,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     }
 
                                     // Reject malformed key-value pairs (a missing '=' or a value that still
-                                    // contains '=') instead of silently dropping the constraint (fail-open).
+                                    // contains a raw '=') instead of silently dropping the constraint (fail-open).
                                     if (parts.Length != 2 || paramValue.Contains('=', StringComparison.Ordinal))
                                     {
                                         var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, match.Value?.Trim());
@@ -449,7 +493,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                         return;
                                     }
 
-                                    smartScopeSearchParameters.Add(paramKey, paramValue);
+                                    // Decode the value only now, after splitting on the raw '&' and '=' delimiters, so an
+                                    // encoded "%26" or "%3D" stays part of this value (e.g. identifier=ABC%26status%3Dfinal
+                                    // is the single value "ABC&status=final"), matching how FHIR search reads the same string.
+                                    smartScopeSearchParameters.Add(paramKey, System.Uri.UnescapeDataString(paramValue));
                                 }
 
                                 if (smartScopeSearchParameters.Parameters.Count > 0)

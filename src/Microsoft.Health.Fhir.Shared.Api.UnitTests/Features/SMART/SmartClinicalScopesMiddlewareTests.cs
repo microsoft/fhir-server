@@ -1236,6 +1236,111 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                     new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("category", "vital-signs").Add("code", "http://loinc.org|85354-9")),
                 },
             };
+
+            // MSRC 165509: search-parameter values are decoded only after the query is split on the raw '&' and '='
+            // delimiters. A raw '&' separates constraints (ANDed); an encoded '%26' or '%3D' is a literal character
+            // inside the value, matching how FHIR search reads GET /Observation?identifier=ABC%26status%3Dfinal.
+
+            // Raw '&' separates two constraints
+            yield return new object[]
+            {
+                "patient%2fObservation.read?identifier=ABC&status=final",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "ABC").Add("status", "final")),
+                },
+            };
+
+            // Encoded '%26' and '%3D' stay inside one literal identifier value (the MSRC 165509 scope)
+            yield return new object[]
+            {
+                "patient%2fObservation.read?identifier=ABC%26status%3Dfinal",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "ABC&status=final")),
+                },
+            };
+
+            // Same scope with a raw '/' and upper-case escapes
+            yield return new object[]
+            {
+                "patient/Observation.rs?identifier=ABC%26STATUS%3DFINAL",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "ABC&STATUS=FINAL")),
+                },
+            };
+
+            // A literal '&' value combined with a second constraint separated by a raw '&'
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?identifier=ABC%26status%3Dfinal&status=final",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "ABC&status=final").Add("status", "final")),
+                },
+            };
+
+            // Literal '=' only
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?identifier=a%3Db",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "a=b")),
+                },
+            };
+
+            // Literal '&' only, with a system
+            yield return new object[]
+            {
+                "user%2fObservation.rs?identifier=http:%2f%2fexample.org|A%26B",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("identifier", "http://example.org|A&B")),
+                },
+            };
+
+            // Encoded '?' and '=' are a literal value, unlike the malformed raw "identifier=x?mrn=12345"
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?identifier=x%3Fmrn%3D12345",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "x?mrn=12345")),
+                },
+            };
+
+            // Values are decoded exactly once: "%2526" is the literal text "%26", not '&'
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?identifier=ABC%2526status%253Dfinal",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "ABC%26status%3Dfinal")),
+                },
+            };
+
+            // An encoded space inside a value stays in the value and does not start a second scope
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?code=x%20patient%2fPatient.read",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "x patient/Patient.read")),
+                },
+            };
+
+            // Literal values in one scope do not leak into the next scope
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?identifier=ABC%26status%3Dfinal patient%2fPatient.rs?name=john&gender=male",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("identifier", "ABC&status=final")),
+                    new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("name", "john").Add("gender", "male")),
+                },
+            };
         }
 
         public static IEnumerable<object[]> GetMixedSmartScopeVersions()
@@ -1346,6 +1451,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Observation.rrrrssssss" }; // multiple duplicates
             yield return new object[] { "user/Patient.crudss" };            // duplicate 's' after a full set
             yield return new object[] { "user/Patient.crudsc" };            // duplicate 'c' wrapping a full set
+
+            // MSRC 165509: delimiters must be raw. Encoded delimiters outside a search-parameter value are rejected
+            // rather than decoded into extra constraints or extra scopes.
+            yield return new object[] { "patient%2fObservation.rs%3Fcode%3D44501" };              // fully encoded scope: '?' must be raw
+            yield return new object[] { "patient%2fObservation.rs%26code%3D44501" };              // encoded '&' before the query
+            yield return new object[] { "patient%2fObservation.read%20patient%2fPatient.read" };  // one scope value expanding into two scopes
+            yield return new object[] { "patient/Observation.rs?identifier=ABC%26status=final" }; // raw '=' left in the value after the split
+            yield return new object[] { "patient/Observation.rs?code%3Anot=x" };                  // encoded key (hides a modifier)
+            yield return new object[] { "patient/Observation.rs?identifier%3DABC" };              // encoded '=' leaves no raw name/value separator
         }
 
         private async Task<(AccessControlContext AccessControlContext, bool NextCalled)> InvokeWithSmartClaimsAsync(
