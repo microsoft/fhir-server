@@ -21,6 +21,7 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Client.Authentication;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -61,6 +62,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public Uri BaseAddress { get; }
 
         public ResourceElement Metadata { get; set; }
+
+        /// <summary>
+        /// Gets the server's search-parameter cache refresh interval for test waits.
+        /// </summary>
+        public virtual TimeSpan SearchParameterCacheRefreshInterval =>
+            TimeSpan.FromSeconds(new CoreFeatureConfiguration().SearchParameterCacheRefreshIntervalSeconds);
 
         /// <summary>
         /// Gets the token endpoint used when tests acquire client-credential tokens directly.
