@@ -4,9 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Medino;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -29,39 +34,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
         }
 
         [Fact]
-        public void GivenQueueFactory_WhenInvokedTwice_ThenPayloadsAreScopedAndDisposedIndependently()
+        public void GivenQueueFactory_WhenInvokedTwice_ThenCosmosQueueClientsAreScopedIndependently()
         {
             IServiceCollection services = CreateServices();
             using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
             Func<IScoped<IQueueClient>> factory = provider.GetRequiredService<Func<IScoped<IQueueClient>>>();
             using IScoped<IQueueClient> first = factory();
             using IScoped<IQueueClient> second = factory();
-            var firstPayload = (IDisposable)first.Value;
-            var secondPayload = (IDisposable)second.Value;
+            CosmosQueueClient firstPayload = Assert.IsType<CosmosQueueClient>(first.Value);
+            CosmosQueueClient secondPayload = Assert.IsType<CosmosQueueClient>(second.Value);
 
-            Assert.NotSame(first.Value, second.Value);
-            firstPayload.DidNotReceive().Dispose();
-            secondPayload.DidNotReceive().Dispose();
+            Assert.NotSame(first, second);
+            Assert.NotSame(firstPayload, secondPayload);
+            Assert.True(firstPayload.IsInitialized());
+            Assert.True(secondPayload.IsInitialized());
 
             first.Dispose();
 
-            firstPayload.Received(1).Dispose();
-            secondPayload.DidNotReceive().Dispose();
+            Assert.Throws<ObjectDisposedException>(() => first.Value);
+            Assert.Same(secondPayload, second.Value);
+            Assert.True(second.Value.IsInitialized());
 
             second.Dispose();
 
-            firstPayload.Received(1).Dispose();
-            secondPayload.Received(1).Dispose();
+            Assert.Throws<ObjectDisposedException>(() => second.Value);
         }
 
         private static IServiceCollection CreateServices()
         {
             var services = new ServiceCollection();
             services.AddScoped();
+            services.AddLogging();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+            services.AddSingleton<RequestContextAccessor<IFhirRequestContext>, FhirRequestContextAccessor>();
+            services.AddSingleton(Substitute.For<IMediator>());
             var builder = Substitute.For<IFhirServerBuilder>();
             builder.Services.Returns(services);
             builder.AddCosmosDb();
-            services.AddScoped(_ => Substitute.For<IQueueClient, IDisposable>());
             return services;
         }
     }
