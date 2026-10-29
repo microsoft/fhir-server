@@ -705,7 +705,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 resourceType,
                 queryParameters?.Select(query => unsupportedSearchParameters.Contains(query) ? "_unsupported" : query.Item1),
                 compartmentType,
-                resourceVersionTypes.HasFlag(ResourceVersionType.History));
+                resourceVersionTypes.HasFlag(ResourceVersionType.History),
+                searchOptions.Sort,
+                searchOptions.CountOnly);
 
             return searchOptions;
         }

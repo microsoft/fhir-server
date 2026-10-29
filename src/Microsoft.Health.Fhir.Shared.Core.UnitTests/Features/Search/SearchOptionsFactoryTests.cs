@@ -542,9 +542,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
-        [InlineData(SearchParameterNames.LastUpdated, SortOrder.Ascending)]
-        [InlineData("-" + SearchParameterNames.LastUpdated, SortOrder.Descending)]
-        public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList(string paramName, SortOrder sortOrder)
+        [InlineData(SearchParameterNames.LastUpdated, SortOrder.Ascending, "Patient?_sort=asc:_lastUpdated")]
+        [InlineData("-" + SearchParameterNames.LastUpdated, SortOrder.Descending, "Patient?_sort=desc:_lastUpdated")]
+        public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList(string paramName, SortOrder sortOrder, string expectedShape)
         {
             _sortingValidator.ValidateSorting(default, out var errors).ReturnsForAnyArgs(true);
 
@@ -560,6 +560,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
             Assert.NotNull(options.Sort);
             Assert.Equal((_lastUpdatedSearchParameterInfo, sortOrder), Assert.Single(options.Sort));
+            Assert.Equal(expectedShape, options.NormalizedQueryShape);
+        }
+
+        [Fact]
+        public void GivenEquivalentRepeatedSortParameters_WhenCreated_ThenShapePreservesEffectiveSortOrder()
+        {
+            // Arrange
+            _sortingValidator.ValidateSorting(default, out var errors).ReturnsForAnyArgs(true);
+            var combined = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Sort, "_type,-_lastUpdated"),
+                Tuple.Create("name", "Alice"),
+            };
+            var repeated = new[]
+            {
+                Tuple.Create("name", "Bob"),
+                Tuple.Create(KnownQueryParameterNames.Sort, "_type"),
+                Tuple.Create(KnownQueryParameterNames.Sort, "-_lastUpdated"),
+            };
+            var reversed = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Sort, "-_lastUpdated,_type"),
+                Tuple.Create("name", "Alice"),
+            };
+
+            // Act
+            SearchOptions combinedOptions = CreateSearchOptions(queryParameters: combined);
+            SearchOptions repeatedOptions = CreateSearchOptions(queryParameters: repeated);
+            SearchOptions reversedOptions = CreateSearchOptions(queryParameters: reversed);
+
+            // Assert
+            Assert.Equal("Patient?_sort=asc:_type,desc:_lastUpdated&name", combinedOptions.NormalizedQueryShape);
+            Assert.Equal(combinedOptions.NormalizedQueryShape, repeatedOptions.NormalizedQueryShape);
+            Assert.Equal("Patient?_sort=desc:_lastUpdated,asc:_type&name", reversedOptions.NormalizedQueryShape);
         }
 
         [Fact]
@@ -581,6 +615,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(options.Sort);
 
             Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Code == OperationOutcomeConstants.IssueType.NotSupported);
+            Assert.Equal("Patient?_sort", options.NormalizedQueryShape);
         }
 
         [Theory]
@@ -857,6 +892,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Assert
             Assert.Equal("Patient?_count&name&name", options.NormalizedQueryShape);
+        }
+
+        [Theory]
+        [InlineData("_count", "0", "Patient?_count&_querymode=count")]
+        [InlineData("_summary", "count", "Patient?_querymode=count&_summary")]
+        [InlineData("_count", "5", "Patient?_count")]
+        public void GivenCountOptions_WhenSearchOptionsCreated_ThenShapeDistinguishesCountOnly(
+            string parameterName,
+            string parameterValue,
+            string expectedShape)
+        {
+            // Arrange
+            var queryParameters = new[] { Tuple.Create(parameterName, parameterValue) };
+
+            // Act
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            // Assert
+            Assert.Equal(expectedShape, options.NormalizedQueryShape);
         }
 
         [Fact]
