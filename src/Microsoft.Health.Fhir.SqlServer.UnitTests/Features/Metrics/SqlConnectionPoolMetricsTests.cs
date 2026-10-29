@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Metrics
         public async Task GivenSqlMetricsRegistration_WhenSqlClientRuns_ThenOpenTelemetryExportsPoolMetrics()
         {
             var exported = new List<Metric>();
-            _ = new SqlConnectionStringBuilder("Data Source=localhost");
+            _ = new SqlConnectionStringBuilder("Data Source=localhost;Encrypt=True");
             using IHost host = new HostBuilder()
                 .ConfigureServices(services =>
                 {
