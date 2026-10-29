@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Azure
 
         private static string AddDoubleQuotesIfMissing(string eTag)
         {
-            if (string.IsNullOrWhiteSpace(eTag) || eTag.StartsWith('\"'))
+            if (string.IsNullOrWhiteSpace(eTag) || eTag.StartsWith('\"', StringComparison.Ordinal))
             {
                 return eTag;
             }

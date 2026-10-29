@@ -70,7 +70,7 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
         }
 
         value = value.Trim();
-        if (!value.StartsWith('{') || !value.EndsWith('}'))
+        if (!value.StartsWith('{', StringComparison.Ordinal) || !value.EndsWith('}', StringComparison.Ordinal))
         {
             return false;
         }

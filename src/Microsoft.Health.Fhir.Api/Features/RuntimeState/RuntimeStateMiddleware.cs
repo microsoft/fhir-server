@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
             }
 
             pathValue = pathValue.Substring(1);
-            if (pathValue.EndsWith('/'))
+            if (pathValue.EndsWith('/', StringComparison.Ordinal))
             {
                 pathValue = pathValue.Substring(0, pathValue.Length - 1);
             }

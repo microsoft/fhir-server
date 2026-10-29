@@ -372,7 +372,7 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
             else
             {
                 value = value.Trim();
-                if (value.StartsWith('{') && value.EndsWith('}'))
+                if (value.StartsWith('{', StringComparison.Ordinal) && value.EndsWith('}', StringComparison.Ordinal))
                 {
                     try
                     {

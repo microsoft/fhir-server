@@ -1172,7 +1172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             startIndex = startIndex + propName.Length + 4;
-            var endIndex = json.IndexOf('"', startIndex);
+            var endIndex = json.IndexOf('"', startIndex, StringComparison.Ordinal);
             if (endIndex == -1)
             {
                 _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")}");

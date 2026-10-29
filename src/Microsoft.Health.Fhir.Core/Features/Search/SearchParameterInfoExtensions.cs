@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var resourceType = (searchParameter.BaseResourceTypes?.Any() ?? false) ? searchParameter.BaseResourceTypes[0] : null;
             return (string.Equals(resourceType, KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
-                && (searchParameter.Code?.StartsWith('_') ?? false);
+                && (searchParameter.Code?.StartsWith('_', StringComparison.Ordinal) ?? false);
         }
     }
 }
