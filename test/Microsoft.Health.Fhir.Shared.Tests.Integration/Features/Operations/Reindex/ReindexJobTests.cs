@@ -50,8 +50,8 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Newtonsoft.Json;
+using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
 
                     var scopedJob = Substitute.For<IScoped<IJob>>();
-                    scopedJob.Job.Returns(job);
+                    scopedJob.Value.Returns(job);
                     return scopedJob;
                 });
             }

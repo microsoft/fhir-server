@@ -21,8 +21,8 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Scoping;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Newtonsoft.Json;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export

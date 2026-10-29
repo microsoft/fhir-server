@@ -94,7 +94,7 @@
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.48.0" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
-    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.0" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
     <PackageVersion Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(DotNetSdkPackageVersion)" />
@@ -131,9 +131,9 @@
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="170.5.96" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.64.0" />
-    <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.1" />
+    <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.2" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageVersion Include="NSubstitute" Version="6.0.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.13" />
     <PackageVersion Include="OpenIddict.Abstractions" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="$(OpenIddictPackageVersion)" />
