@@ -7,17 +7,17 @@ using System;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class CosmosDbDistributedLockFactory : ICosmosDbDistributedLockFactory
     {
-        private readonly Func<IScoped<Container>> _containerScopeFactory;
+        private readonly IOwnedScopeFactory<Container> _containerScopeFactory;
         private readonly ILogger<CosmosDbDistributedLock> _logger;
 
-        public CosmosDbDistributedLockFactory(Func<IScoped<Container>> containerScopeFactory, ILogger<CosmosDbDistributedLock> logger)
+        public CosmosDbDistributedLockFactory(IOwnedScopeFactory<Container> containerScopeFactory, ILogger<CosmosDbDistributedLock> logger)
         {
             EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -37,7 +37,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
 
-            return new CosmosDbDistributedLock(() => new NonDisposingScope(container), lockId, _logger);
+            return new CosmosDbDistributedLock(new ExistingContainerScopeFactory(container), lockId, _logger);
+        }
+
+        private sealed class ExistingContainerScopeFactory(Container container) : IOwnedScopeFactory<Container>
+        {
+            public IOwnedScope<Container> Create() => new NonDisposingScope(container);
         }
     }
 }

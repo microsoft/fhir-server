@@ -10,8 +10,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -26,12 +26,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         internal const string UrlPrefix = "http://hl7.org/fhir/us/core/StructureDefinition/";
         internal const string UnknownVersion = "unknown";
 
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<USCoreInstantiateCapability> _logger;
 
         public USCoreInstantiateCapability(
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IOwnedScopeFactory<ISearchService> searchServiceFactory,
             IResourceDeserializer resourceDeserializer,
             ILogger<USCoreInstantiateCapability> logger)
         {
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             try
             {
-                using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
                 {
                     _logger.LogInformation("Searching US Core profiles...");
 

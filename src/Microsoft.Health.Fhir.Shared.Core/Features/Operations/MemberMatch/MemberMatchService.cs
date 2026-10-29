@@ -11,11 +11,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
 {
     public sealed class MemberMatchService : IMemberMatchService
     {
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ISearchIndexer _searchIndexer;
         private readonly IExpressionParser _expressionParser;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
         private readonly ILogger<MemberMatchService> _logger;
 
         public MemberMatchService(
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IOwnedScopeFactory<ISearchService> searchServiceFactory,
             IResourceDeserializer resourceDeserializer,
             ISearchIndexer searchIndexer,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             SearchResult results = null;
             try
             {
-                using IScoped<ISearchService> search = _searchServiceFactory();
+                using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
                 results = await search.Value.SearchAsync(searchOptions, cancellationToken);
             }
             catch (InvalidSearchOperationException ex)

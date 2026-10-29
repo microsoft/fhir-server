@@ -12,13 +12,13 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
@@ -32,8 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
+        private readonly IOwnedScopeFactory<IFhirDataStore> _fhirDataStoreFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
         private readonly SemaphoreSlim _refreshSemaphore;
@@ -45,8 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             IModelInfoProvider modelInfoProvider,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
-            Func<IScoped<ISearchService>> searchServiceFactory,
-            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IOwnedScopeFactory<ISearchService> searchServiceFactory,
+            IOwnedScopeFactory<IFhirDataStore> fhirDataStoreFactory,
             ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -365,7 +365,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, resourceId);
             _logger.LogInformation("DeleteSearchParameterResourceAsync: {DeleteType} deleting search parameter resource '{ResourceId}' with URL '{Url}'", hardDelete ? "Hard" : "Soft", resourceId, searchParameterUrl);
 
-            using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+            using var fhirDataStore = _fhirDataStoreFactory.Create();
 
             if (hardDelete)
             {
@@ -423,7 +423,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var unresolvedUrls = new HashSet<string>(searchParameterUrls);
 
             // First, try direct search by URL in batches
-            using var search = _searchServiceFactory.Invoke();
+            using var search = _searchServiceFactory.Create();
             const int chunkSize = 100;
 
             for (var i = 0; i < searchParameterUrls.Count; i += chunkSize)

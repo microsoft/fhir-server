@@ -4,56 +4,62 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
 {
     public static class CreateMockedScopeExtensions
     {
-        public static IScoped<T> CreateMockScope<T>(this T obj)
+        /// <summary>
+        /// Creates a substitute handle for a service.
+        /// </summary>
+        /// <typeparam name="T">The service type.</typeparam>
+        /// <param name="obj">The service returned by the handle.</param>
+        /// <returns>A substitute caller-owned handle.</returns>
+        public static IOwnedScope<T> CreateMockScope<T>(this T obj)
         {
-            var scope = Substitute.For<IScoped<T>>();
+            var scope = Substitute.For<IOwnedScope<T>>();
             scope.Value.Returns(obj);
             return scope;
         }
 
-        public static Func<IScoped<T>> CreateMockScopeFactory<T>(this T obj)
+        /// <summary>
+        /// Creates a substitute factory returning an existing handle.
+        /// </summary>
+        /// <typeparam name="T">The service type.</typeparam>
+        /// <param name="obj">The handle returned by the factory.</param>
+        /// <returns>A substitute scope factory.</returns>
+        public static IOwnedScopeFactory<T> CreateMockScopeFactoryFromScope<T>(this IOwnedScope<T> obj)
         {
-            return () => obj.CreateMockScope();
-        }
-
-        public static IScopeProvider<T> CreateMockScopeProviderFromScoped<T>(this IScoped<T> obj)
-        {
-            IScopeProvider<T> provider = Substitute.For<IScopeProvider<T>>();
-            provider.Invoke().Returns(obj);
+            IOwnedScopeFactory<T> provider = Substitute.For<IOwnedScopeFactory<T>>();
+            provider.Create().Returns(obj);
             return provider;
         }
 
-        public static IScopeProvider<T> CreateMockScopeProvider<T>(this T obj)
+        /// <summary>
+        /// Creates a substitute factory for a service.
+        /// </summary>
+        /// <typeparam name="T">The service type.</typeparam>
+        /// <param name="obj">The service returned within each handle.</param>
+        /// <returns>A substitute scope factory.</returns>
+        public static IOwnedScopeFactory<T> CreateMockScopeFactory<T>(this T obj)
         {
-            if (obj.GetType().IsGenericType && obj.GetType().GetGenericTypeDefinition() == typeof(IScoped<>))
-            {
-                throw new InvalidOperationException($"Unwrap {typeof(T)} or use {nameof(CreateMockScopeProviderFromScoped)}.");
-            }
-
             return obj
                 .CreateMockScope()
-                .CreateMockScopeProviderFromScoped();
+                .CreateMockScopeFactoryFromScope();
         }
 
-        public static IScopeProvider<T> CreateMockScopeProvider<T>(this Func<T> obj)
+        /// <summary>
+        /// Creates a substitute factory that resolves the service on each call.
+        /// </summary>
+        /// <typeparam name="T">The service type.</typeparam>
+        /// <param name="obj">The service creation delegate.</param>
+        /// <returns>A substitute scope factory.</returns>
+        public static IOwnedScopeFactory<T> CreateMockScopeFactory<T>(this Func<T> obj)
         {
-            if (obj.GetType().IsGenericType && obj.GetType().GetGenericTypeDefinition() == typeof(IScoped<>))
-            {
-                throw new InvalidOperationException($"Unwrap {typeof(T)} or use {nameof(CreateMockScopeProviderFromScoped)}.");
-            }
-
-            IScopeProvider<T> provider = Substitute.For<IScopeProvider<T>>();
-            provider.Invoke().Returns(_ => obj.Invoke().CreateMockScope());
+            IOwnedScopeFactory<T> provider = Substitute.For<IOwnedScopeFactory<T>>();
+            provider.Create().Returns(_ => obj.Invoke().CreateMockScope());
             return provider;
         }
     }

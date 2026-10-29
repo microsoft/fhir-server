@@ -12,10 +12,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportProcessingJob : IJob
     {
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
         private readonly IQueueClient _queueClient;
         private readonly ILogger<ExportProcessingJob> _logger;
 
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public ExportProcessingJob(
             Func<IExportJobTask> exportJobTaskFactory,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IOwnedScopeFactory<ISearchService> searchServiceFactory,
             IQueueClient queueClient,
             ILogger<ExportProcessingJob> logger)
         {
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             IReadOnlyList<(long StartId, long EndId, int Count)> subRanges;
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            using (IOwnedScope<ISearchService> searchService = _searchServiceFactory.Create())
             {
                 subRanges = await searchService.Value.GetSurrogateIdRanges(
                     resourceType,

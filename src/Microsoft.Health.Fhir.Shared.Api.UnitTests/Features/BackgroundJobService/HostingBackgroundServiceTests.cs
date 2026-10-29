@@ -7,10 +7,10 @@ using System;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -40,7 +40,7 @@ public sealed class HostingBackgroundServiceTests
             BulkUpdate = bulkUpdateConfig,
         };
 
-        var jobHostingFactory = Substitute.For<IScopeProvider<JobHosting>>();
+        var jobHostingFactory = Substitute.For<IOwnedScopeFactory<JobHosting>>();
         var hostingConfig = Options.Create(new TaskHostingConfiguration());
         var operationsConfigOptions = Options.Create(operationsConfig);
         var logger = Substitute.For<ILogger<HostingBackgroundService>>();

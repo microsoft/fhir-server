@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -71,6 +72,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         {
             Assert.SkipWhen(ModelInfoProvider.Version is not (FhirSpecification.Stu3 or FhirSpecification.R4), "Anonymization is available only in STU3 and R4.");
             AssertCollectible(() => Substitute.For<IAnonymizer>(), nameof(IAnonymizer));
+        }
+
+        [Fact]
+        public void GivenRootResolvedAnonymizerFactoryFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            AssertCollectible(() => Substitute.For<IAnonymizerFactory>(), nameof(IAnonymizerFactory));
+        }
+
+        [Fact]
+        public void GivenRootResolvedJobFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            AssertCollectible<IEnumerable<Func<IJob>>>(() => new Func<IJob>[] { () => Substitute.For<IJob>() }, "IEnumerable<Func<IJob>>");
         }
 
         private static void AssertCollectible<T>(Func<T> createPayload, string caseName)

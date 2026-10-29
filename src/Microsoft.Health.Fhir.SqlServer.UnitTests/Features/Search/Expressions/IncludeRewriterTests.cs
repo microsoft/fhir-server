@@ -1655,10 +1655,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 SearchParameterDefinitionManager = new SearchParameterDefinitionManager(
                     modelInfoProvider,
                     mediator,
-                    searchService.CreateMockScopeProvider(),
+                    searchService.CreateMockScopeFactory(),
                     searchParameterComparer,
-                    statusDataStore.CreateMockScopeProvider(),
-                    fhirDataStore.CreateMockScopeProvider(),
+                    statusDataStore.CreateMockScopeFactory(),
+                    fhirDataStore.CreateMockScopeFactory(),
                     logger);
             }
 

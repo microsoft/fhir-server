@@ -4,13 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using Medino;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
@@ -25,6 +32,56 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
     public class ScopedFactoryRegistrationTests
     {
         [Fact]
+        public async Task GivenRootResolvedContainerFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        {
+            IServiceCollection services = CreateServices();
+            Container container = Substitute.For<Container>();
+            CosmosClient client = Substitute.For<CosmosClient>();
+            var initializer = Substitute.For<ICosmosClientInitializer>();
+            initializer.CreateCosmosClient(Arg.Any<CosmosDataStoreConfiguration>()).Returns(client);
+            initializer.CreateFhirContainer(Arg.Any<CosmosClient>(), Arg.Any<string>(), Arg.Any<string>()).Returns(container);
+            var configuration = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
+            configuration.Get(Arg.Any<string>()).Returns(new CosmosCollectionConfiguration());
+            var lockFactory = Substitute.For<ICosmosDbDistributedLockFactory>();
+            lockFactory.Create(container, Arg.Any<string>()).Returns(Substitute.For<ICosmosDbDistributedLock>());
+            services.AddSingleton(_ => new CosmosContainerProvider(
+                Substitute.For<IFhirRuntimeConfiguration>(),
+                new CosmosDataStoreConfiguration { AllowCollectionSetup = false, AllowDatabaseCreation = false },
+                configuration,
+                initializer,
+                Substitute.For<ICollectionSetup>(),
+                Substitute.For<ICollectionDataUpdater>(),
+                new RetryExceptionPolicyFactory(
+                    new CosmosDataStoreConfiguration(),
+                    new FhirRequestContextAccessor(),
+                    NullLogger<RetryExceptionPolicyFactory>.Instance),
+                NullLogger<CosmosContainerProvider>.Instance,
+                Substitute.For<IMediator>(),
+                Array.Empty<ICollectionInitializer>(),
+                lockFactory,
+                Substitute.For<ICosmosClientTestProvider>()));
+            using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+            await provider.GetRequiredService<CosmosContainerProvider>().EnsureInitialized();
+
+            ScopedFactoryAssert.NotRetainedByRoot<Container>(provider, nameof(Container));
+
+            IOwnedScopeFactory<Container> factory = provider.GetRequiredService<IOwnedScopeFactory<Container>>();
+            using (IOwnedScope<Container> first = factory.Create())
+            using (IOwnedScope<Container> second = factory.Create())
+            {
+                Assert.NotSame(first, second);
+                Assert.Same(container, first.Value);
+                Assert.Same(container, second.Value);
+                first.Dispose();
+                Assert.Same(container, second.Value);
+            }
+
+            client.DidNotReceive().Dispose();
+            provider.Dispose();
+            client.Received(1).Dispose();
+        }
+
+        [Fact]
         public void GivenRootResolvedQueueFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
         {
             IServiceCollection services = CreateServices();
@@ -38,9 +95,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
         {
             IServiceCollection services = CreateServices();
             using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
-            Func<IScoped<IQueueClient>> factory = provider.GetRequiredService<Func<IScoped<IQueueClient>>>();
-            using IScoped<IQueueClient> first = factory();
-            using IScoped<IQueueClient> second = factory();
+            IOwnedScopeFactory<IQueueClient> factory = provider.GetRequiredService<IOwnedScopeFactory<IQueueClient>>();
+            using IOwnedScope<IQueueClient> first = factory.Create();
+            using IOwnedScope<IQueueClient> second = factory.Create();
             CosmosQueueClient firstPayload = Assert.IsType<CosmosQueueClient>(first.Value);
             CosmosQueueClient secondPayload = Assert.IsType<CosmosQueueClient>(second.Value);
 
@@ -63,7 +120,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
         private static IServiceCollection CreateServices()
         {
             var services = new ServiceCollection();
-            services.AddScoped();
+
             services.AddLogging();
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddSingleton<RequestContextAccessor<IFhirRequestContext>, FhirRequestContextAccessor>();

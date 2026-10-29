@@ -5,20 +5,31 @@
 
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public sealed class NonDisposingScope : IScoped<Container>
+    /// <summary>
+    /// A handle that leaves the shared container's lifetime with its owner.
+    /// </summary>
+    public sealed class NonDisposingScope : IOwnedScope<Container>
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="NonDisposingScope"/> class.
+        /// </summary>
+        /// <param name="container">The shared container.</param>
         public NonDisposingScope(Container container)
         {
             EnsureArg.IsNotNull(container, nameof(container));
             Value = container;
         }
 
+        /// <inheritdoc />
         public Container Value { get; }
 
+        /// <summary>
+        /// Leaves the shared container undisposed.
+        /// </summary>
         public void Dispose()
         {
         }

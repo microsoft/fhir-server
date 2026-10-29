@@ -18,7 +18,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -29,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -1533,7 +1533,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScope());
+            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScopeFactory());
 
             await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -1558,7 +1558,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeFactory());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -1595,7 +1595,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeFactory());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -2307,7 +2307,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportJobTask CreateExportJobTask(
             ExportJobConfiguration exportJobConfiguration = null,
             IExportDestinationClient exportDestinationClient = null,
-            IScoped<IAnonymizerFactory> anonymizerFactory = null,
+            IOwnedScopeFactory<IAnonymizerFactory> anonymizerFactory = null,
             ILogger<ExportJobTask> logger = null)
         {
             _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x => x.ArgAt<ResourceElement>(0).Instance.Value.ToString());
@@ -2316,9 +2316,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
             return new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
+                _fhirOperationDataStore.CreateMockScopeFactory(),
                 Options.Create(exportJobConfiguration == null ? _exportJobConfiguration : exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
+                _searchService.CreateMockScopeFactory(),
                 _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 exportDestinationClient == null ? _inMemoryDestinationClient : exportDestinationClient,

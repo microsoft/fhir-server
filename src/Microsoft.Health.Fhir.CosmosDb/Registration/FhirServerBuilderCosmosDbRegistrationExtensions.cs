@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -69,6 +70,7 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             IServiceCollection services = fhirServerBuilder.Services;
+            services.AddOwnedScopes();
 
             if (services.Any(x => x.ImplementationType == typeof(CosmosContainerProvider)))
             {
@@ -104,10 +106,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            services.Add<IScoped<Container>>(sp => sp.GetService<CosmosContainerProvider>().CreateContainerScope())
-                .Transient()
-                .AsSelf()
-                .AsFactory();
+            services.AddTransient<IOwnedScopeFactory<Container>, CosmosContainerScopeFactory>();
 
             services.Add<CosmosQueryFactory>()
                 .Singleton()
@@ -270,8 +269,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services.AddScopedProviderFactory<IQueueClient>();
 
             services.Add<CosmosAccessTokenProviderFactory>(c => c.GetRequiredService<IAccessTokenProvider>)
                .Transient()

@@ -5,24 +5,24 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public sealed class DeletionServiceScopedDataStore : IDisposable
     {
         private readonly IFhirDataStore _dataStore;
-        private readonly IScopeProvider<IFhirDataStore> _dataStoreScopeProvider;
+        private readonly IOwnedScopeFactory<IFhirDataStore> _dataStoreScopeProvider;
 
-        private IScoped<IFhirDataStore> _scopedDataStore;
+        private IOwnedScope<IFhirDataStore> _scopedDataStore;
 
         public DeletionServiceScopedDataStore(IFhirDataStore dataStore)
         {
             _dataStore = EnsureArg.IsNotNull(dataStore, nameof(dataStore));
         }
 
-        public DeletionServiceScopedDataStore(IScopeProvider<IFhirDataStore> dataStoreScopeProvider)
+        public DeletionServiceScopedDataStore(IOwnedScopeFactory<IFhirDataStore> dataStoreScopeProvider)
         {
             _dataStoreScopeProvider = EnsureArg.IsNotNull(dataStoreScopeProvider, nameof(dataStoreScopeProvider));
         }
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 else
                 {
                     // Create the scoped data store.
-                    _scopedDataStore = _dataStoreScopeProvider.Invoke();
+                    _scopedDataStore = _dataStoreScopeProvider.Create();
 
                     return _scopedDataStore.Value;
                 }
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Not disposing _dataStore and _dataStoreScopeProvider because we don't own its lifetime.
-            // Only instances of IScoped<T> created via IScopeProvider<T> are disposed here.
+            // Only instances of IOwnedScope<T> created via IOwnedScopeFactory<T> are disposed here.
         }
     }
 }

@@ -6,7 +6,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Common
@@ -24,22 +24,22 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// <param name="caseName">The service name included in a retention failure.</param>
         public static void NotRetainedByRoot<T>(IServiceProvider root, string caseName)
         {
-            Func<IScoped<T>> factory = root.GetRequiredService<Func<IScoped<T>>>();
+            IOwnedScopeFactory<T> factory = root.GetRequiredService<IOwnedScopeFactory<T>>();
             WeakReference reference = CreateDisposedScope(factory);
 
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
-            Assert.False(reference.IsAlive, $"Disposed scoped wrapper for {caseName} is retained by the root provider.");
+            Assert.False(reference.IsAlive, $"Disposed scoped wrapper for {caseName} is retained by the root provider. Expected IsAlive: False; actual: {reference.IsAlive}.");
             GC.KeepAlive(factory);
             GC.KeepAlive(root);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static WeakReference CreateDisposedScope<T>(Func<IScoped<T>> factory)
+        private static WeakReference CreateDisposedScope<T>(IOwnedScopeFactory<T> factory)
         {
-            using IScoped<T> scope = factory();
+            using IOwnedScope<T> scope = factory.Create();
             Assert.NotNull(scope.Value);
             return new WeakReference(scope);
         }

@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -390,7 +391,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 Substitute.For<ISearchParameterDefinitionManager>(),
                 () => Substitute.For<FilebasedSearchParameterStatusDataStore>(Substitute.For<ISearchParameterDefinitionManager>(), Substitute.For<IModelInfoProvider>()),
                 Options.Create(new SecurityConfiguration()),
-                Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
+                Substitute.For<IOwnedScopeFactory<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
                 ResourceIdPolicy.Standard,

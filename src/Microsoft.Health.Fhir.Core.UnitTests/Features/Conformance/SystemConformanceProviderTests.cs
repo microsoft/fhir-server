@@ -13,16 +13,17 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
+        private readonly IOwnedScopeFactory<IEnumerable<IProvideCapability>> _capabilityProviders;
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<SystemConformanceProvider> _logger;
@@ -52,9 +53,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
 
-            var scopedProviders = Substitute.For<IScoped<IEnumerable<IProvideCapability>>>();
+            var scopedProviders = Substitute.For<IOwnedScope<IEnumerable<IProvideCapability>>>();
             scopedProviders.Value.Returns(new List<IProvideCapability>());
-            _capabilityProviders = () => scopedProviders;
+            _capabilityProviders = scopedProviders.CreateMockScopeFactoryFromScope();
 
             _configuration = Options.Create(new CoreFeatureConfiguration
             {

@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 })));
 
             _groupMemberExtractor = new GroupMemberExtractor(
-                () => _fhirDataStore.CreateMockScope(),
+                _fhirDataStore.CreateMockScopeFactory(),
                 _resourceDeserializer,
                 _referenceToElementResolver);
         }
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 })));
 
             _groupMemberExtractor = new GroupMemberExtractor(
-                () => _fhirDataStore.CreateMockScope(),
+                _fhirDataStore.CreateMockScopeFactory(),
                 resourceDeserializer,
                 _referenceToElementResolver);
 

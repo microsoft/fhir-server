@@ -13,11 +13,11 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
     {
         private readonly DataStore _dataStore;
         private FhirStorageTestsFixture _fixture;
-        private IScoped<IFhirDataStore> _scopedDataStore;
+        private IOwnedScope<IFhirDataStore> _scopedDataStore;
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private ISearchIndexer _searchIndexer;
 

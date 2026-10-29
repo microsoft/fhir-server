@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -402,10 +403,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 Substitute.For<IMediator>(),
-                searchService.CreateMockScopeProvider(),
+                searchService.CreateMockScopeFactory(),
                 searchParameterComparer,
-                statusDataStore.CreateMockScopeProvider(),
-                fhirDataStore.CreateMockScopeProvider(),
+                statusDataStore.CreateMockScopeFactory(),
+                fhirDataStore.CreateMockScopeFactory(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
@@ -416,7 +417,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<ISearchParameterDefinitionManager>(),
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
+                Substitute.For<IOwnedScopeFactory<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
                 ResourceIdPolicy.Standard,

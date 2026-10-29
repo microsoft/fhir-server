@@ -15,10 +15,10 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Health;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Health;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         private const string DegradedDescription = "The health of the store has degraded.";
         private const string CMKErrorDescription = "Connection to the data store was unsuccesful because the client's customer-managed key is not available.";
 
-        private readonly IScoped<Container> _container;
+        private readonly IOwnedScopeFactory<Container> _container;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly ICosmosClientTestProvider _testProvider;
@@ -40,13 +40,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosDbHealthCheck"/> class.
         /// </summary>
-        /// <param name="container">The Cosmos Container factory/</param>
+        /// <param name="container">The factory for caller-owned Cosmos container handles.</param>
         /// <param name="configuration">The CosmosDB configuration.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
         public CosmosDbHealthCheck(
-            IScoped<Container> container,
+            IOwnedScopeFactory<Container> container,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosClientTestProvider testProvider,
@@ -101,7 +101,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 {
                     using var timeBasedTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(maxExecutionTimeInSeconds));
                     using var operationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeBasedTokenSource.Token);
-                    await _testProvider.PerformTestAsync(_container.Value, operationTokenSource.Token);
+                    using IOwnedScope<Container> scope = _container.Create();
+                    await _testProvider.PerformTestAsync(scope.Value, operationTokenSource.Token);
                     return HealthCheckResult.Healthy("Successfully connected.");
                 }
                 catch (Exception ex) when (IsRetryableException(ex))

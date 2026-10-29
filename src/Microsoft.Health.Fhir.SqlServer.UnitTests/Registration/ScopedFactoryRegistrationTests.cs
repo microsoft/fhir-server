@@ -6,7 +6,6 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -52,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Registration
         private static IServiceCollection CreateServices()
         {
             var services = new ServiceCollection();
-            services.AddScoped();
+
             var builder = Substitute.For<IFhirServerBuilder>();
             builder.Services.Returns(services);
             builder.AddSqlServer(_ => { });

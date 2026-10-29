@@ -15,13 +15,13 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Medino;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -41,10 +41,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IMediator _mediator;
         private readonly ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
-        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
+        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
-        private readonly IScopeProvider<ISearchParameterStatusDataStore> _searchParameterStatusDataStoreFactory;
-        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IOwnedScopeFactory<ISearchParameterStatusDataStore> _searchParameterStatusDataStoreFactory;
+        private readonly IOwnedScopeFactory<IFhirDataStore> _fhirDataStoreFactory;
         private readonly ILogger _logger;
 
         private bool _initialized = false;
@@ -52,10 +52,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public SearchParameterDefinitionManager(
             IModelInfoProvider modelInfoProvider,
             IMediator mediator,
-            IScopeProvider<ISearchService> searchServiceFactory,
+            IOwnedScopeFactory<ISearchService> searchServiceFactory,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
-            IScopeProvider<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
-            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IOwnedScopeFactory<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
+            IOwnedScopeFactory<IFhirDataStore> fhirDataStoreFactory,
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -372,9 +372,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
         {
             // now read in any previously POST'd SearchParameter resources
-            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
-            using IScoped<ISearchParameterStatusDataStore> statusDataStore = _searchParameterStatusDataStoreFactory.Invoke();
-            using IScoped<IFhirDataStore> fhirDataStore = _fhirDataStoreFactory.Invoke();
+            using IOwnedScope<ISearchService> search = _searchServiceFactory.Create();
+            using IOwnedScope<ISearchParameterStatusDataStore> statusDataStore = _searchParameterStatusDataStoreFactory.Create();
+            using IOwnedScope<IFhirDataStore> fhirDataStore = _fhirDataStoreFactory.Create();
 
             string continuationToken = null;
             int totalLoaded = 0;

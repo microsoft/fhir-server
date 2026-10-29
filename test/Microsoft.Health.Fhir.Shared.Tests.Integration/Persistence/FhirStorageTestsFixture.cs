@@ -26,7 +26,6 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -355,15 +354,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 searchParameterSupportResolver,
                 dataStoreSearchParameterValidator,
-                () => SearchService.CreateMockScope(),
-                DataStore.CreateMockScopeProvider(),
+                SearchService.CreateMockScopeFactory(),
+                DataStore.CreateMockScopeFactory(),
                 NullLogger<SearchParameterOperations>.Instance);
 
             var deleter = new DeletionService(
                 resourceWrapperFactory,
                 new Lazy<IConformanceProvider>(() => ConformanceProvider),
                 deletionServiceDataStoreFactory,
-                SearchService.CreateMockScopeProvider(),
+                SearchService.CreateMockScopeFactory(),
                 _resourceIdProvider,
                 FhirRequestContextAccessor,
                 auditLogger,

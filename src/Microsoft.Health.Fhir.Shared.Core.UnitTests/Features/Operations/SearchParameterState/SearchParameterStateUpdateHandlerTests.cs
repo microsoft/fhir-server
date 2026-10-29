@@ -14,7 +14,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -23,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -71,24 +71,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
         public SearchParameterStateUpdateHandlerTests()
         {
-            // Create a proper IScopeProvider<ISearchService> mock
-            var searchServiceScope = Substitute.For<IScoped<ISearchService>>();
+            // Create a proper IOwnedScopeFactory<ISearchService> mock
+            var searchServiceScope = Substitute.For<IOwnedScope<ISearchService>>();
             searchServiceScope.Value.Returns(_searchService);
-            var searchServiceProvider = Substitute.For<IScopeProvider<ISearchService>>();
-            searchServiceProvider.Invoke().Returns(searchServiceScope);
+            var searchServiceProvider = Substitute.For<IOwnedScopeFactory<ISearchService>>();
+            searchServiceProvider.Create().Returns(searchServiceScope);
 
-            // Create a proper IScopeProvider<ISearchParameterStatusDataStore> mock
-            var searchParameterStatusDataStoreScope = Substitute.For<IScoped<ISearchParameterStatusDataStore>>();
+            // Create a proper IOwnedScopeFactory<ISearchParameterStatusDataStore> mock
+            var searchParameterStatusDataStoreScope = Substitute.For<IOwnedScope<ISearchParameterStatusDataStore>>();
             searchParameterStatusDataStoreScope.Value.Returns(_searchParameterStatusDataStore);
-            var searchParameterStatusDataStoreProvider = Substitute.For<IScopeProvider<ISearchParameterStatusDataStore>>();
-            searchParameterStatusDataStoreProvider.Invoke().Returns(searchParameterStatusDataStoreScope);
+            var searchParameterStatusDataStoreProvider = Substitute.For<IOwnedScopeFactory<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreProvider.Create().Returns(searchParameterStatusDataStoreScope);
 
-            // Create a proper IScopeProvider<IFhirDataStore> mock
+            // Create a proper IOwnedScopeFactory<IFhirDataStore> mock
             var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var fhirDataStoreScope = Substitute.For<IScoped<IFhirDataStore>>();
+            var fhirDataStoreScope = Substitute.For<IOwnedScope<IFhirDataStore>>();
             fhirDataStoreScope.Value.Returns(fhirDataStore);
-            var fhirDataStoreProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
-            fhirDataStoreProvider.Invoke().Returns(fhirDataStoreScope);
+            var fhirDataStoreProvider = Substitute.For<IOwnedScopeFactory<IFhirDataStore>>();
+            fhirDataStoreProvider.Create().Returns(fhirDataStoreScope);
 
             // Create SearchParameterDefinitionManager with proper dependencies
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(

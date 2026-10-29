@@ -16,7 +16,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -120,10 +119,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 Substitute.For<IMediator>(),
-                searchService.CreateMockScopeProvider(),
+                searchService.CreateMockScopeFactory(),
                 searchParameterComparer,
-                statusDataStore.CreateMockScopeProvider(),
-                fhirDataStore.CreateMockScopeProvider(),
+                statusDataStore.CreateMockScopeFactory(),
+                fhirDataStore.CreateMockScopeFactory(),
                 NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
@@ -147,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defManager,
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
+                defaultSqlConnectionWrapperFactory.CreateMockScopeFactory(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
                 ResourceIdPolicy.Standard,

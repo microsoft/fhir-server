@@ -6,9 +6,9 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         // Cosmos DB requires a new fresh instance of the data store for each operation to ensure that long running operations will
         // not have their tokens expire. Therefore, we use a scope provider to create a new instance on each call.
-        private readonly IScopeProvider<IFhirDataStore> _dataStore;
+        private readonly IOwnedScopeFactory<IFhirDataStore> _dataStore;
 
-        public CosmosDeletionServiceDataStoreFactory(IScopeProvider<IFhirDataStore> dataStore)
+        public CosmosDeletionServiceDataStoreFactory(IOwnedScopeFactory<IFhirDataStore> dataStore)
         {
             _dataStore = EnsureArg.IsNotNull(dataStore, nameof(dataStore));
         }

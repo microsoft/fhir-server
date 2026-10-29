@@ -6,11 +6,10 @@
 using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Extensions.DependencyInjection;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations;
+namespace Microsoft.Health.Fhir.Core.Features.Scoping;
 
-internal sealed class ScopedComponent<T> : IScoped<T>
+internal sealed class ScopedComponent<T> : IOwnedScope<T>
 {
     private bool _isDisposed;
     private IServiceScope _serviceScope;
@@ -19,7 +18,7 @@ internal sealed class ScopedComponent<T> : IScoped<T>
     public ScopedComponent(IServiceScope serviceScope)
     {
         _serviceScope = EnsureArg.IsNotNull(serviceScope, nameof(serviceScope));
-        _value = _serviceScope.ServiceProvider.GetService<T>();
+        _value = _serviceScope.ServiceProvider.GetRequiredService<T>();
     }
 
     public T Value

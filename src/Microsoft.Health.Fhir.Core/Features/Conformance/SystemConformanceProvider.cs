@@ -16,13 +16,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IUrlResolver _urlResolver;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
+        private readonly IOwnedScopeFactory<IEnumerable<IProvideCapability>> _capabilityProviders;
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public SystemConformanceProvider(
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
-            Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders,
+            IOwnedScopeFactory<IEnumerable<IProvideCapability>> capabilityProviders,
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
             ILogger<SystemConformanceProvider> logger,
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, metadataUrl, _searchParameterStatusManager);
 
-                        using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+                        using (IOwnedScope<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders.Create())
                         {
                             var providers = providerFactory.Value.ToList();
                             foreach (IProvideCapability provider in providers)
@@ -431,7 +431,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             if (_builder != null)
             {
-                using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+                using (IOwnedScope<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders.Create())
                 {
                     var provider = providerFactory.Value?.Where(x => x is InstantiatesCapabilityProvider).SingleOrDefault();
                     if (provider != null)

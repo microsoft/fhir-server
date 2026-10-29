@@ -10,10 +10,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -54,11 +54,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                     return Parser.Parse(data).ToResourceElement();
                 })));
 
-            var scoped = Substitute.For<IScoped<ISearchService>>();
+            var scoped = Substitute.For<IOwnedScope<ISearchService>>();
             scoped.Value.Returns(_searchService);
 
-            var factory = Substitute.For<Func<IScoped<ISearchService>>>();
-            factory.Invoke().Returns(scoped);
+            var factory = Substitute.For<IOwnedScopeFactory<ISearchService>>();
+            factory.Create().Returns(scoped);
 
             _capability = new USCoreInstantiateCapability(
                 factory,

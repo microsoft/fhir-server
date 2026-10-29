@@ -19,7 +19,6 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -33,6 +32,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
@@ -51,8 +51,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
     public class BulkUpdateServiceTests
     {
         private readonly Lazy<IConformanceProvider> _conformanceProvider = new Lazy<IConformanceProvider>(() => Substitute.For<IConformanceProvider>());
-        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory = Substitute.For<IScopeProvider<IFhirDataStore>>();
-        private readonly IScopeProvider<ISearchService> _searchServiceFactory = Substitute.For<IScopeProvider<ISearchService>>();
+        private readonly IOwnedScopeFactory<IFhirDataStore> _fhirDataStoreFactory = Substitute.For<IOwnedScopeFactory<IFhirDataStore>>();
+        private readonly IOwnedScopeFactory<ISearchService> _searchServiceFactory = Substitute.For<IOwnedScopeFactory<ISearchService>>();
         private readonly ResourceIdProvider _resourceIdProvider = Substitute.For<ResourceIdProvider>();
         private readonly FhirRequestContextAccessor _contextAccessor = Substitute.For<FhirRequestContextAccessor>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
@@ -124,9 +124,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var conditionalParameters = new List<Tuple<string, string>>();
             var cancellationToken = CancellationToken.None;
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             searchService.SearchAsync(
                 resourceType,
@@ -165,9 +165,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
             var conditionalParameters = new List<Tuple<string, string>>();
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
             searchService.SearchAsync(
                 resourceType,
                 conditionalParameters,
@@ -177,9 +177,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 false,
                 false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
             var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            var scopedFhirDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
-            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+            _fhirDataStoreFactory.Create().Returns(scopedFhirDataStore);
 
             // Act
             var result = await _service.UpdateMultipleAsync(
@@ -221,9 +221,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
             var conditionalParameters = new List<Tuple<string, string>>();
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
             searchService.SearchAsync(
                 resourceType,
                 conditionalParameters,
@@ -233,9 +233,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 false,
                 false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
             var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            var scopedFhirDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
-            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+            _fhirDataStoreFactory.Create().Returns(scopedFhirDataStore);
 
             // Act
             var result = await _service.UpdateMultipleAsync(
@@ -270,9 +270,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var conditionalParameters = new List<Tuple<string, string>>();
             var cancellationToken = CancellationToken.None;
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
             searchService.SearchAsync(
                 resourceType,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
@@ -307,9 +307,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var conditionalParameters = new List<Tuple<string, string>>();
             var cancellationToken = CancellationToken.None;
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
             searchService.SearchAsync(
                 resourceType,
                 conditionalParameters,
@@ -351,9 +351,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var cancellationToken = CancellationToken.None;
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             searchService.SearchAsync(
                 resourceType,
@@ -408,9 +408,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
@@ -465,9 +465,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
@@ -519,9 +519,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
@@ -562,9 +562,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var cancellationToken = CancellationToken.None;
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             int callCountForMatchedResults = 0;
@@ -619,9 +619,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             int callCountForMatchedResults = 0;
@@ -681,9 +681,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             int callCountForMatchedResults = 0;
@@ -747,9 +747,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             int callCountForMatchedResults = 0;
@@ -813,9 +813,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(mockRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result
             searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
@@ -833,9 +833,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             });
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            var scopedFhirDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
-            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+            _fhirDataStoreFactory.Create().Returns(scopedFhirDataStore);
 
             // Simulate MergeAsync throwing IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>
             var partialResults = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>
@@ -923,9 +923,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate two resources, but cancel after the first update
             int updateCount = 0;
@@ -942,9 +942,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 });
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            var scopedFhirDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
-            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+            _fhirDataStoreFactory.Create().Returns(scopedFhirDataStore);
 
             fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -992,9 +992,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             var cancellationToken = CancellationToken.None;
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate a search result with one resource
             searchService.SearchAsync(
@@ -1007,9 +1007,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 isIncludesRequest).Returns(Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 1 } })));
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            var scopedFhirDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
-            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+            _fhirDataStoreFactory.Create().Returns(scopedFhirDataStore);
 
             // Simulate MergeAsync throwing an exception
             fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
@@ -1042,9 +1042,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
 
             // Simulate two resources, but cancel after the first update
             int updateCount = 0;
@@ -1061,9 +1061,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 });
 
             var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            var scopedFhirDataStore = Substitute.For<IOwnedScope<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
-            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+            _fhirDataStoreFactory.Create().Returns(scopedFhirDataStore);
 
             fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -1122,9 +1122,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _contextAccessor.RequestContext.Returns(dummyRequestContext);
 
             var searchService = Substitute.For<ISearchService>();
-            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            var scopedSearchService = Substitute.For<IOwnedScope<ISearchService>>();
             scopedSearchService.Value.Returns(searchService);
-            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            _searchServiceFactory.Create().Returns(scopedSearchService);
             searchService.SearchAsync(
                 resourceType,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),

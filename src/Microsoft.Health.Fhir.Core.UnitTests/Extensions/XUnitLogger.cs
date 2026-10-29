@@ -7,7 +7,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using NSubstitute;
 using Xunit;
 
@@ -40,7 +40,7 @@ public class XUnitLogger<T> : ILogger<T>, IDisposable
         _output.WriteLine($"======");
 
         Interlocked.Increment(ref _level);
-        IScoped<object> scope = new object().CreateMockScope();
+        IOwnedScope<object> scope = new object().CreateMockScope();
         scope.When(x => x.Dispose()).Do(_ =>
         {
             Interlocked.Decrement(ref _level);

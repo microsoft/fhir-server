@@ -14,9 +14,9 @@ using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.JobManagement;
@@ -28,14 +28,14 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     /// </summary>
     public class HostingBackgroundService : BackgroundService, INotificationHandler<SearchParametersInitializedNotification>
     {
-        private readonly IScopeProvider<JobHosting> _jobHostingFactory;
+        private readonly IOwnedScopeFactory<JobHosting> _jobHostingFactory;
         private readonly OperationsConfiguration _operationsConfiguration;
         private readonly TaskHostingConfiguration _hostingConfiguration;
         private readonly ILogger<HostingBackgroundService> _logger;
         private bool _storageReady;
 
         public HostingBackgroundService(
-            IScopeProvider<JobHosting> jobHostingFactory,
+            IOwnedScopeFactory<JobHosting> jobHostingFactory,
             IOptions<TaskHostingConfiguration> hostingConfiguration,
             IOptions<OperationsConfiguration> operationsConfiguration,
             ILogger<HostingBackgroundService> logger)
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
             try
             {
-                using IScoped<JobHosting> jobHosting = _jobHostingFactory.Invoke();
+                using IOwnedScope<JobHosting> jobHosting = _jobHostingFactory.Create();
                 JobHosting jobHostingValue = jobHosting.Value;
                 if (_hostingConfiguration != null)
                 {

@@ -13,11 +13,11 @@ using EnsureThat;
 using Medino;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -31,17 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     [JobTypeId((int)JobType.BulkDeleteProcessing)]
     public class BulkDeleteProcessingJob : IJob
     {
-        private readonly Func<IScoped<IDeletionService>> _deleterFactory;
+        private readonly IOwnedScopeFactory<IDeletionService> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
-        private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly IOwnedScopeFactory<ISearchService> _searchService;
         private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
-            Func<IScoped<IDeletionService>> deleterFactory,
+            IOwnedScopeFactory<IDeletionService> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
-            Func<IScoped<ISearchService>> searchService,
+            IOwnedScopeFactory<ISearchService> searchService,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
                 IDictionary<string, long> resourcesDeleted = new Dictionary<string, long>();
-                using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
+                using IOwnedScope<IDeletionService> deleter = _deleterFactory.Create();
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 if (types.Count > 1)
                 {
                     types.RemoveAt(0);
-                    using var searchService = _searchService.Invoke();
+                    using var searchService = _searchService.Create();
                     BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(jobInfo, definition, searchService.Value, types, cancellationToken);
 
                     if (processingDefinition != null)

@@ -15,7 +15,6 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -116,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             return new ReindexOrchestratorJob(
                 _queueClient,
-                () => _searchService.CreateMockScope(),
+                _searchService.CreateMockScopeFactory(),
                 _searchDefinitionManager,
                 _searchParameterStatusManager,
                 _searchParameterOperations,

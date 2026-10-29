@@ -11,7 +11,6 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -19,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
-        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStore = Substitute.For<Func<IScoped<IFhirDataStore>>>();
+        private readonly IOwnedScopeFactory<IFhirDataStore> _fhirDataStore = Substitute.For<IOwnedScopeFactory<IFhirDataStore>>();
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         private readonly PatientEverythingService _patientEverythingService;
@@ -80,9 +80,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 
             // Setup FhirDataStore
             var mockDataStore = Substitute.For<IFhirDataStore>();
-            var mockScoped = Substitute.For<IScoped<IFhirDataStore>>();
+            var mockScoped = Substitute.For<IOwnedScope<IFhirDataStore>>();
             mockScoped.Value.Returns(mockDataStore);
-            _fhirDataStore.Invoke().Returns(mockScoped);
+            _fhirDataStore.Create().Returns(mockScoped);
 
             // Setup ResourceDeserializer
             _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x =>
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 
             _patientEverythingService = new PatientEverythingService(
                 _modelInfoProvider,
-                () => _searchService.CreateMockScope(),
+                _searchService.CreateMockScopeFactory(),
                 _searchOptionsFactory,
                 _searchParameterDefinitionManager,
                 _compartmentDefinitionManager,

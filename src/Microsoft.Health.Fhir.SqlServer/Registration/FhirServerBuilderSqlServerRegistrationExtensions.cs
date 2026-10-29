@@ -54,6 +54,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
+            services.AddOwnedScopes();
 
             services.AddSqlServerConnection(configureSqlAction);
             services.AddSqlServerManagement<SchemaVersion>();
@@ -143,8 +144,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.AddScopedProviderFactory<SqlConnectionWrapperFactory>();
-
             services.Add<SqlServerFhirModel>()
                 .Singleton()
                 .AsSelf()
@@ -211,7 +210,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
             services.Add<JobMonitorWatchdog>().Singleton().AsSelf();
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
-            services.AddScopedProviderFactory<TransactionWatchdog>();
 
             services.RemoveServiceTypeExact<JobMonitorMetricNotifier, INotificationHandler<JobMonitorMetricsNotification>>()
                     .Add<JobMonitorMetricNotifier>()

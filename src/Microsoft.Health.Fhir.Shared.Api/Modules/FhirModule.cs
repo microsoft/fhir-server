@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
+            services.AddOwnedScopes();
 
 #pragma warning disable CS0618 // Type or member is obsolete
             var jsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
@@ -172,9 +173,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             ModelExtensions.SetModelInfoProvider();
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
 
-            // Register a factory to resolve a scope that returns all components that provide capabilities
-            services.AddScopedProviderFactory<IEnumerable<IProvideCapability>>();
-
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
             services.Add<ProvenanceHeaderBehavior>()
                 .Scoped()
@@ -214,7 +212,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
 
             services.AddLazy();
-            services.AddScoped();
 
             services.AddScoped<IDocRefRequestConverter, DocRefRequestConverter>();
 
@@ -222,7 +219,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AssignableTo<IInstantiateCapability>()
                 .Transient()
                 .AsService<IInstantiateCapability>();
-            services.AddScopedProviderFactory<IEnumerable<IInstantiateCapability>>();
         }
     }
 }

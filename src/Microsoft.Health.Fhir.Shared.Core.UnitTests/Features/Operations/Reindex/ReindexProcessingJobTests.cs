@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -49,11 +50,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
         public ReindexProcessingJobTests()
         {
-            Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
+            IOwnedScopeFactory<IFhirDataStore> fhirDataStoreScope = _fhirDataStore.CreateMockScopeFactory();
             _cancellationToken = _cancellationTokenSource.Token;
             _reindexProcessingJobTaskFactory = () =>
                  new ReindexProcessingJob(
-                     () => _searchService.CreateMockScope(),
+                     _searchService.CreateMockScopeFactory(),
                      fhirDataStoreScope,
                      _resourceWrapperFactory,
                      _searchParameterOperations,

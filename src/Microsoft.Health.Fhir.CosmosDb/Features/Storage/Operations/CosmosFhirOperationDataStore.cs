@@ -14,7 +14,6 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -22,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Scoping;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.LegacyExport;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
     {
-        private readonly IScoped<Container> _containerScope;
+        private readonly IOwnedScopeFactory<Container> _containerScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly ILogger _logger;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         /// <param name="loggerFactory">The Logger Factory.</param>
         public CosmosFhirOperationDataStore(
             IQueueClient queueClient,
-            IScoped<Container> containerScope,
+            IOwnedScopeFactory<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
@@ -97,7 +97,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                ItemResponse<CosmosLegacyExportJobRecordWrapper> cosmosExportJobRecord = await _containerScope.Value.ReadItemAsync<CosmosLegacyExportJobRecordWrapper>(
+                using IOwnedScope<Container> scope = _containerScope.Create();
+                ItemResponse<CosmosLegacyExportJobRecordWrapper> cosmosExportJobRecord = await scope.Value.ReadItemAsync<CosmosLegacyExportJobRecordWrapper>(
                     id,
                     new PartitionKey(CosmosDbLegacyExportConstants.ExportJobPartitionKey),
                     cancellationToken: cancellationToken);
