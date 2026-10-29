@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
+using Microsoft.Health.Fhir.SqlServer.Features.Metrics;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
@@ -262,17 +263,22 @@ namespace Microsoft.Health.Fhir.Web
         /// <summary>
         /// Adds AzureMonitorOpenTelemetry for telemetry and logging.
         /// </summary>
-        private static void AddAzureMonitorOpenTelemetry(IServiceCollection services, TelemetryConfiguration configuration)
+        private static void AddAzureMonitorOpenTelemetry(IServiceCollection services, TelemetryConfiguration configuration, bool useSqlServer)
         {
             if (configuration.Provider == TelemetryProvider.OpenTelemetry && !string.IsNullOrWhiteSpace(configuration.ConnectionString))
             {
                 services.AddHttpContextAccessor();
-                services.AddOpenTelemetry()
+                var openTelemetry = services.AddOpenTelemetry()
                     .UseAzureMonitor(options =>
                     {
                         options.ConnectionString = configuration.ConnectionString;
-                    })
-                    .ConfigureResource(builder =>
+                    });
+                if (useSqlServer)
+                {
+                    openTelemetry.WithMetrics(metrics => metrics.AddSqlConnectionPoolMetrics());
+                }
+
+                openTelemetry.ConfigureResource(builder =>
                     {
                         var resourceAttributes = new Dictionary<string, object>()
                         {
@@ -348,7 +354,7 @@ namespace Microsoft.Health.Fhir.Web
                     Startup.AddApplicationInsightsTelemetry(services, configuration);
                     break;
                 case TelemetryProvider.OpenTelemetry:
-                    Startup.AddAzureMonitorOpenTelemetry(services, configuration);
+                    Startup.AddAzureMonitorOpenTelemetry(services, configuration, string.Equals(Configuration["DataStore"], KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase));
                     break;
             }
         }

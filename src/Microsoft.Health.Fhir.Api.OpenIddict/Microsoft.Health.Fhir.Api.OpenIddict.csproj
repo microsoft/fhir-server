@@ -14,6 +14,8 @@
 
     <!-- Referenced to mitigate GHSA-73j8-2gch-69rq -->
     <PackageReference Include="Microsoft.Bcl.Memory" />
+    <!-- Referenced to mitigate GHSA-7hqp-7c5m-4vq6 -->
+    <PackageReference Include="System.Security.Cryptography.Xml" />
   </ItemGroup>
 
   <ItemGroup>
