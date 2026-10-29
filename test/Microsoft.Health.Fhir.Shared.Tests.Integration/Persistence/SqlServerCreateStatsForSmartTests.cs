@@ -345,7 +345,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var mockFhirRequestContext = Substitute.For<IFhirRequestContext>();
             mockFhirRequestContext.AccessControlContext.Returns(accessControlContext);
 
-            contextAccessor.RequestContext.Returns(mockFhirRequestContext);
+            contextAccessor.RequestContext = mockFhirRequestContext;
         }
 
         private static SearchParams CreateSearchParams(params (string key, string value)[] items)
