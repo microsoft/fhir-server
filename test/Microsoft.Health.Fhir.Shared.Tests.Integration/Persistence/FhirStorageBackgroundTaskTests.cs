@@ -10,7 +10,11 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Medino;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -53,18 +57,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             var key = new ResourceKey("SearchParameter", "foreground");
-            var pending = new ResourceSearchParameterStatus { Uri = new Uri("http://example.org/SearchParameter/foreground"), Status = SearchParameterStatus.PendingDelete };
-            async Task QueuePendingStatusAsync()
+            var uri = new Uri("http://example.org/SearchParameter/foreground");
+            var rawResource = new RawResource(
+                "{\"resourceType\":\"SearchParameter\",\"id\":\"foreground\",\"url\":\"http://example.org/SearchParameter/foreground\"}",
+                FhirResourceFormat.Json,
+                isMetaSet: false);
+            var resource = new ResourceWrapper(key.Id, "1", key.ResourceType, rawResource, null, DateTimeOffset.UtcNow, false, null, null, null);
+            var dataStore = Substitute.For<IFhirDataStore>();
+            dataStore.GetAsync(key, CancellationToken.None).Returns(async _ =>
             {
                 await Task.Yield();
-                accessor.RequestContext.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = pending;
-            }
-
-            async Task<DeleteResourceResponse> HandleAsync()
+                return resource;
+            });
+            var operations = Substitute.For<ISearchParameterOperations>();
+            operations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
+            operations.GetAndApplySearchParameterUpdates(CancellationToken.None).Returns(async _ =>
             {
-                await QueuePendingStatusAsync();
+                await Task.Yield();
+                return true;
+            });
+
+            var handler = Substitute.For<IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>>();
+            handler.HandleAsync(Arg.Any<DeleteResourceRequest>(), CancellationToken.None).Returns(async _ =>
+            {
+                await Task.Yield();
                 IFhirRequestContext context = accessor.RequestContext;
-                Assert.Same(pending, context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus]);
+                Assert.True(context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out object pending), "Awaited delete handler must see pending search parameter status.");
+                var status = Assert.IsType<ResourceSearchParameterStatus>(pending);
+                Assert.Equal(uri, status.Uri);
+                Assert.Equal(SearchParameterStatus.PendingDelete, status.Status);
                 if (hasExplicitContext)
                 {
                     Assert.Same(explicitContext, context);
@@ -75,11 +96,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
 
                 return new DeleteResourceResponse(key);
-            }
+            });
 
-            var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
-            var contextBehavior = new FhirStorageRequestContextBehavior<DeleteResourceRequest, DeleteResourceResponse>(accessor);
-            DeleteResourceResponse response = await contextBehavior.HandleAsync(request, HandleAsync, CancellationToken.None);
+            var collection = fixture.CreateMediatorServices();
+            collection.AddSingleton<IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>>(
+                new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(
+                    operations,
+                    dataStore,
+                    Substitute.For<ISearchParameterDefinitionManager>(),
+                    Substitute.For<ISearchParameterStatusManager>(),
+                    accessor,
+                    ModelInfoProvider.Instance));
+            collection.AddSingleton(handler);
+            using ServiceProvider services = collection.BuildServiceProvider();
+            var mediator = new Mediator(services);
+            DeleteResourceResponse response = await mediator.DeleteResourceAsync(key, DeleteOperation.SoftDelete);
             Assert.Equal(key, response.ResourceKey);
         }
 

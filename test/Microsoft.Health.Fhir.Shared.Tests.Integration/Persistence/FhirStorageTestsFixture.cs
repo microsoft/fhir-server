@@ -204,6 +204,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             (_fixture as IDisposable)?.Dispose();
         }
 
+        internal ServiceCollection CreateMediatorServices()
+        {
+            var collection = new ServiceCollection();
+            collection.AddSingleton(FhirRequestContextAccessor);
+            collection.AddTransient(typeof(IPipelineBehavior<,>), typeof(FhirStorageRequestContextBehavior<,>));
+            return collection;
+        }
+
         public async ValueTask InitializeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
@@ -363,9 +371,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 DisabledFhirAuthorizationService.Instance,
                 logger);
 
-            var collection = new ServiceCollection();
-            collection.AddSingleton(FhirRequestContextAccessor);
-            collection.AddTransient(typeof(IPipelineBehavior<,>), typeof(FhirStorageRequestContextBehavior<,>));
+            var collection = CreateMediatorServices();
 
             // Register request handlers
             collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance));
