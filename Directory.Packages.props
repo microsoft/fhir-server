@@ -15,7 +15,7 @@
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>10.0.13</DotNetSdkPackageVersion>
-    <OpenIddictPackageVersion>7.7.1</OpenIddictPackageVersion>
+    <OpenIddictPackageVersion>7.7.2</OpenIddictPackageVersion>
     <IgnixaPackageVersion>0.6.82</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -96,7 +96,7 @@
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
-    <PackageVersion Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.0" />
+    <PackageVersion Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.1" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(DotNetSdkPackageVersion)" />
