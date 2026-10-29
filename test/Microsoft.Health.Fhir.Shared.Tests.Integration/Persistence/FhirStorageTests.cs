@@ -289,6 +289,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             if ((saveCompletedAt - lastUpdated.Value).TotalMilliseconds >= 1000 && _fixture.TestHelper is SqlServerFhirStorageTestHelper)
             {
                 await using var connection = await _fixture.SqlHelper.GetSqlConnectionAsync();
+                await connection.OpenAsync();
                 using var command = connection.CreateCommand();
                 command.CommandText = "SELECT SYSUTCDATETIME()";
                 var clockSampleStartedAt = DateTimeOffset.UtcNow;
