@@ -540,6 +540,10 @@
   <data name="CustomSearchUpdateError" xml:space="preserve">
     <value>An error occurred updating the custom search parameter.  The issue must be resolved and the update resubmitted to be applied.</value>
   </data>
+  <data name="ExportUnauthorizedIncludesOmitted" xml:space="preserve">
+    <value>Included resources of type '{0}' were excluded because the caller does not have the required SMART export permissions for this resource type.</value>
+    <comment>{0} is the resource type excluded from the export.</comment>
+  </data>
   <data name="TypeFilterUnparseable" xml:space="preserve">
     <value>The _typeFilter segment '{0}' could not be parsed.</value>
     <comment>Error message for a bad _typeFilter parameter on an export job. {0} is the segment that couldn't be parsed.</comment>
@@ -699,6 +703,10 @@
   </data>
   <data name="ChainedResourceTypesNotAllowedDueToScope" xml:space="preserve">
     <value>The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type.</value>
+  </data>
+  <data name="ChainedResourceTypeNotAllowedDueToScope" xml:space="preserve">
+    <value>The (rev)chained resource type {0} is not allowed. Additional clinical scopes must be requested to allow searches using the chained type.</value>
+    <comment>{0} is a string of the name of the resource type.</comment>
   </data>
   <data name="OperationCanceled" xml:space="preserve">
     <value>The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support.</value>
@@ -887,6 +895,45 @@
   </data>
   <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
+  </data>
+  <data name="FhirPackageRejected" xml:space="preserve">
+    <value>The FHIR package was rejected. Nothing from the package was installed.</value>
+  </data>
+  <data name="FhirPackageIntegrityInvalid" xml:space="preserve">
+    <value>The expected package integrity must be a single sha512 Subresource Integrity value, as reported in npm &apos;dist.integrity&apos;.</value>
+  </data>
+  <data name="FhirPackageIntegrityMismatch" xml:space="preserve">
+    <value>The package archive doesn&apos;t match its expected sha512 integrity.</value>
+  </data>
+  <data name="FhirPackageCompressedSizeExceeded" xml:space="preserve">
+    <value>The package archive is larger than the {0}-byte limit.</value>
+  </data>
+  <data name="FhirPackageArchiveRejected" xml:space="preserve">
+    <value>The package archive was rejected: {0}.</value>
+  </data>
+  <data name="FhirPackageArchiveEntryDetail" xml:space="preserve">
+    <value> at archive entry {0}</value>
+  </data>
+  <data name="FhirPackageArchiveLimitDetail" xml:space="preserve">
+    <value> (limit {0})</value>
+  </data>
+  <data name="FhirPackageExpansionRatioExceeded" xml:space="preserve">
+    <value>The package archive expands to {0} bytes from {1} compressed bytes, which exceeds the {2}:1 expansion limit.</value>
+  </data>
+  <data name="FhirPackageIdentityMismatch" xml:space="preserve">
+    <value>The package manifest declares &apos;{0}&apos; version &apos;{1}&apos;, but &apos;{2}&apos; version &apos;{3}&apos; was expected.</value>
+  </data>
+  <data name="FhirPackageFhirVersionMismatch" xml:space="preserve">
+    <value>The package declares FHIR version &apos;{0}&apos;, but this server supports only FHIR version &apos;{1}&apos;.</value>
+  </data>
+  <data name="FhirPackageCoreDependencyMissing" xml:space="preserve">
+    <value>The package doesn&apos;t declare a dependency on &apos;{0}&apos;. Packages for this server must depend on &apos;{0}&apos; version &apos;{1}&apos;.</value>
+  </data>
+  <data name="FhirPackageCoreDependencyMismatch" xml:space="preserve">
+    <value>The package depends on &apos;{0}&apos; version &apos;{1}&apos;, but this server supports only &apos;{2}&apos; version &apos;{3}&apos;.</value>
+  </data>
+  <data name="FhirPackageManifestInvalid" xml:space="preserve">
+    <value>The package manifest is not valid: {0}</value>
   </data>
   <data name="SmartScopeSearchParameterNotEnforceable" xml:space="preserve">
     <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>

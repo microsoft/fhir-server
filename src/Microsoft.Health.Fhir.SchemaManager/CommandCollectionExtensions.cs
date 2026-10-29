@@ -17,7 +17,7 @@ public static class CommandCollectionExtensions
 {
     /// <summary>
     /// Adds the CLI commands to the DI container. These are resolved when the commands are registered with the
-    /// <c>CommandLineBuilder</c>.
+    /// <c>RootCommand</c>.
     /// </summary>
     /// <param name="services">The service collection to add to.</param>
     /// <returns>The service collection, for chaining.</returns>

@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
@@ -121,6 +122,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.BadRequest, record.FailureDetails.FailureStatusCode);
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("*")]
+        [InlineData("Observation,Patient")]
+        public void GivenSmartJobIncludePermissions_WhenCreatingAndSerializingProcessingJob_ThenPermissionsArePreservedIndependentlyOfOutputType(string includeTypes)
+        {
+            // Arrange
+            var record = new ExportJobRecord(
+                new Uri("http://localhost/$export"),
+                ExportJobType.All,
+                ExportFormatTags.ResourceName,
+                resourceType: "Observation,Patient",
+                filters: null,
+                hash: "hash",
+                rollingFileSizeInMB: 64,
+                smartRequest: true,
+                authorizedIncludeResourceTypes: includeTypes?.Split(','));
+
+            // Act
+            var processingRecord = TestableExportOrchestratorJob.InvokeCreateExportRecord(record, "Observation");
+            var deserializedRecord = JsonConvert.DeserializeObject<ExportJobRecord>(JsonConvert.SerializeObject(processingRecord));
+
+            // Assert
+            Assert.True(deserializedRecord.SmartRequest);
+            Assert.Equal("Observation", deserializedRecord.ResourceType);
+            Assert.Equal(record.AuthorizedIncludeResourceTypes, deserializedRecord.AuthorizedIncludeResourceTypes);
+        }
+
         private static ExportJobRecord CreateRecord(string resourceType)
         {
             return new ExportJobRecord(
@@ -146,6 +175,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             public static void InvokeValidateResourceTypes(ISearchService searchService, IEnumerable<string> resourceTypes, ExportJobRecord record)
             {
                 ValidateResourceTypes(searchService, resourceTypes, record);
+            }
+
+            public static ExportJobRecord InvokeCreateExportRecord(ExportJobRecord record, string resourceType)
+            {
+                return CreateExportRecord(record, groupId: 1, resourceType: resourceType);
             }
         }
     }
