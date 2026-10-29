@@ -128,6 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                         var typeRestriction = Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, rule.ResourceType, false));
                         expressionList.Add(Expression.And(
                             Expression.SearchParameter(rule.ReferenceSearchParameter, typeRestriction),
+                            Expression.Missing(FieldName.ReferenceBaseUri, null),
                             Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
                             Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
                         break;

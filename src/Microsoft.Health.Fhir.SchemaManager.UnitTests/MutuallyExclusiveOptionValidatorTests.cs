@@ -24,12 +24,11 @@ public class MutuallyExclusiveOptionValidatorTests
         var option3 = new Option<string>("--option3");
 
         var rootCommand = new RootCommand();
-        rootCommand.AddOption(option1);
-        rootCommand.AddOption(option2);
-        rootCommand.AddOption(option3);
+        rootCommand.Options.Add(option1);
+        rootCommand.Options.Add(option2);
+        rootCommand.Options.Add(option3);
 
-        var parser = new Parser(rootCommand);
-        var parseResult = parser.Parse("--option1 value1");
+        var parseResult = rootCommand.Parse("--option1 value1");
         var commandResult = parseResult.CommandResult;
 
         var mutuallyExclusiveOptions = new List<Option> { option1, option2, option3 };
@@ -39,7 +38,7 @@ public class MutuallyExclusiveOptionValidatorTests
         MutuallyExclusiveOptionValidator.Validate(commandResult, mutuallyExclusiveOptions, errorMessage);
 
         // Assert
-        Assert.Null(commandResult.ErrorMessage);
+        Assert.Empty(commandResult.Errors);
     }
 
     [Fact]
@@ -51,12 +50,11 @@ public class MutuallyExclusiveOptionValidatorTests
         var option3 = new Option<string>("--option3");
 
         var rootCommand = new RootCommand();
-        rootCommand.AddOption(option1);
-        rootCommand.AddOption(option2);
-        rootCommand.AddOption(option3);
+        rootCommand.Options.Add(option1);
+        rootCommand.Options.Add(option2);
+        rootCommand.Options.Add(option3);
 
-        var parser = new Parser(rootCommand);
-        var parseResult = parser.Parse("--option1 value1 --option2 value2");
+        var parseResult = rootCommand.Parse("--option1 value1 --option2 value2");
         var commandResult = parseResult.CommandResult;
 
         var mutuallyExclusiveOptions = new List<Option> { option1, option2, option3 };
@@ -66,7 +64,7 @@ public class MutuallyExclusiveOptionValidatorTests
         MutuallyExclusiveOptionValidator.Validate(commandResult, mutuallyExclusiveOptions, errorMessage);
 
         // Assert
-        Assert.Equal(errorMessage, commandResult.ErrorMessage);
+        Assert.Equal(errorMessage, Assert.Single(commandResult.Errors).Message);
     }
 
     [Fact]
@@ -78,12 +76,11 @@ public class MutuallyExclusiveOptionValidatorTests
         var option3 = new Option<string>("--option3");
 
         var rootCommand = new RootCommand();
-        rootCommand.AddOption(option1);
-        rootCommand.AddOption(option2);
-        rootCommand.AddOption(option3);
+        rootCommand.Options.Add(option1);
+        rootCommand.Options.Add(option2);
+        rootCommand.Options.Add(option3);
 
-        var parser = new Parser(rootCommand);
-        var parseResult = parser.Parse(string.Empty);
+        var parseResult = rootCommand.Parse(string.Empty);
         var commandResult = parseResult.CommandResult;
 
         var mutuallyExclusiveOptions = new List<Option> { option1, option2, option3 };
@@ -93,7 +90,7 @@ public class MutuallyExclusiveOptionValidatorTests
         MutuallyExclusiveOptionValidator.Validate(commandResult, mutuallyExclusiveOptions, errorMessage);
 
         // Assert
-        Assert.Equal(errorMessage, commandResult.ErrorMessage);
+        Assert.Equal(errorMessage, Assert.Single(commandResult.Errors).Message);
     }
 
     [Fact]
@@ -101,16 +98,15 @@ public class MutuallyExclusiveOptionValidatorTests
     {
         // Arrange
         var option1 = new Option<string>("--option1");
-        option1.AddAlias("-o1");
+        option1.Aliases.Add("-o1");
         var option2 = new Option<string>("--option2");
-        option2.AddAlias("-o2");
+        option2.Aliases.Add("-o2");
 
         var rootCommand = new RootCommand();
-        rootCommand.AddOption(option1);
-        rootCommand.AddOption(option2);
+        rootCommand.Options.Add(option1);
+        rootCommand.Options.Add(option2);
 
-        var parser = new Parser(rootCommand);
-        var parseResult = parser.Parse("-o1 value1");
+        var parseResult = rootCommand.Parse("-o1 value1");
         var commandResult = parseResult.CommandResult;
 
         var mutuallyExclusiveOptions = new List<Option> { option1, option2 };
@@ -120,7 +116,7 @@ public class MutuallyExclusiveOptionValidatorTests
         MutuallyExclusiveOptionValidator.Validate(commandResult, mutuallyExclusiveOptions, errorMessage);
 
         // Assert
-        Assert.Null(commandResult.ErrorMessage);
+        Assert.Empty(commandResult.Errors);
     }
 
     [Fact]
@@ -132,12 +128,11 @@ public class MutuallyExclusiveOptionValidatorTests
         var option3 = new Option<string>("--option3");
 
         var rootCommand = new RootCommand();
-        rootCommand.AddOption(option1);
-        rootCommand.AddOption(option2);
-        rootCommand.AddOption(option3);
+        rootCommand.Options.Add(option1);
+        rootCommand.Options.Add(option2);
+        rootCommand.Options.Add(option3);
 
-        var parser = new Parser(rootCommand);
-        var parseResult = parser.Parse("--option1 value1 --option3 value3");
+        var parseResult = rootCommand.Parse("--option1 value1 --option3 value3");
         var commandResult = parseResult.CommandResult;
 
         var mutuallyExclusiveOptions = new List<Option> { option1, option2, option3 };
@@ -147,7 +142,7 @@ public class MutuallyExclusiveOptionValidatorTests
         MutuallyExclusiveOptionValidator.Validate(commandResult, mutuallyExclusiveOptions, errorMessage);
 
         // Assert
-        Assert.Equal(errorMessage, commandResult.ErrorMessage);
+        Assert.Equal(errorMessage, Assert.Single(commandResult.Errors).Message);
     }
 
     [Fact]
@@ -168,8 +163,7 @@ public class MutuallyExclusiveOptionValidatorTests
     {
         // Arrange
         var rootCommand = new RootCommand();
-        var parser = new Parser(rootCommand);
-        var parseResult = parser.Parse(string.Empty);
+        var parseResult = rootCommand.Parse(string.Empty);
         var commandResult = parseResult.CommandResult;
         IReadOnlyCollection<Option> mutuallyExclusiveOptions = null;
         var errorMessage = "Only one option should be present";
@@ -184,8 +178,7 @@ public class MutuallyExclusiveOptionValidatorTests
     {
         // Arrange
         var rootCommand = new RootCommand();
-        var parser = new Parser(rootCommand);
-        var parseResult = parser.Parse(string.Empty);
+        var parseResult = rootCommand.Parse(string.Empty);
         var commandResult = parseResult.CommandResult;
         var mutuallyExclusiveOptions = new List<Option> { new Option<string>("--option1") };
         string errorMessage = null;
