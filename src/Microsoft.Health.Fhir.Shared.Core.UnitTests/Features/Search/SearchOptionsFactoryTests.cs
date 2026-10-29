@@ -971,6 +971,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.DoesNotContain("Include", options.Expression.ToString(), StringComparison.Ordinal);
         }
 
+        [Theory]
+        [InlineData("_revinclude:iterate", false)]
+        [InlineData("_revinclude:iterate", true)]
+        [InlineData("_revinclude:recurse", false)]
+        [InlineData("_revinclude:recurse", true)]
+        public void GivenReverseIterativeIncludeWithMultipleTargets_WhenCreated_ThenExplicitTargetIsRequired(string parameter, bool explicitTarget)
+        {
+            // Arrange
+            var definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameter(KnownResourceTypes.Observation, "subject")
+                .Returns(new SearchParameterInfo(
+                    "subject",
+                    "subject",
+                    ValueSets.SearchParamType.Reference,
+                    targetResourceTypes: new[] { KnownResourceTypes.Patient, KnownResourceTypes.Group }));
+            var parser = new ExpressionParser(() => definitionManager, Substitute.For<ISearchParameterExpressionParser>());
+            _expressionParser.ParseInclude(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyCollection<string>>())
+                .Returns(call => parser.ParseInclude(
+                    call.ArgAt<string[]>(0),
+                    call.ArgAt<string>(1),
+                    call.ArgAt<bool>(2),
+                    call.ArgAt<bool>(3),
+                    call.ArgAt<IReadOnlyCollection<string>>(4)));
+            var query = new[] { Tuple.Create(parameter, explicitTarget ? "Observation:subject:Patient" : "Observation:subject") };
+
+            // Act and assert
+            if (explicitTarget)
+            {
+                var options = _factory.Create(KnownResourceTypes.Observation, query);
+                Assert.Empty(options.UnsupportedSearchParams);
+                Assert.Contains("Include", options.Expression.ToString(), StringComparison.Ordinal);
+            }
+            else
+            {
+                var exception = Assert.Throws<BadRequestException>(() => _factory.Create(KnownResourceTypes.Observation, query));
+                Assert.Equal(string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, "Observation:subject"), exception.Message);
+            }
+        }
+
         [Fact]
         public void GivenReadByIdScopeForRequestedIncludeType_WhenCreatingSystemSearch_ThenIncludeIsSkipped()
         {

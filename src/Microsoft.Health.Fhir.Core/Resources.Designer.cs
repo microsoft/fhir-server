@@ -1971,6 +1971,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Included resources of type &apos;{0}&apos; were excluded because the caller does not have the required SMART export permissions for this resource type..
+        /// </summary>
+        internal static string ExportUnauthorizedIncludesOmitted {
+            get {
+                return ResourceManager.GetString("ExportUnauthorizedIncludesOmitted", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The _typeFilter segment &apos;{0}&apos; could not be parsed..
         /// </summary>
         internal static string TypeFilterUnparseable {

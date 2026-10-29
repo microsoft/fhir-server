@@ -127,7 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 isParallel: request.IsParallel,
                 includeHistory: request.IncludeHistory,
                 includeDeleted: request.IncludeDeleted,
-                smartRequest: smartRequest);
+                smartRequest: smartRequest,
+                authorizedIncludeResourceTypes: _exportSmartScopeAuthorizer.GetAuthorizedIncludeResourceTypes());
 
             var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
