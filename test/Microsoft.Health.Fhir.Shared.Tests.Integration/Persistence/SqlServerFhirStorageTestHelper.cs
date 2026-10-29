@@ -426,7 +426,10 @@ UPDATE dbo.SearchParam
             collection.AddScoped(schemaUpgradeRunnerFactory);
             var serviceProvider = collection.BuildServiceProvider();
             var schemaInformationForInit = new SchemaInformation(minSchemaVersion, minSchemaVersion);
-            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            var schemaWriteGate = Substitute.For<ISchemaWriteGate>();
+            schemaWriteGate.CanWriteAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+            var schemaWriteGateEvaluator = new SchemaWriteGateEvaluator(schemaWriteGate, Substitute.For<ISchemaMetrics>(), _sqlConnectionBuilder, config, NullLogger<SchemaWriteGateEvaluator>.Instance);
+            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), schemaWriteGateEvaluator, NullLogger<SchemaInitializer>.Instance);
             return (schemaInitializer, schemaUpgradeRunner);
         }
 
