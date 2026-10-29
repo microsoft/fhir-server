@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.CommandLine;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
@@ -40,14 +42,14 @@ public class ApplyCommandTests
     {
         // Assert
         Assert.NotEmpty(_applyCommand.Options);
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.ConnectionString));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.ManagedIdentityClientId));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.AuthenticationType));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.EnableWorkloadIdentity));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Version));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Next));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Latest));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Force));
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.ConnectionString);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.ManagedIdentityClientId);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.AuthenticationType);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.EnableWorkloadIdentity);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Version);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Next);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Latest);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Force);
     }
 
     [Fact]
@@ -93,6 +95,79 @@ public class ApplyCommandTests
 
         // Assert
         await _schemaManager.Received(1).ApplySchema(type, force, cancellationToken);
+    }
+
+    [Theory]
+    [InlineData("--version 5", 5, false, false, false)]
+    [InlineData("-v 5", 5, false, false, false)]
+    [InlineData("--next", 0, true, false, false)]
+    [InlineData("-n", 0, true, false, false)]
+    [InlineData("--latest", 0, false, true, false)]
+    [InlineData("-l", 0, false, true, false)]
+    [InlineData("--latest --force", 0, false, true, true)]
+    [InlineData("-l -f", 0, false, true, true)]
+    [InlineData("--latest --force false", 0, false, true, false)]
+    public async Task GivenValidArguments_WhenInvoked_ThenBindsSchemaRequest(string options, int version, bool next, bool latest, bool force)
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddSingleton<Command>(_applyCommand);
+        using var serviceProvider = services.BuildServiceProvider();
+        var rootCommand = SchemaManagerParserBuilder.Build(serviceProvider);
+        var parseResult = rootCommand.Parse($"apply --connection-string \"Server=localhost;Database=fhir\" {options}");
+
+        // Act
+        int exitCode = await parseResult.InvokeAsync();
+
+        // Assert
+        Assert.Empty(parseResult.Errors);
+        Assert.Equal(0, exitCode);
+        await _schemaManager.Received(1).ApplySchema(
+            Arg.Is<MutuallyExclusiveType>(type => type.Version == version && type.Next == next && type.Latest == latest),
+            force,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("apply --connection-string test")]
+    [InlineData("apply --connection-string test --version 5 --next")]
+    [InlineData("apply --connection-string test --next --latest")]
+    [InlineData("apply --connection-string test --version 5 --latest")]
+    [InlineData("apply --connection-string test --version invalid")]
+    [InlineData("apply --latest")]
+    [InlineData("apply --connection-string test --latest --unknown")]
+    public async Task GivenInvalidArguments_WhenInvoked_ThenRejectsWithoutApplyingSchema(string arguments)
+    {
+        // Arrange
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(_applyCommand);
+        var parseResult = rootCommand.Parse(arguments);
+
+        // Act
+        int exitCode = await parseResult.InvokeAsync();
+
+        // Assert
+        Assert.NotEmpty(parseResult.Errors);
+        Assert.NotEqual(0, exitCode);
+        await _schemaManager.DidNotReceiveWithAnyArgs().ApplySchema(default, default, default);
+    }
+
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("apply --help")]
+    public async Task GivenHelpArgument_WhenInvoked_ThenSucceedsWithoutApplyingSchema(string arguments)
+    {
+        // Arrange
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(_applyCommand);
+        var parseResult = rootCommand.Parse(arguments);
+
+        // Act
+        int exitCode = await parseResult.InvokeAsync();
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        await _schemaManager.DidNotReceiveWithAnyArgs().ApplySchema(default, default, default);
     }
 
     [Fact]

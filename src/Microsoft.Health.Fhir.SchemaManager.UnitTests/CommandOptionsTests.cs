@@ -21,8 +21,8 @@ public class CommandOptionsTests
         var option = CommandOptions.ConnectionStringOption();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.ConnectionString);
-        Assert.True(option.IsRequired);
+        Assert.Equal(OptionAliases.ConnectionString, option.Name);
+        Assert.True(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.ConnectionStringShort);
         Assert.Equal(ArgumentArity.ExactlyOne, option.Arity);
     }
@@ -34,8 +34,8 @@ public class CommandOptionsTests
         var option = CommandOptions.ManagedIdentityClientIdOption();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.ManagedIdentityClientId);
-        Assert.False(option.IsRequired);
+        Assert.Equal(OptionAliases.ManagedIdentityClientId, option.Name);
+        Assert.False(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.ManagedIdentityClientIdShort);
         Assert.Equal(ArgumentArity.ZeroOrOne, option.Arity);
     }
@@ -47,8 +47,8 @@ public class CommandOptionsTests
         var option = CommandOptions.AuthenticationTypeOption();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.AuthenticationType);
-        Assert.False(option.IsRequired);
+        Assert.Equal(OptionAliases.AuthenticationType, option.Name);
+        Assert.False(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.AuthenticationTypeShort);
         Assert.Equal(ArgumentArity.ZeroOrOne, option.Arity);
     }
@@ -60,8 +60,8 @@ public class CommandOptionsTests
         var option = CommandOptions.EnableWorkloadIdentityOptions();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.EnableWorkloadIdentity);
-        Assert.False(option.IsRequired);
+        Assert.Equal(OptionAliases.EnableWorkloadIdentity, option.Name);
+        Assert.False(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.EnableWorkloadIdentityShort);
         Assert.Equal(ArgumentArity.ZeroOrOne, option.Arity);
     }
@@ -73,8 +73,8 @@ public class CommandOptionsTests
         var option = CommandOptions.VersionOption();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.Version);
-        Assert.False(option.IsRequired);
+        Assert.Equal(OptionAliases.Version, option.Name);
+        Assert.False(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.VersionShort);
         Assert.Equal(ArgumentArity.ZeroOrOne, option.Arity);
     }
@@ -86,8 +86,8 @@ public class CommandOptionsTests
         var option = CommandOptions.NextOption();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.Next);
-        Assert.False(option.IsRequired);
+        Assert.Equal(OptionAliases.Next, option.Name);
+        Assert.False(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.NextShort);
         Assert.Equal(ArgumentArity.ZeroOrOne, option.Arity);
     }
@@ -99,8 +99,8 @@ public class CommandOptionsTests
         var option = CommandOptions.LatestOption();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.Latest);
-        Assert.False(option.IsRequired);
+        Assert.Equal(OptionAliases.Latest, option.Name);
+        Assert.False(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.LatestShort);
         Assert.Equal(ArgumentArity.ZeroOrOne, option.Arity);
     }
@@ -112,8 +112,8 @@ public class CommandOptionsTests
         var option = CommandOptions.ForceOption();
 
         // Assert
-        Assert.Contains(option.Aliases, a => a == OptionAliases.Force);
-        Assert.False(option.IsRequired);
+        Assert.Equal(OptionAliases.Force, option.Name);
+        Assert.False(option.Required);
         Assert.Contains(option.Aliases, a => a == OptionAliases.ForceShort);
         Assert.Equal(ArgumentArity.ZeroOrOne, option.Arity);
     }
