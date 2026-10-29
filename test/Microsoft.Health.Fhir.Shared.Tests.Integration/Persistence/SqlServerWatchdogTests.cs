@@ -602,8 +602,8 @@ INSERT INTO dbo.WatchdogLeases
         public async Task PeriodsLongerThanLeasesAreHonored()
         {
             const string watchdog = nameof(TestPeriodWatchdog);
-            const int periodSec = 6;
-            const int leasePeriodSec = 2;
+            const int periodSec = 3;
+            const int leasePeriodSec = 1;
             ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{watchdog}.PeriodSec', '{watchdog}.LeasePeriodSec')");
             ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.PeriodSec', {periodSec}");
             ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.LeasePeriodSec', {leasePeriodSec}");
@@ -613,7 +613,8 @@ INSERT INTO dbo.WatchdogLeases
             ExecuteSql($@"
 INSERT INTO dbo.WatchdogLeases 
     (        Watchdog,  LeaseHolder, LeaseEndTime,  LastRunTime)
-  SELECT '{watchdog}', 'old-worker', '{pastDate}', '{pastDate}'");
+  SELECT '{watchdog}', 'old-worker', '{pastDate}', '{pastDate}'
+            ");
 
             var executionTimes = new List<DateTime>();
             var wd = new TestPeriodWatchdog(_fixture.SqlRetryService, XUnitLogger<TestPeriodWatchdog>.Create(_testOutputHelper), executionTimes);
@@ -622,7 +623,9 @@ INSERT INTO dbo.WatchdogLeases
             var watchdogTask = wd.ExecuteAsync(cts.Token);
 
             var start = DateTime.UtcNow;
-            while (executionTimes.Count < 2 && (DateTime.UtcNow - start) < TimeSpan.FromSeconds(periodSec * 3))
+            const int executions = 3;
+            const double tolerance = 0.5; // seconds
+            while (executionTimes.Count < executions && (DateTime.UtcNow - start) < TimeSpan.FromSeconds(periodSec * executions * 2))
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
@@ -630,12 +633,12 @@ INSERT INTO dbo.WatchdogLeases
             await cts.CancelAsync();
             await watchdogTask;
 
-            Assert.True(executionTimes.Count >= 2, "The watchdog did not execute at least twice within the test window.");
+            Assert.True(executionTimes.Count >= executions, "The watchdog did not execute at least 3 times within the test window.");
 
-            Assert.InRange((executionTimes[1] - executionTimes[0]).TotalSeconds, periodSec - leasePeriodSec, periodSec + leasePeriodSec);
+            Assert.InRange((executionTimes[executions - 1] - executionTimes[0]).TotalSeconds, periodSec * (executions - 1), ((periodSec + leasePeriodSec) * (executions - 1)) + tolerance);
 
             var lastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
-            Assert.True((lastRunTime - executionTimes[1]).TotalSeconds < 1, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[1]:yyyy-MM-dd HH:mm:ss.fff}.");
+            Assert.True((lastRunTime - executionTimes[executions - 1]).TotalSeconds < tolerance, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[executions - 1]:yyyy-MM-dd HH:mm:ss.fff}.");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()
