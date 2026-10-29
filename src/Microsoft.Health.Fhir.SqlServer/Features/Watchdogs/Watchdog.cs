@@ -172,21 +172,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             using (_logger.BeginTimedScope($"{Name}.InitParamsAsync"))
             {
                 // Offset for other instances running init
-                await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), CancellationToken.None);
+                await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 100.0), CancellationToken.None);
 
-                await using var cmd = new SqlCommand(
-                    @"
-INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, @PeriodSec
-INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
-                    ");
-                cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
-                cmd.Parameters.AddWithValue("@PeriodSec", PeriodSec);
-                cmd.Parameters.AddWithValue("@LeasePeriodSecId", LeasePeriodSecId);
-                cmd.Parameters.AddWithValue("@LeasePeriodSec", LeasePeriodSec);
-                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
+                // Allow periods override by database values.
+                var periodSec = await GetNumberParameterByIdAsync(PeriodSecId, CancellationToken.None);
+                if (periodSec.HasValue)
+                {
+                    PeriodSec = periodSec.Value;
+                }
 
-                PeriodSec = await GetPeriodAsync(CancellationToken.None);
-                LeasePeriodSec = await GetLeasePeriodAsync(CancellationToken.None);
+                var leasePeriodSec = await GetNumberParameterByIdAsync(LeasePeriodSecId, CancellationToken.None);
+                if (leasePeriodSec.HasValue)
+                {
+                    LeasePeriodSec = leasePeriodSec.Value;
+                }
 
                 await InitAdditionalParamsAsync();
             }
@@ -199,32 +198,14 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             return Task.CompletedTask;
         }
 
-        private async Task<double> GetPeriodAsync(CancellationToken cancellationToken)
-        {
-            var value = await GetNumberParameterByIdAsync(PeriodSecId, cancellationToken);
-            return value;
-        }
-
-        private async Task<double> GetLeasePeriodAsync(CancellationToken cancellationToken)
-        {
-            var value = await GetNumberParameterByIdAsync(LeasePeriodSecId, cancellationToken);
-            return value;
-        }
-
-        protected async Task<double> GetNumberParameterByIdAsync(string id, CancellationToken cancellationToken)
+        protected async Task<double?> GetNumberParameterByIdAsync(string id, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
             await using var cmd = new SqlCommand("SELECT Number FROM dbo.Parameters WHERE Id = @Id");
             cmd.Parameters.AddWithValue("@Id", id);
             var value = await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancellationToken);
-
-            if (value == null)
-            {
-                throw new InvalidOperationException($"{id} is not set correctly in the Parameters table.");
-            }
-
-            return (double)value;
+            return value == DBNull.Value ? null : (double?)value;
         }
 
         protected async Task<long> GetLongParameterByIdAsync(string id, CancellationToken cancellationToken)

@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             cmd2.Parameters.AddWithValue("@RetentionPeriodDaysId", @RetentionPeriodDaysId);
             cmd2.Parameters.AddWithValue("@RetentionPeriodDays", @RetentionPeriodDays);
             await cmd2.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
-            RetentionPeriodDays = await GetNumberParameterByIdAsync(RetentionPeriodDaysId, CancellationToken.None);
+            RetentionPeriodDays = (await GetNumberParameterByIdAsync(RetentionPeriodDaysId, CancellationToken.None)).Value;
         }
 
         private async Task UpdateLastCleanedUpTransactionId(long lastTranId)
