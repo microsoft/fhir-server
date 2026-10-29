@@ -468,7 +468,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 other is TestExpression expression && string.Equals(expression._description, _description, StringComparison.Ordinal);
 
             public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context) =>
-                throw new NotImplementedException();
+                this is TOutput self ? self : default;
         }
     }
 }
