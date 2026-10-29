@@ -151,6 +151,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The (rev)chained resource type {0} is not allowed. Additional clinical scopes must be requested to allow searches using the chained type..
+        /// </summary>
+        internal static string ChainedResourceTypeNotAllowedDueToScope {
+            get {
+                return ResourceManager.GetString("ChainedResourceTypeNotAllowedDueToScope", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type..
         /// </summary>
         internal static string ChainedResourceTypesNotAllowedDueToScope {

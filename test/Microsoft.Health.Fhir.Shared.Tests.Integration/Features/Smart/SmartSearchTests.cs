@@ -5189,6 +5189,47 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [Fact]
+        public async Task GivenScopesWithoutOrganization_WhenSearchingWithMultiHopChain_ThenSearchIsRejected()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeDiagnosticReport = new ScopeRestriction("DiagnosticReport", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopePatient = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeDiagnosticReport, scopePatient }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>> { new("subject:Patient.organization.address-city", "Seattle") };
+
+            var exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.Value.SearchAsync("DiagnosticReport", query, CancellationToken.None));
+            Assert.Contains("Organization", exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenScopesWithoutProvenance_WhenSearchingWithNestedHas_ThenSearchIsRejected()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeObservation = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopePatient = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeObservation, scopePatient }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>> { new("_has:Observation:subject:_has:Provenance:target:agent", "Practitioner/smart-practitioner-A") };
+
+            await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.Value.SearchAsync("Patient", query, CancellationToken.None));
+        }
+
+        [Fact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingObservationsWithWildcardInclude_ThenCorrectResourcesReturnedExcludingFemaleActitioners()
         {
             Assert.SkipWhen(

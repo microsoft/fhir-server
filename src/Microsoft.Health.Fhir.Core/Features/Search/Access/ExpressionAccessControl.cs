@@ -51,7 +51,7 @@ public class ExpressionAccessControl
             {
                 if (!ResourceTypeAllowedByClinicalScopes(validResourceTypes, type))
                 {
-                    throw new InvalidSearchOperationException(Core.Resources.ChainedResourceTypesNotAllowedDueToScope);
+                    throw new InvalidSearchOperationException(string.Format(Core.Resources.ChainedResourceTypeNotAllowedDueToScope, type));
                 }
             }
 
