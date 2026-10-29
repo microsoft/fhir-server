@@ -153,44 +153,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
-        [Fact]
-        public async Task GivenImportInput_WhenOperationWasCancelledExceptionThrow_ThenCancellationIsPropagated()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenUnrelatedCancellation_WhenProcessingExecutes_ThenFailureIsSystemCaused(bool fromLoadTask)
         {
-            ImportProcessingJobDefinition inputData = GetInputData();
-            ImportProcessingJobResult result = new ImportProcessingJobResult();
-
-            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IImporter importer = Substitute.For<IImporter>();
-            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
-            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            ILoggerFactory loggerFactory = new NullLoggerFactory();
-            IMediator mediator = Substitute.For<IMediator>();
-            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
-            IQueueClient queueClient = Substitute.For<IQueueClient>();
-
+            // Arrange
+            var canceled = new OperationCanceledException(CancellationToken.None);
+            var loader = Substitute.For<IImportResourceLoader>();
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns((Channel.CreateUnbounded<ImportResource>(), fromLoadTask ? Task.FromException(canceled) : Task.CompletedTask));
+            var importer = Substitute.For<IImporter>();
             importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    if (callInfo[2] != null) // always true
-                    {
-                        throw new OperationCanceledException();
-                    }
+                .Returns(_ => fromLoadTask ? Task.FromResult(new ImportProcessingProgress()) : Task.FromException<ImportProcessingProgress>(canceled));
+            var job = CreateProcessingJob(loader, importer);
 
-                    return new ImportProcessingProgress();
-                });
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
 
-            ImportProcessingJob job = new ImportProcessingJob(
-                                    mediator,
-                                    queueClient,
-                                    loader,
-                                    importer,
-                                    importErrorStoreFactory,
-                                    contextAccessor,
-                                    loggerFactory,
-                                    auditLogger);
-
-            await Assert.ThrowsAsync<OperationCanceledException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Same(canceled, exception.InnerException);
+            Assert.IsType<ImportJobErrorResult>(exception.Error);
         }
 
         [Theory]
@@ -213,9 +197,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         }
 
         [Theory]
-        [InlineData(SqlErrorCodes.Conflict)]
-        [InlineData(FhirSqlErrorCodes.SurrogateIdCollision)]
-        public async Task GivenDuplicateResourceConflict_WhenProcessingExecutes_ThenFailureIsCustomerCaused(int errorCode)
+        [InlineData(SqlErrorCodes.Conflict, "duplicate resource keys")]
+        [InlineData(FhirSqlErrorCodes.SurrogateIdCollision, "lastUpdated")]
+        public async Task GivenDuplicateResourceConflict_WhenProcessingExecutes_ThenFailureIsCustomerCaused(int errorCode, string expectedGuidance)
         {
             // Arrange
             var importer = Substitute.For<IImporter>();
@@ -230,7 +214,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             // Assert
             Assert.True(exception.IsCustomerCaused);
             Assert.Same(conflict, exception.InnerException);
-            Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ImportJobErrorResult>(exception.Error).HttpStatusCode);
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Equal(HttpStatusCode.BadRequest, error.HttpStatusCode);
+            Assert.Contains(expectedGuidance, error.ErrorMessage, StringComparison.OrdinalIgnoreCase);
         }
 
         [Theory]

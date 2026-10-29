@@ -217,6 +217,37 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.Same(error, exception.Error);
         }
 
+        [Fact]
+        public async Task GivenUnrelatedCancellationDuringEnqueue_WhenOrchestratorExecutes_ThenFailureIsSystemCaused()
+        {
+            // Arrange
+            var canceled = new OperationCanceledException(CancellationToken.None);
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L });
+            var queue = Substitute.For<IQueueClient>();
+            queue.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw canceled);
+            var mediator = Substitute.For<IMediator>();
+            var job = CreateOrchestratorJob(client, queue, mediator);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Equal(HttpStatusCode.InternalServerError, error.HttpStatusCode);
+            Assert.Equal(canceled.Message, error.ErrorMessage);
+            await mediator.Received(1).PublishAsync(
+                Arg.Is<ImportJobMetricsNotification>(notification => notification.Status == JobStatus.Failed.ToString()),
+                CancellationToken.None);
+            await mediator.DidNotReceive().PublishAsync(
+                Arg.Is<ImportJobMetricsNotification>(notification => notification.Status == JobStatus.Cancelled.ToString()),
+                CancellationToken.None);
+        }
+
         private static ImportOrchestratorJobDefinition CreateInput()
         {
             return new ImportOrchestratorJobDefinition
@@ -227,10 +258,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             };
         }
 
-        private static ImportOrchestratorJob CreateOrchestratorJob(IIntegrationDataStoreClient client, IQueueClient queue)
+        private static ImportOrchestratorJob CreateOrchestratorJob(IIntegrationDataStoreClient client, IQueueClient queue, IMediator mediator = null)
         {
             return new ImportOrchestratorJob(
-                Substitute.For<IMediator>(),
+                mediator ?? Substitute.For<IMediator>(),
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 client,
                 queue,

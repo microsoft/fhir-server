@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
 
             var existingFhirRequestContext = _contextAccessor.RequestContext;
+            bool destinationConnected = false;
 
             // Don't allow jobs to loop forever if they are failing.
             if (exportJobRecord.RestartCount > _exportJobConfiguration.MaxJobRestartCount)
@@ -182,6 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Connect to export destination using appropriate client.
                 await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
+                destinationConnected = true;
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -258,12 +260,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (DestinationConnectionException dce)
             {
-                _logger.LogInformation(dce, "[JobId:{JobId}] Can't connect to destination. The job will be marked as failed.", _exportJobRecord.Id);
+                _logger.LogInformation(dce, "[JobId:{JobId}] Export destination operation failed. The job will be marked as failed.", _exportJobRecord.Id);
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(
                     dce.Message,
                     dce.StatusCode,
-                    isCustomerCaused: dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden || dce.StatusCode == HttpStatusCode.NotFound || dce.StatusCode == HttpStatusCode.BadRequest);
+                    isCustomerCaused: !destinationConnected && (dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden || dce.StatusCode == HttpStatusCode.NotFound || dce.StatusCode == HttpStatusCode.BadRequest));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (RequestNotValidException ex) when (ex.Message == Core.Resources.TooManyParameters)

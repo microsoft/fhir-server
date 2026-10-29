@@ -120,6 +120,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Same(failure, exception.InnerException);
         }
 
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        public async Task GivenTooManyParameters_WhenExecutingSql_ThenRequestNotValidExceptionIsThrown(bool useConnectionDelegate, bool disableRetries)
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(SqlErrorCodes.TooManyParameters, "Too many SQL parameters.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(failure));
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => useConnectionDelegate
+                ? service.ExecuteSql((_, _, _) => Task.CompletedTask, NullLogger.Instance, CancellationToken.None)
+                : service.ExecuteSql(command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None, disableRetries: disableRetries));
+
+            // Assert
+            Assert.Equal(Core.Resources.TooManyParameters, exception.Message);
+        }
+
         [Fact]
         public void Constructor_WithNullConnectionBuilder_ShouldThrowArgumentNullException()
         {

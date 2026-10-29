@@ -601,6 +601,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Theory]
         [InlineData(HttpStatusCode.Unauthorized, true)]
         [InlineData(HttpStatusCode.Forbidden, true)]
+        [InlineData(HttpStatusCode.BadRequest, true)]
+        [InlineData(HttpStatusCode.NotFound, true)]
+        [InlineData(HttpStatusCode.PreconditionFailed, false)]
         [InlineData(HttpStatusCode.InternalServerError, false)]
         public async Task GivenDestinationConnectionFailure_WhenExportProcessingExecutes_ThenFailureClassificationIsPreserved(HttpStatusCode statusCode, bool isCustomerCaused)
         {
@@ -617,6 +620,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Assert
             Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
             Assert.Equal(statusCode, Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails.FailureStatusCode);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.NotFound)]
+        [InlineData(HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.PreconditionFailed)]
+        [InlineData(HttpStatusCode.InternalServerError)]
+        public async Task GivenDestinationCommitFailure_WhenExportProcessingExecutes_ThenFailureIsSystemCaused(HttpStatusCode statusCode)
+        {
+            // Arrange
+            _exportJobConfiguration.RetryDelayMilliseconds = 0;
+            var destinationClient = Substitute.For<IExportDestinationClient>();
+            destinationClient.Commit()
+                .Returns(_ => throw new DestinationConnectionException("Cannot commit exported data.", statusCode));
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns(CreateSearchResult());
+            var processingJob = CreateProcessingJob(CreateExportJobTask(exportDestinationClient: destinationClient));
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            var failure = Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails;
+            Assert.Equal(statusCode, failure.FailureStatusCode);
+            Assert.Equal("Cannot commit exported data.", failure.FailureReason);
         }
 
         [Fact]

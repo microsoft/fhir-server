@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 return JsonConvert.SerializeObject(result);
             }
-            catch (OperationCanceledException canceledEx)
+            catch (OperationCanceledException canceledEx) when (cancellationToken.IsCancellationRequested)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
                 throw;
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (SqlException ex) when (ex.Number == SqlErrorCodes.Conflict)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on conflicts. Concurrent update attempts.");
-                var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                var error = new ImportJobErrorResult() { ErrorMessage = "Import failed due to duplicate resource keys or concurrent updates to the same resource. Remove duplicate resource keys from the input and avoid concurrent updates during import.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex, true);
             }
             catch (OverflowException ex)

@@ -26,7 +26,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <para>This class implements ISqlRetryService interface that is used to execute retriable SQL commands. If SQL command fails
     /// either because of a connection error or SQL error and the error is determined to be retriable, then methods in this class
     /// will retry the command.</para>
-    /// <para>After retries end, customer-managed key SQL errors are translated to <see cref="CustomerManagedKeyException"/>.
+    /// <para>After retries end, customer-managed key SQL errors are translated to <see cref="CustomerManagedKeyException"/>
+    /// and SQL parameter-limit errors to <see cref="RequestNotValidException"/>.
     /// Other exceptions are rethrown unchanged.</para>
     /// <para>This class is designed to operate as .NET service and should be initialized as such in a standard .NET way, for
     /// example in Startup.cs or equivalent source file.</para>
@@ -186,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         /// <summary>
         /// Executes delegate <paramref name="action"/> and retries it's execution if retriable error is encountered error.
-        /// Non-retriable exceptions and exhausted retries are rethrown, with customer-managed key errors translated to <see cref="CustomerManagedKeyException"/>.
+        /// Non-retriable exceptions and exhausted retries are rethrown, with customer-managed key and parameter-limit errors translated to FHIR exceptions.
         /// </summary>
         /// <param name="action">Delegate to be executed.</param>
         /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
@@ -195,6 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="shouldNotRetry">A SQL exception predicate that can prevent retrying selected errors.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception cref="CustomerManagedKeyException">The SQL operation failed due to a customer-managed key error after retries ended.</exception>
+        /// <exception cref="RequestNotValidException">The SQL operation exceeded the parameter limit after retries ended.</exception>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
         public async Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false, Func<SqlException, bool> shouldNotRetry = null)
         {
@@ -215,7 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (++retry >= _maxRetries || !IsRetriable(ex, shouldNotRetry))
                     {
-                        ThrowIfCustomerManagedKeyError(ex, logger);
+                        ThrowIfKnownSqlError(ex, logger);
                         throw;
                     }
 
@@ -234,7 +236,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <summary>
         /// Creates and opens SQL connection and assigns it to <paramref name="sqlCommand"/>. Then executes delegate <paramref name="action"/>
         /// and retries entire process on SQL error or failed SQL connection error. In the case if non-retriable exception or if the last retry failed
-        /// the exception is rethrown, with customer-managed key errors translated to <see cref="CustomerManagedKeyException"/>.
+        /// the exception is rethrown, with customer-managed key and parameter-limit errors translated to FHIR exceptions.
         /// </summary>
         /// <param name="sqlCommand">SQL command to be executed.</param>
         /// <param name="action">Delegate to be executed by passing <paramref name="sqlCommand"/> as input parameter.</param>
@@ -246,6 +248,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="applicationName">"Application name."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception cref="CustomerManagedKeyException">The SQL operation failed due to a customer-managed key error after retries ended.</exception>
+        /// <exception cref="RequestNotValidException">The SQL operation exceeded the parameter limit after retries ended.</exception>
         public async Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false, string applicationName = null)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
@@ -281,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     lastException = ex;
                     if (disableRetries || !IsRetriable(ex))
                     {
-                        ThrowIfCustomerManagedKeyError(ex, logger);
+                        ThrowIfKnownSqlError(ex, logger);
                         throw;
                     }
 
@@ -289,7 +292,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
                         await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
-                        ThrowIfCustomerManagedKeyError(ex, logger);
+                        ThrowIfKnownSqlError(ex, logger);
                         throw;
                     }
 
@@ -300,12 +303,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static void ThrowIfCustomerManagedKeyError(Exception exception, ILogger logger)
+        private static void ThrowIfKnownSqlError(Exception exception, ILogger logger)
         {
-            if (exception is SqlException sqlException && sqlException.IsCMKError())
+            if (exception is SqlException sqlException)
             {
-                logger.LogWarning(sqlException, "SQL operation failed due to a customer-managed key error.");
-                throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey, sqlException);
+                if (sqlException.IsCMKError())
+                {
+                    logger.LogWarning(sqlException, "SQL operation failed due to a customer-managed key error.");
+                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey, sqlException);
+                }
+
+                if (sqlException.Number == SqlErrorCodes.TooManyParameters)
+                {
+                    logger.LogWarning(sqlException, "SQL operation exceeded the parameter limit.");
+                    throw new RequestNotValidException(Core.Resources.TooManyParameters);
+                }
             }
         }
 
