@@ -476,6 +476,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
 
+                    // A constraint merged in from a wildcard SMART scope authorizes access, so its relative
+                    // references must only match local resources.
+                    if (smartScopeInjectedParameters.Contains(q))
+                    {
+                        parsed = parsed.AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
+                    }
+
                     foreach (var resourceTypeString in resourceTypesString)
                     {
                         if (_searchParameterDefinitionManager.TryGetSearchParameter(resourceTypeString, q.Item1, out var searchParameter))
@@ -1159,7 +1166,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     try
                     {
-                        fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2));
+                        fineGrainedSmartSearchExpressions.Add(
+                            _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
+                                .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null));
                     }
                     catch (SearchParameterNotSupportedException)
                     {

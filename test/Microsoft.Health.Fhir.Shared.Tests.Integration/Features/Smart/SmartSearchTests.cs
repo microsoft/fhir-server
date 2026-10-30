@@ -195,6 +195,90 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 await _fixture.DataStore.HardDeleteAsync(new ResourceKey(resourceType, resourceId), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
             }
         }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation, false)]
+        [InlineData(KnownResourceTypes.Observation, true)]
+        [InlineData(KnownResourceTypes.All, false)]
+        [InlineData(KnownResourceTypes.All, true)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenReferenceScopeAndPatientIdCollision_WhenSearchingAndReading_ThenOnlyLocalReferencesAuthorizeAccess(string scopeResourceType, bool idOnlyScopeValue)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            string patientA = Guid.NewGuid().ToString("N");
+            string patientB = Guid.NewGuid().ToString("N");
+            string localA = Guid.NewGuid().ToString("N");
+            string externalA = Guid.NewGuid().ToString("N");
+            string otherServerA = Guid.NewGuid().ToString("N");
+            string localB = Guid.NewGuid().ToString("N");
+            var subjects = new Dictionary<string, string>
+            {
+                [localA] = $"Patient/{patientA}",
+                [externalA] = $"https://external.fhir.invalid/r4/Patient/{patientA}",
+                [otherServerA] = $"http://localhost/other-fhir/Patient/{patientA}",
+                [localB] = $"Patient/{patientB}",
+            };
+
+            foreach ((string id, string subject) in subjects)
+            {
+                await _smartFixture.UpsertResource(new Observation { Id = id, Status = ObservationStatus.Final, Code = new CodeableConcept("http://loinc.org", "1234-5"), Subject = new ResourceReference(subject) });
+            }
+
+            try
+            {
+                // A relative scope value (subject=Patient/A or subject=A) names the local Patient A only.
+                ConfigureFhirRequestContext(
+                    _contextAccessor,
+                    new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("subject", idOnlyScopeValue ? patientA : $"Patient/{patientA}"))) },
+                    applyFineGrainedAccessControlWithSearchParameters: true);
+
+                SearchResult scopedResults = await _searchService.Value.SearchAsync(
+                    KnownResourceTypes.Observation,
+                    new List<Tuple<string, string>> { Tuple.Create("_count", "1000") },
+                    CancellationToken.None);
+
+                Assert.Equal(localA, Assert.Single(scopedResults.Results).Resource.ResourceId);
+
+                foreach (string id in subjects.Keys)
+                {
+                    var request = new GetResourceRequest(new ResourceKey(KnownResourceTypes.Observation, id), bundleResourceContext: null);
+                    if (id == localA)
+                    {
+                        Assert.Equal(localA, (await _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None)).Resource.Id);
+                    }
+                    else
+                    {
+                        await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None));
+                    }
+                }
+
+                // A reference the caller searches for is not restricted: it still matches Patient A on any server.
+                ConfigureFhirRequestContext(
+                    _contextAccessor,
+                    new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system") },
+                    applyFineGrainedAccessControlWithSearchParameters: true);
+
+                SearchResult callerResults = await _searchService.Value.SearchAsync(
+                    KnownResourceTypes.Observation,
+                    new List<Tuple<string, string>> { Tuple.Create("subject", $"Patient/{patientA}") },
+                    CancellationToken.None);
+
+                Assert.Equal(
+                    new[] { localA, externalA, otherServerA }.Order(StringComparer.Ordinal),
+                    callerResults.Results.Select(entry => entry.Resource.ResourceId).Order(StringComparer.Ordinal));
+            }
+            finally
+            {
+                foreach (string id in subjects.Keys)
+                {
+                    await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Observation, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+                }
+            }
+        }
 #endif
 
         [Fact]
