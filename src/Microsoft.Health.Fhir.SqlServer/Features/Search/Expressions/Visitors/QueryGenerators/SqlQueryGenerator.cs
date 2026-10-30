@@ -65,7 +65,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
         private readonly bool _enableChainSourceDeduplication;
-        private readonly HashSet<int> _chainTableExpressionIndexes = new();
+
+        // CTEs that may emit more than one row per root resource because they carry chain paths.
+        // The value is true when the path includes a reverse chain link, whose fan-out is unbounded.
+        private readonly Dictionary<int, bool> _fanOutTableExpressions = new();
         private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
 
         public SqlQueryGenerator(
@@ -589,14 +592,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 const string referenceSourceTableAlias = "refSource";
                 const string referenceTargetResourceTableAlias = "refTarget";
 
-                if (searchParamTableExpression.ChainLevel > 0)
-                {
-                    _chainTableExpressionIndexes.Add(_tableExpressionCounter);
-                }
-                else
-                {
-                    _chainTableExpressionIndexes.Remove(_tableExpressionCounter);
-                }
+                TrackChainFanOut(searchParamTableExpression);
 
                 switch (searchParamTableExpression.Kind)
                 {
@@ -744,6 +740,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     // we are in sort mode and we need to join with previous cte to propagate the SortValue
                     var cte = TableExpressionName(predecessorIndex);
+                    InheritFanOut(predecessorIndex);
                     StringBuilder.Append("SELECT ")
                         .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                         .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
@@ -2036,9 +2033,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
                 sb.Append(_joinShift).Append("JOIN ");
-                bool restartsChain = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1;
-                bool filtersChainSources = searchParamTableExpression.ChainLevel == 0 && _chainTableExpressionIndexes.Contains(predecessorIndex);
-                if (_enableChainSourceDeduplication && (restartsChain || filtersChainSources))
+                bool needsDeduplication = _fanOutTableExpressions.TryGetValue(predecessorIndex, out bool predecessorHasReverseLink)
+                    && ((searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1)
+                        || (searchParamTableExpression.ChainLevel == 0 && predecessorHasReverseLink));
+
+                // Forward-chain fan-out stays linear, so root filters do not need to deduplicate it.
+                if (_enableChainSourceDeduplication && needsDeduplication)
                 {
                     // Independent chains and root-level filters intersect on source existence, not on a chain's target.
                     // Project unique source keys so the predecessor's matching references cannot multiply this table.
@@ -2047,11 +2047,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 else
                 {
                     sb.Append(TableExpressionName(predecessorIndex));
+                    if (searchParamTableExpression.ChainLevel == 0)
+                    {
+                        InheritFanOut(predecessorIndex);
+                    }
                 }
 
                 sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .AppendLine();
+            }
+        }
+
+        // Records whether the current CTE carries chain paths, which can yield several rows per root resource.
+        private void TrackChainFanOut(SearchParamTableExpression searchParamTableExpression)
+        {
+            _fanOutTableExpressions.Remove(_tableExpressionCounter);
+            if (searchParamTableExpression.ChainLevel == 0)
+            {
+                // Level-0 CTEs inherit fan-out only when joined to a fanned-out predecessor without deduplication.
+                return;
+            }
+
+            bool hasReverseLink = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain
+                && ((SqlChainLinkExpression)searchParamTableExpression.Predicate).Reversed;
+            bool joinsPredecessorPath = searchParamTableExpression.Kind != SearchParamTableExpressionKind.Chain || searchParamTableExpression.ChainLevel > 1;
+            hasReverseLink |= joinsPredecessorPath
+                && _fanOutTableExpressions.GetValueOrDefault(FindRestrictingPredecessorTableExpressionIndex());
+
+            _fanOutTableExpressions[_tableExpressionCounter] = hasReverseLink;
+        }
+
+        private void InheritFanOut(int predecessorIndex)
+        {
+            if (_fanOutTableExpressions.TryGetValue(predecessorIndex, out bool predecessorHasReverseLink))
+            {
+                _fanOutTableExpressions[_tableExpressionCounter] = predecessorHasReverseLink;
             }
         }
 

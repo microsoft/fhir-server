@@ -23,8 +23,9 @@ and deletion filters, sorting, and pagination, then returns distinct resources. 
 matched resources before generating queries for included resources.
 
 Independent chained parameters can match different referenced resources. When the generator uses joins,
-it intersects independent chains, and root-level filters that follow a chain, on distinct source-resource keys
-so multiple matches in one chain do not multiply rows in later tables.
+it intersects on distinct source-resource keys only where a predecessor can fan out: a chain that restarts
+after another chain's rows, and root-level filters that follow a reverse chain. Root filters after a forward
+chain, and a single chain after plain root filters, join directly because deduplication there costs more than it removes.
 
 ### Query shape comments
 
