@@ -740,6 +740,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownHeaders.Prefer, preferValue, httpContext);
             }
 
+            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.ConditionalUpdateCreateOnly, out var conditionalUpdateCreateOnlyValue))
+            {
+                AddHeaderIfNeeded(KnownHeaders.ConditionalUpdateCreateOnly, conditionalUpdateCreateOnlyValue, httpContext);
+            }
+
             long resourceSizeInBytes = 0;
 
             if (requestMethod == HTTPVerb.POST || requestMethod == HTTPVerb.PUT)

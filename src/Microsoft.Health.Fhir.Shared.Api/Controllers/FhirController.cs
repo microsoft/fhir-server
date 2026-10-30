@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var response = await ExecuteWithSearchParameterRetryAsync(
                 resource.TypeName,
                 () => _mediator.SendAsync<UpsertResourceResponse>(
-                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
+                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext(), HttpContext.IsConditionalUpdateCreateOnlyEnabled()),
                 HttpContext.RequestAborted),
                 "ConditionalUpdate");
 

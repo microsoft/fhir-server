@@ -41,5 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string ConditionalQueryProcessingLogic = "x-conditionalquery-processing-logic";
 
         public const string QueryCacheSetting = "x-ms-query-cache";
+
+        /// <summary>
+        /// Opt-in header. When "true", a conditional update whose search finds no match but whose body has an id
+        /// may only create that resource; if a live resource with that id exists, the server returns 409 Conflict instead of overwriting it.
+        /// </summary>
+        public const string ConditionalUpdateCreateOnly = "x-ms-conditional-update-create-only";
     }
 }

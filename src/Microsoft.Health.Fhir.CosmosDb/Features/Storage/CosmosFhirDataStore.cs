@@ -217,7 +217,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         innerCt,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.CreateOnly);
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
@@ -277,7 +278,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         cancellationToken,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.CreateOnly);
 
                     if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
                     {
@@ -304,7 +306,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool allowCreate,
             bool keepHistory,
             CancellationToken cancellationToken,
-            bool requireETagOnUpdate = false)
+            bool requireETagOnUpdate = false,
+            bool createOnly = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -409,6 +412,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     }
 
                     throw;
+                }
+
+                // Checked after every read so a live resource created concurrently (the replace below fails on the ETag and re-reads) is never overwritten.
+                if (createOnly && !existingItemResource.IsDeleted)
+                {
+                    _logger.LogInformation("Conflict: ResourceAlreadyExists");
+                    throw new ResourceConflictException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceAlreadyExists, resource.ResourceTypeName, resource.ResourceId));
                 }
 
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)

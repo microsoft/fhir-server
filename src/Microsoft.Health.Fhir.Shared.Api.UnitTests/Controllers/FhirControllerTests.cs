@@ -521,6 +521,47 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
         }
 
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData("false", false)]
+        [InlineData("true", true)]
+        public async Task GivenConditionalUpdateRequest_WhenCreateOnlyHeaderIsSpecified_ThenRequestCarriesTheOptIn(string headerValue, bool expectedCreateOnlyOnNoMatch)
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[KnownHeaders.ConditionalUpdateCreateOnly] = headerValue;
+            }
+
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            var request = default(ConditionalUpsertResourceRequest);
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Do<ConditionalUpsertResourceRequest>(x => request = x),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
+
+            await _fhirController.ConditionalUpdate(resource);
+
+            Assert.NotNull(request);
+            Assert.Equal(expectedCreateOnlyOnNoMatch, request.CreateOnlyOnNoMatch);
+        }
+
         [Fact]
         public async Task GivenReadRequest_WhenProcessingRequest_ThenGetResourceRequestShouldBeCreatedCorrectly()
         {
