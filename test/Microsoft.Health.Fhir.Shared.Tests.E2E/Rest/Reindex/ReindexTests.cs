@@ -531,7 +531,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
         {
             var searchParam = new SearchParameter();
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
             var parameters = new Parameters
             {
@@ -542,8 +541,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 ],
             };
 
-            var resources = await SetupTestDataAsync("Person", 100, CreatePersonResourceAsync);
-            testResources.AddRange(resources);
+            var testResources = await SetupTestDataAsync("Person", 100, CreatePersonResourceAsync);
             searchParam = await CreateCustomSearchParameterAsync("custom-person-name", ["Person"], "Person.name.given", SearchParamType.String);
             Assert.NotNull(searchParam);
 
@@ -569,7 +567,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Scenario 1: Test that search parameter status is only updated when ALL jobs complete successfully
             // This tests both zero-count and non-zero-count resource scenarios with multiple resource types
-            var testResources = new List<(string resourceType, string resourceId)>();
             var supplyDeliveryCount = 40 * storageMultiplier;
             var personCount = 20 * storageMultiplier;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
@@ -580,11 +577,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Setup Persons first, then SupplyDeliveries sequentially (not in parallel)
             // This ensures Persons are fully created before SupplyDeliveries start
             var personResources = await SetupTestDataAsync("Person", personCount, CreatePersonResourceAsync);
-            testResources.AddRange(personResources);
             Assert.True(personResources.Count == personCount, $"Failed to create sufficient Person resources. Expected={personCount} Actual={personResources.Count}");
 
             var supplyDeliveryResources = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, CreateSupplyDeliveryResourceAsync);
-            testResources.AddRange(supplyDeliveryResources);
             Assert.True(supplyDeliveryResources.Count == supplyDeliveryCount, $"Failed to create sufficient SupplyDelivery resources. Expected={supplyDeliveryCount} Actual={supplyDeliveryResources.Count}");
 
             Debug.WriteLine($"Test data setup complete - SupplyDelivery: {supplyDeliveryCount}, Person: {personCount}");
@@ -635,7 +630,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await SearchCreatedResources("SupplyDelivery", supplyDeliveryCount);
 
             // check what reindex job reported
-            await CheckReportedCounts(value.jobUri, testResources.Count, false);
+            await CheckReportedCounts(value.jobUri, personResources.Count + supplyDeliveryResources.Count, false);
 
             // Verify search parameter is working for SupplyDelivery (which has data)
             // Use the ACTUAL count we got, not the desired count
@@ -667,7 +662,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             // Create custom search parameters - one with valid FHIRPath expression
@@ -677,8 +671,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await Task.Delay(3000);
 
             // Create test resources that will be indexed using SetupTestDataAsync
-            var specimenResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
-            testResources.AddRange(specimenResources);
+            await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
             // Create reindex job targeting both search parameters
             var parameters = new Parameters
@@ -724,7 +717,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             // Create custom search parameters - one with valid FHIRPath expression
@@ -735,8 +727,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await Task.Delay(3000);
 
             // Create test resources that will be indexed using SetupTestDataAsync
-            var specimenResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
-            testResources.AddRange(specimenResources);
+            await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
             // Create reindex job targeting both search parameters
             var parameters = new Parameters
@@ -782,12 +773,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             // Scenario 3a: Case variant search parameter URLs with same status (Supported, Supported)
             // Both should be treated as separate entries and processed correctly
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             // Create test resource using SetupTestDataAsync
-            var specimenResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
-            testResources.AddRange(specimenResources);
+            var testResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
             // Create search parameters with unique codes
             var lowerCaseParam = await CreateCustomSearchParameterAsync("custom-case-sensitive", ["Specimen"], "Specimen.type", SearchParamType.Token);
@@ -840,12 +829,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             // Scenario 3b: Case variant search parameter URLs with different statuses
             // Verify both are set to the correct status when all jobs complete
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             // Create test resource using SetupTestDataAsync
-            var specimenResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
-            testResources.AddRange(specimenResources);
+            var testResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
             // Create custom search parameters with different expressions and unique codes
             var specimenTypeParam = await CreateCustomSearchParameterAsync("custom-diff-type", ["Specimen"], "Specimen.type", SearchParamType.Token);
@@ -905,14 +892,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // 6. Reindex to remove the search parameter from the index
             // 7. Verify the search parameter is no longer supported (returns not-supported error)
             var specimenId = string.Empty;
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) reindexRequest1 = default;
             (FhirResponse<Parameters> response, Uri jobUri) reindexRequest2 = default;
 
             // Step 1: Create a Specimen with specific data that matches our search parameter expression
             var specimenType = "LifecycleTest";
             var specimenResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
-            testResources.AddRange(specimenResources);
 
             if (specimenResources.Count > 0)
             {
@@ -958,7 +943,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 $"First reindex job should complete successfully, but got {jobStatus1.Status}");
             _output.WriteLine("First reindex job completed successfully");
 
-            await CheckReportedCounts(reindexRequest1.jobUri, testResources.Count, false);
+            await CheckReportedCounts(reindexRequest1.jobUri, specimenResources.Count, false);
 
             // Step 4: Verify the search parameter works by searching for the specimen
             var searchQuery = $"Specimen?{searchParam.Code}=119295008";
