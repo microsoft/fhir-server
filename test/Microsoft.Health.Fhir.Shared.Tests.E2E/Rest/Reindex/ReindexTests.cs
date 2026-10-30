@@ -657,7 +657,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
-        public async Task GivenReindexJobWithResourceAndAddedAfterSingleCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParameterShouldWork()
+        public async Task GivenResourceAddedAfterSingleSearchParamAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex()
         {
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
@@ -695,7 +695,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
-        public async Task GivenReindexJobWithResourceAndAddedAfterMultiCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParametersShouldWork()
+        public async Task GivenResourceAddedAfterMultiSearchParamsAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex()
         {
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
