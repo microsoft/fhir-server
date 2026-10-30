@@ -10,7 +10,6 @@ using System.Globalization;
 using System.Linq;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Medino;
-using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -203,38 +202,28 @@ namespace Microsoft.Health.Fhir.Web
                 services.AddHttpContextAccessor();
                 services.AddApplicationInsightsTelemetry(options =>
                 {
-                    if (!string.IsNullOrWhiteSpace(configuration.InstrumentationKey))
-                    {
-#pragma warning disable CS0618 // Type or member is obsolete
-                        options.InstrumentationKey = configuration.InstrumentationKey;
-#pragma warning restore CS0618 // Type or member is obsolete
-                    }
-                    else
-                    {
-                        options.ConnectionString = configuration.ConnectionString;
-                    }
+                    options.ConnectionString = !string.IsNullOrWhiteSpace(configuration.InstrumentationKey)
+                        ? $"InstrumentationKey={configuration.InstrumentationKey}"
+                        : configuration.ConnectionString;
                 });
-                services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
-                services.AddSingleton<ITelemetryInitializer, UserAgentHeaderTelemetryInitializer>();
-                services.AddLogging(loggingBuilder =>
+                services.AddOpenTelemetry().ConfigureResource(builder => builder.AddAttributes(new Dictionary<string, object>
                 {
-                    loggingBuilder.AddApplicationInsights(
-                        options =>
+                    { "service.name", "Microsoft FHIR Server" },
+                    { "service.namespace", string.Empty },
+                }));
+                services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
+                {
+                    options.EnrichWithHttpRequest = (activity, request) =>
+                    {
+                        if (request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
                         {
-                            if (!string.IsNullOrWhiteSpace(configuration.InstrumentationKey))
-                            {
-#pragma warning disable CS0618 // Type or member is obsolete
-                                options.InstrumentationKey = configuration.InstrumentationKey;
-#pragma warning restore CS0618 // Type or member is obsolete
-                            }
-                            else
-                            {
-                                options.ConnectionString = configuration.ConnectionString;
-                            }
-                        },
-                        options =>
-                        {
-                        });
+                            activity.SetTag("user_agent", userAgent.ToString());
+                        }
+                    };
+                });
+                services.Configure<OpenTelemetryLoggerOptions>(options =>
+                {
+                    options.IncludeScopes = true;
                 });
             }
         }

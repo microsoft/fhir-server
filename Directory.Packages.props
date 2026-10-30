@@ -85,7 +85,7 @@
     <PackageVersion Include="Ignixa.Serialization" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Ignixa.Specification" Version="$(IgnixaPackageVersion)" />
     <PackageVersion Include="Medino" Version="3.0.9" />
-    <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0" />
+    <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="3.2.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="$(AspNetPackageVersion)" />
@@ -108,7 +108,6 @@
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetSdkPackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.23.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
