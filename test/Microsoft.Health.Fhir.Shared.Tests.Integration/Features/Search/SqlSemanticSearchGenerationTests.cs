@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         private static readonly SearchParameterInfo SubjectParameter = Parameter("subject", SearchParamType.Reference, ["Patient"]);
         private static readonly SearchParameterInfo ResultParameter = Parameter("result", SearchParamType.Reference, ["Observation"]);
         private static readonly SearchParameterInfo HasMemberParameter = Parameter("has-member", SearchParamType.Reference, ["Observation"]);
+        private static readonly SearchParameterInfo LinkParameter = Parameter("link", SearchParamType.Reference, ["Patient"]);
         private static readonly SearchParameterInfo LastUpdatedParameter = new("_lastUpdated", "_lastUpdated");
 
         private readonly ITestOutputHelper _output;
@@ -141,6 +142,27 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
+        public async Task GivenSemanticIncludeWithIterate_WhenExecuted_ThenOnlyResourcesReachedFromTheRankedPageAreIncluded()
+        {
+            // Arrange
+            using SqlConnection connection = await OpenSeededConnectionAsync();
+            var include = new IncludeExpression(["Observation"], SubjectParameter, "Observation", "Patient", null, false, false, false);
+
+            // Iterate includes are scoped to their source type, as SearchOptionsFactory builds them.
+            var iterate = new IncludeExpression(["Patient"], LinkParameter, "Patient", "Patient", null, false, false, true);
+            using SqlCommand command = CreateSearchCommand(connection, [include, iterate], CreateOptions(maxItemCount: 2));
+
+            // Act
+            List<SearchRow> rows = await ReadRowsAsync(command);
+
+            // Assert - patient-near's link is followed; the lookahead match's patient-far, and its link, are not.
+            Assert.Equal(["obs-near", "obs-mid", "obs-far"], rows.Where(r => r.IsMatch).Select(r => r.Id));
+            AssertRankedDistances(rows);
+            Assert.Equal(["patient-mid", "patient-near", "patient-unrelated"], rows.Where(r => !r.IsMatch).Select(r => r.Id).Order());
+            Assert.All(rows.Where(r => !r.IsMatch), r => Assert.Null(r.Distance));
+        }
+
+        [Fact]
         public async Task GivenSemanticCountOnly_WhenExecuted_ThenDistinctMatchingResourcesAreCounted()
         {
             // Arrange
@@ -157,7 +179,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         // Matches carry ascending distances; included resources are not semantic matches and carry none.
         private static void AssertRankedDistances(List<SearchRow> rows)
         {
-            double[] distances = rows.Where(r => r.IsMatch).Select(r => r.Distance.Value).ToArray();
+            double[] distances = rows.Where(r => r.IsMatch).Select(r => Assert.NotNull(r.Distance)).ToArray();
             Assert.Equal(distances.Order(), distances);
             Assert.InRange(distances[0], 0, 0.001);
         }
@@ -197,7 +219,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         // Runs the production rewriter sequence for Observation?<semantic>[&_include|_revinclude] and redirects tables to the local fixture.
-        private SqlCommand CreateSearchCommand(SqlConnection connection, IncludeExpression include, SqlSearchOptions options)
+        private SqlCommand CreateSearchCommand(SqlConnection connection, IncludeExpression include, SqlSearchOptions options) =>
+            CreateSearchCommand(connection, include == null ? [] : [include], options);
+
+        private SqlCommand CreateSearchCommand(SqlConnection connection, IReadOnlyList<IncludeExpression> includes, SqlSearchOptions options)
         {
             var model = Substitute.For<ISqlServerFhirModel>();
             (string Name, short Id)[] types = [("Observation", ObservationTypeId), ("Patient", PatientTypeId), ("DiagnosticReport", DiagnosticReportTypeId)];
@@ -215,11 +240,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             model.GetSearchParamId(SubjectParameter.Url).Returns((short)10);
             model.GetSearchParamId(ResultParameter.Url).Returns((short)11);
             model.GetSearchParamId(HasMemberParameter.Url).Returns((short)12);
+            model.GetSearchParamId(LinkParameter.Url).Returns((short)13);
 
             Expression typePredicate = Expression.SearchParameter(
                 SearchParameterInfo.ResourceTypeSearchParameter,
                 Expression.StringEquals(FieldName.TokenCode, null, "Observation", false));
-            Expression expression = include == null ? Expression.And(typePredicate) : Expression.And(typePredicate, include);
+            Expression expression = Expression.And([typePredicate, .. includes]);
 
             var factory = new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap());
             var root = (SqlRootExpression)expression
@@ -333,7 +359,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                     ({ObservationTypeId}, 200, 10, {PatientTypeId}, 'patient-near', 0), ({ObservationTypeId}, 300, 10, {PatientTypeId}, 'patient-unrelated', 0),
                     ({ObservationTypeId}, 50, 10, {PatientTypeId}, 'patient-unembedded', 0),
                     ({DiagnosticReportTypeId}, 2000, 11, {ObservationTypeId}, 'obs-near', 0),
-                    ({ObservationTypeId}, 150, 12, {ObservationTypeId}, 'obs-near', 0);
+                    ({ObservationTypeId}, 150, 12, {ObservationTypeId}, 'obs-near', 0),
+                    ({PatientTypeId}, 1200, 13, {PatientTypeId}, 'patient-unrelated', 0),
+                    ({PatientTypeId}, 1100, 13, {PatientTypeId}, 'patient-unembedded', 0);
                 INSERT INTO #VectorSearchParam VALUES
                     ({ObservationTypeId}, 200, {SemanticSearchParamId}, 0, {EmbeddingModelId}, CAST(@uniform AS vector({VectorSearchConfiguration.SupportedDimensions}))),
                     ({ObservationTypeId}, 200, {SemanticSearchParamId}, 1, {EmbeddingModelId}, CAST(@half AS vector({VectorSearchConfiguration.SupportedDimensions}))),
