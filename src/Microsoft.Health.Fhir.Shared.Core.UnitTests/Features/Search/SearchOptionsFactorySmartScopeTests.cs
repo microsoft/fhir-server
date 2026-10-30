@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string AvailableParameterCode = "code";
         private const string ConcreteOnlyParameterCode = "status";
         private const string ObservationOnlyParameterCode = "value-quantity";
+        private const string TagParameterCode = "_tag";
 
         [Fact]
         public void GivenResourceSpecificScopeWithUnavailableParameter_WhenCreated_ThenRequestIsDenied()
@@ -332,6 +333,85 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(options.UnsupportedSearchParams, p => p.Item2 == "some-other-value");
         }
 
+        [Theory]
+        [InlineData(KnownQueryParameterNames.StartSurrogateId, false)]
+        [InlineData(KnownQueryParameterNames.EndSurrogateId, false)]
+        [InlineData(KnownQueryParameterNames.GlobalEndSurrogateId, false)]
+        [InlineData("_STARTSURROGATEID", false)]
+        [InlineData(KnownQueryParameterNames.StartSurrogateId, true)]
+        public void GivenATagScopedRequestWithASurrogateIdRangeParameter_WhenCreated_ThenRequestIsRejected(string parameterName, bool strictHandling)
+        {
+            // Range hints route SQL searches to a raw surrogate id range read that skips the scope's _tag predicate.
+            SearchOptionsFactory factory = CreateFactory(
+                strictHandling,
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read | DataActions.Search, "user", CreateSearchParams((TagParameterCode, "http://example.org|allowed"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, CreateRangeQuery(parameterName), onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(parameterName, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenASystemLevelRequestWithASurrogateIdRangeParameter_WhenCreated_ThenRequestIsRejected()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read | DataActions.Search, "user", CreateSearchParams((TagParameterCode, "http://example.org|allowed"))));
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(resourceType: null, CreateRangeQuery(KnownQueryParameterNames.StartSurrogateId), onlyIds: false, isIncludesOperation: false));
+        }
+
+        [Fact]
+        public void GivenACompartmentRequestWithASurrogateIdRangeParameter_WhenCreated_ThenRequestIsRejected()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read | DataActions.Search, "user", CreateSearchParams((TagParameterCode, "http://example.org|allowed"))));
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, "patient-A", KnownResourceTypes.Observation, CreateRangeQuery(KnownQueryParameterNames.StartSurrogateId)));
+        }
+
+        [Fact]
+        public void GivenABackgroundTaskWithSurrogateIdRangeParameters_WhenCreated_ThenQueryHintsArePopulated()
+        {
+            // Export and bulk update jobs run as background tasks and depend on the range hints.
+            SearchOptionsFactory factory = CreateFactory(
+                strictHandling: false,
+                isBackgroundTask: true,
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "system"));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                CreateRangeQuery(KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.StartSurrogateId),
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            Assert.NotNull(options.QueryHints);
+            Assert.Contains(options.QueryHints, h => h.Param == KnownQueryParameterNames.StartSurrogateId && h.Value == "1");
+            Assert.Contains(options.QueryHints, h => h.Param == KnownQueryParameterNames.EndSurrogateId && h.Value == "100");
+            Assert.Contains(options.QueryHints, h => h.Param == KnownQueryParameterNames.GlobalEndSurrogateId && h.Value == "200");
+        }
+
+        private static List<Tuple<string, string>> CreateRangeQuery(params string[] parameterNames)
+        {
+            var query = new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Observation) };
+
+            foreach (string name in parameterNames)
+            {
+                string value = name.ToUpperInvariant() switch
+                {
+                    "_GLOBALENDSURROGATEID" => "200",
+                    "_ENDSURROGATEID" => "100",
+                    _ => "1",
+                };
+
+                query.Add(Tuple.Create(name, value));
+            }
+
+            return query;
+        }
+
         private static SearchParams CreateSearchParams(params (string Name, string Value)[] parameters)
         {
             var searchParams = new SearchParams();
@@ -350,6 +430,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         private static SearchOptionsFactory CreateFactory(bool strictHandling, params ScopeRestriction[] scopeRestrictions)
+        {
+            return CreateFactory(strictHandling, isBackgroundTask: false, scopeRestrictions);
+        }
+
+        private static SearchOptionsFactory CreateFactory(bool strictHandling, bool isBackgroundTask, params ScopeRestriction[] scopeRestrictions)
         {
             // The expression parser resolves through the searchable definition manager, so a disabled, pending
             // delete, or reindexing parameter surfaces here as SearchParameterNotSupportedException.
@@ -415,6 +500,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var requestContext = new DefaultFhirRequestContext
             {
+                IsBackgroundTask = isBackgroundTask,
                 AccessControlContext = new AccessControlContext
                 {
                     ApplyFineGrainedAccessControl = true,

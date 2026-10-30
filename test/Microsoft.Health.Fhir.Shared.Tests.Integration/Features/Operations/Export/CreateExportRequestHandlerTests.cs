@@ -602,6 +602,51 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             }
         }
 
+        public static IEnumerable<object[]> ReservedRangeFilterParameters()
+        {
+            foreach (string parameter in new[] { KnownQueryParameterNames.StartSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalEndSurrogateId })
+            {
+                foreach (string parameterName in new[] { parameter, parameter.ToUpperInvariant() })
+                {
+                    foreach (string handling in new[] { null, "strict", "lenient" })
+                    {
+                        yield return new object[] { parameterName, handling };
+                    }
+                }
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(ReservedRangeFilterParameters))]
+        public async Task GivenAnExportFilterWithReservedRangeParameter_WhenCreatingJob_ThenRequestIsRejected(
+            string parameterName,
+            string handling)
+        {
+            var headers = new Dictionary<string, StringValues>();
+            if (handling != null)
+            {
+                headers.Add(KnownHeaders.Prefer, $"handling={handling}");
+            }
+
+            var context = Substitute.For<IFhirRequestContext>();
+            context.RequestHeaders.Returns(headers);
+            _requestContextAccessor.RequestContext.Returns(context);
+            var request = new CreateExportRequest(
+                RequestUrl,
+                ExportJobType.All,
+                resourceType: KnownResourceTypes.Observation,
+                filters: $"Observation?status=final,Observation?_type=Patient&{parameterName}=0");
+            _fhirOperationDataStore.ClearReceivedCalls();
+
+            var exception = await Assert.ThrowsAsync<BadRequestException>(
+                () => _createExportRequestHandler.HandleAsync(request, _cancellationToken));
+
+            Assert.Contains(parameterName, exception.Message);
+            await _fhirOperationDataStore.DidNotReceive().CreateExportJobAsync(
+                Arg.Any<ExportJobRecord>(),
+                Arg.Any<CancellationToken>());
+        }
+
         [Theory]
         [MemberData(nameof(ValidateTypeFilters))]
         public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithLenientHandlingSpecified_ThenValidateTypeFiltersShouldBeSkipped(
