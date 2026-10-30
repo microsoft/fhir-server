@@ -54,15 +54,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
         /// <inheritdoc />
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            ResourceJsonNode resource;
-            try
-            {
-                resource = JsonSourceNodeFactory.Parse<ResourceJsonNode>(rawResource);
-            }
-            catch (JsonException exception)
-            {
-                throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
-            }
+            ResourceJsonNode resource = ParseResourceJson(rawResource);
 
             ImportResourceIdValidator.Validate(resource.Id, _resourceIdPolicy);
             CheckConditionalReferenceInResource(resource, importMode);
@@ -109,17 +101,26 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 element = resource.ToElement(_schemaContext.Schema);
             }
 
-            // Phase-2a flip point: the one-arg ResourceElement ctor below leaves ResourceInstance unset, so
-            // RawResourceFactory can't see the native ResourceJsonNode and falls through to a full ToPoco<T>()
-            // rebuild plus Firely's FhirJsonSerializer - the same cost Firely mode pays, on top of the Ignixa
-            // parse above. The next phase should carry the node through via the two-arg ResourceElement ctor
-            // and add a native-serialize IRawResourceFactory decorator that uses it when present; that's the
-            // biggest single perf win per the sdk-migration import-performance-analysis doc. Don't just swap
-            // the ctor here without adding that decorator in the same change, or nothing downstream will use it.
+            // The one-argument ResourceElement constructor leaves ResourceInstance unset, so RawResourceFactory
+            // cannot use the native ResourceJsonNode and falls back to a Firely POCO rebuild and serialization.
+            // A future native persistence-codec seam must carry the node through the two-argument constructor
+            // and consume it in IRawResourceFactory in the same change.
             var resourceElement = new ResourceElement(element.ToTypedElement());
             var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
+        }
+
+        private static ResourceJsonNode ParseResourceJson(string rawResource)
+        {
+            try
+            {
+                return JsonSourceNodeFactory.Parse<ResourceJsonNode>(rawResource);
+            }
+            catch (JsonException exception)
+            {
+                throw new FormatException($"Failed to parse import resource JSON: {exception.Message}", exception);
+            }
         }
 
         /// <summary>
@@ -189,10 +190,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 return;
             }
 
-            if (referenceNode is not JsonObject referenceObject)
-            {
-                throw new FormatException($"Expected a Reference object but found {referenceNode.GetValueKind()}.");
-            }
+            JsonObject referenceObject = referenceNode as JsonObject
+                ?? throw new FormatException($"Expected a Reference object but found {referenceNode.GetValueKind()}.");
 
             var reference = referenceObject["reference"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(reference) && reference.Contains('?', StringComparison.Ordinal))

@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.FhirPackages;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -109,6 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                 _dataStoreValidator,
                 new ModelAttributeValidator(),
                 _writer,
+                new FirelyFhirPathProvider(),
                 NullLogger<SearchParameterPackageHandler>.Instance);
 
             return new FhirPackageInstaller(new[] { handler }, NullLogger<FhirPackageInstaller>.Instance);

@@ -4,6 +4,12 @@
     <RootNamespace>Microsoft.Health.Fhir.Ignixa</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Health.Fhir.Stu3.Core.UnitTests" />
+    <InternalsVisibleTo Include="Microsoft.Health.Fhir.R4.Core.UnitTests" />
+    <InternalsVisibleTo Include="Microsoft.Health.Fhir.R4B.Core.UnitTests" />
+    <InternalsVisibleTo Include="Microsoft.Health.Fhir.R5.Core.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
