@@ -1555,6 +1555,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient/Observation.rs?code%20x=1" };                    // decoded key contains a space
             yield return new object[] { "patient/Observation.rs?%3F=1" };                         // decoded key contains '?'
             yield return new object[] { "patient%2fPatient.read%20openid" };                      // encoded space inside one scope value
+
+            // Values that decode to whitespace only can't be enforced as search constraints
+            yield return new object[] { "patient/Observation.rs?identifier=%20" };
+            yield return new object[] { "patient/Observation.rs?identifier=%09%0A" };
+            yield return new object[] { "patient%2fObservation.rs?code=44501&identifier=%C2%A0" }; // no-break space, after a valid constraint
         }
 
         private async Task<(AccessControlContext AccessControlContext, bool NextCalled)> InvokeWithSmartClaimsAsync(

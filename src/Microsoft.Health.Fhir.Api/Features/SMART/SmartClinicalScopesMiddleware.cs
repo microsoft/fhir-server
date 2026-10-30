@@ -535,7 +535,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     // Decode the value only now, after splitting on the raw '&' and '=' delimiters, so an
                                     // encoded "%26" or "%3D" stays part of this value (e.g. identifier=ABC%26status%3Dfinal
                                     // is the single value "ABC&status=final"), matching how FHIR search reads the same string.
-                                    smartScopeSearchParameters.Add(paramKey, System.Uri.UnescapeDataString(paramValue));
+                                    var decodedParamValue = System.Uri.UnescapeDataString(paramValue);
+
+                                    // A value that decodes to whitespace only (e.g. "%20") can't be enforced as a
+                                    // search constraint, so reject it rather than failing later with a 500.
+                                    if (string.IsNullOrWhiteSpace(decodedParamValue))
+                                    {
+                                        var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, match.Value?.Trim());
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
+                                    }
+
+                                    smartScopeSearchParameters.Add(paramKey, decodedParamValue);
                                 }
 
                                 if (smartScopeSearchParameters.Parameters.Count > 0)
