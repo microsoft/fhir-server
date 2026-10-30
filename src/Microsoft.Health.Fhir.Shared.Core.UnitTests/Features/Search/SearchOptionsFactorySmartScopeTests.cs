@@ -45,6 +45,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string AvailableParameterCode = "code";
         private const string ConcreteOnlyParameterCode = "status";
         private const string ObservationOnlyParameterCode = "value-quantity";
+        private const string ReferenceParameterCode = "subject";
+        private const string LocalReferenceA = "(Param subject (And (MissingField ReferenceBaseUri) (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
+        private const string AnyBaseReferenceA = "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
 
         [Fact]
         public void GivenResourceSpecificScopeWithUnavailableParameter_WhenCreated_ThenRequestIsDenied()
@@ -332,6 +335,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(options.UnsupportedSearchParams, p => p.Item2 == "some-other-value");
         }
 
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation, KnownResourceTypes.Observation, null)]
+        [InlineData(KnownResourceTypes.All, KnownResourceTypes.Observation, null)]
+        [InlineData(KnownResourceTypes.All, KnownResourceTypes.Patient, "Observation:subject")]
+        public void GivenScopeWithRelativeReference_WhenCreated_ThenScopeMatchesOnlyLocalReferences(
+            string scopeResourceType,
+            string searchResourceType,
+            string revInclude)
+        {
+            // Covers the three ways a scope constraint reaches the query: a resource-specific scope, a wildcard scope
+            // merged into the caller's query, and a wildcard scope built as a union leg because of _revinclude.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(scopeResourceType, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A"))));
+
+            SearchOptions options = factory.Create(
+                searchResourceType,
+                revInclude == null ? null : new[] { Tuple.Create("_revinclude", revInclude) },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            Assert.Contains(LocalReferenceA, options.Expression.ToString(), StringComparison.Ordinal);
+            Assert.DoesNotContain(AnyBaseReferenceA, options.Expression.ToString(), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenCallerSuppliedRelativeReference_WhenCreatedWithAWildcardScope_ThenOnlyTheScopeConstraintIsRestricted()
+        {
+            // A reference the caller searches for is not an authorization predicate, so it keeps matching any base.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A"))));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(ReferenceParameterCode, "Patient/B") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains(LocalReferenceA, expression, StringComparison.Ordinal);
+            Assert.Contains(
+                "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+        }
+
         private static SearchParams CreateSearchParams(params (string Name, string Value)[] parameters)
         {
             var searchParams = new SearchParams();
@@ -375,6 +423,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         !string.Equals(targetType, KnownResourceTypes.Observation, StringComparison.Ordinal))
                     {
                         throw new SearchParameterNotSupportedException(targetType, code);
+                    }
+
+                    if (string.Equals(code, ReferenceParameterCode, StringComparison.Ordinal))
+                    {
+                        // Same shape as the production parser for a relative reference such as Patient/A.
+                        string[] reference = callInfo.ArgAt<string>(2).Split('/');
+                        return Expression.SearchParameter(
+                            new SearchParameterInfo(ReferenceParameterCode, ReferenceParameterCode, ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject")),
+                            Expression.And(
+                                Expression.StringEquals(FieldName.ReferenceResourceType, null, reference[0], false),
+                                Expression.StringEquals(FieldName.ReferenceResourceId, null, reference[1], false)));
                     }
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");
