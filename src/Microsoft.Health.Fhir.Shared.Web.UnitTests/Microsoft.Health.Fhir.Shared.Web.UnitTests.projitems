@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AzureMonitorOpenTelemetryLogEnricherTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SqlClientMeterProviderBuilderExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)StartupTests.cs" />
   </ItemGroup>
 </Project>

@@ -142,7 +142,10 @@
     <PackageReference Include="OpenIddict.EntityFrameworkCore" />
     <PackageReference Include="OpenIddict.Server.AspNetCore" />
     <PackageReference Include="OpenIddict.Validation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Api" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.EventCounters" />
     <PackageReference Include="Polly" />
     <PackageReference Include="prometheus-net.AspNetCore" />
     <PackageReference Include="prometheus-net.DotNetRuntime" />
