@@ -19,7 +19,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     {
         private const string LoggingCategory = "bundleStatistics";
 
+        private const long OneMebibyte = 1024 * 1024;
+        private const long LargeResourceThresholdBytes = 5 * OneMebibyte;
+        private const int HeavyEntryThresholdIndexValues = 100;
+        private const int TopEntriesToLog = 5;
+
         private readonly ConcurrentBag<BundleHandlerStatisticEntry> _entries;
+        private readonly ConcurrentBag<(int Index, string ResourceType, long Bytes)> _resourceSizes;
+        private readonly ConcurrentBag<(int Index, string ResourceType, int IndexValues)> _entrySearchIndexValues;
 
         public BundleHandlerStatistics(
             BundleType? bundleType,
@@ -38,10 +45,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             GeneratedIdentifiers = generatedIdentifiers;
             ResolvedReferences = resolvedReferences;
             _entries = new ConcurrentBag<BundleHandlerStatisticEntry>();
+            _resourceSizes = new ConcurrentBag<(int Index, string ResourceType, long Bytes)>();
+            _entrySearchIndexValues = new ConcurrentBag<(int Index, string ResourceType, int IndexValues)>();
             Complexity = complexity;
         }
 
         public int NumberOfResources { get; }
+
+        /// <summary>
+        /// Size of the bundle request body from Content-Length, in bytes; null when the header is absent.
+        /// </summary>
+        public long? BundleRequestBodyBytes { get; set; }
 
         /// <summary>
         /// Total number of resource identifiers that were generated during the processing of a transactional bundle.
@@ -88,6 +102,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 300);
             int conditionalOperations = _entries.Count(e => e.IsConditionalOperation);
 
+            var resourceSize = new
+            {
+                over5MiB = _resourceSizes.Count(e => e.Bytes > 5 * OneMebibyte),
+                over10MiB = _resourceSizes.Count(e => e.Bytes > 10 * OneMebibyte),
+                over20MiB = _resourceSizes.Count(e => e.Bytes > 20 * OneMebibyte),
+                large = _resourceSizes
+                    .Where(e => e.Bytes > LargeResourceThresholdBytes)
+                    .OrderByDescending(e => e.Bytes)
+                    .Take(TopEntriesToLog)
+                    .Select(e => new { index = e.Index, resourceType = e.ResourceType, resourceBytes = e.Bytes })
+                    .ToArray(),
+            };
+
+            var searchIndex = new
+            {
+                over100 = _entrySearchIndexValues.Count(e => e.IndexValues > 100),
+                over250 = _entrySearchIndexValues.Count(e => e.IndexValues > 250),
+                over500 = _entrySearchIndexValues.Count(e => e.IndexValues > 500),
+                heavy = _entrySearchIndexValues
+                    .Where(e => e.IndexValues > HeavyEntryThresholdIndexValues)
+                    .OrderByDescending(e => e.IndexValues)
+                    .Take(TopEntriesToLog)
+                    .Select(e => new { index = e.Index, resourceType = e.ResourceType, indexValues = e.IndexValues })
+                    .ToArray(),
+            };
+
             JObject serializableEntity = JObject.FromObject(new
             {
                 label = GetLoggingCategory(),
@@ -112,6 +152,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     identifiers = GeneratedIdentifiers,
                     references = ResolvedReferences,
                 },
+                bundleRequestBodyBytes = BundleRequestBodyBytes,
+                resourceSize,
+                searchIndex,
             });
 
             return serializableEntity.ToString();
@@ -133,6 +176,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public void SetBundleAsFailedByClientError()
         {
             FailedByClientError = true;
+        }
+
+        /// <summary>
+        /// Registers the serialized size of a bundle entry's resource.
+        /// </summary>
+        public void RegisterResourceSize(int index, string resourceType, long bytes)
+        {
+            _resourceSizes.Add((index, resourceType, bytes));
+        }
+
+        /// <summary>
+        /// Registers the number of search index values extracted for a bundle entry's resource.
+        /// </summary>
+        public void RegisterEntrySearchIndexValues(int index, string resourceType, int indexValues)
+        {
+            _entrySearchIndexValues.Add((index, resourceType, indexValues));
         }
 
         public void SetBundleAsCancelled()

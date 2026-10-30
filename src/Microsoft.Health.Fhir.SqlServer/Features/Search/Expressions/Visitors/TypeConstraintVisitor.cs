@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Looks for _type parameters to determine the set of ResourceTypeIds allowed in an expression.
+    /// Looks for _type parameters (single values, OR-ed values, or IN lists) to determine the set of ResourceTypeIds allowed in an expression.
     /// Assumes that <see cref="ResourceColumnPredicatePushdownRewriter"/> has not run yet on the expression.
     /// </summary>
     internal class TypeConstraintVisitor : DefaultSqlExpressionVisitor<(BitArray allowedTypes, ISqlServerFhirModel model), short?>
@@ -82,20 +82,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            context.allowedTypes.And(orArray);
+            return IntersectAllowedTypes(context.allowedTypes, orArray);
+        }
+
+        /// <summary>
+        /// Handles a _type constraint expressed as a single IN list (for example the SMART clinical scope
+        /// resource type restriction), which is semantically an OR of the listed types.
+        /// </summary>
+        /// <typeparam name="T">The type of the listed resource type values (for example string or a resource type enum).</typeparam>
+        /// <param name="expression">The IN expression.</param>
+        /// <param name="context">The allowed types accumulated so far and the model.</param>
+        /// <returns>The single allowed resource type id if exactly one remains; NoTypes if none remain; otherwise null.</returns>
+        public override short? VisitIn<T>(InExpression<T> expression, (BitArray allowedTypes, ISqlServerFhirModel model) context)
+        {
+            EnsureArg.IsNotNull(context.model, nameof(context.model));
+
+            if (context.allowedTypes == null)
+            {
+                // Nested within an OR, a child can only report a single type.
+                return expression.Values.Count == 1 ? context.model.GetResourceTypeId(expression.Values[0].ToString()) : null;
+            }
+
+            var inArray = new BitArray(context.model.ResourceTypeIdRange.highestId + 1, false);
+            foreach (T value in expression.Values)
+            {
+                inArray[context.model.GetResourceTypeId(value.ToString())] = true;
+            }
+
+            return IntersectAllowedTypes(context.allowedTypes, inArray);
+        }
+
+        private static short? IntersectAllowedTypes(BitArray allowedTypes, BitArray permittedTypes)
+        {
+            allowedTypes.And(permittedTypes);
 
             int allowedTypesCount = 0;
             short lastAllowedType = 0;
-            for (short i = 0; i < context.allowedTypes.Count; i++)
+            for (short i = 0; i < allowedTypes.Count; i++)
             {
-                if (context.allowedTypes[i])
+                if (allowedTypes[i])
                 {
                     allowedTypesCount++;
                     lastAllowedType = i;
                 }
             }
 
-            return allowedTypesCount switch { 0 => NoTypes, 1 => lastAllowedType, _ => null};
+            return allowedTypesCount switch { 0 => NoTypes, 1 => lastAllowedType, _ => null };
         }
 
         private short? HandleAndedExpressions(IReadOnlyList<Expression> expressions, (BitArray allowedTypes, ISqlServerFhirModel model) context)

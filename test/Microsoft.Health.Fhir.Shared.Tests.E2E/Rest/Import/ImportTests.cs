@@ -62,6 +62,82 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _testOutputHelper = testOutputHelper;
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenIncrementalLoad_WithOutOfRangeIndexedQuantity_ImportShouldFail(bool includeValidResource)
+        {
+            // Arrange
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                Value = new Quantity(1000000000000000000m, "mg"),
+            };
+            var observations = new List<Observation>();
+            if (includeValidResource)
+            {
+                observations.Add(new Observation
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                    Value = new Quantity(10m, "mg"),
+                });
+            }
+
+            observations.Add(observation);
+            var ndJson = string.Join(Environment.NewLine, observations.Select(resource => _fhirJsonSerializer.SerializeToString(resource))) + Environment.NewLine;
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, processingUnitBytesToRead: Encoding.UTF8.GetByteCount(ndJson));
+            request.Input.Single().Type = "Observation";
+
+            // Act
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            using var response = await ImportWaitAsync(checkLocation, checkSuccessStatus: false);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var outcome = _fhirJsonParser.Parse<OperationOutcome>(await response.Content.ReadAsStringAsync());
+            Assert.Contains(outcome.Issue, issue =>
+                issue.Diagnostics != null && issue.Diagnostics.Contains(location.OriginalString, StringComparison.Ordinal));
+            Assert.Contains(outcome.Issue, issue =>
+                issue.Diagnostics != null && issue.Diagnostics.Contains("DECIMAL(36,18)", StringComparison.OrdinalIgnoreCase));
+            foreach (var resource in observations)
+            {
+                using var readException = await Assert.ThrowsAsync<FhirClientException>(
+                    () => _client.ReadAsync<Observation>(ResourceType.Observation, resource.Id));
+                Assert.Equal(HttpStatusCode.NotFound, readException.StatusCode);
+            }
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithExcessScaleIndexedQuantity_ImportShouldPreserveRawQuantity()
+        {
+            // Arrange
+            const decimal value = 0.0000000000000000001m;
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                Value = new Quantity(value, "mg"),
+            };
+            var ndJson = _fhirJsonSerializer.SerializeToString(observation) + Environment.NewLine;
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            request.Input.Single().Type = "Observation";
+
+            // Act
+            var result = await ImportCheckAsync(request);
+
+            // Assert
+            Assert.Equal(1L, result.Output.Sum(output => output.Count));
+            using var readResponse = await _client.ReadAsync<Observation>(ResourceType.Observation, observation.Id);
+            Assert.Equal(value, Assert.IsType<Quantity>(readResponse.Resource.Value).Value);
+        }
+
         [Fact]
         public async Task CheckNumberOfDequeues()
         {

@@ -422,6 +422,39 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
 
+    [Fact]
+    public void GivenCompartmentMembership_WhenSqlGenerated_ThenReferenceIdentityUsesTheSameLocalIndexRow()
+    {
+        var subject = new SearchParameterInfo(
+            "subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+        SqlCompartmentSearchRewriter rewriter = CreateCompartmentRewriter(
+            "Observation",
+            new HashSet<string> { "subject" },
+            new Dictionary<string, SearchParameterInfo> { ["subject"] = subject });
+        _fhirModel.TryGetResourceTypeId(Arg.Any<string>(), out Arg.Any<short>())
+            .Returns(call =>
+            {
+                call[1] = (short)1;
+                return true;
+            });
+        _fhirModel.GetSearchParamId(subject.Url).Returns((short)100);
+        Expression predicate = Assert.Single(rewriter.BuildCompartmentSearchExpressionsGroup(
+            Expression.CompartmentSearch("Patient", "patient-a", new[] { "Observation" })));
+        var generator = predicate.AcceptVisitor(_queryGeneratorFactory);
+        SqlRootExpression root = new([new(generator, predicate, SearchParamTableExpressionKind.Normal)], []);
+
+        _queryGenerator.VisitSqlRoot(root, new SearchOptions { Sort = [], ResourceVersionTypes = ResourceVersionType.Latest });
+
+        string sql = _strBuilder.ToString();
+        Match referenceRow = Regex.Match(sql, @"FROM dbo\.ReferenceSearchParam\r?\n(?<predicate>[\s\S]*?)\r?\n\)");
+        Assert.True(referenceRow.Success, sql);
+        string predicateSql = referenceRow.Groups["predicate"].Value;
+        Assert.Contains("AND BaseUri IS NULL", predicateSql);
+        Assert.Contains("AND ReferenceResourceTypeId = ", predicateSql);
+        Assert.Contains("AND ReferenceResourceId = ", predicateSql);
+        Assert.Contains("SearchParamId = ", predicateSql);
+    }
+
     [Theory]
     [InlineData(null, true)]
     [InlineData("true", true)]
@@ -708,6 +741,83 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.Contains("smartCompartmentMembership.BaseUri IS NULL", generatedSql);
         Assert.DoesNotContain("OPTION (RECOMPILE)", generatedSql);
         _fhirModel.Received(1).GetSearchParamId(membershipParameterUrl);
+    }
+
+    [Theory]
+    [InlineData(false, "refSource.ReferenceResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1")]
+    [InlineData(true, "refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1")]
+    public void GivenWildcardScopeWithSearchParameterUnionAndInclude_WhenSqlGenerated_ThenCandidateIsFilteredBySmartScopeUnionCte(
+        bool reversed,
+        string expectedScopeJoinClause)
+    {
+        // Arrange: a wildcard SMART scope with search parameters (e.g. patient/*.read?_tag=allowed) sets
+        // AllowedResourceTypesByScope to ["all"] AND emits a SMART v2 union expression. The include CTE must
+        // still join against _smartv2ScopeUnionCTE so "all" is not treated as unconstrained.
+        var includeParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var tagParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Resource-tag");
+        var includeParameter = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            includeParameterUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var tagParameter = new SearchParameterInfo(
+            "_tag",
+            "_tag",
+            SearchParamType.Token,
+            tagParameterUrl,
+            null,
+            "Resource.meta.tag",
+            ["Resource"]);
+        var includeExpression = new IncludeExpression(
+            [reversed ? "Patient" : "Observation"],
+            includeParameter,
+            "Observation",
+            "Patient",
+            null,
+            false,
+            reversed,
+            false,
+            allowedResourceTypesByScope: [KnownResourceTypes.All]);
+
+        var individualAnd = Expression.And(Expression.SearchParameter(tagParameter, Expression.StringEquals(FieldName.TokenCode, null, "allowed", false)));
+        individualAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var scopeAnd = Expression.And(individualAnd);
+        scopeAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var smartUnion = Expression.Union(UnionOperator.All, [scopeAnd]);
+        smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(TokenQueryGenerator.Instance, Expression.And(smartUnion), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, includeExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll),
+            ],
+            []);
+        SearchOptions searchOptions = new()
+        {
+            IncludeCount = 10,
+            MaxItemCount = 10,
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)1);
+        _fhirModel.GetSearchParamId(includeParameterUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(tagParameterUrl).Returns((short)42);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        Assert.Contains("refSource.SearchParamId = 40", generatedSql, StringComparison.Ordinal);
+        Assert.Contains("refSource.ReferenceResourceTypeId = 1", generatedSql, StringComparison.Ordinal);
+        Assert.Contains($"EXISTS (SELECT * FROM cte1 WHERE {expectedScopeJoinClause})", generatedSql, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1134,6 +1244,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             });
 
         ISearchParameterDefinitionManager searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType)
+            .Returns(new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/Resource-type")));
         searchParameterDefinitionManager.TryGetSearchParameter(resourceType, Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
             .Returns(call =>
             {

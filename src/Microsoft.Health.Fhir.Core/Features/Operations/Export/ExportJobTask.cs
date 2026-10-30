@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Scoping;
+using Microsoft.Health.Fhir.ValueSets;
 using Polly;
 using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
@@ -51,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
         private ExportFileManager _fileManager;
+        private HashSet<string> _authorizedIncludeResourceTypes;
+        private readonly HashSet<string> _omittedIncludeResourceTypes = new HashSet<string>(StringComparer.Ordinal);
         private readonly AsyncRetryPolicy _exportSearchRetryPolicy;
 
         public ExportJobTask(
@@ -121,6 +124,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
             _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
+            _authorizedIncludeResourceTypes = new HashSet<string>(
+                exportJobRecord.AuthorizedIncludeResourceTypes ?? Array.Empty<string>(),
+                StringComparer.Ordinal);
+            _omittedIncludeResourceTypes.Clear();
 
             var existingFhirRequestContext = _contextAccessor.RequestContext;
 
@@ -568,7 +575,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
-                    var searchResultEntries = searchResult?.Results?.ToList();
+                    var searchResultEntries = searchResult?.Results?.Where(IsAuthorizedSearchResult).ToList();
                     if (searchResultEntries?.Any() ?? false)
                     {
                         var startSurrogateId = sharedQueryParametersList
@@ -809,8 +816,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
+        private bool IsAuthorizedSearchResult(SearchResultEntry result)
+        {
+            if (!_exportJobRecord.SmartRequest
+                || result.SearchEntryMode != SearchEntryMode.Include
+                || _authorizedIncludeResourceTypes.Contains(KnownResourceTypes.All)
+                || _authorizedIncludeResourceTypes.Contains(result.Resource.ResourceTypeName))
+            {
+                return true;
+            }
+
+            if (_omittedIncludeResourceTypes.Add(result.Resource.ResourceTypeName))
+            {
+                _logger.LogInformation(
+                    "[JobId:{JobId}] Omitted included resources of type {ResourceType} because SMART export permission was not granted.",
+                    _exportJobRecord.Id,
+                    result.Resource.ResourceTypeName);
+                string diagnostic = string.Format(CultureInfo.InvariantCulture, Core.Resources.ExportUnauthorizedIncludesOmitted, result.Resource.ResourceTypeName);
+                if (!_exportJobRecord.Issues.Any(issue =>
+                    issue.Severity == OperationOutcomeConstants.IssueSeverity.Warning
+                    && issue.Code == OperationOutcomeConstants.IssueType.Forbidden
+                    && issue.Diagnostics == diagnostic))
+                {
+                    _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Forbidden,
+                        diagnostic));
+                }
+            }
+
+            return false;
+        }
+
         private void ProcessSearchResult(SearchResultEntry result, IAnonymizer anonymizer)
         {
+            if (!IsAuthorizedSearchResult(result))
+            {
+                return;
+            }
+
             ResourceWrapper resourceWrapper = result.Resource;
             ResourceElement overrideDataElement = null;
             var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;

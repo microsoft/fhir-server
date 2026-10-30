@@ -6,6 +6,12 @@ During development there are multiple ways to test the project.
 
 This project is primarily built in Visual Studio and has several files included to make it easier to test from within this environment. After cloning the repo the project can be run by selecting one of the Web projects and using Visual Studio's built in project runner. Once a Web project is selected the settings dropdown should auto populate with options for Default, Cosmos DB, or SQL Server database options.
 
+### Running tests in Test Explorer
+
+Test projects support both Microsoft Testing Platform (MTP), selected by `global.json` for `dotnet test`, and VSTest-based Visual Studio Test Explorer. Keep the `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` references in `Directory.Build.targets` and their versions in `Directory.Packages.props`; MTP support alone does not provide a VSTest test host or adapter.
+
+If discovery aborts with "Could not find testhost", verify these references are present, then build the solution so all test project outputs are updated before rerunning tests in Test Explorer.
+
 ## Using Terminal
 
 To run this project from a terminal it will first need to be built. Once built an executable can be found in each of the Web project folders, for example in the R4.Web project: .\src\Microsoft.Health.Fhir.R4.Web\bin\Debug\net6.0\Microsoft.Health.Fhir.R4.Web.exe
