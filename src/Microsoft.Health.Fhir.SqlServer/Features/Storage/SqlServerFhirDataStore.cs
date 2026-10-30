@@ -351,6 +351,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else
                 {
+                    if (resourceExt.CreateOnly && !existingResource.IsDeleted)
+                    {
+                        _logger.LogInformation("Conflict: ResourceAlreadyExists");
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceConflictException(string.Format(Core.Resources.ResourceAlreadyExists, resource.ResourceTypeName, resource.ResourceId))));
+                        continue;
+                    }
+
                     if (resourceExt.RequireETagOnUpdate && !eTag.HasValue)
                     {
                         // This is a versioned update and no version was specified

@@ -194,6 +194,62 @@ public class ConditionalUpsertResourceHandlerTests
             .SendAsync<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task GivenAConditionalUpsertResourceHandler_WhenNoMatchFoundAndResourceHasId_ThenCreateOnlyUpsertIsExecuted()
+    {
+        // Arrange
+        var searchResult = new SearchResult(new List<SearchResultEntry>().AsReadOnly(), null, null, Array.Empty<Tuple<string, string>>());
+
+        _searchService.SearchAsync(
+          Arg.Any<string>(),
+          Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+          Arg.Any<CancellationToken>())
+          .Returns(Task.FromResult(searchResult));
+
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var patient = Samples.GetDefaultPatient().ToPoco();
+        patient.Id = "existing-id";
+        var conditionalParameters = new List<Tuple<string, string>> { new("_lastUpdated", "le2020-01-01") };
+        var request = new ConditionalUpsertResourceRequest(patient.ToResourceElement(), conditionalParameters, null);
+
+        // Act
+        await _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None);
+
+        // Assert - an ID-provided no-match must not overwrite an existing resource
+        await _mediator
+            .Received(1)
+            .SendAsync<UpsertResourceResponse>(Arg.Is<UpsertResourceRequest>(r => r.CreateOnly && r.Resource.Id == "existing-id"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GivenAConditionalUpsertResourceHandler_WhenOneMatchFound_ThenUpsertIsNotCreateOnly()
+    {
+        // Arrange
+        _searchService.SearchAsync(
+          Arg.Any<string>(),
+          Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+          Arg.Any<CancellationToken>())
+          .Returns(Task.FromResult(GetSearchResult(Samples.GetDefaultPatient())));
+
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
+        var request = new ConditionalUpsertResourceRequest(Samples.GetDefaultPatient(), conditionalParameters, null);
+
+        // Act
+        await _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None);
+
+        // Assert
+        await _mediator
+            .Received(1)
+            .SendAsync<UpsertResourceResponse>(Arg.Is<UpsertResourceRequest>(r => !r.CreateOnly), Arg.Any<CancellationToken>());
+    }
+
     private SearchResult GetSearchResult(ResourceElement resourceElement)
     {
         var resource = resourceElement.ToPoco();

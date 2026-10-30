@@ -344,6 +344,10 @@
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action is not allowed.</value>
   </data>
+  <data name="ResourceAlreadyExists" xml:space="preserve">
+    <value>Resource type '{0}' with id '{1}' already exists and did not match the conditional update criteria.</value>
+    <comment>{0} is the resource type. {1} is the resource id.</comment>
+  </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
   </data>

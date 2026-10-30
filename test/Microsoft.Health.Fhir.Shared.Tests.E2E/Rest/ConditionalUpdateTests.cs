@@ -131,6 +131,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAnExistingResource_WhenUpsertingConditionallyWithItsIdAndNoMatch_TheServerShouldReturnConflictAndNotOverwrite()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            using FhirResponse<Observation> createResponse = await _client.CreateAsync(observation);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+            Observation existing = createResponse.Resource;
+
+            var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation2.Id = existing.Id;
+            observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Should not be saved</div>";
+
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
+                observation2,
+                $"_id={existing.Id}&_lastUpdated=le2000-01-01"));
+
+            Assert.Equal(HttpStatusCode.Conflict, exception.Response.StatusCode);
+
+            using FhirResponse<Observation> readResponse = await _client.ReadAsync<Observation>(ResourceType.Observation, existing.Id);
+            Assert.Equal(existing.Meta.VersionId, readResponse.Resource.Meta.VersionId);
+            Assert.Equal(existing.Text.Div, readResponse.Resource.Text.Div);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenADeletedResource_WhenUpsertingConditionallyWithItsIdAndNoMatch_TheServerShouldRecreateTheResource()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            using FhirResponse<Observation> createResponse = await _client.CreateAsync(observation);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+            await _client.DeleteAsync(createResponse.Resource);
+
+            var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation2.Id = createResponse.Resource.Id;
+
+            using FhirResponse<Observation> updateResponse = await _client.ConditionalUpdateAsync(
+                observation2,
+                $"identifier={Guid.NewGuid()}");
+
+            Assert.Equal(HttpStatusCode.Created, updateResponse.StatusCode);
+            Assert.Equal(observation2.Id, updateResponse.Resource.Id);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceWithNoId_WhenUpsertingConditionallyWithOneMatch_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
