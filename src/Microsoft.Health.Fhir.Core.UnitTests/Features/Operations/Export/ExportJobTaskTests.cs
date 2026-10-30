@@ -1805,6 +1805,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAnonymizerCreationFails_WhenExecuted_ThenScopeIsDisposed(bool faultedTask)
+        {
+            // Arrange
+            ExportJobRecord record = CreateExportJobRecord(anonymizationConfigurationLocation: "config");
+            SetupExportJobRecordAndOperationDataStore(record);
+            var factory = Substitute.For<IAnonymizerFactory, IDisposable>();
+            var error = new AnonymizationConfigurationNotFoundException("config not found");
+            if (faultedTask)
+            {
+                factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken)
+                    .Returns(Task.FromException<IAnonymizer>(error));
+            }
+            else
+            {
+                factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken)
+                    .Returns<Task<IAnonymizer>>(_ => throw error);
+            }
+
+            using var root = new ServiceCollection()
+                .AddScoped<IAnonymizerFactory>(_ => factory)
+                .BuildServiceProvider();
+            var job = CreateExportJobTask(anonymizerFactory: new ScopeProvider<IAnonymizerFactory>(root));
+
+            // Act
+            await job.ExecuteAsync(record, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            ((IDisposable)factory).Received(1).Dispose();
+        }
+
+        [Theory]
         [InlineData(typeof(AnonymizationConfigurationNotFoundException), "config not found", HttpStatusCode.BadRequest)]
         [InlineData(typeof(FailedToParseAnonymizationConfigurationException), "cannot parse the config", HttpStatusCode.BadRequest)]
         [InlineData(typeof(InvalidOperationException), "Unknown Error.", HttpStatusCode.InternalServerError)]

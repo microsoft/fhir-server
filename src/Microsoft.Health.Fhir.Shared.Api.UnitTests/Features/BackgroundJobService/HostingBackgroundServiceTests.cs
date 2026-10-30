@@ -64,7 +64,10 @@ public sealed class HostingBackgroundServiceTests
     [Fact]
     public async Task GivenQueueExecutionIsRunning_WhenServiceStops_ThenHostingScopeIsDisposedAfterQueueExecutionCompletes()
     {
+        // Arrange
         var dequeueStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var drainGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var queueClient = Substitute.For<IQueueClient>();
         queueClient.IsInitialized().Returns(true);
         queueClient.DequeueAsync(
@@ -74,7 +77,7 @@ public sealed class HostingBackgroundServiceTests
                 Arg.Any<CancellationToken>(),
                 Arg.Any<long?>(),
                 Arg.Any<bool>())
-            .Returns(call => DequeueUntilCancelledAsync(dequeueStarted, call.ArgAt<CancellationToken>(3)));
+            .Returns(call => DequeueThenDrainAsync(dequeueStarted, stopObserved, drainGate.Task, call.ArgAt<CancellationToken>(3)));
 
         var jobHosting = new JobHosting(
             queueClient,
@@ -91,34 +94,73 @@ public sealed class HostingBackgroundServiceTests
             BulkDelete = new BulkDeleteJobConfiguration { Enabled = false },
             BulkUpdate = new BulkUpdateJobConfiguration { Enabled = false },
         };
-        using var service = new HostingBackgroundService(
+        using var service = new TestHostingBackgroundService(
             jobHostingFactory,
             Options.Create(new TaskHostingConfiguration { PollingFrequencyInSeconds = 0 }),
             Options.Create(operationsConfig),
             Substitute.For<ILogger<HostingBackgroundService>>());
         await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
+        using var stopping = new CancellationTokenSource();
+        var scheduler = new ConcurrentExclusiveSchedulerPair(TaskScheduler.Default, maxConcurrencyLevel: 1);
+        var hostTasks = new TaskFactory(scheduler.ExclusiveScheduler);
+        Task execution = hostTasks.StartNew(() => service.RunAsync(stopping.Token)).Unwrap();
 
         try
         {
-            await service.StartAsync(CancellationToken.None);
             await dequeueStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
+            // Act
+            stopping.Cancel();
+            await stopObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            // Flush host continuations queued by cancellation before inspecting the still-blocked drain.
+            await hostTasks.StartNew(() => { });
+
+            // Assert
             Assert.Equal(0, hostingScope.DisposeCount);
+            Assert.False(execution.IsCompleted);
         }
         finally
         {
-            await service.StopAsync(CancellationToken.None);
+            stopping.Cancel();
+            drainGate.TrySetResult();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            scheduler.Complete();
+            await scheduler.Completion;
         }
 
         jobHostingFactory.Received(1).Invoke();
         Assert.Equal(1, hostingScope.DisposeCount);
     }
 
-    private static async Task<JobInfo> DequeueUntilCancelledAsync(TaskCompletionSource dequeueStarted, CancellationToken cancellationToken)
+    private static async Task<JobInfo> DequeueThenDrainAsync(TaskCompletionSource dequeueStarted, TaskCompletionSource stopObserved, Task drainGate, CancellationToken cancellationToken)
     {
         dequeueStarted.TrySetResult();
-        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        try
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            stopObserved.TrySetResult();
+            await drainGate;
+        }
+
         return null;
+    }
+
+    private sealed class TestHostingBackgroundService : HostingBackgroundService
+    {
+        public TestHostingBackgroundService(
+            IScopeProvider<JobHosting> jobHostingFactory,
+            IOptions<TaskHostingConfiguration> hostingConfiguration,
+            IOptions<OperationsConfiguration> operationsConfiguration,
+            ILogger<HostingBackgroundService> logger)
+            : base(jobHostingFactory, hostingConfiguration, operationsConfiguration, logger)
+        {
+        }
+
+        public Task RunAsync(CancellationToken stoppingToken) => ExecuteAsync(stoppingToken);
     }
 
     private sealed class CountingHostingScope : IScoped<JobHosting>

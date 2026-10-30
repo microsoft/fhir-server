@@ -54,6 +54,21 @@ namespace Microsoft.Health.Fhir.Web.UnitTests
 
             Assert.Throws<ObjectDisposedException>(() => first.Value);
             Assert.Same(secondValue, second.Value);
+
+            using IServiceScope jobScope = provider.CreateScope();
+            IJobFactory jobFactory = jobScope.ServiceProvider.GetRequiredService<IJobFactory>();
+            foreach (JobType jobType in Enum.GetValues<JobType>())
+            {
+                if (jobType == JobType.Unknown)
+                {
+                    continue;
+                }
+
+                using IScoped<IJob> job = jobFactory.Create(new JobInfo { Definition = $"{{\"typeId\":{(int)jobType}}}" });
+                var attribute = Attribute.GetCustomAttribute(job.Value.GetType(), typeof(JobTypeIdAttribute)) as JobTypeIdAttribute;
+                Assert.NotNull(attribute);
+                Assert.Equal((int)jobType, attribute.JobTypeId);
+            }
         }
     }
 }

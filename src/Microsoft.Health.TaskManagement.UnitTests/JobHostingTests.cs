@@ -429,56 +429,42 @@ namespace Microsoft.Health.JobManagement.UnitTests
         [InlineData("cancellation", JobStatus.Cancelled)]
         public async Task GivenJobExecutionIsAsync_WhenExecutionEnds_ThenJobHandleLivesUntilCompletionAndIsDisposed(string outcome, JobStatus expectedStatus)
         {
+            // Arrange
             var queueClient = new TestQueueClient();
             JobInfo jobInfo = (await queueClient.EnqueueAsync(0, ["job"], null, false, CancellationToken.None)).Single();
-            var executionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var continueExecution = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var executionFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var factory = new CountingJobFactory(async _ =>
+            int disposeCountSeenOnResume = -1;
+            CountingJobFactory factory = null;
+            factory = new CountingJobFactory(async _ =>
             {
-                executionStarted.TrySetResult();
-
-                try
+                await continueExecution.Task;
+                disposeCountSeenOnResume = factory.Handle.DisposeCount;
+                return outcome switch
                 {
-                    await continueExecution.Task;
-                    return outcome switch
-                    {
-                        "success" => "Done",
-                        "failure" => throw new InvalidOperationException("Job failed."),
-                        "cancellation" => throw new OperationCanceledException("Job cancelled."),
-                        _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
-                    };
-                }
-                finally
-                {
-                    executionFinished.TrySetResult();
-                }
+                    "success" => "Done",
+                    "failure" => throw new InvalidOperationException("Job failed."),
+                    "cancellation" => throw new OperationCanceledException("Job cancelled."),
+                    _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
+                };
             });
             var jobHosting = new JobHosting(queueClient, factory, new TestJobMetricFactory(), _logger)
             {
                 PollingFrequencyInSeconds = 0,
                 JobHeartbeatIntervalInSeconds = 60,
             };
-            using var cancellationTokenSource = new CancellationTokenSource();
 
-            Task hostingTask = jobHosting.ExecuteAsync(0, 1, "test", cancellationTokenSource);
+            // Invoke synchronously to reach the execution await before resuming the job, without racing a worker thread.
+            var executeJob = typeof(JobHosting).GetMethod("ExecuteJobAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Task execution = Assert.IsAssignableFrom<Task>(executeJob.Invoke(jobHosting, new object[] { jobInfo }));
 
-            try
-            {
-                await executionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-                Assert.Equal(0, factory.Handle.DisposeCount);
+            // Act
+            Assert.False(execution.IsCompleted);
+            continueExecution.SetResult();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
 
-                continueExecution.TrySetResult();
-                await executionFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            finally
-            {
-                continueExecution.TrySetResult();
-                cancellationTokenSource.Cancel();
-                await hostingTask.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
+            // Assert
             Assert.Equal(expectedStatus, jobInfo.Status);
+            Assert.Equal(0, disposeCountSeenOnResume);
             Assert.Equal(1, factory.Handle.DisposeCount);
         }
 
