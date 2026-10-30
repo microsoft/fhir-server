@@ -19,7 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool requireETagOnUpdate,
             bool keepVersion,
             BundleResourceContext bundleResourceContext,
-            bool metaHistory = true)
+            bool metaHistory = true,
+            bool createOnly = false)
         {
             Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             AllowCreate = allowCreate;
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             KeepVersion = keepVersion;
             BundleResourceContext = bundleResourceContext;
             MetaHistory = metaHistory;
+            CreateOnly = createOnly;
         }
 
         public ResourceWrapper Wrapper { get; }
@@ -44,6 +46,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public bool KeepVersion { get; }
 
         public bool MetaHistory { get; }
+
+        /// <summary>
+        /// When true, the write must not replace a live (non-deleted) resource with the same id; it fails with a conflict instead.
+        /// Used by conditional update when the search criteria found no match but the client supplied an id.
+        /// </summary>
+        public bool CreateOnly { get; }
 
         public BundleResourceContext BundleResourceContext { get; }
 

@@ -56,9 +56,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             }
             else
             {
-                // No matches, id provided: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
-                // TODO: There is a potential contention issue here that this could replace an existing resource
-                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
+                // No matches, id provided and doesn't already exist: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
+                // No matches, id provided and already exists: The server rejects the update with a 409 Conflict (enforced atomically by the data store via createOnly)
+                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleResourceContext, createOnly: true), cancellationToken);
             }
         }
 
