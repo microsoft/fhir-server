@@ -22,6 +22,14 @@ steps:
       & dotnet pack $(Build.SourcesDirectory) --output $(Build.ArtifactStagingDirectory)/nupkgs --no-build --configuration=Release -p:PackageVersion=$(nuGetVersion)
     name: PackNugets
 
+  - template: ../steps/validate-nuget-binary-closure.yml
+    parameters:
+      packageDirectory: '$(Build.ArtifactStagingDirectory)/nupkgs'
+      baselineDirectory: '$(Build.SourcesDirectory)/build/binarycompat'
+      reportDirectory: '$(Build.ArtifactStagingDirectory)/binarycompat'
+      workDirectory: '$(Agent.TempDirectory)/binarycompat'
+      nuGetConfigPath: '$(Build.SourcesDirectory)/nuget.config'
+
   # Publish artifacts
   - task: PublishBuildArtifacts@1
     displayName: 'publish web artifacts'
