@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -166,13 +168,134 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = createResponse.Resource.Id;
+            observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Recreated</div>";
 
             using FhirResponse<Observation> updateResponse = await _client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={Guid.NewGuid()}");
 
-            Assert.Equal(HttpStatusCode.Created, updateResponse.StatusCode);
+            // A deleted id may be reused. It's a new version of the existing history (create, delete, recreate), so the outcome is an update.
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
             Assert.Equal(observation2.Id, updateResponse.Resource.Id);
+
+            using FhirResponse<Observation> readResponse = await _client.ReadAsync<Observation>(ResourceType.Observation, observation2.Id);
+            Assert.Equal(observation2.Text.Div, readResponse.Resource.Text.Div);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnExistingResource_WhenUpsertingConditionallyWithItsIdAndALastUpdatedFilterThatMatches_TheServerShouldUpdateTheResource()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            using FhirResponse<Observation> createResponse = await _client.CreateAsync(observation);
+            Observation existing = createResponse.Resource;
+
+            var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation2.Id = existing.Id;
+            observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Updated!</div>";
+            string cutoff = existing.Meta.LastUpdated.Value.AddDays(1).UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+
+            using FhirResponse<Observation> updateResponse = await _client.ConditionalUpdateAsync(
+                observation2,
+                $"_id={existing.Id}&_lastUpdated=le{cutoff}");
+
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+            Assert.Equal(existing.Id, updateResponse.Resource.Id);
+            Assert.Equal("2", updateResponse.Resource.Meta.VersionId);
+            Assert.Equal(observation2.Text.Div, updateResponse.Resource.Text.Div);
+        }
+
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenABatchWithAConditionalUpdateThatMatchesNothingForAnExistingId_WhenPosted_ThenOnlyThatEntryConflicts(FhirBundleProcessingLogic processingLogic)
+        {
+            Observation existing = await CreateObservationAsync();
+            string newId = Guid.NewGuid().ToString();
+            string conditionalNewId = Guid.NewGuid().ToString();
+
+            var bundle = new Bundle
+            {
+                Type = Bundle.BundleType.Batch,
+                Entry = new List<Bundle.EntryComponent>
+                {
+                    CreatePutEntry(existing.Id, $"Observation?_id={existing.Id}&_lastUpdated=le2000-01-01", "Should not be saved"),
+                    CreatePutEntry(newId, $"Observation/{newId}", "Plain upsert"),
+                    CreatePutEntry(conditionalNewId, $"Observation?identifier={Guid.NewGuid()}", "Conditional create"),
+                },
+            };
+
+            using FhirResponse<Bundle> response = await _client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic });
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("409", response.Resource.Entry[0].Response.Status);
+            Assert.Equal("201", response.Resource.Entry[1].Response.Status);
+            Assert.Equal("201", response.Resource.Entry[2].Response.Status);
+
+            await AssertUnchangedAsync(existing);
+            using FhirResponse<Observation> newRead = await _client.ReadAsync<Observation>(ResourceType.Observation, newId);
+            Assert.Equal("1", newRead.Resource.Meta.VersionId);
+            using FhirResponse<Observation> conditionalNewRead = await _client.ReadAsync<Observation>(ResourceType.Observation, conditionalNewId);
+            Assert.Equal("1", conditionalNewRead.Resource.Meta.VersionId);
+        }
+
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenATransactionWithAConditionalUpdateThatMatchesNothingForAnExistingId_WhenPosted_ThenTheTransactionFailsAndNothingIsPersisted(FhirBundleProcessingLogic processingLogic)
+        {
+            Observation existing = await CreateObservationAsync();
+            string newId = Guid.NewGuid().ToString();
+
+            var bundle = new Bundle
+            {
+                Type = Bundle.BundleType.Transaction,
+                Entry = new List<Bundle.EntryComponent>
+                {
+                    CreatePutEntry(newId, $"Observation/{newId}", "Should be rolled back"),
+                    CreatePutEntry(existing.Id, $"Observation?_id={existing.Id}&_lastUpdated=le2000-01-01", "Should not be saved"),
+                },
+            };
+
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
+                () => _client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
+
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            await AssertUnchangedAsync(existing);
+            using FhirClientException readException = await Assert.ThrowsAsync<FhirClientException>(
+                () => _client.ReadAsync<Observation>(ResourceType.Observation, newId));
+            Assert.Equal(HttpStatusCode.NotFound, readException.StatusCode);
+        }
+
+        private async System.Threading.Tasks.Task<Observation> CreateObservationAsync()
+        {
+            using FhirResponse<Observation> createResponse = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+            return createResponse.Resource;
+        }
+
+        private async Task AssertUnchangedAsync(Observation expected)
+        {
+            using FhirResponse<Observation> readResponse = await _client.ReadAsync<Observation>(ResourceType.Observation, expected.Id);
+            Assert.Equal(expected.Meta.VersionId, readResponse.Resource.Meta.VersionId);
+            Assert.Equal(expected.Text.Div, readResponse.Resource.Text.Div);
+        }
+
+        private static Bundle.EntryComponent CreatePutEntry(string id, string url, string narrative)
+        {
+            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = id;
+            observation.Text.Div = $"<div xmlns=\"http://www.w3.org/1999/xhtml\">{narrative}</div>";
+
+            return new Bundle.EntryComponent
+            {
+                Resource = observation,
+                Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = url },
+            };
         }
 
         [Fact]
