@@ -27,6 +27,57 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             SearchParamType.Composite,
             components: new[] { new SearchParameterComponentInfo { ResolvedSearchParameter = ReferenceSearchParameterWithTwoTargetTypes }, new SearchParameterComponentInfo() { ResolvedSearchParameter = ReferenceSearchParameterWithOneTargetType }, new SearchParameterComponentInfo() { ResolvedSearchParameter = new SearchParameterInfo("number", "number", SearchParamType.Number) } });
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public void GivenAMarkedScopeUnionWithReferenceFilter_WhenRewritten_ThenAuthorizationMarkersArePreserved(bool typed, bool multipleTargetTypes)
+        {
+            // Arrange
+            SearchParameterInfo parameter = multipleTargetTypes
+                ? ReferenceSearchParameterWithTwoTargetTypes
+                : ReferenceSearchParameterWithOneTargetType;
+            Expression predicate = Expression.StringEquals(FieldName.ReferenceResourceId, null, "myId", false);
+            if (typed)
+            {
+                predicate = Expression.And(
+                    Expression.StringEquals(FieldName.ReferenceResourceType, null, parameter.TargetResourceTypes[0], false),
+                    predicate);
+            }
+
+            var parameterExpression = Expression.SearchParameter(parameter, predicate);
+            var innerAnd = Expression.And(parameterExpression);
+            innerAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+            var outerAnd = Expression.And(innerAnd);
+            outerAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+            var input = Expression.Union(UnionOperator.All, new[] { outerAnd });
+            input.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+            // Act
+            var output = Assert.IsType<UnionExpression>(input.AcceptVisitor(UntypedReferenceRewriter.Instance));
+
+            // Assert
+            Assert.True(output.IsSmartV2UnionExpressionForScopesSearchParameters);
+            var rewrittenOuterAnd = Assert.IsType<MultiaryExpression>(Assert.Single(output.Expressions));
+            var rewrittenInnerAnd = Assert.IsType<MultiaryExpression>(Assert.Single(rewrittenOuterAnd.Expressions));
+            Assert.True(rewrittenOuterAnd.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.True(rewrittenInnerAnd.IsSmartV2UnionExpressionForScopesSearchParameters);
+            var rewrittenParameter = Assert.IsType<SearchParameterExpression>(Assert.Single(rewrittenInnerAnd.Expressions));
+            Assert.Same(parameter, rewrittenParameter.Parameter);
+            Assert.Contains($"(StringEquals ReferenceResourceType '{parameter.TargetResourceTypes[0]}')", rewrittenParameter.ToString());
+            if (typed)
+            {
+                Assert.Same(input, output);
+                Assert.Same(parameterExpression, rewrittenParameter);
+            }
+            else
+            {
+                Assert.NotSame(input, output);
+                Assert.NotSame(parameterExpression, rewrittenParameter);
+            }
+        }
+
         [Fact]
         public void GivenAnUntypedReferenceExpressionWithOneTargetType_WhenRewritten_ExpressionIncludesType()
         {
