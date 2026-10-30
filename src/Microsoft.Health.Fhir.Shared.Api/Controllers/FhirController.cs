@@ -276,10 +276,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
+            ConditionalUpdateNoMatchBehavior noMatchBehavior = HttpContext.GetConditionalUpdateNoMatchBehavior();
             var response = await ExecuteWithSearchParameterRetryAsync(
                 resource.TypeName,
                 () => _mediator.SendAsync<UpsertResourceResponse>(
-                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext(), HttpContext.IsConditionalUpdateCreateOnlyEnabled()),
+                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext(), noMatchBehavior),
                 HttpContext.RequestAborted),
                 "ConditionalUpdate");
 

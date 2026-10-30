@@ -5,13 +5,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
@@ -76,20 +79,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         }
 
         /// <summary>
-        /// Retrieves from the HTTP header whether a conditional update that finds no match may only create the resource with the supplied id.
+        /// Retrieves from the HTTP header how a conditional update whose search finds no match, but whose body has an id, is applied.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context.</param>
-        /// <returns><see langword="true"/> when the header is set to true; otherwise, <see langword="false"/>.</returns>
-        public static bool IsConditionalUpdateCreateOnlyEnabled(this HttpContext outerHttpContext)
+        /// <returns>The requested behavior; <see cref="ConditionalUpdateNoMatchBehavior.Upsert"/> when the header is absent or empty.</returns>
+        /// <exception cref="BadRequestException">The header value is not "create" or "upsert".</exception>
+        public static ConditionalUpdateNoMatchBehavior GetConditionalUpdateNoMatchBehavior(this HttpContext outerHttpContext)
         {
-            if (outerHttpContext != null
-                && outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalUpdateCreateOnly, out StringValues headerValues)
-                && bool.TryParse(headerValues.FirstOrDefault()?.Trim(), out bool result))
+            if (outerHttpContext == null
+                || !outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalUpdateNoMatch, out StringValues headerValues))
             {
-                return result;
+                return ConditionalUpdateNoMatchBehavior.Upsert;
             }
 
-            return false;
+            string value = headerValues.FirstOrDefault()?.Trim();
+            if (string.IsNullOrEmpty(value))
+            {
+                return ConditionalUpdateNoMatchBehavior.Upsert;
+            }
+
+            // Reject unknown values instead of falling back, so a typo cannot silently turn off the create-only protection.
+            // Names are compared explicitly because Enum.TryParse also accepts numeric strings.
+            if (string.Equals(value, nameof(ConditionalUpdateNoMatchBehavior.Create), StringComparison.OrdinalIgnoreCase))
+            {
+                return ConditionalUpdateNoMatchBehavior.Create;
+            }
+
+            if (string.Equals(value, nameof(ConditionalUpdateNoMatchBehavior.Upsert), StringComparison.OrdinalIgnoreCase))
+            {
+                return ConditionalUpdateNoMatchBehavior.Upsert;
+            }
+
+            throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Api.Resources.InvalidConditionalUpdateNoMatchHeader, KnownHeaders.ConditionalUpdateNoMatch, value));
         }
 
         /// <summary>

@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAnExistingResource_WhenUpsertingConditionallyWithItsIdAndNoMatchWithoutTheCreateOnlyHeader_TheServerShouldOverwriteTheResource()
+        public async Task GivenAnExistingResource_WhenUpsertingConditionallyWithItsIdAndDefaultNoMatchBehavior_TheServerShouldOverwriteTheResource()
         {
             Observation existing = await CreateObservationAsync();
 
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Id = existing.Id;
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Overwritten</div>";
 
-            // Default (legacy) behavior: without the opt-in header, a no-match conditional update with an id upserts by that id.
+            // Default (legacy) behavior: without the x-ms-conditional-update-no-match header, a no-match conditional update with an id upserts by that id.
             using FhirResponse<Observation> updateResponse = await _client.ConditionalUpdateAsync(
                 observation2,
                 $"_id={existing.Id}&_lastUpdated=le2000-01-01");
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAnExistingResource_WhenUpsertingConditionallyWithItsIdAndNoMatchAndTheCreateOnlyHeader_TheServerShouldReturnConflictAndNotOverwrite()
+        public async Task GivenAnExistingResource_WhenUpsertingConditionallyWithItsIdAndNoMatchBehaviorCreate_TheServerShouldReturnConflictAndNotOverwrite()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             using FhirResponse<Observation> createResponse = await _client.CreateAsync(observation);
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Id = existing.Id;
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Should not be saved</div>";
 
-            var exception = await Assert.ThrowsAsync<FhirClientException>(() => CreateOnlyClient().ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => NoMatchClient("create").ConditionalUpdateAsync(
                 observation2,
                 $"_id={existing.Id}&_lastUpdated=le2000-01-01"));
 
@@ -178,7 +178,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenADeletedResource_WhenUpsertingConditionallyWithItsIdAndNoMatchAndTheCreateOnlyHeader_TheServerShouldRecreateTheResource()
+        public async Task GivenAnExistingResource_WhenUpsertingConditionallyWithAnInvalidNoMatchBehavior_TheServerShouldReturnBadRequestAndNotOverwrite()
+        {
+            Observation existing = await CreateObservationAsync();
+
+            var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation2.Id = existing.Id;
+            observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Should not be saved</div>";
+
+            // An unrecognized value must not silently fall back to the overwriting default.
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => NoMatchClient("true").ConditionalUpdateAsync(
+                observation2,
+                $"_id={existing.Id}&_lastUpdated=le2000-01-01"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            await AssertUnchangedAsync(existing);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenADeletedResource_WhenUpsertingConditionallyWithItsIdAndNoMatchBehaviorCreate_TheServerShouldRecreateTheResource()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             using FhirResponse<Observation> createResponse = await _client.CreateAsync(observation);
@@ -189,7 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Id = createResponse.Resource.Id;
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Recreated</div>";
 
-            using FhirResponse<Observation> updateResponse = await CreateOnlyClient().ConditionalUpdateAsync(
+            using FhirResponse<Observation> updateResponse = await NoMatchClient("create").ConditionalUpdateAsync(
                 observation2,
                 $"identifier={Guid.NewGuid()}");
 
@@ -228,7 +247,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
-        public async Task GivenABatchWithAConditionalUpdateThatMatchesNothingForAnExistingIdAndTheCreateOnlyHeader_WhenPosted_ThenOnlyThatEntryConflicts(FhirBundleProcessingLogic processingLogic)
+        public async Task GivenABatchWithAConditionalUpdateThatMatchesNothingForAnExistingIdAndNoMatchBehaviorCreate_WhenPosted_ThenOnlyThatEntryConflicts(FhirBundleProcessingLogic processingLogic)
         {
             Observation existing = await CreateObservationAsync();
             string newId = Guid.NewGuid().ToString();
@@ -245,7 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using FhirResponse<Bundle> response = await CreateOnlyClient().PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic });
+            using FhirResponse<Bundle> response = await NoMatchClient("create").PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic });
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("409", response.Resource.Entry[0].Response.Status);
@@ -264,7 +283,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenATransactionWithAConditionalUpdateThatMatchesNothingForAnExistingIdAndTheCreateOnlyHeader_WhenPosted_ThenTheTransactionFailsAndNothingIsPersisted(FhirBundleProcessingLogic processingLogic)
+        public async Task GivenATransactionWithAConditionalUpdateThatMatchesNothingForAnExistingIdAndNoMatchBehaviorCreate_WhenPosted_ThenTheTransactionFailsAndNothingIsPersisted(FhirBundleProcessingLogic processingLogic)
         {
             Observation existing = await CreateObservationAsync();
             string newId = Guid.NewGuid().ToString();
@@ -280,7 +299,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
-                () => CreateOnlyClient().PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
+                () => NoMatchClient("create").PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
 
             Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
             await AssertUnchangedAsync(existing);
@@ -289,11 +308,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, readException.StatusCode);
         }
 
-        private TestFhirClient CreateOnlyClient()
+        private TestFhirClient NoMatchClient(string noMatchBehavior)
         {
-            // A clone has its own HttpClient, so the opt-in header doesn't leak into the shared fixture client.
+            // A clone has its own HttpClient, so the header doesn't leak into the shared fixture client.
             TestFhirClient client = _client.Clone();
-            client.HttpClient.DefaultRequestHeaders.Add(KnownHeaders.ConditionalUpdateCreateOnly, "true");
+            client.HttpClient.DefaultRequestHeaders.Add(KnownHeaders.ConditionalUpdateNoMatch, noMatchBehavior);
             return client;
         }
 

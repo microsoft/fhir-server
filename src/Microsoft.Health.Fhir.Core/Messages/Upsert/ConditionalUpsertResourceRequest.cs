@@ -18,22 +18,21 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
             ResourceElement resource,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             BundleResourceContext bundleResourceContext = null,
-            bool createOnlyOnNoMatch = false)
+            ConditionalUpdateNoMatchBehavior noMatchBehavior = ConditionalUpdateNoMatchBehavior.Upsert)
             : base(resource.InstanceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.EnumIsDefined(noMatchBehavior, nameof(noMatchBehavior));
             Resource = resource;
-            CreateOnlyOnNoMatch = createOnlyOnNoMatch;
+            NoMatchBehavior = noMatchBehavior;
         }
 
         public ResourceElement Resource { get; }
 
         /// <summary>
-        /// When true and the search finds no match, a resource with a client-supplied id is only created;
-        /// the request fails with a conflict instead of overwriting a live resource with that id.
-        /// When false (the default), the resource is upserted by id.
+        /// How the resource is saved when the search finds no match and the resource has a client-supplied id.
         /// </summary>
-        public bool CreateOnlyOnNoMatch { get; }
+        public ConditionalUpdateNoMatchBehavior NoMatchBehavior { get; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }

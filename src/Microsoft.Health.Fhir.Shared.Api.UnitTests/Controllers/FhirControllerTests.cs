@@ -522,10 +522,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData(null, false)]
-        [InlineData("false", false)]
-        [InlineData("true", true)]
-        public async Task GivenConditionalUpdateRequest_WhenCreateOnlyHeaderIsSpecified_ThenRequestCarriesTheOptIn(string headerValue, bool expectedCreateOnlyOnNoMatch)
+        [InlineData(null, ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("upsert", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("create", ConditionalUpdateNoMatchBehavior.Create)]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsSpecified_ThenRequestCarriesTheBehavior(string headerValue, ConditionalUpdateNoMatchBehavior expectedBehavior)
         {
             var resource = new Patient()
             {
@@ -545,7 +545,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
             if (headerValue != null)
             {
-                httpContext.Request.Headers[KnownHeaders.ConditionalUpdateCreateOnly] = headerValue;
+                httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = headerValue;
             }
 
             _fhirController.ControllerContext.HttpContext = httpContext;
@@ -559,7 +559,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _fhirController.ConditionalUpdate(resource);
 
             Assert.NotNull(request);
-            Assert.Equal(expectedCreateOnlyOnNoMatch, request.CreateOnlyOnNoMatch);
+            Assert.Equal(expectedBehavior, request.NoMatchBehavior);
+        }
+
+        [Fact]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsInvalid_ThenBadRequestIsThrownBeforeDispatch()
+        {
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = "true";
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _fhirController.ConditionalUpdate(new Patient { Id = Guid.NewGuid().ToString() }));
+
+            Assert.Empty(_mediator.ReceivedCalls());
         }
 
         [Fact]
