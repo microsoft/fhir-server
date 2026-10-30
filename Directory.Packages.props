@@ -16,6 +16,9 @@
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>10.0.13</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>7.7.2</OpenIddictPackageVersion>
+    <!-- OpenTelemetry core packages (SDK, API, hosting) must stay on one version. Azure.Monitor.OpenTelemetry.AspNetCore
+         only sets a minimum, so these direct pins raise the whole set to what OpenTelemetry.Instrumentation.EventCounters needs. -->
+    <OpenTelemetryPackageVersion>1.20.1</OpenTelemetryPackageVersion>
     <IgnixaPackageVersion>0.6.82</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -36,8 +39,9 @@
     <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.9" />
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
     <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.13" />
-    <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore -->
-    <PackageVersion Include="OpenTelemetry.Api" Version="1.20.1" />
+    <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore. Kept on the same
+         version as the other OpenTelemetry core packages; see OpenTelemetryPackageVersion. -->
+    <PackageVersion Include="OpenTelemetry.Api" Version="$(OpenTelemetryPackageVersion)" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
@@ -142,6 +146,11 @@
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Server.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="$(OpenIddictPackageVersion)" />
+    <PackageVersion Include="OpenTelemetry" Version="$(OpenTelemetryPackageVersion)" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="$(OpenTelemetryPackageVersion)" />
+    <!-- Must be 1.20.0-alpha.2 or later: earlier versions can deadlock while the meter provider is built
+         (open-telemetry/opentelemetry-dotnet-contrib#5638). Its minor version tracks OpenTelemetryPackageVersion. -->
+    <PackageVersion Include="OpenTelemetry.Instrumentation.EventCounters" Version="1.20.1-alpha.1" />
     <PackageVersion Include="Polly" Version="8.8.0" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
