@@ -6,6 +6,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Anonymizer.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -15,8 +16,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             AnonymizerEngine.InitializeFhirPathExtensionSymbols();
-
-            services.AddFactory<IScoped<IAnonymizer>>();
 
             services.Add<ExportAnonymizerFactory>()
                     .Transient()

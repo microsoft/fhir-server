@@ -6,11 +6,12 @@
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             ICosmosClientTestProvider testProvider,
             ILogger<CosmosDbHealthCheck> logger)
             : base(
-                  container,
+                  container.CreateMockScopeProviderFromScoped(),
                   configuration,
                   namedCosmosCollectionConfigurationAccessor,
                   testProvider,

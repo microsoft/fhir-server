@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -21,12 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     public class BulkDeleteOrchestratorJob : IJob
     {
         private readonly IQueueClient _queueClient;
-        private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly IScopeProvider<ISearchService> _searchService;
         private const string OperationCompleted = "Completed";
 
         public BulkDeleteOrchestratorJob(
             IQueueClient queueClient,
-            Func<IScoped<ISearchService>> searchService)
+            IScopeProvider<ISearchService> searchService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));

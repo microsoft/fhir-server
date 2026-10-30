@@ -9,8 +9,8 @@ using System.Linq;
 using System.Reflection;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             }
         }
 
+        /// <inheritdoc />
         public IScoped<IJob> Create(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
@@ -61,9 +62,17 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             if (_jobFactoryLookup.TryGetValue(jobInfo.GetJobTypeId() ?? -1, out var index))
             {
                 IScoped<IEnumerable<Func<IJob>>> scope = _jobFactories.Invoke();
-                IJob instance = scope.Value.ElementAt(index).Invoke();
-                _logger.LogJobInformation(jobInfo, "Created job instance {JobInstance}", instance.GetType().Name);
-                return new ScopedJob(instance, scope);
+                try
+                {
+                    IJob instance = scope.Value.ElementAt(index).Invoke();
+                    _logger.LogJobInformation(jobInfo, "Created job instance {JobInstance}", instance.GetType().Name);
+                    return new ScopedJob(instance, scope);
+                }
+                catch
+                {
+                    scope.Dispose();
+                    throw;
+                }
             }
 
             throw new NotSupportedException($"Unknown task definition. ID: {jobInfo.Id}, Type: {jobInfo.GetJobTypeId()}");

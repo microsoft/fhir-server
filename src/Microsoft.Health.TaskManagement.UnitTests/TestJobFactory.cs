@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Scoping;
 using NSubstitute;
 
 namespace Microsoft.Health.JobManagement.UnitTests

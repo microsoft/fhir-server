@@ -9,9 +9,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             s.Value.Returns(_capabilities);
 
             _provider = new InstantiatesCapabilityProvider(
-                () => s,
+                s.CreateMockScopeProviderFromScoped(),
                 Substitute.For<ILogger<InstantiatesCapabilityProvider>>());
         }
 

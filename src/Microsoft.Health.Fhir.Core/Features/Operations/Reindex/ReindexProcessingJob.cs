@@ -14,7 +14,6 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -22,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -52,9 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private static readonly AsyncPolicy _bulkUpdateRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
-        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterOperations _searchParameterOperations;
 
@@ -68,8 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private CancellationToken _cancellationToken;
 
         public ReindexProcessingJob(
-            Func<IScoped<ISearchService>> searchServiceFactory,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
             ILogger<ReindexProcessingJob> logger)
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
-            using var searchService = _searchServiceFactory();
+            using var searchService = _searchServiceFactory.Invoke();
             try
             {
                 return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHash, false, _cancellationToken, true);
@@ -231,19 +231,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var subRanges = await _timeoutRetries.ExecuteAsync(async () =>
             {
                 var numberOfSubRanges = (int)Math.Ceiling((double)_definition.MaximumNumberOfResourcesPerQuery / _batchSize);
-                using var searchService = _searchServiceFactory();
+                using var searchService = _searchServiceFactory.Invoke();
                 return await searchService.Value.GetSurrogateIdRanges(_definition.ResourceType, startId, endId, _batchSize, numberOfSubRanges, true, _cancellationToken, true);
             });
             _logger.LogJobInformation(_jobInfo, $"SQL reindex: numberOfSubRanges={subRanges.Count}");
 
-            using var store = _fhirDataStoreFactory();
+            using var store = _fhirDataStoreFactory.Invoke();
             foreach (var range in subRanges)
             {
                 _cancellationToken.ThrowIfCancellationRequested();
 
                 var resources = await _timeoutRetries.ExecuteAsync(async () =>
                 {
-                    using var searchService = _searchServiceFactory();
+                    using var searchService = _searchServiceFactory.Invoke();
                     return (await searchService.Value.SearchBySurrogateIdRange(_definition.ResourceType, range.StartId, range.EndId, _cancellationToken)).Results.Select(_ => _.Resource).ToList();
                 });
 
@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             _logger.LogJobInformation(_jobInfo, $"Cosmos reindex starts. BatchSize={_batchSize}");
 
-            using var store = _fhirDataStoreFactory();
+            using var store = _fhirDataStoreFactory.Invoke();
             string continuationToken = null;
 
             while (true)
@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate)
         {
-            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
+            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke();
             await store.Value.TryLogEvent(process, status, text, startDate, _cancellationToken);
         }
     }

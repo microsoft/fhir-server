@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -44,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         {
             _queueClient = Substitute.For<IQueueClient>();
             _searchService = Substitute.For<ISearchService>();
-            _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeFactory(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
+            _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeProvider(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
         }
 
         [Theory]
@@ -528,7 +527,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var orchestratorJobWithTruncatedIssue = new TestBulkUpdateOrchestratorJob(
                 _queueClient,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 Substitute.For<ILogger<BulkUpdateOrchestratorJob>>(),
                 testContext);
 
@@ -601,7 +600,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var orchestratorJobWithTruncatedIssue = new TestBulkUpdateOrchestratorJob(
                 _queueClient,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 Substitute.For<ILogger<BulkUpdateOrchestratorJob>>(),
                 testContext);
 

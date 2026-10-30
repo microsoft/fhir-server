@@ -49,11 +49,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
         public ReindexProcessingJobTests()
         {
-            Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
+            IScopeProvider<IFhirDataStore> fhirDataStoreScope = _fhirDataStore.CreateMockScopeProvider();
             _cancellationToken = _cancellationTokenSource.Token;
             _reindexProcessingJobTaskFactory = () =>
                  new ReindexProcessingJob(
-                     () => _searchService.CreateMockScope(),
+                     _searchService.CreateMockScopeProvider(),
                      fhirDataStoreScope,
                      _resourceWrapperFactory,
                      _searchParameterOperations,

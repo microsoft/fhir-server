@@ -18,7 +18,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -180,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     NullFhirCosmosQueryLogger.Instance),
                 _cosmosDataStoreConfiguration);
 
-            var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
+            var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<IScopeProvider<Container>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
             var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             ICosmosClientTestProvider testProvider = new CosmosClientReadWriteTestProvider();
@@ -191,7 +190,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             cosmosAccessor.TokenCredential.Returns(GetTokenCredential());
 
             var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, _cosmosDataStoreConfiguration, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
-            var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
+            Func<Container> containerFactory = () => _container;
+            var handler = new FhirCosmosResponseHandler(containerFactory.CreateMockScopeProvider(), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance);
             var documentClientInitializer = new FhirCosmosClientInitializer(
                 testProvider,
@@ -248,17 +248,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosDocumentQueryFactory = new CosmosQueryFactory(cosmosResponseProcessor, NullFhirCosmosQueryLogger.Instance);
 
-            var documentClient = new NonDisposingScope(_container);
+            var documentClient = _container.CreateMockScopeProvider();
 
             var mockQueueClientForSearchParams = Substitute.For<IQueueClient>();
             mockQueueClientForSearchParams.GetActiveJobsByQueueTypeAsync(Arg.Any<byte>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult((IReadOnlyList<JobInfo>)Array.Empty<JobInfo>()));
 
             _searchParameterStatusDataStore = new CosmosDbSearchParameterStatusDataStore(
-                () => documentClient,
+                documentClient,
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
-                () => mockQueueClientForSearchParams.CreateMockScope());
+                mockQueueClientForSearchParams.CreateMockScopeProvider());
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
@@ -293,9 +293,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor);
 
             _queueClient = new CosmosQueueClient(
-                () => _container.CreateMockScope(),
+                _container.CreateMockScopeProvider(),
                 new CosmosQueryFactory(Substitute.For<ICosmosResponseProcessor>(), Substitute.For<ICosmosQueryLogger>()),
-                new CosmosDbDistributedLockFactory(() => _container.CreateMockScope(), NullLogger<CosmosDbDistributedLock>.Instance),
+                new CosmosDbDistributedLockFactory(_container.CreateMockScopeProvider(), NullLogger<CosmosDbDistributedLock>.Instance),
                 retryExceptionPolicyFactory,
                 NullLogger<CosmosQueueClient>.Instance);
 
@@ -421,9 +421,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return _searchService;
             }
 
-            if (serviceType == typeof(Func<IScoped<ISearchService>>))
+            if (serviceType == typeof(IScopeProvider<ISearchService>))
             {
-                return _searchService.CreateMockScopeFactory();
+                return _searchService.CreateMockScopeProvider();
             }
 
             if (serviceType == typeof(SearchParameterDefinitionManager))

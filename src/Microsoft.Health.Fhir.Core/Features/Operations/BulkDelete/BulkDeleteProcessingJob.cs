@@ -13,7 +13,6 @@ using EnsureThat;
 using Medino;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
@@ -22,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using FhirJobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
@@ -31,17 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     [JobTypeId((int)JobType.BulkDeleteProcessing)]
     public class BulkDeleteProcessingJob : IJob
     {
-        private readonly Func<IScoped<IDeletionService>> _deleterFactory;
+        private readonly IScopeProvider<IDeletionService> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
-        private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly IScopeProvider<ISearchService> _searchService;
         private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
-            Func<IScoped<IDeletionService>> deleterFactory,
+            IScopeProvider<IDeletionService> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
-            Func<IScoped<ISearchService>> searchService,
+            IScopeProvider<ISearchService> searchService,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));

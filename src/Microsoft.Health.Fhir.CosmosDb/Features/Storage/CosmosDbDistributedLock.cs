@@ -11,9 +11,10 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.Scoping;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly LockDocument _lockDocument;
         private CancellationTokenSource _keepAliveCancellationSource;
         private Task _keepAliveTask;
-        private readonly Func<IScoped<Container>> _containerFactory;
+        private readonly IScopeProvider<Container> _containerFactory;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosDbDistributedLock"/> class.
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="containerFactory">The Cosmos Container factory</param>
         /// <param name="lockId">The id of the lock. The document created in the database will use this id and will be prefixed with <see cref="IdPrefix"/>.</param>
         /// <param name="logger">A logger instance</param>
-        public CosmosDbDistributedLock(Func<IScoped<Container>> containerFactory, string lockId, ILogger<CosmosDbDistributedLock> logger)
+        public CosmosDbDistributedLock(IScopeProvider<Container> containerFactory, string lockId, ILogger<CosmosDbDistributedLock> logger)
             : this(containerFactory, lockId, logger, DefaultLockDocumentTimeToLive)
         {
         }
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="lockId">The id of the lock. The document created in the database will use this ID will be prefixed with <see cref="IdPrefix"/>.</param>
         /// <param name="logger">A logger instance</param>
         /// <param name="lockDocumentTimeToLive">The time to live for the lock document. If the process crashes, the lock will be released after this amount of time</param>
-        public CosmosDbDistributedLock(Func<IScoped<Container>> containerFactory, string lockId, ILogger<CosmosDbDistributedLock> logger, TimeSpan lockDocumentTimeToLive)
+        public CosmosDbDistributedLock(IScopeProvider<Container> containerFactory, string lockId, ILogger<CosmosDbDistributedLock> logger, TimeSpan lockDocumentTimeToLive)
         {
             EnsureArg.IsNotNull(containerFactory, nameof(containerFactory));
             EnsureArg.IsNotNullOrWhiteSpace(lockId, nameof(lockId));
