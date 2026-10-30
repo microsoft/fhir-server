@@ -199,7 +199,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobError(ex, _jobInfo, $"Reindex processing job error occurred. FhirException: {ex.Message}.");
                 _result.Error = ex.Message;
-                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, false);
+                _result.IsCustomerCaused = ex is CustomerManagedKeyException;
+                throw new JobExecutionSoftFailureException(_result.Error, _result, ex, _result.IsCustomerCaused);
             }
             catch (OutOfMemoryException ex)
             {

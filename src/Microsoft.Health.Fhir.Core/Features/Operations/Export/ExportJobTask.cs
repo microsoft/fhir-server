@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -130,6 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _omittedIncludeResourceTypes.Clear();
 
             var existingFhirRequestContext = _contextAccessor.RequestContext;
+            bool destinationConnected = false;
 
             // Don't allow jobs to loop forever if they are failing.
             if (exportJobRecord.RestartCount > _exportJobConfiguration.MaxJobRestartCount)
@@ -188,6 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Connect to export destination using appropriate client.
                 await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
+                destinationConnected = true;
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -264,9 +267,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (DestinationConnectionException dce)
             {
-                _logger.LogInformation(dce, "[JobId:{JobId}] Can't connect to destination. The job will be marked as failed.", _exportJobRecord.Id);
+                _logger.LogInformation(dce, "[JobId:{JobId}] Export destination operation failed. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(
+                    dce.Message,
+                    dce.StatusCode,
+                    isCustomerCaused: !destinationConnected && (dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden || dce.StatusCode == HttpStatusCode.NotFound || dce.StatusCode == HttpStatusCode.BadRequest));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (ResourceNotFoundException rnfe)
@@ -280,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _logger.LogError(rnfe, "[JobId:{JobId}] Can't find specified resource. The job will be marked as failed.", _exportJobRecord.Id);
                 }
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (FailedToParseAnonymizationConfigurationException ex)
@@ -301,7 +307,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(ex, "[JobId:{JobId}] Cannot found anonymization configuration. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (AnonymizationConfigurationFetchException ex)
@@ -330,6 +336,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 // Let OOM bubble up to ExportProcessingJob for batch size reduction and retry.
                 throw;
+            }
+            catch (Exception ex) when (ex.IsCustomerCaused())
+            {
+                _logger.LogInformation(ex, "[JobId:{JobId}] Export failed due to a customer-caused error.", _exportJobRecord.Id);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, ex.ToString(), isCustomerCaused: true);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)
             {

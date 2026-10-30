@@ -17,6 +17,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -32,7 +33,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     [JobTypeId((int)JobType.ImportProcessing)]
     public class ImportProcessingJob : IJob
     {
-        private const string CancelledErrorMessage = "Import processing job is canceled.";
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         internal const string SurrogateIdsErrorMessage = "Unable to generate internal IDs. If the lastUpdated meta element is provided as input, reduce the number of resources with the same up to millisecond lastUpdated below 10,000.";
 
@@ -89,6 +89,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                if (!Uri.TryCreate(definition.ResourceLocation, UriKind.Absolute, out _))
+                {
+                    var error = new ImportJobErrorResult { ErrorMessage = "Input blob URI must be a valid absolute URI.", HttpStatusCode = HttpStatusCode.BadRequest };
+                    throw new JobExecutionException(error.ErrorMessage, error, true);
+                }
+
                 // Design of error writes is too complex. We do not need separate init and writes. Also, it leads to adding duplicate error records on job restart.
                 IImportErrorStore importErrorStore;
                 string errorFileName = GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id);
@@ -126,34 +132,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     await loadTask;
                 }
-                catch (OperationCanceledException oce)
+                catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogJobWarning(oce, jobInfo, nameof(OperationCanceledException));
+                    _logger.LogJobInformation(ex, jobInfo, "Import processing operation is canceled from cancellation token.");
                     throw;
+                }
+                catch (OperationCanceledException canceledEx)
+                {
+                    _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Import processing operation is canceled" };
+                    throw new JobExecutionException(canceledEx.Message, error, canceledEx, false);
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.Forbidden || ex.Status == (int)HttpStatusCode.Unauthorized)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
                     var error = new ImportJobErrorResult() { ErrorMessage = "Due to unauthorized request, import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
-                    throw new JobExecutionException(ex.Message, error, ex, false);
+                    throw new JobExecutionException(ex.Message, error, ex, true);
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
                     var error = new ImportJobErrorResult() { ErrorMessage = "Input file deleted, renamed, or moved during job. Import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
-                    throw new JobExecutionException(ex.Message, error, ex, false);
+                    throw new JobExecutionException(ex.Message, error, ex, true);
                 }
                 catch (IntegrationDataStoreException ex)
                 {
                     _logger.LogJobWarning(ex, jobInfo, "Failed to access input files.");
                     var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = ex.StatusCode };
-                    throw new JobExecutionException(ex.Message, error, ex, false);
+                    throw new JobExecutionException(ex.Message, error, ex, true);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogJobError(ex, jobInfo, "Generic exception. Failed to load data.");
                     var error = new ImportJobErrorResult() { ErrorMessage = "Generic exception. Failed to load data." };
-                    throw new JobExecutionException(ex.Message, error, ex, false);
+                    throw new JobExecutionException(ex.Message, error, ex, ex.IsCustomerCaused());
                 }
 
                 result.ClockMilliseconds = stopwatch.ElapsedMilliseconds;
@@ -164,23 +176,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 return JsonConvert.SerializeObject(result);
             }
-            catch (OperationCanceledException canceledEx)
+            catch (OperationCanceledException canceledEx) when (cancellationToken.IsCancellationRequested)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
-                var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
-                throw new JobExecutionException(canceledEx.Message, error, canceledEx, false);
+                throw;
             }
             catch (SqlException ex) when (ex.Number == FhirSqlErrorCodes.SurrogateIdCollision)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on Surrogate Id Collision. Most likely reason - too many input resources with the same last updated.");
                 var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex, false);
+                throw new JobExecutionException(ex.Message, error, ex, true);
             }
             catch (SqlException ex) when (ex.Number == SqlErrorCodes.Conflict)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on conflicts. Concurrent update attempts.");
-                var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex, false);
+                var error = new ImportJobErrorResult() { ErrorMessage = "Import failed due to duplicate resource keys or concurrent updates to the same resource. Remove duplicate resource keys from the input and avoid concurrent updates during import.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(ex.Message, error, ex, true);
             }
             catch (OverflowException ex)
             {
@@ -198,19 +209,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = "Error container name contains invalid characters. Only lowercase letters, numbers, and hyphens are allowed. The name must begin and end with a letter or a number. The name can't contain two consecutive hyphens.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(error.ErrorMessage, error, ex, false);
+                throw new JobExecutionException(error.ErrorMessage, error, ex, true);
             }
             catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name length is not within the permissible limits", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = "The error container name must be between 3 and 63 characters long.", HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(error.ErrorMessage, error, ex, false);
+                throw new JobExecutionException(error.ErrorMessage, error, ex, true);
+            }
+            catch (JobExecutionException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex, false);
+                throw new JobExecutionException(ex.Message, error, ex, ex.IsCustomerCaused());
             }
         }
 

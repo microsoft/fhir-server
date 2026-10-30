@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -757,6 +758,142 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // All of the ids should be present since it should have committed one last time after all the results were exported.
             CheckAllSingleIdFiles(KnownResourceTypes.Patient, 3, 0, 1);
+        }
+
+        [Fact]
+        public async Task GivenTooManySqlParameters_WhenExportProcessingExecutes_ThenFailureIsCustomerCaused()
+        {
+            // Arrange
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw new RequestNotValidException(Core.Resources.TooManyParameters));
+            var processingJob = CreateProcessingJob(_exportJobTask);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            var record = Assert.IsType<ExportJobRecord>(exception.Error);
+            Assert.Equal(HttpStatusCode.BadRequest, record.FailureDetails.FailureStatusCode);
+            Assert.Equal(Core.Resources.TooManyParameters, record.FailureDetails.FailureReason);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.Unauthorized, true)]
+        [InlineData(HttpStatusCode.Forbidden, true)]
+        [InlineData(HttpStatusCode.BadRequest, true)]
+        [InlineData(HttpStatusCode.NotFound, true)]
+        [InlineData(HttpStatusCode.PreconditionFailed, false)]
+        [InlineData(HttpStatusCode.InternalServerError, false)]
+        public async Task GivenDestinationConnectionFailure_WhenExportProcessingExecutes_ThenFailureClassificationIsPreserved(HttpStatusCode statusCode, bool isCustomerCaused)
+        {
+            // Arrange
+            var destinationClient = Substitute.For<IExportDestinationClient>();
+            destinationClient.ConnectAsync(Arg.Any<ExportJobConfiguration>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
+                .Returns<Task>(_ => throw new DestinationConnectionException("Cannot connect to storage.", statusCode));
+            var processingJob = CreateProcessingJob(CreateExportJobTask(exportDestinationClient: destinationClient));
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
+            Assert.Equal(statusCode, Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails.FailureStatusCode);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.NotFound)]
+        [InlineData(HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.PreconditionFailed)]
+        [InlineData(HttpStatusCode.InternalServerError)]
+        public async Task GivenDestinationCommitFailure_WhenExportProcessingExecutes_ThenFailureIsSystemCaused(HttpStatusCode statusCode)
+        {
+            // Arrange
+            _exportJobConfiguration.RetryDelayMilliseconds = 0;
+            var destinationClient = Substitute.For<IExportDestinationClient>();
+            destinationClient.Commit()
+                .Returns(_ => throw new DestinationConnectionException("Cannot commit exported data.", statusCode));
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns(CreateSearchResult());
+            var processingJob = CreateProcessingJob(CreateExportJobTask(exportDestinationClient: destinationClient));
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            var failure = Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails;
+            Assert.Equal(statusCode, failure.FailureStatusCode);
+            Assert.Equal("Cannot commit exported data.", failure.FailureReason);
+        }
+
+        [Fact]
+        public async Task GivenMissingAnonymizationConfiguration_WhenExportProcessingExecutes_ThenFailureIsCustomerCaused()
+        {
+            // Arrange
+            var record = CreateExportJobRecord(anonymizationConfigurationLocation: "missing-config");
+            var factory = Substitute.For<IAnonymizerFactory>();
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationNotFoundException("Configuration not found."));
+            var processingJob = CreateProcessingJob(CreateExportJobTask(anonymizerFactory: factory.CreateMockScope()));
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(record) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails.FailureStatusCode);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ExportClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenSearchFailure_WhenExportProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw failure);
+            var processingJob = CreateProcessingJob(_exportJobTask);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            var record = Assert.IsType<ExportJobRecord>(exception.Error);
+            Assert.Equal(OperationStatus.Failed, record.Status);
+            Assert.Equal(expectedCustomerCaused, record.FailureDetails.IsCustomerCaused);
+        }
+
+        private ExportProcessingJob CreateProcessingJob(IExportJobTask exportJobTask)
+        {
+            return new ExportProcessingJob(
+                () => exportJobTask,
+                () => _searchService.CreateMockScope(),
+                Substitute.For<IQueueClient>(),
+                NullLogger<ExportProcessingJob>.Instance);
         }
 
         [Fact]

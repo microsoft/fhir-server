@@ -21,6 +21,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -68,6 +69,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), CreateMockSearchServiceFactory(), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             await Assert.ThrowsAsync<OperationCanceledException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSerializedFailureDetails_WhenExportProcessingExecutes_ThenFailureClassificationIsPreserved(bool? isCustomerCaused)
+        {
+            // Arrange
+            var record = JObject.Parse(GenerateJobRecord(OperationStatus.Failed, "Export failed."));
+            if (isCustomerCaused.HasValue)
+            {
+                record["failureDetails"]["isCustomerCaused"] = isCustomerCaused.Value;
+            }
+
+            var processingJob = new ExportProcessingJob(MakeMockJob, CreateMockSearchServiceFactory(), new TestQueueClient(), NullLogger<ExportProcessingJob>.Instance);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(record.ToString()), CancellationToken.None));
+
+            // Assert
+            Assert.Equal(isCustomerCaused ?? false, exception.IsCustomerCaused);
+            var serializedResult = JObject.Parse(JsonConvert.SerializeObject(exception.Error));
+            if (isCustomerCaused == true)
+            {
+                Assert.True(serializedResult["failureDetails"]["isCustomerCaused"].Value<bool>());
+            }
+            else
+            {
+                Assert.Null(serializedResult["failureDetails"]["isCustomerCaused"]);
+            }
         }
 
         [Theory]

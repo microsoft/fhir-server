@@ -15,6 +15,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -24,7 +25,6 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
-using FhirJobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
+            var result = new BulkDeleteResult();
 
             try
             {
@@ -75,10 +76,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 };
 
                 _contextAccessor.RequestContext = fhirRequestContext;
-                var result = new BulkDeleteResult();
                 IDictionary<string, long> resourcesDeleted = new Dictionary<string, long>();
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
+                bool isCustomerCaused = false;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
                 void OnProfileResourceSkipped(string resourceType, long count)
@@ -107,31 +108,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
-                    bool conflictFound = false;
-
-                    if (ex.InnerException is AggregateException aggEx)
+                    foreach (var error in CustomerCausedExceptionExtensions.GetLeaves(ex))
                     {
-                        foreach (var innerEx in aggEx.InnerExceptions)
-                        {
-                            // Reindex conflicts (SQL/Cosmos) are thrown as Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException upstream.
-                            if (innerEx is IncompleteOperationException<Dictionary<string, long>> incompleteEx && incompleteEx.InnerException is FhirJobConflictException conflictEx)
-                            {
-                                result.Issues.Add($"JobConflictException: {conflictEx.Message}");
-                                exception = conflictEx;
-                                conflictFound = true;
-                            }
-                            else
-                            {
-                                result.Issues.Add($"{innerEx.GetType().Name}: {innerEx.Message}");
-                            }
-                        }
+                        result.Issues.Add($"{error.GetType().Name}: {error.Message}");
                     }
 
-                    if (!conflictFound)
+                    if (result.Issues.Count == 0)
                     {
                         result.Issues.Add(ex.Message);
-                        exception = ex;
                     }
+
+                    exception = ex;
+                    isCustomerCaused = ex.IsCustomerCaused();
+                }
+                catch (Exception ex) when (ex.IsCustomerCaused())
+                {
+                    result.Issues.Add($"{ex.GetType().Name}: {ex.Message}");
+                    exception = ex;
+                    isCustomerCaused = true;
                 }
 
                 foreach (var (key, value) in resourcesDeleted)
@@ -151,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, isCustomerCaused);
                 }
 
                 if (types.Count > 1)
@@ -167,6 +161,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 }
 
                 return JsonConvert.SerializeObject(result);
+            }
+            catch (Exception ex) when (ex is not JobExecutionException && ex.IsCustomerCaused())
+            {
+                result.Issues.Add($"{ex.GetType().Name}: {ex.Message}");
+                throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, ex, true);
             }
             finally
             {

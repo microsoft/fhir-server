@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
+            Assert.True(jobExecutionException.IsCustomerCaused);
 
             _ = mediator.Received().PublishAsync(
                 Arg.Is<ImportJobMetricsNotification>(
@@ -131,6 +132,186 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                                callerIpAddress: default,
                                callerClaims: default);
             }
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("relative-blob")]
+        public async Task GivenMissingOrInvalidBlobUri_WhenOrchestratorExecutes_ThenFailureIsCustomerCaused(string blobUri)
+        {
+            // Arrange
+            var input = CreateInput();
+            input.Input[0].Url = blobUri == null ? null : new Uri(blobUri, UriKind.Relative);
+            var job = CreateOrchestratorJob(Substitute.For<IIntegrationDataStoreClient>(), Substitute.For<IQueueClient>());
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(input) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ImportJobErrorResult>(exception.Error).HttpStatusCode);
+        }
+
+        [Theory]
+        [InlineData("before")]
+        [InlineData("validation")]
+        [InlineData("enqueue")]
+        public async Task GivenCancellation_WhenOrchestratorExecutes_ThenCancellationIsPropagated(string cancellationStage)
+        {
+            // Arrange
+            using var cancellationSource = new CancellationTokenSource();
+            var canceled = new OperationCanceledException(cancellationSource.Token);
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                    {
+                        if (cancellationStage == "validation")
+                        {
+                            cancellationSource.Cancel();
+                        }
+
+                        return cancellationStage == "validation"
+                            ? Task.FromException<Dictionary<string, object>>(canceled)
+                            : Task.FromResult(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L });
+                    });
+            var queue = Substitute.For<IQueueClient>();
+            queue.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ =>
+                    {
+                        cancellationSource.Cancel();
+                        throw canceled;
+                    });
+            var job = CreateOrchestratorJob(client, queue);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+            if (cancellationStage == "before")
+            {
+                cancellationSource.Cancel();
+            }
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => job.ExecuteAsync(jobInfo, cancellationSource.Token));
+
+            // Assert
+            Assert.Equal(cancellationSource.Token, exception.CancellationToken);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenJobExecutionException_WhenOrchestratorExecutes_ThenFailureClassificationIsPreserved(bool isCustomerCaused)
+        {
+            // Arrange
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            var error = new ImportJobErrorResult { ErrorMessage = "Input failure.", HttpStatusCode = HttpStatusCode.BadRequest };
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns<Task<Dictionary<string, object>>>(_ => throw new JobExecutionException(error.ErrorMessage, error, isCustomerCaused));
+            var job = CreateOrchestratorJob(client, Substitute.For<IQueueClient>());
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
+            Assert.Same(error, exception.Error);
+        }
+
+        [Fact]
+        public async Task GivenUnrelatedCancellationDuringEnqueue_WhenOrchestratorExecutes_ThenFailureIsSystemCaused()
+        {
+            // Arrange
+            var canceled = new OperationCanceledException(CancellationToken.None);
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L });
+            var queue = Substitute.For<IQueueClient>();
+            queue.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw canceled);
+            var mediator = Substitute.For<IMediator>();
+            var job = CreateOrchestratorJob(client, queue, mediator);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Equal(HttpStatusCode.InternalServerError, error.HttpStatusCode);
+            Assert.Equal(canceled.Message, error.ErrorMessage);
+            await mediator.Received(1).PublishAsync(
+                Arg.Is<ImportJobMetricsNotification>(notification => notification.Status == JobStatus.Failed.ToString()),
+                CancellationToken.None);
+            await mediator.DidNotReceive().PublishAsync(
+                Arg.Is<ImportJobMetricsNotification>(notification => notification.Status == JobStatus.Cancelled.ToString()),
+                CancellationToken.None);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenValidationFailure_WhenOrchestratorExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns<Task<Dictionary<string, object>>>(_ => throw failure);
+            var job = CreateOrchestratorJob(client, Substitute.For<IQueueClient>());
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Contains(failure.Message, error.ErrorDetails ?? error.ErrorMessage);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenEnqueueFailure_WhenOrchestratorExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L });
+            var queue = Substitute.For<IQueueClient>();
+            queue.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+            var job = CreateOrchestratorJob(client, queue);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            Assert.Contains(failure.Message, Assert.IsType<ImportJobErrorResult>(exception.Error).ErrorDetails);
+        }
+
+        private static ImportOrchestratorJobDefinition CreateInput()
+        {
+            return new ImportOrchestratorJobDefinition
+            {
+                BaseUri = new Uri("http://dummy"),
+                RequestUri = new Uri("http://dummy"),
+                Input = new List<InputResource> { new InputResource { Type = "Patient", Url = new Uri("http://dummy") } },
+            };
+        }
+
+        private static ImportOrchestratorJob CreateOrchestratorJob(IIntegrationDataStoreClient client, IQueueClient queue, IMediator mediator = null)
+        {
+            return new ImportOrchestratorJob(
+                mediator ?? Substitute.For<IMediator>(),
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                client,
+                queue,
+                Options.Create(new ImportJobConfiguration()),
+                NullLoggerFactory.Instance,
+                Substitute.For<IAuditLogger>());
         }
 
         [InlineData(ImportMode.InitialLoad)]
