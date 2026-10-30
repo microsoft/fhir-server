@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -51,6 +52,26 @@ public class ScopeProviderTests
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
 
         ScopedFactoryAssert.NotRetainedByRoot<object>(provider, nameof(Object));
+    }
+
+    [Fact]
+    public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenPayloadAndChildProviderAreCollectable()
+    {
+        var services = new ServiceCollection();
+        services.AddOwnedScopes();
+        services.AddScoped(child => new ScopedPayload(child));
+        using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+        IScopeProvider<ScopedPayload> factory = provider.GetRequiredService<IScopeProvider<ScopedPayload>>();
+
+        (WeakReference payload, WeakReference childProvider) = CreateDisposedPayload(factory);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.False(payload.IsAlive, "The live root or factory retained the scoped payload.");
+        Assert.False(childProvider.IsAlive, "The live root or factory retained the disposed child provider.");
+        GC.KeepAlive(factory);
+        GC.KeepAlive(provider);
     }
 
     [Fact]
@@ -114,5 +135,22 @@ public class ScopeProviderTests
         using ServiceProvider provider = services.BuildServiceProvider();
 
         Assert.Single(provider.GetServices<IScopeProvider<object>>());
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (WeakReference Payload, WeakReference ChildProvider) CreateDisposedPayload(IScopeProvider<ScopedPayload> factory)
+    {
+        using IScoped<ScopedPayload> scope = factory.Invoke();
+        return (new WeakReference(scope.Value), new WeakReference(scope.Value.Provider));
+    }
+
+    private sealed class ScopedPayload
+    {
+        public ScopedPayload(IServiceProvider provider)
+        {
+            Provider = provider;
+        }
+
+        public IServiceProvider Provider { get; }
     }
 }

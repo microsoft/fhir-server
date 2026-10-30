@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -79,6 +80,29 @@ public class JobFactoryTests
         factory.Received(1).Invoke();
     }
 
+    [Fact]
+    public async Task GivenTwoJobs_WhenFirstExecutionScopeIsDisposed_ThenSecondJobRemainsUsable()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<ScopedJobDependency>();
+        services.AddScoped<Func<IJob>>(provider => () => new ScopeAwareJob(provider.GetRequiredService<ScopedJobDependency>()));
+        using ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+        IJobFactory jobFactory = new JobFactory(
+            new ScopeProvider<IEnumerable<Func<IJob>>>(serviceProvider),
+            NullLogger<JobFactory>.Instance);
+
+        using IScoped<IJob> firstScope = jobFactory.Create(CreateJobInfo());
+        using IScoped<IJob> secondScope = jobFactory.Create(CreateJobInfo());
+        var firstJob = Assert.IsType<ScopeAwareJob>(firstScope.Value);
+        var secondJob = Assert.IsType<ScopeAwareJob>(secondScope.Value);
+
+        firstScope.Dispose();
+
+        Assert.True(firstJob.Dependency.IsDisposed);
+        Assert.Equal("Done", await secondJob.ExecuteAsync(CreateJobInfo(), CancellationToken.None));
+    }
+
     private static IScoped<IEnumerable<Func<IJob>>> CreateScope(Func<IJob> createJob)
     {
         var scope = Substitute.For<IScoped<IEnumerable<Func<IJob>>>>();
@@ -99,5 +123,32 @@ public class JobFactoryTests
     private sealed class TestJob : IJob
     {
         public Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken) => Task.FromResult("Done");
+    }
+
+    [JobTypeId(999)]
+    private sealed class ScopeAwareJob : IJob
+    {
+        public ScopeAwareJob(ScopedJobDependency dependency)
+        {
+            Dependency = dependency;
+        }
+
+        public ScopedJobDependency Dependency { get; }
+
+        public Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        {
+            ObjectDisposedException.ThrowIf(Dependency.IsDisposed, Dependency);
+            return Task.FromResult("Done");
+        }
+    }
+
+    private sealed class ScopedJobDependency : IDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
     }
 }

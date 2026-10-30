@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
@@ -420,6 +421,102 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber} > 5");
             Assert.True(dequeueErrorNumber > 5, $"dequeueErrorNumber={dequeueErrorNumber} > 5");
             Assert.True(heartbeatErrorNumber > 5, $"heartbeatErrorNumber={heartbeatErrorNumber} > 5");
+        }
+
+        [Theory]
+        [InlineData("success", JobStatus.Completed)]
+        [InlineData("failure", JobStatus.Failed)]
+        [InlineData("cancellation", JobStatus.Cancelled)]
+        public async Task GivenJobExecutionIsAsync_WhenExecutionEnds_ThenJobHandleLivesUntilCompletionAndIsDisposed(string outcome, JobStatus expectedStatus)
+        {
+            var queueClient = new TestQueueClient();
+            JobInfo jobInfo = (await queueClient.EnqueueAsync(0, ["job"], null, false, CancellationToken.None)).Single();
+            var executionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var continueExecution = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var executionFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var factory = new CountingJobFactory(async _ =>
+            {
+                executionStarted.TrySetResult();
+
+                try
+                {
+                    await continueExecution.Task;
+                    return outcome switch
+                    {
+                        "success" => "Done",
+                        "failure" => throw new InvalidOperationException("Job failed."),
+                        "cancellation" => throw new OperationCanceledException("Job cancelled."),
+                        _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
+                    };
+                }
+                finally
+                {
+                    executionFinished.TrySetResult();
+                }
+            });
+            var jobHosting = new JobHosting(queueClient, factory, new TestJobMetricFactory(), _logger)
+            {
+                PollingFrequencyInSeconds = 0,
+                JobHeartbeatIntervalInSeconds = 60,
+            };
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            Task hostingTask = jobHosting.ExecuteAsync(0, 1, "test", cancellationTokenSource);
+
+            try
+            {
+                await executionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Equal(0, factory.Handle.DisposeCount);
+
+                continueExecution.TrySetResult();
+                await executionFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                continueExecution.TrySetResult();
+                cancellationTokenSource.Cancel();
+                await hostingTask.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.Equal(expectedStatus, jobInfo.Status);
+            Assert.Equal(1, factory.Handle.DisposeCount);
+        }
+
+        private sealed class CountingJobFactory : IJobFactory
+        {
+            private readonly Func<CancellationToken, Task<string>> _execute;
+
+            public CountingJobFactory(Func<CancellationToken, Task<string>> execute)
+            {
+                _execute = execute;
+            }
+
+            public CountingJobHandle Handle { get; private set; }
+
+            public IScoped<IJob> Create(JobInfo jobInfo)
+            {
+                Handle = new CountingJobHandle(new TestJob(_execute));
+                return Handle;
+            }
+        }
+
+        private sealed class CountingJobHandle : IScoped<IJob>
+        {
+            private int _disposeCount;
+
+            public CountingJobHandle(IJob value)
+            {
+                Value = value;
+            }
+
+            public IJob Value { get; }
+
+            public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+            public void Dispose()
+            {
+                Interlocked.Increment(ref _disposeCount);
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Medino;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -1727,6 +1728,80 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.Equal("anonymized-resource", exportedValue);
             Assert.True(capturedSearch);
+        }
+
+        [Theory]
+        [InlineData(OperationStatus.Completed)]
+        [InlineData(OperationStatus.Failed)]
+        [InlineData(OperationStatus.Canceled)]
+        public async Task GivenAnonymizedExport_WhenAwaitingWork_ThenScopeLivesUntilWorkEnds(OperationStatus outcome)
+        {
+            // Arrange
+            SetupExportJobRecordAndOperationDataStore(CreateExportJobRecord(anonymizationConfigurationLocation: "config"));
+            SetupExportJobRecordAndOperationDataStore(_exportJobRecord, CancellationToken.None);
+            var factory = Substitute.For<IAnonymizerFactory, IDisposable>();
+            var anonymizer = Substitute.For<IAnonymizer>();
+            var creation = new TaskCompletionSource<IAnonymizer>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var searchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var search = new TaskCompletionSource<SearchResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            bool usedAnonymizer = false;
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken).Returns(creation.Task);
+            anonymizer.Anonymize(Arg.Any<ResourceElement>()).Returns(call =>
+            {
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                usedAnonymizer = true;
+                return call.Arg<ResourceElement>();
+            });
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true).Returns(_ =>
+                {
+                    searchStarted.SetResult();
+                    return search.Task;
+                });
+            using var root = new ServiceCollection()
+                .AddScoped<IAnonymizerFactory>(_ => factory)
+                .BuildServiceProvider();
+            var job = CreateExportJobTask(anonymizerFactory: new ScopeProvider<IAnonymizerFactory>(root));
+
+            // Act
+            Task execution = job.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            try
+            {
+                Assert.False(execution.IsCompleted);
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                creation.SetResult(anonymizer);
+                await searchStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                if (outcome == OperationStatus.Canceled)
+                {
+                    _cancellationTokenSource.Cancel();
+                    search.SetCanceled(_cancellationToken);
+                }
+                else if (outcome == OperationStatus.Failed)
+                {
+                    search.SetException(new InvalidOperationException("Search failed."));
+                }
+                else
+                {
+                    search.SetResult(CreateSearchResult(new[] { CreateSearchResultEntry("1", "Patient") }));
+                }
+
+                await execution.WaitAsync(TimeSpan.FromSeconds(10));
+
+                // Assert
+                Assert.Equal(outcome, _exportJobRecord.Status);
+                Assert.Equal(outcome == OperationStatus.Completed, usedAnonymizer);
+                ((IDisposable)factory).Received(1).Dispose();
+            }
+            finally
+            {
+                creation.TrySetResult(anonymizer);
+                search.TrySetResult(CreateSearchResult());
+                await execution.WaitAsync(TimeSpan.FromSeconds(10));
+            }
         }
 
         [Theory]

@@ -3,15 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Web.UnitTests
@@ -21,24 +24,36 @@ namespace Microsoft.Health.Fhir.Web.UnitTests
     public class StartupScopedFactoryTests
     {
         [Fact]
-        public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenWrapperIsNotRetained()
+        public async Task GivenTaskHostingEnabled_WhenResolvingScopes_ThenRealJobHostingGraphIsCallerOwned()
         {
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
             {
                 { "DataStore", "SqlServer" },
                 { "TaskHosting:Enabled", "true" },
                 { "Telemetry:Provider", "None" },
+                { "FhirServer:Security:Authentication:Authority", "https://offline.invalid" },
+                { "FhirServer:Security:Authentication:Audience", "https://fhir.offline.invalid" },
+                { "SqlServer:ConnectionString", "Server=localhost;Initial Catalog=offline-scoping;Integrated Security=true;TrustServerCertificate=true" },
             }).Build();
-            var services = new ServiceCollection();
+            IServiceCollection services = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true }).Services;
+            services.AddSingleton(configuration);
+            services.AddLogging();
             new Startup(configuration).ConfigureServices(services);
-            services.AddScoped(_ => new JobHosting(
-                Substitute.For<IQueueClient>(),
-                Substitute.For<IJobFactory>(),
-                Substitute.For<IJobMetricFactory>(),
-                NullLogger<JobHosting>.Instance));
-            using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+            await using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
 
             ScopedFactoryAssert.NotRetainedByRoot<JobHosting>(provider, nameof(JobHosting));
+
+            IScopeProvider<JobHosting> factory = provider.GetRequiredService<IScopeProvider<JobHosting>>();
+            using IScoped<JobHosting> first = factory.Invoke();
+            using IScoped<JobHosting> second = factory.Invoke();
+            JobHosting secondValue = Assert.IsType<JobHosting>(second.Value);
+
+            Assert.IsType<JobHosting>(first.Value);
+            Assert.NotSame(first.Value, secondValue);
+            first.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() => first.Value);
+            Assert.Same(secondValue, second.Value);
         }
     }
 }
