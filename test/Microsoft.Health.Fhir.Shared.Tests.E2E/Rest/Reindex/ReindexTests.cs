@@ -673,24 +673,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
             // Create reindex job targeting both search parameters
-            var parameters = new Parameters
-            {
-                Parameter = new List<Parameters.ParameterComponent>
-                {
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerQuery",
-                        Value = new Integer(10000),
-                    },
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerWrite",
-                        Value = new Integer(1000),
-                    },
-                },
-            };
-
-            value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
             Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
             Assert.NotNull(value.jobUri);
@@ -729,24 +712,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
             // Create reindex job targeting both search parameters
-            var parameters = new Parameters
-            {
-                Parameter = new List<Parameters.ParameterComponent>
-                {
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerQuery",
-                        Value = new Integer(10000),
-                    },
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerWrite",
-                        Value = new Integer(1000),
-                    },
-                },
-            };
-
-            value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
             Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
             Assert.NotNull(value.jobUri);
@@ -784,24 +750,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.NotNull(upperCaseParam);
 
             // Create reindex job targeting both case-variant search parameters
-            var parameters = new Parameters
-            {
-                Parameter = new List<Parameters.ParameterComponent>
-                {
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerQuery",
-                        Value = new Integer(10000),
-                    },
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerWrite",
-                        Value = new Integer(1000),
-                    },
-                },
-            };
-
-            value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
             Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
             Assert.NotNull(value.jobUri);
@@ -840,24 +789,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.NotNull(specimenStatusParam);
 
             // Create reindex job
-            var parameters = new Parameters
-            {
-                Parameter = new List<Parameters.ParameterComponent>
-                {
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerQuery",
-                        Value = new Integer(10000),
-                    },
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerWrite",
-                        Value = new Integer(1000),
-                    },
-                },
-            };
-
-            value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
             Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
             Assert.NotNull(value.jobUri);
@@ -914,24 +846,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _output.WriteLine($"Created search parameter with code {searchParam.Code} and ID {searchParam.Id}");
 
             // Step 3: Reindex to index the newly created search parameter
-            var reindexParams = new Parameters
-            {
-                Parameter = new List<Parameters.ParameterComponent>
-                {
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerQuery",
-                        Value = new Integer(10000),
-                    },
-                    new Parameters.ParameterComponent
-                    {
-                        Name = "maximumNumberOfResourcesPerWrite",
-                        Value = new Integer(1000),
-                    },
-                },
-            };
-
-            reindexRequest1 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
+            reindexRequest1 = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
             Assert.Equal(HttpStatusCode.Created, reindexRequest1.response.Response.StatusCode);
             Assert.NotNull(reindexRequest1.jobUri);
             _output.WriteLine("Started first reindex job to index the new search parameter");
@@ -957,7 +872,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _output.WriteLine($"Deleted search parameter {searchParam.Code} (ID: {searchParam.Id})");
 
             // Step 6: Reindex to remove the search parameter from the index
-            reindexRequest2 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
+            reindexRequest2 = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
             Assert.Equal(HttpStatusCode.Created, reindexRequest2.response.Response.StatusCode);
             Assert.NotNull(reindexRequest2.jobUri);
             _output.WriteLine("Started second reindex job to remove the deleted search parameter");
