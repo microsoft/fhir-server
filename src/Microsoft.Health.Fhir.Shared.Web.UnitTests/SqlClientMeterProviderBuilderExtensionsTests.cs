@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Diagnostics.Tracing;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,11 +36,14 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         {
             var instruments = new ConcurrentDictionary<string, Instrument>();
             var values = new ConcurrentDictionary<string, double>();
+            bool capturing = false;
             using var listener = new MeterListener
             {
                 InstrumentPublished = (instrument, meterListener) =>
                 {
-                    if (instrument.Meter.Name == EventCountersMeterName)
+                    // The EventCounters meter is process-wide, so instruments created by earlier meter providers are published when the
+                    // listener starts. Only instruments created by the provider below count.
+                    if (Volatile.Read(ref capturing) && instrument.Meter.Name == EventCountersMeterName)
                     {
                         instruments[instrument.Name] = instrument;
                         meterListener.EnableMeasurementEvents(instrument);
@@ -48,6 +52,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             };
             listener.SetMeasurementEventCallback<double>((instrument, value, tags, state) => values[instrument.Name] = value);
             listener.Start();
+            Volatile.Write(ref capturing, true);
 
             using (MeterProvider meterProvider = Sdk.CreateMeterProviderBuilder().AddSqlClientConnectionPoolInstrumentation().Build())
             {
