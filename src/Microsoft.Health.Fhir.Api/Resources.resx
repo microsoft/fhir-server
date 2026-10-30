@@ -508,4 +508,8 @@
   <data name="DuplicateSearchParamCodesAndUrlsInBundle" xml:space="preserve">
     <value>Input search parameters have duplicate codes [{0}] and Urls [{1}].</value>
   </data>
+  <data name="InvalidConditionalUpdateNoMatchHeader" xml:space="preserve">
+    <value>The value '{1}' of header '{0}' is not valid. Supported values are 'create' and 'upsert'.</value>
+    <comment>{0} is the header name; {1} is the supplied value.</comment>
+  </data>
 </root>

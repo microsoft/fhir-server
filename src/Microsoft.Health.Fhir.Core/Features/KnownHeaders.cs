@@ -41,5 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string ConditionalQueryProcessingLogic = "x-conditionalquery-processing-logic";
 
         public const string QueryCacheSetting = "x-ms-query-cache";
+
+        /// <summary>
+        /// Selects how a conditional update whose search finds no match, but whose body has an id, is applied:
+        /// "upsert" (default) overwrites a live resource with that id; "create" only creates it and returns 409 Conflict if it exists.
+        /// </summary>
+        public const string ConditionalUpdateNoMatch = "x-ms-conditional-update-no-match";
     }
 }

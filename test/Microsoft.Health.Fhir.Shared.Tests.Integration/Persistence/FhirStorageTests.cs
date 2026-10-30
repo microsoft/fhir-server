@@ -515,6 +515,136 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
+        public async Task GivenANewId_WhenUpsertingCreateOnly_ThenTheResourceIsCreated()
+        {
+            string id = Guid.NewGuid().ToString();
+
+            SaveOutcome result = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id), createOnly: true));
+
+            Assert.Equal(SaveOutcomeType.Created, result.Outcome);
+            Assert.Equal(id, result.RawResourceElement.Id);
+            Assert.Equal("1", result.RawResourceElement.VersionId);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAnExistingResource_WhenUpsertingCreateOnly_ThenConflictIsReturnedAndTheResourceIsNotModified(bool sameContent)
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+
+            // Identical content must also conflict: the stored resource was not selected by the condition, so it must not be touched.
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, sameContent ? null : 99), createOnly: true)));
+
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal("1", current.VersionId);
+            Assert.Equal(67, ((Quantity)current.ToPoco<Observation>(Deserializers.ResourceDeserializer).Value).Value);
+        }
+
+        [Fact]
+        public async Task GivenACreateOnlyConflict_WhenUpsertingTheSameIdWithoutCreateOnly_ThenTheResourceIsUpdated()
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, 99), createOnly: true)));
+
+            SaveOutcome result = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, 99)));
+
+            Assert.Equal(SaveOutcomeType.Updated, result.Outcome);
+            Assert.Equal("2", result.RawResourceElement.VersionId);
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal(99, ((Quantity)current.ToPoco<Observation>(Deserializers.ResourceDeserializer).Value).Value);
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.SoftDelete)]
+        [InlineData(DeleteOperation.HardDelete)]
+        public async Task GivenADeletedResource_WhenUpsertingCreateOnly_ThenTheResourceIsRecreated(DeleteOperation deleteOperation)
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+            await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), deleteOperation);
+
+            SaveOutcome result = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, 99), createOnly: true));
+
+            Assert.Equal(id, result.RawResourceElement.Id);
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal(result.RawResourceElement.VersionId, current.VersionId);
+            Assert.Equal(99, ((Quantity)current.ToPoco<Observation>(Deserializers.ResourceDeserializer).Value).Value);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAMergeWithACreateOnlyConflict_WhenMerging_ThenOnlyTheConflictFailsUnlessItIsABundleTransaction(bool isBundleTransaction)
+        {
+            string existingId = Guid.NewGuid().ToString();
+            string updatedId = Guid.NewGuid().ToString();
+            string newId = Guid.NewGuid().ToString();
+            await _dataStore.MergeAsync([CreateObservationMergeOperation(existingId), CreateObservationMergeOperation(updatedId)], CancellationToken.None);
+
+            ResourceWrapperOperation conflicting = CreateObservationMergeOperation(existingId, createOnly: true, narrative: ContentUpdated);
+            ResourceWrapperOperation regularUpdate = CreateObservationMergeOperation(updatedId, narrative: ContentUpdated);
+            ResourceWrapperOperation newCreate = CreateObservationMergeOperation(newId, createOnly: true);
+
+            MergeOutcome outcome = await _dataStore.MergeAsync([conflicting, regularUpdate, newCreate], new MergeOptions(isBundleTransaction: isBundleTransaction), CancellationToken.None);
+
+            DataStoreOperationOutcome conflictOutcome = outcome.Results[conflicting.GetIdentifier()];
+            Assert.False(conflictOutcome.IsOperationSuccessful);
+            Assert.IsType<ResourceConflictException>(conflictOutcome.Exception);
+            Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", existingId), CancellationToken.None)).Version);
+
+            if (isBundleTransaction)
+            {
+                // Atomic: one failure means nothing in the batch is persisted.
+                Assert.Equal(MergeOutcomeFinalState.CompletedWithFailures, outcome.State);
+                Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", updatedId), CancellationToken.None)).Version);
+                Assert.Null(await _dataStore.GetAsync(new ResourceKey("Observation", newId), CancellationToken.None));
+            }
+            else
+            {
+                Assert.Equal(SaveOutcomeType.Updated, outcome.Results[regularUpdate.GetIdentifier()].UpsertOutcome.OutcomeType);
+                Assert.Equal(SaveOutcomeType.Created, outcome.Results[newCreate.GetIdentifier()].UpsertOutcome.OutcomeType);
+                Assert.Equal("2", (await _dataStore.GetAsync(new ResourceKey("Observation", updatedId), CancellationToken.None)).Version);
+                Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", newId), CancellationToken.None)).Version);
+            }
+        }
+
+        [Fact]
+        public async Task GivenConcurrentCreateOnlyUpsertsForTheSameNewId_WhenSaving_ThenExactlyOneSucceedsAndTheOthersConflict()
+        {
+            string id = Guid.NewGuid().ToString();
+            const int attempts = 5;
+
+            Task<SaveOutcome>[] tasks = Enumerable.Range(0, attempts)
+                .Select(i => Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, i), createOnly: true)))
+                .ToArray();
+
+            var succeeded = new List<SaveOutcome>();
+            var conflicts = 0;
+            foreach (Task<SaveOutcome> task in tasks)
+            {
+                try
+                {
+                    succeeded.Add(await task);
+                }
+                catch (ResourceConflictException)
+                {
+                    conflicts++;
+                }
+            }
+
+            SaveOutcome winner = Assert.Single(succeeded);
+            Assert.Equal(SaveOutcomeType.Created, winner.Outcome);
+            Assert.Equal(attempts - 1, conflicts);
+            Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", id), CancellationToken.None)).Version);
+        }
+
+        [Fact]
         public async Task GivenAResourceWithNoHistory_WhenFetchingByVersionId_ThenReadWorksCorrectly()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -1199,13 +1329,46 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        private ResourceWrapper CreateObservationResourceWrapper(string observationId, bool setRawResourceNull = false)
+        private static ResourceElement CreateWeightObservation(string id, decimal? value = null)
+        {
+            Observation observation = Samples.GetJsonSample("Weight").ToPoco<Observation>();
+            observation.Id = id;
+            if (value.HasValue)
+            {
+                observation.Value = new Quantity(value.Value, "kg");
+            }
+
+            return observation.ToResourceElement();
+        }
+
+        private ResourceWrapperOperation CreateObservationMergeOperation(string observationId, bool createOnly = false, string narrative = null)
+        {
+            return new ResourceWrapperOperation(
+                CreateObservationResourceWrapper(observationId, narrative: narrative),
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false,
+                keepVersion: false,
+                bundleResourceContext: null,
+                createOnly: createOnly);
+        }
+
+        private ResourceWrapper CreateObservationResourceWrapper(string observationId, bool setRawResourceNull = false, string narrative = null)
         {
             Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             observationResource.Id = observationId;
             observationResource.VersionId = "1";
             observationResource.Meta ??= new Meta();
             observationResource.Meta.LastUpdated = DateTimeOffset.UtcNow;
+            if (narrative != null)
+            {
+                observationResource.Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div>{narrative}</div>",
+                };
+            }
 
             var resourceElement = observationResource.ToResourceElement();
             RawResource rawResource;

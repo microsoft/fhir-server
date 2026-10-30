@@ -521,6 +521,60 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
         }
 
+        [Theory]
+        [InlineData(null, ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("upsert", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("create", ConditionalUpdateNoMatchBehavior.Create)]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsSpecified_ThenRequestCarriesTheBehavior(string headerValue, ConditionalUpdateNoMatchBehavior expectedBehavior)
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = headerValue;
+            }
+
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            var request = default(ConditionalUpsertResourceRequest);
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Do<ConditionalUpsertResourceRequest>(x => request = x),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
+
+            await _fhirController.ConditionalUpdate(resource);
+
+            Assert.NotNull(request);
+            Assert.Equal(expectedBehavior, request.NoMatchBehavior);
+        }
+
+        [Fact]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsInvalid_ThenBadRequestIsThrownBeforeDispatch()
+        {
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = "true";
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _fhirController.ConditionalUpdate(new Patient { Id = Guid.NewGuid().ToString() }));
+
+            Assert.Empty(_mediator.ReceivedCalls());
+        }
+
         [Fact]
         public async Task GivenReadRequest_WhenProcessingRequest_ThenGetResourceRequestShouldBeCreatedCorrectly()
         {

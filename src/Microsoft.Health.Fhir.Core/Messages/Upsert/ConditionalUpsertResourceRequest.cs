@@ -17,14 +17,22 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
         public ConditionalUpsertResourceRequest(
             ResourceElement resource,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            BundleResourceContext bundleResourceContext = null)
+            BundleResourceContext bundleResourceContext = null,
+            ConditionalUpdateNoMatchBehavior noMatchBehavior = ConditionalUpdateNoMatchBehavior.Upsert)
             : base(resource.InstanceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.EnumIsDefined(noMatchBehavior, nameof(noMatchBehavior));
             Resource = resource;
+            NoMatchBehavior = noMatchBehavior;
         }
 
         public ResourceElement Resource { get; }
+
+        /// <summary>
+        /// How the resource is saved when the search finds no match and the resource has a client-supplied id.
+        /// </summary>
+        public ConditionalUpdateNoMatchBehavior NoMatchBehavior { get; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }

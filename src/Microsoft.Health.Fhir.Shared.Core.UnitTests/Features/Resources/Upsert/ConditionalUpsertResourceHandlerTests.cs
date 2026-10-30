@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -192,6 +192,66 @@ public class ConditionalUpsertResourceHandlerTests
         await _mediator
             .Received()
             .SendAsync<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(ConditionalUpdateNoMatchBehavior.Upsert)]
+    [InlineData(ConditionalUpdateNoMatchBehavior.Create)]
+    public async Task GivenAConditionalUpsertResourceHandler_WhenNoMatchFoundAndResourceHasId_ThenUpsertIsCreateOnlyOnlyForNoMatchCreate(ConditionalUpdateNoMatchBehavior noMatchBehavior)
+    {
+        // Arrange
+        var searchResult = new SearchResult(new List<SearchResultEntry>().AsReadOnly(), null, null, Array.Empty<Tuple<string, string>>());
+
+        _searchService.SearchAsync(
+          Arg.Any<string>(),
+          Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+          Arg.Any<CancellationToken>())
+          .Returns(Task.FromResult(searchResult));
+
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var patient = Samples.GetDefaultPatient().ToPoco();
+        patient.Id = "existing-id";
+        var conditionalParameters = new List<Tuple<string, string>> { new("_lastUpdated", "le2020-01-01") };
+        var request = new ConditionalUpsertResourceRequest(patient.ToResourceElement(), conditionalParameters, null, noMatchBehavior);
+
+        // Act
+        await _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None);
+
+        // Assert - NoMatchBehavior.Create: an ID-provided no-match must not overwrite an existing resource; default: legacy upsert by id
+        await _mediator
+            .Received(1)
+            .SendAsync<UpsertResourceResponse>(Arg.Is<UpsertResourceRequest>(r => r.CreateOnly == (noMatchBehavior == ConditionalUpdateNoMatchBehavior.Create) && r.Resource.Id == "existing-id"), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(ConditionalUpdateNoMatchBehavior.Upsert)]
+    [InlineData(ConditionalUpdateNoMatchBehavior.Create)]
+    public async Task GivenAConditionalUpsertResourceHandler_WhenOneMatchFound_ThenUpsertIsNotCreateOnly(ConditionalUpdateNoMatchBehavior noMatchBehavior)
+    {
+        // Arrange
+        _searchService.SearchAsync(
+          Arg.Any<string>(),
+          Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+          Arg.Any<CancellationToken>())
+          .Returns(Task.FromResult(GetSearchResult(Samples.GetDefaultPatient())));
+
+        _authService
+            .CheckAccess(DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, CancellationToken.None)
+            .Returns(DataActions.Search | DataActions.Update);
+
+        var conditionalParameters = new List<Tuple<string, string>> { new("name", "John") };
+        var request = new ConditionalUpsertResourceRequest(Samples.GetDefaultPatient(), conditionalParameters, null, noMatchBehavior);
+
+        // Act
+        await _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None);
+
+        // Assert
+        await _mediator
+            .Received(1)
+            .SendAsync<UpsertResourceResponse>(Arg.Is<UpsertResourceRequest>(r => !r.CreateOnly), Arg.Any<CancellationToken>());
     }
 
     private SearchResult GetSearchResult(ResourceElement resourceElement)

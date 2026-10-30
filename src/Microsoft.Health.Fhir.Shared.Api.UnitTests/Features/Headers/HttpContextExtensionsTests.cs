@@ -11,7 +11,9 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -37,6 +39,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 
             bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
             Assert.False(isHighLatencyEnabled);
+
+            Assert.Equal(ConditionalUpdateNoMatchBehavior.Upsert, httpContext.GetConditionalUpdateNoMatchBehavior());
 
             // Given different default values for the bundle processing logic, we expect the same value to be returned.
             BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
@@ -111,6 +115,49 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 
             // Assert
             Assert.True(isHighLatencyEnabled);
+        }
+
+        [Theory]
+        [InlineData("", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData(null, ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("   ", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("upsert", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData(" UPSERT ", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("create", ConditionalUpdateNoMatchBehavior.Create)]
+        [InlineData("   CrEaTe   ", ConditionalUpdateNoMatchBehavior.Create)]
+        public void WhenHttpContextHasConditionalUpdateNoMatchHeader_ReturnTheRequestedBehavior(string value, ConditionalUpdateNoMatchBehavior expected)
+        {
+            // Arrange
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.ConditionalUpdateNoMatch, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            // Act
+            ConditionalUpdateNoMatchBehavior behavior = httpContext.GetConditionalUpdateNoMatchBehavior();
+
+            // Assert
+            Assert.Equal(expected, behavior);
+        }
+
+        [Theory]
+        [InlineData("true")]
+        [InlineData("creat")]
+        [InlineData("0")]
+        [InlineData("1")]
+        public void WhenHttpContextHasInvalidConditionalUpdateNoMatchHeader_ThenBadRequestIsThrown(string value)
+        {
+            // Arrange
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.ConditionalUpdateNoMatch, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            // Act & Assert
+            BadRequestException exception = Assert.Throws<BadRequestException>(() => httpContext.GetConditionalUpdateNoMatchBehavior());
+            Assert.Contains(KnownHeaders.ConditionalUpdateNoMatch, exception.Message);
+        }
+
+        [Fact]
+        public void WhenHttpContextIsNull_ThenConditionalUpdateNoMatchBehaviorIsUpsert()
+        {
+            Assert.Equal(ConditionalUpdateNoMatchBehavior.Upsert, ((HttpContext)null).GetConditionalUpdateNoMatchBehavior());
         }
 
         [Fact]

@@ -457,6 +457,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The value &apos;{1}&apos; of header &apos;{0}&apos; is not valid. Supported values are &apos;create&apos; and &apos;upsert&apos;..
+        /// </summary>
+        public static string InvalidConditionalUpdateNoMatchHeader {
+            get {
+                return ResourceManager.GetString("InvalidConditionalUpdateNoMatchHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle.entry.request.url is required..
         /// </summary>
         public static string InvalidBundleEntryRequestUrl {
