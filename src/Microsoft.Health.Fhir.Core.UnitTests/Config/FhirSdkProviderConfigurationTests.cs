@@ -125,8 +125,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
         [InlineData("Import", "Ignixa, Firely")]
         public void GivenInvalidProviderValue_WhenValidated_ThenStartupFails(string key, string value)
         {
-            Assert.Throws<InvalidOperationException>(() => Bind(
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => Bind(
                 new Dictionary<string, string> { [$"{Section}:{key}"] = value }));
+
+            Assert.Contains($"{Section}:{key}", exception.Message, StringComparison.Ordinal);
         }
 
         // Mirrors AddFhirServer: validate the provider section, then bind the configuration.

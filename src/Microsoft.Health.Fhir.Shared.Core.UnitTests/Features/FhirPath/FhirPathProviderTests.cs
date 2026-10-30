@@ -176,6 +176,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             }
         }
 
+        [Theory]
+        [InlineData(false, null)]
+        [InlineData(false, "")]
+        [InlineData(false, " \t")]
+        [InlineData(true, null)]
+        [InlineData(true, "")]
+        [InlineData(true, " \t")]
+        public void GivenMissingExpression_WhenCompiledByEitherProvider_ThenArgumentExceptionIsThrown(bool useIgnixa, string expression)
+        {
+            IFhirPathProvider provider = useIgnixa ? CreateIgnixaProvider() : new FirelyFhirPathProvider();
+
+            Assert.ThrowsAny<ArgumentException>(() => provider.Compile(expression));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenNullInput_WhenSelectedByEitherProvider_ThenArgumentNullExceptionIsThrown(bool useIgnixa)
+        {
+            IFhirPathProvider provider = useIgnixa ? CreateIgnixaProvider() : new FirelyFhirPathProvider();
+            ICompiledFhirPath compiled = provider.Compile("Patient.id");
+
+            Assert.Throws<ArgumentNullException>(() => compiled.Select(null).ToList());
+        }
+
         [Fact]
         public void GivenFirelyProvider_WhenHelpersEvaluate_ThenFirely5114BehaviorIsPreserved()
         {
