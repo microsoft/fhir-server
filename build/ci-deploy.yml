@@ -164,7 +164,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
       elasticPoolName: $(DeploymentEnvironmentName)-pool
-      capacity: 12
+      capacity: 8
       dbMinCapacity: 0
       dbMaxCapacity: 8
 
@@ -215,33 +215,6 @@ stages:
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
       reindexEnabled: true
 
-- stage: deployStu3SqlVNext
-  displayName: 'Deploy STU3 SQL vNext SDK Site'
-  dependsOn:
-  - aadTestEnvironment
-  - DockerBuild
-  - deploySqlServer
-  - deploySqlElasticPool
-  - createAcaEnvironment
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters:
-      dataStore: sql
-      version: Stu3
-      webAppName: $(DeploymentEnvironmentNameSqlVNext)
-      acaEnvironmentName: $(AcaEnvironmentName)
-      keyVaultName: $(KeyVaultNameSqlVNext)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      sqlDatabaseName: FHIRStu3VNext
-      fhirSdkProviderSystemDefault: Ignixa
-      reindexEnabled: true
-
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
   dependsOn:
@@ -287,33 +260,6 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Hyperscale'
       sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      reindexEnabled: true
-
-- stage: deployR4SqlVNext
-  displayName: 'Deploy R4 SQL vNext SDK Site'
-  dependsOn:
-  - aadTestEnvironment
-  - DockerBuild
-  - deploySqlServer
-  - deploySqlElasticPool
-  - createAcaEnvironment
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters:
-      dataStore: sql
-      version: R4
-      webAppName: $(DeploymentEnvironmentNameR4SqlVNext)
-      acaEnvironmentName: $(AcaEnvironmentName)
-      keyVaultName: $(KeyVaultNameR4SqlVNext)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlElasticPoolName: $(DeploymentEnvironmentName)-pool
-      sqlDatabaseName: FHIRR4VNext
-      fhirSdkProviderSystemDefault: Ignixa
       reindexEnabled: true
 
 - stage: deployR5Sql

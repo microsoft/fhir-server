@@ -116,5 +116,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Throws<NotSupportedException>(() => _resolver.IsSearchParameterSupported(sp));
         }
+
+        [Fact]
+        public void GivenAnExpressionCastingToAnUnknownType_WhenResolvingSupport_ThenNotSupportedIsThrown()
+        {
+            var sp = new SearchParameterInfo(
+                "Patient-name-unknown",
+                "Patient-name-unknown",
+                SearchParamType.String,
+                new Uri("http://example.org/fhir/SearchParameter/Patient-name-unknown"),
+                expression: "Patient.name.as(NotAType)",
+                baseResourceTypes: new[] { "Patient" });
+
+            NotSupportedException exception = Assert.Throws<NotSupportedException>(() => _resolver.IsSearchParameterSupported(sp));
+
+            Assert.Contains("'NotAType'", exception.Message, StringComparison.Ordinal);
+        }
     }
 }

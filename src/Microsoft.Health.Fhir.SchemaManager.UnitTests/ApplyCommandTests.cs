@@ -40,59 +40,74 @@ public class ApplyCommandTests
     {
         // Assert
         Assert.NotEmpty(_applyCommand.Options);
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.ConnectionString));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.ManagedIdentityClientId));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.AuthenticationType));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.EnableWorkloadIdentity));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Version));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Next));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Latest));
-        Assert.Contains(_applyCommand.Options, o => o.Aliases.Contains(OptionAliases.Force));
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.ConnectionString);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.ManagedIdentityClientId);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.AuthenticationType);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.EnableWorkloadIdentity);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Version);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Next);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Latest);
+        Assert.Contains(_applyCommand.Options, o => o.Name == OptionAliases.Force);
     }
 
-    [Fact]
-    public async Task GivenVersionType_WhenExecute_ThenCallsSchemaManager()
+    [Theory]
+    [InlineData("--version")]
+    [InlineData("-v")]
+    public async Task GivenVersionArgument_WhenInvoked_ThenCallsSchemaManager(string option)
     {
         // Arrange
-        var type = new MutuallyExclusiveType { Version = 5 };
-        bool force = false;
-        var cancellationToken = CancellationToken.None;
+        var parseResult = _applyCommand.Parse($"--connection-string test {option} 5");
 
         // Act
-        await _applyCommand.ExecuteAsync(type, force, cancellationToken);
+        int exitCode = await parseResult.InvokeAsync();
 
         // Assert
-        await _schemaManager.Received(1).ApplySchema(type, force, cancellationToken);
+        Assert.Equal(0, exitCode);
+        await _schemaManager.Received(1).ApplySchema(
+            Arg.Is<MutuallyExclusiveType>(type => type.Version == 5 && !type.Next && !type.Latest),
+            false,
+            Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task GivenNextType_WhenExecute_ThenCallsSchemaManager()
+    [Theory]
+    [InlineData("--next")]
+    [InlineData("-n")]
+    public async Task GivenNextArgument_WhenInvoked_ThenCallsSchemaManager(string option)
     {
         // Arrange
-        var type = new MutuallyExclusiveType { Next = true };
-        bool force = false;
-        var cancellationToken = CancellationToken.None;
+        var parseResult = _applyCommand.Parse($"--connection-string test {option}");
 
         // Act
-        await _applyCommand.ExecuteAsync(type, force, cancellationToken);
+        int exitCode = await parseResult.InvokeAsync();
 
         // Assert
-        await _schemaManager.Received(1).ApplySchema(type, force, cancellationToken);
+        Assert.Equal(0, exitCode);
+        await _schemaManager.Received(1).ApplySchema(
+            Arg.Is<MutuallyExclusiveType>(type => type.Version == 0 && type.Next && !type.Latest),
+            false,
+            Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task GivenLatestType_WhenExecute_ThenCallsSchemaManager()
+    [Theory]
+    [InlineData("--latest", false)]
+    [InlineData("-l", false)]
+    [InlineData("--latest --force", true)]
+    [InlineData("-l -f", true)]
+    [InlineData("--latest --force false", false)]
+    public async Task GivenLatestArgument_WhenInvoked_ThenCallsSchemaManager(string options, bool force)
     {
         // Arrange
-        var type = new MutuallyExclusiveType { Latest = true };
-        bool force = false;
-        var cancellationToken = CancellationToken.None;
+        var parseResult = _applyCommand.Parse($"--connection-string test {options}");
 
         // Act
-        await _applyCommand.ExecuteAsync(type, force, cancellationToken);
+        int exitCode = await parseResult.InvokeAsync();
 
         // Assert
-        await _schemaManager.Received(1).ApplySchema(type, force, cancellationToken);
+        Assert.Equal(0, exitCode);
+        await _schemaManager.Received(1).ApplySchema(
+            Arg.Is<MutuallyExclusiveType>(type => type.Version == 0 && !type.Next && type.Latest),
+            force,
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]

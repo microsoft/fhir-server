@@ -589,6 +589,21 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
+- template: ./stages/cleanup-pr-test-resources.yml
+  parameters:
+    testStage: testStu3Sql
+    version: Stu3
+
+- template: ./stages/cleanup-pr-test-resources.yml
+  parameters:
+    testStage: testR4Sql
+    version: R4
+
+- template: ./stages/cleanup-pr-test-resources.yml
+  parameters:
+    testStage: testR5Sql
+    version: R5
+
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
   dependsOn:

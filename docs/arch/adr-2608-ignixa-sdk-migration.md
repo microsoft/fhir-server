@@ -3,6 +3,7 @@
 **Status**: Accepted
 **Date**: 2026-08-31
 **Feature**: Ignixa SDK migration
+**Supersedes**: [ADR-2607](adr-2607-ignixa-import-phase0.md)
 
 ## Context
 
@@ -26,6 +27,8 @@ We will adopt Ignixa incrementally through narrow, capability-specific seams. Ea
 Selection is configured under `FhirServer:CoreFeatures:FhirSdkProvider`: `SystemDefault` applies to every seam, and a seam-specific key (for example `Import` or `FhirPath`) overrides it for that seam only. Startup fails on a single-value `FhirSdkProvider` setting, an unknown key, or an unrecognized provider name, so a mistyped rollback setting cannot be silently ignored.
 
 We will not introduce a single facade for the entire FHIR SDK. Existing focused contracts will be reused, and new abstractions will be limited to capabilities that do not already have an appropriate boundary. A seam must include every path that produces or regenerates the same persisted or externally visible representation; for example, indexing and reindexing cannot select different providers.
+
+A new capability with no Firely implementation is not a migrated seam. It may use Ignixa directly, registered regardless of `FhirSdkProvider`, provided its Core contract is SDK-neutral and its Ignixa code lives in `Microsoft.Health.Fhir.Ignixa` (for example, FHIR NPM package reading).
 
 A seam may be enabled only after production-shaped tests demonstrate semantic parity, compatibility with supported FHIR versions, and acceptable performance. Firely will be removed only after all supported runtime behavior has migrated and the compatibility layer is no longer required.
 
