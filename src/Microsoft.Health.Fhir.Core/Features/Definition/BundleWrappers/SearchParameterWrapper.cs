@@ -24,7 +24,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
         private readonly Lazy<string> _code;
         private readonly Lazy<IReadOnlyList<string>> _target;
         private readonly Lazy<string> _description;
+        private readonly Lazy<string> _status;
         private Lazy<string> _type;
+        private readonly Lazy<VectorSearchParameterConfig> _vectorConfig;
 
         public SearchParameterWrapper(ITypedElement searchParameter)
         {
@@ -34,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
             _name = new Lazy<string>(() => searchParameter.Scalar("name")?.ToString());
             _code = new Lazy<string>(() => searchParameter.Scalar("code")?.ToString());
             _description = new Lazy<string>(() => searchParameter.Scalar("description")?.ToString());
+            _status = new Lazy<string>(() => searchParameter.Scalar("status")?.ToString());
             _url = new Lazy<string>(() => searchParameter.Scalar("url")?.ToString());
             _expression = new Lazy<string>(() => searchParameter.Scalar("expression")?.ToString());
             _type = new Lazy<string>(() => searchParameter.Scalar("type")?.ToString());
@@ -41,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
             _base = new Lazy<IReadOnlyList<string>>(() => searchParameter.Select("base")?.AsStringValues().ToArray());
             _component = new Lazy<IReadOnlyList<ITypedElement>>(() => searchParameter.Select("component")?.ToArray());
             _target = new Lazy<IReadOnlyList<string>>(() => searchParameter.Select("target")?.AsStringValues().ToArray());
+            _vectorConfig = new Lazy<VectorSearchParameterConfig>(() => searchParameter.Select("extension").ParseVectorConfig());
         }
 
         public string Name => _name.Value;
@@ -48,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
         public string Code => _code.Value;
 
         public string Description => _description.Value;
+
+        public string Status => _status.Value;
 
 #pragma warning disable CA1056 // URI-like properties should not be strings
         public string Url => _url.Value;
@@ -62,5 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
         public IReadOnlyList<string> Target => _target.Value;
 
         public IReadOnlyList<ITypedElement> Component => _component.Value;
+
+        public VectorSearchParameterConfig VectorConfig => _vectorConfig.Value;
     }
 }
