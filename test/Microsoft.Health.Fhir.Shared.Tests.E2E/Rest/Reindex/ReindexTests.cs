@@ -536,7 +536,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 Parameter =
                 [
-                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(2) },
+                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
                     new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
                 ],
             };
@@ -554,7 +554,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             await reindex;
             await cancel.CancelAsync();
-            await update;
+            var updatedCount = await update;
+            _output.WriteLine($"Successfully performed {updatedCount} Person resource updates.");
 
             // reported in reindex counts should be less than total resources created
             await CheckReportedCounts(value.jobUri, testResources.Count, true);
@@ -1864,8 +1865,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.True(response.Resource.Total >= expectedCount, $"Expected>={expectedCount} Actual={response.Resource.Total}");
         }
 
-        private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources, CancellationToken cancellationToken = default)
+        private async Task<int> RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources, CancellationToken cancellationToken = default)
         {
+            var updatedCount = 0;
             while (resources.Count > 0 && !cancellationToken.IsCancellationRequested)
             {
                 try
@@ -1873,16 +1875,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     await Task.Delay(50, cancellationToken);
                     var resource = resources[RandomNumberGenerator.GetInt32(resources.Count)];
                     await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString()));
+                    updatedCount++;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    return;
+                    break;
                 }
                 catch
                 {
                     // do nothing
                 }
             }
+
+            return updatedCount;
         }
 
         private async Task CheckReportedCounts(Uri jobUri, long expected, bool lessThan)
