@@ -49,7 +49,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
 
-            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id), Arg.Any<CancellationToken>());
+            // No match + client-supplied id must only create, never overwrite an existing resource with that id.
+            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.CreateOnly && x.WeakETag == null), Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAnUpsertRequest_WhenHandled_ThenCreateOnlyIsPassedToTheDataStoreUnchanged(bool createOnly)
+        {
+            string id = Guid.NewGuid().ToString();
+
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
+
+            await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(Samples.GetDefaultObservation().UpdateId(id), createOnly: createOnly));
+
+            await _fhirDataStore.Received(1).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.CreateOnly == createOnly),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -71,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
 
             await _fhirDataStore.Received().UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag != null && x.WeakETag.VersionId == version),
+                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag != null && x.WeakETag.VersionId == version && !x.CreateOnly),
                 Arg.Any<CancellationToken>());
         }
 
@@ -94,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(SaveOutcomeType.Updated, result.Outcome.Outcome);
 
             await _fhirDataStore.Received().UpsertAsync(
-                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag != null && x.WeakETag.VersionId == version),
+                Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.WeakETag != null && x.WeakETag.VersionId == version && !x.CreateOnly),
                 Arg.Any<CancellationToken>());
         }
 
