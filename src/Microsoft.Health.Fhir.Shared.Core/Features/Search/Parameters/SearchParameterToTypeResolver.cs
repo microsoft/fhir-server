@@ -331,7 +331,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 case "RANGE":
                     return GetMapping(typeof(Range));
                 default:
-                    return GetMapping(ModelInfoProvider.Instance.GetTypeForFhirType(type));
+                    Type fhirType = ModelInfoProvider.Instance.GetTypeForFhirType(type);
+                    if (fhirType == null)
+                    {
+                        throw new NotSupportedException(string.Format(Core.Resources.UnknownTypeInExpression, type));
+                    }
+
+                    return GetMapping(fhirType);
             }
         }
 

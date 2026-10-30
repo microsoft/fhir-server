@@ -151,6 +151,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The (rev)chained resource type {0} is not allowed. Additional clinical scopes must be requested to allow searches using the chained type..
+        /// </summary>
+        internal static string ChainedResourceTypeNotAllowedDueToScope {
+            get {
+                return ResourceManager.GetString("ChainedResourceTypeNotAllowedDueToScope", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type..
         /// </summary>
         internal static string ChainedResourceTypesNotAllowedDueToScope {
@@ -620,7 +629,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Id must be any combination of upper or lower case ASCII letters (&apos;A&apos;..&apos;Z&apos;, and &apos;a&apos;..&apos;z&apos;), numerals (&apos;0&apos;..&apos;9&apos;), &apos;-&apos; and &apos;.&apos;, with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.).
+        ///   Looks up a localized string similar to Id must be any combination of upper or lower case ASCII letters (&apos;A&apos;..&apos;Z&apos;, and &apos;a&apos;..&apos;z&apos;), numerals (&apos;0&apos;..&apos;9&apos;), &apos;-&apos; and &apos;.&apos;, with a length limit of {0} characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.).
         /// </summary>
         internal static string IdRequirements {
             get {
@@ -1872,6 +1881,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The granted SMART scope restricts access using the search parameter &apos;{0}&apos;, which is not currently available on this server. The request cannot be authorized..
+        /// </summary>
+        internal static string SmartScopeSearchParameterNotEnforceable {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterNotEnforceable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _sort parameter is not supported..
         /// </summary>
         internal static string SortNotSupported {
@@ -1926,6 +1944,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The request was not completed because another entry in the transaction failed. Review the other entries in the bundle for the original error..
+        /// </summary>
+        internal static string TransactionEntryFailedDependency {
+            get {
+                return ResourceManager.GetString("TransactionEntryFailedDependency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Include result was truncated.
         /// </summary>
         internal static string TruncatedIncludeMessage {
@@ -1952,6 +1979,15 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Included resources of type &apos;{0}&apos; were excluded because the caller does not have the required SMART export permissions for this resource type..
+        /// </summary>
+        internal static string ExportUnauthorizedIncludesOmitted {
+            get {
+                return ResourceManager.GetString("ExportUnauthorizedIncludesOmitted", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The _typeFilter segment &apos;{0}&apos; could not be parsed..
         /// </summary>
@@ -2147,6 +2183,321 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string WeakETagFormatRequired {
             get {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The FHIR package was rejected. Nothing from the package was installed..
+        /// </summary>
+        internal static string FhirPackageRejected {
+            get {
+                return ResourceManager.GetString("FhirPackageRejected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; version &apos;{1}&apos; contains no resources that can be installed. Only {2} resources at the package root are installed..
+        /// </summary>
+        internal static string FhirPackageNoInstallableResources {
+            get {
+                return ResourceManager.GetString("FhirPackageNoInstallableResources", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The FHIR package contains {0} &apos;{1}&apos; resource(s) that were not installed. Only {2} resources at the package root are installed..
+        /// </summary>
+        internal static string FhirPackageIgnoredResourceType {
+            get {
+                return ResourceManager.GetString("FhirPackageIgnoredResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The FHIR package declares a dependency on &apos;{0}&apos;, which was not resolved or installed..
+        /// </summary>
+        internal static string FhirPackageIgnoredDependency {
+            get {
+                return ResourceManager.GetString("FhirPackageIgnoredDependency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Package entry &apos;{0}&apos; could not be read as a {1} resource: {2}.
+        /// </summary>
+        internal static string FhirPackageEntryInvalid {
+            get {
+                return ResourceManager.GetString("FhirPackageEntryInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Package entry &apos;{0}&apos; (SearchParameter &apos;{1}&apos;): {2}.
+        /// </summary>
+        internal static string FhirPackageSearchParameterIssue {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterIssue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The required element &apos;{0}&apos; is missing..
+        /// </summary>
+        internal static string FhirPackageSearchParameterMissingElement {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterMissingElement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The url must be an absolute URI of at most {0} characters..
+        /// </summary>
+        internal static string FhirPackageSearchParameterInvalidUrl {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterInvalidUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The url is used by more than one SearchParameter in the package..
+        /// </summary>
+        internal static string FhirPackageSearchParameterDuplicateUrl {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterDuplicateUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package..
+        /// </summary>
+        internal static string FhirPackageSearchParameterDuplicateCode {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterDuplicateCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The url belongs to a SearchParameter defined by the FHIR specification or by the server, and can&apos;t be installed from a package..
+        /// </summary>
+        internal static string FhirPackageSearchParameterSystemDefinedUrl {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterSystemDefinedUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A composite SearchParameter must define at least one component, and every component must have a definition and an expression..
+        /// </summary>
+        internal static string FhirPackageSearchParameterMissingComponent {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterMissingComponent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Component {0} references &apos;{1}&apos;, which is not a core SearchParameter, a SearchParameter in this package, or an existing SearchParameter..
+        /// </summary>
+        internal static string FhirPackageSearchParameterUnresolvedComponent {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterUnresolvedComponent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Component {0} references &apos;{1}&apos;, which is itself a composite SearchParameter..
+        /// </summary>
+        internal static string FhirPackageSearchParameterCompositeComponent {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterCompositeComponent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The SearchParameter is not supported by this server. {0}.
+        /// </summary>
+        internal static string FhirPackageSearchParameterNotSupported {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The expression can be indexed for only some of its target types, so searches would silently miss data..
+        /// </summary>
+        internal static string FhirPackageSearchParameterPartiallySupported {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterPartiallySupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The expression &apos;{0}&apos; is not valid FHIRPath: {1}.
+        /// </summary>
+        internal static string FhirPackageSearchParameterInvalidExpression {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterInvalidExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The expression can&apos;t be resolved against the FHIR model: {0}.
+        /// </summary>
+        internal static string FhirPackageSearchParameterUnresolvableExpression {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterUnresolvableExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The server can&apos;t determine which element types the expression or a component expression selects, so it can&apos;t index them. Use element paths combined with where(), first(), exists(), extension(), as(), is(), ofType(), indexers, and the &apos;|&apos; union operator..
+        /// </summary>
+        internal static string FhirPackageSearchParameterUnsupportedExpression {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterUnsupportedExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The type &apos;{0}&apos; is not a known FHIR type..
+        /// </summary>
+        internal static string UnknownTypeInExpression {
+            get {
+                return ResourceManager.GetString("UnknownTypeInExpression", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Component {0} references &apos;{1}&apos;, whose status is &apos;{2}&apos;. A component outside the package must reference a SearchParameter whose status is Enabled or Supported..
+        /// </summary>
+        internal static string FhirPackageSearchParameterIneligibleComponent {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterIneligibleComponent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The resource is not valid: {0}.
+        /// </summary>
+        internal static string FhirPackageSearchParameterModelInvalid {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterModelInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Component {0} has the definition &apos;{1}&apos;, which is not an absolute URI..
+        /// </summary>
+        internal static string FhirPackageSearchParameterInvalidComponentDefinition {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterInvalidComponentDefinition", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The expected package integrity must be a single sha512 Subresource Integrity value, as reported in npm &apos;dist.integrity&apos;..
+        /// </summary>
+        internal static string FhirPackageIntegrityInvalid {
+            get {
+                return ResourceManager.GetString("FhirPackageIntegrityInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package archive doesn&apos;t match its expected sha512 integrity..
+        /// </summary>
+        internal static string FhirPackageIntegrityMismatch {
+            get {
+                return ResourceManager.GetString("FhirPackageIntegrityMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package archive is larger than the {0}-byte limit..
+        /// </summary>
+        internal static string FhirPackageCompressedSizeExceeded {
+            get {
+                return ResourceManager.GetString("FhirPackageCompressedSizeExceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package archive was rejected: {0}..
+        /// </summary>
+        internal static string FhirPackageArchiveRejected {
+            get {
+                return ResourceManager.GetString("FhirPackageArchiveRejected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to  at archive entry {0}.
+        /// </summary>
+        internal static string FhirPackageArchiveEntryDetail {
+            get {
+                return ResourceManager.GetString("FhirPackageArchiveEntryDetail", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to  (limit {0}).
+        /// </summary>
+        internal static string FhirPackageArchiveLimitDetail {
+            get {
+                return ResourceManager.GetString("FhirPackageArchiveLimitDetail", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package archive expands to {0} bytes from {1} compressed bytes, which exceeds the {2}:1 expansion limit..
+        /// </summary>
+        internal static string FhirPackageExpansionRatioExceeded {
+            get {
+                return ResourceManager.GetString("FhirPackageExpansionRatioExceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package manifest declares &apos;{0}&apos; version &apos;{1}&apos;, but &apos;{2}&apos; version &apos;{3}&apos; was expected..
+        /// </summary>
+        internal static string FhirPackageIdentityMismatch {
+            get {
+                return ResourceManager.GetString("FhirPackageIdentityMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package declares FHIR version &apos;{0}&apos;, but this server supports only FHIR version &apos;{1}&apos;..
+        /// </summary>
+        internal static string FhirPackageFhirVersionMismatch {
+            get {
+                return ResourceManager.GetString("FhirPackageFhirVersionMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package doesn&apos;t declare a dependency on &apos;{0}&apos;. Packages for this server must depend on &apos;{0}&apos; version &apos;{1}&apos;..
+        /// </summary>
+        internal static string FhirPackageCoreDependencyMissing {
+            get {
+                return ResourceManager.GetString("FhirPackageCoreDependencyMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package depends on &apos;{0}&apos; version &apos;{1}&apos;, but this server supports only &apos;{2}&apos; version &apos;{3}&apos;..
+        /// </summary>
+        internal static string FhirPackageCoreDependencyMismatch {
+            get {
+                return ResourceManager.GetString("FhirPackageCoreDependencyMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package manifest is not valid: {0}.
+        /// </summary>
+        internal static string FhirPackageManifestInvalid {
+            get {
+                return ResourceManager.GetString("FhirPackageManifestInvalid", resourceCulture);
             }
         }
     }

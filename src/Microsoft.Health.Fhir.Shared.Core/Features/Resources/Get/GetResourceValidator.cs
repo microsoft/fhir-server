@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using FluentValidation;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -12,10 +13,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class GetResourceValidator : AbstractValidator<GetResourceRequest>
     {
-        public GetResourceValidator()
+        public GetResourceValidator(ResourceIdPolicy resourceIdPolicy)
         {
             RuleFor(x => x.ResourceKey.Id)
-                .SetValidator(new IdValidator<GetResourceRequest>()).WithMessage(Core.Resources.IdRequirements);
+                .SetValidator(new IdValidator<GetResourceRequest>(resourceIdPolicy))
+                .WithMessage(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, resourceIdPolicy.MaxLength));
         }
     }
 }

@@ -161,9 +161,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return false;
         }
 
-        private bool IsRetriable(Exception ex)
+        private bool IsRetriable(Exception ex, Func<SqlException, bool> shouldNotRetry = null)
         {
-            if (ex is SqlException sqlEx && sqlEx.IsSqlTransientException(_transientErrors))
+            if (ex is SqlException sqlEx && shouldNotRetry?.Invoke(sqlEx) == true)
+            {
+                return false;
+            }
+
+            if (ex is SqlException sqlException && sqlException.IsSqlTransientException(_transientErrors))
             {
                 return true;
             }
@@ -194,9 +199,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
+        /// <param name="shouldNotRetry">A SQL exception predicate that can prevent retrying selected errors.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false)
+        public async Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false, Func<SqlException, bool> shouldNotRetry = null)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -213,7 +219,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    if (++retry >= _maxRetries || !IsRetriable(ex))
+                    if (++retry >= _maxRetries || !IsRetriable(ex, shouldNotRetry))
                     {
                         throw;
                     }

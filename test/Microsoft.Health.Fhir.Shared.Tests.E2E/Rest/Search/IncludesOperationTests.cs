@@ -193,6 +193,110 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(operationOutcome);
         }
 
+        /// <summary>
+        /// $includes with _summary=count returns the number of distinct included resources of the whole original search,
+        /// independent of the match page, the include cursor, _count and _includesCount.
+        /// </summary>
+        /// <param name="query">The request query string.</param>
+        /// <returns>A task executing the test</returns>
+        [Theory]
+        [InlineData("_revinclude=Observation:subject&_count=2&_includesCount=2")]
+        [InlineData("_revinclude=Observation:subject&_sort=birthdate&_count=2&_includesCount=2")]
+        [InlineData("_include=Patient:organization&_revinclude=MedicationDispense:subject&_revinclude=DiagnosticReport:subject&_count=4&_includesCount=2")]
+        [InlineData("_include=*:*&_revinclude=*:*&_count=2&_includesCount=10")]
+        public async Task GivenAnIncludesRequest_WhenSummaryCountIsRequested_ThenTotalIsTheNumberOfDistinctIncludedResources(string query)
+        {
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+
+            // Arrange: walk every page of the normal results to independently compute the expected count.
+            var matches = new HashSet<string>(StringComparer.Ordinal);
+            var included = new HashSet<string>(StringComparer.Ordinal);
+            var includesUrls = new List<string>();
+            var searchUrl = $"{Server.BaseAddress}{KnownResourceTypes.Patient}?{TagQuery(query)}";
+            while (!string.IsNullOrEmpty(searchUrl))
+            {
+                var response = await Client.SearchAsync(searchUrl);
+                searchUrl = response.Resource.NextLink?.AbsoluteUri;
+
+                foreach (var entry in response.Resource.Entry.Where(x => x.Resource is not OperationOutcome))
+                {
+                    (entry.Search?.Mode == SearchEntryMode.Include ? included : matches).Add($"{entry.Resource.TypeName}/{entry.Resource.Id}");
+                }
+
+                var includesUrl = response.Resource.Link?.FirstOrDefault(x => x.Relation.Equals("related", StringComparison.Ordinal))?.Url;
+                while (!string.IsNullOrEmpty(includesUrl))
+                {
+                    includesUrls.Add(includesUrl);
+                    var includesResponse = await Client.SearchAsync(includesUrl);
+                    foreach (var entry in includesResponse.Resource.Entry.Where(x => x.Resource is not OperationOutcome))
+                    {
+                        included.Add($"{entry.Resource.TypeName}/{entry.Resource.Id}");
+                    }
+
+                    includesUrl = includesResponse.Resource.NextLink?.AbsoluteUri;
+                }
+            }
+
+            // Matches are not counted, even if they are also referenced by other matches.
+            var expectedTotal = included.Except(matches).Count();
+            Assert.NotEmpty(includesUrls);
+            Assert.True(expectedTotal > 0, "The test data must produce included resources.");
+
+            // Act and Assert: the total is the same from every $includes page (first page, later include pages and later match pages).
+            foreach (var includesUrl in includesUrls)
+            {
+                var countResponse = await Client.SearchAsync($"{includesUrl}&_summary=count");
+
+                Assert.Equal(HttpStatusCode.OK, countResponse.StatusCode);
+                Assert.Empty(countResponse.Resource.Entry);
+                Assert.Equal(expectedTotal, countResponse.Resource.Total);
+            }
+        }
+
+        [Fact]
+        public async Task GivenAnIterativeIncludesRequest_WhenSummaryCountIsRequested_ThenTotalIncludesAllFixtureResources()
+        {
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+
+            // Obtain a valid match-page token from a non-iterative search. Iterative searches intentionally do not
+            // return $includes related links, so the token cannot come from the iterative response itself.
+            var query = TagQuery("_revinclude=MedicationRequest:patient&_count=100&_includesCount=2");
+            var searchResponse = await Client.SearchAsync($"{Server.BaseAddress}{KnownResourceTypes.Patient}?{query}");
+            var includesUrl = searchResponse.Resource.Link?
+                .FirstOrDefault(x => x.Relation.Equals("related", StringComparison.Ordinal))?.Url;
+            Assert.NotNull(includesUrl);
+
+            var patientReferences = _fixture.PatientResources
+                .Select(GetResourceReference)
+                .ToHashSet(StringComparer.Ordinal);
+            var medicationRequests = _fixture.RelatedResources
+                .OfType<MedicationRequest>()
+                .Where(x => patientReferences.Contains(x.Subject?.Reference))
+                .ToList();
+            var medicationRequestReferences = medicationRequests
+                .Select(GetResourceReference)
+                .ToHashSet(StringComparer.Ordinal);
+            var medicationDispenses = _fixture.RelatedResources
+                .OfType<MedicationDispense>()
+                .Where(x => x.AuthorizingPrescription.Any(y => medicationRequestReferences.Contains(y.Reference)))
+                .ToList();
+            var expectedTotal = medicationRequests
+                .Select(GetResourceReference)
+                .Concat(medicationDispenses.Select(GetResourceReference))
+                .Distinct(StringComparer.Ordinal)
+                .Count();
+
+            // Reuse the valid token and add the iterative include directive. The total is derived from the fixture's
+            // complete reference graph, not from the search's possibly truncated include results.
+            var countResponse = await Client.SearchAsync(
+                $"{includesUrl}&_revinclude:iterate=MedicationDispense:prescription&_summary=count");
+
+            Assert.Equal(HttpStatusCode.OK, countResponse.StatusCode);
+            Assert.Empty(countResponse.Resource.Entry);
+            Assert.True(expectedTotal > 0, "The fixture must produce iterative included resources.");
+            Assert.Equal(expectedTotal, countResponse.Resource.Total);
+        }
+
         private void ValidateRelatedResources(
             FhirResponse<Bundle> response,
             IList<Resource> patientResources,
@@ -339,6 +443,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private string TagQuery(string query)
         {
             return $"{query}&_tag={_fixture.Tag}";
+        }
+
+        private static string GetResourceReference(Resource resource)
+        {
+            return $"{resource.TypeName}/{resource.Id}";
         }
 
         private static string DecodeUrl(string url)

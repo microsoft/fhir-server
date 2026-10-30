@@ -5,15 +5,18 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -94,10 +97,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             filter.OnActionExecuting(context);
         }
 
+        [Theory]
+        [InlineData(false, "64")]
+        [InlineData(true, "128")]
+        public void GivenARegisteredResourceIdPolicy_WhenTheIdIsEmpty_ThenTheMessageStatesThePolicyLimit(bool useLongResourceIds, string expectedLimit)
+        {
+            // Arrange
+            var filter = new ValidateIdSegmentAttribute();
+            var context = CreateContext(new Patient(), " ");
+            context.HttpContext.RequestServices = new ServiceCollection()
+                .AddSingleton(ResourceIdPolicy.From(useLongResourceIds))
+                .BuildServiceProvider();
+
+            // Act
+            var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+
+            // Assert
+            Assert.Contains(expectedLimit, exception.Issues.Single().Diagnostics, StringComparison.Ordinal);
+        }
+
         private static ActionExecutingContext CreateContext(Resource type, string id)
         {
             return new ActionExecutingContext(
-                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
+                new ActionContext(new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(ResourceIdPolicy.Standard).BuildServiceProvider() }, new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", type } },
                 FilterTestsHelper.CreateMockFhirController());

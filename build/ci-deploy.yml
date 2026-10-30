@@ -149,7 +149,7 @@ stages:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
-      sqlServerName: $(DeploymentEnvironmentName)inttest
+      sqlServerName: $(DeploymentEnvironmentName)integrtest
       adminType: 'federatedServiceConnection'
       deploymentName: "IntegrationTests"
       nspName: 'nsp-$(ResourceGroupName)'
