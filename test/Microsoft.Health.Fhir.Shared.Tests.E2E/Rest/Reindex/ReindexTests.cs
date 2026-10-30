@@ -936,11 +936,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 return;
             }
 
-            // wait for cache update
-            await Task.Delay(TimeSpan.FromSeconds(3));
+            var stopwatch = Stopwatch.StartNew();
+            FhirResponse<Parameters> oldUrlResponse;
+            do // loop to accomodate PaaS with default 20 seconds refresh period for search parameter cache
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3));
+                oldUrlResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={oldUrl}");
+                Assert.Equal(HttpStatusCode.OK, oldUrlResponse.StatusCode);
+            }
+            while (oldUrlResponse.Resource.Parameter.Count != 0 && stopwatch.Elapsed < TimeSpan.FromMinutes(1));
 
-            var oldUrlResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={oldUrl}");
-            Assert.Equal(HttpStatusCode.OK, oldUrlResponse.StatusCode);
             Assert.True(oldUrlResponse.Resource.Parameter.Count == 0, "Expected Deleted not found");
 
             var newUrlResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={newUrl}");
