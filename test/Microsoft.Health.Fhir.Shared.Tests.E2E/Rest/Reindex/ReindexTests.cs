@@ -703,7 +703,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Create custom search parameters - one with valid FHIRPath expression
             var specimenSearchParam = await CreateCustomSearchParameterAsync("custom-parameter-before-specimen", ["Specimen"], "Specimen.type", SearchParamType.Token);
-            var immunizationSearchParam = await CreateCustomSearchParameterAsync("custom-parameter-before-imm", ["Immunization"], "Immunization.vaccineCode", SearchParamType.Token);
 
             // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is 1 sec.
             await Task.Delay(3000);
