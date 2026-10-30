@@ -114,7 +114,7 @@ public sealed class HostingBackgroundServiceTests
             await stopObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             // Flush host continuations queued by cancellation before inspecting the still-blocked drain.
-            await hostTasks.StartNew(() => { });
+            await hostTasks.StartNew(() => { }).WaitAsync(TimeSpan.FromSeconds(5));
 
             // Assert
             Assert.Equal(0, hostingScope.DisposeCount);

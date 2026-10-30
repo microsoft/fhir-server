@@ -434,9 +434,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
             JobInfo jobInfo = (await queueClient.EnqueueAsync(0, ["job"], null, false, CancellationToken.None)).Single();
             var continueExecution = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             int disposeCountSeenOnResume = -1;
+            int disposeCountSeenOnStart = -1;
             CountingJobFactory factory = null;
             factory = new CountingJobFactory(async _ =>
             {
+                disposeCountSeenOnStart = factory.Handle.DisposeCount;
                 await continueExecution.Task;
                 disposeCountSeenOnResume = factory.Handle.DisposeCount;
                 return outcome switch
@@ -459,6 +461,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             // Act
             Assert.False(execution.IsCompleted);
+            Assert.Equal(0, disposeCountSeenOnStart);
             continueExecution.SetResult();
             await execution.WaitAsync(TimeSpan.FromSeconds(5));
 
