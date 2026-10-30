@@ -36,11 +36,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public string LastCleanedUpTransactionId => $"{Name}.LastCleanedUpTransactionId";
 
-        public override double LeasePeriodSec { get; internal set; } = 2 * 3600;
+        public override double LeasePeriodSec { get; internal set; } = 30 * 60; // 30 mins
 
         public override bool AllowRebalance { get; internal set; } = true;
 
-        public override double PeriodSec { get; internal set; } = 3600;
+        public override double PeriodSec { get; internal set; } = 3600; // 1 hour
 
         public string RetentionPeriodDaysId => $"{Name}.RetentionPeriodDays";
 
