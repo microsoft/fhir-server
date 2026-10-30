@@ -155,7 +155,6 @@
     <PackageReference Include="StyleCop.Analyzers" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.CommandLine" />
-    <PackageReference Include="System.CommandLine.NamingConventionBinder" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.Drawing.Common" />

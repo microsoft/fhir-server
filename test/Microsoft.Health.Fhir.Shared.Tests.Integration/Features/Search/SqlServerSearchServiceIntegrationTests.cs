@@ -153,6 +153,42 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
+        public async Task SearchBySurrogateIdRange_WithGlobalEndId_ReturnsVersionCurrentAtSnapshot()
+        {
+            // Arrange - version 1 becomes history when version 2 is written. This drives the snapshot branch of
+            // GetResourcesByTypeAndSurrogateIdRange that joins @SurrogateIds to dbo.Resource.
+            var version1 = await CreateTestObservation("TestSnapshotObservation");
+            var observationToUpdate = new RawResourceElement(version1).ToPoco<Observation>(_fixture.Deserializer);
+            await _fixture.Mediator.UpsertResourceAsync(UpdateObservationStatus(observationToUpdate), WeakETag.FromVersionId(version1.Version));
+            var version2 = await _dataStore.GetAsync(new ResourceKey("Observation", version1.ResourceId), CancellationToken.None);
+
+            var sqlSearchService = Assert.IsType<SqlServerSearchService>(_searchService);
+
+            // Act - read the range of version 1 with snapshots taken before and after version 2.
+            var beforeUpdate = await sqlSearchService.SearchBySurrogateIdRange(
+                "Observation",
+                version1.ResourceSurrogateId,
+                version1.ResourceSurrogateId,
+                null,
+                version2.ResourceSurrogateId - 1,
+                CancellationToken.None);
+
+            var afterUpdate = await sqlSearchService.SearchBySurrogateIdRange(
+                "Observation",
+                version1.ResourceSurrogateId,
+                version1.ResourceSurrogateId,
+                null,
+                version2.ResourceSurrogateId,
+                CancellationToken.None);
+
+            // Assert - version 1 is returned only while it is the latest version in the snapshot.
+            var snapshotEntry = Assert.Single(beforeUpdate.Results, r => r.Resource.ResourceId == version1.ResourceId);
+            Assert.Equal(version1.Version, snapshotEntry.Resource.Version);
+            Assert.Equal(version1.ResourceSurrogateId, snapshotEntry.Resource.ResourceSurrogateId);
+            Assert.DoesNotContain(afterUpdate.Results, r => r.Resource.ResourceId == version1.ResourceId);
+        }
+
+        [Fact]
         public async Task GetSurrogateIdRanges_ReturnsValidRanges()
         {
             // Arrange

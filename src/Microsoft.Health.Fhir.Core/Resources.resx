@@ -540,6 +540,10 @@
   <data name="CustomSearchUpdateError" xml:space="preserve">
     <value>An error occurred updating the custom search parameter.  The issue must be resolved and the update resubmitted to be applied.</value>
   </data>
+  <data name="ExportUnauthorizedIncludesOmitted" xml:space="preserve">
+    <value>Included resources of type '{0}' were excluded because the caller does not have the required SMART export permissions for this resource type.</value>
+    <comment>{0} is the resource type excluded from the export.</comment>
+  </data>
   <data name="TypeFilterUnparseable" xml:space="preserve">
     <value>The _typeFilter segment '{0}' could not be parsed.</value>
     <comment>Error message for a bad _typeFilter parameter on an export job. {0} is the segment that couldn't be parsed.</comment>
@@ -699,6 +703,10 @@
   </data>
   <data name="ChainedResourceTypesNotAllowedDueToScope" xml:space="preserve">
     <value>The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type.</value>
+  </data>
+  <data name="ChainedResourceTypeNotAllowedDueToScope" xml:space="preserve">
+    <value>The (rev)chained resource type {0} is not allowed. Additional clinical scopes must be requested to allow searches using the chained type.</value>
+    <comment>{0} is a string of the name of the resource type.</comment>
   </data>
   <data name="OperationCanceled" xml:space="preserve">
     <value>The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support.</value>

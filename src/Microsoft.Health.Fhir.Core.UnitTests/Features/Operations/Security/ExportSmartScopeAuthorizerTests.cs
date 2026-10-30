@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -496,6 +497,76 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Security
             ExportSmartScopeAuthorizer validator = CreateAuthorizer(enableSmartExportScopeAuthorization: false);
 
             validator.AuthorizeJobAccess(CreateExportJobRecord(KnownResourceTypes.Patient));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenMixedSmartScopes_WhenResolvingIncludePermissions_ThenOnlyCompleteUnconstrainedSystemScopesAreCaptured(bool featureEnabled)
+        {
+            // Arrange
+            var authorizer = CreateAuthorizer(
+                featureEnabled,
+                new ScopeRestriction(KnownResourceTypes.Observation, V2ExportRead, "system"),
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "system"),
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Export, "system"),
+                new ScopeRestriction(KnownResourceTypes.Encounter, V1ExportRead, "user"),
+                new ScopeRestriction(KnownResourceTypes.Group, V2ExportRead, "system", new SearchParams("active", "true")),
+                new ScopeRestriction(KnownResourceTypes.Immunization, DataActions.ReadById | DataActions.Export, "system"));
+
+            // Act
+            var resourceTypes = authorizer.GetAuthorizedIncludeResourceTypes();
+
+            // Assert
+            Assert.Equal(
+                new[] { KnownResourceTypes.Observation, KnownResourceTypes.Patient }.OrderBy(type => type, StringComparer.Ordinal),
+                resourceTypes.OrderBy(type => type, StringComparer.Ordinal));
+        }
+
+        [Theory]
+        [InlineData(DataActions.Read | DataActions.Export)]
+        [InlineData(DataActions.ReadById | DataActions.Search | DataActions.Export)]
+        public void GivenCompleteWildcardSystemScope_WhenResolvingIncludePermissions_ThenAllTypesAreAuthorized(DataActions actions)
+        {
+            // Arrange
+            var authorizer = CreateAuthorizer(new ScopeRestriction(KnownResourceTypes.All, actions, "system"));
+
+            // Act
+            var resourceTypes = authorizer.GetAuthorizedIncludeResourceTypes();
+
+            // Assert
+            Assert.Equal(new[] { KnownResourceTypes.All }, resourceTypes);
+        }
+
+        [Fact]
+        public void GivenNonSmartRequest_WhenResolvingIncludePermissions_ThenNoRestrictionIsCaptured()
+        {
+            // Arrange
+            var authorizer = CreateAuthorizer(enableSmartExportScopeAuthorization: true, isSmartRequest: false);
+
+            // Act
+            var resourceTypes = authorizer.GetAuthorizedIncludeResourceTypes();
+
+            // Assert
+            Assert.Null(resourceTypes);
+        }
+
+        [Theory]
+        [InlineData(DataActions.None)]
+        [InlineData(DataActions.Read | DataActions.Export)]
+        [InlineData(DataActions.ReadById | DataActions.Export)]
+        public void GivenNoEligibleSystemScope_WhenResolvingIncludePermissions_ThenNoTypesAreAuthorized(DataActions actions)
+        {
+            // Arrange
+            var authorizer = CreateAuthorizer(
+                new ScopeRestriction(KnownResourceTypes.Patient, actions, "patient"),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Search, "system"));
+
+            // Act
+            var resourceTypes = authorizer.GetAuthorizedIncludeResourceTypes();
+
+            // Assert
+            Assert.Empty(resourceTypes);
         }
 
         private ExportSmartScopeAuthorizer CreateAuthorizer(params ScopeRestriction[] scopeRestrictions)
