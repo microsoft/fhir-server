@@ -58,9 +58,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 // No matches, id provided and doesn't already exist: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
                 // No matches, id provided and already exists:
-                //   - opted in via the x-ms-conditional-update-create-only header: the server rejects the update with a 409 Conflict (enforced atomically by the data store via createOnly)
-                //   - otherwise (legacy default): the resource with that id is overwritten
-                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleResourceContext, createOnly: request.CreateOnlyOnNoMatch), cancellationToken);
+                //   - NoMatchBehavior.Create: the server rejects the update with a 409 Conflict (enforced atomically by the data store via createOnly)
+                //   - NoMatchBehavior.Upsert (legacy default): the resource with that id is overwritten
+                bool createOnly = request.NoMatchBehavior == ConditionalUpdateNoMatchBehavior.Create;
+                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleResourceContext, createOnly: createOnly), cancellationToken);
             }
         }
 

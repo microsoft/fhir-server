@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -1793,13 +1793,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
         [Theory]
         [InlineData(null)]
-        [InlineData("true")]
-        [InlineData("false")]
-        public async Task GivenAConditionalUpdateCreateOnlyHeaderOnTheBundle_WhenProcessingEntries_ThenEachEntryInheritsIt(string headerValue)
+        [InlineData("create")]
+        [InlineData("upsert")]
+        public async Task GivenAConditionalUpdateNoMatchHeaderOnTheBundle_WhenProcessingEntries_ThenEachEntryInheritsIt(string headerValue)
         {
             if (headerValue != null)
             {
-                _fhirRequestContext.RequestHeaders[KnownHeaders.ConditionalUpdateCreateOnly] = headerValue;
+                _fhirRequestContext.RequestHeaders[KnownHeaders.ConditionalUpdateNoMatch] = headerValue;
             }
 
             var capturedHeaders = new ConcurrentBag<StringValues>();
@@ -1816,7 +1816,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             {
                 info.Arg<RouteContext>().Handler = context =>
                 {
-                    capturedHeaders.Add(context.Request.Headers[KnownHeaders.ConditionalUpdateCreateOnly]);
+                    capturedHeaders.Add(context.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch]);
                     context.Response.StatusCode = StatusCodes.Status200OK;
                     return Task.CompletedTask;
                 };
