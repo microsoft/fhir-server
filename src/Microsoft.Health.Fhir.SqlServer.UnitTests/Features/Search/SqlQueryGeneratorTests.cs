@@ -490,50 +490,22 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool enabled = true)
     {
         // Arrange
-        var reference = new SearchParameterInfo(
-            "subject",
-            "subject",
-            SearchParamType.Reference,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
-            null,
-            "Observation.subject",
-            ["Patient"]);
         _fhirModel.GetResourceTypeId("Observation").Returns((short)10);
         _fhirModel.GetResourceTypeId("Patient").Returns((short)11);
-        _fhirModel.GetSearchParamId(reference.Url).Returns((short)20);
+        _fhirModel.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject")).Returns((short)20);
         var tables = new List<SearchParamTableExpression>
         {
             new(null, null, SearchParamTableExpressionKind.All),
         };
         for (int i = 0; i < chainCount; i++)
         {
-            tables.Add(new SearchParamTableExpression(
-                ChainLinkQueryGenerator.Instance,
-                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
-                SearchParamTableExpressionKind.Chain,
-                chainLevel: 1));
+            tables.Add(ChainTable(1, reversed));
         }
 
         // Act
-        using Data.SqlClient.SqlCommand command = new();
-        var generator = new SqlQueryGenerator(
-            _strBuilder,
-            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
-            _fhirModel,
-            _schemaInformation,
-            _queryGeneratorFactory,
-            false,
-            false,
-            enableChainSourceDeduplication: enabled);
-        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
-        {
-            Sort = [],
-            CountOnly = true,
-            ResourceVersionTypes = ResourceVersionType.Latest,
-        });
+        string sql = GenerateCountSql(tables, enabled);
 
         // Assert
-        string sql = _strBuilder.ToString();
         string alias = reversed ? "refTarget" : "refSource";
         if (chainCount == 1)
         {
@@ -566,34 +538,16 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed)
     {
         // Arrange
-        var reference = new SearchParameterInfo(
-            "subject",
-            "subject",
-            SearchParamType.Reference,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
-            null,
-            "Observation.subject",
-            ["Patient"]);
         var tables = new List<SearchParamTableExpression> { new(null, null, SearchParamTableExpressionKind.All) };
         for (int level = 1; level <= 5; level++)
         {
-            tables.Add(new SearchParamTableExpression(
-                ChainLinkQueryGenerator.Instance,
-                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
-                SearchParamTableExpressionKind.Chain,
-                level));
+            tables.Add(ChainTable(level, reversed));
         }
 
         // Act
-        _queryGenerator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
-        {
-            Sort = [],
-            CountOnly = true,
-            ResourceVersionTypes = ResourceVersionType.Latest,
-        });
+        string sql = GenerateCountSql(tables);
 
         // Assert
-        string sql = _strBuilder.ToString();
         string alias = reversed ? "refTarget" : "refSource";
         Assert.Contains($"JOIN cte0 ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
         Assert.DoesNotContain(") predecessor", sql);
@@ -604,9 +558,9 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, true)]
-    public void GivenChainFollowedByRootFilters_WhenSqlGenerated_ThenOnlyReverseChainSourcesAreDeduplicated(bool reversed, bool expectDistinct)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenChainFollowedByRootFilters_WhenSqlGenerated_ThenOnlyReverseChainSourcesAreDeduplicated(bool reversed)
     {
         // Arrange
         // Mirrors Slot?schedule.actor=...&start=ge...&start=lt...: a two-level chain followed by root filters.
@@ -624,7 +578,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         string sql = GenerateCountSql(tables);
 
         // Assert
-        if (expectDistinct)
+        if (reversed)
         {
             Assert.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte2) predecessor", sql);
             Assert.Contains("JOIN cte3 ON", sql);
@@ -662,9 +616,9 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
-    [InlineData(true, true)]
-    [InlineData(false, false)]
-    public void GivenChainFilterAndRestartedChain_WhenSqlGenerated_ThenRestartDeduplicatesFannedOutPredecessor(bool enabled, bool expectDistinct)
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GivenChainFilterAndRestartedChain_WhenSqlGenerated_ThenRestartDeduplicatesFannedOutPredecessor(bool enabled)
     {
         // Arrange
         // A root filter joined to a forward chain inherits its fan-out, so a later chain restart must still deduplicate it.
@@ -683,7 +637,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Assert
         Assert.DoesNotContain("FROM cte1) predecessor", sql);
-        Assert.Equal(expectDistinct, sql.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte4) predecessor", StringComparison.Ordinal));
+        Assert.Equal(enabled, sql.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte4) predecessor", StringComparison.Ordinal));
     }
 
     private static SearchParamTableExpression ChainTable(int chainLevel, bool reversed)

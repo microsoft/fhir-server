@@ -2033,20 +2033,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
                 sb.Append(_joinShift).Append("JOIN ");
-                bool predecessorFansOut = _fanOutTableExpressions.TryGetValue(predecessorIndex, out bool predecessorHasReverseLink);
+                bool needsDeduplication = _fanOutTableExpressions.TryGetValue(predecessorIndex, out bool predecessorHasReverseLink)
+                    && ((searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1)
+                        || (searchParamTableExpression.ChainLevel == 0 && predecessorHasReverseLink));
 
-                // A restarted chain over a fanned-out predecessor multiplies one chain's paths by another's.
-                bool restartsChainOverFanOut = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain
-                    && searchParamTableExpression.ChainLevel == 1
-                    && predecessorFansOut;
-
-                // Root filters after a reverse chain would carry every referencing resource; forward fan-out stays linear and small,
-                // and deduplicating it adds a sort or hash aggregate that costs more than it saves.
-                bool filtersReverseChainSources = searchParamTableExpression.ChainLevel == 0
-                    && predecessorFansOut
-                    && predecessorHasReverseLink;
-
-                if (_enableChainSourceDeduplication && (restartsChainOverFanOut || filtersReverseChainSources))
+                // Forward-chain fan-out stays linear, so root filters do not need to deduplicate it.
+                if (_enableChainSourceDeduplication && needsDeduplication)
                 {
                     // Independent chains and root-level filters intersect on source existence, not on a chain's target.
                     // Project unique source keys so the predecessor's matching references cannot multiply this table.
@@ -2080,11 +2072,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             bool hasReverseLink = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain
                 && ((SqlChainLinkExpression)searchParamTableExpression.Predicate).Reversed;
             bool joinsPredecessorPath = searchParamTableExpression.Kind != SearchParamTableExpressionKind.Chain || searchParamTableExpression.ChainLevel > 1;
-            if (joinsPredecessorPath
-                && _fanOutTableExpressions.TryGetValue(FindRestrictingPredecessorTableExpressionIndex(), out bool predecessorHasReverseLink))
-            {
-                hasReverseLink |= predecessorHasReverseLink;
-            }
+            hasReverseLink |= joinsPredecessorPath
+                && _fanOutTableExpressions.GetValueOrDefault(FindRestrictingPredecessorTableExpressionIndex());
 
             _fanOutTableExpressions[_tableExpressionCounter] = hasReverseLink;
         }
