@@ -76,6 +76,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         }
 
         /// <summary>
+        /// Retrieves from the HTTP header whether a conditional update that finds no match may only create the resource with the supplied id.
+        /// </summary>
+        /// <param name="outerHttpContext">HTTP context.</param>
+        /// <returns><see langword="true"/> when the header is set to true; otherwise, <see langword="false"/>.</returns>
+        public static bool IsConditionalUpdateCreateOnlyEnabled(this HttpContext outerHttpContext)
+        {
+            if (outerHttpContext != null
+                && outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalUpdateCreateOnly, out StringValues headerValues)
+                && bool.TryParse(headerValues.FirstOrDefault()?.Trim(), out bool result))
+            {
+                return result;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Retrieves from the HTTP header information on using query caching.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context</param>

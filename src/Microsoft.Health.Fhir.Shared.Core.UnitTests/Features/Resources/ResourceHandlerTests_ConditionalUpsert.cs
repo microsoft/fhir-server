@@ -38,19 +38,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == deserialized.Id), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
-        public async Task GivenAResource_WhenUpsertingConditionallyWithAnIdAndNoExisting_ThenTheServerShouldReturnTheCreatedResourceSuccessfully()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAResource_WhenUpsertingConditionallyWithAnIdAndNoExisting_ThenTheServerShouldReturnTheCreatedResourceSuccessfully(bool createOnlyOnNoMatch)
         {
             string id = Guid.NewGuid().ToString();
 
-            ConditionalUpsertResourceRequest message = SetupConditionalUpdate(SaveOutcomeType.Created, Samples.GetDefaultObservation().UpdateId(id));
+            ConditionalUpsertResourceRequest setup = SetupConditionalUpdate(SaveOutcomeType.Created, Samples.GetDefaultObservation().UpdateId(id));
+            var message = new ConditionalUpsertResourceRequest(setup.Resource, setup.ConditionalParameters, createOnlyOnNoMatch: createOnlyOnNoMatch);
 
             UpsertResourceResponse result = await _mediator.SendAsync<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
 
-            // No match + client-supplied id must only create, never overwrite an existing resource with that id.
-            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.CreateOnly && x.WeakETag == null), Arg.Any<CancellationToken>());
+            // No match + client-supplied id: when opted in it must only create, never overwrite an existing resource with that id;
+            // by default it keeps the legacy upsert-by-id behavior.
+            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id && x.CreateOnly == createOnlyOnNoMatch && x.WeakETag == null), Arg.Any<CancellationToken>());
         }
 
         [Theory]

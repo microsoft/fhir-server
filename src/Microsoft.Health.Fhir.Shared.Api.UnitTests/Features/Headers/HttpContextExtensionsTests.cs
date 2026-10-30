@@ -38,6 +38,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
             Assert.False(isHighLatencyEnabled);
 
+            Assert.False(httpContext.IsConditionalUpdateCreateOnlyEnabled());
+
             // Given different default values for the bundle processing logic, we expect the same value to be returned.
             BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
                 defaultBundleProcessingLogic: defaultAndExpectBundleProcessingLogic);
@@ -111,6 +113,32 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 
             // Assert
             Assert.True(isHighLatencyEnabled);
+        }
+
+        [Theory]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        [InlineData("false", false)]
+        [InlineData("2112", false)]
+        [InlineData("true", true)]
+        [InlineData("   tRuE   ", true)]
+        public void WhenHttpContextHasConditionalUpdateCreateOnlyHeader_ReturnIfCreateOnlyIsEnabled(string value, bool isEnabled)
+        {
+            // Arrange
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.ConditionalUpdateCreateOnly, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            // Act
+            bool isCreateOnlyEnabled = httpContext.IsConditionalUpdateCreateOnlyEnabled();
+
+            // Assert
+            Assert.Equal(isEnabled, isCreateOnlyEnabled);
+        }
+
+        [Fact]
+        public void WhenHttpContextIsNull_ThenConditionalUpdateCreateOnlyIsDisabled()
+        {
+            Assert.False(((HttpContext)null).IsConditionalUpdateCreateOnlyEnabled());
         }
 
         [Fact]

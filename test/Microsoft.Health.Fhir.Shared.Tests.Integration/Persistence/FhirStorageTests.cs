@@ -515,7 +515,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenANewId_WhenUpsertingCreateOnly_ThenTheResourceIsCreated()
         {
             string id = Guid.NewGuid().ToString();
@@ -530,7 +529,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnExistingResource_WhenUpsertingCreateOnly_ThenConflictIsReturnedAndTheResourceIsNotModified(bool sameContent)
         {
             string id = Guid.NewGuid().ToString();
@@ -546,7 +544,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenACreateOnlyConflict_WhenUpsertingTheSameIdWithoutCreateOnly_ThenTheResourceIsUpdated()
         {
             string id = Guid.NewGuid().ToString();
@@ -565,7 +562,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         [Theory]
         [InlineData(DeleteOperation.SoftDelete)]
         [InlineData(DeleteOperation.HardDelete)]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenADeletedResource_WhenUpsertingCreateOnly_ThenTheResourceIsRecreated(DeleteOperation deleteOperation)
         {
             string id = Guid.NewGuid().ToString();
@@ -619,7 +615,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenConcurrentCreateOnlyUpsertsForTheSameNewId_WhenSaving_ThenExactlyOneSucceedsAndTheOthersConflict()
         {
             string id = Guid.NewGuid().ToString();
