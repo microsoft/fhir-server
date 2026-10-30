@@ -46,8 +46,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         // Note: search parameter names include ':' and '.' so the full key is captured for chained params
         // (e.g., subject.name), type/reverse-chaining (e.g., subject:Patient, _has:Observation:patient:code)
         // and detection of FHIR search modifiers (e.g., category:in, code:text, category:not).
+        // The search parameters are matched while still percent-encoded, so keys may contain '%' escapes; each key and
+        // value is decoded only after the query is split on its raw '&' and '=' delimiters.
         private static readonly Regex ClinicalScopeRegEx = new Regex(
-            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-:.]+=[^&\s]+)(?>&[a-zA-Z0-9_\-:.]+=[^&\s]+)*))?",
+            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-:.%]+=[^&\s]+)(?>&[a-zA-Z0-9_\-:.%]+=[^&\s]+)*))?",
             RegexOptions.Compiled,
             TimeSpan.FromMilliseconds(100));
 
@@ -192,19 +194,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
         // Percent-decodes only the part of each whitespace-separated scope before its first raw '?' (for example
         // "patient%2fObservation.rs" -> "patient/Observation.rs") and keeps the search-parameter query encoded, so
-        // the query can be split on its raw '&' and '=' delimiters before each value is decoded. Returns false when a
-        // decoded prefix forms or hides a clinical scope through an encoded delimiter: an encoded '?' (a fully encoded
-        // scope such as "patient%2fObservation.rs%3Fcode%3D1"), or encoded whitespace (one scope value expanding into
-        // several scopes, such as "patient%2fObservation.rs%20patient%2fPatient.rs").
+        // the query can be split on its raw '&' and '=' delimiters before each key and value is decoded. Whitespace
+        // between scopes is preserved as-is, and encoded whitespace at either end of a decoded prefix is trimmed.
+        // Returns false when a decoded prefix forms or hides a clinical scope through an encoded delimiter: an encoded
+        // '?' (a fully encoded scope such as "patient%2fObservation.rs%3Fcode%3D1"), '&', '=', or encoded whitespace
+        // inside the prefix (one scope value expanding into several scopes, such as
+        // "patient%2fObservation.rs%20patient%2fPatient.rs").
         private static bool TryDecodeScopePrefixes(string scopeClaims, out string decodedScopeClaims)
         {
-            var builder = new StringBuilder();
+            var builder = new StringBuilder(scopeClaims.Length);
+            int index = 0;
 
-            foreach (string scope in scopeClaims.Split((char[])null, StringSplitOptions.RemoveEmptyEntries))
+            while (index < scopeClaims.Length)
             {
+                if (char.IsWhiteSpace(scopeClaims[index]))
+                {
+                    builder.Append(scopeClaims[index]);
+                    index++;
+                    continue;
+                }
+
+                int end = index;
+                while (end < scopeClaims.Length && !char.IsWhiteSpace(scopeClaims[end]))
+                {
+                    end++;
+                }
+
+                string scope = scopeClaims.Substring(index, end - index);
                 int queryStart = scope.IndexOf('?', StringComparison.Ordinal);
                 string prefix = queryStart < 0 ? scope : scope.Substring(0, queryStart);
-                string decodedPrefix = System.Uri.UnescapeDataString(prefix);
+                string decodedPrefix = System.Uri.UnescapeDataString(prefix).Trim();
 
                 if (decodedPrefix.Any(c => c == '?' || c == '&' || c == '=' || char.IsWhiteSpace(c))
                     && ClinicalScopeRegEx.IsMatch(decodedPrefix))
@@ -213,15 +232,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     return false;
                 }
 
-                builder.Append(' ').Append(decodedPrefix);
+                builder.Append(decodedPrefix);
                 if (queryStart >= 0)
                 {
                     builder.Append(scope, queryStart, scope.Length - queryStart);
                 }
+
+                index = end;
             }
 
             decodedScopeClaims = builder.ToString();
             return true;
+        }
+
+        // Returns true when a decoded search parameter key only contains the characters allowed in a SMART scope key.
+        private static bool IsValidSearchParameterKey(string paramKey)
+        {
+            return paramKey.Length > 0
+                   && paramKey.All(c => char.IsAsciiLetterOrDigit(c) || c == '_' || c == '-' || c == ':' || c == '.');
         }
 
         public async Task Invoke(
@@ -446,8 +474,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     // rejected rather than silently dropped, which would broaden the granted
                                     // access (fail-open).
                                     var parts = kvPair.Split('=', 2);
-                                    var paramKey = parts[0];
                                     var paramValue = parts.Length == 2 ? parts[1] : string.Empty;
+
+                                    // Decode the key only after the split, then require the usual key characters so
+                                    // an encoded '&', '=', '?' or space can't change the key. The checks below see the
+                                    // decoded key, so an encoded ':' or '.' can't hide a modifier or a chained search.
+                                    var paramKey = System.Uri.UnescapeDataString(parts[0]);
+                                    if (!IsValidSearchParameterKey(paramKey))
+                                    {
+                                        var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, match.Value?.Trim());
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
+                                    }
 
                                     // Chained search parameters are not enforceable as SMART clinical scope
                                     // constraints, so reject them rather than silently dropping the constraint.

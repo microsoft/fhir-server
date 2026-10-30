@@ -726,6 +726,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [InlineData("raw_scope", "patient/Patient.read patient%2FObservation.read", new[] { "patient/Patient.read", " patient/Observation.read" })]
+        [InlineData("raw_scope", "patient/Patient.read\tpatient%2FObservation.read", new[] { "patient/Patient.read", "\tpatient/Observation.read" })]
+        [InlineData("scope", "patient/Patient.read patient%2FObservation.read", new[] { " patient/Patient.read", " patient/Observation.read" })]
+        [InlineData("scope", "patient%2FObservation.rs?code=http:%2F%2Floinc.org|4548-4", new[] { " patient/Observation.rs?code=http:%2F%2Floinc.org|4548-4" })]
+        public async Task GivenSmartScopes_WhenInvoked_ThenClinicalScopesKeepTheOriginalSeparators(string scopeClaim, string scopes, string[] expectedClinicalScopes)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(scopeClaim, scopes),
+                new Claim("fhirUser", "https://fhirServer/Patient/foo"),
+            };
+
+            var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(new DefaultHttpContext(), claims);
+
+            Assert.True(nextCalled);
+            Assert.Equal(expectedClinicalScopes, accessControlContext.ClinicalScopes);
+        }
+
+        [Theory]
         [InlineData("patient.all.read", "https://fhirServer/Practitioner/doctor", "scope")]
         [InlineData("patient/*.rs", "Practitioner/doctor", "scope")]
         [InlineData("patient/Observation.rs", "Practitioner/doctor", "raw_scope")]
@@ -1341,6 +1360,68 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                     new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("name", "john").Add("gender", "male")),
                 },
             };
+
+            // Encoded characters in a key are decoded after the split, as they were when the whole scope was decoded
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?subject%3APatient=Patient%2F123",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("subject:Patient", "Patient/123")),
+                },
+            };
+
+            // Encoded whitespace at either end of a scope is trimmed, as before
+            yield return new object[]
+            {
+                "%20patient%2fPatient.read%20",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                },
+            };
+
+            // Encoded whitespace between the prefix and a raw '?' no longer drops the constraint
+            yield return new object[]
+            {
+                "patient%2fObservation.rs%20?code=44501",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "44501")),
+                },
+            };
+
+            // Tabs and line breaks still separate scopes
+            yield return new object[]
+            {
+                "patient/Patient.read\tpatient%2fObservation.read\r\npatient/Encounter.read",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                },
+            };
+
+            // Non-clinical scopes with encoded delimiters are ignored, as before
+            yield return new object[]
+            {
+                "openid launch%3Fpatient%3D123 api%3A%2F%2Fapp%2Ffhir patient%2fPatient.read",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                },
+            };
+
+            // Other escapes in values decode exactly as before: %2C is the FHIR OR separator, invalid escapes are kept
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?code=a%2Cb&status=50%zz",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "a,b").Add("status", "50%zz")),
+                },
+            };
         }
 
         public static IEnumerable<object[]> GetMixedSmartScopeVersions()
@@ -1396,6 +1477,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // Modifier combined with normal param
             yield return new object[] { "user/Condition.rs?category:in=http://hl7.org/fhir/ValueSet/x&status=active" };
+
+            // Modifier hidden behind an encoded ':' in the key (keys are decoded before the checks)
+            yield return new object[] { "patient/Observation.rs?code%3Anot=x" };
+            yield return new object[] { "patient%2fPatient.rs?gender%3amissing=true" };
         }
 
         public static IEnumerable<object[]> GetScopesWithChainedSearch()
@@ -1413,6 +1498,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             // Reverse chaining (_has), with and without an additional modifier
             yield return new object[] { "user/Patient.rs?_has:Observation:patient:code=http://loinc.org|1234-5" };
             yield return new object[] { "user/Patient.rs?_has:Observation:patient:code:in=http://loinc.org|1234-5" };
+
+            // Chained search hidden behind an encoded '.' or ':' in the key
+            yield return new object[] { "patient/Observation.rs?subject%2Ename=Smith" };
+            yield return new object[] { "user/Patient.rs?_has%3AObservation%3Apatient%3Acode=http://loinc.org|1234-5" };
         }
 
         public static IEnumerable<object[]> GetScopesWithIncludes()
@@ -1427,6 +1516,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // Case-insensitive key
             yield return new object[] { "patient/Observation.rs?_INCLUDE=Observation:subject" };
+
+            // _include hidden behind an encoded '_' in the key
+            yield return new object[] { "patient/Observation.rs?%5Finclude=Observation:subject" };
         }
 
         public static IEnumerable<object[]> GetMalformedScopes()
@@ -1458,8 +1550,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "patient%2fObservation.rs%26code%3D44501" };              // encoded '&' before the query
             yield return new object[] { "patient%2fObservation.read%20patient%2fPatient.read" };  // one scope value expanding into two scopes
             yield return new object[] { "patient/Observation.rs?identifier=ABC%26status=final" }; // raw '=' left in the value after the split
-            yield return new object[] { "patient/Observation.rs?code%3Anot=x" };                  // encoded key (hides a modifier)
             yield return new object[] { "patient/Observation.rs?identifier%3DABC" };              // encoded '=' leaves no raw name/value separator
+            yield return new object[] { "patient/Observation.rs?a%26b=c" };                       // decoded key contains '&'
+            yield return new object[] { "patient/Observation.rs?code%20x=1" };                    // decoded key contains a space
+            yield return new object[] { "patient/Observation.rs?%3F=1" };                         // decoded key contains '?'
+            yield return new object[] { "patient%2fPatient.read%20openid" };                      // encoded space inside one scope value
         }
 
         private async Task<(AccessControlContext AccessControlContext, bool NextCalled)> InvokeWithSmartClaimsAsync(
