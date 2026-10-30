@@ -861,6 +861,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails.FailureStatusCode);
         }
 
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ExportClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenSearchFailure_WhenExportProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw failure);
+            var processingJob = CreateProcessingJob(_exportJobTask);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            var record = Assert.IsType<ExportJobRecord>(exception.Error);
+            Assert.Equal(OperationStatus.Failed, record.Status);
+            Assert.Equal(expectedCustomerCaused, record.FailureDetails.IsCustomerCaused);
+        }
+
         private ExportProcessingJob CreateProcessingJob(IExportJobTask exportJobTask)
         {
             return new ExportProcessingJob(

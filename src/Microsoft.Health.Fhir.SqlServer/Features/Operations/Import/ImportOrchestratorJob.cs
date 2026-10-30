@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
                 errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex.IsCustomerCaused());
             }
 
             return JsonConvert.SerializeObject(result);
@@ -347,7 +347,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
-                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError}, false);
+                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError}, ex.IsCustomerCaused());
             }
         }
     }

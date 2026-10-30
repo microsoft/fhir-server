@@ -248,6 +248,50 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 CancellationToken.None);
         }
 
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenValidationFailure_WhenOrchestratorExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns<Task<Dictionary<string, object>>>(_ => throw failure);
+            var job = CreateOrchestratorJob(client, Substitute.For<IQueueClient>());
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Contains(failure.Message, error.ErrorDetails ?? error.ErrorMessage);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenEnqueueFailure_WhenOrchestratorExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L });
+            var queue = Substitute.For<IQueueClient>();
+            queue.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+            var job = CreateOrchestratorJob(client, queue);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            Assert.Contains(failure.Message, Assert.IsType<ImportJobErrorResult>(exception.Error).ErrorDetails);
+        }
+
         private static ImportOrchestratorJobDefinition CreateInput()
         {
             return new ImportOrchestratorJobDefinition

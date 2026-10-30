@@ -275,13 +275,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     isCustomerCaused: !destinationConnected && (dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden || dce.StatusCode == HttpStatusCode.NotFound || dce.StatusCode == HttpStatusCode.BadRequest));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
-            catch (RequestNotValidException ex) when (ex.Message == Core.Resources.TooManyParameters)
-            {
-                _logger.LogInformation(ex, "[JobId:{JobId}] Search conditions exceeded the SQL parameter limit. The job will be marked as failed.", _exportJobRecord.Id);
-
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-            }
             catch (ResourceNotFoundException rnfe)
             {
                 if (rnfe.ResourceKey?.ResourceType == KnownResourceTypes.Group)
@@ -343,6 +336,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 // Let OOM bubble up to ExportProcessingJob for batch size reduction and retry.
                 throw;
+            }
+            catch (Exception ex) when (ex.IsCustomerCaused())
+            {
+                _logger.LogInformation(ex, "[JobId:{JobId}] Export failed due to a customer-caused error.", _exportJobRecord.Id);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, ex.ToString(), isCustomerCaused: true);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)
             {

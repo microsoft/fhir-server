@@ -247,6 +247,45 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.Equal(cancellationSource.Token, exception.CancellationToken);
         }
 
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenImporterFailure_WhenProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var importer = Substitute.For<IImporter>();
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<ImportProcessingProgress>>(_ => throw failure);
+            var job = CreateProcessingJob(importer: importer);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+            Assert.Contains(failure.Message, Assert.IsType<ImportJobErrorResult>(exception.Error).ErrorDetails);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenLoaderFailure_WhenProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var loader = Substitute.For<IImportResourceLoader>();
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns((Channel.CreateUnbounded<ImportResource>(), Task.FromException(failure)));
+            var job = CreateProcessingJob(loader);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+        }
+
         private static ImportProcessingJob CreateProcessingJob(IImportResourceLoader loader = null, IImporter importer = null)
         {
             var errorStoreFactory = Substitute.For<IImportErrorStoreFactory>();

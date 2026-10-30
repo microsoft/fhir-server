@@ -17,6 +17,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     _logger.LogJobError(ex, jobInfo, "Generic exception. Failed to load data.");
                     var error = new ImportJobErrorResult() { ErrorMessage = "Generic exception. Failed to load data." };
-                    throw new JobExecutionException(ex.Message, error, ex, false);
+                    throw new JobExecutionException(ex.Message, error, ex, ex.IsCustomerCaused());
                 }
 
                 result.ClockMilliseconds = stopwatch.ElapsedMilliseconds;
@@ -217,7 +218,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex, false);
+                throw new JobExecutionException(ex.Message, error, ex, ex.IsCustomerCaused());
             }
         }
 
