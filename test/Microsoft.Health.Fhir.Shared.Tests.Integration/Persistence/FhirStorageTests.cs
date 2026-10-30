@@ -271,12 +271,21 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
+            // Prime the write path so metadata freshness does not depend on prior tests warming SQL plans.
+            await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            var saveCompletedAt = DateTimeOffset.UtcNow;
             Assert.NotNull(saveResult);
             Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
             var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
             Assert.NotNull(deserializedResource);
-            Assert.True((DateTimeOffset.UtcNow - deserializedResource.LastUpdated.GetValueOrDefault()).TotalMilliseconds < 1000);
+            var lastUpdated = deserializedResource.LastUpdated;
+            Assert.NotNull(lastUpdated);
+            Assert.Equal(saveResult.RawResourceElement.LastUpdated, lastUpdated);
+            Assert.True(
+                (saveCompletedAt - lastUpdated.Value).TotalMilliseconds < 1000,
+                $"LastUpdated {lastUpdated:o} must be within one second of save completion {saveCompletedAt:o}.");
         }
 
         [Fact]
