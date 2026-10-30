@@ -530,7 +530,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
         {
-            var searchParam = new SearchParameter();
+            var testResources = await SetupTestDataAsync("Person", 100, CreatePersonResourceAsync);
+            var searchParam = await CreateCustomSearchParameterAsync("custom-person-name", ["Person"], "Person.name.given", SearchParamType.String);
+            Assert.NotNull(searchParam);
+
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
             var parameters = new Parameters
             {
@@ -540,11 +543,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
                 ],
             };
-
-            var testResources = await SetupTestDataAsync("Person", 100, CreatePersonResourceAsync);
-            searchParam = await CreateCustomSearchParameterAsync("custom-person-name", ["Person"], "Person.name.given", SearchParamType.String);
-            Assert.NotNull(searchParam);
-
             value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
             Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
 
