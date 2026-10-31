@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private DateTimeOffset _leaseEndTime;
         private double _leaseTimeoutSec;
         private readonly string _worker;
-        private string _workerId;
+        private readonly string _workerId;
         private readonly string _watchdogName;
         private bool _allowRebalance;
         private readonly FhirTimer _fhirTimer;
@@ -63,18 +63,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public double PeriodSec => _fhirTimer.PeriodSec;
 
-        public async Task ExecuteAsync(string name, bool allowRebalance, double periodSec, Guid guid, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(string name, bool allowRebalance, double periodSec, CancellationToken cancellationToken)
         {
             _logger.LogDebug("WatchdogLease.StartAsync: starting...");
 
             _allowRebalance = allowRebalance;
             _leaseEndTime = DateTimeOffset.MinValue;
             _leaseTimeoutSec = (int)Math.Ceiling(periodSec * TimeoutFactor); // if it is rounded to 0 it causes problems in AcquireResourceLease logic.
-            _workerId = _worker + '.' + guid;
 
             // Start the timer to periodically attempt to acquire the lease
-            // Caps the initial delay to 5 minutes to avoid long delays on first run.
-            await _fhirTimer.ExecuteAsync(name, periodSec, OnNextTickAsync, cancellationToken, periodSec > 300 ? 300 : periodSec);
+            await _fhirTimer.ExecuteAsync(name, periodSec, OnNextTickAsync, cancellationToken);
 
             _logger.LogDebug("WatchdogLease.StartAsync: completed.");
         }

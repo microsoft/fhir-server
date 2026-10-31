@@ -71,15 +71,20 @@ BEGIN TRY
          OR @ForceAcquire = 1 AND Watchdog = @Watchdog AND LeaseHolder <> @Worker
   IF @@rowcount > 0
   BEGIN 
-    DELETE FROM dbo.WatchdogLeases WHERE Watchdog IN (SELECT Watchdog FROM @Watchdogs)
+    UPDATE dbo.WatchdogLeases
+      SET LeaseHolder = ''
+         ,LeaseEndTime = dateadd(day,-10,@Now)
+         ,LeaseRequestor = ''
+         ,LeaseRequestTime = dateadd(day,-10,@Now)
+      WHERE Watchdog IN (SELECT Watchdog FROM @Watchdogs)
     SET @Rows += @@rowcount
 
     IF @Rows > 0
     BEGIN
       SET @msg = ''
       SELECT @msg = convert(varchar(1000),@msg + CASE WHEN @msg = '' THEN '' ELSE ',' END + Watchdog) FROM @Watchdogs
-      SET @msg = convert(varchar(1000),'Remove old/forced leases:'+@msg)
-      EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Target='WatchdogLeases',@Action='Delete',@Rows=@Rows,@Text=@msg
+      SET @msg = convert(varchar(1000),'Reset old/forced leases:'+@msg)
+      EXECUTE dbo.LogEvent @Process=@SP,@Status='Info',@Mode=@Mode,@Target='WatchdogLeases',@Action='Update',@Rows=@Rows,@Text=@msg
     END
   END
 
@@ -157,7 +162,7 @@ BEGIN TRY
     SET @IsAcquired = 1
     SET @msg = 'Lease holder changed from ['+isnull(@PreviousLeaseHolder,'')+'] to ['+@Worker+']' 
     IF @PreviousLeaseHolder <> @Worker
-      EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Text=@msg
+      EXECUTE dbo.LogEvent @Process=@SP,@Status='Info',@Mode=@Mode,@Text=@msg
   END
   ELSE
     IF @AllowRebalance = 1 
@@ -184,7 +189,7 @@ BEGIN TRY
             AND (SELECT count(*) FROM dbo.WatchdogLeases B WHERE B.LeaseHolder = A.LeaseHolder AND datediff(second,B.LeaseEndTime,@Now) < @LeasePeriodSec) > @DesiredLeasesNumber -- current guy holds more than required
         SET @RowsInt = @@rowcount
         SET @msg = '@DesiredLeasesNumber=['+convert(varchar(10),@DesiredLeasesNumber)+'] > @MyValidRequestsOrLeasesNumber=['+convert(varchar(10),@MyValidRequestsOrLeasesNumber)+']' 
-        EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Info',@Mode=@Mode,@Rows=@RowsInt,@Text=@msg
+        EXECUTE dbo.LogEvent @Process=@SP,@Status='Info',@Mode=@Mode,@Rows=@RowsInt,@Text=@msg
       END
     END
   
@@ -194,7 +199,7 @@ END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process='AcquireWatchdogLease',@Status='Error',@Mode=@Mode;
+  EXECUTE dbo.LogEvent @Process=@SP,@Status='Error',@Mode=@Mode;
   THROW
 END CATCH
 GO

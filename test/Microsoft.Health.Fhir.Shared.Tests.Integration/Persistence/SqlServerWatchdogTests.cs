@@ -4,14 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
 using Medino;
-using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -34,7 +36,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
 using Xunit;
 
@@ -278,7 +279,7 @@ COMMIT TRANSACTION
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            Task wsTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wsTask = wd.ExecuteAsync(cts.Token);
 
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
@@ -326,7 +327,7 @@ END
 
             var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
@@ -409,7 +410,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
@@ -446,7 +447,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
@@ -521,8 +522,8 @@ RAISERROR('Test',18,127)
             // Initialize watchdog parameters
             var geoWatchdog = new GeoReplicationLagWatchdog();
             ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{geoWatchdog.PeriodSecId}', '{geoWatchdog.LeasePeriodSecId}')");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.PeriodSecId}', 1)");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.LeasePeriodSecId}', 2)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{geoWatchdog.PeriodSecId}', 1");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{geoWatchdog.LeasePeriodSecId}', 2");
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(2));
@@ -540,7 +541,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 30)
@@ -558,6 +559,86 @@ RAISERROR('Test',18,127)
             await wdTask;
 
             _testOutputHelper.WriteLine("Watchdog executed successfully");
+        }
+
+        [Fact]
+        public async Task LastRunTimeIsKeptForStaleLeases()
+        {
+            const string watchdog = "TestWatchdog";
+            var originalLastRunTime = new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+
+            ExecuteSql($@"DELETE FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            ExecuteSql($@"
+INSERT INTO dbo.WatchdogLeases 
+    (        Watchdog,  LeaseHolder,                     LeaseEndTime,                                     LastRunTime)
+  SELECT '{watchdog}', 'old-worker', dateadd(minute,-10,getUTCdate()), '{originalLastRunTime:yyyy-MM-ddTHH:mm:ss.fff}'");
+
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            await conn.OpenAsync();
+
+            var leaseEndTime = new SqlParameter("@LeaseEndTime", SqlDbType.DateTime) { Direction = ParameterDirection.Output };
+            var isAcquired = new SqlParameter("@IsAcquired", SqlDbType.Bit) { Direction = ParameterDirection.Output };
+            var currentLeaseHolder = new SqlParameter("@CurrentLeaseHolder", SqlDbType.VarChar, 100) { Direction = ParameterDirection.Output };
+
+            const string newWorker = "new-worker";
+            using var cmd = new SqlCommand("dbo.AcquireWatchdogLease", conn) { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.Add(new SqlParameter("@Watchdog", watchdog));
+            cmd.Parameters.Add(new SqlParameter("@Worker", newWorker));
+            cmd.Parameters.Add(new SqlParameter("@LeasePeriodSec", 15d));
+            cmd.Parameters.Add(leaseEndTime);
+            cmd.Parameters.Add(isAcquired);
+            cmd.Parameters.Add(currentLeaseHolder);
+
+            await cmd.ExecuteNonQueryAsync();
+
+            var preservedLastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            Assert.Equal(originalLastRunTime, preservedLastRunTime);
+            Assert.True((bool)isAcquired.Value);
+            var leaseHolder = (string)ExecuteSql($"SELECT LeaseHolder FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            Assert.Equal(newWorker, leaseHolder);
+        }
+
+        [Fact]
+        public async Task PeriodsLongerThanLeasesAreHonored()
+        {
+            const string watchdog = nameof(TestPeriodWatchdog);
+            const int periodSec = 3;
+            const int leasePeriodSec = 1;
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{watchdog}.PeriodSec', '{watchdog}.LeasePeriodSec')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.PeriodSec', {periodSec}");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.LeasePeriodSec', {leasePeriodSec}");
+
+            ExecuteSql($"DELETE FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            var pastDate = DateTime.UtcNow.AddDays(-1);
+            ExecuteSql($@"
+INSERT INTO dbo.WatchdogLeases 
+    (        Watchdog,  LeaseHolder, LeaseEndTime,  LastRunTime)
+  SELECT '{watchdog}', 'old-worker', '{pastDate}', '{pastDate}'
+            ");
+
+            var executionTimes = new List<DateTime>();
+            var wd = new TestPeriodWatchdog(_fixture.SqlRetryService, XUnitLogger<TestPeriodWatchdog>.Create(_testOutputHelper), executionTimes);
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            var watchdogTask = wd.ExecuteAsync(cts.Token);
+
+            var start = DateTime.UtcNow;
+            const int executions = 3;
+            const double tolerance = 0.5; // seconds
+            while (executionTimes.Count < executions && (DateTime.UtcNow - start) < TimeSpan.FromSeconds(periodSec * executions * 2))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
+            }
+
+            await cts.CancelAsync();
+            await watchdogTask;
+
+            Assert.True(executionTimes.Count >= executions, "The watchdog did not execute at least 3 times within the test window.");
+
+            Assert.InRange((executionTimes[executions - 1] - executionTimes[0]).TotalSeconds, periodSec * (executions - 1), ((periodSec + leasePeriodSec) * (executions - 1)) + tolerance);
+
+            var lastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            Assert.True((lastRunTime - executionTimes[executions - 1]).TotalSeconds < tolerance, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[executions - 1]:yyyy-MM-dd HH:mm:ss.fff}.");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()
@@ -796,12 +877,12 @@ RAISERROR('Test',18,127)
             };
 
             ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{wd.PeriodSecId}', '{wd.LeasePeriodSecId}')");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.PeriodSecId}', 1)");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.LeasePeriodSecId}', 2)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{wd.PeriodSecId}', 1");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{wd.LeasePeriodSecId}', 2");
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(30));
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!isPublished() && (DateTime.UtcNow - startTime).TotalSeconds < 20)
@@ -811,6 +892,29 @@ RAISERROR('Test',18,127)
 
             await cts.CancelAsync();
             await wdTask;
+        }
+
+        private sealed class TestPeriodWatchdog : Watchdog<TestPeriodWatchdog>
+        {
+            private readonly IList<DateTime> _executionTimes;
+
+            public TestPeriodWatchdog(ISqlRetryService sqlRetryService, ILogger<TestPeriodWatchdog> logger, IList<DateTime> executionTimes)
+                : base(sqlRetryService, logger)
+            {
+                _executionTimes = executionTimes;
+            }
+
+            public override double LeasePeriodSec { get; internal set; } = 200; // value is not relevant
+
+            public override bool AllowRebalance { get; internal set; } = false;
+
+            public override double PeriodSec { get; internal set; } = 200; // value is not relevant
+
+            protected override Task RunWorkAsync(CancellationToken cancellationToken)
+            {
+                _executionTimes.Add(DateTime.UtcNow);
+                return Task.CompletedTask;
+            }
         }
     }
 }
