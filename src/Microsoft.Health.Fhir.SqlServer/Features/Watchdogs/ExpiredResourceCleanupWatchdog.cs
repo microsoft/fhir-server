@@ -32,8 +32,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     {
         private const int DefaultPeriodSec = 4 * 3600; // 4 hours
         private const int DefaultLeasePeriodSec = 15 * 60; // 15 minutes
-
-        private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
         private readonly ILogger<ExpiredResourceCleanupWatchdog> _logger;
         private readonly ExpiredResourceConfiguration _configuration;
@@ -45,7 +43,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             ILogger<ExpiredResourceCleanupWatchdog> logger)
             : base(sqlRetryService, logger)
         {
-            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value?.ExpiredResource, nameof(watchdogConfiguration));
