@@ -245,6 +245,6 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-DELETE FROM dbo.Parameters WHERE Id LIKE '%.LeasePeriodSec'
-DELETE FROM dbo.Parameters WHERE Id LIKE '%.PeriodSec'
+DELETE FROM dbo.Parameters WHERE Id LIKE '%Watchdog.LeasePeriodSec'
+DELETE FROM dbo.Parameters WHERE Id LIKE '%Watchdog.PeriodSec'
 GO
