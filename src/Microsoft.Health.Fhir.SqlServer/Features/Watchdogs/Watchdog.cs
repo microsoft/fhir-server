@@ -145,13 +145,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-            var value = lastRunTime.Value;
-            if (value == null || value == DBNull.Value)
-            {
-                return DateTime.MinValue;
-            }
-
-            return (DateTime)value;
+            // The watchdog lease guarantees a non-null LastRunTime; no-row/DBNull values might indicate broken schema or lease logic.
+            return (DateTime)lastRunTime.Value;
         }
 
         private async Task UpdateLastRunTimeAsync(CancellationToken cancellationToken)
