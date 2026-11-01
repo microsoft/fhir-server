@@ -659,78 +659,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenResourceAddedAfterSingleSearchParamAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex()
         {
-            // Scenario 2: Test that search parameter with invalid expression fails indexing
-            // This validates that indexing failures prevent status updates
-            (FhirResponse<Parameters> response, Uri jobUri) value = default;
-
-            // Create custom search parameters - one with valid FHIRPath expression
             var specimenSearchParam = await CreateCustomSearchParameterAsync("custom-parameter-before-specimen", ["Specimen"], "Specimen.type", SearchParamType.Token);
 
-            // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is 1 sec.
-            await Task.Delay(3000);
+            // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is PaaS 20 sec.
+            await Task.Delay(30000);
 
-            // Create test resources that will be indexed using SetupTestDataAsync
             await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
-            // Create reindex job targeting both search parameters
+            (FhirResponse<Parameters> response, Uri jobUri) value = default;
             value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
             Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
             Assert.NotNull(value.jobUri);
 
-            // Wait for job to complete
             var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-            Assert.True(
-                jobStatus.Status == OperationStatus.Completed,
-                $"Expected Completed, got {jobStatus.Status}");
+            Assert.True(jobStatus.Status == OperationStatus.Completed, $"Expected Completed, got {jobStatus.Status}");
 
             await CheckReportedCounts(value.jobUri, 0, false); // reindex should skip this resource
 
-            // The valid search parameter should still be usable
-            await VerifySearchParameterIsWorkingAsync(
-                $"Specimen?{specimenSearchParam.Code}=119295008",
-                specimenSearchParam.Code,
-                "Specimen",
-                true);
+            await VerifySearchParameterIsWorkingAsync($"Specimen?{specimenSearchParam.Code}=119295008", specimenSearchParam.Code, "Specimen", true);
         }
 
         [Fact]
         public async Task GivenResourceAddedAfterMultiSearchParamsAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex()
         {
-            // Scenario 2: Test that search parameter with invalid expression fails indexing
-            // This validates that indexing failures prevent status updates
-            (FhirResponse<Parameters> response, Uri jobUri) value = default;
-
-            // Create custom search parameters - one with valid FHIRPath expression
             var specimenSearchParam = await CreateCustomSearchParameterAsync("custom-parameter-before-specimen", ["Specimen"], "Specimen.type", SearchParamType.Token);
             await CreateCustomSearchParameterAsync("custom-parameter-before-imm", ["Immunization"], "Immunization.vaccineCode", SearchParamType.Token);
 
-            // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is 1 sec.
-            await Task.Delay(3000);
+            // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is PaaS 20 sec.
+            await Task.Delay(30000);
 
-            // Create test resources that will be indexed using SetupTestDataAsync
             await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
-            // Create reindex job targeting both search parameters
+            (FhirResponse<Parameters> response, Uri jobUri) value = default;
             value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
             Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
             Assert.NotNull(value.jobUri);
 
-            // Wait for job to complete
             var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-            Assert.True(
-                jobStatus.Status == OperationStatus.Completed,
-                $"Expected Completed, got {jobStatus.Status}");
+            Assert.True(jobStatus.Status == OperationStatus.Completed, $"Expected Completed, got {jobStatus.Status}");
 
             await CheckReportedCounts(value.jobUri, 0, false); // nothing to reindex
 
-            // The valid search parameter should still be usable
-            await VerifySearchParameterIsWorkingAsync(
-                $"Specimen?{specimenSearchParam.Code}=119295008",
-                specimenSearchParam.Code,
-                "Specimen",
-                true);
+            await VerifySearchParameterIsWorkingAsync($"Specimen?{specimenSearchParam.Code}=119295008", specimenSearchParam.Code, "Specimen", true);
         }
 
         [Fact]
