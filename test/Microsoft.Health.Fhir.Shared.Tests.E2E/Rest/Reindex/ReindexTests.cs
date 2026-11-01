@@ -1710,10 +1710,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// Returns the list of created resource IDs for cleanup.
         /// Creates resources with at most four concurrent requests.
         /// </summary>
-        /// <param name="resourceType">The FHIR resource type to create (e.g., "Person", "Specimen")</param>
-        /// <param name="desiredCount">The number of resources to create</param>
-        /// <param name="createResourceFunc">Function to create a single resource given an ID and name</param>
-        /// <returns>List of created resource IDs</returns>
         private async Task<List<(string resourceType, string resourceId)>> SetupTestDataAsync<T>(
             string resourceType,
             int desiredCount,
@@ -1738,7 +1734,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
             });
 
-            _output.WriteLine($"Successfully created {createdResources.Count} new {resourceType} resources. Elapsed={sw.ElapsedMilliseconds} msec.");
+            _output.WriteLine($"Created {createdResources.Count} new {resourceType} resources. Elapsed={sw.ElapsedMilliseconds} msec.");
+
+            Assert.Equal(desiredCount, createdResources.Count);
 
             return createdResources;
         }
