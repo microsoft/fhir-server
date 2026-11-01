@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Channels;
@@ -187,6 +188,46 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                                     auditLogger);
 
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenImportInput_WhenImporterThrowsBadRequestException_ThenJobShouldFailWithBadRequest()
+        {
+            // Arrange
+            var badRequestException = new BadRequestException("Invalid import input.");
+            var inputData = GetInputData();
+            var loader = Substitute.For<IImportResourceLoader>();
+            var importer = Substitute.For<IImporter>();
+            var importErrorStore = Substitute.For<IImportErrorStore>();
+            var importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            var resourceChannel = Channel.CreateUnbounded<ImportResource>();
+            resourceChannel.Writer.Complete();
+
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns((resourceChannel, Task.CompletedTask));
+            importErrorStoreFactory.InitializeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(importErrorStore);
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<ImportProcessingProgress>(badRequestException));
+
+            var job = new ImportProcessingJob(
+                Substitute.For<IMediator>(),
+                Substitute.For<IQueueClient>(),
+                loader,
+                importer,
+                importErrorStoreFactory,
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                NullLoggerFactory.Instance,
+                Substitute.For<IAuditLogger>());
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(
+                () => job.ExecuteAsync(GetJobInfo(inputData, null), CancellationToken.None));
+
+            // Assert
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Equal(HttpStatusCode.BadRequest, error.HttpStatusCode);
+            Assert.Same(badRequestException, exception.InnerException);
         }
 
         [Fact]

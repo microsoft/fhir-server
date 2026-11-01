@@ -68,6 +68,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             if (_tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component1, null, out var token1Row) &&
                 _quantityRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, null, out var token2Row))
             {
+                var token2LowValue = token2Row.LowValue ?? token2Row.SingleValue;
+                var token2HighValue = token2Row.HighValue ?? token2Row.SingleValue;
+
+                if (token2LowValue.HasValue)
+                {
+                    SqlDecimalValidator.Validate(token2LowValue.Value);
+                }
+
+                if (token2HighValue.HasValue)
+                {
+                    SqlDecimalValidator.Validate(token2HighValue.Value);
+                }
+
                 row = new TokenQuantityCompositeSearchParamListRow(
                     resourceTypeId,
                     resourceSurrogateId,
@@ -78,8 +91,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     token2Row.SystemId,
                     token2Row.QuantityCodeId,
                     token2Row.SingleValue,
-                    token2Row.LowValue,
-                    token2Row.HighValue);
+                    token2LowValue,
+                    token2HighValue);
 
                 return results == null || results.Add(row);
             }
