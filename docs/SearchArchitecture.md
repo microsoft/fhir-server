@@ -424,6 +424,20 @@ MultiaryExpression(
 )
 ```
 
+### SQL Server instant predicates
+
+`FhirSqlServer:EnableInstantDateTimeRewriter` enables single-column date predicates for model-proven FHIR `instant` search parameters. The setting defaults to `false`. Its environment variable is `FhirSqlServer__EnableInstantDateTimeRewriter`. It is independent of `EnableFhirDateContainment` and `EnableScalarTemporalEqualityRewriter`.
+
+The instant converter creates equal UTC `Start` and `End` values, including fractional seconds. The date row generator passes both endpoints through the precision-7 TVP, and merge SQL stores them in `StartDateTime` and `EndDateTime` as `datetime2(7)`. The rewrite substitutes `StartDateTime` for `EndDateTime` in eligible predicates. Operators, boundaries, Boolean structure, and chain scope stay unchanged.
+
+Eligibility requires a system-defined scalar date parameter whose complete definition is a resource-qualified property path. The active FHIR model must resolve every property with exact casing, without choices or mixed types, to a terminal `instant`. Examples include `Slot.start`, `Slot.end`, and `Observation.issued`. The query literal's precision does not establish eligibility.
+
+Custom parameters retain their existing SQL, even when their current path resolves to `instant`. Mutable definitions can leave stale definition caches and index rows on other instances. Dates, dateTimes, Periods, composites, unresolved paths, unions, functions, and casts also retain their existing SQL.
+
+`InstantDateTimeRewriter` runs after `DateTimeTableExpressionCombiner` and before bounded-range expansion. For example, `Slot?start=ge2026-10-01&start=lt2026-10-02&schedule.actor=Location/example` keeps its combined date range but uses `StartDateTime` for both bounds. That range no longer needs the date-bounded-range union. The actor chain and its joins do not change.
+
+This optimization changes SQL predicates only. Both stored columns and all existing indexes remain. It requires no schema migration or reindexing and does not change Cosmos DB queries.
+
 ### Translate expressions into the Cosmos SQL Query
 
 Once the expression tree has been built, it needs to be translated into Cosmos SQL Query so that it can be executed.

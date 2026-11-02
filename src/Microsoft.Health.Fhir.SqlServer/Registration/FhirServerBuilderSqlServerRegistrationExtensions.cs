@@ -126,6 +126,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<InstantDateTimeRewriter>()
+                .Singleton()
+                .AsSelf();
+
             services.Add<ChainFlatteningRewriter>()
                 .Singleton()
                 .AsSelf();

@@ -308,6 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirDataStore,
                 sqlServerFhirModel,
                 sqlRootExpressionRewriter,
+                new InstantDateTimeRewriter(ModelInfoProvider.Instance),
                 chainFlatteningRewriter,
                 sortRewriter,
                 partitionEliminationRewriter,

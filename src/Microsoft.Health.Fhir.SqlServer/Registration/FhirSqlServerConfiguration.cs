@@ -43,6 +43,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
         public bool EnableScalarTemporalEqualityRewriter { get; set; } = false;
 
         /// <summary>
+        /// Gets or sets whether SQL date predicates use only StartDateTime for system-defined
+        /// parameters whose complete property path resolves exclusively to FHIR instant.
+        /// Stored instant endpoints are equal. No schema or index changes are required.
+        /// Disabled by default and independent of the date containment and scalar equality settings.
+        /// </summary>
+        public bool EnableInstantDateTimeRewriter { get; set; } = false;
+
+        /// <summary>
         /// When true, date/time <c>eq</c> equality uses the FHIR-spec containment form Core already emits
         /// (<c>DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi</c>) instead of the legacy overlap form, so no
         /// temporal <c>UNION ALL</c> is emitted. (<c>ap</c> is unaffected — Core emits it as spec overlap
