@@ -6,10 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -21,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Scoping;
@@ -415,6 +419,106 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             Assert.Null(actualResult.ContinuationToken);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSingletonService_WhenRepeatedlyPagingLinkedPatients_ThenScopedPayloadsAreDisposedAndReleased(bool filterByDate)
+        {
+            // Arrange
+            _modelInfoProvider.Version.Returns(ModelInfoProvider.Version);
+            ResourceWrapper parent = CreateResourceWrapper(new Patient
+            {
+                Id = "123",
+                Meta = new Meta { VersionId = "1" },
+                Link = new List<Patient.LinkComponent>
+                {
+                    new() { Other = new ResourceReference("Patient/456"), Type = Patient.LinkType.Seealso },
+                },
+            }.ToResourceElement());
+            ResourceWrapper linked = CreateResourceWrapper(new Patient { Id = "456" }.ToResourceElement());
+            var parentOptions = new SearchOptions();
+            var linkedOptions = new SearchOptions();
+            var empty = new SearchResult(Array.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
+            _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>()).Returns(new SearchOptions());
+            _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>()).Returns(new SearchOptions());
+            _searchOptionsFactory.Create(KnownResourceTypes.Patient, Arg.Is<IReadOnlyList<Tuple<string, string>>>(p => p.Contains(Tuple.Create(SearchParameterNames.Id, "123")))).Returns(parentOptions);
+            _searchOptionsFactory.Create(KnownResourceTypes.Patient, Arg.Is<IReadOnlyList<Tuple<string, string>>>(p => p.Contains(Tuple.Create(SearchParameterNames.Id, "456")))).Returns(linkedOptions);
+            _referenceSearchValueParser.Parse("Patient/456").Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, KnownResourceTypes.Patient, "456"));
+            var lifetimes = new List<(WeakReference Payload, StrongBox<int> Disposals)>();
+            var services = new ServiceCollection();
+            services.AddOwnedScopes();
+            services.AddScoped<ISearchService>(_ =>
+            {
+                var disposals = new StrongBox<int>();
+                var search = new DisposableSearchService(
+                    options => options == parentOptions || options == linkedOptions
+                        ? new SearchResult(new[] { new SearchResultEntry(options == parentOptions ? parent : linked) }, null, null, Array.Empty<Tuple<string, string>>())
+                        : empty,
+                    disposals);
+                lifetimes.Add((new WeakReference(search), disposals));
+                return search;
+            });
+            services.AddScoped<IFhirDataStore>(_ =>
+            {
+                var disposals = new StrongBox<int>();
+                var store = new DisposableDataStore(parent, disposals);
+                lifetimes.Add((new WeakReference(store), disposals));
+                return store;
+            });
+            services.AddSingleton(_modelInfoProvider);
+            services.AddSingleton(_searchOptionsFactory);
+            services.AddSingleton(_searchParameterDefinitionManager);
+            services.AddSingleton(_compartmentDefinitionManager);
+            services.AddSingleton(_referenceSearchValueParser);
+            services.AddSingleton<IResourceDeserializer>(Deserializers.ResourceDeserializer);
+            services.AddSingleton(_urlResolver);
+            services.AddSingleton(_contextAccessor);
+            services.AddSingleton<IPatientEverythingService, PatientEverythingService>();
+            using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+            IPatientEverythingService service = provider.GetRequiredService<IPatientEverythingService>();
+
+            // Act
+            await TraverseLinkedPatientsRepeatedly(service, filterByDate);
+
+            // Assert
+            Assert.NotEmpty(lifetimes);
+            Assert.All(lifetimes, lifetime => Assert.Equal(1, lifetime.Disposals.Value));
+            AssertPayloadsReleased(lifetimes);
+            GC.KeepAlive(service);
+            GC.KeepAlive(provider);
+        }
+
+        private static async Task TraverseLinkedPatientsRepeatedly(IPatientEverythingService service, bool filterByDate)
+        {
+            PartialDateTime start = filterByDate ? PartialDateTime.Parse("2020-01-01") : null;
+            for (int traversal = 0; traversal < 3; traversal++)
+            {
+                string continuation = null;
+                var ids = new List<string>();
+                int pages = 0;
+                do
+                {
+                    SearchResult result = await service.SearchAsync("123", start, null, null, null, continuation, CancellationToken.None);
+                    ids.AddRange(result.Results.Select(entry => entry.Resource.ResourceId));
+                    continuation = result.ContinuationToken == null ? null : ContinuationTokenEncoder.Encode(result.ContinuationToken);
+                    Assert.True(++pages <= 3, "Linked-patient paging did not terminate.");
+                }
+                while (continuation != null);
+
+                Assert.Equal(3, pages);
+                Assert.Equal(new[] { "123", "456" }, ids);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void AssertPayloadsReleased(List<(WeakReference Payload, StrongBox<int> Disposals)> lifetimes)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Assert.All(lifetimes, lifetime => Assert.False(lifetime.Payload.IsAlive, "The live singleton or root retained a scoped payload."));
+        }
+
         private ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement)
         {
             // Ensure the resource has an ID and LastUpdated
@@ -446,6 +550,67 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
                 null,
                 null,
                 null);
+        }
+
+        private sealed class DisposableSearchService(Func<SearchOptions, SearchResult> search, StrongBox<int> disposals) : ISearchService, IDisposable
+        {
+            public Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+            {
+                Assert.Equal(0, disposals.Value);
+                return Task.FromResult(search(searchOptions));
+            }
+
+            public void Dispose() => disposals.Value++;
+
+            public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<SearchResult> SearchAsync(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, CancellationToken cancellationToken, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false, bool isIncludesOperation = false, DataActions scopeDataActions = DataActions.Read | DataActions.Search) => throw new NotSupportedException();
+
+            public Task<SearchResult> SearchCompartmentAsync(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, CancellationToken cancellationToken, bool isAsyncOperation = false, bool useSmartCompartmentDefinition = false) => throw new NotSupportedException();
+
+            public Task<SearchResult> SearchHistoryAsync(string resourceType, string resourceId, PartialDateTime at, PartialDateTime since, PartialDateTime before, int? count, string summary, string continuationToken, string sort, CancellationToken cancellationToken, bool isAsyncOperation = false) => throw new NotSupportedException();
+
+            public Task<SearchResult> SearchForReindexAsync(IReadOnlyList<Tuple<string, string>> queryParameters, string searchParameterHash, bool countOnly, CancellationToken cancellationToken, bool isAsyncOperation = false) => throw new NotSupportedException();
+
+            public Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken, bool activeOnly = false) => throw new NotSupportedException();
+
+            public Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public bool IsValidResourceType(string resourceType) => throw new NotSupportedException();
+        }
+
+        private sealed class DisposableDataStore(ResourceWrapper parent, StrongBox<int> disposals) : IFhirDataStore, IDisposable
+        {
+            public Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
+            {
+                Assert.Equal(0, disposals.Value);
+                Assert.Equal(parent.ToResourceKey(), key);
+                return Task.FromResult(parent);
+            }
+
+            public void Dispose() => disposals.Value++;
+
+            public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+            public Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         }
     }
 }
