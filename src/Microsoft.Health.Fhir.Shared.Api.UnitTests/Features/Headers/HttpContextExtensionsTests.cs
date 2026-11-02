@@ -154,10 +154,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Contains(KnownHeaders.ConditionalUpdateNoMatch, exception.Message);
         }
 
+        [Theory]
+        [InlineData("upsert", "creat")]
+        [InlineData("", "create")]
+        public void WhenHttpContextHasMultipleConditionalUpdateNoMatchHeaderValues_ThenBadRequestIsThrown(string firstValue, string secondValue)
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.ConditionalUpdateNoMatch, new StringValues(new[] { firstValue, secondValue }));
+
+            // Act & Assert
+            BadRequestException exception = Assert.Throws<BadRequestException>(() => httpContext.GetConditionalUpdateNoMatchBehavior());
+            Assert.Contains(KnownHeaders.ConditionalUpdateNoMatch, exception.Message);
+        }
+
         [Fact]
         public void WhenHttpContextIsNull_ThenConditionalUpdateNoMatchBehaviorIsUpsert()
         {
-            Assert.Equal(ConditionalUpdateNoMatchBehavior.Upsert, ((HttpContext)null).GetConditionalUpdateNoMatchBehavior());
+            Assert.Equal(ConditionalUpdateNoMatchBehavior.Upsert, HttpContextExtensions.GetConditionalUpdateNoMatchBehavior(null));
         }
 
         [Fact]

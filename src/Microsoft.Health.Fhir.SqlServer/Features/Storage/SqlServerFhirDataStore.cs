@@ -296,6 +296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
                 var existingVersion = 0;
+                var isResurrection = false;
 
                 // Check for any validation errors
                 if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
@@ -382,8 +383,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    // Check if resources are equal if its not a Delete action
-                    if (!resource.IsDeleted)
+                    // Replacing a deleted resource with a live one re-creates it (FHIR R4 HTTP Update: 201 Created).
+                    isResurrection = existingResource.IsDeleted && !resource.IsDeleted;
+
+                    // Check if resources are equal if its not a Delete action.
+                    // A deleted existing resource must never be short-circuited, otherwise the tombstone would remain.
+                    if (!resource.IsDeleted && !existingResource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
                         if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
@@ -450,7 +455,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 index++;
-                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
+                var saveOutcomeType = resource.Version == InitialVersion || (isResurrection && !resource.IsHistory)
+                    ? SaveOutcomeType.Created
+                    : SaveOutcomeType.Updated;
+                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, saveOutcomeType)));
             }
 
             // In case the operation is atomic (i.e., bundle transaction) and there are validation errors, then nothing should be persisted at the database.
@@ -482,7 +490,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            var pendingStatuses = resources.Where(_ => _.PendingSearchParameterStatus != null).Select(_ => _.PendingSearchParameterStatus).ToList();
+            var pendingStatuses = resources
+                .Where(resource => resource.PendingSearchParameterStatus != null
+                    && results.TryGetValue(resource.GetIdentifier(), out var outcome)
+                    && outcome.IsOperationSuccessful)
+                .Select(resource => resource.PendingSearchParameterStatus)
+                .ToList();
             if (mergeWrappersWithVersions.Count > 0 || pendingStatuses.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))

@@ -79,17 +79,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         }
 
         /// <summary>
-        /// Retrieves from the HTTP header how a conditional update whose search finds no match, but whose body has an id, is applied.
+        /// Retrieves the <see cref="KnownHeaders.ConditionalUpdateNoMatch"/> header value indicating how a conditional update is applied when its search finds no match and the body supplies an id.
         /// </summary>
-        /// <param name="outerHttpContext">HTTP context.</param>
-        /// <returns>The requested behavior; <see cref="ConditionalUpdateNoMatchBehavior.Upsert"/> when the header is absent or empty.</returns>
-        /// <exception cref="BadRequestException">The header value is not "create" or "upsert".</exception>
+        /// <param name="outerHttpContext">The HTTP context, or <see langword="null"/>.</param>
+        /// <returns>
+        /// The requested behavior, or <see cref="ConditionalUpdateNoMatchBehavior.Upsert"/> when the context is
+        /// <see langword="null"/> or the header is absent, empty, or whitespace.
+        /// </returns>
+        /// <exception cref="BadRequestException">
+        /// The header contains multiple values or a non-whitespace value other than "create" or "upsert".
+        /// </exception>
         public static ConditionalUpdateNoMatchBehavior GetConditionalUpdateNoMatchBehavior(this HttpContext outerHttpContext)
         {
             if (outerHttpContext == null
                 || !outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalUpdateNoMatch, out StringValues headerValues))
             {
                 return ConditionalUpdateNoMatchBehavior.Upsert;
+            }
+
+            if (headerValues.Count > 1)
+            {
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Api.Resources.InvalidConditionalUpdateNoMatchHeader, KnownHeaders.ConditionalUpdateNoMatch, headerValues.ToString()));
             }
 
             string value = headerValues.FirstOrDefault()?.Trim();

@@ -10,10 +10,22 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
+    /// <summary>
+    /// Represents a conditional update request and its behavior when the search finds no match.
+    /// </summary>
     public sealed class ConditionalUpsertResourceRequest : ConditionalResourceRequest<UpsertResourceResponse>
     {
         private static readonly string[] Capabilities = new string[1] { "conditionalUpdate = true" };
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ConditionalUpsertResourceRequest"/> class.
+        /// </summary>
+        /// <param name="resource">The resource to upsert.</param>
+        /// <param name="conditionalParameters">The conditional search parameters.</param>
+        /// <param name="bundleResourceContext">The optional bundle resource context.</param>
+        /// <param name="noMatchBehavior">How to save a resource with a client-supplied id when the conditional search finds no match.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="resource"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="noMatchBehavior"/> is not a defined <see cref="ConditionalUpdateNoMatchBehavior"/> value.</exception>
         public ConditionalUpsertResourceRequest(
             ResourceElement resource,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
@@ -27,6 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
             NoMatchBehavior = noMatchBehavior;
         }
 
+        /// <summary>
+        /// Gets the resource to upsert.
+        /// </summary>
         public ResourceElement Resource { get; }
 
         /// <summary>

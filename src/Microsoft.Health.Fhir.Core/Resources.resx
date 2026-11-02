@@ -346,7 +346,7 @@
   </data>
   <data name="ResourceAlreadyExists" xml:space="preserve">
     <value>Resource type '{0}' with id '{1}' already exists and did not match the conditional update criteria.</value>
-    <comment>{0} is the resource type. {1} is the resource id.</comment>
+    <comment>{0} is the resource type. {1} is the resource id. Used when a create-only conditional update conflicts with an existing live resource.</comment>
   </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>

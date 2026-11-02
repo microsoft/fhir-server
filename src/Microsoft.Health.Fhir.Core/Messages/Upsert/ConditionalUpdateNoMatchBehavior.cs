@@ -12,12 +12,12 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
     public enum ConditionalUpdateNoMatchBehavior
     {
         /// <summary>
-        /// The resource is upserted by id, overwriting a live resource with that id. This is the default.
+        /// The resource is upserted by id, overwriting a live resource with that id if one exists. This is the default.
         /// </summary>
         Upsert = 0,
 
         /// <summary>
-        /// The resource is only created; if a live resource with that id exists the request fails with 409 Conflict.
+        /// The resource is created or recreated if deleted; if a live resource with that id exists, the request fails with 409 Conflict.
         /// </summary>
         Create = 1,
     }

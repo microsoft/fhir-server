@@ -542,7 +542,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             string id = Guid.NewGuid().ToString();
             await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
 
-            // Identical content must also conflict: the stored resource was not selected by the condition, so it must not be touched.
+            // Identical content must also conflict: the no-op update shortcut must not bypass the create-only check.
             await Assert.ThrowsAsync<ResourceConflictException>(
                 () => Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, sameContent ? null : 99), createOnly: true)));
 
@@ -578,10 +578,27 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
             SaveOutcome result = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, 99), createOnly: true));
 
+            Assert.Equal(SaveOutcomeType.Created, result.Outcome);
             Assert.Equal(id, result.RawResourceElement.Id);
             RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
             Assert.Equal(result.RawResourceElement.VersionId, current.VersionId);
             Assert.Equal(99, ((Quantity)current.ToPoco<Observation>(Deserializers.ResourceDeserializer).Value).Value);
+        }
+
+        [Fact]
+        public async Task GivenASoftDeletedResource_WhenUpsertingTheSameBody_ThenTheResourceIsRecreatedAsANewVersion()
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+            await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), DeleteOperation.SoftDelete);
+
+            // Same content as the deleted version: the unchanged-content shortcut must not leave the tombstone in place.
+            SaveOutcome result = await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+
+            Assert.Equal(SaveOutcomeType.Created, result.Outcome);
+            Assert.Equal("3", result.RawResourceElement.VersionId);
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal("3", current.VersionId);
         }
 
         [Theory]
@@ -608,7 +625,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
             if (isBundleTransaction)
             {
-                // Atomic: one failure means nothing in the batch is persisted.
+                // Atomic transaction: one failure rolls back all operations in the merge.
                 Assert.Equal(MergeOutcomeFinalState.CompletedWithFailures, outcome.State);
                 Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", updatedId), CancellationToken.None)).Version);
                 Assert.Null(await _dataStore.GetAsync(new ResourceKey("Observation", newId), CancellationToken.None));
@@ -842,7 +859,9 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), deletedResourceKey.WeakETag);
 
             Assert.NotNull(updateResult);
-            Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
+
+            // FHIR R4 HTTP Update: bringing a deleted resource back to life is a create (201).
+            Assert.Equal(SaveOutcomeType.Created, updateResult.Outcome);
 
             Assert.NotNull(updateResult.RawResourceElement);
             Assert.Equal(saveResult.RawResourceElement.Id, updateResult.RawResourceElement.Id);

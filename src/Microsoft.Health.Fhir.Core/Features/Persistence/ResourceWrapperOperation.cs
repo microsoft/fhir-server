@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         /// <summary>
         /// When true, the write must not replace a live (non-deleted) resource with the same id; it fails with a conflict instead.
-        /// Used by conditional update when the search criteria found no match but the client supplied an id.
         /// </summary>
         public bool CreateOnly { get; }
 

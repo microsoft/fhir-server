@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using System.Net.Http;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -142,7 +143,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Id = existing.Id;
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Overwritten</div>";
 
-            // Default (legacy) behavior: without the x-ms-conditional-update-no-match header, a no-match conditional update with an id upserts by that id.
             using FhirResponse<Observation> updateResponse = await _client.ConditionalUpdateAsync(
                 observation2,
                 $"_id={existing.Id}&_lastUpdated=le2000-01-01");
@@ -165,7 +165,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Id = existing.Id;
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Should not be saved</div>";
 
-            var exception = await Assert.ThrowsAsync<FhirClientException>(() => NoMatchClient("create").ConditionalUpdateAsync(
+            TestFhirClient client = NoMatchClient("create");
+            using HttpClient httpClient = client.HttpClient;
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => client.ConditionalUpdateAsync(
                 observation2,
                 $"_id={existing.Id}&_lastUpdated=le2000-01-01"));
 
@@ -186,13 +188,55 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Id = existing.Id;
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Should not be saved</div>";
 
-            // An unrecognized value must not silently fall back to the overwriting default.
-            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => NoMatchClient("true").ConditionalUpdateAsync(
+            TestFhirClient client = NoMatchClient("true");
+            using HttpClient httpClient = client.HttpClient;
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => client.ConditionalUpdateAsync(
                 observation2,
                 $"_id={existing.Id}&_lastUpdated=le2000-01-01"));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             await AssertUnchangedAsync(existing);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public Task GivenABatchWithAnInvalidNoMatchBehaviorHeader_WhenPosted_ThenNoEntriesAreApplied()
+            => AssertInvalidNoMatchBehaviorHeaderIsRejectedAsync(Bundle.BundleType.Batch);
+
+        // Cosmos DB rejects transaction bundles with 405 in capability validation before the header can be validated,
+        // so the invalid-header transaction contract is only verifiable on SQL Server.
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public Task GivenATransactionWithAnInvalidNoMatchBehaviorHeader_WhenPosted_ThenNoEntriesAreApplied()
+            => AssertInvalidNoMatchBehaviorHeaderIsRejectedAsync(Bundle.BundleType.Transaction);
+
+        private async Task AssertInvalidNoMatchBehaviorHeaderIsRejectedAsync(Bundle.BundleType bundleType)
+        {
+            string plainPutId = Guid.NewGuid().ToString();
+            string conditionalPutId = Guid.NewGuid().ToString();
+            var bundle = new Bundle
+            {
+                Type = bundleType,
+                Entry = new List<Bundle.EntryComponent>
+                {
+                    CreatePutEntry(plainPutId, $"Observation/{plainPutId}", "Must not be created"),
+                    CreatePutEntry(conditionalPutId, $"Observation?identifier={Guid.NewGuid()}", "Must not be created"),
+                },
+            };
+
+            TestFhirClient client = NoMatchClient("creat");
+            using HttpClient httpClient = client.HttpClient;
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
+                () => client.PostBundleAsync(bundle));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            using FhirClientException plainReadException = await Assert.ThrowsAsync<FhirClientException>(
+                () => _client.ReadAsync<Observation>(ResourceType.Observation, plainPutId));
+            using FhirClientException conditionalReadException = await Assert.ThrowsAsync<FhirClientException>(
+                () => _client.ReadAsync<Observation>(ResourceType.Observation, conditionalPutId));
+            Assert.Equal(HttpStatusCode.NotFound, plainReadException.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, conditionalReadException.StatusCode);
         }
 
         [Fact]
@@ -208,13 +252,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Id = createResponse.Resource.Id;
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Recreated</div>";
 
-            using FhirResponse<Observation> updateResponse = await NoMatchClient("create").ConditionalUpdateAsync(
+            TestFhirClient client = NoMatchClient("create");
+            using HttpClient httpClient = client.HttpClient;
+            using FhirResponse<Observation> updateResponse = await client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={Guid.NewGuid()}");
 
-            // A deleted id may be reused. It's a new version of the existing history (create, delete, recreate), so the outcome is an update.
-            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+            // FHIR R4 HTTP Update: the server SHALL return 201 Created when a resource is created or brought back to life (re-created).
+            Assert.Equal(HttpStatusCode.Created, updateResponse.StatusCode);
             Assert.Equal(observation2.Id, updateResponse.Resource.Id);
+            Assert.Equal("3", updateResponse.Resource.Meta.VersionId);
 
             using FhirResponse<Observation> readResponse = await _client.ReadAsync<Observation>(ResourceType.Observation, observation2.Id);
             Assert.Equal(observation2.Text.Div, readResponse.Resource.Text.Div);
@@ -264,7 +311,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using FhirResponse<Bundle> response = await NoMatchClient("create").PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic });
+            TestFhirClient client = NoMatchClient("create");
+            using HttpClient httpClient = client.HttpClient;
+            using FhirResponse<Bundle> response = await client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic });
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("409", response.Resource.Entry[0].Response.Status);
@@ -298,8 +347,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
+            TestFhirClient client = NoMatchClient("create");
+            using HttpClient httpClient = client.HttpClient;
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
-                () => NoMatchClient("create").PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
+                () => client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
 
             Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
             await AssertUnchangedAsync(existing);

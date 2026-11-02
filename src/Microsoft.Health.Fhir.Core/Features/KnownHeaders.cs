@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         /// <summary>
         /// Selects how a conditional update whose search finds no match, but whose body has an id, is applied:
-        /// "upsert" (default) overwrites a live resource with that id; "create" only creates it and returns 409 Conflict if it exists.
+        /// "upsert" (default) upserts by id, overwriting a live resource if one exists; "create" creates or recreates a deleted resource and returns 409 Conflict if a live resource with that id exists.
         /// </summary>
         public const string ConditionalUpdateNoMatch = "x-ms-conditional-update-no-match";
     }
