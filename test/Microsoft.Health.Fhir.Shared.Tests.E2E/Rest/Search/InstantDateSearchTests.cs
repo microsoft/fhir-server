@@ -30,19 +30,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     public class InstantDateSearchTests
     {
         [Theory]
-        [InlineData(false, false)]
-        [InlineData(false, true)]
-        [InlineData(true, false)]
-        [InlineData(true, true)]
-        public async Task GivenSyntheticSlots_WhenSearchedOverHttp_ThenFlagVariantsReturnTheExpectedResources(bool instant, bool containment)
+        [InlineData(typeof(InstantDateStartup<Disabled, Disabled>), false, false)]
+        [InlineData(typeof(InstantDateStartup<Disabled, Enabled>), false, true)]
+        [InlineData(typeof(InstantDateStartup<Enabled, Disabled>), true, false)]
+        [InlineData(typeof(InstantDateStartup<Enabled, Enabled>), true, true)]
+        public async Task GivenSyntheticSlots_WhenSearchedOverHttp_ThenFlagVariantsReturnTheExpectedResources(Type startup, bool instant, bool containment)
         {
-            Type startup = (instant, containment) switch
-            {
-                (true, true) => typeof(InstantDateStartup<Enabled, Enabled>),
-                (true, false) => typeof(InstantDateStartup<Enabled, Disabled>),
-                (false, true) => typeof(InstantDateStartup<Disabled, Enabled>),
-                _ => typeof(InstantDateStartup<Disabled, Disabled>),
-            };
             await using var server = new InProcTestFhirServer(DataStore.SqlServer, startup);
             FhirSqlServerConfiguration flags = server.Server.Services.GetRequiredService<FhirSqlServerConfiguration>();
             Assert.Equal(instant, flags.EnableInstantDateTimeRewriter);

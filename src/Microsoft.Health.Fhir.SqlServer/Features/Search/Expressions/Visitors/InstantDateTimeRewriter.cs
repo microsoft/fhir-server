@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Specification;
@@ -50,14 +49,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             if (!parameter.IsSystemDefined ||
                 parameter.Type != SearchParamType.Date ||
                 parameter.Component?.Count > 0 ||
-                !PropertyPath.TryParse(parameter.Expression, out PropertyPath path) ||
-                !_modelInfoProvider.IsKnownResource(path.ResourceType, ignoreCase: false))
+                !TryParsePropertyPath(parameter.Expression, out string[] path) ||
+                !_modelInfoProvider.IsKnownResource(path[0], ignoreCase: false))
             {
                 return false;
             }
 
-            IStructureDefinitionSummary summary = _modelInfoProvider.StructureDefinitionSummaryProvider.Provide(path.ResourceType);
-            for (int i = 0; i < path.Properties.Count; i++)
+            IStructureDefinitionSummary summary = _modelInfoProvider.StructureDefinitionSummaryProvider.Provide(path[0]);
+            for (int i = 1; i < path.Length; i++)
             {
                 if (summary == null)
                 {
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
 
                 IElementDefinitionSummary[] matches = summary.GetElements()
-                    .Where(element => string.Equals(element.ElementName, path.Properties[i], StringComparison.Ordinal))
+                    .Where(element => string.Equals(element.ElementName, path[i], StringComparison.Ordinal))
                     .Take(2)
                     .ToArray();
                 if (matches.Length != 1 || matches[0].IsChoiceElement || matches[0].Type?.Length != 1)
@@ -74,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
 
                 ITypeSerializationInfo type = matches[0].Type[0];
-                if (i == path.Properties.Count - 1)
+                if (i == path.Length - 1)
                 {
                     return type is IStructureDefinitionReference reference &&
                         string.Equals(reference.ReferredType, "instant", StringComparison.Ordinal);
@@ -92,41 +91,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return false;
         }
 
-        private sealed class PropertyPath
+        private static bool TryParsePropertyPath(string expression, out string[] path)
         {
-            private PropertyPath(string resourceType, IReadOnlyList<string> properties)
+            path = null;
+            if (string.IsNullOrEmpty(expression))
             {
-                ResourceType = resourceType;
-                Properties = properties;
+                return false;
             }
 
-            public string ResourceType { get; }
-
-            public IReadOnlyList<string> Properties { get; }
-
-            public static bool TryParse(string expression, out PropertyPath path)
+            string[] segments = expression.Split('.');
+            if (segments.Length < 2 || segments.Any(segment =>
+                segment.Length == 0 || !IsLetter(segment[0]) ||
+                segment.Any(character => !IsLetter(character) && (character < '0' || character > '9'))))
             {
-                path = null;
-                if (string.IsNullOrEmpty(expression))
-                {
-                    return false;
-                }
-
-                string[] segments = expression.Split('.');
-                if (segments.Length < 2 || segments.Any(segment =>
-                    segment.Length == 0 || !IsLetter(segment[0]) ||
-                    segment.Any(character => !IsLetter(character) && (character < '0' || character > '9'))))
-                {
-                    return false;
-                }
-
-                path = new PropertyPath(segments[0], Array.AsReadOnly(segments.Skip(1).ToArray()));
-                return true;
+                return false;
             }
 
-            private static bool IsLetter(char character) =>
-                (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z');
+            path = segments;
+            return true;
         }
+
+        private static bool IsLetter(char character) =>
+            (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z');
 
         private sealed class EndFieldRewriter : SqlExpressionRewriterWithInitialContext<object>
         {

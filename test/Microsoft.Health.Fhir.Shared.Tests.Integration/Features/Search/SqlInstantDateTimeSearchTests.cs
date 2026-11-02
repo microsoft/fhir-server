@@ -109,6 +109,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         [InlineData("Slot.Start", false)]
         [InlineData("Slot.start.first()", false)]
         [InlineData("Slot.start | Slot.end", false)]
+#if Stu3
+        [InlineData("Bundle.timestamp", false)]
+#else
+        [InlineData("Bundle.timestamp", true)]
+#endif
         public void GivenActiveModelMetadata_WhenProvingAPath_ThenOnlyExclusiveInstantPathsChange(string path, bool expected)
         {
             var parameter = new SearchParameterInfo("test", "test", ValueSets.SearchParamType.Date, expression: path) { IsSystemDefined = true };
@@ -169,12 +174,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         }
 
         [Theory]
-        [InlineData("Slot?start=2026-10-01,2026-10-03")]
-        [InlineData("Slot?start=ge2026-10-01&start=lt2026-10-02&start=ge2026-09-01")]
-        [InlineData("Schedule?_has:Slot:schedule:start=ge2026-10-01")]
-        [InlineData("Slot?schedule.actor:Patient.birthdate=2026-10-01&start=ge2026-10-01")]
-        [InlineData("AppointmentResponse?appointment.date=ge2026-10-01&actor=Patient/example")]
-        public void GivenBooleanOrChainScope_WhenProductionSqlGenerated_ThenReferencesAndNonDateBindingsAreUnchanged(string url)
+        [InlineData("Slot?start=2026-10-01,2026-10-03", 0)]
+        [InlineData("Slot?start=ge2026-10-01&start=lt2026-10-02&start=ge2026-09-01", 0)]
+        [InlineData("Schedule?_has:Slot:schedule:start=ge2026-10-01", 0)]
+        [InlineData("Slot?schedule.actor:Patient.birthdate=2026-10-01&start=ge2026-10-01", 1)]
+#if R5
+        [InlineData("AppointmentResponse?appointment.date=ge2026-10-01&actor=Patient/example", 1)]
+#else
+        [InlineData("AppointmentResponse?appointment.date=ge2026-10-01&actor=Patient/example", 0)]
+#endif
+        public void GivenBooleanOrChainScope_WhenProductionSqlGenerated_ThenReferencesAndNonDateBindingsAreUnchanged(string url, int expectedEndPredicates)
         {
             using SqlCommand original = _fixture.Generate(url, false, containment: true);
             using SqlCommand rewritten = _fixture.Generate(url, true, containment: true);
@@ -182,17 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
             Assert.Equal(
                 original.CommandText.Replace("EndDateTime", "StartDateTime", StringComparison.Ordinal),
                 rewritten.CommandText.Replace("EndDateTime", "StartDateTime", StringComparison.Ordinal));
-        }
-
-        [Fact]
-        public void GivenVersionSpecificBundleTimestamp_WhenProven_ThenTheActiveModelControlsEligibility()
-        {
-            var parameter = new SearchParameterInfo("timestamp", "timestamp", ValueSets.SearchParamType.Date, expression: "Bundle.timestamp") { IsSystemDefined = true };
-            var original = Expression.SearchParameter(parameter, Expression.GreaterThan(FieldName.DateTimeEnd, null, DateTimeOffset.MinValue));
-
-            Expression result = original.AcceptVisitor(new InstantDateTimeRewriter(ModelInfoProvider.Instance));
-
-            Assert.Equal(ModelInfoProvider.Version != FhirSpecification.Stu3, !ReferenceEquals(original, result));
+            Assert.Equal(expectedEndPredicates, Regex.Matches(rewritten.CommandText, @"\bEndDateTime\s*(?:>=|<=|<>|=|>|<)\s*@\w+").Count);
         }
 
         [Theory]
@@ -279,6 +278,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         [Trait("DataStore", "SqlServer")]
         public async Task GivenPersistedPoints_WhenGeneratedSqlExecutes_ThenBothFlagsReturnExpectedIds()
         {
+            Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search.SqlChainedSearchGenerationTests.ConfigureWorkloadIdentityAuthentication();
             using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
             await connection.OpenAsync();
             using var seed = connection.CreateCommand();
