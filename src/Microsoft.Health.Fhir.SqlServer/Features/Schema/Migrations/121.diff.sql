@@ -28,6 +28,7 @@ CREATE OR ALTER PROCEDURE dbo.GetWatchdogLeasesLastRunTime
     @Watchdog varchar(100)
    ,@LastRunTime datetime OUT
 AS
+set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'WD='+isnull(@Watchdog,'NULL')
        ,@st datetime = getUTCdate()
