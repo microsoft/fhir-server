@@ -62,6 +62,79 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             VerifyVisit($"(Or {expectedAndString1} {expectedAndString2})", Expression.Or(simpleExpression1, simpleExpression2));
         }
 
+        [Theory]
+        [InlineData(MultiaryOperator.And, false)]
+        [InlineData(MultiaryOperator.And, true)]
+        [InlineData(MultiaryOperator.Or, false)]
+        [InlineData(MultiaryOperator.Or, true)]
+        public void GivenAMultiaryExpression_WhenChildIsRewritten_ThenSmartScopeMarkerIsPreserved(MultiaryOperator operation, bool smartScope)
+        {
+            // Arrange
+            var input = new MultiaryExpression(operation, new[] { Expression.Equals(FieldName.Number, null, 1M) })
+            {
+                IsSmartV2UnionExpressionForScopesSearchParameters = smartScope,
+            };
+
+            // Act
+            var output = Assert.IsType<MultiaryExpression>(input.AcceptVisitor(new RangeRewriter(), null));
+
+            // Assert
+            Assert.NotSame(input, output);
+            Assert.Equal(operation, output.MultiaryOperation);
+            Assert.Equal(smartScope, output.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.Equal("(And (FieldGreaterThanOrEqual Number 0) (FieldLessThanOrEqual Number 2))", Assert.Single(output.Expressions).ToString());
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public void GivenAUnionWithNestedAndExpressions_WhenChildIsRewritten_ThenEachSmartScopeMarkerIsPreserved(bool unionMarker, bool andMarker)
+        {
+            // Arrange
+            var innerAnd = Expression.And(Expression.Equals(FieldName.Number, null, 1M));
+            innerAnd.IsSmartV2UnionExpressionForScopesSearchParameters = andMarker;
+            var outerAnd = Expression.And(innerAnd);
+            outerAnd.IsSmartV2UnionExpressionForScopesSearchParameters = andMarker;
+            var input = Expression.Union(UnionOperator.All, new[] { outerAnd });
+            input.IsSmartV2UnionExpressionForScopesSearchParameters = unionMarker;
+
+            // Act
+            var output = Assert.IsType<UnionExpression>(input.AcceptVisitor(new RangeRewriter(), null));
+
+            // Assert
+            Assert.NotSame(input, output);
+            Assert.Equal(UnionOperator.All, output.Operator);
+            Assert.Equal(unionMarker, output.IsSmartV2UnionExpressionForScopesSearchParameters);
+            var rewrittenOuterAnd = Assert.IsType<MultiaryExpression>(Assert.Single(output.Expressions));
+            var rewrittenInnerAnd = Assert.IsType<MultiaryExpression>(Assert.Single(rewrittenOuterAnd.Expressions));
+            Assert.NotSame(outerAnd, rewrittenOuterAnd);
+            Assert.NotSame(innerAnd, rewrittenInnerAnd);
+            Assert.Equal(andMarker, rewrittenOuterAnd.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.Equal(andMarker, rewrittenInnerAnd.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.False(Assert.Single(rewrittenInnerAnd.Expressions).IsSmartV2UnionExpressionForScopesSearchParameters);
+        }
+
+        [Fact]
+        public void GivenAMarkedUnionWithUnchangedChildren_WhenVisited_ThenOriginalInstancesAreReturned()
+        {
+            // Arrange
+            var andExpression = Expression.And(Expression.Equals(FieldName.Number, null, 1M));
+            andExpression.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+            var input = Expression.Union(UnionOperator.All, new[] { andExpression });
+            input.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+            // Act
+            Expression output = input.AcceptVisitor(new NoopRewriter(), null);
+
+            // Assert
+            Assert.Same(input, output);
+            Assert.Same(andExpression, Assert.Single(input.Expressions));
+            Assert.True(output.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.True(andExpression.IsSmartV2UnionExpressionForScopesSearchParameters);
+        }
+
         public class NoopRewriter : ExpressionRewriter<object>
         {
         }
