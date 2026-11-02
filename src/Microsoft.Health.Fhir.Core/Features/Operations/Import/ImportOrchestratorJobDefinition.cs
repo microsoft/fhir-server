@@ -76,5 +76,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// this should be increased to the resource size to avoid unnecessary input file scans.
         /// </summary>
         public int ProcessingUnitBytesToRead { get; set; }
+
+        /// <summary>
+        /// Test-only. When greater than zero, the orchestrator uses the single <see cref="Input"/> entry as a
+        /// template and creates this many processing jobs from it, each reading from the in-memory test source,
+        /// instead of splitting the input by size.
+        /// </summary>
+        public int InMemoryTestProcessingJobs { get; set; }
     }
 }

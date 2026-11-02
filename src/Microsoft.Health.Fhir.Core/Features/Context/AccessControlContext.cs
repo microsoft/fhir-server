@@ -36,13 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public Uri FhirUserClaim { get; set; } = null;
 
         /// <summary>
-        /// For a SMART on FHIR request, this is the resource type of the user's compartment.  Searches will be restricted to this compartment.
+        /// For a SMART on FHIR request, this is the resource type of the authorized compartment.
+        /// Patient scopes use the selected Patient context; user scopes use the user's compartment.
         /// </summary>
         public string CompartmentResourceType { get; set; } = null;
 
         /// <summary>
-        /// For a SMART on FHIR request, this is the id of the resource which is associated with the user, and
-        /// identifies the user's compartment.  Searches will be restricted to this compartment.
+        /// For a SMART on FHIR request, this identifies the authorized compartment.
+        /// Patient scopes use the selected patient id; user scopes use the user's resource id.
         /// </summary>
         public string CompartmentId { get; set; } = null;
 

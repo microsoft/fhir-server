@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _proxyClient.HttpClient.DefaultRequestHeaders.Add(XForwardedPrefix, Prefix);
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenSearch_WhenIncludingForwardedHeaders_ThenModifyResponseUrls()
         {
             // Ensure at least one patient exists
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             AssertSingletonPatientBundle(searchset);
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenSearchBundle_WhenIncludingForwardedHeaders_ThenModifyResponseUrls()
         {
             // Ensure at least one patient exists

@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
         private const string ResourceDeletedCountName = "ResourceDeletedCount";
+        private const string ResourceIgnoredCountName = "ResourceIgnoredCount";
 
         public GetBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             var cancelled = false;
             var succeeded = true;
             var resourcesDeleted = new Dictionary<string, long>();
+            var resourcesIgnored = new Dictionary<string, long>();
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
 
@@ -119,13 +121,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
                 if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && result != null)
                 {
-                    long jobTotal = 0;
-                    foreach (var key in result.ResourcesDeleted.Keys)
+                    void UpdateResources(IDictionary<string, long> source, Dictionary<string, long> target)
                     {
-                        jobTotal += result.ResourcesDeleted[key];
-                        if (!resourcesDeleted.TryAdd(key, result.ResourcesDeleted[key]))
+                        foreach (KeyValuePair<string, long> resource in source)
                         {
-                            resourcesDeleted[key] += result.ResourcesDeleted[key];
+                            target[resource.Key] = target.TryGetValue(resource.Key, out long existing)
+                                ? existing + resource.Value
+                                : resource.Value;
+                        }
+                    }
+
+                    UpdateResources(result.ResourcesDeleted, resourcesDeleted);
+                    UpdateResources(result.ResourcesIgnored, resourcesIgnored);
+
+                    if (job.Status == JobStatus.Completed)
+                    {
+                        foreach (string issue in result.Issues)
+                        {
+                            issues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                detailsText: issue));
                         }
                     }
                 }
@@ -133,32 +149,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             var fhirResults = new List<Hl7.Fhir.Model.Parameters.ParameterComponent>();
 
-            if (resourcesDeleted.Count > 0)
+            void AddParameterComponent(Dictionary<string, long> resourceDict, string resourceName)
             {
-                Tuple<string, DataType>[] tuples = resourcesDeleted
-                    .Where(x => x.Value > 0)
-                    .Select(x => Tuple.Create(x.Key, (DataType)new Integer64(x.Value)))
-                    .ToArray();
-
-                if (tuples.Any())
+                if (resourceDict.Count > 0)
                 {
-                    var parameterComponent = new Hl7.Fhir.Model.Parameters.ParameterComponent
-                    {
-                        Name = ResourceDeletedCountName,
-                    };
+                    Tuple<string, DataType>[] tuples = resourceDict
+                        .Where(x => x.Value > 0)
+                        .Select(x => Tuple.Create(x.Key, (DataType)new Integer64(x.Value)))
+                        .ToArray();
 
-                    foreach (var tuple in tuples)
+                    if (tuples.Any())
                     {
-                        parameterComponent.Part.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent
+                        var parameterComponent = new Hl7.Fhir.Model.Parameters.ParameterComponent
                         {
-                            Name = tuple.Item1,
-                            Value = tuple.Item2,
-                        });
-                    }
+                            Name = resourceName,
+                        };
 
-                    fhirResults.Add(parameterComponent);
+                        foreach (var tuple in tuples)
+                        {
+                            parameterComponent.Part.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent
+                            {
+                                Name = tuple.Item1,
+                                Value = tuple.Item2,
+                            });
+                        }
+
+                        fhirResults.Add(parameterComponent);
+                    }
                 }
             }
+
+            AddParameterComponent(resourcesDeleted, ResourceDeletedCountName);
+            AddParameterComponent(resourcesIgnored, ResourceIgnoredCountName);
 
             if (failed && issues.Count > 0)
             {

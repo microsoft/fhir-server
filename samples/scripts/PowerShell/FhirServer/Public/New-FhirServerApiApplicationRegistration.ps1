@@ -88,7 +88,7 @@ function New-FhirServerApiApplicationRegistration {
     }
     
     $apiAppReg = New-MgApplication @appParams
-    New-MgServicePrincipal -AppId $apiAppReg.AppId | Out-Null
+    New-FhirServerServicePrincipal -AppId $apiAppReg.AppId
 
     $tenantId = $context.TenantId
     $authority = "https://login.microsoftonline.com/$tenantId"

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Channels;
@@ -20,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -101,6 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                var stopwatch = Stopwatch.StartNew();
 
                 // Design of resource loader is too complex. There is no need to have any channel and separate load task.
                 // This design was driven from assumption that worker/processing job deals with entire large file.
@@ -115,6 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 result.FailedResources = importProgress.FailedResources;
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
                 result.ProcessedBytes = importProgress.ProcessedBytes;
+                result.DatabaseMilliseconds = importProgress.DatabaseMilliseconds;
 
                 _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, result.SucceededResources, result.FailedResources);
 
@@ -152,6 +156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     throw new JobExecutionException(ex.Message, error, ex, false);
                 }
 
+                result.ClockMilliseconds = stopwatch.ElapsedMilliseconds;
                 jobInfo.Data = result.SucceededResources + result.FailedResources;
 
                 // jobs are small, send on success only
@@ -182,6 +187,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 _logger.LogJobError(ex, jobInfo, ex.Message);
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex, false);
+            }
+            catch (BadRequestException ex)
+            {
+                _logger.LogJobWarning(ex, jobInfo, "Invalid input. Import processing operation failed.");
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(ex.Message, error, ex, true);
             }
             catch (IntegrationDataStoreException ex) when (ex.Message.Contains("The specified resource name contains invalid characters", StringComparison.OrdinalIgnoreCase))
             {

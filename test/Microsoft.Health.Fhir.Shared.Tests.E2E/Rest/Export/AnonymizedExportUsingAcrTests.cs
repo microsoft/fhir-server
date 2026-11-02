@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             _metricHandler = fixture.MetricHandler;
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("")]
         [InlineData("Patient/")]
         public async Task GivenAValidConfigurationWithAcrReference_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -97,14 +97,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidConfigurationWithAcrReference_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(2, dataFromExport.Count());
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("configimage:1234567890")]
         [InlineData("configimage@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
         [InlineData("wrongimage:default")]
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -177,14 +177,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains($"Image Not Found.", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenInvalidConfigurationNotInAcr_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, "Invalid Json.");
 
             _metricHandler?.ResetCount();
@@ -199,14 +199,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains("Failed to parse configuration file", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAConfigurationNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -222,14 +222,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains("Anonymization configuration 'not-exist.json' not found.", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenALargeConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, largeConfig);
 

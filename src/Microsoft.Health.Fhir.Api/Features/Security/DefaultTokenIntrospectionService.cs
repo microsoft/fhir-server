@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// </summary>
         public const string OidcConfigurationHttpClientName = "OidcConfiguration";
 
+        private static readonly List<string> ClientIdClaimNames = new List<string> { "client_id", "appid", "azp", "sub" };
         private static readonly List<string> DefaultScopeClaimNames = new List<string> { "scp" };
 
         private readonly SecurityConfiguration _securityConfiguration;
@@ -202,8 +203,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 response["iat"] = new DateTimeOffset(token.ValidFrom).ToUnixTimeSeconds();
             }
 
-            // Extract client_id (use sub if client_id not present)
-            var clientId = principal.FindFirst("client_id")?.Value ?? principal.FindFirst("sub")?.Value;
+            // Entra v1 tokens use appid and v2 tokens use azp; sub remains the fallback for development OpenIddict tokens.
+            var clientId = ClientIdClaimNames
+                .Select(claimName => principal.FindFirst(claimName)?.Value)
+                .FirstOrDefault(value => !string.IsNullOrEmpty(value));
             if (!string.IsNullOrEmpty(clientId))
             {
                 response["client_id"] = clientId;

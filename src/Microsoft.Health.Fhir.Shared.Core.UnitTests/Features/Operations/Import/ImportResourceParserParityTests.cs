@@ -6,15 +6,18 @@
 using System;
 using System.Text.Json.Nodes;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
 using Microsoft.Health.Fhir.Ignixa;
@@ -36,6 +39,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     {
         private readonly IImportResourceParser _firelyParser;
         private readonly IImportResourceParser _ignixaParser;
+        private readonly ResourceWrapperFactory _wrapperFactory;
 
         public ImportResourceParserParityTests()
         {
@@ -43,7 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             requestContextAccessor.RequestContext.Method.Returns("PUT");
             requestContextAccessor.RequestContext.Uri.Returns(new Uri("https://unittest/Patient/123"));
 
-            var wrapperFactory = new ResourceWrapperFactory(
+            _wrapperFactory = new ResourceWrapperFactory(
                 new RawResourceFactory(new FhirJsonSerializer()),
                 requestContextAccessor,
                 Substitute.For<ISearchIndexer>(),
@@ -52,10 +56,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 Substitute.For<ISearchParameterDefinitionManager>(),
                 Deserializers.ResourceDeserializer);
 
-            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), wrapperFactory);
+            _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, ResourceIdPolicy.Standard);
             _ignixaParser = new IgnixaImportResourceParser(
-                wrapperFactory,
-                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()));
+                _wrapperFactory,
+                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()),
+                ResourceIdPolicy.Standard);
         }
 
         [Fact]
@@ -116,6 +121,41 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             {
                 Assert.IsType<BadRequestException>(firely);
                 Assert.IsType<BadRequestException>(ignixa);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, 64, true)]
+        [InlineData(false, 65, false)]
+        [InlineData(false, 128, false)]
+        [InlineData(true, 64, true)]
+        [InlineData(true, 65, true)]
+        [InlineData(true, 128, true)]
+        [InlineData(true, 129, false)]
+        public void GivenTheLongResourceIdsFlag_WhenParsed_ThenBothProvidersApplyTheSelectedLimit(bool useLongResourceIds, int length, bool valid)
+        {
+            // Arrange
+            var policy = ResourceIdPolicy.From(useLongResourceIds);
+            var firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, policy);
+            var ignixaParser = new IgnixaImportResourceParser(_wrapperFactory, new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()), policy);
+            string id = new string('a', length);
+            string json = $$"""{"resourceType":"Patient","id":"{{id}}"}""";
+
+            // Act
+            if (valid)
+            {
+                ImportResource firely = firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+                ImportResource ignixa = ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+                // Assert
+                Assert.Equal(id, firely.ResourceWrapper.ResourceId);
+                Assert.Equal(id, ignixa.ResourceWrapper.ResourceId);
+            }
+            else
+            {
+                // Assert
+                Assert.Throws<BadRequestException>(() => firelyParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad));
+                Assert.Throws<BadRequestException>(() => ignixaParser.Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad));
             }
         }
 

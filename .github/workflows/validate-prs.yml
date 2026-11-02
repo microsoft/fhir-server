@@ -59,7 +59,8 @@ jobs:
               errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
-            if(process.env.NO_MILESTONE === 'true') {
+            if(process.env.NO_MILESTONE === 'true' &&
+               excludeAuthors.includes(author) == false) {
               errors += '- Add a milestone to the PR for the sprint that it is merged (i.e. add S47). \n';
             }
 
@@ -90,7 +91,8 @@ jobs:
             }
 
             if(labels.includes("No-PaaS-breaking-change") == false &&
-               labels.includes("PaaS-breaking-change") == false) {
+               labels.includes("PaaS-breaking-change") == false &&
+               excludeAuthors.includes(author) == false) {
               errors += '- Tag the PR with **No-PaaS-breaking-change** or **PaaS-breaking-change** to indicate PaaS compatibility. \n';
             }
 

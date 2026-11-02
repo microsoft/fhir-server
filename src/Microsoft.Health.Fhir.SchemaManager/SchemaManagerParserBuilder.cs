@@ -4,23 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.CommandLine;
-using System.CommandLine.Builder;
-using System.CommandLine.Parsing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.SchemaManager;
 
 public static class SchemaManagerParserBuilder
 {
-    public static Parser Build(IServiceProvider serviceProvider)
+    public static RootCommand Build(IServiceProvider serviceProvider)
     {
-        var commandLineBuilder = new CommandLineBuilder();
+        var rootCommand = new RootCommand();
 
         foreach (Command command in serviceProvider.GetServices<Command>())
         {
-            commandLineBuilder.Command.AddCommand(command);
+            rootCommand.Subcommands.Add(command);
         }
 
-        return commandLineBuilder.UseDefaults().Build();
+        return rootCommand;
     }
 }

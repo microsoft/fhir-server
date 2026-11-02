@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,8 +91,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
-            List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
-            Parallel.For(0, numberOfResources, async (i, task) =>
+            ConcurrentBag<Task> tasksWaitingForMergeAsync = new ConcurrentBag<Task>();
+            await Parallel.ForAsync(0, numberOfResources, async (i, _) =>
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
                 ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
@@ -212,8 +213,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
-            List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
-            Parallel.For(0, numberOfResources, async (i, task) =>
+            ConcurrentBag<Task> tasksWaitingForMergeAsync = new ConcurrentBag<Task>();
+            await Parallel.ForAsync(0, numberOfResources, async (i, _) =>
             {
                 Task appendTask;
                 if (i % 2 == 0)
@@ -304,6 +305,28 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Exception exception = await Record.ExceptionAsync(() => Task.WhenAll(releaseTasks));
             Assert.Null(exception);
 
+            Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
+        }
+
+        [Fact]
+        public async Task GivenATransactionOperation_WhenCanceledWhileMergeIsWaitingForResources_ThenRemainCanceled()
+        {
+            // Cancel() is only called on the transaction path, when a sibling entry fails.
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            var transactionOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = transactionOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Transaction, "POST", expectedNumberOfResources: 2);
+
+            DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                resource,
+                new BundleResourceContext(Bundle.BundleType.Transaction, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
+
+            Task<UpsertOutcome> appendTask = operation.AppendResourceAsync(resourceWrapper, BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore(), cts.Token);
+
+            operation.Cancel("Simulated client failure.");
+
+            await Assert.ThrowsAsync<BundleOrchestratorOperationCanceledException>(() => appendTask);
             Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
         }
 

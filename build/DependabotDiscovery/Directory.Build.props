@@ -1,0 +1,31 @@
+<!--
+  Intentionally does NOT import the repository root Directory.Build.props.
+
+  Placing this file here stops MSBuild's upward search, which keeps the root's analyzers,
+  StyleCop, SourceLink and TreatWarningsAsErrors settings off this project. Restore is the only
+  operation that has to succeed here, and those settings turn benign restore warnings into hard
+  failures.
+
+  Central Package Management is re-enabled explicitly. Directory.Packages.props is located by its
+  own independent upward search, so the repository root copy still supplies every version.
+-->
+<Project>
+
+  <PropertyGroup>
+    <!--
+      TargetFramework must be set here, not in the .csproj. Microsoft.Common.props imports
+      Directory.Build.props first and Directory.Packages.props immediately after, both before the
+      project body is evaluated. Directory.Packages.props picks AspNetPackageVersion with a
+      <Choose> on $(TargetFramework), so setting it in the .csproj leaves that property empty and
+      the six Microsoft.AspNetCore.* packages restore with no version at all (NU1604).
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+</Project>

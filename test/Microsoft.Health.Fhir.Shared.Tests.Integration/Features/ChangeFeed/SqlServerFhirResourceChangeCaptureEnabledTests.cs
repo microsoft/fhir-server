@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 {
@@ -102,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenImportingNegativeVersions_ThenResourceChangesShouldBeReturned()
         {
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            await ExecuteSql("TRUNCATE TABLE dbo.Resource");
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
 
@@ -132,8 +131,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_InvisibleHistoryIsRemovedByWatchdog()
         {
             EnableInvisibleHistory();
-            ExecuteSql("TRUNCATE TABLE dbo.Transactions");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            await ExecuteSql("TRUNCATE TABLE dbo.Transactions");
+            await ExecuteSql("TRUNCATE TABLE dbo.Resource");
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
 
@@ -148,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 RetentionPeriodDays = 2.0 / 24 / 3600,
             };
 
-            var wdTask = wd.ExecuteAsync(cts.Token); // retention 2 seconds
+            var wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token); // retention 2 seconds
             var startTime = DateTime.UtcNow;
 
             while ((!wd.IsLeaseHolder || !wd.IsInitialized) && !cts.IsCancellationRequested)
@@ -188,8 +187,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_InvisibleHistoryIsRetainedAndIsRemovedByWatchdog()
         {
             EnableInvisibleHistory();
-            ExecuteSql("TRUNCATE TABLE dbo.Transactions");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            await ExecuteSql("TRUNCATE TABLE dbo.Transactions");
+            await ExecuteSql("TRUNCATE TABLE dbo.Resource");
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
 
@@ -204,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 RetentionPeriodDays = 2.0 / 24 / 3600,
             };
 
-            var wdTask = wd.ExecuteAsync(cts.Token); // retention 2 seconds
+            var wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token); // retention 2 seconds
             var startTime = DateTime.UtcNow;
             while ((!wd.IsLeaseHolder || !wd.IsInitialized) && !cts.IsCancellationRequested)
             {
@@ -410,7 +409,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Equal(saveResult.RawResourceElement.InstanceType, resourceChangeData.ResourceTypeName);
         }
 
-        private async void ExecuteSql(string sql)
+        private async Task ExecuteSql(string sql)
         {
             using var conn = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
             using var cmd = conn.CreateRetrySqlCommand();

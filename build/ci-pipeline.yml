@@ -195,7 +195,7 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
@@ -252,7 +252,7 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
@@ -282,7 +282,7 @@ stages:
       version: R5
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false

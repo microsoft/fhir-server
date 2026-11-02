@@ -47,11 +47,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidRequestWithCustomizedTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
         {
             // Here we skip local E2E test since there is no ACR emulator for in-process tests.
-            Skip.If(_isUsingInProcTestServer);
+            Assert.SkipWhen(_isUsingInProcTestServer, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
 
             var uploader = ContainerRegistryTemplateUploader.CreateFromEnvironment(TestRepositoryName);
             await PushTemplateSet(uploader, TestRepositoryTag);
@@ -74,14 +74,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("template:1234567890")]
         [InlineData("wrongtemplate:default")]
         [InlineData("template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
         public async Task GivenAValidRequest_ButTemplateSetIsNotFound_WhenConvertData_ShouldReturnError(string imageReference)
         {
             // Here we skip local E2E test since there is no ACR emulator for in-process tests.
-            Skip.If(_isUsingInProcTestServer);
+            Assert.SkipWhen(_isUsingInProcTestServer, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
 
             var uploader = ContainerRegistryTemplateUploader.CreateFromEnvironment(TestRepositoryName);
             await PushTemplateSet(uploader, TestRepositoryTag);

@@ -807,7 +807,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(count, expectedPatients, returnedPatients);
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithMultipleNamesForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
         {

@@ -8,10 +8,12 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -267,6 +269,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return cancel;
+        }
+
+        public async Task<JobInfo> GetMostRecentJobByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
+        {
+            if (_schemaInformation.Current < SchemaVersionConstants.GetMostRecentJob)
+            {
+                return null;
+            }
+
+            try
+            {
+                using var cmd = new SqlCommand("dbo.GetMostRecentJob") { CommandType = CommandType.StoredProcedure };
+                cmd.Parameters.AddWithValue("@QueueType", queueType);
+
+                var result = await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetMostRecentJobByQueueTypeAsync failed.");
+                return result.Count > 0 ? result[0] : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get most recent job by queue type.");
+                return null;
+            }
         }
 
         private static void PopulateGetJobsCommand(SqlCommand cmd, byte queueType, long? jobId = null, IEnumerable<long> jobIds = null, long? groupId = null, bool? returnDefinition = null)

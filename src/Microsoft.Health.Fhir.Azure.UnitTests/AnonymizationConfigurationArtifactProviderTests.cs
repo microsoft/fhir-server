@@ -249,10 +249,10 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             await tokenProvider.Received(1).GetTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidConfigName_WithValidAcrReference_WhenFetchAnonymizedConfig_TheConfigContentInAcrShouldBeRerturn()
         {
-            Skip.If(!IsAcrConfigured());
+            Assert.SkipWhen(!IsAcrConfigured(), Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
 
             await PushConfigurationAsync(TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
             var jobRecord = new ExportJobRecord(
@@ -277,10 +277,10 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidAcrReference_WithInvalidConfigName_WhenFetchAnonymizedConfig_ExceptionShouldBeThrown()
         {
-            Skip.If(!IsAcrConfigured());
+            Assert.SkipWhen(!IsAcrConfigured(), Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
 
             await PushConfigurationAsync(TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
             var jobRecord = new ExportJobRecord(

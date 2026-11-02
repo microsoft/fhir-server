@@ -53,7 +53,6 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
@@ -104,7 +103,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _output = output;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             var reindexConfig = new ReindexJobConfiguration() { JobsPollingIntervalSec = 1 };
             var opConfig = new OperationsConfiguration();
@@ -185,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             cleanupCts.Dispose();
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             await StopBackgroundTasksAsync();
 

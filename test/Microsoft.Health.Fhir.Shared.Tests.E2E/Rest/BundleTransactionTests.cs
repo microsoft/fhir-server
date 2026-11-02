@@ -104,7 +104,87 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [RetryTheory]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenATransactionBundleWithAnOutOfRangeIndexedQuantity_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndNoResourcesArePersisted(FhirBundleProcessingLogic processingLogic)
+        {
+            var patientId = Guid.NewGuid().ToString();
+            var validObservationId = Guid.NewGuid().ToString();
+            var invalidObservationId = Guid.NewGuid().ToString();
+            var bundle = new Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry =
+                {
+                    new EntryComponent
+                    {
+                        Resource = new Patient
+                        {
+                            Id = patientId,
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier { System = "http://example.org/fhir/ids", Value = patientId },
+                            },
+                            Name = new List<HumanName>
+                            {
+                                new HumanName { Family = "Transaction" },
+                            },
+                        },
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Patient" },
+                    },
+                    new EntryComponent
+                    {
+                        Resource = new Observation
+                        {
+                            Id = validObservationId,
+                            Status = ObservationStatus.Final,
+                            Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier { System = "http://example.org/fhir/ids", Value = validObservationId },
+                            },
+                            Value = new Quantity(10m, "mg"),
+                        },
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Observation" },
+                    },
+                    new EntryComponent
+                    {
+                        Resource = new Observation
+                        {
+                            Id = invalidObservationId,
+                            Status = ObservationStatus.Final,
+                            Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier { System = "http://example.org/fhir/ids", Value = invalidObservationId },
+                            },
+                            Value = new Quantity(1000000000000000000m, "mg"),
+                        },
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Observation" },
+                    },
+                },
+            };
+
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.NotNull(fhirException.OperationOutcome);
+            Assert.Contains(fhirException.OperationOutcome.Issue, i => i.Code == OperationOutcome.IssueType.Invalid);
+            Assert.Contains(fhirException.OperationOutcome.Issue, i =>
+                i.Diagnostics != null && i.Diagnostics.Contains("DECIMAL(36,18)", StringComparison.OrdinalIgnoreCase));
+
+            Bundle patientSearch = await _client.SearchAsync(ResourceType.Patient, $"identifier=http://example.org/fhir/ids|{patientId}");
+            Assert.Empty(patientSearch.Entry);
+
+            Bundle validObservationSearch = await _client.SearchAsync(ResourceType.Observation, $"identifier=http://example.org/fhir/ids|{validObservationId}");
+            Assert.Empty(validObservationSearch.Entry);
+
+            Bundle invalidObservationSearch = await _client.SearchAsync(ResourceType.Observation, $"identifier=http://example.org/fhir/ids|{invalidObservationId}");
+            Assert.Empty(invalidObservationSearch.Entry);
+        }
+
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -130,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(bundle.Entry);
         }
 
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -738,13 +818,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithAnInvalidReference_WhenSubmittingATransaction_ThenReturnsHttp400(FhirBundleProcessingLogic processingLogic)
         {
-            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3 || ModelInfoProvider.Version == FhirSpecification.R5, "Some of the entities in 'Bundle-TransactionWithInvalidProcessingRecord' are not supported in this FHIR version. Test is focused on the overall handling logic.");
+            Assert.SkipWhen(ModelInfoProvider.Version == FhirSpecification.Stu3 || ModelInfoProvider.Version == FhirSpecification.R5, "Some of the entities in 'Bundle-TransactionWithInvalidProcessingRecord' are not supported in this FHIR version. Test is focused on the overall handling logic.");
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidProcessingRecord");
 

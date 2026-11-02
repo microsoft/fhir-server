@@ -9,16 +9,12 @@
   <ItemGroup>
     <EmbeddedResource Include="TestFiles\ExportJobRecordV1.json" />
     <EmbeddedResource Include="TestFiles\ExportJobRecordV2.json" />
+    <EmbeddedResource Include="..\Microsoft.Health.Fhir.Shared.Web\roles.json" Link="TestFiles\DefaultRoles.json" LogicalName="DefaultRoles.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
@@ -28,5 +24,8 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Logging\Metrics\Handlers\" />
   </ItemGroup>
 </Project>

@@ -44,15 +44,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             _testQueueClient = (TestQueueClient)fixture.Service.GetService(typeof(TestQueueClient));
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _testHelper.DeleteAllExportJobRecordsAsync();
             _testQueueClient?.ClearJobs();
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         /// <summary>

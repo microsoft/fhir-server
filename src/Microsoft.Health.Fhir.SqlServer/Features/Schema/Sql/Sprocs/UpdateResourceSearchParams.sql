@@ -16,6 +16,8 @@
    ,@TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY
    ,@TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY
    ,@TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+   ,@VectorSearchResources dbo.ResourceList READONLY
+   ,@VectorSearchParams dbo.VectorSearchParamList READONLY
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
@@ -70,6 +72,12 @@ DECLARE @st datetime = getUTCdate()
 
 BEGIN TRY
   DECLARE @Ids TABLE (ResourceTypeId smallint NOT NULL, ResourceSurrogateId bigint NOT NULL)
+  DECLARE @VectorSearchIds TABLE
+    (
+       ResourceTypeId smallint NOT NULL
+      ,ResourceSurrogateId bigint NOT NULL
+      ,PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
+    )
 
   BEGIN TRANSACTION
 
@@ -999,6 +1007,34 @@ BEGIN TRY
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange )
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange
       FROM @TokenNumberNumberCompositeSearchParamsInsert
+
+  INSERT INTO @VectorSearchIds
+         ( ResourceTypeId, ResourceSurrogateId )
+    SELECT A.ResourceTypeId, A.ResourceSurrogateId
+      FROM @VectorSearchResources A
+           JOIN @Ids I
+             ON I.ResourceTypeId = A.ResourceTypeId
+            AND I.ResourceSurrogateId = A.ResourceSurrogateId
+           JOIN dbo.Resource B
+             ON B.ResourceTypeId = A.ResourceTypeId
+            AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            AND B.ResourceId = A.ResourceId
+            AND B.Version = A.Version
+     WHERE B.IsHistory = 0
+
+  DELETE V
+    FROM dbo.VectorSearchParam V
+         JOIN @VectorSearchIds I
+           ON I.ResourceTypeId = V.ResourceTypeId
+          AND I.ResourceSurrogateId = V.ResourceSurrogateId
+
+  INSERT INTO dbo.VectorSearchParam
+         ( ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding )
+    SELECT V.ResourceTypeId, V.ResourceSurrogateId, V.SearchParamId, V.ChunkOrdinal, V.EmbeddingModelId, V.SourceTextHash, V.SourceTextCompressed, CAST(V.Embedding AS vector(1536))
+      FROM @VectorSearchParams V
+           JOIN @VectorSearchIds I
+             ON I.ResourceTypeId = V.ResourceTypeId
+            AND I.ResourceSurrogateId = V.ResourceSurrogateId
 
   COMMIT TRANSACTION
 

@@ -157,6 +157,9 @@
   <data name="ExecutionTimeoutExpired" xml:space="preserve">
     <value>The execution timeout expired from SQL Server.</value>
   </data>
+  <data name="IncludesCountResourceExhausted" xml:space="preserve">
+    <value>SQL Server has insufficient resources to complete the includes count. Please try again later.</value>
+  </data>
   <data name="GetRecordsAsyncOperationIsCanceled" xml:space="preserve">
     <value>The operation to get resource changes has been canceled.</value>
   </data>

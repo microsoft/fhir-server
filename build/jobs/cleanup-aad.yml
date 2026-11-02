@@ -5,6 +5,16 @@ jobs:
     name: '$(AzurePipelinesPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
+  - task: PowerShell@2
+    displayName: 'Reject fork PRs that require secrets'
+    condition: and(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['System.PullRequest.IsFork'], 'True'))
+    inputs:
+      pwsh: true
+      targetType: inline
+      script: |
+        Write-Host "##vso[task.logissue type=error]The PR pipeline cannot run from a fork because the AAD cleanup requires Key Vault secrets that fork builds cannot access."
+        exit 1
+
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
     inputs:

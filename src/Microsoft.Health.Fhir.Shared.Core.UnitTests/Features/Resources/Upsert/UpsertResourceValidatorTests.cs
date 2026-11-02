@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -46,7 +47,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(id);
 
@@ -80,7 +82,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
             var resource = Samples.GetDefaultObservation();
 
             var upsertResourceRequest = new UpsertResourceRequest(resource, bundleResourceContext: null);

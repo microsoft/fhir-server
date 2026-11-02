@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using EnsureThat;
 
@@ -13,7 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
         private readonly Histogram<long> _bundleLatencyHistogram;
 
         public DefaultBundleMetricHandler(IMeterFactory meterFactory)
-            : base(meterFactory, successMetricName: "Bundle.Success", failureMetricName: "Bundle.Failure")
+            : base(
+                  meterFactory,
+                  successMetricName: "Bundle.Success",
+                  failureMetricName: "Bundle.Failure")
         {
             _bundleLatencyHistogram = MetricMeter.CreateHistogram<long>("Bundle.Latency");
         }
@@ -22,7 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _bundleLatencyHistogram.Record(notification.ElapsedMilliseconds);
+            _bundleLatencyHistogram.Record(
+                notification.ElapsedMilliseconds,
+                KeyValuePair.Create<string, object>("Complexity", notification.Complexity.ToString()));
         }
     }
 }

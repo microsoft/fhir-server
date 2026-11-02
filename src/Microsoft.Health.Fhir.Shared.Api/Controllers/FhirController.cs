@@ -51,7 +51,6 @@ using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -729,7 +728,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
         [AuditEventType(AuditEventSubType.BundlePost)]
-        [TypeFilter(typeof(BundleEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement(), HttpContext.RequestAborted);
@@ -769,13 +767,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <returns>Returns null if the resource is not part of a bundle.</returns>
         private BundleResourceContext GetBundleResourceContext()
         {
-            if (HttpContext?.Request?.Headers != null)
+            if (_fhirRequestContextAccessor.RequestContext?.Properties.TryGetValue(
+                BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext,
+                out object bundleResourceContext) == true)
             {
-                if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, out StringValues rawBundleRequestContext))
-                {
-                    BundleResourceContext bundleResourceContext = JObject.Parse(rawBundleRequestContext.FirstOrDefault()).ToObject<BundleResourceContext>();
-                    return bundleResourceContext;
-                }
+                return (BundleResourceContext)bundleResourceContext;
             }
 
             return null;

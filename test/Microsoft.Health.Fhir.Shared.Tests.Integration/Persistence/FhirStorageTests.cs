@@ -72,15 +72,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         protected Mediator Mediator { get; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _fixture.TestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
             await CleanupSearchParametersAsync(CancellationToken.None);
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
-        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Theory]
         [InlineData(5)] // should succeed
         [InlineData(35)] // shoul fail
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -124,7 +124,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -224,7 +224,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             };
 
             // !!! time travel behavior
-            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            // Surrogate id range parameters are reserved for background tasks such as export.
+            results = await SearchAsBackgroundTaskAsync(type, queryParameters);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
@@ -247,11 +248,18 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
-            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            results = await SearchAsBackgroundTaskAsync(type, queryParameters);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("3", resource.Version);
             Assert.False(resource.IsHistory); // current
+        }
+
+        private Task<SearchResult> SearchAsBackgroundTaskAsync(string type, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
+            return BackgroundTaskRequestContext.RunAsync(
+                _fixture.FhirRequestContextAccessor,
+                () => _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None));
         }
 
         private async Task UpdateResource(Patient patient)
@@ -268,7 +276,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));

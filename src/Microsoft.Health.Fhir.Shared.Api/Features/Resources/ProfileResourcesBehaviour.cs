@@ -24,7 +24,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>
+        IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>,
+        IPipelineBehavior<ConditionalDeleteResourceRequest, DeleteResourceResponse>
     {
         private IAuthorizationService<DataActions> _authorizationService;
         private IProvideProfilesForValidation _profilesResolver;
@@ -52,6 +53,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
         public async Task<DeleteResourceResponse> HandleAsync(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.ResourceKey.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
+
+        /// <summary>
+        /// Enforces <see cref="DataActions.EditProfileDefinitions"/> for conditional deletes targeting a profile resource type.
+        /// The check runs before the handler executes, so the conditional search and any delete are never reached by an unauthorized caller.
+        /// This covers soft and hard deletes, single and multiple matches, and both top level and bundle inner requests.
+        /// </summary>
+        public async Task<DeleteResourceResponse> HandleAsync(ConditionalDeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
+            => await GenericHandle(request.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         private async Task<TResponse> GenericHandle<TResponse>(
             string resourceType,

@@ -27,4 +27,8 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="IntegrationDataStore\TestData\representative-import-1000.ndjson.gz" />
+  </ItemGroup>
+
 </Project>

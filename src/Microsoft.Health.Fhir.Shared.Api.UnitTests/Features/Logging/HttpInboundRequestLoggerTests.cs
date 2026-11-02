@@ -33,6 +33,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Logging
             Assert.Equal(HttpInboundRequestLogger.HttpPathColumnName, "httpPath");
             Assert.Equal(HttpInboundRequestLogger.HttpStatusCodeColumnName, "httpStatusCode");
             Assert.Equal(HttpInboundRequestLogger.XCorrelationIdColumnName, "XCorrelationId");
+            Assert.Equal(HttpInboundRequestLogger.FhirHttpOperationName, "fhir_http_operationName");
+            Assert.Equal(HttpInboundRequestLogger.ActionKeyName, "action");
+            Assert.Equal(HttpInboundRequestLogger.ControllerKeyName, "controller");
+            Assert.Equal(HttpInboundRequestLogger.RouteNotAvailablePlaceHolder, "[RouteNotAvailable]");
         }
 
         /// <summary>
@@ -67,8 +71,41 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Logging
                     ["httpPath"] = "/Patient",
                     ["httpStatusCode"] = StatusCodes.Status201Created,
                     ["XCorrelationId"] = "correlation-id",
+                    ["fhir_http_operationName"] = $"POST {HttpInboundRequestLogger.RouteNotAvailablePlaceHolder}",
                 },
                 innerLogger.State);
+        }
+
+        /// <summary>
+        /// Verifies that a completed request contains the correct operation name when the route values are set.
+        /// </summary>
+        [Theory]
+        [InlineData("Create", "Fhir", "POST Fhir/Create")]
+        [InlineData("BatchAndTransactions", "Fhir", "POST Fhir/BatchAndTransactions")]
+        [InlineData("Import", "Import", "POST Import/Import")]
+
+        public void GivenHttpContext_WhenLoggingRequest_ThenEnsureOperationNameIsAsExpected(string action, string controller, string expectedOperationName)
+        {
+            var innerLogger = new CapturingLogger();
+            var inboundRequestLogger = new HttpInboundRequestLogger(innerLogger);
+            var context = new DefaultHttpContext();
+
+            // Request
+            context.Request.Host = new HostString("fhir.example.com");
+            context.Request.Method = HttpMethods.Post;
+            context.Request.Path = "/Patient";
+            context.Request.Headers[KnownHeaders.CorrelationId] = "correlation-id";
+            context.Request.RouteValues[HttpInboundRequestLogger.ActionKeyName] = action;
+            context.Request.RouteValues[HttpInboundRequestLogger.ControllerKeyName] = controller;
+
+            // Response
+            context.Response.StatusCode = StatusCodes.Status201Created;
+
+            inboundRequestLogger.LogRequest(context);
+
+            Assert.Equal(LogLevel.Information, innerLogger.LogLevel);
+            Assert.Null(innerLogger.Exception);
+            Assert.Equal(expectedOperationName, innerLogger.State["fhir_http_operationName"]);
         }
 
         /// <summary>

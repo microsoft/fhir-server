@@ -44,6 +44,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ReferenceRemoverTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ConditionalDeleteResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeletionServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\BulkOperationAuditLogHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandlerTests.cs" />
@@ -109,6 +110,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterBehaviorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterDefinitionManagerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\FhirPackageInstallEndToEndTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\IgnixaFhirPackageReaderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\SearchParameterPackageHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverTests.cs" />
@@ -132,6 +136,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ExpressionParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchExpressionTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactorySmartScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandlerTests.cs" />

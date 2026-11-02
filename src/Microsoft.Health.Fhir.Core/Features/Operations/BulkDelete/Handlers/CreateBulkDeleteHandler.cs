@@ -59,13 +59,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions requiredDataAction = request.DeleteOperation switch
-            {
-                DeleteOperation.SoftDelete => DataActions.Delete,
-                _ => DataActions.HardDelete | DataActions.Delete,
-            };
-
-            await _authorizationService.CheckAccess(requiredDataAction, true, cancellationToken);
+            await _authorizationService.CheckConditionalDeleteAccess(cancellationToken, hardDelete: request.DeleteOperation != DeleteOperation.SoftDelete);
+            bool allowProfileResourceModification = await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, false, cancellationToken);
 
             if (_coreFeatures.EnableSmartBulkDeleteRestriction &&
                 _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
@@ -96,7 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 _contextAccessor.RequestContext.BaseUri.ToString(),
                 _contextAccessor.RequestContext.CorrelationId,
                 versionType: request.IncludeSoftDeleted ? ResourceVersionType.SoftDeleted : ResourceVersionType.Latest,
-                removeReferences: request.RemoveReferences);
+                removeReferences: request.RemoveReferences,
+                allowProfileResourceModification: allowProfileResourceModification);
 
             IReadOnlyList<JobInfo> jobInfo =
                 await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);

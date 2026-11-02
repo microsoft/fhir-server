@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Api.Configs
 
         public ThrottlingConfiguration Throttling { get; } = new ThrottlingConfiguration();
 
+        public CircuitBreakerConfiguration CircuitBreaker { get; } = new CircuitBreakerConfiguration();
+
         public ArtifactStoreConfiguration ArtifactStore { get; } = new ArtifactStoreConfiguration();
 
         public ImplementationGuidesConfiguration ImplementationGuides { get; } = new ImplementationGuidesConfiguration();

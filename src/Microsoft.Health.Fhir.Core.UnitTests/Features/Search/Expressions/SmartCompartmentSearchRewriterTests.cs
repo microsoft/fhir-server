@@ -113,6 +113,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             Assert.Contains(
                 deviceLeg.Expressions,
                 e => e is StringExpression se && se.FieldName == FieldName.ReferenceResourceId && se.Value == "patient-A");
+            Assert.Contains(
+                deviceLeg.Expressions,
+                e => e is MissingFieldExpression missing && missing.FieldName == FieldName.ReferenceBaseUri);
+        }
+
+        [Theory]
+        [InlineData(CompartmentType.Patient)]
+        [InlineData(CompartmentType.Practitioner)]
+        public void GivenFormalCompartmentMembership_WhenRewritten_ThenReferenceMustBeLocal(CompartmentType compartmentType)
+        {
+            var subjectParameter = new SearchParameterInfo("subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+            _compartmentDefinitionManager
+                .TryGetResourceTypes(compartmentType, out Arg.Any<HashSet<string>>())
+                .Returns(call =>
+                {
+                    call[1] = new HashSet<string> { KnownResourceTypes.Observation };
+                    return true;
+                });
+            _compartmentDefinitionManager
+                .TryGetSearchParams(KnownResourceTypes.Observation, compartmentType, out Arg.Any<HashSet<string>>())
+                .Returns(call =>
+                {
+                    call[2] = new HashSet<string> { "subject" };
+                    return true;
+                });
+            _searchParameterDefinitionManager
+                .TryGetSearchParameter(KnownResourceTypes.Observation, "subject", out Arg.Any<SearchParameterInfo>())
+                .Returns(call =>
+                {
+                    call[2] = subjectParameter;
+                    return true;
+                });
+
+            UnionExpression union = Rewrite(CreateRewriter(flagEnabled: false), compartmentType.ToString());
+
+            MultiaryExpression membership = union.Expressions.OfType<MultiaryExpression>()
+                .Single(leg => leg.Expressions.OfType<MissingFieldExpression>().Any());
+            Assert.Equal(MultiaryOperator.And, membership.MultiaryOperation);
+            Assert.Contains(membership.Expressions, e => e is MissingFieldExpression missing && missing.FieldName == FieldName.ReferenceBaseUri);
+            Assert.Contains(membership.Expressions, e => e is StringExpression value && value.FieldName == FieldName.ReferenceResourceType && value.Value == compartmentType.ToString());
+            Assert.Contains(membership.Expressions, e => e is StringExpression value && value.FieldName == FieldName.ReferenceResourceId && value.Value == "patient-A");
         }
 
         [Fact]
@@ -172,6 +213,70 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             Assert.DoesNotContain(
                 union.Expressions.OfType<MultiaryExpression>(),
                 m => m.Expressions.OfType<SearchParameterExpression>().Any(spe => ReferenceEquals(spe.Parameter, _devicePatientParam)));
+        }
+
+        [Fact]
+        public void GivenDevicePatientParamNotSearchable_WhenRewritten_ThenNoDeviceIsVisible()
+        {
+            // The Device.patient index is missing or incomplete for any status other than Enabled, so a device
+            // assigned to another patient can look identical to an unassigned one. The restriction must fail
+            // closed: Device must be neither universally visible nor authorized by an "unassigned" leg.
+            _devicePatientParam.IsSearchable = false;
+
+            UnionExpression union = Rewrite(CreateRewriter(flagEnabled: true));
+
+            Assert.DoesNotContain(KnownResourceTypes.Device, GetUniversalTypesExpression(union).Values);
+            Assert.Empty(union.Expressions.OfType<NotReferencingExpression>());
+            Assert.DoesNotContain(
+                union.Expressions.OfType<MultiaryExpression>(),
+                m => m.Expressions.OfType<SearchParameterExpression>().Any(spe => ReferenceEquals(spe.Parameter, _devicePatientParam)));
+        }
+
+        [Fact]
+        public void GivenDevicePatientParamNotSearchable_WhenGettingConditionalRules_ThenSingleNeverRuleReturned()
+        {
+            _devicePatientParam.IsSearchable = false;
+
+            IReadOnlyList<SmartCompartmentConditionalRule> rules =
+                CreateRewriter(flagEnabled: true).GetConditionalCompartmentRules(KnownResourceTypes.Patient);
+
+            SmartCompartmentConditionalRule rule = Assert.Single(rules);
+            Assert.Equal(KnownResourceTypes.Device, rule.ResourceType);
+            Assert.Equal(SmartCompartmentConditionalVisibility.Never, rule.Visibility);
+
+            // The Never rule must still name the resource type so that GetSharedResourceTypes subtracts Device
+            // from the universally shared types; that subtraction is what keeps Device invisible.
+            Assert.DoesNotContain(KnownResourceTypes.Device, SmartCompartmentSearchRewriter.GetSharedResourceTypes(rules));
+        }
+
+        [Theory]
+        [InlineData(true, SmartCompartmentDeviceRestrictionState.Enforceable)]
+        [InlineData(false, SmartCompartmentDeviceRestrictionState.Unenforceable)]
+        public void GivenDevicePatientParamSearchability_WhenGettingRestrictionState_ThenStateReflectsAvailability(bool isSearchable, SmartCompartmentDeviceRestrictionState expectedState)
+        {
+            _devicePatientParam.IsSearchable = isSearchable;
+
+            SmartCompartmentDeviceRestrictionState state =
+                CreateRewriter(flagEnabled: true).GetDeviceRestrictionState(out SearchParameterInfo devicePatientSearchParameter);
+
+            Assert.Equal(expectedState, state);
+            Assert.Same(_devicePatientParam, devicePatientSearchParameter);
+        }
+
+        [Fact]
+        public void GivenDevicePatientParamMissing_WhenGettingRestrictionState_ThenRestrictionIsNotApplicable()
+        {
+            // Simulates R5+, where Device has no patient search parameter: there is no linkage to restrict, so
+            // this must stay distinct from "the linkage exists but is unavailable".
+            _searchParameterDefinitionManager
+                .TryGetSearchParameter(KnownResourceTypes.Device, "patient", out Arg.Any<SearchParameterInfo>())
+                .Returns(false);
+
+            SmartCompartmentDeviceRestrictionState state =
+                CreateRewriter(flagEnabled: true).GetDeviceRestrictionState(out SearchParameterInfo devicePatientSearchParameter);
+
+            Assert.Equal(SmartCompartmentDeviceRestrictionState.NotApplicable, state);
+            Assert.Null(devicePatientSearchParameter);
         }
     }
 }

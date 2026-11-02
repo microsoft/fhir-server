@@ -17,7 +17,8 @@
                 "BackgroundProfileStatusCheckIntervalInSeconds": 5
             },
             "Import": {
-                "PollingFrequencyInSeconds": 1
+                "PollingFrequencyInSeconds": 1,
+                "MaxRunningTaskCount": 2
             },
             "Export": {
                 "PollingFrequencyInSeconds": 1

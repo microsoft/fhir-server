@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(tokens, nameof(tokens));
 
-            if (tokens.Length == 7 && tokens[6] is IncludesContinuationToken)
+            if (tokens.Length >= 7 && tokens[6] is IncludesContinuationToken)
             {
                 tokens[6] = ((IncludesContinuationToken)tokens[6]).ToString();
             }
@@ -76,6 +76,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             private set;
         }
 
+        /// <summary>
+        /// Gets the cursor used to select the outer page's matches, before paging included resources.
+        /// A null cursor selects the beginning of the recorded sort phase.
+        /// </summary>
+        public string MatchContinuationToken { get; private set; }
+
+        /// <summary>
+        /// Gets the number of matches in the recorded sort phase of the outer page.
+        /// When present, replay that page instead of using a surrogate ID interval.
+        /// </summary>
+        public int? MatchPageSize { get; private set; }
+
+        /// <summary>
+        /// Advances the include cursor without changing the outer page scope.
+        /// </summary>
+        /// <param name="resourceTypeId">The include cursor's resource type.</param>
+        /// <param name="resourceSurrogateId">The include cursor's surrogate ID.</param>
+        /// <returns>A token with the updated include cursor.</returns>
+        public IncludesContinuationToken WithIncludeCursor(short resourceTypeId, long resourceSurrogateId)
+        {
+            var tokens = (object[])_tokens.Clone();
+            Array.Resize(ref tokens, Math.Max(tokens.Length, 5));
+            tokens[3] = resourceTypeId;
+            tokens[4] = resourceSurrogateId;
+            return new IncludesContinuationToken(tokens);
+        }
+
+        /// <summary>
+        /// Preserves the remaining sort phase while paging includes from the first phase.
+        /// </summary>
+        /// <param name="secondPhaseToken">The remaining phase's includes token.</param>
+        /// <returns>A token containing both phases.</returns>
+        public IncludesContinuationToken WithSecondPhase(IncludesContinuationToken secondPhaseToken)
+        {
+            var tokens = (object[])_tokens.Clone();
+            Array.Resize(ref tokens, Math.Max(tokens.Length, 7));
+            tokens[5] = SortQuerySecondPhase ?? false;
+            tokens[6] = secondPhaseToken;
+            return new IncludesContinuationToken(tokens);
+        }
+
         public string ToJson()
         {
             return JsonSerializer.Serialize(_tokens);
@@ -114,9 +155,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// 5. IncludeResourceSurrogateId (long?):                          The minimum surrogate ID of the included resources.
         /// 6. SortQuerySecondPhase (bool?):                                Indicates if the sort query is in the second phase.
         /// 7. SecondPhaseContinuationToken (IncludesContinuationToken?):   The continuation token for the second phase of the sort query. This is provided if the matched resources that generated this token were from both the first and second phases of a sort query.
+        /// 8. MatchContinuationToken (string?):                           The input cursor for replaying a non-surrogate-sorted page.
+        /// 9. MatchPageSize (int):                                        The actual match count for that page's sort phase, excluding lookahead.
         ///
-        /// Tokens 1-3 are required, tokens 4-7 are optional.
+        /// Tokens 1-3 are required, tokens 4-9 are optional.
         /// 5 is required if 4 is present.
+        /// 8 and 9 must be supplied together.
         /// </summary>
         private void Initialize()
         {
@@ -145,11 +189,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             {
                                 SortQuerySecondPhase = sortQuerySecondPhase;
                             }
-                            else if (_tokens.Length == 7
+                            else if ((_tokens.Length == 7 || _tokens.Length == 9)
                                 && bool.TryParse(_tokens[5]?.ToString(), out sortQuerySecondPhase))
                             {
                                 SortQuerySecondPhase = sortQuerySecondPhase;
                                 SecondPhaseContinuationToken = FromString((string)_tokens[6]);
+
+                                if (_tokens.Length == 9)
+                                {
+                                    if ((_tokens[7] == null || _tokens[7] is string)
+                                        && int.TryParse(_tokens[8]?.ToString(), out var pageSize)
+                                        && pageSize > 0)
+                                    {
+                                        MatchContinuationToken = (string)_tokens[7];
+                                        MatchPageSize = pageSize;
+                                    }
+                                    else
+                                    {
+                                        initialized = false;
+                                    }
+                                }
                             }
                             else
                             {

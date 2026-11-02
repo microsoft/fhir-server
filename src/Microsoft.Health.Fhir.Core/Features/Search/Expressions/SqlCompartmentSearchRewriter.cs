@@ -83,10 +83,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     if (searchParamAndResourceTypeExpressions.Any())
                     {
                         // Get the ORed expression of search parameter + resource type expressions
-                        // Then AND with the compartment type and id to ensure we only get resources in the compartment
+                        // Require local reference identity; an external reference with the same type and id is a different compartment.
                         var oredExpression = Expression.Or(searchParamAndResourceTypeExpressions);
                         finalCompartmentSearchExpressions.Add(Expression.And(
                                 oredExpression,
+                                Expression.Missing(FieldName.ReferenceBaseUri, null),
                                 Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
                                 Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
                     }

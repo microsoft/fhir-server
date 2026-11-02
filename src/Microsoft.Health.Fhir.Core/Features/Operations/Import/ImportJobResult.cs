@@ -34,5 +34,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         [JsonProperty("error")]
         public IReadOnlyCollection<ImportFailedOperationOutcome> Error { get; set; }
+
+        /// <summary>
+        /// Performance metrics collected during import processing. Only populated for in-memory test imports
+        /// (see <see cref="ImportOrchestratorJobDefinition.InMemoryTestProcessingJobs"/>).
+        /// Each entry is a preformatted line, one per completed job plus a final aggregate line.
+        /// </summary>
+        [JsonProperty("executionStats", NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyCollection<string> ExecutionStats { get; set; }
     }
 }

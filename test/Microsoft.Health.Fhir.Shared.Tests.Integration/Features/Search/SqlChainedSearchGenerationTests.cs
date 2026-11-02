@@ -1,0 +1,462 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Azure.Identity;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Health.Test.Utilities;
+using NSubstitute;
+using Xunit;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
+
+namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
+{
+    /// <summary>
+    /// Executes generated chained-search SQL against connection-local tables, without provisioning a FHIR database.
+    /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
+    [Trait("DataStore", "SqlServer")]
+    public class SqlChainedSearchGenerationTests
+    {
+        private readonly ITestOutputHelper _output;
+
+        static SqlChainedSearchGenerationTests()
+        {
+            ConfigureWorkloadIdentityAuthentication();
+        }
+
+        public SqlChainedSearchGenerationTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
+
+        [Theory]
+        [InlineData("same", "Patient", false, false, 1)]
+        [InlineData("same", "Group", false, false, 1)]
+        [InlineData("same", "Device", false, false, 1)]
+        [InlineData("same", "Location", false, false, 1)]
+        [InlineData("same", null, false, false, 1)]
+        [InlineData("different", "Patient", false, false, 1)]
+        [InlineData("split-bounds", "Patient", false, false, 1)]
+        [InlineData("bound-same", "Patient", false, false, 1)]
+        [InlineData("bound-different", "Patient", false, false, 0)]
+        [InlineData("bound-split-bounds", "Patient", false, false, 0)]
+        [InlineData("no-date", "Patient", false, false, 0)]
+        [InlineData("no-terminal", "Patient", false, false, 0)]
+        [InlineData("no-target", "Patient", false, false, 0)]
+        [InlineData("cross-source", "Patient", false, false, 0)]
+        [InlineData("same", "Practitioner", false, false, 0)]
+        [InlineData("same", "Patient", true, false, 0)]
+        [InlineData("same", "Patient", false, true, 0)]
+        public async Task GivenIndependentChains_WhenExecuted_ThenSourceExistenceSemanticsArePreserved(
+            string scenario,
+            string terminalType,
+            bool history,
+            bool deleted,
+            int expectedCount)
+        {
+            // Arrange
+            using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
+            await connection.OpenAsync();
+            await SeedAsync(connection, scenario, terminalType, history, deleted);
+            using var command = CreateSearchCommand(connection, bindTarget: scenario.StartsWith("bound-", StringComparison.Ordinal));
+            string improvedSql = command.CommandText;
+            _output.WriteLine(improvedSql);
+
+            // Act
+            var improvedIds = await ReadIdsAsync(command);
+            using var legacyCommand = CreateSearchCommand(connection, bindTarget: scenario.StartsWith("bound-", StringComparison.Ordinal), enableChainSourceDeduplication: false);
+            var originalIds = await ReadIdsAsync(legacyCommand);
+
+            // Assert
+            Assert.Equal(expectedCount, improvedIds.Count);
+            Assert.Equal(originalIds, improvedIds);
+            Assert.Equal(improvedIds.Count, improvedIds.Distinct().Count());
+            Assert.All(improvedIds, id => Assert.Equal("source", id));
+        }
+
+        [Fact]
+        public async Task GivenManyMatchingReferences_WhenChainsRestart_ThenIntermediateRowsDoNotMultiply()
+        {
+            // Arrange
+            using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
+            await connection.OpenAsync();
+            await SeedAsync(connection, "same", "Patient", false, false);
+            using var command = CreateSearchCommand(connection);
+            string sql = command.CommandText;
+            int finalSelect = sql.IndexOf(SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal);
+            Assert.True(finalSelect > 0);
+            string countsSql = sql[..finalSelect] + "SELECT (SELECT count_big(*) FROM cte3), (SELECT count_big(*) FROM cte5), (SELECT count_big(*) FROM cte7)";
+
+            // Act
+            command.CommandText = countsSql;
+            var improved = await ReadCountsAsync(command);
+            using var legacyCommand = CreateSearchCommand(connection, enableChainSourceDeduplication: false);
+            string legacySql = legacyCommand.CommandText;
+            legacyCommand.CommandText = legacySql[..legacySql.IndexOf(SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal)]
+                + "SELECT (SELECT count_big(*) FROM cte3), (SELECT count_big(*) FROM cte5), (SELECT count_big(*) FROM cte7)";
+            var original = await ReadCountsAsync(legacyCommand);
+
+            // Assert
+            Assert.All(improved, rows => Assert.Equal(130L, rows));
+            Assert.True(original[2] > 2_000_000, $"Expected the original traversal product, got {original[2]} rows.");
+            _output.WriteLine($"Traversal rows before: {string.Join(", ", original)}; after: {string.Join(", ", improved)}");
+            _output.WriteLine(sql);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIndependentReverseNestedChains_WhenExecuted_ThenSourceAndIntermediateBindingsArePreserved(bool enableChainSourceDeduplication)
+        {
+            // Arrange
+            using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
+            await connection.OpenAsync();
+            await CreateTablesAsync(connection);
+            using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted) VALUES
+                    (3, 300, 'matching', 0, 0), (3, 301, 'split', 0, 0), (3, 302, 'other', 0, 0),
+                    (2, 400, 'visit-observation', 0, 0), (2, 401, 'final-observation', 0, 0),
+                    (2, 402, 'split-observation', 0, 0), (2, 403, 'other-observation', 0, 0),
+                    (1, 500, 'visit-report', 0, 0), (1, 501, 'final-report', 0, 0),
+                    (1, 502, 'split-report', 0, 0), (1, 503, 'other-report', 0, 0);
+                INSERT INTO #ReferenceSearchParam VALUES
+                    (2, 400, 15, 3, 'matching', 0), (2, 401, 15, 3, 'matching', 0),
+                    (2, 402, 15, 3, 'split', 0), (2, 403, 15, 3, 'other', 0),
+                    (1, 500, 13, 2, 'visit-observation', 0), (1, 501, 13, 2, 'final-observation', 0),
+                    (1, 502, 13, 2, 'split-observation', 0), (1, 503, 13, 2, 'other-observation', 0);
+                INSERT INTO #TokenSearchParam VALUES
+                    (1, 500, 12, 'visit', 0, NULL), (1, 501, 11, 'final', 0, NULL),
+                    (1, 502, 12, 'visit', 0, NULL), (1, 503, 11, 'final', 0, NULL);
+                """;
+            await seed.ExecuteNonQueryAsync();
+
+            var model = Substitute.For<ISqlServerFhirModel>();
+            model.GetResourceTypeId("DiagnosticReport").Returns((short)1);
+            model.GetResourceTypeId("Observation").Returns((short)2);
+            model.GetResourceTypeId("Patient").Returns((short)3);
+            var subject = Parameter("subject", SearchParamType.Reference, ["Patient"]);
+            var result = Parameter("result", SearchParamType.Reference, ["Observation"]);
+            var code = Parameter("code", SearchParamType.Token);
+            var status = Parameter("status", SearchParamType.Token);
+            model.GetSearchParamId(subject.Url).Returns((short)15);
+            model.GetSearchParamId(result.Url).Returns((short)13);
+            model.GetSearchParamId(code.Url).Returns((short)12);
+            model.GetSearchParamId(status.Url).Returns((short)11);
+
+            Expression Chain(SearchParameterInfo parameter, string value) =>
+                Expression.Chained(
+                    ["Observation"],
+                    subject,
+                    ["Patient"],
+                    true,
+                    Expression.Chained(
+                        ["DiagnosticReport"],
+                        result,
+                        ["Observation"],
+                        true,
+                        Expression.SearchParameter(parameter, Expression.StringEquals(FieldName.TokenCode, null, value, false))));
+            using var command = CreateSearchCommand(connection, Expression.And(Chain(code, "visit"), Chain(status, "final")), model, enableChainSourceDeduplication);
+            _output.WriteLine(command.CommandText);
+
+            // Act
+            var ids = await ReadIdsAsync(command);
+
+            // Assert
+            // Independent predicates may use different observations; each report must reference its own chain's observation.
+            Assert.Equal(new[] { "matching" }, ids);
+        }
+
+        [Theory]
+        [InlineData(true, 1L)]
+        [InlineData(false, 128L)]
+        public async Task GivenReverseChainFollowedByRootFilters_WhenJoined_ThenSourceRowsDoNotFanOut(bool enableChainSourceDeduplication, long expectedRootFilterRows)
+        {
+            // Arrange
+            using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
+            await connection.OpenAsync();
+            await CreateTablesAsync(connection);
+            using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted) VALUES (3, 300, 'patient', 0, 0);
+                WITH numbers AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 128)
+                INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted)
+                    SELECT 2, 400 + n, CONCAT('observation', n), 0, 0 FROM numbers OPTION (MAXRECURSION 128);
+                INSERT INTO #ReferenceSearchParam SELECT 2, ResourceSurrogateId, 15, 3, 'patient', 0 FROM #Resource WHERE ResourceTypeId = 2;
+                INSERT INTO #TokenSearchParam SELECT 2, ResourceSurrogateId, 12, 'visit', 0, NULL FROM #Resource WHERE ResourceTypeId = 2;
+                INSERT INTO #TokenSearchParam VALUES (3, 300, 20, 'tag0', 0, NULL), (3, 300, 21, 'tag1', 0, NULL), (3, 300, 22, 'tag2', 0, NULL), (3, 300, 23, 'tag3', 0, NULL);
+                """;
+            await seed.ExecuteNonQueryAsync();
+
+            var model = Substitute.For<ISqlServerFhirModel>();
+            model.GetResourceTypeId("Observation").Returns((short)2);
+            model.GetResourceTypeId("Patient").Returns((short)3);
+            var subject = Parameter("subject", SearchParamType.Reference, ["Patient"]);
+            var code = Parameter("code", SearchParamType.Token);
+            model.GetSearchParamId(subject.Url).Returns((short)15);
+            model.GetSearchParamId(code.Url).Returns((short)12);
+            var predicates = new List<Expression>
+            {
+                Expression.Chained(["Observation"], subject, ["Patient"], true, Expression.SearchParameter(code, Expression.StringEquals(FieldName.TokenCode, null, "visit", false))),
+            };
+            for (int i = 0; i < 4; i++)
+            {
+                var tag = Parameter($"tag{i}", SearchParamType.Token);
+                model.GetSearchParamId(tag.Url).Returns((short)(20 + i));
+                predicates.Add(Expression.SearchParameter(tag, Expression.StringEquals(FieldName.TokenCode, null, $"tag{i}", false)));
+            }
+
+            using var command = CreateSearchCommand(connection, Expression.And(predicates.ToArray()), model, enableChainSourceDeduplication);
+            string sql = command.CommandText;
+            _output.WriteLine(sql);
+            using var countCommand = connection.CreateCommand();
+            countCommand.CommandText = sql[..sql.IndexOf(SqlQueryGenerator.ParametersHashStart, StringComparison.Ordinal)]
+                + "SELECT (SELECT count_big(*) FROM cte1), (SELECT count_big(*) FROM cte2), (SELECT count_big(*) FROM cte5)";
+            foreach (SqlParameter parameter in command.Parameters)
+            {
+                countCommand.Parameters.Add(((ICloneable)parameter).Clone());
+            }
+
+            // Act
+            var ids = await ReadIdsAsync(command);
+            var counts = await ReadCountsAsync(countCommand);
+
+            // Assert
+            Assert.Equal(new[] { "patient" }, ids);
+            Assert.Equal(128L, counts[0]);
+            Assert.Equal(expectedRootFilterRows, counts[1]);
+            Assert.Equal(expectedRootFilterRows, counts[2]);
+        }
+
+        // Executes the search and preserves returned IDs, including duplicates, for result assertions.
+        private static async Task<List<string>> ReadIdsAsync(SqlCommand command)
+        {
+            using var reader = await command.ExecuteReaderAsync();
+            var ids = new List<string>();
+            while (await reader.ReadAsync())
+            {
+                ids.Add(reader.GetString(reader.GetOrdinal("ResourceId")));
+            }
+
+            return ids;
+        }
+
+        // Configures SQL workload identity authentication when Azure Pipelines credentials are available.
+        private static void ConfigureWorkloadIdentityAuthentication()
+        {
+            string clientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+            string tenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
+
+            if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
+            {
+                var credential = new AzurePipelinesCredential(tenantId, clientId, serviceConnectionId, systemAccessToken);
+                SqlAuthenticationProvider.SetProvider(
+                    SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity,
+                    new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(credential));
+            }
+        }
+
+        // Reads the row counts of three intermediate CTEs selected by the command.
+        private static async Task<long[]> ReadCountsAsync(SqlCommand command)
+        {
+            using var reader = await command.ExecuteReaderAsync();
+            Assert.True(await reader.ReadAsync());
+            return [reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2)];
+        }
+
+        // Generates SQL against the temp tables, with independent or bound target predicates and optional legacy joins.
+        private static SqlCommand CreateSearchCommand(SqlConnection connection, bool bindTarget = false, bool enableChainSourceDeduplication = true)
+        {
+            var model = Substitute.For<ISqlServerFhirModel>();
+            model.TryGetSystemId("urn:visit", out Arg.Any<int>()).Returns(call =>
+            {
+                call[1] = 21;
+                return true;
+            });
+            string[] types = ["DiagnosticReport", "Observation", "Patient", "Group", "Device", "Location", "Practitioner"];
+            for (int i = 0; i < types.Length; i++)
+            {
+                short id = (short)(i + 1);
+                model.GetResourceTypeId(types[i]).Returns(id);
+                model.TryGetResourceTypeId(types[i], out Arg.Any<short>()).Returns(call =>
+                {
+                    call[1] = id;
+                    return true;
+                });
+            }
+
+            var initial = Parameter("patient", SearchParamType.Reference, ["Patient"]);
+            var status = Parameter("status", SearchParamType.Token);
+            var code = Parameter("code", SearchParamType.Token);
+            var traversal = Parameter("result", SearchParamType.Reference, ["Observation"]);
+            var date = Parameter("date", SearchParamType.Date);
+            var terminal = Parameter("subject", SearchParamType.Reference, ["Patient", "Group", "Device", "Location"]);
+            SearchParameterInfo[] parameters = [initial, status, code, traversal, date, terminal];
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                model.GetSearchParamId(parameters[i].Url).Returns((short)(i + 10));
+            }
+
+            Expression Chain(Expression predicate) => Expression.Chained(["DiagnosticReport"], traversal, ["Observation"], false, predicate);
+            Expression[] targetPredicates =
+            [
+                Expression.SearchParameter(date, Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, DateTimeOffset.Parse("2026-01-02T00:00:00Z"))),
+                Expression.SearchParameter(date, Expression.LessThanOrEqual(FieldName.DateTimeStart, null, DateTimeOffset.Parse("2026-01-03T00:00:00Z"))),
+                Expression.SearchParameter(terminal, Expression.StringEquals(FieldName.ReferenceResourceId, null, "goal", false)),
+            ];
+            var predicates = new List<Expression>
+            {
+                Expression.SearchParameter(initial, Expression.StringEquals(FieldName.ReferenceResourceId, null, "start", false)),
+                Expression.SearchParameter(status, Expression.Or(Expression.StringEquals(FieldName.TokenCode, null, "final", false), Expression.StringEquals(FieldName.TokenCode, null, "preliminary", false))),
+                Expression.SearchParameter(code, Expression.And(
+                    Expression.StringEquals(FieldName.TokenSystem, null, "urn:visit", false),
+                    Expression.StringEquals(FieldName.TokenCode, null, "visit", false))),
+            };
+            if (bindTarget)
+            {
+                predicates.Add(Chain(Expression.And(targetPredicates)));
+            }
+            else
+            {
+                predicates.AddRange(targetPredicates.Select(Chain));
+            }
+
+            return CreateSearchCommand(connection, Expression.And(predicates.ToArray()), model, enableChainSourceDeduplication);
+        }
+
+        // Runs the production rewriters and generator for an expression, redirecting table names to the local fixture.
+        private static SqlCommand CreateSearchCommand(SqlConnection connection, Expression expression, ISqlServerFhirModel model, bool enableChainSourceDeduplication)
+        {
+            var factory = new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap());
+            var root = (SqlRootExpression)expression
+                .AcceptVisitor(UntypedReferenceRewriter.Instance)
+                .AcceptVisitor(new SqlRootExpressionRewriter(factory))
+                .AcceptVisitor(new ChainFlatteningRewriter(factory));
+            var tables = root.SearchParamTableExpressions.ToList();
+            tables.Add(new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top));
+            root = new SqlRootExpression(tables, []);
+            var command = connection.CreateCommand();
+            var builder = new IndentedStringBuilder(new StringBuilder());
+            var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
+            var generator = new SqlQueryGenerator(
+                builder,
+                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+                model,
+                schema,
+                factory,
+                false,
+                false,
+                enableChainSourceDeduplication: enableChainSourceDeduplication);
+            generator.VisitSqlRoot(root, new SearchOptions
+            {
+                Sort = [(new SearchParameterInfo("_lastUpdated", "_lastUpdated"), SortOrder.Ascending)],
+                MaxItemCount = 10,
+                ResourceVersionTypes = ResourceVersionType.Latest,
+            });
+            SqlCommandSimplifier.RemoveRedundantParameters(builder, command.Parameters, NullLogger.Instance);
+            command.CommandText = builder.ToString()
+                .Replace("dbo.ReferenceSearchParam", "#ReferenceSearchParam", StringComparison.Ordinal)
+                .Replace("dbo.DateTimeSearchParam", "#DateTimeSearchParam", StringComparison.Ordinal)
+                .Replace("dbo.TokenSearchParam", "#TokenSearchParam", StringComparison.Ordinal)
+                .Replace("dbo.Resource", "#Resource", StringComparison.Ordinal);
+            return command;
+        }
+
+        // Creates a test search parameter with a stable URL and optional reference target types.
+        private static SearchParameterInfo Parameter(string name, SearchParamType type, string[] targets = null) =>
+            new(name, name, type, new Uri($"http://example.org/SearchParameter/{name}"), null, name, targets);
+
+        // Creates temp tables in an unparameterized session batch so subsequent commands can access them.
+        private static async Task CreateTablesAsync(SqlConnection connection)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE #Resource (
+                    ResourceTypeId smallint, ResourceSurrogateId bigint, ResourceId varchar(64),
+                    IsHistory bit, IsDeleted bit, Version int DEFAULT 1, RequestMethod varchar(10),
+                    IsRawResourceMetaSet bit, SearchParamHash varchar(64), RawResource varbinary(max));
+                CREATE TABLE #ReferenceSearchParam (
+                    ResourceTypeId smallint, ResourceSurrogateId bigint, SearchParamId smallint,
+                    ReferenceResourceTypeId smallint NULL, ReferenceResourceId varchar(64), IsHistory bit);
+                CREATE TABLE #TokenSearchParam (
+                    ResourceTypeId smallint, ResourceSurrogateId bigint, SearchParamId smallint,
+                    Code varchar(256), IsHistory bit, SystemId int);
+                CREATE TABLE #DateTimeSearchParam (
+                    ResourceTypeId smallint, ResourceSurrogateId bigint, SearchParamId smallint,
+                    StartDateTime datetime2, EndDateTime datetime2, IsHistory bit);
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        // Seeds connection-local tables with repeated references and the selected target-matching scenario.
+        private static async Task SeedAsync(SqlConnection connection, string scenario, string terminalType, bool history, bool deleted)
+        {
+            await CreateTablesAsync(connection);
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted)
+                    VALUES (1, 100, 'source', 0, 0), (2, 200, 'target-a', @history, @deleted),
+                           (2, 201, 'target-b', @history, @deleted), (2, 202, 'unqualified', @history, @deleted);
+                INSERT INTO #ReferenceSearchParam VALUES (1, 100, 10, 3, 'start', 0);
+                INSERT INTO #TokenSearchParam VALUES (1, 100, 11, 'final', 0, NULL), (1, 100, 12, 'visit', 0, 21);
+                WITH numbers AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM numbers WHERE n < 128)
+                INSERT INTO #ReferenceSearchParam SELECT 1, 100, 13, 2, 'target-a', 0 FROM numbers OPTION (MAXRECURSION 128);
+                INSERT INTO #ReferenceSearchParam VALUES (1, 100, 13, 2, 'target-b', 0), (1, 100, 13, 2, 'unqualified', 0);
+                INSERT INTO #DateTimeSearchParam VALUES
+                    (2, 200, 14, @start, '2026-01-04', @history),
+                    (2, 201, 14, '2026-01-01', '2026-01-01', @history);
+                INSERT INTO #ReferenceSearchParam VALUES (2, @terminalSid, 15, @terminalType, 'goal', @history);
+                IF @scenario = 'no-date' DELETE FROM #DateTimeSearchParam;
+                IF @scenario = 'no-terminal' DELETE FROM #ReferenceSearchParam WHERE SearchParamId = 15;
+                IF @scenario = 'no-target' DELETE FROM #Resource WHERE ResourceTypeId = 2;
+                IF @history = 1
+                    INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted)
+                        VALUES (2, 203, 'target-a', 0, 0);
+                IF @scenario = 'cross-source'
+                BEGIN
+                    DELETE FROM #ReferenceSearchParam WHERE ResourceTypeId = 1 AND ReferenceResourceId = 'target-b';
+                    INSERT INTO #Resource (ResourceTypeId, ResourceSurrogateId, ResourceId, IsHistory, IsDeleted)
+                        VALUES (1, 101, 'other-source', 0, 0);
+                    INSERT INTO #ReferenceSearchParam VALUES (1, 101, 10, 3, 'start', 0), (1, 101, 13, 2, 'target-b', 0);
+                    INSERT INTO #TokenSearchParam VALUES (1, 101, 11, 'final', 0, NULL), (1, 101, 12, 'visit', 0, 21);
+                END
+                """;
+
+            command.Parameters.AddWithValue("@history", history);
+            command.Parameters.AddWithValue("@deleted", deleted);
+            command.Parameters.AddWithValue("@start", scenario.EndsWith("split-bounds", StringComparison.Ordinal) ? new DateTime(2026, 1, 4) : new DateTime(2026, 1, 1));
+            command.Parameters.AddWithValue("@terminalSid", scenario.EndsWith("different", StringComparison.Ordinal) || scenario == "cross-source" ? 201L : 200L);
+            string[] types = ["DiagnosticReport", "Observation", "Patient", "Group", "Device", "Location", "Practitioner"];
+            command.Parameters.Add("@terminalType", System.Data.SqlDbType.SmallInt).Value =
+                terminalType == null ? DBNull.Value : (object)(short)(Array.IndexOf(types, terminalType) + 1);
+            command.Parameters.AddWithValue("@scenario", scenario);
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+}
