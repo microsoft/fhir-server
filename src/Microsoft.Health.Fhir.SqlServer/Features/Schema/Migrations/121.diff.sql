@@ -1,17 +1,15 @@
 IF col_length('dbo.WatchdogLeases', 'LastRunTime') IS NULL
   ALTER TABLE dbo.WatchdogLeases ADD LastRunTime datetime NOT NULL CONSTRAINT DF_WatchdogLeases_LastRunTime DEFAULT 0
 GO
-CREATE OR ALTER PROCEDURE dbo.UpdateWatchdogLeasesLastRunTime
-    @Watchdog varchar(100)
-   ,@LastRunTime datetime
+CREATE OR ALTER PROCEDURE dbo.UpdateWatchdogLeasesLastRunTime @Watchdog varchar(100)
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-        ,@Mode varchar(200) = 'WD='+isnull(@Watchdog,'NULL')+' LRT='+isnull(convert(varchar(23),@LastRunTime,126),'NULL')
-        ,@st datetime = getUTCdate()
+       ,@Mode varchar(200) = 'WD='+isnull(@Watchdog,'NULL')
+       ,@st datetime = getUTCdate()
 
 BEGIN TRY
-  UPDATE dbo.WatchdogLeases SET LastRunTime = @LastRunTime WHERE Watchdog = @Watchdog
+  UPDATE dbo.WatchdogLeases SET LastRunTime = @st WHERE Watchdog = @Watchdog
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
@@ -20,6 +18,8 @@ BEGIN CATCH
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
   THROW
 END CATCH
+GO
+INSERT INTO dbo.Parameters (Id, Char) SELECT 'UpdateWatchdogLeasesLastRunTime', 'LogEvent'
 GO
 DELETE FROM dbo.Parameters WHERE Id LIKE '%Watchdog.LeasePeriodSec'
 DELETE FROM dbo.Parameters WHERE Id LIKE '%Watchdog.PeriodSec'

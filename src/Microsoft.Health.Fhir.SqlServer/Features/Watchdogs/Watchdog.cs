@@ -158,7 +158,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             await using var cmd = new SqlCommand("dbo.UpdateWatchdogLeasesLastRunTime") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Watchdog", Name);
-            cmd.Parameters.AddWithValue("@LastRunTime", DateTime.UtcNow);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
