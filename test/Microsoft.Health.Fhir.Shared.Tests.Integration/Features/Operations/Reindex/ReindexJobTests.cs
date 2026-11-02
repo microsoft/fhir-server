@@ -22,7 +22,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -44,6 +43,7 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
-                () => _searchService,
+                _searchService.CreateMockScopeProviderFromScoped(),
                 _scopedDataStore.CreateMockScopeProviderFromScoped(),
                 NullLogger<SearchParameterOperations>.Instance);
 
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     {
                         job = new ReindexOrchestratorJob(
                             _queueClient,
-                            () => _searchService,
+                            _searchService.CreateMockScopeProviderFromScoped(),
                             _searchParameterDefinitionManager,
                             _searchParameterStatusManager,
                             _searchParameterOperations,
@@ -234,9 +234,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
-                        Func<IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
+                        IScopeProvider<IFhirDataStore> fhirDataStoreScope = _scopedDataStore.Value.CreateMockScopeProvider();
                         job = new ReindexProcessingJob(
-                            () => _searchService,
+                            _searchService.CreateMockScopeProviderFromScoped(),
                             fhirDataStoreScope,
                             _resourceWrapperFactory,
                             _searchParameterOperations,
@@ -1065,7 +1065,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var orchestrator = new ReindexOrchestratorJob(
                 _queueClient,
-                () => searchService.CreateMockScope(),
+                searchService.CreateMockScopeProvider(),
                 _searchParameterDefinitionManager,
                 _searchParameterStatusManager,
                 _searchParameterOperations,
@@ -1439,7 +1439,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
-                () => _searchService,
+                _searchService.CreateMockScopeProviderFromScoped(),
                 _scopedDataStore.CreateMockScopeProviderFromScoped(),
                 NullLogger<SearchParameterOperations>.Instance);
         }

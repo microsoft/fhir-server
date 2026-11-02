@@ -15,12 +15,12 @@ using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
     {
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly Func<IScoped<IBulkUpdateService>> _updateFactory;
+        private readonly IScopeProvider<IBulkUpdateService> _updateFactory;
         private readonly IMediator _mediator;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<BulkUpdateProcessingJob> _logger;
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         public BulkUpdateProcessingJob(
             IQueueClient queueClient,
-            Func<IScoped<IBulkUpdateService>> updateFactory,
+            IScopeProvider<IBulkUpdateService> updateFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISupportedProfilesStore supportedProfiles,
             IMediator mediator,

@@ -13,12 +13,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Medino;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -1720,7 +1720,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScope());
+            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScopeProvider());
 
             await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -1728,6 +1728,114 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.Equal("anonymized-resource", exportedValue);
             Assert.True(capturedSearch);
+        }
+
+        [Theory]
+        [InlineData(OperationStatus.Completed)]
+        [InlineData(OperationStatus.Failed)]
+        [InlineData(OperationStatus.Canceled)]
+        public async Task GivenAnonymizedExport_WhenAwaitingWork_ThenScopeLivesUntilWorkEnds(OperationStatus outcome)
+        {
+            // Arrange
+            SetupExportJobRecordAndOperationDataStore(CreateExportJobRecord(anonymizationConfigurationLocation: "config"));
+            SetupExportJobRecordAndOperationDataStore(_exportJobRecord, CancellationToken.None);
+            var factory = Substitute.For<IAnonymizerFactory, IDisposable>();
+            var anonymizer = Substitute.For<IAnonymizer>();
+            var creation = new TaskCompletionSource<IAnonymizer>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var searchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var search = new TaskCompletionSource<SearchResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            bool usedAnonymizer = false;
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken).Returns(creation.Task);
+            anonymizer.Anonymize(Arg.Any<ResourceElement>()).Returns(call =>
+            {
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                usedAnonymizer = true;
+                return call.Arg<ResourceElement>();
+            });
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true).Returns(_ =>
+                {
+                    searchStarted.SetResult();
+                    return search.Task;
+                });
+            using var root = new ServiceCollection()
+                .AddScoped<IAnonymizerFactory>(_ => factory)
+                .BuildServiceProvider();
+            var job = CreateExportJobTask(anonymizerFactory: new ScopeProvider<IAnonymizerFactory>(root));
+
+            // Act
+            Task execution = job.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            try
+            {
+                Assert.False(execution.IsCompleted);
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                creation.SetResult(anonymizer);
+                await searchStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                if (outcome == OperationStatus.Canceled)
+                {
+                    _cancellationTokenSource.Cancel();
+                    search.SetCanceled(_cancellationToken);
+                }
+                else if (outcome == OperationStatus.Failed)
+                {
+                    search.SetException(new InvalidOperationException("Search failed."));
+                }
+                else
+                {
+                    search.SetResult(CreateSearchResult(new[] { CreateSearchResultEntry("1", "Patient") }));
+                }
+
+                await execution.WaitAsync(TimeSpan.FromSeconds(10));
+
+                // Assert
+                Assert.Equal(outcome, _exportJobRecord.Status);
+                Assert.Equal(outcome == OperationStatus.Completed, usedAnonymizer);
+                ((IDisposable)factory).Received(1).Dispose();
+            }
+            finally
+            {
+                creation.TrySetResult(anonymizer);
+                search.TrySetResult(CreateSearchResult());
+                await execution.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAnonymizerCreationFails_WhenExecuted_ThenScopeIsDisposed(bool faultedTask)
+        {
+            // Arrange
+            ExportJobRecord record = CreateExportJobRecord(anonymizationConfigurationLocation: "config");
+            SetupExportJobRecordAndOperationDataStore(record);
+            var factory = Substitute.For<IAnonymizerFactory, IDisposable>();
+            var error = new AnonymizationConfigurationNotFoundException("config not found");
+            if (faultedTask)
+            {
+                factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken)
+                    .Returns(Task.FromException<IAnonymizer>(error));
+            }
+            else
+            {
+                factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken)
+                    .Returns<Task<IAnonymizer>>(_ => throw error);
+            }
+
+            using var root = new ServiceCollection()
+                .AddScoped<IAnonymizerFactory>(_ => factory)
+                .BuildServiceProvider();
+            var job = CreateExportJobTask(anonymizerFactory: new ScopeProvider<IAnonymizerFactory>(root));
+
+            // Act
+            await job.ExecuteAsync(record, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            ((IDisposable)factory).Received(1).Dispose();
         }
 
         [Theory]
@@ -1745,7 +1853,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeProvider());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -1782,7 +1890,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeProvider());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -2498,7 +2606,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportJobTask CreateExportJobTask(
             ExportJobConfiguration exportJobConfiguration = null,
             IExportDestinationClient exportDestinationClient = null,
-            IScoped<IAnonymizerFactory> anonymizerFactory = null,
+            IScopeProvider<IAnonymizerFactory> anonymizerFactory = null,
             ILogger<ExportJobTask> logger = null)
         {
             _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x => x.ArgAt<ResourceElement>(0).Instance.Value.ToString());
@@ -2507,9 +2615,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
             return new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
+                _fhirOperationDataStore.CreateMockScopeProvider(),
                 Options.Create(exportJobConfiguration == null ? _exportJobConfiguration : exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
+                _searchService.CreateMockScopeProvider(),
                 _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 exportDestinationClient == null ? _inMemoryDestinationClient : exportDestinationClient,

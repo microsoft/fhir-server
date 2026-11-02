@@ -6,11 +6,27 @@
 using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers factories whose returned scopes are owned by the caller rather than the resolving container.
+    /// </summary>
+    /// <param name="serviceCollection">The service collection.</param>
+    /// <returns>The collection with the scoped factory registered.</returns>
+    public static IServiceCollection AddOwnedScopes(this IServiceCollection serviceCollection)
+    {
+        EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));
+
+        serviceCollection.TryAddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
+
+        return serviceCollection;
+    }
+
     public static IServiceCollection RemoveServiceTypeExact<TConcreteClass, TServiceType>(this IServiceCollection serviceCollection)
     {
         EnsureArg.IsNotNull(serviceCollection, nameof(serviceCollection));

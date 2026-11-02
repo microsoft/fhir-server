@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.JobManagement
 {
@@ -16,7 +16,7 @@ namespace Microsoft.Health.JobManagement
         /// Create new job from JobInfo
         /// </summary>
         /// <param name="jobInfo">Job information payload.</param>
-        /// <returns>Job for execution.</returns>
+        /// <returns>A caller-owned scope containing the job for execution.</returns>
         IScoped<IJob> Create(JobInfo jobInfo);
     }
 }

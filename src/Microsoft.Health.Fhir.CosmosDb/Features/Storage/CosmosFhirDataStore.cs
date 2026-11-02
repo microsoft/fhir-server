@@ -23,7 +23,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -31,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -41,6 +41,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IO;
 using Polly;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly ReplaceSingleResource _replaceSingleResource = new();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
 
-        private readonly IScoped<Container> _containerScope;
+        private readonly IScopeProvider<Container> _containerScope;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -80,8 +81,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
         /// </summary>
         /// <param name="containerScope">
-        /// A function that returns an <see cref="Container"/>.
-        /// Note that this is a function so that the lifetime of the instance is not directly controlled by the IoC container.
+        /// A factory for caller-owned handles to the shared <see cref="Container"/>.
+        /// Disposing each handle leaves the shared container's lifetime with its owner.
         /// </param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="searchParameterStatusDataStore">The search parameter status data store used to persist queued search parameter status updates.</param>
         /// <param name="requestContextAccessor">Accessor for request-scoped context properties, including pending search parameter status updates.</param>
         public CosmosFhirDataStore(
-            IScoped<Container> containerScope,
+            IScopeProvider<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosQueryFactory cosmosQueryFactory,
@@ -306,6 +307,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CancellationToken cancellationToken,
             bool requireETagOnUpdate = false)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             // Skip write for SearchParameter in pending delete - just return existing
@@ -344,7 +347,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     await retryPolicy.ExecuteAsync(
-                        async ct => await _containerScope.Value.CreateItemAsync(
+                        async ct => await containerScope.Value.CreateItemAsync(
                             cosmosWrapper,
                             partitionKey,
                             cancellationToken: ct,
@@ -385,7 +388,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     ItemResponse<FhirCosmosResourceWrapper> existingItem = await retryPolicy.ExecuteAsync(
-                        async ct => await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: ct),
+                        async ct => await containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: ct),
                         cancellationToken);
                     existingItemResource = existingItem.Resource;
                 }
@@ -478,7 +481,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     TransactionalBatchResponse transactionalBatchResponse = await retryPolicy.ExecuteAsync(
                         async ct =>
-                            await _containerScope.Value.CreateTransactionalBatch(partitionKey)
+                            await containerScope.Value.CreateTransactionalBatch(partitionKey)
                                 .ReplaceItem(cosmosWrapper.Id, cosmosWrapper, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag })
                                 .CreateItem(existingItemResource, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false })
                                 .ExecuteAsync(cancellationToken: ct),
@@ -500,7 +503,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     try
                     {
                         await retryPolicy.ExecuteAsync(
-                            async ct => await _containerScope.Value.ReplaceItemAsync(
+                            async ct => await containerScope.Value.ReplaceItemAsync(
                                 cosmosWrapper,
                                 cosmosWrapper.Id,
                                 partitionKey,
@@ -560,6 +563,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(key, nameof(key));
 
             bool isVersionedRead = !string.IsNullOrEmpty(key.VersionId);
@@ -581,7 +586,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                return await _containerScope.Value
+                return await containerScope.Value
                     .ReadItemAsync<FhirCosmosResourceWrapper>(key.Id, new PartitionKey(key.ToPartitionKey()), cancellationToken: cancellationToken);
             }
             catch (CosmosException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
@@ -592,6 +597,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(key, nameof(key));
 
             try
@@ -600,7 +607,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 StoredProcedureExecuteResponse<int> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
-                        _containerScope.Value.Scripts,
+                        containerScope.Value.Scripts,
                         key,
                         keepCurrentVersion,
                         allowPartialSuccess,
@@ -638,6 +645,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
@@ -649,7 +658,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(
-                        _containerScope.Value.Scripts,
+                        containerScope.Value.Scripts,
                         cosmosWrapper,
                         resourceWrapper.Version,
                         ct),
@@ -693,6 +702,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <returns>The results and possible continuation token</returns>
         internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, FeedRange feedRange = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutOverride = default, CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             int totalDesiredCount = 0;
@@ -708,7 +719,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             FeedResponse<T> page = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() =>
             {
-                cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context); // SDK throws if we don't recreate this on retry
+                cosmosQuery = _cosmosQueryFactory.Create<T>(containerScope.Value, context); // SDK throws if we don't recreate this on retry
                 return cosmosQuery.ExecuteNextAsync(cancellationToken);
             });
 
@@ -764,7 +775,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     // we never have to throw a page of data away because it won't fit in the response.
                     feedOptions.MaxItemCount = currentDesiredCount;
                     context = new CosmosQueryContext(sqlQuerySpec, feedOptions, page.ContinuationToken);
-                    cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
+                    cosmosQuery = _cosmosQueryFactory.Create<T>(containerScope.Value, context);
                 }
 
                 try
@@ -807,17 +818,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         internal async Task<IReadOnlyList<FeedRange>> GetFeedRanges(CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
             return await retryPolicy.ExecuteAsync(async () =>
             {
-                return await _containerScope.Value.GetFeedRangesAsync(cancellationToken);
+                return await containerScope.Value.GetFeedRangesAsync(cancellationToken);
             });
         }
 
         // This method should only be called by async jobs as some queries could take a long time to traverse all pages.
         internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
@@ -825,7 +840,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             return await retryPolicy.ExecuteAsync(async () =>
                 {
-                    using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, requestOptions: feedOptions))
+                    using (FeedIterator<T> itr = containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, requestOptions: feedOptions))
                     {
                         while (itr.HasMoreResults)
                         {
@@ -955,9 +970,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             try
             {
-                return await _containerScope.Value.ReadThroughputAsync(cancellationToken);
+                return await containerScope.Value.ReadThroughputAsync(cancellationToken);
             }
             catch (CosmosException ex)
             {

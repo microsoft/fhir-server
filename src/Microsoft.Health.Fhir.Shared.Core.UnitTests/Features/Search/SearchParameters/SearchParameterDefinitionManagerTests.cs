@@ -15,7 +15,6 @@ using Hl7.Fhir.Serialization;
 using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -158,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
-                () => searchService.CreateMockScope(),
+                searchService.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterOperations>.Instance);
         }

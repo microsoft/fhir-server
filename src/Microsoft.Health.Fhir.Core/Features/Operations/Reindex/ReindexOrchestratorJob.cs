@@ -18,7 +18,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -39,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public sealed class ReindexOrchestratorJob : IJob
     {
         private ILogger<ReindexOrchestratorJob> _logger;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -92,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
@@ -337,7 +336,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<HashSet<string>> GetUsedResourceTypes()
         {
-            using var searchService = _searchServiceFactory();
+            using var searchService = _searchServiceFactory.Invoke();
             var resourceTypes = new HashSet<string>(await searchService.Value.GetUsedResourceTypes(_cancellationToken));
             return resourceTypes;
         }
@@ -373,7 +372,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     _logger.LogJobInformation(_jobInfo, $"Reindex: Fetching and enqueueing surrogate ID ranges for resource type {resourceType} in batches of {numberOfRangesPerBatch}. StartId={startId}, EndId={endId}");
 
-                    using var searchService = _searchServiceFactory();
+                    using var searchService = _searchServiceFactory.Invoke();
                     IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
                     do
                     {
@@ -530,7 +529,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
             };
 
-            using var searchService = _searchServiceFactory();
+            using var searchService = _searchServiceFactory.Invoke();
             try
             {
                 return await _retries.ExecuteAsync(
