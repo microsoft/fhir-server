@@ -211,22 +211,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             string patientA = Guid.NewGuid().ToString("N");
             string patientB = Guid.NewGuid().ToString("N");
-            string localA = Guid.NewGuid().ToString("N");
-            string externalA = Guid.NewGuid().ToString("N");
-            string otherServerA = Guid.NewGuid().ToString("N");
-            string localB = Guid.NewGuid().ToString("N");
-            var subjects = new Dictionary<string, string>
-            {
-                [localA] = $"Patient/{patientA}",
-                [externalA] = $"https://external.fhir.invalid/r4/Patient/{patientA}",
-                [otherServerA] = $"http://localhost/other-fhir/Patient/{patientA}",
-                [localB] = $"Patient/{patientB}",
-            };
-
-            foreach ((string id, string subject) in subjects)
-            {
-                await _smartFixture.UpsertResource(new Observation { Id = id, Status = ObservationStatus.Final, Code = new CodeableConcept("http://loinc.org", "1234-5"), Subject = new ResourceReference(subject) });
-            }
+            (string localA, string externalA, string otherServerA, string localB) = await CreatePatientIdCollisionObservationsAsync(patientA, patientB);
+            string[] observationIds = { localA, externalA, otherServerA, localB };
 
             try
             {
@@ -243,7 +229,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
                 Assert.Equal(localA, Assert.Single(scopedResults.Results).Resource.ResourceId);
 
-                foreach (string id in subjects.Keys)
+                foreach (string id in observationIds)
                 {
                     var request = new GetResourceRequest(new ResourceKey(KnownResourceTypes.Observation, id), bundleResourceContext: null);
                     if (id == localA)
@@ -273,10 +259,100 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             }
             finally
             {
-                foreach (string id in subjects.Keys)
+                await DeleteObservationsAsync(observationIds);
+            }
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation)]
+        [InlineData(KnownResourceTypes.All)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenScopeForAnExternalReference_WhenSearchingAndReading_ThenOnlyThatServersReferencesAuthorizeAccess(string scopeResourceType)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            string patientA = Guid.NewGuid().ToString("N");
+            string patientB = Guid.NewGuid().ToString("N");
+            (string localA, string externalA, string otherServerA, string localB) = await CreatePatientIdCollisionObservationsAsync(patientA, patientB);
+            string[] observationIds = { localA, externalA, otherServerA, localB };
+
+            try
+            {
+                // An absolute scope value names Patient A on that server only. The base URL was already part of
+                // this predicate before the fix, so the external patient's Observation stays readable.
+                ConfigureFhirRequestContext(
+                    _contextAccessor,
+                    new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("subject", $"https://external.fhir.invalid/r4/Patient/{patientA}"))) },
+                    applyFineGrainedAccessControlWithSearchParameters: true);
+
+                // The caller's own subject parameter is ANDed with the scope, so a relative Patient/A (any base)
+                // narrows to the external one, and a reference to a third server matches nothing.
+                var expectedResults = new (string Parameter, string Value, string ExpectedId)[]
                 {
-                    await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Observation, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+                    ("_count", "1000", externalA),
+                    ("subject", $"https://external.fhir.invalid/r4/Patient/{patientA}", externalA),
+                    ("subject", $"Patient/{patientA}", externalA),
+                    ("subject", $"http://localhost/other-fhir/Patient/{patientA}", null),
+                };
+
+                foreach ((string parameter, string value, string expectedId) in expectedResults)
+                {
+                    SearchResult results = await _searchService.Value.SearchAsync(
+                        KnownResourceTypes.Observation,
+                        new List<Tuple<string, string>> { Tuple.Create(parameter, value) },
+                        CancellationToken.None);
+
+                    Assert.Equal(
+                        expectedId == null ? Array.Empty<string>() : new[] { expectedId },
+                        results.Results.Select(entry => entry.Resource.ResourceId).ToArray());
                 }
+
+                foreach (string id in observationIds)
+                {
+                    var request = new GetResourceRequest(new ResourceKey(KnownResourceTypes.Observation, id), bundleResourceContext: null);
+                    if (id == externalA)
+                    {
+                        Assert.Equal(externalA, (await _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None)).Resource.Id);
+                    }
+                    else
+                    {
+                        await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None));
+                    }
+                }
+            }
+            finally
+            {
+                await DeleteObservationsAsync(observationIds);
+            }
+        }
+
+        private async Task<(string LocalA, string ExternalA, string OtherServerA, string LocalB)> CreatePatientIdCollisionObservationsAsync(string patientA, string patientB)
+        {
+            // Three Observations about "Patient A" on different servers, and one about the local Patient B.
+            (string Id, string Subject)[] observations =
+            {
+                (Guid.NewGuid().ToString("N"), $"Patient/{patientA}"),
+                (Guid.NewGuid().ToString("N"), $"https://external.fhir.invalid/r4/Patient/{patientA}"),
+                (Guid.NewGuid().ToString("N"), $"http://localhost/other-fhir/Patient/{patientA}"),
+                (Guid.NewGuid().ToString("N"), $"Patient/{patientB}"),
+            };
+
+            foreach ((string id, string subject) in observations)
+            {
+                await _smartFixture.UpsertResource(new Observation { Id = id, Status = ObservationStatus.Final, Code = new CodeableConcept("http://loinc.org", "1234-5"), Subject = new ResourceReference(subject) });
+            }
+
+            return (observations[0].Id, observations[1].Id, observations[2].Id, observations[3].Id);
+        }
+
+        private async Task DeleteObservationsAsync(IEnumerable<string> observationIds)
+        {
+            foreach (string id in observationIds)
+            {
+                await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Observation, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
             }
         }
 #endif
