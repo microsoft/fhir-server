@@ -3,11 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -109,7 +111,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return response.Resource;
             }
 
-            try
+            var failures = new List<Exception>();
+            Exception testFailure = await Record.ExceptionAsync(async () =>
             {
                 Practitioner practitionerA = await CreateResourceAsync(new Practitioner());
                 Practitioner practitionerB = await CreateResourceAsync(new Practitioner());
@@ -185,13 +188,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 using HttpResponseMessage observationRead = await client.GetAsync($"Observation/{outsidePatientObservation.Id}");
                 Assert.Equal(HttpStatusCode.OK, observationRead.StatusCode);
                 Assert.Equal(outsidePatientObservation.Id, parser.Parse<Observation>(await observationRead.Content.ReadAsStringAsync()).Id);
-            }
-            finally
+            });
+
+            if (testFailure != null)
             {
-                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                failures.Add(testFailure);
+            }
+
+            foreach (Resource resource in resources.AsEnumerable().Reverse())
+            {
+                Exception cleanupFailure = await Record.ExceptionAsync(
+                    () => adminClient.HardDeleteAsync(resource));
+
+                if (cleanupFailure != null)
                 {
-                    await adminClient.HardDeleteAsync(resource);
+                    failures.Add(cleanupFailure);
                 }
+            }
+
+            if (failures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            }
+
+            if (failures.Count > 1)
+            {
+                throw new AggregateException("Test and/or resource cleanup failed.", failures);
             }
         }
 
