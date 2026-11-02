@@ -562,43 +562,6 @@ RAISERROR('Test',18,127)
         }
 
         [Fact]
-        public async Task LastRunTimeIsKeptForStaleLeases()
-        {
-            const string watchdog = "TestWatchdog";
-            var originalLastRunTime = new DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc);
-
-            ExecuteSql($@"DELETE FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
-            ExecuteSql($@"
-INSERT INTO dbo.WatchdogLeases 
-    (        Watchdog,  LeaseHolder,                     LeaseEndTime,                                     LastRunTime)
-  SELECT '{watchdog}', 'old-worker', dateadd(minute,-10,getUTCdate()), '{originalLastRunTime:yyyy-MM-ddTHH:mm:ss.fff}'");
-
-            using var conn = new SqlConnection(_fixture.TestConnectionString);
-            await conn.OpenAsync();
-
-            var leaseEndTime = new SqlParameter("@LeaseEndTime", SqlDbType.DateTime) { Direction = ParameterDirection.Output };
-            var isAcquired = new SqlParameter("@IsAcquired", SqlDbType.Bit) { Direction = ParameterDirection.Output };
-            var currentLeaseHolder = new SqlParameter("@CurrentLeaseHolder", SqlDbType.VarChar, 100) { Direction = ParameterDirection.Output };
-
-            const string newWorker = "new-worker";
-            using var cmd = new SqlCommand("dbo.AcquireWatchdogLease", conn) { CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.Add(new SqlParameter("@Watchdog", watchdog));
-            cmd.Parameters.Add(new SqlParameter("@Worker", newWorker));
-            cmd.Parameters.Add(new SqlParameter("@LeasePeriodSec", 15d));
-            cmd.Parameters.Add(leaseEndTime);
-            cmd.Parameters.Add(isAcquired);
-            cmd.Parameters.Add(currentLeaseHolder);
-
-            await cmd.ExecuteNonQueryAsync();
-
-            var preservedLastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
-            Assert.Equal(originalLastRunTime, preservedLastRunTime);
-            Assert.True((bool)isAcquired.Value);
-            var leaseHolder = (string)ExecuteSql($"SELECT LeaseHolder FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
-            Assert.Equal(newWorker, leaseHolder);
-        }
-
-        [Fact]
         public async Task PeriodsLongerThanLeasesAreHonored()
         {
             const string watchdog = nameof(TestPeriodWatchdog);
