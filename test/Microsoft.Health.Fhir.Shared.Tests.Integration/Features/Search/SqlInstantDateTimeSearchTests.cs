@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Medino;
@@ -74,7 +75,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         public static IEnumerable<object[]> Prefixes =>
             from prefix in new[] { "eq", "ne", "gt", "ge", "lt", "le", "sa", "eb", "ap" }
             from containment in new[] { false, true }
-            select new object[] { prefix, containment };
+            from scalar in new[] { false, true }
+            select new object[] { prefix, containment, scalar };
+
+        public static IEnumerable<object[]> IneligibleQueries =>
+            from url in new[]
+            {
+                "Patient?birthdate=ge2026-10-01&birthdate=lt2026-10-02",
+                "Patient?birthdate=eq2026-10-01",
+                "Observation?date=ge2026-10-01&date=lt2026-10-02",
+                "Schedule?date=ge2026-10-01",
+                "Slot?custom-start=ge2026-10-01",
+                "Slot?custom-union=ge2026-10-01",
+                "Slot?start:missing=true",
+                "?_type=Slot,Observation&_lastUpdated=ge2026-10-01",
+            }
+            from containment in new[] { false, true }
+            from scalar in new[] { false, true }
+            select new object[] { url, containment, scalar };
 
         [Theory]
         [InlineData("Slot.start", true)]
@@ -128,19 +146,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
 
         [Theory]
         [MemberData(nameof(Prefixes))]
-        public void GivenLiteralPrefix_WhenProductionSqlGenerated_ThenOnlyDateFieldsChange(string prefix, bool containment)
+        public void GivenLiteralPrefix_WhenProductionSqlGenerated_ThenOnlyDateFieldsChange(string prefix, bool containment, bool scalar)
         {
             using var clock = Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(InstantSearchFixture.FrozenNow));
             string url = $"Slot?start={prefix}2026-10-01";
 
-            using SqlCommand original = _fixture.Generate(url, false, containment);
-            using SqlCommand rewritten = _fixture.Generate(url, true, containment);
+            using SqlCommand original = _fixture.Generate(url, false, containment, scalar);
+            using SqlCommand rewritten = _fixture.Generate(url, true, containment, scalar);
 
             Assert.Contains("StartDateTime", rewritten.CommandText);
             Assert.DoesNotContain("EndDateTime", rewritten.CommandText);
             Assert.Equal(
                 original.Parameters.Cast<SqlParameter>().Select(p => p.Value).OrderBy(v => v.ToString()),
                 rewritten.Parameters.Cast<SqlParameter>().Select(p => p.Value).OrderBy(v => v.ToString()));
+
+            Expression expected = SqlServerSearchService.ApplyDateEqualitySemantics(_fixture.Parse(url), containment, scalar);
+            Assert.Equal(
+                DateComparisons(expected).OrderBy(pair => pair.Operator).ThenBy(pair => pair.Value),
+                Regex.Matches(rewritten.CommandText, @"\bStartDateTime\s*(>=|<=|<>|=|>|<)\s*(@\w+)")
+                    .Select(match => (Operator: match.Groups[1].Value, Value: (DateTime)rewritten.Parameters[match.Groups[2].Value].Value))
+                    .OrderBy(pair => pair.Operator).ThenBy(pair => pair.Value));
         }
 
         [Theory]
@@ -171,17 +196,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         }
 
         [Theory]
-        [InlineData("Patient?birthdate=ge2026-10-01")]
-        [InlineData("Observation?date=ge2026-10-01")]
-        [InlineData("Schedule?date=ge2026-10-01")]
-        [InlineData("Slot?custom-start=ge2026-10-01")]
-        [InlineData("Slot?custom-union=ge2026-10-01")]
-        [InlineData("Slot?start:missing=true")]
-        [InlineData("?_type=Slot,Observation&_lastUpdated=ge2026-10-01")]
-        public void GivenIneligibleLiteral_WhenProductionSqlGenerated_ThenFlagMakesNoChange(string url)
+        [MemberData(nameof(IneligibleQueries))]
+        public void GivenIneligibleLiteral_WhenProductionSqlGenerated_ThenFlagMakesNoChange(string url, bool containment, bool scalar)
         {
-            using SqlCommand original = _fixture.Generate(url, false);
-            using SqlCommand rewritten = _fixture.Generate(url, true);
+            using SqlCommand original = _fixture.Generate(url, false, containment, scalar);
+            using SqlCommand rewritten = _fixture.Generate(url, true, containment, scalar);
 
             Assert.Equal(original.CommandText, rewritten.CommandText);
         }
@@ -347,6 +366,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                 }
             }
         }
+
+        private static IEnumerable<(string Operator, DateTime Value)> DateComparisons(Expression expression) => expression switch
+        {
+            SearchParameterExpression parameter => DateComparisons(parameter.Expression),
+            MultiaryExpression multiary => multiary.Expressions.SelectMany(DateComparisons),
+            NotExpression not => DateComparisons(not.Expression),
+            BinaryExpression { Value: DateTimeOffset value } binary => new[]
+            {
+                (binary.BinaryOperator switch
+                {
+                    BinaryOperator.Equal => "=",
+                    BinaryOperator.NotEqual => "<>",
+                    BinaryOperator.GreaterThan => ">",
+                    BinaryOperator.GreaterThanOrEqual => ">=",
+                    BinaryOperator.LessThan => "<",
+                    BinaryOperator.LessThanOrEqual => "<=",
+                    _ => throw new InvalidOperationException(binary.ToString()),
+                }, value.UtcDateTime),
+            },
+            _ => throw new InvalidOperationException(expression.ToString()),
+        };
 
         private static bool Evaluate(Expression expression, DateTimeOffset point) => expression switch
         {
