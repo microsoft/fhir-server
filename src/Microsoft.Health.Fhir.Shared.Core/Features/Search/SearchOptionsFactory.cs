@@ -35,6 +35,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
         private const DataActions SearchScopeDataActions = DataActions.Read | DataActions.Search;
 
+        // Surrogate id range hints switch the SQL data store to a raw range read that applies no search or SMART
+        // scope predicates, so only server-owned background jobs may supply them.
+        private static readonly HashSet<string> SurrogateIdRangeParameterNames = new(StringComparer.OrdinalIgnoreCase) { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.StartSurrogateId };
+
         private readonly IExpressionParser _expressionParser;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;
@@ -149,6 +153,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 ScopeDataActions = scopeDataActions,
             };
+
+            if (_contextAccessor.RequestContext?.IsBackgroundTask != true)
+            {
+                string rangeParameterName = queryParameters?.FirstOrDefault(p => SurrogateIdRangeParameterNames.Contains(p.Item1))?.Item1;
+
+                if (rangeParameterName != null)
+                {
+                    _logger.LogWarning("Rejected internal surrogate id range parameter {ParameterName} outside a background task.", rangeParameterName);
+                    throw new InvalidSearchOperationException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, rangeParameterName, resourceType ?? KnownResourceTypes.Resource));
+                }
+            }
 
             if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.StartSurrogateId && _.Item2 != null))
             {
