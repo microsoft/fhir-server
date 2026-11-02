@@ -593,6 +593,7 @@ INSERT INTO dbo.WatchdogLeases
                 await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
             }
 
+            await Task.Delay(TimeSpan.FromSeconds(0.5), cts.Token); // Allow the last-run timestamp write to finish before cancellation.
             await cts.CancelAsync();
             await watchdogTask;
 
@@ -601,7 +602,7 @@ INSERT INTO dbo.WatchdogLeases
             Assert.InRange((executionTimes[executions - 1] - executionTimes[0]).TotalSeconds, periodSec * (executions - 1), ((periodSec + leasePeriodSec) * (executions - 1)) + tolerance);
 
             var lastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
-            Assert.True((lastRunTime - executionTimes[executions - 1]).TotalSeconds < tolerance, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[executions - 1]:yyyy-MM-dd HH:mm:ss.fff}.");
+            Assert.True(Math.Abs((lastRunTime - executionTimes[executions - 1]).TotalSeconds) < tolerance, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[executions - 1]:yyyy-MM-dd HH:mm:ss.fff}.");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()
