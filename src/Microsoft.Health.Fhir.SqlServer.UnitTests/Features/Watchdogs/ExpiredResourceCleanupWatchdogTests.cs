@@ -124,18 +124,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         }
 
         [Fact]
-        public async Task GivenWatchdogEnabled_WhenEnqueueFails_ThenNoExceptionIsThrown()
+        public async Task GivenWatchdogEnabled_WhenEnqueueFails_ThenExceptionIsPropagated()
         {
+            // Arrange
+            var exception = new Exception("Enqueue failed");
             _queueClient.EnqueueAsync(
                 Arg.Any<byte>(),
                 Arg.Any<string[]>(),
                 Arg.Any<long?>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>())
-                .Returns(Task.FromException<IReadOnlyList<JobInfo>>(new Exception("Enqueue failed")));
+                .Returns(Task.FromException<IReadOnlyList<JobInfo>>(exception));
 
-            // Act & Assert - should not throw
-            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+            // Act
+            var actualException = await Assert.ThrowsAsync<Exception>(() => _watchdog.RunWorkForTestingAsync(CancellationToken.None));
+
+            // Assert
+            Assert.Same(exception, actualException);
         }
 
         [Fact]
