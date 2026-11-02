@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ExpiredResourceCleanupWatchdog: Error while enqueuing bulk delete job.");
+                throw; // do not update last run time if there is an error, so that the watchdog will retry on the next run.
             }
         }
     }
