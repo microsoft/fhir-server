@@ -261,6 +261,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
+        [Fact]
+        public async Task GivenBulkUpdateRequestWithALongUriSearchValue_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_profile", "https://example.org/" + new string('b', 300)),
+            };
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _contextAccessor.RequestContext.BundleIssues.Add(LongUriSearchValueIssue.Create(new[] { "_profile" }, 256));
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(
+                new List<JobInfo>
+                {
+                    new() { Id = 1 },
+                });
+
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, GenerateParameters("replace"), false);
+
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
+            await _queueClient.Received(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>());
+        }
+
         [Theory]
         [InlineData("SearchParameter")]
         public async Task GivenBulkUpdateRequest_WhenResourceTypeIsExcluded_ThenBadRequestIsReturned(string resourceType)

@@ -139,6 +139,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriLengthSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriLengthSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\StartupForExportTestProvider.cs" />

@@ -106,7 +106,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
-            if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0 && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase)))
+            if (_contextAccessor.RequestContext?.BundleIssues?.Any(LongUriSearchValueIssue.IsMatch) == true)
+            {
+                // Not an invalid parameter: the URI is valid but only partially compared, so the job may update more resources than intended.
+                _logger.LogWarning("Bulk update filter uses URI values that are only partially compared, so it can match more resources than intended. ResourceType={ResourceType}", request.ResourceType);
+            }
+
+            if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0
+                && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase) && !LongUriSearchValueIssue.IsMatch(x)))
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
