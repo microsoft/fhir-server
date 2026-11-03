@@ -54,6 +54,11 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             }
         }
 
+        /// <summary>
+        /// Creates a job in a new scope, disposing the scope if job activation fails.
+        /// </summary>
+        /// <param name="jobInfo">Job information identifying the registered job type.</param>
+        /// <returns>A caller-owned handle that keeps the job's scope alive until disposed.</returns>
         public IScoped<IJob> Create(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
