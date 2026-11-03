@@ -162,9 +162,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogJobError(ex, jobInfo, "Generic exception. Failed to load data.");
-                    var error = new ImportJobErrorResult() { ErrorMessage = "Generic exception. Failed to load data." };
-                    throw new JobExecutionException(ex.Message, error, ex, ex.IsCustomerCaused());
+                    bool isCustomerCaused = ex.IsCustomerCaused();
+                    if (isCustomerCaused)
+                    {
+                        _logger.LogJobWarning(ex, jobInfo, "Failed to load data due to a customer-caused error.");
+                    }
+                    else
+                    {
+                        _logger.LogJobError(ex, jobInfo, "Generic exception. Failed to load data.");
+                    }
+
+                    var error = new ImportJobErrorResult()
+                    {
+                        ErrorMessage = isCustomerCaused ? ex.Message : "Generic exception. Failed to load data.",
+                        HttpStatusCode = ex.GetJobFailureStatusCode(),
+                        ErrorDetails = ex.ToString(),
+                    };
+                    throw new JobExecutionException(ex.Message, error, ex, isCustomerCaused);
                 }
 
                 result.ClockMilliseconds = stopwatch.ElapsedMilliseconds;
@@ -216,9 +230,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
-                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex, ex.IsCustomerCaused());
+                bool isCustomerCaused = ex.IsCustomerCaused();
+                if (isCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, jobInfo, "Import processing failed due to a customer-caused error.");
+                }
+                else
+                {
+                    _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
+                }
+
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() };
+                throw new JobExecutionException(ex.Message, error, ex, isCustomerCaused);
             }
         }
 

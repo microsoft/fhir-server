@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -286,7 +287,46 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.Same(failure, exception.InnerException);
         }
 
-        private static ImportProcessingJob CreateProcessingJob(IImportResourceLoader loader = null, IImporter importer = null)
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.FailureStatusCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenProcessingFailure_WhenExecuted_ThenCustomerErrorsKeepTheirMessageAndAreNotLoggedAsErrors(string scenario, HttpStatusCode expectedStatus)
+        {
+            foreach (bool fromLoadTask in new[] { false, true })
+            {
+                // Arrange
+                var failure = JobFailureTestData.CreateException(scenario);
+                var loader = Substitute.For<IImportResourceLoader>();
+                loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                    .Returns((Channel.CreateUnbounded<ImportResource>(), fromLoadTask ? Task.FromException(failure) : Task.CompletedTask));
+                var importer = Substitute.For<IImporter>();
+                importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns(_ => fromLoadTask ? Task.FromResult(new ImportProcessingProgress()) : Task.FromException<ImportProcessingProgress>(failure));
+                var logger = Substitute.For<ILogger>();
+                var loggerFactory = Substitute.For<ILoggerFactory>();
+                loggerFactory.CreateLogger(Arg.Any<string>()).Returns(logger);
+                var job = CreateProcessingJob(loader, importer, loggerFactory);
+
+                // Act
+                var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+                // Assert
+                var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+                Assert.Equal(expectedStatus, error.HttpStatusCode);
+                var errorLogs = logger.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log) && (LogLevel)call.GetArguments()[0] == LogLevel.Error);
+                if (expectedStatus != HttpStatusCode.InternalServerError)
+                {
+                    Assert.Equal(failure.Message, error.ErrorMessage);
+                    Assert.Empty(errorLogs);
+                    Assert.Contains(logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log) && (LogLevel)call.GetArguments()[0] == LogLevel.Warning);
+                }
+                else
+                {
+                    Assert.NotEmpty(errorLogs);
+                }
+            }
+        }
+
+        private static ImportProcessingJob CreateProcessingJob(IImportResourceLoader loader = null, IImporter importer = null, ILoggerFactory loggerFactory = null)
         {
             var errorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             errorStoreFactory.InitializeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Substitute.For<IImportErrorStore>());
@@ -304,7 +344,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 importer,
                 errorStoreFactory,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
-                NullLoggerFactory.Instance,
+                loggerFactory ?? NullLoggerFactory.Instance,
                 Substitute.For<IAuditLogger>());
         }
 

@@ -6,7 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Net;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
@@ -18,8 +18,29 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static bool IsCustomerCaused(this Exception exception)
         {
-            var leaves = GetLeaves(exception).ToList();
-            return leaves.Count > 0 && leaves.All(IsCustomerCausedLeaf);
+            return exception.GetJobFailureStatusCode() != HttpStatusCode.InternalServerError;
+        }
+
+        /// <summary>
+        /// Maps recognized customer failures to their API status, keeping mixed or unknown failures internal errors.
+        /// </summary>
+        public static HttpStatusCode GetJobFailureStatusCode(this Exception exception)
+        {
+            // Page failures cancel siblings, whose cancellations can be nested inside incomplete-operation wrappers.
+            var leaves = GetLeaves(exception).Where(leaf => leaf is not OperationCanceledException).ToList();
+            if (leaves.Count == 0 || !leaves.All(IsCustomerCausedLeaf))
+            {
+                return HttpStatusCode.InternalServerError;
+            }
+
+            if (leaves.Any(leaf => leaf is CustomerManagedKeyException))
+            {
+                return HttpStatusCode.Forbidden;
+            }
+
+            return leaves.Any(leaf => leaf is Features.Operations.JobConflictException)
+                ? HttpStatusCode.Conflict
+                : HttpStatusCode.BadRequest;
         }
 
         internal static IEnumerable<Exception> GetLeaves(Exception exception)
@@ -31,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
             else if (exception is AggregateException aggregate)
             {
-                foreach (var inner in aggregate.InnerExceptions.Where(inner => inner is not TaskCanceledException))
+                foreach (var inner in aggregate.InnerExceptions)
                 {
                     foreach (var leaf in GetLeaves(inner))
                     {

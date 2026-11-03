@@ -340,7 +340,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             catch (Exception ex) when (ex.IsCustomerCaused())
             {
                 _logger.LogInformation(ex, "[JobId:{JobId}] Export failed due to a customer-caused error.", _exportJobRecord.Id);
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, ex.ToString(), isCustomerCaused: true);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, ex.GetJobFailureStatusCode(), ex.ToString(), isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)

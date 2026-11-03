@@ -887,6 +887,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(expectedCustomerCaused, record.FailureDetails.IsCustomerCaused);
         }
 
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.FailureStatusCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenCustomerSearchFailure_WhenExportExecutes_ThenStatusMatchesApi(string scenario, HttpStatusCode expectedStatus)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), true, ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw failure);
+
+            // Act
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(expectedStatus, _exportJobRecord.FailureDetails.FailureStatusCode);
+        }
+
         private ExportProcessingJob CreateProcessingJob(IExportJobTask exportJobTask)
         {
             return new ExportProcessingJob(

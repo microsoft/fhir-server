@@ -292,6 +292,34 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.Contains(failure.Message, Assert.IsType<ImportJobErrorResult>(exception.Error).ErrorDetails);
         }
 
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.FailureStatusCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenExecuted_ThenStatusMatchesApi(string scenario, HttpStatusCode expectedStatus)
+        {
+            foreach (bool duringEnqueue in new[] { false, true })
+            {
+                // Arrange
+                var failure = JobFailureTestData.CreateException(scenario);
+                var client = Substitute.For<IIntegrationDataStoreClient>();
+                client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                    .Returns(_ => duringEnqueue
+                        ? Task.FromResult(new Dictionary<string, object> { [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1L })
+                        : Task.FromException<Dictionary<string, object>>(failure));
+                var queue = Substitute.For<IQueueClient>();
+                queue.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+                var job = CreateOrchestratorJob(client, queue);
+                var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+                // Act
+                var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+                // Assert
+                Assert.Equal(expectedStatus, Assert.IsType<ImportJobErrorResult>(exception.Error).HttpStatusCode);
+                Assert.Equal(expectedStatus != HttpStatusCode.InternalServerError, exception.IsCustomerCaused);
+            }
+        }
+
         private static ImportOrchestratorJobDefinition CreateInput()
         {
             return new ImportOrchestratorJobDefinition

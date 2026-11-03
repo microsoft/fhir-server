@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex.IsCustomerCaused);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex, ex.IsCustomerCaused);
             }
             catch (CredentialUnavailableException ex)
             {
@@ -167,10 +167,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
-                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError };
+                bool isCustomerCaused = ex.IsCustomerCaused();
+                if (isCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, jobInfo, "Failed to register processing jobs due to a customer-caused error.");
+                }
+                else
+                {
+                    _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
+                }
+
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex.IsCustomerCaused());
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex, isCustomerCaused);
             }
 
             return JsonConvert.SerializeObject(result);
@@ -346,8 +355,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
-                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError}, ex.IsCustomerCaused());
+                bool isCustomerCaused = ex.IsCustomerCaused();
+                if (isCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, orchestratorInfo, "Failed to enqueue jobs due to a customer-caused error.");
+                }
+                else
+                {
+                    _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
+                }
+
+                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() }, ex, isCustomerCaused);
             }
         }
     }

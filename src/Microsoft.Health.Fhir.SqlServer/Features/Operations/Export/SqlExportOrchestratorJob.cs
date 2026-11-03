@@ -56,6 +56,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
             var record = ExtractJobRecord(jobInfo);
 
+            try
+            {
+                return await ExecuteAsync(jobInfo, record, cancellationToken);
+            }
+            catch (Exception ex) when (ex.IsCustomerCaused())
+            {
+                _logger.LogJobWarning(ex, jobInfo, "Export orchestration failed due to a customer-caused error.");
+                record.Status = OperationStatus.Failed;
+                record.FailureDetails = new JobFailureDetails(ex.Message, ex.GetJobFailureStatusCode(), ex.ToString(), isCustomerCaused: true);
+                throw new JobExecutionException(ex.Message, record, ex, isCustomerCaused: true);
+            }
+        }
+
+        private async Task<string> ExecuteAsync(JobInfo jobInfo, ExportJobRecord record, CancellationToken cancellationToken)
+        {
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
 
             _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
