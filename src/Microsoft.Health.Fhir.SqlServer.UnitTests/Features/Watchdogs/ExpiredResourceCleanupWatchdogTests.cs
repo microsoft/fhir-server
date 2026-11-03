@@ -143,21 +143,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             Assert.Same(exception, actualException);
         }
 
-        [Fact]
-        public async Task GivenWatchdogEnabled_WhenEnqueueReturnsNull_ThenNoExceptionIsThrown()
-        {
-            _queueClient.EnqueueAsync(
-                Arg.Any<byte>(),
-                Arg.Any<string[]>(),
-                Arg.Any<long?>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>())
-                .Returns((IReadOnlyList<JobInfo>)null);
-
-            // Act & Assert - should not throw
-            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
-        }
-
         private static JobInfo CreateBulkDeleteJob(long jobId, string url, DateTime createDate)
         {
             var definition = new BulkDeleteDefinition(

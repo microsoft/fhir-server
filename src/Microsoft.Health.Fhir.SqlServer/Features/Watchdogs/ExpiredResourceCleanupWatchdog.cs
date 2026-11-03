@@ -107,19 +107,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     removeReferences: false,
                     allowProfileResourceModification: true);
 
-                var jobs = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definition);
-
-                if (jobs != null && jobs.Count > 0)
-                {
-                    _logger.LogInformation(
-                        "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate}.",
-                        jobs[0].Id,
-                        cutoffDateString);
-                }
-                else
-                {
-                    _logger.LogWarning("ExpiredResourceCleanupWatchdog: Failed to enqueue bulk delete job.");
-                }
+                var job = (await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definition))[0];
+                _logger.LogInformation("ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate}.", job.Id, cutoffDateString);
             }
             catch (Exception ex)
             {
