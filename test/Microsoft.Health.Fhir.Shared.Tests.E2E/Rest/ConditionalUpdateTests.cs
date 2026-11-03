@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
-using System.Net.Http;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -166,7 +165,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Should not be saved</div>";
 
             TestFhirClient client = NoMatchClient("create");
-            using HttpClient httpClient = client.HttpClient;
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => client.ConditionalUpdateAsync(
                 observation2,
                 $"_id={existing.Id}&_lastUpdated=le2000-01-01"));
@@ -189,7 +187,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Should not be saved</div>";
 
             TestFhirClient client = NoMatchClient("true");
-            using HttpClient httpClient = client.HttpClient;
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => client.ConditionalUpdateAsync(
                 observation2,
                 $"_id={existing.Id}&_lastUpdated=le2000-01-01"));
@@ -226,7 +223,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             TestFhirClient client = NoMatchClient("creat");
-            using HttpClient httpClient = client.HttpClient;
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
                 () => client.PostBundleAsync(bundle));
 
@@ -253,7 +249,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observation2.Text.Div = "<div xmlns=\"http://www.w3.org/1999/xhtml\">Recreated</div>";
 
             TestFhirClient client = NoMatchClient("create");
-            using HttpClient httpClient = client.HttpClient;
             using FhirResponse<Observation> updateResponse = await client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={Guid.NewGuid()}");
@@ -312,7 +307,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             TestFhirClient client = NoMatchClient("create");
-            using HttpClient httpClient = client.HttpClient;
             using FhirResponse<Bundle> response = await client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic });
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -348,7 +342,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             TestFhirClient client = NoMatchClient("create");
-            using HttpClient httpClient = client.HttpClient;
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
                 () => client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
 
@@ -362,6 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private TestFhirClient NoMatchClient(string noMatchBehavior)
         {
             // A clone has its own HttpClient, so the header doesn't leak into the shared fixture client.
+            // Don't dispose it: its handler chain wraps the fixture's cached authentication handler.
             TestFhirClient client = _client.Clone();
             client.HttpClient.DefaultRequestHeaders.Add(KnownHeaders.ConditionalUpdateNoMatch, noMatchBehavior);
             return client;
