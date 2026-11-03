@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -70,6 +71,34 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var input = new BinaryExpression(inputOperator, FieldName.DateTimeStart, null, DateTimeOffset.Parse("2020-09-24T12:00:00.500Z"));
 
             Assert.Throws<ArgumentOutOfRangeException>(() => input.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance, null));
+        }
+
+        [InlineData(BinaryOperator.GreaterThan)]
+        [InlineData(BinaryOperator.GreaterThanOrEqual)]
+        [InlineData(BinaryOperator.LessThan)]
+        [InlineData(BinaryOperator.LessThanOrEqual)]
+        [Theory]
+        public void GivenAnExpressionOverLastUpdatedBeyondTheSupportedRange_WhenTranslatedToResourceSurrogateId_ThenBadRequestExceptionIsThrown(BinaryOperator inputOperator)
+        {
+            var input = new BinaryExpression(inputOperator, FieldName.DateTimeStart, null, DateTimeOffset.MaxValue);
+
+            Assert.Throws<BadRequestException>(() => input.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance, null));
+        }
+
+        [InlineData(BinaryOperator.GreaterThan)]
+        [InlineData(BinaryOperator.GreaterThanOrEqual)]
+        [InlineData(BinaryOperator.LessThan)]
+        [InlineData(BinaryOperator.LessThanOrEqual)]
+        [Theory]
+        public void GivenAnExpressionOverLastUpdatedAtTheSupportedMaximum_WhenTranslatedToResourceSurrogateId_ThenNoExceptionIsThrown(BinaryOperator inputOperator)
+        {
+            var value = new DateTimeOffset(LastUpdatedToResourceSurrogateIdRewriter.MaxSupportedLastUpdated);
+            var input = new BinaryExpression(inputOperator, FieldName.DateTimeStart, null, value);
+
+            var output = input.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance, null);
+
+            BinaryExpression binaryOutput = Assert.IsType<BinaryExpression>(output);
+            Assert.Equal(SqlFieldName.ResourceSurrogateId, binaryOutput.FieldName);
         }
     }
 }
