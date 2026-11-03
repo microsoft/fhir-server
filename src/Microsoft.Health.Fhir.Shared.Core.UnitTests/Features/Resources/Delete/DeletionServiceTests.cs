@@ -983,7 +983,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         private Task<string> ExecuteBulkDeleteJobAsync(DeleteOperation deleteOperation, CancellationToken cancellationToken)
         {
             var job = new BulkDeleteProcessingJob(
-                ((IDeletionService)_service).CreateMockScopeFactory(),
+                _service.CreateMockScopeFactory<IDeletionService>(),
                 _contextAccessor,
                 Substitute.For<IMediator>(),
                 Substitute.For<ISearchService>().CreateMockScopeFactory(),
