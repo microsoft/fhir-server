@@ -6,7 +6,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -24,7 +23,7 @@ public class ScopeProviderTests
     public void GivenFactory_WhenCreatingScopes_ThenEachCallerOwnsAnIndependentLifetime()
     {
         var services = new ServiceCollection();
-        services.AddOwnedScopes();
+        services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         services.AddScoped(_ => Substitute.For<IDisposable>());
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
         IScopeProvider<IDisposable> factory = provider.GetRequiredService<IScopeProvider<IDisposable>>();
@@ -47,7 +46,7 @@ public class ScopeProviderTests
     public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenRootDoesNotRetainHandle()
     {
         var services = new ServiceCollection();
-        services.AddOwnedScopes();
+        services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         services.AddScoped(_ => new object());
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
 
@@ -58,7 +57,7 @@ public class ScopeProviderTests
     public void GivenRootResolvedFactory_WhenScopeIsDisposed_ThenPayloadAndChildProviderAreCollectable()
     {
         var services = new ServiceCollection();
-        services.AddOwnedScopes();
+        services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         services.AddScoped(child => new ScopedPayload(child));
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
         IScopeProvider<ScopedPayload> factory = provider.GetRequiredService<IScopeProvider<ScopedPayload>>();
@@ -78,7 +77,7 @@ public class ScopeProviderTests
     public void GivenFactoryResolvedInChildScope_WhenChildIsDisposed_ThenCreatedScopeStillBelongsToCaller()
     {
         var services = new ServiceCollection();
-        services.AddOwnedScopes();
+        services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         services.AddScoped(_ => Substitute.For<IDisposable>());
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
         IScoped<IDisposable> owned;
@@ -99,7 +98,7 @@ public class ScopeProviderTests
     public void GivenMissingService_WhenCreatingScope_ThenResolutionFails()
     {
         var services = new ServiceCollection();
-        services.AddOwnedScopes();
+        services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
         IScopeProvider<IDisposable> factory = provider.GetRequiredService<IScopeProvider<IDisposable>>();
 
@@ -111,7 +110,7 @@ public class ScopeProviderTests
     {
         var dependency = Substitute.For<IDisposable>();
         var services = new ServiceCollection();
-        services.AddOwnedScopes();
+        services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         services.AddScoped(_ => dependency);
         services.AddScoped<object>(provider =>
         {
@@ -124,17 +123,6 @@ public class ScopeProviderTests
         Assert.Throws<InvalidOperationException>(() => factory.Invoke());
 
         dependency.Received(1).Dispose();
-    }
-
-    [Fact]
-    public void GivenRepeatedRegistration_WhenResolvingFactory_ThenOnlyOneFactoryIsRegistered()
-    {
-        var services = new ServiceCollection();
-        services.AddOwnedScopes();
-        services.AddOwnedScopes();
-        using ServiceProvider provider = services.BuildServiceProvider();
-
-        Assert.Single(provider.GetServices<IScopeProvider<object>>());
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

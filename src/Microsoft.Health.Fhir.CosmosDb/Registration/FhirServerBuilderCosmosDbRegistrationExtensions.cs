@@ -69,7 +69,6 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             IServiceCollection services = fhirServerBuilder.Services;
-            services.AddOwnedScopes();
 
             if (services.Any(x => x.ImplementationType == typeof(CosmosContainerProvider)))
             {

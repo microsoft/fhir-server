@@ -446,7 +446,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             _referenceSearchValueParser.Parse("Patient/456").Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, KnownResourceTypes.Patient, "456"));
             var lifetimes = new List<(WeakReference Payload, StrongBox<int> Disposals)>();
             var services = new ServiceCollection();
-            services.AddOwnedScopes();
+            services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
             services.AddScoped<ISearchService>(_ =>
             {
                 var disposals = new StrongBox<int>();

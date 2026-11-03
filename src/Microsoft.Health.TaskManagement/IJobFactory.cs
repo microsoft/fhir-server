@@ -16,7 +16,7 @@ namespace Microsoft.Health.JobManagement
         /// Create new job from JobInfo
         /// </summary>
         /// <param name="jobInfo">Job information payload.</param>
-        /// <returns>A caller-owned scope containing the job for execution.</returns>
+        /// <returns>Job for execution.</returns>
         IScoped<IJob> Create(JobInfo jobInfo);
     }
 }

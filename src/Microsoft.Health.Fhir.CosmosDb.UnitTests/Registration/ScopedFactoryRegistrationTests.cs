@@ -151,6 +151,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Registration
             var builder = Substitute.For<IFhirServerBuilder>();
             builder.Services.Returns(services);
             builder.AddCosmosDb();
+            services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
             return services;
         }
     }

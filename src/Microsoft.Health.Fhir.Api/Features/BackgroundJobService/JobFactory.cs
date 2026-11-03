@@ -54,7 +54,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             }
         }
 
-        /// <inheritdoc />
         public IScoped<IJob> Create(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
