@@ -31,12 +31,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
         public double QueryPlanReuseCheckerRefreshPeriod { get; set; } = 3600.0;
 
         /// <summary>
-        /// When true (together with <see cref="EnableFhirDateContainment"/>),
-        /// <see cref="Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.ScalarTemporalEqualityRewriter"/>
-        /// collapses an exact-day equality on allow-listed scalar date parameters (currently <c>birthdate</c>)
-        /// to a single End-only <c>DateTimeEnd</c> predicate — an index optimization with no temporal
-        /// <c>UNION ALL</c>. Gated on both flags because the End-only form matches the legacy overlap result
-        /// only under containment. Disabled by default; opt in via
+        /// Optimizes exact-day equality on allow-listed scalar date parameters (currently <c>birthdate</c>)
+        /// using <c>DateTimeEnd</c> equality for day-precision stored dates. When
+        /// <see cref="EnableFhirDateContainment"/> is false, a disjoint predicate-level OR retains
+        /// overlapping month/year stored dates. No temporal <c>UNION ALL</c> is introduced.
+        /// Disabled by default; opt in via
         /// <c>FhirSqlServer:EnableScalarTemporalEqualityRewriter=true</c> (or env var
         /// <c>FhirSqlServer__EnableScalarTemporalEqualityRewriter=true</c>). Tracked alongside AB#191826.
         /// </summary>

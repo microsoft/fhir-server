@@ -62,6 +62,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             VerifyVisit($"(Or {expectedAndString1} {expectedAndString2})", Expression.Or(simpleExpression1, simpleExpression2));
         }
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public void GivenAScopeBoundary_WhenRewritingChildren_ThenTheBoundaryIsPreserved(bool union, bool scopeBoundary)
+        {
+            var child = Expression.Equals(FieldName.Number, null, 1M);
+            Expression expression = union
+                ? Expression.Union(UnionOperator.All, [child])
+                : Expression.And(child);
+            expression.IsSmartV2UnionExpressionForScopesSearchParameters = scopeBoundary;
+
+            var result = expression.AcceptVisitor(new RangeRewriter(), null);
+
+            Assert.NotSame(expression, result);
+            Assert.Equal(scopeBoundary, result.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.Contains("(FieldGreaterThanOrEqual Number 0)", result.ToString());
+            Assert.Same(expression, expression.AcceptVisitor(new NoopRewriter(), null));
+        }
+
         public class NoopRewriter : ExpressionRewriter<object>
         {
         }

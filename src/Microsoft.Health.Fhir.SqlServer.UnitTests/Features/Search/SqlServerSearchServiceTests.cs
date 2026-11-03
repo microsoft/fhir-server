@@ -869,19 +869,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: true, enableScalarTemporalRewriter: true));
         }
 
-        // Full date-equality flag matrix for an EXACT-DAY birthdate query, exercising the single mutually-exclusive
-        // dispatch (ApplyDateEqualitySemantics) exactly as CreateDefaultSearchExpression wires it. The scalar-temporal
-        // optimization and the containment range form are never layered: each flag combination resolves to exactly one
-        // path. VP2: a partial-precision stored birthdate (e.g. year-only '1990', stored as a multi-day range with
-        // IsLongerThanADay = true and DateTimeEnd = 1990-12-31T23:59) MATCHES under the overlap form
-        // (DateTimeStart <= hi AND DateTimeEnd >= lo) but is DROPPED under containment. The overlap predicate is
-        // present iff legacy overlap is applied; the IsLongerThanADay=false collapse appears only when the
-        // rewriter runs. No path may emit a temporal UNION.
         [Theory]
-        [InlineData(true, true, true, false)] // both ON => End-only collapse (containment); year-only dropped
-        [InlineData(false, true, false, false)] // containment ON, rewriter OFF => containment two-predicate; year-only dropped
-        [InlineData(true, false, false, true)] // containment OFF => legacy overlap; year-only matched
-        [InlineData(false, false, false, true)] // both OFF => legacy overlap; year-only matched
+        [InlineData(true, true, true, false)]
+        [InlineData(false, true, false, false)]
+        [InlineData(true, false, true, true)]
+        [InlineData(false, false, false, true)]
         public void DateEqualityPipeline_AcrossFlagMatrix_AppliesExpectedSemanticsAndNeverUnions(
             bool enableScalarTemporalRewriter,
             bool enableFhirDateContainment,

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -16,11 +15,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// For allow-listed scalar date parameters (currently <c>birthdate</c>), collapses Core's exact-day
     /// equality containment (<c>DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi</c>) into a single
-    /// <c>DateTimeEnd</c> predicate with <c>IsLongerThanADay = false</c> — an index optimization. A stored
-    /// period longer than one day can never be contained in a one-day window, so no
-    /// <see cref="UnionExpression"/> / day-split is needed. Other precisions, range/<c>ap</c> operators, and
-    /// composite or non-allow-listed parameters pass through unchanged. Runs before the Core-&gt;SQL
-    /// conversion, and only when both the scalar-temporal and FHIR date containment flags are enabled.
+    /// <c>DateTimeEnd</c> predicate with <c>IsLongerThanADay = false</c>.
+    /// Under legacy overlap semantics, retains long stored dates in a disjoint predicate-level OR branch.
+    /// No <see cref="UnionExpression"/> or additional table expression is introduced.
+    /// Other query precisions, range/<c>ap</c> operators, and composite or non-allow-listed parameters
+    /// pass through unchanged. Runs before date equality semantics and Core-to-SQL conversion.
     /// </summary>
     internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<bool>
     {
@@ -39,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             ExactDay,
         }
 
-        public override Expression VisitSearchParameter(SearchParameterExpression expression, bool context)
+        public override Expression VisitSearchParameter(SearchParameterExpression expression, bool preserveOverlappingLongDates)
         {
             // 1. Only allow-listed scalar date parameters are eligible.
             if (!IsActivatedScalarTemporalParameter(expression))
@@ -62,11 +61,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            // 4. Classify precision and build the matching rewrite, or pass through.
-            //    Day-precision collapses to a single DateTimeEnd predicate (no UNION).
             return ClassifyPrecision(startValue, endValue) switch
             {
-                Precision.ExactDay => BuildEndOnlyPredicate(expression.Parameter, endPredicate),
+                Precision.ExactDay => BuildPredicate(expression, endPredicate, preserveOverlappingLongDates),
                 _ => expression,
             };
         }
@@ -147,18 +144,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return Precision.NotRewritable;
         }
 
-        // Birthdate rows are stored as exactly one full UTC day, so containment collapses to a single
-        // DateTimeEnd equality with IsLongerThanADay = false. A period longer than one day can never be
-        // contained in a one-day window, so those rows are excluded by construction (no UNION ALL).
-        private static SearchParameterExpression BuildEndOnlyPredicate(
-            SearchParameterInfo parameter,
-            BinaryExpression endPredicate)
+        private static SearchParameterExpression BuildPredicate(
+            SearchParameterExpression expression,
+            BinaryExpression endPredicate,
+            bool preserveOverlappingLongDates)
         {
-            return new SearchParameterExpression(
-                parameter,
-                Expression.And(
-                    Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, false),
-                    new BinaryExpression(BinaryOperator.Equal, FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value)));
+            Expression predicate = Expression.And(
+                Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, false),
+                Expression.Equals(FieldName.DateTimeEnd, endPredicate.ComponentIndex, endPredicate.Value));
+
+            if (preserveOverlappingLongDates)
+            {
+                // The downstream equality rewriter applies overlap to the retained month/year predicate.
+                predicate = Expression.Or(
+                    predicate,
+                    Expression.And(
+                        Expression.Equals(SqlFieldName.DateTimeIsLongerThanADay, endPredicate.ComponentIndex, true),
+                        expression.Expression));
+            }
+
+            return new SearchParameterExpression(expression.Parameter, predicate);
         }
 
         private static bool IsStartGe(BinaryExpression be) =>

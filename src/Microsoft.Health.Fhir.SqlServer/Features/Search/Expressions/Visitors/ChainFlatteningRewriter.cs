@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
             else
             {
-                SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+                SearchParamTableExpressionQueryGenerator queryGenerator = GetQueryGenerator(chainedExpression.Expression);
 
                 Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
 
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             foreach (var expression in multiaryExpression.Expressions)
             {
-                var handler = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+                var handler = GetQueryGenerator(expression);
                 tableExpressions.Add(
                     new SearchParamTableExpression(
                         handler,
@@ -128,6 +128,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         SearchParamTableExpressionKind.Normal,
                         chainLevel));
             }
+        }
+
+        private SearchParamTableExpressionQueryGenerator GetQueryGenerator(Expression expression)
+        {
+            var generator = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+            return expression is MissingSearchParameterExpression { IsMissing: true } && generator != null
+                ? new MissingSearchParameterQueryGenerator(generator.Table)
+                : generator;
         }
     }
 }
