@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
             if (headerValues.Count > 1)
             {
-                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Api.Resources.InvalidConditionalUpdateNoMatchHeader, KnownHeaders.ConditionalUpdateNoMatch, headerValues.ToString()));
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Api.Resources.InvalidConditionalUpdateNoMatchHeader, KnownHeaders.ConditionalUpdateNoMatch, headerValues));
             }
 
             string value = headerValues.FirstOrDefault()?.Trim();
