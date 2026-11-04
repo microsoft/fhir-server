@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal readonly struct SearchParameterQueryGeneratorContext
     {
-        private readonly SqlTableNameFormatter _tableNames;
+        private readonly SqlObjectNameFormatter _tableNames;
 
-        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, HashingSqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, bool isAsyncOperation, string tableAlias = null, SqlTableNameFormatter tableNames = null)
+        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, HashingSqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, bool isAsyncOperation, string tableAlias = null, SqlObjectNameFormatter tableNames = null)
         {
             EnsureArg.IsNotNull(stringBuilder, nameof(stringBuilder));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SchemaInformation = schemaInformation;
             TableAlias = tableAlias;
             IsAsyncOperation = isAsyncOperation;
-            _tableNames = tableNames ?? new SqlTableNameFormatter(null);
+            _tableNames = tableNames ?? new SqlObjectNameFormatter(null);
         }
 
         public IndentedStringBuilder StringBuilder { get; }

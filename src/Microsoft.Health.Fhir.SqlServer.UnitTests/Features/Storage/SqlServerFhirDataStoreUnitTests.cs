@@ -384,7 +384,52 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Empty(rows);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task GivenTenant_WhenMergingResources_ThenProcedureIsQualifiedBeforeExecution(bool includeSearchParameters, bool enlistInTransaction)
+        {
+            // Arrange
+            var configuration = new TenantConfiguration();
+            configuration.Tenants.Add(new Core.Features.Tenants.TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
+            var context = Substitute.For<IFhirRequestContext>();
+            context.TenantId.Returns("tenant-a");
+            var resolver = new SqlTenantDatabaseResolver(
+                new FhirRequestContextAccessor { RequestContext = context },
+                new Core.Features.Tenants.TenantManager(Options.Create(configuration)),
+                NullLogger<SqlTenantDatabaseResolver>.Instance);
+            var retryService = Substitute.For<ISqlRetryService>();
+            string procedureName = null;
+            retryService.ExecuteSql(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>()).Returns(call =>
+                {
+                    procedureName = call.Arg<SqlCommand>().CommandText;
+                    return Task.CompletedTask;
+                });
+            var store = CreateSqlServerFhirDataStore(retryService, tenantDatabaseResolver: resolver);
+            var statuses = includeSearchParameters
+                ? new[] { new ResourceSearchParameterStatus { Uri = new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"), Status = SearchParameterStatus.Enabled } }
+                : [];
+
+            // Act
+            await store.MergeResourcesWrapperAsync(1, true, [], enlistInTransaction, 0, statuses, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(
+                includeSearchParameters ? "[database-a].[dbo].[MergeResourcesAndSearchParams]" : "[database-a].[dbo].[MergeResources]",
+                procedureName);
+        }
+
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, SqlTenantDatabaseResolver tenantDatabaseResolver = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -430,6 +475,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 .GetField("_highestInitializedVersion", BindingFlags.NonPublic | BindingFlags.Instance)
                 .SetValue(model, schemaInfo.Current);
 
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(model, new Dictionary<Uri, short>
+                {
+                    [SearchParameterNames.IdUri] = 1,
+                    [SearchParameterNames.LastUpdatedUri] = 2,
+                });
+
             var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
 
             CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
@@ -443,6 +496,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = sqlConnection.ConnectionString };
 
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, sqlConnectionBuilder, sqlRetryLogicBaseProvider, Options.Create(sqlServerDataStoreConfiguration));
+            tenantDatabaseResolver ??= new SqlTenantDatabaseResolver(
+                new FhirRequestContextAccessor(),
+                new Core.Features.Tenants.TenantManager(Options.Create(new TenantConfiguration())),
+                NullLogger<SqlTenantDatabaseResolver>.Instance);
 
             var dataStore = new SqlServerFhirDataStore(
                 model,
@@ -460,7 +517,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 ModelInfoProvider.Instance,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 Substitute.For<IImportErrorSerializer>(),
-                storeClient);
+                storeClient,
+                tenantDatabaseResolver);
 
             return dataStore;
         }

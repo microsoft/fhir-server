@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly bool _enableChainSourceDeduplication;
         private readonly HashSet<int> _chainTableExpressionIndexes = new();
         private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
-        private readonly SqlTableNameFormatter _tableNames;
+        private readonly SqlObjectNameFormatter _tableNames;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
             _enableChainSourceDeduplication = enableChainSourceDeduplication;
-            _tableNames = new SqlTableNameFormatter(databaseName);
+            _tableNames = new SqlObjectNameFormatter(databaseName);
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {

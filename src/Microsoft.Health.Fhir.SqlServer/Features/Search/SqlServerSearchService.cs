@@ -34,7 +34,6 @@ using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -96,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
-        private readonly ITenantManager _tenantManager;
+        private readonly SqlTenantDatabaseResolver _tenantDatabaseResolver;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -170,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            ITenantManager tenantManager,
+            SqlTenantDatabaseResolver tenantDatabaseResolver,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -184,7 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(queryPlanReuseChecker, nameof(queryPlanReuseChecker));
-            EnsureArg.IsNotNull(tenantManager, nameof(tenantManager));
+            EnsureArg.IsNotNull(tenantDatabaseResolver, nameof(tenantDatabaseResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
@@ -202,7 +201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
-            _tenantManager = tenantManager;
+            _tenantDatabaseResolver = tenantDatabaseResolver;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -215,23 +214,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal bool StoredProcedureLayerIsEnabled { get; set; } = true;
 
         internal ISqlServerFhirModel Model => _model;
-
-        private string GetTenantDatabaseName()
-        {
-            string tenantId = _requestContextAccessor.RequestContext?.TenantId;
-            if (tenantId == null)
-            {
-                return null;
-            }
-
-            if (!_tenantManager.Tenants.TryGetValue(tenantId, out TenantInfo tenant))
-            {
-                _logger.LogError("Cannot generate SQL for unsupported tenant {TenantId}.", tenantId);
-                throw new InvalidOperationException($"Cannot generate SQL for unsupported tenant '{tenantId}'.");
-            }
-
-            return tenant.DatabaseName;
-        }
 
         private static void InitializeProcessingFlags(ILogger<SqlServerSearchService> logger)
         {
@@ -591,7 +573,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
                                 enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
-                                databaseName: GetTenantDatabaseName());
+                                databaseName: _tenantDatabaseResolver.GetDatabaseName());
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
@@ -618,6 +600,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
+                        _tenantDatabaseResolver.PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var st = DateTime.UtcNow;
@@ -2113,7 +2096,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
                                 enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
-                                databaseName: GetTenantDatabaseName());
+                                databaseName: _tenantDatabaseResolver.GetDatabaseName());
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
@@ -2137,6 +2120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
+                        _tenantDatabaseResolver.PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var executionStopwatch = Stopwatch.StartNew();

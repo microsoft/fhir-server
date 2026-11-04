@@ -18,6 +18,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -129,7 +130,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
-                new TenantManager(Options.Create(_tenantConfiguration)),
+                CreateTenantDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -511,6 +512,41 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenUnknownTenant_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
+        {
+            // Arrange
+            var context = Substitute.For<IFhirRequestContext>();
+            context.TenantId.Returns("unknown-tenant");
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            ExecuteSqlCallbacks();
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+            options.QueryHints = new[]
+            {
+                (KnownQueryParameterNames.Type, "Patient"),
+                (KnownQueryParameterNames.StartSurrogateId, "100"),
+                (KnownQueryParameterNames.EndSurrogateId, "200"),
+            };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Contains("unsupported tenant 'unknown-tenant'", exception.Message, StringComparison.Ordinal);
+            _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
+        }
+
+        private SqlTenantDatabaseResolver CreateTenantDatabaseResolver() => new(
+            _requestContextAccessor,
+            new TenantManager(Options.Create(_tenantConfiguration)),
+            NullLogger<SqlTenantDatabaseResolver>.Instance);
+
         private void ExecuteSqlCallbacks()
         {
             _sqlRetryService.ExecuteSql(
@@ -616,7 +652,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
-                new TenantManager(Options.Create(_tenantConfiguration)),
+                CreateTenantDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -706,7 +742,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    new TenantManager(Options.Create(_tenantConfiguration)),
+                    CreateTenantDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -757,7 +793,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    new TenantManager(Options.Create(_tenantConfiguration)),
+                    CreateTenantDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -808,7 +844,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    new TenantManager(Options.Create(_tenantConfiguration)),
+                    CreateTenantDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
