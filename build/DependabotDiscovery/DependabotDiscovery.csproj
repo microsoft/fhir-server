@@ -133,6 +133,7 @@
     <PackageReference Include="Microsoft.SqlServer.DACFx" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <PackageReference Include="Microsoft.Testing.Extensions.AzureDevOpsReport" />
     <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
     <PackageReference Include="Moq" />
@@ -152,7 +153,6 @@
     <PackageReference Include="StyleCop.Analyzers" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.CommandLine" />
-    <PackageReference Include="System.CommandLine.NamingConventionBinder" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
     <PackageReference Include="System.Drawing.Common" />

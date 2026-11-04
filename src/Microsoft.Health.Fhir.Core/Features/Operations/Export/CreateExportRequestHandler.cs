@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Models;
 using StringExtensions = Microsoft.Health.Core.Extensions.StringExtensions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -210,6 +211,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ValidateTypeFilters(List<ExportJobFilter> filters)
         {
+            // Client filters remain untrusted when replayed by a background export job.
+            foreach (var filter in filters ?? Enumerable.Empty<ExportJobFilter>())
+            {
+                var reservedParameter = filter.Parameters?.FirstOrDefault(parameter =>
+                    string.Equals(parameter.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(parameter.Item1, KnownQueryParameterNames.EndSurrogateId, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(parameter.Item1, KnownQueryParameterNames.GlobalEndSurrogateId, StringComparison.OrdinalIgnoreCase));
+
+                if (reservedParameter != null)
+                {
+                    _logger.LogWarning("Rejected internal surrogate id range parameter {ParameterName} in an export filter.", reservedParameter.Item1);
+                    throw new BadRequestException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, reservedParameter.Item1, filter.ResourceType));
+                }
+            }
+
             if (_contextAccessor.GetHandlingHeader() == SearchParameterHandling.Lenient)
             {
                 _logger.LogInformation("Validation skipped due to opting for Lenient error handling.");

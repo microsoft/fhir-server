@@ -65,8 +65,6 @@ stages:
       name: '$(InternalPool)'
       demands:
         - ImageOverride -equals $(InternalWindowsImage)
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: ./jobs/build.yml
       parameters:

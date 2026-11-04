@@ -1969,9 +1969,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                     else
                     {
+                        short tokenResourceTypeId = continuationToken.ResourceTypeId.Value;
+
+                        // The token is client supplied; the server never issues a resource type id outside the model's range.
+                        if (tokenResourceTypeId < _model.ResourceTypeIdRange.lowestId || tokenResourceTypeId > _model.ResourceTypeIdRange.highestId)
+                        {
+                            _logger.LogWarning("Bad Request (InvalidContinuationToken): resource type id out of range");
+                            throw new BadRequestException(Resources.InvalidContinuationToken);
+                        }
+
                         parameter = SqlSearchParameters.PrimaryKeyParameter;
                         fieldName = SqlFieldName.PrimaryKey;
-                        keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
+                        keyValue = new PrimaryKeyValue(tokenResourceTypeId, continuationToken.ResourceSurrogateId);
                     }
 
                     Expression lastUpdatedExpression = !optimize || sortOrder == SortOrder.Ascending
