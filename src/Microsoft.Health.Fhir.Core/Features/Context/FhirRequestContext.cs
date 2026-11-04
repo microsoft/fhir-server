@@ -66,6 +66,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public string ResourceType { get; set; }
 
+        /// <inheritdoc />
+        public string TenantId { get; set; }
+
         public bool IncludePartiallyIndexedSearchParams { get; set; }
 
         public bool ExecutingBatchOrTransaction { get; set; }
@@ -96,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             clone.AuditEventType = AuditEventType;
             clone.Principal = Principal.Clone();
             clone.ResourceType = ResourceType;
+            clone.TenantId = TenantId;
             clone.IncludePartiallyIndexedSearchParams = IncludePartiallyIndexedSearchParams;
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;

@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Tenants;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
@@ -86,6 +87,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerConfiguration.Bundle.Validate();
             fhirServerConfiguration.CircuitBreaker.Validate();
+            fhirServerConfiguration.TenantConfiguration.Validate();
 
             services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds));
 
@@ -107,6 +109,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CircuitBreaker));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Watchdog));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.TenantConfiguration));
+            services.AddSingleton<ITenantManager, TenantManager>();
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {

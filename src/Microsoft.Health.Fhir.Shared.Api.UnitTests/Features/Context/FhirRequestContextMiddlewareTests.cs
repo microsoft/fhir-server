@@ -4,14 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Tenants;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -23,6 +27,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     [Trait(Traits.Category, Categories.Web)]
     public class FhirRequestContextMiddlewareTests
     {
+        private readonly ITenantManager _tenantManager = new TenantManager(Options.Create(new TenantConfiguration()));
+
         [Fact]
         public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectUriShouldBeSet()
         {
@@ -48,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var instanceConfiguration = Substitute.For<IFhirServerInstanceConfiguration>();
-            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>(), _tenantManager);
             string Provider() => expectedRequestId;
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
@@ -71,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>(), _tenantManager);
             string Provider() => Guid.NewGuid().ToString();
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
@@ -88,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>(), _tenantManager);
             string Provider() => Guid.NewGuid().ToString();
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
@@ -106,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>(), _tenantManager);
             string Provider() => Guid.NewGuid().ToString();
 
             await fhirContextMiddlware.Invoke(loopbackContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
@@ -125,11 +131,74 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenTenantPrefixAndExistingPathBase_WhenMiddlewareCompletes_ThenPathsAreRestored(bool throwInNext)
+        {
+            var configuration = new TenantConfiguration();
+            configuration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
+            var manager = new TenantManager(Options.Create(configuration));
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Host = new HostString("api.example.com");
+            httpContext.Request.Path = new PathString("/tenant-a/Patient");
+            var accessor = new FhirRequestContextAccessor();
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            IFhirRequestContext capturedContext = null;
+            var middleware = new FhirRequestContextMiddleware(
+                context =>
+                {
+                    capturedContext = accessor.RequestContext;
+                    Assert.Equal("/Patient", context.Request.Path.Value);
+                    Assert.Equal("/stu3/tenant-a", context.Request.PathBase.Value);
+                    if (throwInNext)
+                    {
+                        throw new InvalidOperationException("Downstream failure");
+                    }
+
+                    return Task.CompletedTask;
+                },
+                Substitute.For<ILogger<FhirRequestContextMiddleware>>(),
+                manager);
+
+            if (throwInNext)
+            {
+                await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.Invoke(httpContext, accessor, instanceConfiguration, () => "request-id"));
+            }
+            else
+            {
+                await middleware.Invoke(httpContext, accessor, instanceConfiguration, () => "request-id");
+            }
+
+            Assert.NotNull(capturedContext);
+            Assert.Equal("tenant-a", capturedContext.TenantId);
+            Assert.Equal(new Uri("https://api.example.com/stu3/tenant-a/Patient?code=123"), capturedContext.Uri);
+            Assert.Equal(new Uri("https://api.example.com/stu3/tenant-a/"), capturedContext.BaseUri);
+            Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
+            Assert.Equal("/tenant-a/Patient", httpContext.Request.Path.Value);
+            Assert.Equal("/stu3", httpContext.Request.PathBase.Value);
+        }
+
+        [Fact]
+        public void GivenTenantContext_WhenCloning_ThenTenantIdIsPreserved()
+        {
+            var context = new FhirRequestContext("GET", "https://localhost/tenant-a/Patient", "https://localhost/tenant-a/", "request-id", new HeaderDictionary(), new HeaderDictionary())
+            {
+                TenantId = "tenant-a",
+                Principal = new ClaimsPrincipal(),
+            };
+
+            var clone = Assert.IsType<FhirRequestContext>(context.Clone());
+
+            Assert.Equal("tenant-a", clone.TenantId);
+            Assert.NotSame(context, clone);
+        }
+
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var instanceConfiguration = Substitute.For<IFhirServerInstanceConfiguration>();
-            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask, Substitute.For<ILogger<FhirRequestContextMiddleware>>(), _tenantManager);
             string Provider() => Guid.NewGuid().ToString();
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);

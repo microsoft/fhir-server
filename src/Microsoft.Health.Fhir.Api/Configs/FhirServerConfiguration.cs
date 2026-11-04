@@ -44,5 +44,10 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public SmartIdentityProviderConfiguration SmartIdentityProvider { get; } = new SmartIdentityProviderConfiguration();
 
         public WatchdogConfiguration Watchdog { get; } = new WatchdogConfiguration();
+
+        /// <summary>
+        /// Gets the tenants available at startup.
+        /// </summary>
+        public TenantConfiguration TenantConfiguration { get; } = new TenantConfiguration();
     }
 }

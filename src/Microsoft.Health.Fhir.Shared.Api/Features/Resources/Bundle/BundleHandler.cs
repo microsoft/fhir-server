@@ -1070,6 +1070,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),
+                TenantId = requestContext.TenantId,
                 AuditEventType = auditEventTypeMapping.GetAuditEventType(controllerName?.ToString(), actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
                 AccessControlContext = requestContext.AccessControlContext.Clone() as AccessControlContext,

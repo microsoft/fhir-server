@@ -48,6 +48,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Context\TenantRequestRoutingTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\ExceptionNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\MetricEmitterAttributeTests.cs" />
@@ -84,6 +85,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModuleTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModuleTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\BundleLimitsConfigurationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Registration\TenantConfigurationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\ResourceIdPolicyCompositionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\InitialImportLockMiddlewareTests.cs" />
