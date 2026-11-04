@@ -323,6 +323,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
                 _options,
+                new Core.Features.Tenants.TenantManager(Options.Create(new Core.Configs.TenantConfiguration())),
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();

@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Tenants;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
+        private readonly TenantConfiguration _tenantConfiguration = new TenantConfiguration();
 
         public SqlServerSearchServiceTests()
         {
@@ -127,6 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
+                new TenantManager(Options.Create(_tenantConfiguration)),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -399,6 +402,130 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(cts.Token, exception.CancellationToken);
         }
 
+        [Theory]
+        [InlineData("tenant-a", "FROM [database-a].[dbo].[Resource]", false)]
+        [InlineData("tenant-b", "FROM [database-b].[dbo].[Resource]", false)]
+        [InlineData(null, "FROM dbo.Resource", false)]
+        [InlineData("tenant-a", "FROM [database-a].[dbo].[Resource]", true)]
+        [InlineData("tenant-b", "FROM [database-b].[dbo].[Resource]", true)]
+        [InlineData(null, "FROM dbo.Resource", true)]
+        public async Task GivenRequestTenant_WhenSearchSqlIsGenerated_ThenConfiguredDatabaseIsUsed(string tenantId, string expectedTable, bool includesOperation)
+        {
+            // Arrange
+            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
+            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-b", DatabaseName = "database-b" });
+            var context = Substitute.For<IFhirRequestContext>();
+            context.TenantId.Returns(tenantId);
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            string generatedSql = null;
+            var stopBeforeExecution = new OperationCanceledException("Query captured before database execution.");
+            _queryHashCalculator.CalculateHash(Arg.Any<string>()).Returns(call =>
+            {
+                generatedSql = call.Arg<string>();
+                throw stopBeforeExecution;
+            });
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Same(stopBeforeExecution, exception);
+            Assert.NotNull(generatedSql);
+            Assert.Contains(expectedTable, generatedSql, StringComparison.Ordinal);
+            if (tenantId != null)
+            {
+                Assert.DoesNotContain("dbo.", generatedSql, StringComparison.Ordinal);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenUnknownRequestTenant_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
+        {
+            // Arrange
+            var context = Substitute.For<IFhirRequestContext>();
+            context.TenantId.Returns("unknown-tenant");
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Contains("unknown-tenant", exception.Message, StringComparison.Ordinal);
+            _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task GivenChangingRequestContexts_WhenGeneratingQueries_ThenTenantDatabaseIsNotRetainedBetweenRequests()
+        {
+            // Arrange
+            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
+            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-b", DatabaseName = "database-b" });
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            string generatedSql = null;
+            _queryHashCalculator.CalculateHash(Arg.Any<string>()).Returns(call =>
+            {
+                generatedSql = call.Arg<string>();
+                throw new OperationCanceledException("Query captured before database execution.");
+            });
+            var options = new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            foreach (var (tenantId, table) in new[]
+            {
+                ("tenant-a", "[database-a].[dbo].[Resource]"),
+                ("tenant-b", "[database-b].[dbo].[Resource]"),
+                (null, "dbo.Resource"),
+            })
+            {
+                var context = tenantId == null ? null : Substitute.For<IFhirRequestContext>();
+                if (context != null)
+                {
+                    context.TenantId.Returns(tenantId);
+                }
+
+                _requestContextAccessor.RequestContext.Returns(context);
+
+                // Act
+                await Assert.ThrowsAsync<OperationCanceledException>(() => service.SearchAsync(options, CancellationToken.None));
+
+                // Assert
+                Assert.Contains("FROM " + table, generatedSql, StringComparison.Ordinal);
+            }
+        }
+
+        private void ExecuteSqlCallbacks()
+        {
+            _sqlRetryService.ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<Func<SqlException, bool>>())
+                .Returns(async call =>
+                {
+                    using var connection = new SqlConnection();
+                    await call.ArgAt<Func<SqlConnection, CancellationToken, SqlException, Task>>(0)(connection, call.Arg<CancellationToken>(), null);
+                });
+        }
+
         private static SqlServerFhirModel CreateConcreteModel(ISqlRetryService sqlRetryService)
         {
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
@@ -441,6 +568,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 .GetField("_resourceTypeIdRange", BindingFlags.NonPublic | BindingFlags.Instance)
                 ?.SetValue(model, ((short)1, (short)2));
 
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.SetValue(model, new Dictionary<Uri, short>
+                {
+                    [new Uri("http://hl7.org/fhir/SearchParameter/reference")] = 40,
+                });
+
             return model;
         }
 
@@ -482,6 +616,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
+                new TenantManager(Options.Create(_tenantConfiguration)),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -571,6 +706,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
+                    new TenantManager(Options.Create(_tenantConfiguration)),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -621,6 +757,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
+                    new TenantManager(Options.Create(_tenantConfiguration)),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -671,6 +808,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
+                    new TenantManager(Options.Create(_tenantConfiguration)),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
