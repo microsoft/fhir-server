@@ -101,13 +101,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Appointment = new ResourceReference($"Appointment/{matching.Id}"),
                 Actor = new ResourceReference($"Location/{location.Id}"),
+#if R5
+                ParticipantStatus = AppointmentResponse.AppointmentResponseStatus.Accepted,
+#else
                 ParticipantStatus = ParticipationStatus.Accepted,
+#endif
             })).Resource;
             AppointmentResponse excludedResponse = (await client.CreateAsync(new AppointmentResponse
             {
                 Appointment = new ResourceReference($"Appointment/{excluded.Id}"),
                 Actor = new ResourceReference($"Location/{location.Id}"),
+#if R5
+                ParticipantStatus = AppointmentResponse.AppointmentResponseStatus.Accepted,
+#else
                 ParticipantStatus = ParticipationStatus.Accepted,
+#endif
             })).Resource;
             Bundle forward = await client.SearchAsync(ResourceType.AppointmentResponse, $"_id={matchingResponse.Id},{excludedResponse.Id}&appointment.date=ge2026-10-01&appointment.date=lt2026-10-02");
             AssertIds(forward, new[] { matchingResponse.Id });
@@ -125,7 +133,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     new Appointment.ParticipantComponent
                     {
                         Actor = new ResourceReference($"Location/{locationId}"),
+#if R5
+                        Status = Appointment.ParticipationStatus.Accepted,
+#else
                         Status = ParticipationStatus.Accepted,
+#endif
                     },
                 },
             })).Resource;
