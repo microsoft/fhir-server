@@ -857,6 +857,195 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(includedResources, result => result.Resource.ResourceId == "smart-leak-child");
         }
 
+        [Theory]
+        [InlineData("Observation:patient:Patient", 10)]
+        [InlineData("Observation:patient", 10)]
+        [InlineData("Observation:patient:Patient", 1)]
+        [InlineData("Observation:patient", 1)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenPatientAndObservationScopes_WhenTypedOrUntypedRevIncludeIsPaged_ThenOnlyObservationsAreIncluded(
+            string revInclude,
+            int includesCount)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var patientId = $"smart-revinclude-{Guid.NewGuid():N}";
+            var observationIds = new[]
+            {
+                $"{patientId}-observation-a",
+                $"{patientId}-observation-b",
+            };
+
+            await _smartFixture.UpsertResource(new Patient { Id = patientId });
+            foreach (string observationId in observationIds)
+            {
+                await _smartFixture.UpsertResource(new Observation
+                {
+                    Id = observationId,
+                    Status = ObservationStatus.Final,
+                    Subject = new ResourceReference($"Patient/{patientId}"),
+                });
+            }
+
+            await _smartFixture.UpsertResource(new Procedure
+            {
+                Id = $"{patientId}-procedure",
+                Status = EventStatus.Completed,
+                Subject = new ResourceReference($"Patient/{patientId}"),
+            });
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+            ConfigureFhirRequestContext(_contextAccessor, new[] { patientScope, observationScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = patientId;
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = KnownResourceTypes.Patient;
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_id", patientId),
+                Tuple.Create("_revinclude", revInclude),
+                Tuple.Create("_includesCount", includesCount.ToString()),
+            };
+
+            var page = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Equal(includesCount == 1, page.IncludesContinuationToken != null);
+
+            var includedResources = page.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include)
+                .ToList();
+            while (page.IncludesContinuationToken != null)
+            {
+                var continuationQuery = new List<Tuple<string, string>>(query)
+                {
+                    Tuple.Create(
+                        KnownQueryParameterNames.IncludesContinuationToken,
+                        ContinuationTokenEncoder.Encode(page.IncludesContinuationToken)),
+                };
+                page = await _searchService.Value.SearchAsync(
+                    "Patient",
+                    continuationQuery,
+                    CancellationToken.None,
+                    isIncludesOperation: true);
+                includedResources.AddRange(page.Results
+                    .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include));
+            }
+
+            Assert.DoesNotContain(includedResources, result => result.Resource.ResourceTypeName == "Procedure");
+            Assert.Equal(
+                observationIds.OrderBy(id => id, StringComparer.Ordinal),
+                includedResources
+                    .Where(result => result.Resource.ResourceTypeName == KnownResourceTypes.Observation)
+                    .Select(result => result.Resource.ResourceId)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(id => id, StringComparer.Ordinal));
+        }
+
+        [Theory]
+        [InlineData("Observation:subject:Patient", 10)]
+        [InlineData("Observation:subject", 10)]
+        [InlineData("Observation:subject:Patient", 1)]
+        [InlineData("Observation:subject", 1)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenPatientAndObservationScopes_WhenTypedOrUntypedIncludeIsPaged_ThenOnlyPatientsAreIncluded(
+            string include,
+            int includesCount)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var patientIds = new[]
+            {
+                $"smart-include-{Guid.NewGuid():N}-a",
+                $"smart-include-{Guid.NewGuid():N}-b",
+            };
+            var groupId = $"smart-include-{Guid.NewGuid():N}-group";
+            var observationIds = new[]
+            {
+                $"smart-include-{Guid.NewGuid():N}-observation-a",
+                $"smart-include-{Guid.NewGuid():N}-observation-b",
+                $"smart-include-{Guid.NewGuid():N}-observation-group",
+            };
+
+            foreach (string patientId in patientIds)
+            {
+                await _smartFixture.UpsertResource(new Patient { Id = patientId });
+            }
+
+            await _smartFixture.UpsertResource(new Group { Id = groupId, Type = Group.GroupType.Person });
+            for (int i = 0; i < observationIds.Length; i++)
+            {
+                string subjectReference = i < patientIds.Length
+                    ? $"Patient/{patientIds[i]}"
+                    : $"Group/{groupId}";
+                await _smartFixture.UpsertResource(new Observation
+                {
+                    Id = observationIds[i],
+                    Status = ObservationStatus.Final,
+                    Subject = new ResourceReference(subjectReference),
+                });
+            }
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Read,
+                "system");
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "system");
+            ConfigureFhirRequestContext(_contextAccessor, new[] { patientScope, observationScope });
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_id", string.Join(",", observationIds)),
+                Tuple.Create("_include", include),
+                Tuple.Create("_includesCount", includesCount.ToString()),
+            };
+
+            var page = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.Equal(includesCount == 1, page.IncludesContinuationToken != null);
+
+            var includedResources = page.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include)
+                .ToList();
+            while (page.IncludesContinuationToken != null)
+            {
+                var continuationQuery = new List<Tuple<string, string>>(query)
+                {
+                    Tuple.Create(
+                        KnownQueryParameterNames.IncludesContinuationToken,
+                        ContinuationTokenEncoder.Encode(page.IncludesContinuationToken)),
+                };
+                page = await _searchService.Value.SearchAsync(
+                    "Observation",
+                    continuationQuery,
+                    CancellationToken.None,
+                    isIncludesOperation: true);
+                includedResources.AddRange(page.Results
+                    .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include));
+            }
+
+            Assert.DoesNotContain(includedResources, result => result.Resource.ResourceTypeName == KnownResourceTypes.Group);
+            Assert.Equal(
+                patientIds.OrderBy(id => id, StringComparer.Ordinal),
+                includedResources
+                    .Where(result => result.Resource.ResourceTypeName == KnownResourceTypes.Patient)
+                    .Select(result => result.Resource.ResourceId)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(id => id, StringComparer.Ordinal));
+        }
+
         [Fact]
         public async Task GivenIncludesContinuationTokenFromOneCompartment_WhenConsumedUnderDifferentCompartment_ThenAuthorizationIsReapplied()
         {
