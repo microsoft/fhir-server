@@ -280,7 +280,8 @@ namespace Microsoft.Health.Fhir.Web
                         };
 
                         builder.AddAttributes(resourceAttributes);
-                    });
+                    })
+                    .WithMetrics(metrics => metrics.AddSqlClientConnectionPoolInstrumentation());
                 services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
                     {
                         options.RecordException = true;

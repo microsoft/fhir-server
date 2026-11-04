@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.ReturnsExtensions;
+using OpenTelemetry.Instrumentation.EventCounters;
 using OpenTelemetry.Trace;
 using Xunit;
 
@@ -242,6 +243,25 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
 
             Assert.DoesNotContain(services, descriptor =>
                 descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("ApplicationInsights", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Theory]
+        [InlineData(TelemetryProviderOpenTelemetryConfigurationValue, DefaultConnectionString, true)]
+        [InlineData(TelemetryProviderOpenTelemetryConfigurationValue, null, false)]
+        [InlineData(TelemetryProviderApplicationInsightsConfigurationValue, DefaultConnectionString, false)]
+        [InlineData(TelemetryProviderNoneConfigurationValue, null, false)]
+        public void GivenAppSettings_WhenAddingTelemetryProvider_ThenSqlClientConnectionPoolMetricsAreEnabledOnlyForOpenTelemetry(
+            string telemetryProvider,
+            string connectionString,
+            bool expectSqlClientMetrics)
+        {
+            IConfiguration configuration = BuildConfiguration(telemetryProvider, null, connectionString);
+            IServiceCollection services = new ServiceCollection();
+            Startup startup = new Startup(configuration);
+            var addTelemetryProviderMethod = startup.GetType().GetMethod(AddTelemetryProviderMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            addTelemetryProviderMethod.Invoke(startup, new object[] { services });
+
+            Assert.Equal(expectSqlClientMetrics, services.Any(descriptor => descriptor.ServiceType == typeof(IConfigureOptions<EventCountersInstrumentationOptions>)));
         }
 
         private IConfiguration BuildConfiguration(string provider, string instrumentationKey, string connectionString)
