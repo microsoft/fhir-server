@@ -36,6 +36,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(typeof(InstantDateStartup<Enabled, Enabled>), true, true)]
         public async Task GivenSyntheticSlots_WhenSearchedOverHttp_ThenFlagVariantsReturnTheExpectedResources(Type startup, bool instant, bool containment)
         {
+            Assert.SkipWhen(
+                !string.IsNullOrEmpty(Environment.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSqlSuffix}")),
+                "This test requires an in-process SQL Server.");
+
             await using var server = new InProcTestFhirServer(DataStore.SqlServer, startup);
             FhirSqlServerConfiguration flags = server.Server.Services.GetRequiredService<FhirSqlServerConfiguration>();
             Assert.Equal(instant, flags.EnableInstantDateTimeRewriter);
