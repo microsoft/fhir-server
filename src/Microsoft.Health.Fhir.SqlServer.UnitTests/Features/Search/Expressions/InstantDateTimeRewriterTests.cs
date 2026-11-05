@@ -182,7 +182,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             }
             else if (scenario == "null-type")
             {
-                element.Type.Returns((ITypeSerializationInfo[])null);
+                ITypeSerializationInfo[] types = null;
+                element.Type.Returns(types);
             }
 
             IStructureDefinitionSummary summary = scenario switch
