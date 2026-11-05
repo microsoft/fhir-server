@@ -242,20 +242,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                     }
                 }
 
-                // A reference the caller searches for is not restricted: it still matches Patient A on any server.
-                ConfigureFhirRequestContext(
-                    _contextAccessor,
-                    new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system") },
-                    applyFineGrainedAccessControlWithSearchParameters: true);
+                // Only scope predicates are restricted. A reference the caller searches for still matches Patient A on
+                // any server, in a SMART request and in a request without SMART scopes.
+                foreach (bool smartRequest in new[] { true, false })
+                {
+                    ConfigureFhirRequestContext(
+                        _contextAccessor,
+                        new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system") },
+                        applyFineGrainedAccessControlWithSearchParameters: true);
+                    _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = smartRequest;
 
-                SearchResult callerResults = await _searchService.Value.SearchAsync(
-                    KnownResourceTypes.Observation,
-                    new List<Tuple<string, string>> { Tuple.Create("subject", $"Patient/{patientA}") },
-                    CancellationToken.None);
+                    SearchResult callerResults = await _searchService.Value.SearchAsync(
+                        KnownResourceTypes.Observation,
+                        new List<Tuple<string, string>> { Tuple.Create("subject", $"Patient/{patientA}") },
+                        CancellationToken.None);
 
-                Assert.Equal(
-                    new[] { localA, externalA, otherServerA }.Order(StringComparer.Ordinal),
-                    callerResults.Results.Select(entry => entry.Resource.ResourceId).Order(StringComparer.Ordinal));
+                    Assert.Equal(
+                        new[] { localA, externalA, otherServerA }.Order(StringComparer.Ordinal),
+                        callerResults.Results.Select(entry => entry.Resource.ResourceId).Order(StringComparer.Ordinal));
+                }
             }
             finally
             {
