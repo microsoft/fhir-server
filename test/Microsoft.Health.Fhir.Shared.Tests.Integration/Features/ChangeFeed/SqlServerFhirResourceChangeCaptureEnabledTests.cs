@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
             var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
-            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper), _fixture.TenantDatabaseResolver)
+            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
                 PeriodSec = 1,
                 LeasePeriodSec = 2,
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
             var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance, null);
-            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper), _fixture.TenantDatabaseResolver)
+            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper))
             {
                 PeriodSec = 1,
                 LeasePeriodSec = 2,
