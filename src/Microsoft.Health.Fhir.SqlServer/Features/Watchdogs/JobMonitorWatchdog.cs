@@ -110,18 +110,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 // TODO: Pass ReturnDefinition = false through the queue client after schema 122 is deployed.
                 var jobs = await _sqlQueueClient.GetActiveJobsByQueueTypeAsync((byte)queueType, returnParentOnly: false, cancellationToken);
-                foreach (var status in new[] { JobStatus.Created, JobStatus.Running })
+                foreach (var group in jobs.GroupBy(job => job.Status.Value))
                 {
-                    // A job can finish between GetActiveJobs selecting its ID and GetJobs reading it.
-                    var matchingJobs = jobs.Where(job => job.Status == status).ToList();
-                    if (matchingJobs.Count > 0)
-                    {
-                        aggregates.Add(new QueueStatusAggregate(
-                            queueType,
-                            status,
-                            matchingJobs.Min(job => job.CreateDate),
-                            matchingJobs.Count));
-                    }
+                    aggregates.Add(new QueueStatusAggregate(queueType, group.Key, group.Min(job => job.CreateDate), group.Count()));
                 }
             }
 
