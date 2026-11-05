@@ -319,13 +319,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string fhirPathExpression,
             EvaluationContext context)
         {
-            // Contain provider compile and evaluation failures for every root and component expression
-            // to preserve write availability; warning telemetry makes any resulting index drift observable.
-            // OperationCanceledException is rethrown unchanged.
+            // Contain provider compile failures (an expression this engine cannot compile) for every root and
+            // component expression, matching the pre-seam indexer; warning telemetry makes the missing index
+            // entries observable. Evaluation failures propagate so the write or reindex job fails and the broken
+            // definition stays visible instead of silently leaving resources unindexed.
+            ICompiledFhirPath expression;
             try
             {
-                ICompiledFhirPath expression = _fhirPathProvider.Compile(fhirPathExpression);
-                return expression.Select(element, context).ToArray();
+                expression = _fhirPathProvider.Compile(fhirPathExpression);
             }
             catch (OperationCanceledException)
             {
@@ -349,6 +350,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 return Array.Empty<ITypedElement>();
             }
+
+            return expression.Select(element, context).ToArray();
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)

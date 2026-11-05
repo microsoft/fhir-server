@@ -96,7 +96,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenFhirPathEvaluationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
+        public async System.Threading.Tasks.Task GivenAnExpressionThatFailsDuringEvaluation_WhenExtracted_ThenTheFailurePropagates()
+        {
+            // Mirrors production custom SearchParameters whose matches() pattern is not a valid regex: the expression
+            // compiles, but evaluating it against a matching resource throws. That must fail the write or reindex job
+            // so the broken definition is visible, rather than silently leaving the resource unindexed.
+            // Ignixa currently evaluates an invalid pattern to empty instead (brendankowitz/ignixa-fhir#519), so this
+            // contract is asserted against the default Firely provider.
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "bad-pattern",
+                    "bad-pattern",
+                    ValueSets.SearchParamType.String,
+                    new Uri("http://example.org/SearchParameter/bad-pattern"),
+                    expression: "Patient.name.where(family.matches('abc['))"),
+            ]);
+            var metricHandler = Substitute.For<IFailureMetricHandler>();
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                await GetTypeConverterAsync(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                new FirelyFhirPathProvider(),
+                Substitute.For<ILogger<TypedElementSearchIndexer>>(),
+                metricHandler);
+            ResourceElement patient = new Patient { Id = "patient-1", Name = [new HumanName { Family = "abc" }] }.ToResourceElement();
+
+            Assert.ThrowsAny<Exception>(() => indexer.Extract(patient));
+            metricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Fact]
+        public void GivenFhirPathCompilationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
         {
             var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             definitions.GetSearchParameters("Patient").Returns(
@@ -108,12 +141,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     new Uri(ResourceName),
                     expression: "Patient.name"),
             ]);
-            var compiledExpression = Substitute.For<ICompiledFhirPath>();
-            compiledExpression
-                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
-                .Returns(_ => throw new NotSupportedException("Unsupported expression."));
             var provider = Substitute.For<IFhirPathProvider>();
-            provider.Compile("Patient.name").Returns(compiledExpression);
+            provider.Compile("Patient.name").Returns(_ => throw new NotSupportedException("Unsupported expression."));
             var metricHandler = Substitute.For<IFailureMetricHandler>();
             var indexer = new TypedElementSearchIndexer(
                 definitions,
@@ -135,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenReferenceTargetFilterEvaluationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
+        public void GivenReferenceTargetFilterCompilationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
         {
             var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             definitions.GetSearchParameters("Patient").Returns(
@@ -148,10 +177,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     expression: "Patient.managingOrganization",
                     targetResourceTypes: ["Organization"]),
             ]);
-            var referenceExpression = Substitute.For<ICompiledFhirPath>();
-            referenceExpression
-                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
-                .Returns(_ => throw new NotSupportedException("Unsupported expression."));
             var resourceReference = Substitute.For<ITypedElement>();
             resourceReference.InstanceType.Returns("ResourceReference");
             var mainExpression = Substitute.For<ICompiledFhirPath>();
@@ -160,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Returns([resourceReference]);
             var provider = Substitute.For<IFhirPathProvider>();
             provider.Compile("Patient.managingOrganization").Returns(mainExpression);
-            provider.Compile("reference").Returns(referenceExpression);
+            provider.Compile("reference").Returns(_ => throw new NotSupportedException("Unsupported expression."));
             var metricHandler = Substitute.For<IFailureMetricHandler>();
             var indexer = new TypedElementSearchIndexer(
                 definitions,
@@ -186,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenCompositeRootFhirPathEvaluationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
+        public void GivenCompositeRootFhirPathCompilationFailure_WhenExtract_ThenFailureIsReportedAsMetric()
         {
             var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             definitions.GetSearchParameters("Patient").Returns(
@@ -199,12 +224,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     components: Array.Empty<SearchParameterComponentInfo>(),
                     expression: "Patient.name"),
             ]);
-            var compiledExpression = Substitute.For<ICompiledFhirPath>();
-            compiledExpression
-                .Select(Arg.Any<ITypedElement>(), Arg.Any<Hl7.FhirPath.EvaluationContext>())
-                .Returns(_ => throw new NotSupportedException("Unsupported expression."));
             var provider = Substitute.For<IFhirPathProvider>();
-            provider.Compile("Patient.name").Returns(compiledExpression);
+            provider.Compile("Patient.name").Returns(_ => throw new NotSupportedException("Unsupported expression."));
             var metricHandler = Substitute.For<IFailureMetricHandler>();
             var indexer = new TypedElementSearchIndexer(
                 definitions,
