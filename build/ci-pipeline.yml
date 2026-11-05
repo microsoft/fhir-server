@@ -164,6 +164,7 @@ stages:
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentNameSql)
+      pinImageDigest: true
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
@@ -221,6 +222,7 @@ stages:
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4Sql)
+      pinImageDigest: true
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
@@ -265,6 +267,7 @@ stages:
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5Sql)
+      pinImageDigest: true
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
@@ -284,6 +287,24 @@ stages:
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
+
+- template: ./stages/resource-id-long-tests.yml
+  parameters:
+    version: Stu3
+    baselineAppName: $(DeploymentEnvironmentNameSql)
+    lifecycle: CI
+
+- template: ./stages/resource-id-long-tests.yml
+  parameters:
+    version: R4
+    baselineAppName: $(DeploymentEnvironmentNameR4Sql)
+    lifecycle: CI
+
+- template: ./stages/resource-id-long-tests.yml
+  parameters:
+    version: R5
+    baselineAppName: $(DeploymentEnvironmentNameR5Sql)
+    lifecycle: CI
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
@@ -314,6 +335,9 @@ stages:
   - testR4Cosmos
   - testR4Sql
   - testR5Sql
+  - testStu3SqlLong128
+  - testR4SqlLong128
+  - testR5SqlLong128
   # Only scale down on success. On failure we leave the apps at min=3 so developers can investigate
   # via the live endpoints and ADO "Rerun failed stages" (which does NOT re-execute scaleUpContainerApps)
   # doesn't hit cold-started apps mid-test.
@@ -333,6 +357,9 @@ stages:
   - testR4Cosmos
   - testR4Sql
   - testR5Sql
+  - testStu3SqlLong128
+  - testR4SqlLong128
+  - testR5SqlLong128
   jobs:
   - template: ./jobs/docker-add-tag.yml
     parameters:

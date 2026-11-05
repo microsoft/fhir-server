@@ -5,6 +5,9 @@ parameters:
   type: string
 - name: appServiceType
   type: string
+- name: resourceIdProfile
+  type: string
+  default: ''
 
 steps:
 - task: AzurePowerShell@5
@@ -104,6 +107,49 @@ steps:
             throw "Container App '$containerAppName' has no environment variables configured."
         }
 
+        if ('${{ parameters.resourceIdProfile }}' -ne '') {
+            . "$(System.DefaultWorkingDirectory)/build/jobs/scripts/ResourceIdProfile.ps1"
+            $expectedImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLowerInvariant())_fhir-server:$(ImageTag)"
+            Assert-ResourceIdApp $containerAppData $expectedImage '${{ parameters.resourceIdProfile }}'
+            if ('${{ parameters.resourceIdProfile }}' -eq 'Long128' -and $containerAppData.Tags.resourceIdProfile -ne 'Long128') {
+                throw 'The focused process must target an owned Long128 app, never the baseline.'
+            }
+            if ('${{ parameters.resourceIdProfile }}' -eq 'Long128') {
+                $baseline = Get-AzResource -ResourceGroupName "$(UniqueResourceGroupName)" -ResourceType 'Microsoft.App/containerApps' -Name $containerAppData.Tags.baselineApp -ApiVersion '2024-03-01' -ExpandProperties -ErrorAction Stop
+                $baseline = $baseline | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+                Assert-ResourceIdApp $baseline $expectedImage Standard64
+                Assert-ResourceIdApp $containerAppData $baseline.Properties.template.containers[0].image Long128
+            }
+            if ($containerAppData.Properties.latestRevisionName -ne $containerAppData.Properties.latestReadyRevisionName -or -not $containerAppData.Properties.latestReadyRevisionName) {
+                throw 'The selected endpoint does not have a ready current revision.'
+            }
+            $audience = Get-ResourceIdEnv $containerAppData 'FhirServer__Security__Authentication__Audience'
+            if ($audience -cne '$(TestApplicationResource)') { throw 'The selected endpoint changed the authentication audience.' }
+            $vaultEndpoint = [uri](Get-ResourceIdEnv $containerAppData 'KeyVault__Endpoint')
+            $connection = Get-AzKeyVaultSecret -VaultName $vaultEndpoint.Host.Split('.')[0] -Name 'SqlServer--ConnectionString' -AsPlainText -ErrorAction Stop
+            $builder = [System.Data.Common.DbConnectionStringBuilder]::new()
+            $builder.set_ConnectionString($connection)
+            if ($builder['Initial Catalog'] -cne 'FHIR${{ parameters.version }}' -or $builder['Server'] -ine 'tcp:$(DeploymentEnvironmentName).database.windows.net,1433') {
+                throw 'The selected endpoint is not routed to the intended shared version database.'
+            }
+            if (@($envSettings | Where-Object name -EQ 'SqlServer__ConnectionString').Count -ne 0) { throw 'An app SQL connection override is not permitted for this profile.' }
+            $connection = $null
+            $builder.Clear()
+            $evidenceDirectory = "$(Agent.TempDirectory)/resource-id-endpoint-${{ parameters.version }}-${{ parameters.resourceIdProfile }}"
+            [void](New-Item $evidenceDirectory -ItemType Directory -Force)
+            $evidence = @{
+                profile = '${{ parameters.resourceIdProfile }}'
+                version = '${{ parameters.version }}'
+                containerAppName = $containerAppName
+                image = $containerAppData.Properties.template.containers[0].image
+                database = 'FHIR${{ parameters.version }}'
+                sqlServer = '$(DeploymentEnvironmentName)'
+                readyRevision = $containerAppData.Properties.latestReadyRevisionName
+                url = "https://$($containerAppData.Properties.configuration.ingress.fqdn)"
+            }
+            [IO.File]::WriteAllText("$evidenceDirectory/endpoint.json", ($evidence | ConvertTo-Json))
+        }
+
         Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
 
         $acrLoginServer = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"
@@ -140,3 +186,10 @@ steps:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+- ${{ if ne(parameters.resourceIdProfile, '') }}:
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish credential-free endpoint evidence'
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/resource-id-endpoint-${{ parameters.version }}-${{ parameters.resourceIdProfile }}'
+      artifactName: 'ResourceIdEndpoint_${{ parameters.version }}_${{ parameters.resourceIdProfile }}'

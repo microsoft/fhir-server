@@ -11,6 +11,13 @@ parameters:
 - name: testRunTitleSuffix
   type: string
   default: ''
+- name: resourceIdProfile
+  type: string
+  default: ''
+  values:
+  - ''
+  - Standard64
+  - Long128
 
 steps:
   - template: e2e-tests-extract.yml
@@ -22,6 +29,7 @@ steps:
       containerAppName: ${{ parameters.containerAppName }}
       version: ${{ parameters.version }}
       appServiceType: ${{ parameters.appServiceType }}
+      resourceIdProfile: ${{ parameters.resourceIdProfile }}
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
@@ -31,6 +39,17 @@ steps:
       script: |
         $ErrorActionPreference = 'Stop'
         $testRoot = "$(Agent.TempDirectory)/E2ETests"
+        $results = Join-Path "$(Agent.TempDirectory)" "testresults-$([guid]::NewGuid().ToString('N'))"
+        [void](New-Item $results -ItemType Directory)
+        $env:platformOptions__resultDirectory = $results
+        Write-Host "##vso[task.setvariable variable=ResourceIdResultsDirectory]$results"
+        $started = [DateTimeOffset]::UtcNow
+        $env:ResourceIdExpectedUrl = $env:TestEnvironmentUrl_${{ parameters.version }}_Sql
+        if ('${{ parameters.resourceIdProfile }}' -ne '') {
+          $env:ResourceIdProfile = '${{ parameters.resourceIdProfile }}'
+        } else {
+          Remove-Item Env:ResourceIdProfile -ErrorAction SilentlyContinue
+        }
         $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E"
         $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
         if (-not $dll) {
@@ -39,7 +58,7 @@ steps:
 
         $categoryPredicates = "${{ parameters.categoryFilter }}".Split('&') | ForEach-Object { "($_)" }
         $query = "/[(DataStore=${{ parameters.appServiceType }})&$($categoryPredicates -join '&')]"
-        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}')
+        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--results-directory', $results, '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -53,6 +72,9 @@ steps:
           }
         }
 
+        if ('${{ parameters.resourceIdProfile }}' -ne '') {
+          & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-ResourceIdResults.ps1" -ResultsDirectory $results -Profile '${{ parameters.resourceIdProfile }}' -StartedUtc $started
+        }
         if ($testExitCode -ne 0) {
           throw "E2E tests failed with exit code $testExitCode"
         }
@@ -96,5 +118,11 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-      platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
 
+  - ${{ if ne(parameters.resourceIdProfile, '') }}:
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish resource ID contract TRX'
+      condition: succeededOrFailed()
+      inputs:
+        pathToPublish: $(ResourceIdResultsDirectory)
+        artifactName: 'ResourceIdResults_${{ parameters.version }}_${{ parameters.resourceIdProfile }}'

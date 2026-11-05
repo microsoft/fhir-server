@@ -280,6 +280,10 @@ $templateParameters = @{
 if ($DataStore -eq 'sql') {
     $templateParameters["sqlServerName"] = $sqlServerName
     $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = $SchemaAutomaticUpdatesEnabled
+    $manifest = Get-AzContainerRegistryManifest -RegistryName $AzureContainerRegistry.Split('.')[0] -RepositoryName "$($Version.ToLowerInvariant())_fhir-server" -Name $ImageTag -ErrorAction Stop
+    $digest = $manifest.Attributes.Digest
+    if ($digest -cnotmatch '^sha256:[a-f0-9]{64}$') { throw 'The SQL build image must resolve to a SHA-256 manifest digest.' }
+    $templateParameters["imageTag"] = "$ImageTag@$digest"
 } else {
     $templateParameters["cosmosDbAccountName"] = $cosmosDbAccountName
 }

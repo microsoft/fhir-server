@@ -9,6 +9,9 @@ parameters:
   type: string
 - name: resourceGroup
   type: string
+- name: pinImageDigest
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionEnvironment
@@ -27,6 +30,11 @@ jobs:
         $containerAppName = "${{ parameters.webAppName }}".ToLower()
         $rgName = "${{ parameters.resourceGroup }}"
         $newImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}"
+        if ('${{ parameters.pinImageDigest }}' -eq 'True') {
+          $digest = az acr repository show --name "$(azureContainerRegistryName)" --image "$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}" --query digest --output tsv --only-show-errors
+          if ($LASTEXITCODE -ne 0 -or $digest -cnotmatch '^sha256:[a-f0-9]{64}$') { throw 'The SQL build image must resolve to a SHA-256 manifest digest.' }
+          $newImage = "$newImage@$digest"
+        }
         $appInsightsName = "AppInsights-$containerAppName"
 
         $currentImage = az containerapp show `
