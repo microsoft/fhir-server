@@ -1147,6 +1147,41 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         }
 
         [Fact]
+        public async Task GivenIncrementalImportWithCollidingUriSearchValues_WhenImportData_ThenOnlyThatResourceIsReportedAsAnError()
+        {
+            // Two different profiles of one resource that share the first 256 characters can't be told apart by the SQL index.
+            string prefix = "https://example.org/fhir/StructureDefinition/" + new string('b', 211);
+            string tag = Guid.NewGuid().ToString("N");
+            string Line(string id, params string[] profiles) =>
+                $"{{\"resourceType\":\"Patient\",\"id\":\"{id}\",\"meta\":{{\"profile\":[{string.Join(",", profiles.Select(p => $"\"{p}\""))}],\"tag\":[{{\"code\":\"{tag}\"}}]}}}}";
+            string ndJson = string.Join("\r\n", Line($"{tag}-1", prefix + "a"), Line($"{tag}-2", prefix + "first", prefix + "second"), Line($"{tag}-3", prefix + "c")) + "\r\n";
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>() { new InputResource() { Url = location, Etag = etag, Type = "Patient" } },
+                Mode = ImportMode.IncrementalLoad.ToString(),
+            };
+
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+
+            HttpResponseMessage response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
+            Assert.Equal(2, result.Output.Sum(o => o.Count));
+            Assert.Single(result.Error);
+
+            string errorContent = await ImportTestHelper.DownloadFileAsync(result.Error.Single().Url, _fixture.StorageAccount);
+            Assert.Contains($"resource with more than one value for the URI search parameter '_profile' that are identical in their first 256 characters, resource id: {tag}-2", errorContent);
+
+            Bundle imported = await _client.SearchAsync(ResourceType.Patient, $"_tag={tag}");
+            Assert.Equal(new[] { $"{tag}-1", $"{tag}-3" }, imported.Entry.Select(e => e.Resource.Id).OrderBy(id => id).ToArray());
+        }
+
+        [Fact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {

@@ -288,6 +288,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 prevResourceKey = resource.ToResourceKey(true);
+
+                // The URI search index compares only the first IndexedUriMaxLength characters, so two different values of the
+                // same search parameter that share them can't be stored for one resource. Reject the resource with 400.
+                string collidingSearchParameter = resource.IsDeleted ? null : UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource);
+                if (collidingSearchParameter != null)
+                {
+                    _logger.LogWarning("BadRequest: CollidingUriSearchValues. ResourceType={ResourceType}, SearchParameter={SearchParameter}", resource.ResourceTypeName, collidingSearchParameter);
+                    results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(CultureInfo.InvariantCulture, Resources.CollidingUriSearchValues, collidingSearchParameter, UriSearchParamListRowGenerator.IndexedUriMaxLength))));
+                    continue;
+                }
+
                 var weakETag = resourceExt.WeakETag;
                 int? eTag = weakETag == null
                     ? null
@@ -531,6 +542,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return (new List<string>(), 0);
             }
 
+            // Resources whose URI search values can't be told apart by the index are reported as errors and not imported.
+            var collidingUriErrors = new List<string>();
+            var importable = new List<ImportResource>(resources.Count);
+            foreach (ImportResource resource in resources)
+            {
+                string collidingSearchParameter = resource.ResourceWrapper.IsDeleted ? null : UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource.ResourceWrapper);
+                if (collidingSearchParameter == null)
+                {
+                    importable.Add(resource);
+                    continue;
+                }
+
+                collidingUriErrors.Add(_importErrorSerializer.Serialize(
+                    resource.Index,
+                    string.Format(CultureInfo.InvariantCulture, Resources.FailedToImportCollidingUriSearchValues, collidingSearchParameter, UriSearchParamListRowGenerator.IndexedUriMaxLength, resource.ResourceWrapper.ResourceId, resource.Index),
+                    resource.Offset));
+            }
+
+            if (collidingUriErrors.Count > 0)
+            {
+                _logger.LogWarning("Import rejected {Count} resource(s) with URI search values that are identical in their first {IndexedLength} characters.", collidingUriErrors.Count, UriSearchParamListRowGenerator.IndexedUriMaxLength);
+                resources = importable;
+                if (resources.Count == 0)
+                {
+                    return (collidingUriErrors, 0);
+                }
+            }
+
             long? databaseMilliseconds = 0;
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
             var maxRetries = GetMaxRetries(resources, importMode);
@@ -570,7 +609,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var dups = resources.Except(results.Loaded).Except(results.Conflicts)?.ToList();
 
-            return (GetErrors(dups, results.Conflicts), databaseMilliseconds);
+            return (collidingUriErrors.Concat(GetErrors(dups, results.Conflicts)).ToList(), databaseMilliseconds);
 
             int GetMaxRetries(IReadOnlyList<ImportResource> resources, ImportMode importMode)
             {

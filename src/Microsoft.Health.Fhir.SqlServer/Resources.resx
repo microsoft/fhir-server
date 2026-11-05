@@ -179,4 +179,12 @@
   <data name="ResourceConcurrentUpdateConflict" xml:space="preserve">
     <value>One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates.</value>
   </data>
+  <data name="CollidingUriSearchValues" xml:space="preserve">
+    <value>The resource has more than one value for the URI search parameter '{0}' that are identical in their first {1} characters. URI search values are compared using only their first {1} characters, so values of the same search parameter must differ within the first {1} characters.</value>
+    <comment>{0} is the search parameter code. {1} is the number of URI characters the data store compares.</comment>
+  </data>
+  <data name="FailedToImportCollidingUriSearchValues" xml:space="preserve">
+    <value>Failed to import resource with more than one value for the URI search parameter '{0}' that are identical in their first {1} characters, resource id: {2}, line: {3}</value>
+    <comment>{0} is the search parameter code. {1} is the number of URI characters the data store compares. {2} is the resource id. {3} is the line number.</comment>
+  </data>
 </root>

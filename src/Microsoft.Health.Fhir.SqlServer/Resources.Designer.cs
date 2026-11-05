@@ -61,6 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource has more than one value for the URI search parameter &apos;{0}&apos; that are identical in their first {1} characters. URI search values are compared using only their first {1} characters, so values of the same search parameter must differ within the first {1} characters..
+        /// </summary>
+        internal static string CollidingUriSearchValues {
+            get {
+                return ResourceManager.GetString("CollidingUriSearchValues", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
         /// </summary>
         internal static string CyclicIncludeIterateNotSupported {
@@ -84,6 +93,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string ExecutionTimeoutExpired {
             get {
                 return ResourceManager.GetString("ExecutionTimeoutExpired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to import resource with more than one value for the URI search parameter &apos;{0}&apos; that are identical in their first {1} characters, resource id: {2}, line: {3}.
+        /// </summary>
+        internal static string FailedToImportCollidingUriSearchValues {
+            get {
+                return ResourceManager.GetString("FailedToImportCollidingUriSearchValues", resourceCulture);
             }
         }
         

@@ -35,6 +35,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     {
         private const string LongUriWarning = "The value of URI search parameter(s) '_profile' is 256 characters or longer. Only the first 256 characters of URI values are compared, so the results can include resources whose URI only shares those characters with the requested value.";
 
+        private const string CollidingUriError = "The resource has more than one value for the URI search parameter '_profile' that are identical in their first 256 characters. URI search values are compared using only their first 256 characters, so values of the same search parameter must differ within the first 256 characters.";
+
         public UriLengthSearchTests(UriLengthSearchTestFixture fixture)
             : base(fixture)
         {
@@ -70,27 +72,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAResourceWithTwoUrisThatShareTheIndexedPrefix_WhenCreated_ThenItIsSavedAndFoundByEitherUri()
+        public async Task GivenAResourceWithTwoUrisThatShareTheIndexedPrefix_WhenCreated_ThenBadRequestIsReturned()
         {
             // A separate tag keeps this resource out of the other tests, which use URIs with the same indexed prefix.
             string tag = Guid.NewGuid().ToString();
-            string first = Fixture.SharedPrefix + "first";
-            string second = Fixture.SharedPrefix + "second";
             var patient = new Patient();
-            Fixture.SetTagAndProfiles(patient, tag, first, second);
+            Fixture.SetTagAndProfiles(patient, tag, Fixture.SharedPrefix + "first", Fixture.SharedPrefix + "second");
 
-            using FhirResponse<Patient> created = await Client.CreateAsync(patient);
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(patient));
 
-            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-            Assert.Equal(new[] { first, second }, created.Resource.Meta.Profile);
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.Contains(ex.OperationOutcome.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Error && i.Diagnostics == CollidingUriError);
 
-            foreach (string profile in new[] { first, second })
+            Bundle stored = await Client.SearchAsync(ResourceType.Patient, $"_tag={tag}");
+            Assert.DoesNotContain(stored.Entry, e => e.Resource is Patient);
+        }
+
+        [Fact]
+        public async Task GivenABatchWithAResourceWithTwoUrisThatShareTheIndexedPrefix_WhenPosted_ThenOnlyThatEntryFails()
+        {
+            string tag = Guid.NewGuid().ToString();
+            var valid = new Patient();
+            Fixture.SetTagAndProfiles(valid, tag, Fixture.SharedPrefix + "valid");
+            var colliding = new Patient();
+            Fixture.SetTagAndProfiles(colliding, tag, Fixture.SharedPrefix + "first", Fixture.SharedPrefix + "second");
+            var batch = new Bundle
             {
-                Bundle bundle = await SearchByProfileAsync(profile, tag);
+                Type = Bundle.BundleType.Batch,
+                Entry = new List<Bundle.EntryComponent>
+                {
+                    new() { Resource = valid, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.POST, Url = "Patient" } },
+                    new() { Resource = colliding, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.POST, Url = "Patient" } },
+                },
+            };
 
-                AssertPatients(bundle, created.Resource);
-                AssertLongUriWarning(bundle);
-            }
+            using FhirResponse<Bundle> response = await Client.PostBundleAsync(batch);
+
+            Assert.StartsWith("201", response.Resource.Entry[0].Response.Status, StringComparison.Ordinal);
+            Assert.StartsWith("400", response.Resource.Entry[1].Response.Status, StringComparison.Ordinal);
+            var outcome = Assert.IsType<OperationOutcome>(response.Resource.Entry[1].Response.Outcome);
+            Assert.Contains(outcome.Issue, i => i.Diagnostics == CollidingUriError);
         }
 
         [Fact]

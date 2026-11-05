@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -32,6 +33,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         public UriSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap, RowComparer)
         {
+        }
+
+        /// <summary>
+        /// Finds a URI search parameter for which the resource has two different values that are identical in their first
+        /// <see cref="IndexedUriMaxLength"/> characters. The index can't tell such values apart, so the resource must be rejected.
+        /// Only values of at least <see cref="IndexedUriMaxLength"/> characters can collide.
+        /// </summary>
+        /// <param name="resource">The resource being written.</param>
+        /// <returns>The code of the first colliding search parameter, or <c>null</c> if there is none.</returns>
+        internal static string FindCollidingUriSearchParameter(ResourceWrapper resource)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            if (resource.SearchIndices == null)
+            {
+                return null;
+            }
+
+            Dictionary<(Uri SearchParameter, string IndexedValue), string> seen = null;
+            foreach (SearchIndexEntry entry in resource.SearchIndices)
+            {
+                if (entry.Value is not UriSearchValue uriValue || uriValue.Uri.Length < IndexedUriMaxLength)
+                {
+                    continue;
+                }
+
+                seen ??= new Dictionary<(Uri, string), string>();
+                var key = (entry.SearchParameter.Url, uriValue.Uri[..IndexedUriMaxLength]);
+                if (!seen.TryGetValue(key, out string firstValue))
+                {
+                    seen[key] = uriValue.Uri;
+                }
+                else if (!string.Equals(firstValue, uriValue.Uri, StringComparison.Ordinal))
+                {
+                    return entry.SearchParameter.Code ?? entry.SearchParameter.Url?.ToString();
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -91,8 +131,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, UriSearchValue searchValue, HashSet<UriSearchParamListRow> results, out UriSearchParamListRow row)
         {
-            // Truncate explicitly to what the column stores, so that values differing only past the indexed
-            // length are de-duplicated here instead of colliding on the table type's primary key in SQL.
+            // Truncate explicitly to what the column stores, so that values differing only past the indexed length are
+            // de-duplicated here instead of colliding on the table type's primary key in SQL. New writes with such values
+            // are rejected (see FindCollidingUriSearchParameter); this keeps reindexing of already stored resources working.
             string uri = searchValue.Uri.Length > IndexedUriMaxLength ? searchValue.Uri[..IndexedUriMaxLength] : searchValue.Uri;
 
             row = new UriSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, uri);

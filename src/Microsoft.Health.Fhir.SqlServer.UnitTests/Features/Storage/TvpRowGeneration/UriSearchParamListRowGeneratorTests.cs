@@ -52,6 +52,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             searchParamType: SearchParamType.Uri,
             url: new Uri("http://hl7.org/fhir/SearchParameter/CarePlan-instantiates-uri"));
 
+        public static TheoryData<string, string, string> CollidingValues => new TheoryData<string, string, string>
+        {
+            // Two different values that share the first 256 characters.
+            { CreateUri(270, "allow"), CreateUri(270, "private"), "instantiates-uri" },
+
+            // A value of exactly 256 characters and a longer value that starts with it.
+            { new string('x', 256), new string('x', 256) + "more", "instantiates-uri" },
+
+            // The same value twice is a duplicate, not a collision.
+            { CreateUri(270, "same"), CreateUri(270, "same"), null },
+
+            // Values that differ within the first 256 characters.
+            { "https://a.example/" + new string('b', 300), "https://b.example/" + new string('b', 300), null },
+
+            // Short values are compared in full.
+            { CreateUri(255, "a"), CreateUri(255, "b"), null },
+        };
+
         [Fact]
         public void GivenTheIndexedLength_WhenReadFromTheSchema_ThenItMatchesTheColumn()
         {
@@ -155,6 +173,38 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
 
             // Assert
             Assert.Empty(logger.Entries);
+        }
+
+        [Theory]
+        [MemberData(nameof(CollidingValues))]
+        public void GivenTwoValuesOfOneSearchParameter_WhenCheckingForCollisions_ThenOnlyValuesSharingTheIndexedPrefixCollide(string first, string second, string expected)
+        {
+            // Arrange
+            ResourceWrapper resource = Wrap(
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(first, false)),
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(second, false)))[0].ResourceWrapper;
+
+            // Act
+            string result = UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void GivenValuesSharingTheIndexedPrefixInDifferentSearchParameters_WhenCheckingForCollisions_ThenNoneIsFound()
+        {
+            // Arrange
+            var profile = new SearchParameterInfo("_profile", "_profile", SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/Resource-profile"));
+            ResourceWrapper resource = Wrap(
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "allow"), false)),
+                new SearchIndexEntry(profile, new UriSearchValue(CreateUri(270, "private"), false)))[0].ResourceWrapper;
+
+            // Act
+            string result = UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource);
+
+            // Assert
+            Assert.Null(result);
         }
 
         private static string CreateUri(int length, string suffix)
