@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using EnsureThat;
@@ -35,6 +36,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
         internal const string ContentSecurityPolicy = "Content-Security-Policy";
         private const string ContentSecurityPolicyValue = "frame-src 'self';";
 
+        private static readonly HashSet<string> ServiceAuthenticationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "/connect/token",
+            "/connect/introspect",
+            "/.well-known/openid-configuration",
+            "/.well-known/oauth-authorization-server",
+            "/.well-known/jwks",
+            "/" + KnownRoutes.WellKnownSmartConfiguration,
+            "/AadSmartOnFhirProxy/authorize",
+            "/AadSmartOnFhirProxy/token",
+        };
+
         public FhirRequestContextMiddleware(
             RequestDelegate next,
             ILogger<FhirRequestContextMiddleware> logger,
@@ -60,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             TenantInfo tenant = null;
             bool tenantRequired = false;
 
-            if (_tenantManager.Tenants.Count > 0)
+            if (_tenantManager.Tenants.Count > 0 && !IsServiceAuthenticationEndpoint(request.Path))
             {
                 bool isHealthCheck = request.Path.Equals(new PathString(KnownRoutes.HealthCheck), StringComparison.OrdinalIgnoreCase);
                 string firstSegment = request.Path.Value?.Split('/', 3).ElementAtOrDefault(1);
@@ -90,6 +103,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.Path = originalPath;
                 request.PathBase = originalPathBase;
             }
+        }
+
+        private static bool IsServiceAuthenticationEndpoint(PathString path)
+        {
+            string value = path.Value?.TrimEnd('/');
+            if (ServiceAuthenticationPaths.Contains(value))
+            {
+                return true;
+            }
+
+            const string callbackPrefix = "/AadSmartOnFhirProxy/callback/";
+            return value != null
+                && value.StartsWith(callbackPrefix, StringComparison.OrdinalIgnoreCase)
+                && value.Length > callbackPrefix.Length
+                && value.IndexOf('/', callbackPrefix.Length) < 0;
         }
 
         private async Task InvokeRequestAsync(
