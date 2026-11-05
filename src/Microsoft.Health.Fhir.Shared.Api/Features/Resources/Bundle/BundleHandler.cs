@@ -201,6 +201,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
+            // Validate request-wide policy before processing entries so an invalid header cannot partially apply a batch.
+            _ = _outerHttpContext.GetConditionalUpdateNoMatchBehavior();
+
             // In scenarios where access checks involve a remote service call, it is advantageous
             // to perform one single access check for all necessary permissions rather than one per operation.
             // Two potential TODOs:
@@ -738,6 +741,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var preferValue))
             {
                 AddHeaderIfNeeded(KnownHeaders.Prefer, preferValue, httpContext);
+            }
+
+            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.ConditionalUpdateNoMatch, out var conditionalUpdateNoMatchValue))
+            {
+                AddHeaderIfNeeded(KnownHeaders.ConditionalUpdateNoMatch, conditionalUpdateNoMatchValue, httpContext);
             }
 
             long resourceSizeInBytes = 0;
