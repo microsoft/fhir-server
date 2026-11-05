@@ -37,7 +37,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGeneration
 {
     /// <summary>
-    /// Tests for URI values longer than the URI search index column (MSRC 165443).
+    /// Tests for URI values longer than the URI search index column.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]

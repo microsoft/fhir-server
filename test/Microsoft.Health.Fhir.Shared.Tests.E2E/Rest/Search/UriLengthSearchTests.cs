@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Http;
 using System.Web;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
@@ -25,13 +26,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     /// <summary>
     /// SQL Server indexes only the first 256 characters of URI search values. These tests pin the documented
     /// behavior: such values are accepted, searches on them return a warning, and values that share the
-    /// indexed prefix match each other (MSRC 165443).
+    /// indexed prefix match each other.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class UriLengthSearchTests : SearchTestsBase<UriLengthSearchTestFixture>
     {
+        private const string LongUriWarning = "The value of URI search parameter(s) '_profile' is 256 characters or longer. Only the first 256 characters of URI values are compared, so the results can include resources whose URI only shares those characters with the requested value.";
+
         public UriLengthSearchTests(UriLengthSearchTestFixture fixture)
             : base(fixture)
         {
@@ -109,10 +112,77 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             using HttpResponseMessage response = await Fixture.HttpClient.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-            await Client.WaitForBulkJobStatus("Bulk delete", response.Content.Headers.ContentLocation);
+            using FhirResponse<Parameters> status = await Client.WaitForBulkJobStatus("Bulk delete", response.Content.Headers.ContentLocation);
+
+            var issues = (OperationOutcome)status.Resource.Parameter.Single(p => p.Name == "Issues").Resource;
+            Assert.Contains(issues.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Information && i.Code == OperationOutcome.IssueType.Informational && i.Diagnostics == LongUriWarning);
 
             Bundle remaining = await Client.SearchAsync(ResourceType.Patient, $"_tag={tag}");
             Assert.DoesNotContain(remaining.Entry, e => e.Resource is Patient);
+        }
+
+        [Fact]
+        public async Task GivenAConditionalCreateWithALongUriAndPreferOperationOutcome_WhenCreated_ThenTheOperationOutcomeContainsTheWarning()
+        {
+            string tag = Guid.NewGuid().ToString();
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, tag);
+            var headers = new Dictionary<string, string> { { KnownHeaders.Prefer, "return=OperationOutcome" } };
+
+            using FhirResponse<Resource> response = await Client.CreateAsync<Resource>(
+                resource: patient,
+                conditionalCreateCriteria: $"_profile={HttpUtility.UrlEncode(Fixture.AllowProfile)}&_tag={tag}",
+                additionalHeaders: headers);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var outcome = Assert.IsType<OperationOutcome>(response.Resource);
+            Assert.Contains(outcome.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Information);
+            Assert.Contains(outcome.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Warning && i.Diagnostics == LongUriWarning);
+        }
+
+        [Fact]
+        public async Task GivenABatchWithALongUriSearchAndConditionalCreate_WhenPosted_ThenEachEntryCarriesTheWarning()
+        {
+            string tag = Guid.NewGuid().ToString();
+            string encodedProfile = HttpUtility.UrlEncode(Fixture.AllowProfile);
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, tag);
+            var batch = new Bundle
+            {
+                Type = Bundle.BundleType.Batch,
+                Entry = new List<Bundle.EntryComponent>
+                {
+                    new()
+                    {
+                        Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.GET, Url = $"Patient?_profile={encodedProfile}&_tag={Fixture.FixtureTag}" },
+                    },
+                    new()
+                    {
+                        Resource = patient,
+                        Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.POST, Url = "Patient", IfNoneExist = $"_profile={encodedProfile}&_tag={tag}" },
+                    },
+                },
+            };
+
+            // The Prefer header is passed on to each entry, so the conditional create returns an OperationOutcome in response.outcome.
+            using var request = new HttpRequestMessage(HttpMethod.Post, Fixture.HttpClient.BaseAddress)
+            {
+                Content = new StringContent(batch.ToJson(), System.Text.Encoding.UTF8, "application/fhir+json"),
+            };
+            request.Headers.Add(KnownHeaders.Prefer, "return=OperationOutcome");
+
+            using HttpResponseMessage response = await Fixture.HttpClient.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Bundle result = new FhirJsonParser().Parse<Bundle>(await response.Content.ReadAsStringAsync());
+
+            var searchResult = Assert.IsType<Bundle>(result.Entry[0].Resource);
+            AssertPatients(searchResult, Fixture.AllowPatient, Fixture.PrivatePatient);
+            AssertLongUriWarning(searchResult);
+
+            Assert.StartsWith("201", result.Entry[1].Response.Status, StringComparison.Ordinal);
+            var createOutcome = Assert.IsType<OperationOutcome>(result.Entry[1].Response.Outcome);
+            Assert.Contains(createOutcome.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Warning && i.Diagnostics == LongUriWarning);
         }
 
         private async System.Threading.Tasks.Task<Bundle> SearchByProfileAsync(string profile, string tag = null)
@@ -133,9 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Assert.Equal(OperationOutcome.IssueSeverity.Warning, issue.Severity);
             Assert.Equal(OperationOutcome.IssueType.Informational, issue.Code);
-            Assert.Equal(
-                "The value of URI search parameter(s) '_profile' is 256 characters or longer. Only the first 256 characters of URI values are compared, so the results can include resources whose URI only shares those characters with the requested value.",
-                issue.Diagnostics);
+            Assert.Equal(LongUriWarning, issue.Diagnostics);
         }
     }
 }

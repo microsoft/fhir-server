@@ -19,7 +19,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 {
     /// <summary>
-    /// Tests for the warning returned when a URI search value is too long for the URI search index (MSRC 165443).
+    /// Tests for the warning returned when a URI search value is too long for the URI search index.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]

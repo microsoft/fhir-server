@@ -271,12 +271,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _contextAccessor.RequestContext.BundleIssues.Add(LongUriSearchValueIssue.Create(new[] { "_profile" }, 256));
-            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(
-                new List<JobInfo>
+            OperationOutcomeIssue warning = LongUriSearchValueIssue.Create(new[] { "_profile" }, 256);
+            _contextAccessor.RequestContext.BundleIssues.Add(warning);
+            BulkUpdateDefinition enqueued = null;
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                enqueued = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
+                return new List<JobInfo>
                 {
                     new() { Id = 1 },
-                });
+                };
+            });
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, GenerateParameters("replace"), false);
 
@@ -284,6 +289,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             Assert.Equal(1, response.Id);
             await _queueClient.Received(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>());
+            Assert.Equal(new[] { warning.Diagnostics }, enqueued.SearchWarnings);
         }
 
         [Theory]

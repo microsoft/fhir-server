@@ -43,6 +43,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -235,7 +236,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 true,
                 _urlResolver,
                 preferHeader,
-                message);
+                message,
+                _fhirRequestContextAccessor.RequestContext?.BundleIssues.Where(LongUriSearchValueIssue.IsMatch));
         }
 
         /// <summary>

@@ -234,6 +234,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."));
             }
 
+            // Warnings saved when the job was submitted are added last so they don't affect the status logic above.
+            JobInfo orchestratorJob = jobs.FirstOrDefault(job => job.GetJobTypeId() == (int)JobType.BulkUpdateOrchestrator);
+            foreach (string warning in orchestratorJob?.DeserializeDefinition<BulkUpdateDefinition>().SearchWarnings ?? Enumerable.Empty<string>())
+            {
+                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, diagnostics: warning));
+            }
+
             return new GetBulkUpdateResponse(fhirResults, issues, statusCode);
         }
 

@@ -183,12 +183,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete | DataActions.Read);
             _contextAccessor.RequestContext.BundleIssues.Clear();
-            _contextAccessor.RequestContext.BundleIssues.Add(LongUriSearchValueIssue.Create(new[] { "_profile" }, 256));
-            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(
-                new List<JobInfo>
+            OperationOutcomeIssue warning = LongUriSearchValueIssue.Create(new[] { "_profile" }, 256);
+            _contextAccessor.RequestContext.BundleIssues.Add(warning);
+            BulkDeleteDefinition enqueued = null;
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                enqueued = JsonConvert.DeserializeObject<BulkDeleteDefinition>(args.ArgAt<string[]>(1)[0]);
+                return new List<JobInfo>
                 {
                     new JobInfo() { Id = 1 },
-                });
+                };
+            });
 
             var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null, false);
 
@@ -196,6 +201,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             Assert.Equal(1, response.Id);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            Assert.Equal(new[] { warning.Diagnostics }, enqueued.SearchWarnings);
         }
 
         [Fact]

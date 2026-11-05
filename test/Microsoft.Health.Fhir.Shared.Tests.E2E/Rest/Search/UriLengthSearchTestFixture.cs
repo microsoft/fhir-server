@@ -12,7 +12,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     /// <summary>
-    /// Creates resources whose URI search values are longer than the 256 characters that SQL Server indexes (MSRC 165443).
+    /// Creates resources whose URI search values are longer than the 256 characters that SQL Server indexes.
     /// </summary>
     public class UriLengthSearchTestFixture : HttpIntegrationTestFixture
     {

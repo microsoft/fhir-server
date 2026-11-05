@@ -76,7 +76,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             // Should not run bulk delete if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
-            if (_contextAccessor.RequestContext?.BundleIssues?.Any(LongUriSearchValueIssue.IsMatch) == true)
+            List<string> searchWarnings = _contextAccessor.RequestContext?.BundleIssues?.Where(LongUriSearchValueIssue.IsMatch).Select(i => i.Diagnostics).ToList();
+            if (searchWarnings?.Count > 0)
             {
                 // Not an invalid parameter: the URI is valid but only partially compared, so the job may delete more resources than intended.
                 _logger.LogWarning("Bulk delete filter uses URI values that are only partially compared, so it can match more resources than intended. ResourceType={ResourceType}", request.ResourceType);
@@ -99,7 +100,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 _contextAccessor.RequestContext.CorrelationId,
                 versionType: request.IncludeSoftDeleted ? ResourceVersionType.SoftDeleted : ResourceVersionType.Latest,
                 removeReferences: request.RemoveReferences,
-                allowProfileResourceModification: allowProfileResourceModification);
+                allowProfileResourceModification: allowProfileResourceModification,
+                searchWarnings: searchWarnings);
 
             IReadOnlyList<JobInfo> jobInfo =
                 await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);
