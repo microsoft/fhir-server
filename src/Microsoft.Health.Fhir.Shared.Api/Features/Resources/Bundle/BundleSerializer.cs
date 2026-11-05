@@ -108,11 +108,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             throw new ArgumentException("BundleSerializer can only be used when all Entry elements are of type RawBundleEntryComponent.", nameof(bundle));
                         }
 
-                        // Let the SDK handle backbone/primitive metadata without materializing the resource.
-                        string searchJson = rawBundleEntry.Search == null ? null : await _fhirJsonSerializer.SerializeToStringAsync(rawBundleEntry.Search);
+                        // Ordinary results carry only a plain mode, written directly as before so non-semantic responses keep their bytes and cost.
+                        // Other metadata, such as a semantic score, is serialized by the SDK without materializing the resource.
+                        Hl7.Fhir.Model.Bundle.SearchComponent search = rawBundleEntry.Search;
+                        bool plainModeOnly = HasOnlyPlainMode(search);
+                        string searchJson = search == null || plainModeOnly ? null : await _fhirJsonSerializer.SerializeToStringAsync(search);
 
                         // The SDK omits empty search components when serializing a bundle.
-                        bool hasSearch = searchJson != null && searchJson != "{}";
+                        bool hasSearch = plainModeOnly || (searchJson != null && searchJson != "{}");
                         bool wroteFullUrl = false;
                         writer.WriteStartObject();
 
@@ -138,7 +141,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             await streamWriter.FlushAsync();
                         }
 
-                        if (hasSearch)
+                        if (plainModeOnly)
+                        {
+                            writer.WriteStartObject("search");
+                            writer.WriteString("mode", search.Mode.Value.GetLiteral());
+                            writer.WriteEndObject();
+                        }
+                        else if (hasSearch)
                         {
                             writer.WritePropertyName("search");
                             writer.WriteRawValue(searchJson, skipInputValidation: true);
@@ -171,6 +180,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     writer.WriteEndArray();
                 }
             }
+        }
+
+        private static bool HasOnlyPlainMode(Hl7.Fhir.Model.Bundle.SearchComponent search)
+        {
+            return search?.ModeElement?.Value != null &&
+                search.ModeElement.ElementId == null &&
+                !search.ModeElement.Extension.Any() &&
+                search.ScoreElement == null &&
+                search.ElementId == null &&
+                !search.Extension.Any() &&
+                !search.ModifierExtension.Any();
         }
     }
 }

@@ -586,13 +586,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenInFlightHeartbeatSqlFailure_WhenMerging_ThenOnlyRequestedShutdownIsSilent(bool failDuringShutdown)
+        public async Task GivenHeartbeatSqlFailure_WhenMerging_ThenMergeCompletesAndOnlyUnrequestedFailuresAreLogged(bool failDuringShutdown)
         {
             // Arrange
             var sqlRetryService = Substitute.For<ISqlRetryService>();
-            var heartbeatStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var logger = new RecordingLogger<SqlServerFhirDataStore>();
+            var heartbeatFailed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var heartbeatStopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            SqlException heartbeatException = SqlExceptionFactory.GetSqlException(0, "Operation cancelled by user.");
+            SqlException heartbeatException = SqlExceptionFactory.GetSqlException(-2, "Execution Timeout Expired.");
             CancellationToken mergeToken = default;
             bool mergeCompleted = false;
 
@@ -629,9 +630,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                         case "dbo.MergeResourcesPutTransactionHeartbeat":
                             using (cancellationToken.Register(() => heartbeatStopped.TrySetResult()))
                             {
-                                heartbeatStarted.TrySetResult();
                                 if (failDuringShutdown)
                                 {
+                                    heartbeatFailed.TrySetResult();
                                     await heartbeatStopped.Task;
                                 }
 
@@ -640,19 +641,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
                         case "dbo.MergeResources":
                             mergeToken = cancellationToken;
-                            await heartbeatStarted.Task.WaitAsync(TimeSpan.FromSeconds(20));
-                            if (!failDuringShutdown)
-                            {
-                                await Task.Delay(Timeout.Infinite, cancellationToken);
-                            }
 
+                            // Production heartbeats time out under SQL pressure while the merge itself succeeds.
+                            await (failDuringShutdown ? heartbeatFailed.Task : logger.WarningLogged.Task).WaitAsync(TimeSpan.FromSeconds(20));
                             mergeCompleted = true;
                             break;
                         default:
                             throw new InvalidOperationException($"Unexpected SQL command: {command.CommandText}");
                     }
                 });
-            SqlServerFhirDataStore dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+            SqlServerFhirDataStore dataStore = CreateSqlServerFhirDataStore(sqlRetryService, logger: logger);
             typeof(SqlServerFhirModel)
                 .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
                 .SetValue(GetModel(dataStore), new Dictionary<Uri, short>
@@ -664,133 +662,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var operation = new ResourceWrapperOperation(resource, true, false, null, false, false, null);
 
             // Act
-            Task<MergeOutcome> merge = dataStore.MergeAsync(new[] { operation }, MergeOptions.Default, CancellationToken.None);
+            MergeOutcome outcome = await dataStore.MergeAsync(new[] { operation }, MergeOptions.Default, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30));
 
-            // Assert
+            // Assert - a heartbeat is best effort: its failure never fails or cancels the write.
+            Assert.Equal(MergeOutcomeFinalState.Completed, outcome.State);
+            Assert.True(Assert.Single(outcome.Results).Value.IsOperationSuccessful);
+            Assert.True(mergeCompleted);
+            Assert.False(mergeToken.IsCancellationRequested);
+
             if (failDuringShutdown)
             {
-                MergeOutcome outcome = await merge.WaitAsync(TimeSpan.FromSeconds(30));
-                Assert.Equal(MergeOutcomeFinalState.Completed, outcome.State);
-                Assert.True(Assert.Single(outcome.Results).Value.IsOperationSuccessful);
-                Assert.True(mergeCompleted);
                 Assert.True(heartbeatStopped.Task.IsCompleted);
-                Assert.False(mergeToken.IsCancellationRequested);
+                Assert.Empty(logger.Warnings);
             }
             else
             {
-                SqlException actual = await Assert.ThrowsAsync<SqlException>(() => merge.WaitAsync(TimeSpan.FromSeconds(30)));
-                Assert.Same(heartbeatException, actual);
-                Assert.False(mergeCompleted);
-                Assert.True(mergeToken.IsCancellationRequested);
+                (Exception exception, string message) = Assert.Single(logger.Warnings);
+                Assert.Same(heartbeatException, exception);
+                Assert.Equal("Error from SQL database on MergeResourcesPutTransactionHeartbeatAsync", message);
             }
-        }
-
-        [Theory]
-        [InlineData(false, false)]
-        [InlineData(false, true)]
-        [InlineData(true, false)]
-        [InlineData(true, true)]
-        public async Task GivenHeartbeatCompletesOrIsCancelled_WhenStopping_ThenShutdownIsSilent(
-            bool waitForCancellation,
-            bool propagateHeartbeatFailure)
-        {
-            // Arrange
-            using var cancellationSource = new CancellationTokenSource();
-            var logger = Substitute.For<ILogger>();
-            Task heartbeat = waitForCancellation
-                ? Task.Delay(Timeout.Infinite, cancellationSource.Token)
-                : Task.CompletedTask;
-
-            // Act
-            await SqlServerFhirDataStore.StopTransactionHeartbeatAsync(heartbeat, cancellationSource, propagateHeartbeatFailure, logger);
-
-            // Assert
-            Assert.True(cancellationSource.IsCancellationRequested);
-            Assert.True(heartbeat.IsCompleted);
-            Assert.Equal(waitForCancellation, heartbeat.IsCanceled);
-            Assert.Empty(logger.ReceivedCalls());
-        }
-
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenHeartbeatFaultedWithCancellation_WhenStopping_ThenShutdownIsSilent(bool propagateHeartbeatFailure)
-        {
-            // Arrange
-            using var cancellationSource = new CancellationTokenSource();
-            var logger = Substitute.For<ILogger>();
-            var completion = new TaskCompletionSource();
-            completion.SetException(
-                new Exception[] { new OperationCanceledException(), new InvalidOperationException("Not the awaited exception.") });
-
-            // Act
-            await SqlServerFhirDataStore.StopTransactionHeartbeatAsync(completion.Task, cancellationSource, propagateHeartbeatFailure, logger);
-
-            // Assert
-            Assert.True(cancellationSource.IsCancellationRequested);
-            Assert.True(completion.Task.IsFaulted);
-            Assert.Empty(logger.ReceivedCalls());
-        }
-
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenMergeIsFailing_WhenHeartbeatAlsoFails_ThenMergeExceptionPropagatesAndHeartbeatIsLogged(bool requestCancelled)
-        {
-            // Arrange
-            using var cancellationSource = new CancellationTokenSource();
-            var logger = Substitute.For<ILogger>();
-            Exception mergeException = requestCancelled
-                ? new OperationCanceledException()
-                : new InvalidOperationException("Merge failed.");
-            var heartbeatException = new InvalidOperationException("Heartbeat failed.");
-            Task heartbeat = Task.FromException(heartbeatException);
-
-            // Act
-            Exception actual = await Record.ExceptionAsync(async () =>
-            {
-                try
-                {
-                    throw mergeException;
-                }
-                finally
-                {
-                    await SqlServerFhirDataStore.StopTransactionHeartbeatAsync(heartbeat, cancellationSource, propagateHeartbeatFailure: false, logger);
-                }
-            });
-
-            // Assert
-            Assert.Same(mergeException, actual);
-            Assert.True(cancellationSource.IsCancellationRequested);
-            var logCall = Assert.Single(logger.ReceivedCalls());
-            object[] arguments = logCall.GetArguments();
-            Assert.Equal(LogLevel.Warning, arguments[0]);
-            Assert.Same(heartbeatException, arguments[3]);
-            Assert.Equal("Transaction heartbeat failed while the owning merge was already failing.", arguments[2].ToString());
-        }
-
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenHeartbeatFailureShouldPropagate_WhenStopping_ThenFirstExceptionIsRethrownUnchanged(bool aggregateFailure)
-        {
-            // Arrange
-            using var cancellationSource = new CancellationTokenSource();
-            var logger = Substitute.For<ILogger>();
-            Exception expected = aggregateFailure
-                ? new AggregateException(new OperationCanceledException(), new InvalidOperationException("Heartbeat failed."))
-                : new InvalidOperationException("Heartbeat failed.");
-            var completion = new TaskCompletionSource();
-            completion.SetException(new[] { expected, new InvalidOperationException("Not the awaited exception.") });
-
-            // Act
-            Exception actual = await Record.ExceptionAsync(
-                () => SqlServerFhirDataStore.StopTransactionHeartbeatAsync(completion.Task, cancellationSource, propagateHeartbeatFailure: true, logger));
-
-            // Assert
-            Assert.Same(expected, actual);
-            Assert.True(cancellationSource.IsCancellationRequested);
-            Assert.Empty(logger.ReceivedCalls());
         }
 
         private static VectorSearchChunk CreateChunk(int ordinal, string text, float embedding)
@@ -802,7 +692,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 new[] { embedding });
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, ILogger<SqlServerFhirDataStore> logger = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -873,7 +763,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 sqlConnectionWrapperFactory,
                 sqlTransactionHandler,
                 Substitute.For<ICompressedRawResourceConverter>(),
-                NullLogger<SqlServerFhirDataStore>.Instance,
+                logger ?? NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInfo,
                 ModelInfoProvider.Instance,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
@@ -903,6 +793,45 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             {
                 new ResourceWrapperOperation(wrapper, allowCreate: true, keepHistory: false, weakETag: null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext: null),
             };
+        }
+
+        // Records warnings in order and signals the first, so tests can sequence work after a logged failure.
+        private sealed class RecordingLogger<T> : ILogger<T>
+        {
+            private readonly List<(Exception Exception, string Message)> _warnings = new();
+
+            public TaskCompletionSource WarningLogged { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public IReadOnlyList<(Exception Exception, string Message)> Warnings
+            {
+                get
+                {
+                    lock (_warnings)
+                    {
+                        return _warnings.ToList();
+                    }
+                }
+            }
+
+            public IDisposable BeginScope<TState>(TState state)
+                where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                if (logLevel != LogLevel.Warning)
+                {
+                    return;
+                }
+
+                lock (_warnings)
+                {
+                    _warnings.Add((exception, formatter(state, exception)));
+                }
+
+                WarningLogged.TrySetResult();
+            }
         }
     }
 }

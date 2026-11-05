@@ -9,7 +9,6 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -276,11 +275,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // TODO: MergeResourcesBeginTransaction accepts new parameter allowing to throw exception on overload.
             // TODO: Set this parameter to true when 429 instead of intenal waits is desired. Make sure that exception is NOT thrown only for API calls.
             (var transactionId, var minSequenceId) = await ExecTime(() => StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken), addDatabaseMilliseconds);
-            using var mergeCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             using var heartbeatCancellationSource = new CancellationTokenSource();
-            Task heartbeatTask = RunTransactionHeartbeatAsync(transactionId, mergeCancellationSource, heartbeatCancellationSource.Token);
-            CancellationToken mergeCancellationToken = mergeCancellationSource.Token;
-            bool propagateHeartbeatFailure = false;
+            Task heartbeatTask = RunTransactionHeartbeatAsync(transactionId, heartbeatCancellationSource.Token);
 
             try
             {
@@ -470,9 +466,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Instead, the errors should be reported and ensure the operation is atomic.
                 if (isBundleTransaction && results.Where(r => !r.Value.IsOperationSuccessful).Any())
                 {
-                    var outcome = new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
-                    propagateHeartbeatFailure = true;
-                    return outcome;
+                    return new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
                 }
 
                 // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
@@ -509,7 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         await _resourceWrapperFactory.UpdateVectorSearchIndicesAsync(
                             mergeWrappersWithVersions.Select(item => item.Wrapper.ResourceWrapper).ToList(),
-                            mergeCancellationToken);
+                            cancellationToken);
                     }
 
                     var retries = 0;
@@ -518,7 +512,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await ExecTime(() => MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, mergeCancellationToken), addDatabaseMilliseconds);
+                            await ExecTime(() => MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, cancellationToken), addDatabaseMilliseconds);
                             break;
                         }
                         catch (Exception e)
@@ -530,14 +524,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             if (!enlistInTransaction && (e.IsRetriable() || (e.IsExecutionTimeout() && timeoutRetries++ < 3)))
                             {
                                 _logger.LogWarning(e, $"Error on {nameof(MergeInternalAsync)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
-                                await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, mergeCancellationToken);
-                                await Task.Delay(5000, mergeCancellationToken);
+                                await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
+                                await Task.Delay(5000, cancellationToken);
                                 continue;
                             }
 
                             if (singleTransaction) // if not single SQL transaction, then let TransactionWatchdog to try rolling forward
                             {
-                                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, mergeCancellationToken);
+                                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
                             }
 
                             throw;
@@ -546,55 +540,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else
                 {
-                    await ExecTime(() => StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", mergeCancellationToken), addDatabaseMilliseconds);
+                    await ExecTime(() => StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken), addDatabaseMilliseconds);
                 }
 
                 // If this is not an atomic operations, even if there are unsuccessful results, the operation state will be set as 'Completed'.
                 // For atomic operations, reaching this level means that all results are successful.
-                var completedOutcome = new MergeOutcome(MergeOutcomeFinalState.Completed, results);
-                propagateHeartbeatFailure = true;
-                return completedOutcome;
-            }
-            catch (OperationCanceledException) when (propagateHeartbeatFailure = !cancellationToken.IsCancellationRequested && mergeCancellationSource.IsCancellationRequested)
-            {
-                await heartbeatTask;
-                throw;
+                return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
             }
             finally
             {
-                await StopTransactionHeartbeatAsync(heartbeatTask, heartbeatCancellationSource, propagateHeartbeatFailure, _logger);
+                await heartbeatCancellationSource.CancelAsync();
+                await heartbeatTask;
             }
         }
 
-        internal static async Task StopTransactionHeartbeatAsync(
-            Task heartbeatTask,
-            CancellationTokenSource heartbeatCancellationSource,
-            bool propagateHeartbeatFailure,
-            ILogger logger)
-        {
-            await heartbeatCancellationSource.CancelAsync();
-            await heartbeatTask.ConfigureAwait(ConfigureAwaitOptions.ContinueOnCapturedContext | ConfigureAwaitOptions.SuppressThrowing);
-            if (!heartbeatTask.IsFaulted)
-            {
-                return;
-            }
-
-            // Match await's first-exception behavior without flattening an explicitly thrown AggregateException.
-            Exception exception = heartbeatTask.Exception.InnerExceptions[0];
-            if (exception is OperationCanceledException)
-            {
-                return;
-            }
-
-            if (propagateHeartbeatFailure)
-            {
-                ExceptionDispatchInfo.Capture(exception).Throw();
-            }
-
-            logger.LogWarning(exception, "Transaction heartbeat failed while the owning merge was already failing.");
-        }
-
-        private async Task RunTransactionHeartbeatAsync(long transactionId, CancellationTokenSource mergeCancellationSource, CancellationToken cancellationToken)
+        // The heartbeat is best effort: the watchdog only acts after several missed periods, so one failed heartbeat
+        // (for example, a timeout under SQL pressure) is logged and retried rather than failing the write.
+        private async Task RunTransactionHeartbeatAsync(long transactionId, CancellationToken cancellationToken)
         {
             try
             {
@@ -603,19 +565,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 while (true)
                 {
-                    await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken);
+                    try
+                    {
+                        await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken);
+                    }
+                    catch (Exception e) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogWarning(e, $"Error from SQL database on {nameof(SqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync)}");
+                    }
+
                     await Task.Delay(MergeResourcesTransactionHeartbeatPeriod, cancellationToken);
                 }
             }
             catch (Exception) when (cancellationToken.IsCancellationRequested)
             {
                 // SqlClient can report cancellation of an in-flight heartbeat as SqlException.
-                return;
-            }
-            catch
-            {
-                await mergeCancellationSource.CancelAsync();
-                throw;
             }
         }
 

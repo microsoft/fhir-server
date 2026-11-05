@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -116,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenHeartbeatSqlFailsDuringEmbedding_WhenWritingResource_ThenRequestFailsPromptly()
+        public async Task GivenHeartbeatSqlFailsDuringEmbedding_WhenWritingResource_ThenWriteStillCompletes()
         {
             Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
 
@@ -139,10 +140,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 (long transactionId, _) = await GetActiveTransactionAsync(_fixture.ConnectionString, testStarted);
                 blockingTransaction = await LockTransactionHeartbeatAsync(_fixture.ConnectionString, transactionId);
 
-                FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(
-                    () => createTask.WaitAsync(TimeSpan.FromSeconds(30)));
+                // Outlast the random initial delay plus the heartbeat command timeout, so at least one heartbeat times out.
+                await Task.Delay(SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod + TimeSpan.FromSeconds(6));
 
-                Assert.Equal(HttpStatusCode.RequestTimeout, exception.StatusCode);
+                // Heartbeats are best effort, as in production: a timed-out heartbeat must not fail the write.
+                Assert.False(createTask.IsCompleted);
             }
             finally
             {
@@ -156,6 +158,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 embeddingClient.ReleaseBlockedEmbedding();
             }
+
+            Observation created = await createTask.WaitAsync(TimeSpan.FromSeconds(60));
+            Assert.False(string.IsNullOrEmpty(created.Id));
         }
 
         [Fact]
