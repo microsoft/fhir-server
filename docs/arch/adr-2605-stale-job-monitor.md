@@ -7,10 +7,10 @@ FHIR background operations such as import, export, reindex, and other async requ
 The server already has a SQL watchdog infrastructure that runs leased background checks from `WatchdogsBackgroundService`, and it already emits application metrics through the `FhirServer` meter. The stale job monitor should reuse those mechanisms rather than introduce a separate scheduler, data store, or alerting subsystem.
 
 ## Desired Data Output
-Every 60 seconds, report Created and Running job counts and oldest Created-job age in seconds per queue type from `JobQueue`. Warn when that age is >= 600 seconds with no Running jobs.
+Every 60 seconds, report Created and Running job counts and oldest Created-job age per queue type from `JobQueue`. Warn when that age is >= 600 seconds with no Running jobs.
 
 ## Constraints
-Use existing indexes on JobQueue table.
+Use existing indexes on the `JobQueue` table.
 
 ## Options Considered
 1. **Status-only SQL aggregate over `JobQueue`** - Returns only counts and oldest dates, but lacks the leading `PartitionId` predicate needed for selective access through the existing index. Rejected because a small result set does not prevent scans of retained job history and resulting query timeouts.
@@ -18,14 +18,14 @@ Use existing indexes on JobQueue table.
 3. **Existing active-job retrieval with client aggregation** - Reuses `GetActiveJobsByQueueTypeAsync` and computes counts and oldest dates in the watchdog. Chosen because the CPU assessment below predicts a small client cost at the expected scale, making a separate aggregate stored procedure unnecessary while preserving existing indexed access.
 
 ### Client CPU Estimate
-Reading and materializing 10,000 jobs from `GetActiveJobsByQueueTypeAsync` without `Definition` and with `Result` NULL is estimated to use 20-100 ms of client CPU, with no JSON deserialization. For 10,000 jobs total per 60-second tick, this averages 0.03-0.17% of one CPU core (`20-100 / 60,000 * 100`). This estimate excludes SQL execution, network wait time, and subsequent aggregation.
+Reading and materializing 10K jobs from `GetActiveJobsByQueueTypeAsync` without `Definition` and `Result` is estimated to use 20-100 ms of client CPU. With 60 second period, this averages 0.03-0.17% of one CPU core (`20-100 / 60,000 * 100`). This estimate excludes SQL execution, network wait time, and subsequent aggregation.
 
 ## Decision
-We will add a `JobMonitorWatchdog` that runs as part of the existing SQL watchdog background service. On each watchdog tick it calls `SqlQueueClient.GetActiveJobsByQueueTypeAsync` for every monitored queue type, with `returnParentOnly: false`, then computes counts and minimum `CreateDate` values by status in the watchdog.
+We will add a `JobMonitorWatchdog` that runs as part of the existing SQL watchdog background service. On each watchdog tick it calls `GetActiveJobsByQueueTypeAsync` for every monitored queue type, then computes counts and minimum `CreateDate` values by status in the watchdog.
 
-This reuses `dbo.GetActiveJobs` → `dbo.GetJobs`. `GetActiveJobs` supplies `QueueType` and iterates the 16 `PartitionId` values, allowing the existing partition-first index to locate Created and Running jobs without scanning all jobs accumulated in the JobQueue table, which could lead to query timeouts for large customers. No table or index change is required.
+This reuses `dbo.GetActiveJobs` → `dbo.GetJobs` stored procedures. `GetActiveJobs` has `QueueType` input and iterates the 16 `PartitionId` values, allowing the existing partition-first index to locate Created and Running jobs without scanning the JobQueue table, which could lead to query timeouts for large customers.
 
-The queue age calculation is per queue and reports the raw queue-lag signal:
+The queue age calculation is per queue type and reports the raw queue-lag signal:
 
 - If a queue has one or more `Created` jobs, that queue emits the age in seconds of the oldest `Created` job — unconditionally, regardless of whether other jobs in the queue are `Running`. The metric reports what was measured; health judgments ("stalled") are composed downstream in logs and alert rules. This keeps a partially stalled queue visible (for example, a wedged `Running` orchestrator with starving `Created` siblings).
 - If a queue is empty, or has no `Created` jobs, that queue emits `0`.
