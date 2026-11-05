@@ -360,12 +360,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.DoesNotContain(AnyBaseReferenceA, options.Expression.ToString(), StringComparison.Ordinal);
         }
 
-        [Fact]
-        public void GivenCallerSuppliedRelativeReference_WhenCreatedWithAWildcardScope_ThenOnlyTheScopeConstraintIsRestricted()
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation, false)]
+        [InlineData(KnownResourceTypes.All, false)]
+        [InlineData(KnownResourceTypes.All, true)]
+        public void GivenCallerSuppliedRelativeReference_WhenCreatedInASmartRequest_ThenItMatchesOnlyLocalReferences(string scopeResourceType, bool scopeHasReferenceConstraint)
         {
-            // A reference the caller searches for is not an authorization predicate, so it keeps matching any base.
+            // In a SMART request, Patient/B in the caller's query names the local Patient B, with or without a scope constraint.
             SearchOptionsFactory factory = CreateFactory(
-                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A"))));
+                scopeHasReferenceConstraint
+                    ? new ScopeRestriction(scopeResourceType, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A")))
+                    : new ScopeRestriction(scopeResourceType, DataActions.Read, "system"));
 
             SearchOptions options = factory.Create(
                 KnownResourceTypes.Observation,
@@ -374,8 +379,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 isIncludesOperation: false);
 
             string expression = options.Expression.ToString();
-            Assert.Contains(LocalReferenceA, expression, StringComparison.Ordinal);
             Assert.Contains(
+                "(Param subject (And (MissingField ReferenceBaseUri) (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
                 "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
                 expression,
                 StringComparison.Ordinal);

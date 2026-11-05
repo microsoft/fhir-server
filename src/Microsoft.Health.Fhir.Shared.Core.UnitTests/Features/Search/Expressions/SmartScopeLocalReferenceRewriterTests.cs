@@ -110,6 +110,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
+        public void GivenAChainedSearch_WhenRewritten_ThenItIsUnchanged()
+        {
+            Expression expression = new ChainedExpression(
+                new[] { KnownResourceTypes.Observation },
+                SubjectParameter,
+                new[] { KnownResourceTypes.Patient },
+                reversed: false,
+                Parse("Patient/A"));
+
+            Assert.Same(expression, Rewrite(expression));
+        }
+
+        [Fact]
         public void GivenACompositeWithAReferenceComponent_WhenRewritten_ThenOnlyTheReferenceComponentIsRestricted()
         {
             Expression expression = Expression.And(

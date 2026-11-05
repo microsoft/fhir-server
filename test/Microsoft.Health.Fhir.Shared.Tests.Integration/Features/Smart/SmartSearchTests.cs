@@ -242,8 +242,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                     }
                 }
 
-                // Only scope predicates are restricted. A reference the caller searches for still matches Patient A on
-                // any server, in a SMART request and in a request without SMART scopes.
+                // A caller's own relative reference also names the local Patient A in a SMART request (scope without
+                // search parameters). Requests without SMART scopes keep matching Patient A on any server.
                 foreach (bool smartRequest in new[] { true, false })
                 {
                     ConfigureFhirRequestContext(
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                         CancellationToken.None);
 
                     Assert.Equal(
-                        new[] { localA, externalA, otherServerA }.Order(StringComparer.Ordinal),
+                        (smartRequest ? new[] { localA } : new[] { localA, externalA, otherServerA }).Order(StringComparer.Ordinal),
                         callerResults.Results.Select(entry => entry.Resource.ResourceId).Order(StringComparer.Ordinal));
                 }
             }
@@ -293,13 +293,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                     new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("subject", $"https://external.fhir.invalid/r4/Patient/{patientA}"))) },
                     applyFineGrainedAccessControlWithSearchParameters: true);
 
-                // The caller's own subject parameter is ANDed with the scope, so a relative Patient/A (any base)
-                // narrows to the external one, and a reference to a third server matches nothing.
+                // The caller's own subject parameter is ANDed with the scope. An absolute reference to the same server
+                // matches, while a relative Patient/A names the local patient and a third server matches nothing.
                 var expectedResults = new (string Parameter, string Value, string ExpectedId)[]
                 {
                     ("_count", "1000", externalA),
                     ("subject", $"https://external.fhir.invalid/r4/Patient/{patientA}", externalA),
-                    ("subject", $"Patient/{patientA}", externalA),
+                    ("subject", $"Patient/{patientA}", null),
                     ("subject", $"http://localhost/other-fhir/Patient/{patientA}", null),
                 };
 

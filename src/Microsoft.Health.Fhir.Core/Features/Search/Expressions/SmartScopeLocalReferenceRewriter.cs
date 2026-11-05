@@ -9,12 +9,13 @@ using System.Linq;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
-    /// Restricts reference predicates that come from SMART clinical scope search parameters to local references.
-    /// A relative scope value such as <c>subject=Patient/123</c> names a resource on this server, but a relative
-    /// reference search matches on resource type and id only, so it also matches
-    /// <c>https://other.server/Patient/123</c>. This rewriter adds a missing base URI condition to those predicates,
-    /// producing the same predicate as an absolute reference to this server. Predicates that already constrain the
-    /// base URI are left unchanged, and so are negated predicates, where the extra condition would widen the match.
+    /// Restricts relative reference predicates in SMART requests to local references. In a SMART request, a relative
+    /// value such as <c>subject=Patient/123</c>, from a scope's search parameters or from the caller's query, names a
+    /// resource on this server. A relative reference search matches on resource type and id only, so without this
+    /// rewrite it also matches <c>https://other.server/Patient/123</c>. This rewriter adds a missing base URI condition
+    /// to those predicates, producing the same predicate as an absolute reference to this server. Predicates that
+    /// already constrain the base URI are left unchanged, and so are negated predicates, where the extra condition
+    /// would widen the match, and chained searches.
     /// </summary>
     public sealed class SmartScopeLocalReferenceRewriter : ExpressionRewriter<object>
     {
@@ -22,6 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         private SmartScopeLocalReferenceRewriter()
         {
+        }
+
+        public override Expression VisitChained(ChainedExpression expression, object context)
+        {
+            return expression;
         }
 
         public override Expression VisitNotExpression(NotExpression expression, object context)

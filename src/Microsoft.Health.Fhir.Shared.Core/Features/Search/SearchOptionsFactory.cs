@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -482,6 +482,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var validSearchParameters = new List<SearchParameterInfo>();
 
+            // In a SMART request a relative reference (for example subject=Patient/123) names a resource on this
+            // server, whether it comes from the caller's query or from a wildcard scope merged into it.
+            bool restrictRelativeReferencesToLocal = _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true;
+
             // Deduplicate exact (name, value) query parameter pairs before parsing. Repeated identical parameters produce
             // redundant database lookups (one per expression) without affecting query semantics. Per FHIR spec, repeated
             // parameters are AND semantics (set intersection), and AND of identical predicates is idempotent: X AND X ≡ X.
@@ -492,9 +496,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
 
-                    // A constraint merged in from a wildcard SMART scope authorizes access, so its relative
-                    // references must only match local resources.
-                    if (smartScopeInjectedParameters.Contains(q))
+                    if (restrictRelativeReferencesToLocal)
                     {
                         parsed = parsed.AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
                     }
