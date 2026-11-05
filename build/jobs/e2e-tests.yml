@@ -51,7 +51,7 @@ steps:
 
         $categoryPredicates = "${{ parameters.categoryFilter }}".Split('&') | ForEach-Object { "($_)" }
         $query = "/[(DataStore=${{ parameters.appServiceType }})&$($categoryPredicates -join '&')]"
-        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -110,12 +110,3 @@ steps:
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
 
-  - task: PublishTestResults@2
-    displayName: 'Publish test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
-      failTaskOnFailedTests: true
-    condition: succeededOrFailed()

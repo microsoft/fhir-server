@@ -35,8 +35,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
     [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public class ConditionalDeleteResourceHandlerTests
     {
-        [Fact]
-        public async Task GivenMultipleDeleteFailsWithPartialResults_WhenHandled_ThenItemsDeletedHeaderContainsTotal()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenMultipleDeleteFailsWithPartialResults_WhenHandled_ThenItemsDeletedHeaderContainsTotal(bool canceled)
         {
             // Arrange
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -49,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 { "Observation", 3 },
             };
             var incompleteOperationException = new IncompleteOperationException<IDictionary<string, long>>(
-                new InvalidOperationException("Delete failed after partial completion."),
+                canceled ? new OperationCanceledException() : new InvalidOperationException("Delete failed after partial completion."),
                 partialResults);
             deleter.DeleteMultipleAsync(
                 Arg.Any<ConditionalDeleteResourceRequest>(),
@@ -87,10 +89,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 maxDeleteCount: 100);
 
             // Act
-            await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
                 () => handler.HandleAsync(request, CancellationToken.None));
 
             // Assert
+            Assert.Same(incompleteOperationException, exception);
             Assert.Equal("5", contextAccessor.RequestContext.ResponseHeaders[KnownHeaders.ItemsDeleted]);
         }
     }
