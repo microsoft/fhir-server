@@ -7,6 +7,7 @@ using System;
 using System.Globalization;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -48,9 +49,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         public async Task GivenAnInstant_WhenConverted_ThenBothEndpointsAreTheSameUtcTick(string literal)
         {
             DateTimeOffset instant = DateTimeOffset.Parse(literal, CultureInfo.InvariantCulture);
-            string expected = instant.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'-00:00'", CultureInfo.InvariantCulture);
+            Element.Value = instant;
+            ITypedElementToSearchValueConverter converter = await GetTypeConverterAsync();
 
-            await Test(i => i.Value = instant, ValidateDateTime, expected);
+            var value = Assert.IsType<DateTimeSearchValue>(Assert.Single(converter.ConvertTo(TypedElement)));
+
+            Assert.Equal(instant.ToUniversalTime(), value.Start);
+            Assert.Equal(instant.ToUniversalTime(), value.End);
+            Assert.Equal(TimeSpan.Zero, value.Start.Offset);
+            Assert.Equal(TimeSpan.Zero, value.End.Offset);
         }
     }
 }

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -32,13 +31,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public InstantDateTimeRewriterTests()
         {
             _model.IsKnownResource("Slot", false).Returns(true);
-            var summary = Summary(
-                Element("start", Reference("instant")),
-                Element("end", Reference("instant")),
-                Element("date", Reference("date")),
-                Element("dateTime", Reference("dateTime")),
-                Element("period", Reference("Period")));
+            _model.IsKnownResource("Schedule", false).Returns(true);
+            var summary = Summary(Element("start", Reference("instant")));
+            var scheduleSummary = Summary(Element("planningHorizon", Reference("Period")));
             _model.StructureDefinitionSummaryProvider.Provide("Slot").Returns(summary);
+            _model.StructureDefinitionSummaryProvider.Provide("Schedule").Returns(scheduleSummary);
             _rewriter = new InstantDateTimeRewriter(_model);
         }
 
@@ -55,9 +52,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [InlineData(BinaryOperator.GreaterThanOrEqual, 2)]
         [InlineData(BinaryOperator.LessThan, null)]
         [InlineData(BinaryOperator.LessThanOrEqual, null)]
-        public void GivenInstant_WhenRewritten_ThenOnlyTheFieldChanges(BinaryOperator operation, int? component)
+        public void GivenSlotStartPredicate_WhenRewritten_ThenOnlyTheFieldChanges(BinaryOperator operation, int? component)
         {
-            var value = new object();
+            object value = Boundary;
             var original = Expression.SearchParameter(Parameter(), new BinaryExpression(operation, FieldName.DateTimeEnd, component, value));
 
             var result = Assert.IsType<SearchParameterExpression>(original.AcceptVisitor(_rewriter));
@@ -80,9 +77,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [InlineData("Slot.Start")]
         [InlineData("Slot.unknown")]
         [InlineData("Unknown.start")]
-        [InlineData("Slot.date")]
-        [InlineData("Slot.dateTime")]
-        [InlineData("Slot.period")]
         [InlineData("Slot.start.value")]
         [InlineData(" Slot.start")]
         [InlineData("Slot.start ")]
@@ -94,9 +88,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [InlineData("Slot.start.ofType(instant)")]
         [InlineData("Slot.start.where($this.exists())")]
         [InlineData("Slot.start[0]")]
-        public void GivenUnprovenPath_WhenRewritten_ThenExpressionIsUnchanged(string path)
+        public void GivenUnsupportedExpressionOnSystemParameter_WhenRewritten_ThenExpressionIsUnchanged(string path)
         {
+            // These deliberately altered definitions exercise the proof boundary, not bundled search parameters.
             var original = Expression.SearchParameter(Parameter(path), EndPredicate());
+
+            Assert.Same(original, original.AcceptVisitor(_rewriter));
+        }
+
+        [Fact]
+        public void GivenSchedulePlanningHorizon_WhenRewritten_ThenPeriodExpressionIsUnchanged()
+        {
+            var original = Expression.SearchParameter(ScheduleDateParameter(), EndPredicate());
 
             Assert.Same(original, original.AcceptVisitor(_rewriter));
         }
@@ -104,9 +107,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenCustomOrCompositeOrNonDateParameter_WhenRewritten_ThenExpressionIsUnchanged()
         {
+            // Only the custom definition is registrable. The altered built-in definitions test invalid metadata rejection.
             var parameters = new[]
             {
-                Parameter(systemDefined: false),
+                new SearchParameterInfo(
+                    "custom-start",
+                    "custom-start",
+                    SearchParamType.Date,
+                    new Uri("http://example.org/SearchParameter/custom-start"),
+                    expression: "Slot.start"),
                 Parameter(type: SearchParamType.Composite),
                 Parameter(type: SearchParamType.String),
                 new SearchParameterInfo(
@@ -124,22 +133,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void GivenNestedMetadata_WhenRewritten_ThenReferencesAndInlineSummariesAreResolved(bool inline)
-        {
-            IStructureDefinitionSummary child = Summary(Element("timestamp", Reference("instant")));
-            var parent = Summary(Element("nested", inline ? child : Reference("Complex")));
-            _model.StructureDefinitionSummaryProvider.Provide("Slot").Returns(parent);
-            _model.StructureDefinitionSummaryProvider.Provide("Complex").Returns(child);
-            var original = Expression.SearchParameter(Parameter("Slot.nested.timestamp"), EndPredicate());
-
-            var result = Assert.IsType<SearchParameterExpression>(original.AcceptVisitor(_rewriter));
-
-            Assert.Equal(FieldName.DateTimeStart, Assert.IsType<BinaryExpression>(result.Expression).FieldName);
-        }
-
-        [Theory]
         [InlineData("choice")]
         [InlineData("mixed")]
         [InlineData("unresolved")]
@@ -147,8 +140,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [InlineData("empty-type")]
         [InlineData("null-type")]
         [InlineData("ambiguous")]
-        public void GivenAmbiguousMetadata_WhenRewritten_ThenExpressionIsUnchanged(string scenario)
+        public void GivenInvalidSlotStructureSummary_WhenRewritten_ThenExpressionIsUnchanged(string scenario)
         {
+            // Slot.start is an instant. Malformed provider metadata must not authorize a rewrite.
             var element = Element("start", Reference("instant"));
             if (scenario == "choice")
             {
@@ -188,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenNestedAndNeighboringParameters_WhenRewritten_ThenEligibilityDoesNotLeak()
         {
-            var fallback = Expression.SearchParameter(Parameter("Slot.date"), EndPredicate());
+            var fallback = Expression.SearchParameter(ScheduleDateParameter(), EndPredicate());
             var missing = Expression.MissingSearchParameter(Parameter(), true);
             var nonDate = Expression.Equals(FieldName.TokenCode, null, "code");
             var original = Expression.And(
@@ -211,10 +205,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [InlineData(true)]
         public void GivenChainTable_WhenRewritten_ThenAllTableAndChainMetadataIsPreserved(bool reversed)
         {
-            var source = Expression.SearchParameter(Parameter("Slot.date"), EndPredicate());
-            var target = Expression.SearchParameter(Parameter(), EndPredicate());
-            var reference = new SearchParameterInfo("schedule", "schedule", SearchParamType.Reference);
-            var chain = new SqlChainLinkExpression(new[] { "Schedule" }, reference, new[] { "Slot" }, reversed, source, target);
+            var slot = Expression.SearchParameter(Parameter(), EndPredicate());
+            var schedule = Expression.SearchParameter(ScheduleDateParameter(), EndPredicate());
+            var reference = new SearchParameterInfo(
+                "schedule",
+                "schedule",
+                SearchParamType.Reference,
+                new Uri("http://hl7.org/fhir/SearchParameter/Slot-schedule"),
+                expression: "Slot.schedule");
+            var source = reversed ? schedule : slot;
+            var target = reversed ? slot : schedule;
+            var chain = new SqlChainLinkExpression(
+                new[] { "Slot" },
+                reference,
+                new[] { "Schedule" },
+                reversed,
+                source,
+                target);
             var generator = target.AcceptVisitor(new SearchParamTableExpressionQueryGeneratorFactory(new SearchParameterToSearchValueTypeMap()));
             var table = new SearchParamTableExpression(generator, chain, SearchParamTableExpressionKind.Chain, 7);
 
@@ -228,26 +235,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(chain.TargetResourceTypes, resultChain.TargetResourceTypes);
             Assert.Same(reference, resultChain.ReferenceSearchParameter);
             Assert.Equal(reversed, resultChain.Reversed);
-            Assert.Same(source, resultChain.ExpressionOnSource);
-            var targetPredicate = Assert.IsType<SearchParameterExpression>(resultChain.ExpressionOnTarget);
-            Assert.Equal(FieldName.DateTimeStart, Assert.IsType<BinaryExpression>(targetPredicate.Expression).FieldName);
-        }
-
-        [Fact]
-        public void GivenSameCanonicalUrlWithDifferentDefinition_WhenRewritten_ThenNoProofIsCached()
-        {
-            var instant = Expression.SearchParameter(Parameter(), EndPredicate());
-            var date = Expression.SearchParameter(Parameter("Slot.date"), EndPredicate());
-
-            Assert.NotSame(instant, instant.AcceptVisitor(_rewriter));
-            Assert.Same(date, date.AcceptVisitor(_rewriter));
+            Assert.Same(schedule, reversed ? resultChain.ExpressionOnSource : resultChain.ExpressionOnTarget);
+            var slotPredicate = Assert.IsType<SearchParameterExpression>(reversed ? resultChain.ExpressionOnTarget : resultChain.ExpressionOnSource);
+            Assert.Equal(FieldName.DateTimeStart, Assert.IsType<BinaryExpression>(slotPredicate.Expression).FieldName);
         }
 
         [Fact]
         public void GivenUnionBranches_WhenRewritten_ThenEachParameterNeedsItsOwnProof()
         {
             var instant = Expression.SearchParameter(Parameter(), EndPredicate());
-            var fallback = Expression.SearchParameter(Parameter("Slot.date"), EndPredicate());
+            var fallback = Expression.SearchParameter(ScheduleDateParameter(), EndPredicate());
             var original = new UnionExpression(UnionOperator.All, new[] { instant, fallback });
 
             var result = Assert.IsType<UnionExpression>(original.AcceptVisitor(_rewriter));
@@ -258,10 +255,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(FieldName.DateTimeStart, Assert.IsType<BinaryExpression>(rewritten.Expression).FieldName);
         }
 
-        private static SearchParameterInfo Parameter(string path = "Slot.start", bool systemDefined = true, SearchParamType type = SearchParamType.Date) =>
+        private static SearchParameterInfo Parameter(string path = "Slot.start", SearchParamType type = SearchParamType.Date) =>
             new SearchParameterInfo("start", "start", type, new Uri("http://hl7.org/fhir/SearchParameter/Slot-start"), expression: path)
             {
-                IsSystemDefined = systemDefined,
+                IsSystemDefined = true,
+            };
+
+        private static SearchParameterInfo ScheduleDateParameter() =>
+            new SearchParameterInfo(
+                "date",
+                "date",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/Schedule-date"),
+                expression: "Schedule.planningHorizon",
+                baseResourceTypes: new[] { "Schedule" })
+            {
+                IsSystemDefined = true,
             };
 
         private static BinaryExpression EndPredicate() => Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, Boundary);

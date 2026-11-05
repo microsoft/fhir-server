@@ -95,6 +95,43 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
             select new object[] { url, containment, scalar };
 
         [Theory]
+        [InlineData("Slot", "start", "Slot-start", "Slot.start", true)]
+        [InlineData("Slot", "_lastUpdated", "Resource-lastUpdated", "Resource.meta.lastUpdated", true)]
+        [InlineData("Patient", "birthdate", "individual-birthdate", "Patient.birthDate", false)]
+        [InlineData("Composition", "date", "clinical-date", "Composition.date", false)]
+        [InlineData("Schedule", "date", "Schedule-date", "Schedule.planningHorizon", false)]
+#if R5
+        [InlineData("Encounter", "date", "clinical-date", "Encounter.actualPeriod", false)]
+#else
+        [InlineData("Encounter", "date", "clinical-date", "Encounter.period", false)]
+        [InlineData("Appointment", "date", "Appointment-date", "Appointment.start", true)]
+#endif
+#if !Stu3
+        [InlineData("Bundle", "timestamp", "Bundle-timestamp", "Bundle.timestamp", true)]
+#endif
+        public void GivenBundledSearchParameter_WhenParsedAndRewritten_ThenOnlyExclusiveInstantDefinitionsChange(
+            string resourceType,
+            string code,
+            string canonicalName,
+            string path,
+            bool expected)
+        {
+            var parsed = Assert.IsType<MultiaryExpression>(_fixture.Parse($"{resourceType}?{code}=ge2026-10-01"));
+            var original = Assert.IsType<SearchParameterExpression>(Assert.Single(parsed.Expressions));
+            SearchParameterInfo definition = _fixture.Definitions.GetSearchParameter(resourceType, code);
+            Assert.Same(definition, original.Parameter);
+            Assert.True(definition.IsSystemDefined);
+            Assert.Equal(new Uri($"http://hl7.org/fhir/SearchParameter/{canonicalName}"), definition.Url);
+            Assert.Contains(path, definition.Expression);
+
+            Expression result = original.AcceptVisitor(new InstantDateTimeRewriter(ModelInfoProvider.Instance));
+
+            Assert.Equal(expected, !ReferenceEquals(original, result));
+            using SqlCommand command = _fixture.Generate($"{resourceType}?{code}=ge2026-10-01", instant: true);
+            Assert.Equal(!expected, command.CommandText.Contains("EndDateTime", StringComparison.Ordinal));
+        }
+
+        [Theory]
         [InlineData("Slot.start", true)]
         [InlineData("Slot.end", true)]
         [InlineData("Observation.issued", true)]
@@ -114,8 +151,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
 #else
         [InlineData("Bundle.timestamp", true)]
 #endif
-        public void GivenActiveModelMetadata_WhenProvingAPath_ThenOnlyExclusiveInstantPathsChange(string path, bool expected)
+        public void GivenPathOnlyDefinitionMarkedSystemDefined_WhenCheckingActiveMetadata_ThenOnlyExclusiveInstantPathsChange(string path, bool expected)
         {
+            // This bypasses registration to test metadata traversal. A real FHIR path is not necessarily a built-in parameter.
+            // Bundle.entry.response.lastModified exercises inline backbone summaries; Slot.meta.lastUpdated resolves Meta.
             var parameter = new SearchParameterInfo("test", "test", ValueSets.SearchParamType.Date, expression: path) { IsSystemDefined = true };
             var original = Expression.SearchParameter(parameter, Expression.GreaterThan(FieldName.DateTimeEnd, null, DateTimeOffset.MinValue));
 
@@ -179,6 +218,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         [InlineData("Schedule?_has:Slot:schedule:start=ge2026-10-01", 0)]
         [InlineData("Slot?schedule.actor:Patient.birthdate=2026-10-01&start=ge2026-10-01", 1)]
 #if R5
+        // R5 resolves Appointment.date to the multi-resource clinical-date union.
         [InlineData("AppointmentResponse?appointment.date=ge2026-10-01&actor=Patient/example", 1)]
 #else
         [InlineData("AppointmentResponse?appointment.date=ge2026-10-01&actor=Patient/example", 0)]
