@@ -6,17 +6,24 @@ FHIR background operations such as import, export, reindex, and other async requ
 
 The server already has a SQL watchdog infrastructure that runs leased background checks from `WatchdogsBackgroundService`, and it already emits application metrics through the `FhirServer` meter. The stale job monitor should reuse those mechanisms rather than introduce a separate scheduler, data store, or alerting subsystem.
 
+## Desired Data Output
+Every 60 seconds, report Created and Running job counts and oldest Created-job age in seconds per queue type from `JobQueue`. Warn when that age is >= 600 seconds with no Running jobs.
+
+## Constraints
+Use existing indexes on JobQueue table.
+
+## Options Considered
+1. **Status-only SQL aggregate over `JobQueue`** - Returns only counts and oldest dates, but lacks the leading `PartitionId` predicate needed for selective access through the existing index. Rejected because a small result set does not prevent scans of retained job history and resulting query timeouts.
+2. **New partition-aware aggregate stored procedure** - Supplies queue type and each of the 16 partition IDs, then aggregates in SQL. Viable with existing indexes and a smaller result set, but introduces a separate retrieval implementation and stored-procedure contract.
+3. **Existing active-job retrieval with client aggregation** - Reuses `GetActiveJobsByQueueTypeAsync` and computes counts and oldest dates in the watchdog. Chosen because the CPU assessment below predicts a small client cost at the expected scale, making a separate aggregate stored procedure unnecessary while preserving existing indexed access.
+
+### Client CPU Estimate
+Reading and materializing 10,000 jobs from `GetActiveJobsByQueueTypeAsync` without `Definition` and with `Result` NULL is estimated to use 20-100 ms of client CPU, with no JSON deserialization. For 10,000 jobs total per 60-second tick, this averages 0.03-0.17% of one CPU core (`20-100 / 60,000 * 100`). This estimate excludes SQL execution, network wait time, and subsequent aggregation.
+
 ## Decision
-We will add a `JobMonitorWatchdog` that runs as part of the existing SQL watchdog background service. On each watchdog tick it will run a single lightweight aggregate query against `dbo.JobQueue`:
+We will add a `JobMonitorWatchdog` that runs as part of the existing SQL watchdog background service. On each watchdog tick it calls `SqlQueueClient.GetActiveJobsByQueueTypeAsync` for every monitored queue type, with `returnParentOnly: false`, then computes counts and minimum `CreateDate` values by status in the watchdog.
 
-```sql
-SELECT QueueType, Status, MIN(CreateDate) AS OldestCreateDate, COUNT(*) AS JobCount
-FROM dbo.JobQueue
-WHERE Status IN (0, 1) -- Created, Running
-GROUP BY QueueType, Status
-```
-
-This query is executed through `ISqlRetryService.ExecuteReaderAsync` with `isReadOnly: true`, mirroring `GeoReplicationLagWatchdog`. It returns only `QueueType`, `Status`, the oldest `CreateDate`, and a count per group — it never touches the `varchar(max)` `Definition`/`Result` payloads. This replaces the earlier approach of calling `SqlQueueClient.GetActiveJobsByQueueTypeAsync` per queue type, which resolved to `dbo.GetActiveJobs` → `dbo.GetJobs` with `@ReturnDefinition = 1` and transferred the full job payloads of every active job even though only `Status` and `CreateDate` are used.
+This reuses `dbo.GetActiveJobs` → `dbo.GetJobs`. `GetActiveJobs` supplies `QueueType` and iterates the 16 `PartitionId` values, allowing the existing partition-first index to locate Created and Running jobs without scanning all jobs accumulated in the JobQueue table, which could lead to query timeouts for large customers. No table or index change is required.
 
 The queue age calculation is per queue and reports the raw queue-lag signal:
 
@@ -37,13 +44,13 @@ A queue is judged stalled — and logged at `LogWarning` with `QueueType` and `O
 
 The watchdog is gated by a `CoreFeatureConfiguration.EnableJobMonitor` flag (default `true`, since this is a monitoring feature). When disabled, `WatchdogsBackgroundService` does not start the watchdog, so no periodic SQL reads or metric publications occur. The MediatR handler (`JobMonitorMetricHandler`) registration is left intact in either state — it is harmless without a publisher.
 
-This change does not require a SQL schema migration. It reads existing job queue state and emits metrics only.
+Schema version 122 adds an optional `@ReturnDefinition` parameter to `dbo.GetActiveJobs`, forwarded to `dbo.GetJobs`. Its default of `1` preserves existing callers; `0` returns the same job metadata with `Definition` set to `NULL`. Monitoring reads existing job queue state and emits metrics only.
 
 ### Decision (continued): Queue Depth Metric
 
 The same per-tick aggregate result set is also used to compute a count of active jobs per queue. The watchdog publishes both the age map and the depth map in a single `JobMonitorMetricsNotification` so the handler snapshot remains atomic across both metrics.
 
-`JobMonitorMetricHandler` exposes a second instrument — an `ObservableGauge<long>` named `Jobs.QueueDepth` on the `FhirServer` meter, with unit `{job}` — carrying two tags: `queue_type` (the `QueueType` name) and `state` (`pending` or `running`). `pending` counts jobs in the `Created` status; `running` counts jobs in the `Running` status. All other `JobStatus` values are excluded because the aggregate query's `WHERE Status IN (0, 1)` clause only returns `Created` and `Running` jobs. The gauge emits two measurements per queue type per observation cycle, keeping cardinality at `queue_types × 2`.
+`JobMonitorMetricHandler` exposes a second instrument — an `ObservableGauge<long>` named `Jobs.QueueDepth` on the `FhirServer` meter, with unit `{job}` — carrying two tags: `queue_type` (the `QueueType` name) and `state` (`pending` or `running`). `pending` counts jobs in the `Created` status; `running` counts jobs in the `Running` status. All other `JobStatus` values are excluded from the watchdog's aggregates. The gauge emits two measurements per queue type per observation cycle, keeping cardinality at `queue_types × 2`.
 
 Every non-`Unknown` `QueueType` key is always present in the snapshot, including queues with zero counts, so the gauge always reports the full set — the same contract as `Jobs.OldestQueuedAge`.
 
@@ -55,11 +62,11 @@ Accepted
 - Stalled async job queues become observable before customers report delayed operations.
 - The signal is per queue type, so healthy activity in one queue does not mask a blocked queue elsewhere.
 - The implementation reuses the existing SQL watchdog lease, retry, logging, dependency injection, and metrics patterns.
-- No database schema change is required.
-- Queue size (`Jobs.QueueDepth`) complements queue age (`Jobs.OldestQueuedAge`): depth catches sudden bursts of new work before they become old, while age catches a single stuck job that keeps growing older. Stalled-queue alerting composes the two.
+- No table or index change is required; the optional stored-procedure parameter preserves existing callers.
+- Queue depth and oldest Created-job age describe backlog size and age. Neither alone identifies a worker failure or database capacity constraint; stalled-queue alerting combines age with the absence of Running jobs.
 
 ### Adverse Effects
-- Each watchdog tick runs one lightweight aggregate SQL read over `dbo.JobQueue` (grouped by `QueueType` and `Status`, restricted to active statuses, returning only counts and the oldest `CreateDate`). It does not read job payloads.
+- Each 60-second watchdog tick retrieves active jobs for each monitored queue type. Transfer and materialization costs grow with the active backlog; the existing API returns job definitions as well as the metadata used for monitoring.
 - Alert thresholds must be tuned by operators so intentionally idle queues or long-running operational patterns do not create noisy alerts.
 - The feature can be turned off via `CoreFeatureConfiguration.EnableJobMonitor`; when disabled the metrics are not produced.
 - The metric reports detection state only; it does not automatically repair stuck queues or restart workers.
@@ -68,5 +75,5 @@ Accepted
 - Age is based on the application clock (`ClockResolver.TimeProvider`, the same time source the metric handler uses for staleness) and job `CreateDate`. This is sufficient for minute-scale stale queue detection, but should not be used for precise cross-node event ordering.
 - `QueueType.Unknown` is intentionally excluded because it is not an actionable job queue.
 - Exported metric names may be transformed by the configured metrics exporter, but the source instruments remain `Jobs.OldestQueuedAge` and `Jobs.QueueDepth` on the `FhirServer` meter.
-- The `state` tag values for `Jobs.QueueDepth` are the stable strings `pending` and `running`. Other `JobStatus` values (`Completed`, `Failed`, `Cancelled`, `Archived`, `CancelledByUser`) are excluded by the aggregate query's `WHERE Status IN (0, 1)` clause.
+- The `state` tag values for `Jobs.QueueDepth` are the stable strings `pending` and `running`. Other `JobStatus` values (`Completed`, `Failed`, `Cancelled`, `Archived`, `CancelledByUser`) are excluded from the watchdog's aggregates.
 
