@@ -29,37 +29,27 @@ steps:
       arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
-- ${{ if eq(parameters.unitTest, 'true') }}:
+- ${{ if or(eq(parameters.unitTest, 'true'), eq(parameters.codeCoverage, 'true')) }}:
   - task: DotNetCoreCLI@2
-    displayName: 'dotnet test'
+    ${{ if eq(parameters.codeCoverage, 'true') }}:
+      displayName: 'dotnet test with coverage'
+    ${{ else }}:
+      displayName: 'dotnet test'
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx'
-      testRunTitle: 'Unit Tests'
-
-- ${{ if eq(parameters.codeCoverage, 'true') }}:
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet test with coverage'
-    inputs:
-      command: test
-      projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: 'Unit Tests'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
+      ${{ if eq(parameters.codeCoverage, 'true') }}:
+        arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx --publish-azdo-test-results --publish-azdo-run-name "Unit Tests"'
+      ${{ else }}:
+        arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx --publish-azdo-test-results --publish-azdo-run-name "Unit Tests"'
+      # MTP's Azure DevOps extension is the sole retry-aware result publisher.
       publishTestResults: false
     env:
-      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
-  - task: PublishTestResults@2
-    displayName: 'Publish unit test results'
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: 'Unit Tests'
-      failTaskOnFailedTests: true
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      ${{ if eq(parameters.codeCoverage, 'true') }}:
+        platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
+
+- ${{ if eq(parameters.codeCoverage, 'true') }}:
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
