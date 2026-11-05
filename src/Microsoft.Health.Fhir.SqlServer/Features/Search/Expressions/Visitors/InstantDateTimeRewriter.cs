@@ -101,8 +101,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             string[] segments = expression.Split('.');
             if (segments.Length < 2 || segments.Any(segment =>
-                segment.Length == 0 || !IsLetter(segment[0]) ||
-                segment.Any(character => !IsLetter(character) && (character < '0' || character > '9'))))
+                segment.Length == 0 || !char.IsAsciiLetter(segment[0]) ||
+                segment.Any(character => !char.IsAsciiLetterOrDigit(character))))
             {
                 return false;
             }
@@ -110,9 +110,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             path = segments;
             return true;
         }
-
-        private static bool IsLetter(char character) =>
-            (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z');
 
         private sealed class EndFieldRewriter : SqlExpressionRewriterWithInitialContext<object>
         {
