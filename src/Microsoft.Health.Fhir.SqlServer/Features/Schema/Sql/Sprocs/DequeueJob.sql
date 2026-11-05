@@ -48,6 +48,8 @@ BEGIN TRY
          ,Status = 1 -- running
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
          ,@JobId = T.JobId
+      -- PAGLOCK enabes to deallocate an empty page immediately not waiting for ghost records cleanup.
+      -- If not pages with only ghost records will be accumulated, which will significaly increase execution time and lower the throughput.
       FROM dbo.JobQueue T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
                         JobId
@@ -90,7 +92,7 @@ BEGIN TRY
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
          ,@JobId = CASE WHEN CancelRequested = 0 THEN T.JobId END
          ,Info = convert(varchar(1000),isnull(Info,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,StartDate,121))
-      FROM dbo.JobQueue T WITH (PAGLOCK)
+      FROM dbo.JobQueue T WITH (PAGLOCK) -- same as above
            JOIN (SELECT TOP 1 
                         JobId
                    FROM dbo.JobQueue WITH (INDEX = IX_QueueType_PartitionId_Status_Priority)
@@ -116,7 +118,7 @@ BEGIN TRY
 
   IF @InputJobId IS NOT NULL
   BEGIN
-    UPDATE dbo.JobQueue WITH (PAGLOCK)
+    UPDATE dbo.JobQueue WITH (PAGLOCK) -- same as above
       SET StartDate = getUTCdate()
          ,HeartbeatDate = getUTCdate()
          ,Worker = @Worker 
@@ -128,7 +130,7 @@ BEGIN TRY
 
     IF @JobId IS NULL
     BEGIN
-      UPDATE dbo.JobQueue WITH (PAGLOCK)
+      UPDATE dbo.JobQueue WITH (PAGLOCK) -- same as above
         SET StartDate = getUTCdate()
            ,HeartbeatDate = getUTCdate()
            ,Worker = @Worker 
