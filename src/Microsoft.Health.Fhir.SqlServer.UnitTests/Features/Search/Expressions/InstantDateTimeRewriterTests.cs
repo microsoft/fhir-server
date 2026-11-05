@@ -96,10 +96,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(original, original.AcceptVisitor(_rewriter));
         }
 
-        [Fact]
-        public void GivenSchedulePlanningHorizon_WhenRewritten_ThenPeriodExpressionIsUnchanged()
+        [Theory]
+        [InlineData("Patient", "birthDate", "date")]
+        [InlineData("Composition", "date", "dateTime")]
+        [InlineData("Schedule", "planningHorizon", "Period")]
+        public void GivenNonInstantFhirTemporalType_WhenRewritten_ThenExpressionIsUnchanged(
+            string resourceType,
+            string elementName,
+            string fhirType)
         {
-            var original = Expression.SearchParameter(ScheduleDateParameter(), EndPredicate());
+            // These real FHIR elements isolate leaf-type rejection. Bundled definitions are covered by SqlInstantDateTimeSearchTests.
+            _model.IsKnownResource(resourceType, false).Returns(true);
+            var summary = Summary(Element(elementName, Reference(fhirType)));
+            _model.StructureDefinitionSummaryProvider.Provide(resourceType).Returns(summary);
+            var parameter = new SearchParameterInfo(
+                "date",
+                "date",
+                SearchParamType.Date,
+                expression: $"{resourceType}.{elementName}")
+            {
+                IsSystemDefined = true,
+            };
+            var original = Expression.SearchParameter(parameter, EndPredicate());
 
             Assert.Same(original, original.AcceptVisitor(_rewriter));
         }
