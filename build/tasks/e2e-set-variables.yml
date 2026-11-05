@@ -7,7 +7,7 @@ parameters:
   type: string
 - name: resourceIdProfile
   type: string
-  default: ''
+  default: None
 
 steps:
 - task: AzurePowerShell@5
@@ -107,7 +107,7 @@ steps:
             throw "Container App '$containerAppName' has no environment variables configured."
         }
 
-        if ('${{ parameters.resourceIdProfile }}' -ne '') {
+        if ('${{ parameters.resourceIdProfile }}' -ne 'None') {
             . "$(System.DefaultWorkingDirectory)/build/jobs/scripts/ResourceIdProfile.ps1"
             $expectedImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLowerInvariant())_fhir-server:$(ImageTag)"
             Assert-ResourceIdApp $containerAppData $expectedImage '${{ parameters.resourceIdProfile }}'
@@ -187,7 +187,7 @@ steps:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-- ${{ if ne(parameters.resourceIdProfile, '') }}:
+- ${{ if ne(parameters.resourceIdProfile, 'None') }}:
   - task: PublishBuildArtifacts@1
     displayName: 'Publish credential-free endpoint evidence'
     inputs:

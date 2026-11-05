@@ -13,9 +13,9 @@ parameters:
   default: ''
 - name: resourceIdProfile
   type: string
-  default: ''
+  default: None
   values:
-  - ''
+  - None
   - Standard64
   - Long128
 
@@ -45,7 +45,7 @@ steps:
         Write-Host "##vso[task.setvariable variable=ResourceIdResultsDirectory]$results"
         $started = [DateTimeOffset]::UtcNow
         $env:ResourceIdExpectedUrl = $env:TestEnvironmentUrl_${{ parameters.version }}_Sql
-        if ('${{ parameters.resourceIdProfile }}' -ne '') {
+        if ('${{ parameters.resourceIdProfile }}' -ne 'None') {
           $env:ResourceIdProfile = '${{ parameters.resourceIdProfile }}'
         } else {
           Remove-Item Env:ResourceIdProfile -ErrorAction SilentlyContinue
@@ -72,7 +72,7 @@ steps:
           }
         }
 
-        if ('${{ parameters.resourceIdProfile }}' -ne '') {
+        if ('${{ parameters.resourceIdProfile }}' -ne 'None') {
           & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-ResourceIdResults.ps1" -ResultsDirectory $results -Profile '${{ parameters.resourceIdProfile }}' -StartedUtc $started
         }
         if ($testExitCode -ne 0) {
@@ -119,7 +119,7 @@ steps:
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
-  - ${{ if ne(parameters.resourceIdProfile, '') }}:
+  - ${{ if ne(parameters.resourceIdProfile, 'None') }}:
     - task: PublishBuildArtifacts@1
       displayName: 'Publish resource ID contract TRX'
       condition: succeededOrFailed()
