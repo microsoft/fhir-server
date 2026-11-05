@@ -18,7 +18,7 @@ Use existing indexes on the `JobQueue` table.
 3. **Existing active-job retrieval with client aggregation** - Reuses `GetActiveJobsByQueueTypeAsync` and computes counts and oldest dates in the watchdog. Chosen because the CPU assessment below predicts a small client cost at the expected scale, making a separate aggregate stored procedure unnecessary while preserving existing indexed access.
 
 ### Client CPU Estimate
-Reading and materializing 10K jobs from `GetActiveJobsByQueueTypeAsync` without `Definition` and `Result` is estimated to use 20-100 ms of client CPU. With 60 second period, this averages 0.03-0.17% of one CPU core (`20-100 / 60,000 * 100`). This estimate excludes SQL execution, network wait time, and subsequent aggregation.
+Reading and materializing 10K jobs from `GetActiveJobsByQueueTypeAsync` without `Definition` and `Result` is estimated to use 20-100 ms of client CPU. Grouping by status and computing counts and oldest dates estimated to add <5 ms. With a 60-second period, this averages 0.04-0.18% of one CPU core. 10K is an extreme case. Most customers expected to have <<1K active jobs, so CPU usage should be close to not existent.
 
 ## Decision
 We will add a `JobMonitorWatchdog` that runs as part of the existing SQL watchdog background service. On each watchdog tick it calls `GetActiveJobsByQueueTypeAsync` for every monitored queue type, then computes counts and minimum `CreateDate` values by status in the watchdog.
