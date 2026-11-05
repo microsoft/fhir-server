@@ -1,6 +1,6 @@
 # Design: FHIR NPM Package Reader and SearchParameter Installation Handler
 
-**Status**: Proposed (implemented in two stacked PRs: the reader in 1/2, SearchParameter installation in 2/2; awaiting the published Ignixa 0.6.82 for final verification)
+**Status**: Proposed (implemented in the draft PR; awaiting the published Ignixa 0.6.82 for final verification)
 **Work item**: AB#206131
 **Parent feature**: install SearchParameter resources from FHIR NPM packages when a new service is provisioned
 
@@ -132,7 +132,8 @@ It validates the complete set as one unit and collects every failure into one `O
   - no URL collides with a system-defined parameter;
   - code conflicts per base type follow the same `SearchParameterComparer` rules as `SearchParameterValidator`, including `Resource`/`DomainResource` expansion.
 - **Composites:** each `component.definition` must resolve to a parameter in the same package, or to an existing definition (core or custom) whose status is `Enabled` or `Supported` (decision 5). Same-package resolution doesn't depend on the order of entries in the archive, and a component may not itself be a composite.
-- **Data-store support:** `SearchParameterInfo`s are built for the set, with an overlay so same-package composite components resolve, and run through `ISearchParameterSupportResolver.IsSearchParameterSupported`. Unsupported or partially supported parameters are rejected, and the data store's own rules (`IDataStoreSearchParameterValidator`) run last. Rejecting partial support is stricter than the single-resource create path, which accepts it: a provisioned parameter that silently misses some target types is worse than a failed install.
+- **Expression compilation:** the expression and every component expression are compiled with the same `FhirPathCompiler` configuration the indexer uses. Compilation binds every function, including those inside `where()` predicates, which the support resolver doesn't inspect, so an expression that would fail at indexing time is rejected as `invalid` here.
+- **Data-store support:** `SearchParameterInfo`s are built for the set, with an overlay so same-package composite components resolve, and run through `ISearchParameterSupportResolver.IsSearchParameterSupported`. Unsupported or partially supported parameters are rejected, and the data store's own rules (`IDataStoreSearchParameterValidator`) run last. Rejecting partial support is stricter than the single-resource create path, which accepts it: a provisioned parameter that silently misses some target types is worse than a failed install. Valid FHIRPath that the resolver can't follow (for example `last()`, `select()` or arithmetic) is reported as `not-supported`, and paths or types the FHIR model doesn't define are reported as `invalid`, so every parameter in the set is still checked.
 
 Reuse: the code-conflict and comparison logic in `SearchParameterValidator` moves unchanged into the internal static `SearchParameterConflictRules`, which takes its dependencies as arguments. The per-request validator and the package handler then share the rules. No lookup abstraction is needed: package members are checked against each other separately (duplicate URL and code), and against the current definitions through the existing definition manager. The per-request validator keeps its `DataActions.Reindex` authorization check, which the package path must not hit because there is no user context.
 
@@ -200,14 +201,14 @@ xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory wit
 | 3 | Integrity mismatch; malformed or non-SHA-512 integrity; compressed cap; expanded cap; ratio just below, at and above the limit; entry-count cap; `../x`, `/abs`, `C:\x`, backslash paths; symlink and hardlink entries. Stream and acquired-package inputs give identical results. |
 | 4 | Core dependency mismatch or missing; `package.json` missing or invalid; name or version differs from the descriptor |
 | 5 | One invalid SearchParameter among valid ones: writer never called, all issues reported; cancellation after validation: writer never called |
-| 6 | Composite resolves to same-package parameters regardless of entry order, and to existing `Enabled` or `Supported` definitions; a component's own expression is parsed (tested with the real `SearchParameterSupportResolver`). Rejected: an unresolvable component, an existing definition in any other status, a composite component, a component without an expression, and a component whose definition is missing or isn't an absolute URI, including STU3's reference form. |
-| 7 | Duplicate URL or code within the package, including two members colliding through `Resource` or `DomainResource` in either entry order, with acceptance for unrelated concrete bases; missing `name`, `status` or `description` through model validation; collision with a system-defined URL; code collisions with existing definitions through `Resource` and `DomainResource`; support-resolver and data-store rejections (writer never called); the reference-set token reaches the writer |
+| 6 | Composite resolves to same-package parameters regardless of entry order, and to existing `Enabled` or `Supported` definitions; a component's own expression is parsed and compiled (tested with the real `SearchParameterSupportResolver`). Rejected: an unresolvable component, an existing definition in any other status, a composite component, a component without an expression, and a component whose definition is missing or isn't an absolute URI, including STU3's reference form. |
+| 7 | Duplicate URL or code within the package, including two members colliding through `Resource` or `DomainResource` in either entry order, with acceptance for unrelated concrete bases; missing `name`, `status` or `description` through model validation; collision with a system-defined URL; code collisions with existing definitions through `Resource` and `DomainResource`; support-resolver and data-store rejections (writer never called); expressions that don't compile, including unknown functions inside `where()`; expressions the resolver can't follow (`last()`, `select()`) or that cast to an unknown type, each reported without aborting validation of the rest of the set; the reference-set token reaches the writer |
 
 ## Delivery
 
 0. **Dependency bump:** `IgnixaPackageVersion` 0.6.74 → 0.6.82 (the release that includes brendankowitz/ignixa-fhir#464). Polly 8.5.2 → 8.6.6. Add `Semver` 3.0.0, a new transitive dependency. `Ignixa.Extensions.FirelySdk5` 0.6.82 still pins Hl7.Fhir 5.11.4, which matches this repo. Re-run the `$import` parity tests, because the shared version property also moves the `$import` packages.
-1. **PR 1/2:** Reader on Ignixa (stream input, the shared `Interpret` step, ratio, manifest and core-dependency checks, classification, error mapping), `FhirPackageReaderOptions`, tests including `npm pack` fixtures, and the ADR-2607 note. The acquired-package adapter follows in AB#206133.
-2. **PR 2/2 (stacked on 1/2):** Handler contracts, SearchParameter set validator, `SearchParameterValidator` refactor, installer and result, tests including an end-to-end tarball-to-writer test.
+1. Reader on Ignixa (stream input, the shared `Interpret` step, ratio, manifest and core-dependency checks, classification, error mapping), `FhirPackageReaderOptions`, tests including `npm pack` fixtures and an end-to-end tarball-to-writer test, and the ADR-2607 note. The acquired-package adapter follows in AB#206133.
+2. Handler contracts, SearchParameter set validator, `SearchParameterValidator` refactor, installer and result, tests.
 
 Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#206133 land.
 
@@ -216,12 +217,11 @@ Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#20
 | Piece | Status |
 |---|---|
 | Ignixa 0.6.82 and Polly 8.6.6 bump | Done; `$import` tests pass on all four FHIR versions |
-| Reader contracts: `FhirPackage`, `FhirPackageEntry`, `IFhirPackageReader`, `FhirPackageException` | Done |
-| Handler contracts: `IFhirPackageResourceHandler`, `IFhirPackageInstallPlan`, `ISearchParameterPackageWriter` | Lands in the next stacked PR (2/2, SearchParameter installation) |
-| `FhirPackageInstaller` and `FhirPackageInstallResult` | Lands in the next stacked PR (2/2), with unit tests |
-| `SearchParameterConflictRules` extracted from `SearchParameterValidator` | Lands in the next stacked PR (2/2) |
-| `SearchParameterPackageHandler` | Lands in the next stacked PR (2/2), with unit tests on STU3, R4, R4B and R5 |
-| `IgnixaFhirPackageReader`, `FhirPackageDescriptor`, `FhirPackageReaderOptions` | Done (PR 1/2). Tests cover integrity, every limit, ratio boundaries, unsafe paths and links, manifest and core-dependency rules, classification, and `npm pack` fixtures for all four FHIR versions. The end-to-end path from tarball to writer lands in the next stacked PR (2/2) |
+| Contracts: `FhirPackage`, `IFhirPackageResourceHandler`, `IFhirPackageInstallPlan`, `ISearchParameterPackageWriter`, `FhirPackageException` | Done |
+| `FhirPackageInstaller` and `FhirPackageInstallResult` | Done, with unit tests |
+| `SearchParameterConflictRules` extracted from `SearchParameterValidator` | Done; existing validator tests pass |
+| `SearchParameterPackageHandler` | Done, with unit tests on STU3, R4, R4B and R5 |
+| `IgnixaFhirPackageReader`, `FhirPackageDescriptor`, `FhirPackageReaderOptions` | Done. Tests cover integrity, every limit, ratio boundaries, unsafe paths and links, manifest and core-dependency rules, classification, `npm pack` fixtures for all four FHIR versions, and an end-to-end path from tarball to writer |
 | ADR-2607 note on new Ignixa capabilities | Done |
 | Acquired-package adapter and parity tests | Moved to AB#206133 (needs a real acquisition) |
 | Verification against the published Ignixa 0.6.82 | Pending; the internal proxy is holding the release |

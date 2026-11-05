@@ -111,6 +111,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task GivenAResourceTypeWithVersionedUpdateVersioningPolicy_WhenUpsertingCreateOnlyWithoutETag_ThenConflictIsReturned()
+        {
+            RawResourceElement medicationResource = await Mediator.CreateResourceAsync(Samples.GetDefaultMedication());
+
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => Mediator.UpsertResourceAsync(new UpsertResourceRequest(Samples.GetDefaultMedication().UpdateId(medicationResource.Id), createOnly: true)));
+
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Medication>(medicationResource.Id));
+            Assert.Equal(medicationResource.VersionId, current.VersionId);
+        }
+
+        [Fact]
         public async Task GivenAResourceTypeWithVersionedUpdateVersioningPolicy_WhenPutCreatingWithNoVersion_ThenResourceIsCreatedSuccessfully()
         {
             // The FHIR storage fixture configures medication resources to have the "versioned-update" versioning policy

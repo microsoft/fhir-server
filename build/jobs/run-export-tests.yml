@@ -15,8 +15,6 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
@@ -103,7 +101,7 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} CosmosDB')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -138,18 +136,9 @@ jobs:
       'app_globalReaderUserApp_id': $(app_globalReaderUserApp_id)
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
-      'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)    
+      'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
-
-  - task: PublishTestResults@2
-    displayName: 'Publish test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
-      failTaskOnFailedTests: true
-    condition: succeededOrFailed()
 
 - job: 'sqlE2eTests'
   dependsOn: []
@@ -157,8 +146,6 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
@@ -245,7 +232,7 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} SQL')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -281,15 +268,6 @@ jobs:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
   
-  - task: PublishTestResults@2
-    displayName: 'Publish test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: 'Export ${{ parameters.version }} SQL'
-      failTaskOnFailedTests: true
-    condition: succeededOrFailed()
-      
