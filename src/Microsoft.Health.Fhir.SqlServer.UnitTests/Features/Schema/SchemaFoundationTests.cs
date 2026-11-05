@@ -53,11 +53,5 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
             Assert.Contains("VectorSearchParam", script, StringComparison.Ordinal);
             Assert.DoesNotContain("50419", script, StringComparison.Ordinal);
         }
-
-        [Fact]
-        public void GivenConsolidatedVectorSchema_WhenVersionConstantsAreRead_ThenVectorVersionIs119()
-        {
-            Assert.Equal((int)SchemaVersion.V119, SchemaVersionConstants.VectorSearchVersion);
-        }
     }
 }

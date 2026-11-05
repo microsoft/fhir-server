@@ -1164,6 +1164,74 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
+    [InlineData(null, false)]
+    [InlineData("[11,100,300,null,null,false]", false)]
+    [InlineData("[11,100,300,10,250,false]", true)]
+    [InlineData("[11,100,300,12,250,false]", true)]
+    public void GivenTypedReverseInclude_WhenSqlGenerated_ThenSourceTypeIsRestrictedRegardlessOfContinuationToken(string includesToken, bool hasCursor)
+    {
+        // Arrange
+        var parameter = new SearchParameterInfo(
+            "patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/clinical-patient"),
+            null,
+            null,
+            ["Patient"]);
+        var include = new IncludeExpression(["Patient"], parameter, "Observation", "Patient", null, false, true, false);
+        SqlRootExpression expression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, include, SearchParamTableExpressionKind.Include),
+            ],
+            []);
+        expression = (SqlRootExpression)expression.AcceptVisitor(
+            includesToken == null ? IncludeRewriter.Instance : IncludesOperationRewriter.Instance,
+            null);
+
+        var options = new SearchOptions
+        {
+            IncludesContinuationToken = includesToken,
+            IncludeCount = 1,
+            MaxItemCount = 1,
+            Sort = [(new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Ascending)],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+        _fhirModel.GetResourceTypeId("Observation").Returns((short)10);
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)11);
+        _fhirModel.GetSearchParamId(parameter.Url).Returns((short)40);
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false);
+
+        // Act
+        generator.VisitSqlRoot(expression, options);
+
+        // Assert
+        string sql = _strBuilder.ToString();
+        Assert.Contains("AND refSource.ResourceTypeId = 10", sql);
+        if (hasCursor)
+        {
+            var token = IncludesContinuationToken.FromString(includesToken);
+            Assert.Contains(
+                $"AND (refSource.ResourceTypeId > {token.IncludeResourceTypeId} OR (refSource.ResourceTypeId = {token.IncludeResourceTypeId} AND refSource.ResourceSurrogateId > {token.IncludeResourceSurrogateId}))",
+                sql);
+        }
+        else
+        {
+            Assert.DoesNotContain("refSource.ResourceSurrogateId >", sql);
+        }
+    }
+
+    [Theory]
     [InlineData(false, "refTarget")]
     [InlineData(true, "refSource")]
     public void GivenSmartCompartmentInclude_WhenSqlGenerated_ThenCandidateMembershipIsCheckedBeforeBranchLimit(

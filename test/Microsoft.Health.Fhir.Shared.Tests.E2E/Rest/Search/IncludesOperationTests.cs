@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Runtime.ExceptionServices;
 using System.Text.RegularExpressions;
 using AngleSharp.Common;
 using Hl7.Fhir.Model;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Hl7.Fhir.Model.Bundle;
+using Group = Hl7.Fhir.Model.Group;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -155,6 +157,133 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     resourceTypes,
                     includesCount.Value,
                     pages);
+            }
+        }
+
+        [Theory]
+        [InlineData("_revinclude", "Observation:patient:Patient", 10)]
+        [InlineData("_revinclude", "Observation:patient", 10)]
+        [InlineData("_revinclude", "Observation:patient:Patient", 1)]
+        [InlineData("_revinclude", "Observation:patient", 1)]
+        [InlineData("_include", "Observation:subject:Patient", 10)]
+        [InlineData("_include", "Observation:subject", 10)]
+        [InlineData("_include", "Observation:subject:Patient", 1)]
+        [InlineData("_include", "Observation:subject", 1)]
+        public async Task GivenTypedOrUntypedIncludeOrRevInclude_WhenPagedOrUnpaged_ThenOnlyRequestedResourcesAreIncluded(
+            string includeParameter,
+            string includeExpression,
+            int includesCount)
+        {
+            Assert.SkipUnless(_fixture.TestFhirServer.Metadata.SupportsOperation("includes"), "$includes not enabled on this server");
+
+            var createdResources = new List<Resource>();
+            var failures = new List<Exception>();
+            Exception testFailure = await Record.ExceptionAsync(async () =>
+            {
+                bool reversed = includeParameter == "_revinclude";
+                var patient = (await Client.CreateAsync(new Patient())).Resource;
+                createdResources.Add(patient);
+                var subjects = new List<Resource> { patient };
+                var expectedIncludes = new List<Resource>();
+                if (reversed)
+                {
+                    subjects.Add(patient);
+                }
+                else
+                {
+                    var secondPatient = (await Client.CreateAsync(new Patient())).Resource;
+                    createdResources.Add(secondPatient);
+                    subjects.Add(secondPatient);
+                    var group = (await Client.CreateAsync(new Group
+                    {
+                        Type = Group.GroupType.Person,
+#if Stu3 || R4 || R4B
+                        Actual = true,
+#else
+                        Membership = Group.GroupMembershipBasis.Enumerated,
+#endif
+                    })).Resource;
+                    createdResources.Add(group);
+                    subjects.Add(group);
+                    expectedIncludes.AddRange(subjects.Where(subject =>
+                        subject is Patient || includeExpression == "Observation:subject"));
+                }
+
+                var observations = new List<Resource>();
+                foreach (var subject in subjects)
+                {
+                    var observation = (await Client.CreateAsync(new Observation
+                    {
+                        Status = ObservationStatus.Final,
+                        Code = new CodeableConcept("http://loinc.org", "4548-4"),
+                        Subject = new ResourceReference($"{subject.TypeName}/{subject.Id}"),
+                    })).Resource;
+                    observations.Add(observation);
+                    createdResources.Add(observation);
+                }
+
+                if (reversed)
+                {
+                    expectedIncludes.AddRange(observations);
+                    createdResources.Add((await Client.CreateAsync(new Procedure
+                    {
+                        Status = EventStatus.Completed,
+                        Subject = new ResourceReference($"Patient/{patient.Id}"),
+                    })).Resource);
+                }
+
+                var matches = reversed ? new List<Resource> { patient } : observations;
+                string searchUrl = $"{Server.BaseAddress}{matches[0].TypeName}?_id={string.Join(",", matches.Select(resource => resource.Id))}&{includeParameter}={includeExpression}&_count=10&_includesCount={includesCount}";
+                var response = await Client.SearchAsync(searchUrl);
+                var includedResources = response.Resource.Entry
+                    .Where(entry => entry.Search?.Mode == SearchEntryMode.Include)
+                    .Select(entry => entry.Resource)
+                    .ToList();
+                var relatedUrl = response.Resource.Link?
+                    .FirstOrDefault(link => link.Relation.Equals("related", StringComparison.Ordinal))
+                    ?.Url;
+
+                Assert.Equal(includesCount == 1, !string.IsNullOrEmpty(relatedUrl));
+                while (!string.IsNullOrEmpty(relatedUrl))
+                {
+                    response = await Client.SearchAsync(relatedUrl);
+                    includedResources.AddRange(response.Resource.Entry
+                        .Where(entry => entry.Search?.Mode == SearchEntryMode.Include)
+                        .Select(entry => entry.Resource));
+                    relatedUrl = response.Resource.NextLink?.AbsoluteUri;
+                }
+
+                Assert.Equal(
+                    expectedIncludes
+                        .Select(resource => $"{resource.TypeName}/{resource.Id}")
+                        .OrderBy(reference => reference, StringComparer.Ordinal),
+                    includedResources
+                        .Select(resource => $"{resource.TypeName}/{resource.Id}")
+                        .OrderBy(reference => reference, StringComparer.Ordinal));
+            });
+
+            if (testFailure != null)
+            {
+                failures.Add(testFailure);
+            }
+
+            foreach (var resource in createdResources.AsEnumerable().Reverse())
+            {
+                Exception cleanupFailure = await Record.ExceptionAsync(() => Client.DeleteAsync(resource));
+                if (cleanupFailure != null)
+                {
+                    failures.Add(cleanupFailure);
+                }
+            }
+
+            if (failures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            }
+
+            if (failures.Count > 1)
+            {
+                throw new AggregateException("Test and/or resource cleanup failed.", failures);
             }
         }
 
