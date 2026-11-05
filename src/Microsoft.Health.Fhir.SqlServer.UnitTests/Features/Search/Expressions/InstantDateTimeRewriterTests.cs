@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -15,7 +14,6 @@ using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
@@ -24,20 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class InstantDateTimeRewriterTests
     {
-        private readonly IModelInfoProvider _model = Substitute.For<IModelInfoProvider>();
-        private readonly InstantDateTimeRewriter _rewriter;
+        private readonly InstantDateTimeRewriter _rewriter = new InstantDateTimeRewriter();
         private static readonly DateTimeOffset Boundary = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
-
-        public InstantDateTimeRewriterTests()
-        {
-            _model.IsKnownResource("Slot", false).Returns(true);
-            _model.IsKnownResource("Schedule", false).Returns(true);
-            var summary = Summary(Element("start", Reference("instant")));
-            var scheduleSummary = Summary(Element("planningHorizon", Reference("Period")));
-            _model.StructureDefinitionSummaryProvider.Provide("Slot").Returns(summary);
-            _model.StructureDefinitionSummaryProvider.Provide("Schedule").Returns(scheduleSummary);
-            _rewriter = new InstantDateTimeRewriter(_model);
-        }
 
         [Fact]
         public void GivenDefaultConfiguration_WhenCreated_ThenInstantRewritingIsDisabled()
@@ -69,51 +55,44 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData("Slot")]
-        [InlineData("slot.start")]
-        [InlineData("SLOT.start")]
-        [InlineData("Slot.Start")]
-        [InlineData("Slot.unknown")]
-        [InlineData("Unknown.start")]
-        [InlineData("Slot.start.value")]
-        [InlineData(" Slot.start")]
-        [InlineData("Slot.start ")]
-        [InlineData("Slot..start")]
         [InlineData("Slot.start | Slot.end")]
-        [InlineData("(Slot.start)")]
-        [InlineData("Slot.start.first()")]
-        [InlineData("Slot.start as instant")]
-        [InlineData("Slot.start.ofType(instant)")]
-        [InlineData("Slot.start.where($this.exists())")]
-        [InlineData("Slot.start[0]")]
-        public void GivenUnsupportedExpressionOnSystemParameter_WhenRewritten_ThenExpressionIsUnchanged(string path)
+        [InlineData("Slot.start|Slot.end")]
+        public void GivenHomogeneousInstantUnion_WhenRewritten_ThenExpressionIsUnchanged(string path)
         {
-            // These deliberately altered definitions exercise the proof boundary, not bundled search parameters.
             var original = Expression.SearchParameter(Parameter(path), EndPredicate());
 
             Assert.Same(original, original.AcceptVisitor(_rewriter));
         }
 
         [Theory]
-        [InlineData("Patient", "birthDate", "date")]
-        [InlineData("Composition", "date", "dateTime")]
-        [InlineData("Schedule", "planningHorizon", "Period")]
+        [InlineData("Patient.birthDate", TemporalType.Date)]
+        [InlineData("Composition.date", TemporalType.DateTime)]
+        [InlineData("Schedule.planningHorizon", TemporalType.Period)]
+        [InlineData("MedicationRequest.dosageInstruction.timing", TemporalType.Timing)]
+        [InlineData("Slot.start | Composition.date", TemporalType.Mixed)]
         public void GivenNonInstantFhirTemporalType_WhenRewritten_ThenExpressionIsUnchanged(
-            string resourceType,
-            string elementName,
-            string fhirType)
+            string path,
+            TemporalType temporalType)
         {
-            // These real FHIR elements isolate leaf-type rejection. Bundled definitions are covered by SqlInstantDateTimeSearchTests.
-            _model.IsKnownResource(resourceType, false).Returns(true);
-            var summary = Summary(Element(elementName, Reference(fhirType)));
-            _model.StructureDefinitionSummaryProvider.Provide(resourceType).Returns(summary);
+            // Type proof is covered by classifier and bundled-definition tests; this tests SQL policy.
             var parameter = new SearchParameterInfo(
                 "date",
                 "date",
                 SearchParamType.Date,
-                expression: $"{resourceType}.{elementName}")
+                expression: path)
+            {
+                IsSystemDefined = true,
+                TemporalType = temporalType,
+            };
+            var original = Expression.SearchParameter(parameter, EndPredicate());
+
+            Assert.Same(original, original.AcceptVisitor(_rewriter));
+        }
+
+        [Fact]
+        public void GivenUnclassifiedSystemParameter_WhenRewritten_ThenExpressionIsUnchanged()
+        {
+            var parameter = new SearchParameterInfo("start", "start", SearchParamType.Date, expression: "Slot.start")
             {
                 IsSystemDefined = true,
             };
@@ -133,7 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     "custom-start",
                     SearchParamType.Date,
                     new Uri("http://example.org/SearchParameter/custom-start"),
-                    expression: "Slot.start"),
+                    expression: "Slot.start") { TemporalType = TemporalType.Instant },
                 Parameter(type: SearchParamType.Composite),
                 Parameter(type: SearchParamType.String),
                 new SearchParameterInfo(
@@ -141,61 +120,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     "start",
                     SearchParamType.Date,
                     components: new[] { new SearchParameterComponentInfo(new Uri("http://example.org/component"), "start") },
-                    expression: "Slot.start") { IsSystemDefined = true },
+                    expression: "Slot.start") { IsSystemDefined = true, TemporalType = TemporalType.Instant },
             };
             foreach (SearchParameterInfo parameter in parameters)
             {
                 var original = Expression.SearchParameter(parameter, EndPredicate());
                 Assert.Same(original, original.AcceptVisitor(_rewriter));
             }
-        }
-
-        [Theory]
-        [InlineData("choice")]
-        [InlineData("mixed")]
-        [InlineData("unresolved")]
-        [InlineData("unknown-type")]
-        [InlineData("empty-type")]
-        [InlineData("null-type")]
-        [InlineData("ambiguous")]
-        public void GivenInvalidSlotStructureSummary_WhenRewritten_ThenExpressionIsUnchanged(string scenario)
-        {
-            // Slot.start is an instant. Malformed provider metadata must not authorize a rewrite.
-            var element = Element("start", Reference("instant"));
-            if (scenario == "choice")
-            {
-                element.IsChoiceElement.Returns(true);
-            }
-            else if (scenario == "mixed")
-            {
-                var types = new[] { Reference("instant"), Reference("dateTime") };
-                element.Type.Returns(types);
-            }
-            else if (scenario == "unknown-type")
-            {
-                var types = new[] { Substitute.For<ITypeSerializationInfo>() };
-                element.Type.Returns(types);
-            }
-            else if (scenario == "empty-type")
-            {
-                element.Type.Returns(Array.Empty<ITypeSerializationInfo>());
-            }
-            else if (scenario == "null-type")
-            {
-                ITypeSerializationInfo[] types = null;
-                element.Type.Returns(types);
-            }
-
-            IStructureDefinitionSummary summary = scenario switch
-            {
-                "unresolved" => null,
-                "ambiguous" => Summary(element, element),
-                _ => Summary(element),
-            };
-            _model.StructureDefinitionSummaryProvider.Provide("Slot").Returns(summary);
-            var original = Expression.SearchParameter(Parameter(), EndPredicate());
-
-            Assert.Same(original, original.AcceptVisitor(_rewriter));
         }
 
         [Fact]
@@ -278,6 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             new SearchParameterInfo("start", "start", type, new Uri("http://hl7.org/fhir/SearchParameter/Slot-start"), expression: path)
             {
                 IsSystemDefined = true,
+                TemporalType = TemporalType.Instant,
             };
 
         private static SearchParameterInfo ScheduleDateParameter() =>
@@ -290,30 +222,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 baseResourceTypes: new[] { "Schedule" })
             {
                 IsSystemDefined = true,
+                TemporalType = TemporalType.Period,
             };
 
         private static BinaryExpression EndPredicate() => Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, Boundary);
-
-        private static IStructureDefinitionReference Reference(string type)
-        {
-            var reference = Substitute.For<IStructureDefinitionReference>();
-            reference.ReferredType.Returns(type);
-            return reference;
-        }
-
-        private static IElementDefinitionSummary Element(string name, params ITypeSerializationInfo[] types)
-        {
-            var element = Substitute.For<IElementDefinitionSummary>();
-            element.ElementName.Returns(name);
-            element.Type.Returns(types);
-            return element;
-        }
-
-        private static IStructureDefinitionSummary Summary(params IElementDefinitionSummary[] elements)
-        {
-            var summary = Substitute.For<IStructureDefinitionSummary>();
-            summary.GetElements().Returns(elements);
-            return summary;
-        }
     }
 }

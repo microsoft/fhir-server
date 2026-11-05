@@ -109,6 +109,31 @@ The validation ensures the following conditions are met:
 
 Once the bundle is validated, then the search parameter definition will be cached for lookup use.
 
+#### Derived temporal type metadata
+
+`SearchParameterInfo.TemporalType` describes the FHIR temporal leaf type proven for the complete
+search parameter expression: `Date`, `DateTime`, `Instant`, `Period`, `Timing`, `Mixed`, or `Unknown`.
+It is more specific than the FHIR search type `date`, which can index several different temporal types.
+
+`SearchParameterDefinitionBuilder` derives this metadata when it creates a definition, including during
+startup, using the active version's `IModelInfoProvider`. Classification runs inside the existing canonical
+definition creation factory; a retained definition keeps its expression and matching classification.
+It is not repeated while constructing each query. Directly constructed definitions default to `Unknown`.
+The property is internally assigned, excluded from both JSON serializers, and is not a field clients can
+set on a FHIR `SearchParameter` resource. No schema migration or reindexing is required.
+
+`SearchParameterTemporalTypeClassifier` supports exact-case, resource-qualified property paths and
+unions of those paths. Every branch must resolve unambiguously through the active model. Homogeneous
+branches retain their type; different known temporal types yield `Mixed`. An unknown branch, choice
+element, unsupported function or cast, unresolved metadata, or composite parameter yields `Unknown`.
+For example, `Slot.start` is `Instant`, while the built-in birthdate union
+`Patient.birthDate | Person.birthDate | RelatedPerson.birthDate` is `Date`.
+
+This is shared model knowledge, not permission to apply a storage optimization. Consumers retain their
+own activation, expression-shape, precision, and storage checks. Custom definitions can be classified,
+but that alone does not make them eligible for the
+[SQL instant optimization](SqlSearchArchitecture.md#instant-date-predicates).
+
 #### Search parameter definition file
 
 The search parameter definition file bundled with the code is the [published STU3 version](http://hl7.org/fhir/STU3/downloads.html).

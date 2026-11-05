@@ -49,6 +49,78 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Theory]
+        [InlineData("Slot-start", TemporalType.Instant)]
+        [InlineData("Resource-lastUpdated", TemporalType.Instant)]
+        [InlineData("individual-birthdate", TemporalType.Date)]
+        [InlineData("Schedule-date", TemporalType.Period)]
+#if !R5
+        [InlineData("Appointment-date", TemporalType.Instant)]
+#endif
+        public void GivenBundledDefinition_WhenLoadedAgain_ThenDerivedTemporalTypeAndInstanceAreRetained(
+            string canonicalName,
+            TemporalType expected)
+        {
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", ModelInfoProvider.Instance);
+            var entries = bundle.Entries.Select(e => e.Resource).ToList();
+            SearchParameterDefinitionBuilder.Build(
+                entries,
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: true);
+            SearchParameterInfo original = _uriDictionary[$"http://hl7.org/fhir/SearchParameter/{canonicalName}"];
+
+            SearchParameterDefinitionBuilder.Build(
+                entries,
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+
+            SearchParameterInfo retained = _uriDictionary[original.Url.OriginalString];
+            Assert.Same(original, retained);
+            Assert.Equal(expected, retained.TemporalType);
+            Assert.True(retained.IsSystemDefined);
+            Assert.Equal(ValueSets.SearchParamType.Date, retained.Type);
+        }
+
+        [Fact]
+        public void GivenCustomDefinitionWithSubmittedTemporalType_WhenBuilt_ThenOnlyActiveModelDeterminesType()
+        {
+            const string url = "http://example.org/SearchParameter/custom-start";
+            var parser = new FhirJsonParser(new ParserSettings { AcceptUnknownMembers = true });
+            var resource = parser.Parse<SearchParameter>("""
+                {
+                  "resourceType": "SearchParameter",
+                  "url": "http://example.org/SearchParameter/custom-start",
+                  "name": "custom-start",
+                  "code": "custom-start",
+                  "status": "active",
+                  "base": ["Slot"],
+                  "type": "date",
+                  "expression": "Slot.start",
+                  "temporalType": "Period"
+                }
+                """);
+
+            SearchParameterDefinitionBuilder.Build(
+                new[] { resource.ToTypedElement() },
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+
+            Assert.Equal(TemporalType.Instant, _uriDictionary[url].TemporalType);
+            Assert.False(_uriDictionary[url].IsSystemDefined);
+            Assert.DoesNotContain("TemporalType", Newtonsoft.Json.JsonConvert.SerializeObject(_uriDictionary[url]));
+            Assert.DoesNotContain("TemporalType", System.Text.Json.JsonSerializer.Serialize(_uriDictionary[url]));
+        }
+
+        [Theory]
         [InlineData("SearchParametersWithInvalidBase.json", "SearchParameter[http://hl7.org/fhir/SearchParameter/DomainResource-text].resource.base is not defined.")]
         public void GivenAnInvalidSearchParameterDefinitionFile_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string fileName, string expectedIssue)
         {

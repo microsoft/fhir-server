@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
             Assert.Equal(new Uri($"http://hl7.org/fhir/SearchParameter/{canonicalName}"), definition.Url);
             Assert.Contains(path, definition.Expression);
 
-            Expression result = original.AcceptVisitor(new InstantDateTimeRewriter(ModelInfoProvider.Instance));
+            Expression result = original.AcceptVisitor(new InstantDateTimeRewriter());
 
             Assert.Equal(expected, !ReferenceEquals(original, result));
             using SqlCommand command = _fixture.Generate($"{resourceType}?{code}=ge2026-10-01", instant: true);
@@ -156,9 +156,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
             // This bypasses registration to test metadata traversal. A real FHIR path is not necessarily a built-in parameter.
             // Bundle.entry.response.lastModified exercises inline backbone summaries; Slot.meta.lastUpdated resolves Meta.
             var parameter = new SearchParameterInfo("test", "test", ValueSets.SearchParamType.Date, expression: path) { IsSystemDefined = true };
+            parameter.TemporalType = SearchParameterTemporalTypeClassifier.Classify(parameter, ModelInfoProvider.Instance);
             var original = Expression.SearchParameter(parameter, Expression.GreaterThan(FieldName.DateTimeEnd, null, DateTimeOffset.MinValue));
 
-            Expression result = original.AcceptVisitor(new InstantDateTimeRewriter(ModelInfoProvider.Instance));
+            Expression result = original.AcceptVisitor(new InstantDateTimeRewriter());
 
             Assert.Equal(expected, !ReferenceEquals(original, result));
         }
@@ -277,7 +278,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
             {
                 Expression original = SqlServerSearchService.ApplyDateEqualitySemantics(
                     _fixture.Parse($"Slot?start={prefix}2026-10-01"), containment, false);
-                Expression rewritten = original.AcceptVisitor(new InstantDateTimeRewriter(ModelInfoProvider.Instance));
+                Expression rewritten = original.AcceptVisitor(new InstantDateTimeRewriter());
                 string[] expected = expectedIds.Split(',').Order().ToArray();
 
                 Assert.Equal(expected, InstantSearchFixture.Points.Where(p => Evaluate(original, p.Value)).Select(p => p.Key).Order());
@@ -294,7 +295,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         public void GivenFractionTimezoneOrBoundary_WhenPredicatesEvaluated_ThenExpectedIdsArePreserved(string url, string expectedIds)
         {
             Expression original = _fixture.Parse(url);
-            Expression rewritten = original.AcceptVisitor(new InstantDateTimeRewriter(ModelInfoProvider.Instance));
+            Expression rewritten = original.AcceptVisitor(new InstantDateTimeRewriter());
             string[] expected = expectedIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Order().ToArray();
 
             Assert.Equal(expected, InstantSearchFixture.Points.Where(p => Evaluate(original, p.Value)).Select(p => p.Key).Order());
@@ -307,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         public void GivenRepresentableEndpoint_WhenExactEqualityIsParsed_ThenItMatchesInBothForms(string literal)
         {
             Expression original = _fixture.Parse($"Slot?start=eq{literal}");
-            Expression rewritten = original.AcceptVisitor(new InstantDateTimeRewriter(ModelInfoProvider.Instance));
+            Expression rewritten = original.AcceptVisitor(new InstantDateTimeRewriter());
             DateTimeOffset point = DateTimeOffset.Parse(literal, CultureInfo.InvariantCulture);
 
             Assert.True(Evaluate(original, point));
@@ -556,7 +557,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                     Substitute.For<IFhirDataStore>(),
                     Model,
                     new SqlRootExpressionRewriter(_factory),
-                    new InstantDateTimeRewriter(ModelInfoProvider.Instance),
+                    new InstantDateTimeRewriter(),
                     new ChainFlatteningRewriter(_factory),
                     new SortRewriter(_factory),
                     new PartitionEliminationRewriter(Model, _schema, () => Definitions),

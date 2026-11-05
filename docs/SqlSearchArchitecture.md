@@ -72,8 +72,11 @@ Merge SQL stores them in `StartDateTime` and `EndDateTime` as `datetime2(7)`.
 The rewrite substitutes `StartDateTime` for `EndDateTime` in eligible predicates.
 Operators, boundaries, Boolean structure, and chain scope stay unchanged.
 
-Eligibility requires a system-defined scalar date parameter whose complete definition is a resource-qualified property path.
-The active FHIR model must resolve every property with exact casing, without choices or mixed types, to a terminal `instant`.
+Eligibility requires a system-defined scalar date parameter with derived `TemporalType.Instant` metadata
+whose complete definition is a resource-qualified property path, not a union.
+Core [classifies temporal types during definition loading](SearchArchitecture.md#derived-temporal-type-metadata)
+using the active FHIR model. The SQL rewriter consumes that result rather than walking model metadata per query.
+The model must resolve every property with exact casing, without choices or mixed types, to a terminal `instant`.
 For example, the built-in `Slot-start` parameter uses `Slot.start`.
 An instant-valued path alone does not establish eligibility. The path must belong to a qualifying built-in search parameter.
 The query literal's precision does not establish eligibility.
@@ -81,6 +84,9 @@ The query literal's precision does not establish eligibility.
 Custom parameters retain their existing SQL, even when their current path resolves to `instant`.
 Mutable definitions can leave stale definition caches and index rows on other instances.
 Dates, dateTimes, Periods, composites, unresolved paths, unions, functions, and casts also retain their existing SQL.
+Even homogeneous instant unions are excluded: shared type knowledge is broader than this optimization's policy.
+An unclassified definition remains `Unknown` and is not rewritten. If the classifier's supported expression
+grammar expands in the future, SQL eligibility must be reviewed separately rather than inferred from the leaf type alone.
 
 `InstantDateTimeRewriter` runs after `DateTimeTableExpressionCombiner` and before bounded-range expansion.
 For example, `Slot?start=ge2026-10-01&start=lt2026-10-02&schedule.actor=Location/example` keeps its combined date range but uses `StartDateTime` for both bounds.

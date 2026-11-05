@@ -113,9 +113,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
-        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, ConcurrentDictionary<string, SearchParameterInfo> uriDictionary)
+        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, ConcurrentDictionary<string, SearchParameterInfo> uriDictionary, IModelInfoProvider modelInfoProvider)
         {
-            return uriDictionary.GetOrAdd(searchParameter.Url, _ => new SearchParameterInfo(searchParameter));
+            return uriDictionary.GetOrAdd(searchParameter.Url, _ =>
+            {
+                var info = new SearchParameterInfo(searchParameter);
+                info.TemporalType = SearchParameterTemporalTypeClassifier.Classify(info, modelInfoProvider);
+                return info;
+            });
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
@@ -151,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 try
                 {
-                    SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
+                    SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary, modelInfoProvider);
 
                     // Mark spec-defined search parameters as system-defined.
                     // Once marked, this should remain true across subsequent Build calls.
@@ -246,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         continue;
                     }
 
-                    SearchParameterInfo compositeSearchParameter = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
+                    SearchParameterInfo compositeSearchParameter = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary, modelInfoProvider);
 
                     for (int componentIndex = 0; componentIndex < composites.Count; componentIndex++)
                     {
@@ -315,7 +320,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                     }
 
-                    validatedSearchParameters.Add((baseResourceType, GetOrCreateSearchParameterInfo(searchParameter, uriDictionary)));
+                    validatedSearchParameters.Add((baseResourceType, GetOrCreateSearchParameterInfo(searchParameter, uriDictionary, modelInfoProvider)));
                 }
             }
 

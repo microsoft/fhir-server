@@ -100,6 +100,14 @@ namespace Microsoft.Health.Fhir.Core.Models
         public SearchParamType Type { get; set; }
 
         /// <summary>
+        /// Gets the temporal leaf type derived from the active model during definition loading.
+        /// Unknown means the complete expression has not been proven.
+        /// </summary>
+        [Newtonsoft.Json.JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
+        public TemporalType TemporalType { get; internal set; }
+
+        /// <summary>
         /// Returns true if this parameter is enabled for searches
         /// </summary>
         public bool IsSearchable { get; set; } = true;
