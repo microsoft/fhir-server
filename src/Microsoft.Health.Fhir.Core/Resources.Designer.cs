@@ -981,7 +981,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The value of URI search parameter(s) &apos;{0}&apos; is {1} characters or longer. Only the first {1} characters of URI values are compared, so the results can include resources whose URI only shares those characters with the requested value..
+        ///   Looks up a localized string similar to URI parameter &apos;{0}&apos; exceeds {1} characters. Evaluation is limited to the first {1} characters, which may return broader search results..
         /// </summary>
         internal static string LongUriSearchValue {
             get {

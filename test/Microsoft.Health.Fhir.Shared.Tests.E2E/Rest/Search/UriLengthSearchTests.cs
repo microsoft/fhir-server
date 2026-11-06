@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class UriLengthSearchTests : SearchTestsBase<UriLengthSearchTestFixture>
     {
-        private const string LongUriWarning = "The value of URI search parameter(s) '_profile' is 256 characters or longer. Only the first 256 characters of URI values are compared, so the results can include resources whose URI only shares those characters with the requested value.";
+        private const string LongUriWarning = "URI parameter '_profile' exceeds 256 characters. Evaluation is limited to the first 256 characters, which may return broader search results.";
 
         private const string CollidingUriError = "The resource has more than one value for the URI search parameter '_profile' that are identical in their first 256 characters. URI search values are compared using only their first 256 characters, so values of the same search parameter must differ within the first 256 characters.";
 

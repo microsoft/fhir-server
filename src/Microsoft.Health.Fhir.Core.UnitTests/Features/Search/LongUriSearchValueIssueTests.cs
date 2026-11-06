@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, issue.Severity);
             Assert.Equal(OperationOutcomeConstants.IssueType.Informational, issue.Code);
             Assert.Equal(
-                "The value of URI search parameter(s) '_profile, url' is 256 characters or longer. Only the first 256 characters of URI values are compared, so the results can include resources whose URI only shares those characters with the requested value.",
+                "URI parameter '_profile, url' exceeds 256 characters. Evaluation is limited to the first 256 characters, which may return broader search results.",
                 issue.Diagnostics);
             Assert.True(LongUriSearchValueIssue.IsMatch(issue));
         }

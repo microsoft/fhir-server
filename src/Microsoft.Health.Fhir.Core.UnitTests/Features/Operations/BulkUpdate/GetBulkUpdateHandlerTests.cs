@@ -658,7 +658,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         [Fact]
         public async Task GivenAJobSubmittedWithSearchWarnings_WhenStatusRequested_ThenTheWarningsAreReturned()
         {
-            const string warning = "The value of URI search parameter(s) '_profile' is 256 characters or longer.";
+            const string warning = "URI parameter '_profile' exceeds 256 characters.";
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
             var orchestratorJob = new JobInfo
             {

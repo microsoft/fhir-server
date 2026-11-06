@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         [InlineData(JobStatus.Failed, System.Net.HttpStatusCode.InternalServerError)]
         public async Task GivenAJobSubmittedWithSearchWarnings_WhenStatusRequested_ThenTheWarningsAreReturnedWithoutChangingTheStatus(JobStatus processingStatus, System.Net.HttpStatusCode expectedStatusCode)
         {
-            const string warning = "The value of URI search parameter(s) '_profile' is 256 characters or longer.";
+            const string warning = "URI parameter '_profile' exceeds 256 characters.";
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
             var orchestratorJob = new JobInfo
             {
