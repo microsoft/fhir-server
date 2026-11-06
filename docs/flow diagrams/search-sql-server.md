@@ -22,9 +22,10 @@ For complex searches or optimizer retries, it can use joins instead. The final q
 and deletion filters, sorting, and pagination, then returns distinct resources. Include searches save the
 matched resources before generating queries for included resources.
 
-Independent chained parameters can match different referenced resources. When the generator uses joins,
-it intersects independent chains, and root-level filters that follow a chain, on distinct source-resource keys
-so multiple matches in one chain do not multiply rows in later tables.
+Independent chained parameters can match different referenced resources. When
+`FhirSqlServer:EnableChainSourceDeduplication` is enabled and the generator uses joins, it intersects
+independent chains, and root-level filters that follow a chain, on distinct source-resource keys so multiple
+matches in one chain do not multiply rows in later tables. This option is disabled by default.
 
 ### Query shape comments
 
