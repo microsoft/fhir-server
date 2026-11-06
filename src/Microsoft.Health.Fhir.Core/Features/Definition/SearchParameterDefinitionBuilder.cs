@@ -115,12 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, ConcurrentDictionary<string, SearchParameterInfo> uriDictionary, IModelInfoProvider modelInfoProvider)
         {
-            return uriDictionary.GetOrAdd(searchParameter.Url, _ =>
-            {
-                var info = new SearchParameterInfo(searchParameter);
-                info.TemporalType = SearchParameterTemporalTypeClassifier.Classify(info, modelInfoProvider);
-                return info;
-            });
+            return uriDictionary.GetOrAdd(searchParameter.Url, _ => new SearchParameterInfo(searchParameter, modelInfoProvider));
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(

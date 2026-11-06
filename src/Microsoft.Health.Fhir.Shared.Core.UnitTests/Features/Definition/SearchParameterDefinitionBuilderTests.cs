@@ -49,6 +49,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Theory]
+        [InlineData("Slot.start", TemporalType.Instant)]
+        [InlineData("Slot.start.first()", TemporalType.Unknown)]
+        public void GivenWrapperAndActiveModel_WhenConstructed_ThenTemporalTypeIsDerived(string expression, TemporalType expected)
+        {
+            SearchParameterWrapper wrapper = CreateWrapper(expression);
+
+            var parameter = new SearchParameterInfo(wrapper, ModelInfoProvider.Instance);
+
+            Assert.Equal(expected, parameter.TemporalType);
+        }
+
+        [Fact]
+        public void GivenWrapperAndDifferentModel_WhenConstructed_ThenSuppliedModelDeterminesTemporalType()
+        {
+            SearchParameterWrapper wrapper = CreateWrapper("Slot.start");
+            var model = Substitute.For<IModelInfoProvider>();
+
+            var parameter = new SearchParameterInfo(wrapper, model);
+
+            Assert.Equal(TemporalType.Unknown, parameter.TemporalType);
+        }
+
+        [Fact]
+        public void GivenWrapperWithoutModel_WhenConstructed_ThenTemporalTypeIsUnknown()
+        {
+            SearchParameterWrapper wrapper = CreateWrapper("Slot.start");
+
+            var parameter = new SearchParameterInfo(wrapper);
+
+            Assert.Equal(TemporalType.Unknown, parameter.TemporalType);
+        }
+
+        [Theory]
         [InlineData("Slot-start", TemporalType.Instant)]
         [InlineData("Resource-lastUpdated", TemporalType.Instant)]
         [InlineData("individual-birthdate", TemporalType.Date)]
@@ -415,6 +448,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Collection(
                 _resourceTypeDictionary[resourceType][code],
                 x => string.Equals(searchParameters.First().Url, _uriDictionary[x].Url.OriginalString, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private SearchParameterWrapper CreateWrapper(string expression)
+        {
+            SearchParameter resource = _jsonParser.Parse<SearchParameter>(
+                $$"""
+                {
+                  "resourceType": "SearchParameter",
+                  "url": "http://example.org/SearchParameter/test-start",
+                  "name": "test-start",
+                  "code": "test-start",
+                  "status": "active",
+                  "base": ["Slot"],
+                  "type": "date",
+                  "expression": "{{expression}}"
+                }
+                """);
+            return new SearchParameterWrapper(resource.ToTypedElement());
         }
 
         private void BuildAndVerify(string filename, string expectedIssue)

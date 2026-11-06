@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -81,6 +82,13 @@ namespace Microsoft.Health.Fhir.Core.Models
                 return component.Scalar("definition.reference")?.ToString() ??
                    component.Scalar("definition")?.ToString();
             }
+        }
+
+        internal SearchParameterInfo(SearchParameterWrapper wrapper, IModelInfoProvider modelInfoProvider)
+            : this(wrapper)
+        {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            TemporalType = SearchParameterTemporalTypeClassifier.Classify(this, modelInfoProvider);
         }
 
         public string Name { get; }

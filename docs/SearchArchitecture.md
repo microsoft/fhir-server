@@ -115,10 +115,11 @@ Once the bundle is validated, then the search parameter definition will be cache
 search parameter expression: `Date`, `DateTime`, `Instant`, `Period`, `Timing`, `Mixed`, or `Unknown`.
 It is more specific than the FHIR search type `date`, which can index several different temporal types.
 
-`SearchParameterDefinitionBuilder` derives this metadata when it creates a definition, including during
-startup, using the active version's `IModelInfoProvider`. Classification runs inside the existing canonical
+`SearchParameterDefinitionBuilder` creates definitions with the active version's `IModelInfoProvider`.
+The provider-aware `SearchParameterInfo` constructor classifies each definition inside the canonical
 definition creation factory; a retained definition keeps its expression and matching classification.
-It is not repeated while constructing each query. Directly constructed definitions default to `Unknown`.
+Classification is not repeated while constructing each query. Definitions constructed without a model
+provider default to `Unknown`.
 The property is internally assigned, excluded from both JSON serializers, and is not a field clients can
 set on a FHIR `SearchParameter` resource. No schema migration or reindexing is required.
 
