@@ -9,7 +9,8 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
-using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
+using EvaluationContext = Hl7.FhirPath.EvaluationContext;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -32,7 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             Instance = instance;
             _context = new Lazy<EvaluationContext>(() =>
-                new EvaluationContext().WithResourceOverrides(instance));
+                new EvaluationContext
+                {
+                    Resource = instance,
+                    RootResource = instance,
+                });
         }
 
         internal ResourceElement(ITypedElement instance, object resourceInstance)

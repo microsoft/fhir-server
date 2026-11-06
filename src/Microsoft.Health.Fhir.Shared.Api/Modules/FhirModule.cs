@@ -6,10 +6,8 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.FhirPath;
 using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -64,8 +62,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
             services.AddSingleton<BundleSerializer>();
-
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             ResourceElement SetMetadata(Resource resource, string versionId, DateTimeOffset lastModified)
             {
@@ -140,9 +136,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateParametersResourceAttribute>();
             services.AddSingleton<QueryLatencyOverEfficiencyFilterAttribute>();
             services.AddSingleton<QueryCacheFilterAttribute>();
-
-            // Support for resolve()
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             services.Add<FhirJsonInputFormatter>()
                 .Singleton()

@@ -5,6 +5,15 @@ parameters:
   type: string
 - name: appServiceType
   type: string
+- name: expectedFhirSdkProviderSystemDefault
+  type: string
+  default: ''
+- name: expectedKeyVaultName
+  type: string
+  default: ''
+- name: expectedSqlDatabaseName
+  type: string
+  default: ''
 
 steps:
 - task: AzurePowerShell@5
@@ -34,7 +43,8 @@ steps:
                     throw "$($secret.Name) is empty"
                 }
 
-                Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+                # Secret variables are masked by Azure Pipelines when later tasks reference them.
+                Write-Host "##vso[task.setvariable variable=$($environmentVariableName);issecret=true]$($plainValue)"
             }
         }
 
@@ -56,6 +66,59 @@ steps:
             }
 
             return $null
+        }
+
+        $fhirSdkProviderSeams = @('', 'SystemDefault', 'FhirPath', 'Import')
+
+        function Assert-FhirSdkProviderConfiguration {
+            param(
+                [Parameter(Mandatory = $true)]
+                [AllowEmptyCollection()]
+                [array]$EnvSettings,
+                [Parameter(Mandatory = $true)]
+                [hashtable]$SecretValues,
+                [Parameter(Mandatory = $true)]
+                [string]$ExpectedProvider,
+                [Parameter(Mandatory = $true)]
+                [string]$ContainerAppName
+            )
+
+            # Configuration keys are case-insensitive, so match names the same way the app does.
+            $envPrefix = 'FhirServer__CoreFeatures__FhirSdkProvider'
+            $envProviderSettings = @($EnvSettings | Where-Object { $_.name -ieq $envPrefix -or $_.name -ilike "${envPrefix}__*" })
+
+            $duplicate = $envProviderSettings | Group-Object { $_.name.ToUpperInvariant() } | Where-Object Count -gt 1 | Select-Object -First 1
+            if ($duplicate) {
+                throw "Container App '$ContainerAppName' defines '$($duplicate.Group[0].name)' more than once."
+            }
+
+            # The app refuses to start with the old single-value form, so report it here with a clear cause.
+            $legacySettings = @($envProviderSettings | Where-Object { $_.name -ieq $envPrefix } | ForEach-Object { "$($_.name) (environment)" })
+            $legacySettings += @($SecretValues.Keys | Where-Object { $_ -ieq 'FhirServer--CoreFeatures--FhirSdkProvider' } | ForEach-Object { "$_ (Key Vault)" })
+            if ($legacySettings.Count -gt 0) {
+                throw "Container App '$ContainerAppName' sets the unsupported single-value FhirSdkProvider setting: $($legacySettings -join ', '). Use FhirSdkProvider__SystemDefault."
+            }
+
+            $unknownSettings = @($envProviderSettings | Where-Object { $_.name -ilike "${envPrefix}__*" -and $_.name.Substring($envPrefix.Length + 2) -notin $fhirSdkProviderSeams.Where({ $_ }) })
+            if ($unknownSettings.Count -gt 0) {
+                throw "Container App '$ContainerAppName' sets unsupported FhirSdkProvider settings: $(($unknownSettings | ForEach-Object name) -join ', ')."
+            }
+
+            if (-not ($envProviderSettings | Where-Object { $_.name -ieq "${envPrefix}__SystemDefault" })) {
+                throw "Container App '$ContainerAppName' must define FhirSdkProvider__SystemDefault='$ExpectedProvider'."
+            }
+
+            # SystemDefault and every per-seam override can each decide a seam's provider.
+            # Requiring all of them to match means no precedence order can select a different provider.
+            $settings = @($envProviderSettings | ForEach-Object { [pscustomobject]@{ Name = $_.name; Value = [string]$_.value; Source = 'environment' } })
+            $settings += @($SecretValues.GetEnumerator() | ForEach-Object { [pscustomobject]@{ Name = $_.Key; Value = [string]$_.Value; Source = 'Key Vault' } })
+            $conflicts = @($settings | Where-Object { $_.Value.Trim() -ine $ExpectedProvider })
+            if ($conflicts.Count -gt 0) {
+                $details = ($conflicts | ForEach-Object { "$($_.Name)='$($_.Value)' ($($_.Source))" }) -join ', '
+                throw "Container App '$ContainerAppName' must resolve every FHIR SDK provider setting to '$ExpectedProvider'. Conflicting settings: $details."
+            }
+
+            return $ExpectedProvider
         }
 
         function Set-TestEnvironmentUrlVariables {
@@ -102,6 +165,61 @@ steps:
         $envSettings = $containerAppData.Properties.template.containers[0].env
         if ($null -eq $envSettings) {
             throw "Container App '$containerAppName' has no environment variables configured."
+        }
+
+        $expectedFhirSdkProviderSystemDefault = '${{ parameters.expectedFhirSdkProviderSystemDefault }}'
+        if ($expectedFhirSdkProviderSystemDefault) {
+            # The app reads environment variables, then Key Vault secrets (Program.cs), so a Key Vault value
+            # wins. Read every setting that can change the effective FHIRPath provider from both sources.
+            $providerSecretValues = @{}
+            $providerVaultEndpoint = Get-ContainerEnvValue -EnvSettings $envSettings -Name 'KeyVault__Endpoint'
+            if ($providerVaultEndpoint) {
+                $providerVaultName = ([uri]$providerVaultEndpoint).Host.Split('.')[0]
+                foreach ($seam in $fhirSdkProviderSeams) {
+                    $secretName = if ($seam) { "FhirServer--CoreFeatures--FhirSdkProvider--$seam" } else { 'FhirServer--CoreFeatures--FhirSdkProvider' }
+                    try {
+                        $secretValue = Get-AzKeyVaultSecret -VaultName $providerVaultName -Name $secretName -AsPlainText -ErrorAction Stop
+                    }
+                    catch {
+                        if ($_.Exception.Message -notmatch 'NotFound|not found|SecretNotFound') {
+                            throw "Could not read '$secretName' from Key Vault '$providerVaultName' to verify the FHIR SDK provider: $($_.Exception.Message)"
+                        }
+                        $secretValue = $null
+                    }
+                    if ($null -ne $secretValue) {
+                        $providerSecretValues[$secretName] = [string]$secretValue
+                    }
+                }
+            }
+
+            $effectiveFhirPathProvider = Assert-FhirSdkProviderConfiguration `
+                -EnvSettings $envSettings `
+                -SecretValues $providerSecretValues `
+                -ExpectedProvider $expectedFhirSdkProviderSystemDefault `
+                -ContainerAppName $containerAppName
+            Write-Host "Container App '$containerAppName' effective FHIRPath provider: $effectiveFhirPathProvider"
+        }
+
+        $expectedSqlDatabaseName = '${{ parameters.expectedSqlDatabaseName }}'
+        if ($expectedSqlDatabaseName) {
+            $expectedKeyVaultName = '${{ parameters.expectedKeyVaultName }}'
+            $vaultEndpoint = Get-ContainerEnvValue -EnvSettings $envSettings -Name 'KeyVault__Endpoint'
+            $vaultDnsSuffix = (Get-AzEnvironment -Name (Get-AzContext -ErrorAction Stop).Environment.Name -ErrorAction Stop).AzureKeyVaultDnsSuffix.Trim('.')
+            if (-not $expectedKeyVaultName -or -not $vaultEndpoint -or $vaultEndpoint.TrimEnd('/') -ine "https://$expectedKeyVaultName.$vaultDnsSuffix") {
+                throw "Container App '$containerAppName' must use the expected Key Vault '$expectedKeyVaultName'."
+            }
+            try {
+                $connectionString = Get-AzKeyVaultSecret -VaultName $expectedKeyVaultName -Name 'SqlServer--ConnectionString' -AsPlainText -ErrorAction Stop
+                $connection = [System.Data.Common.DbConnectionStringBuilder]::new()
+                $connection.set_ConnectionString($connectionString)
+            }
+            catch {
+                throw "Could not read the SQL connection configuration from Key Vault '$expectedKeyVaultName'."
+            }
+            $databaseName = if ($connection.ContainsKey('Initial Catalog')) { $connection['Initial Catalog'] } else { $connection['Database'] }
+            if ($databaseName -ine $expectedSqlDatabaseName) {
+                throw "Container App '$containerAppName' must target SQL database '$expectedSqlDatabaseName'."
+            }
         }
 
         Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'

@@ -13,11 +13,11 @@ using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -47,9 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 
         private static readonly FhirJsonParser Parser = new FhirJsonParser();
 
-        // Same configuration as TypedElementSearchIndexer's compiler, so an expression that compiles here also compiles at indexing time.
-        private static readonly FhirPathCompiler Compiler = new FhirPathCompiler();
-
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -58,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly IModelAttributeValidator _modelAttributeValidator;
         private readonly ISearchParameterPackageWriter _writer;
+        private readonly IFhirPathProvider _fhirPathProvider;
         private readonly ILogger<SearchParameterPackageHandler> _logger;
 
         /// <summary>
@@ -71,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         /// <param name="dataStoreSearchParameterValidator">Applies data-store-specific SearchParameter rules.</param>
         /// <param name="modelAttributeValidator">Validates each resource against the FHIR model, including cardinality.</param>
         /// <param name="writer">Writes the validated set.</param>
+        /// <param name="fhirPathProvider">The FHIRPath provider that indexing uses, so expressions are compiled by the same engine.</param>
         /// <param name="logger">The logger.</param>
         public SearchParameterPackageHandler(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
@@ -81,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
             IModelAttributeValidator modelAttributeValidator,
             ISearchParameterPackageWriter writer,
+            IFhirPathProvider fhirPathProvider,
             ILogger<SearchParameterPackageHandler> logger)
         {
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -91,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             _dataStoreSearchParameterValidator = EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
             _modelAttributeValidator = EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
             _writer = EnsureArg.IsNotNull(writer, nameof(writer));
+            _fhirPathProvider = EnsureArg.IsNotNull(fhirPathProvider, nameof(fhirPathProvider));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -434,10 +435,11 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         }
 
         /// <summary>
-        /// Compiles the expression and every component expression exactly as indexing will. Compilation binds every
-        /// function, including those inside predicates such as where(), which the support resolver doesn't inspect.
+        /// Compiles the expression and every component expression with the provider indexing uses. Firely compilation
+        /// also binds every function, including those inside predicates such as where(), which the support resolver
+        /// doesn't inspect; Ignixa compilation checks syntax only.
         /// </summary>
-        private static bool CheckExpressionsCompile(Candidate candidate, List<OperationOutcomeIssue> issues)
+        private bool CheckExpressionsCompile(Candidate candidate, List<OperationOutcomeIssue> issues)
         {
             bool compiled = TryCompile(candidate.SearchParameter.Expression);
 
@@ -452,7 +454,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             {
                 try
                 {
-                    Compiler.Compile(expression);
+                    _fhirPathProvider.Compile(expression);
                     return true;
                 }
                 catch (Exception ex) when (ex is FormatException or ArgumentException)
