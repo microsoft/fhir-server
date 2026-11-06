@@ -39,7 +39,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // Homogeneous unions have a known type, but union rewriting is not enabled.
             return parameter.IsSystemDefined &&
                 parameter.Type == SearchParamType.Date &&
-                parameter.Component?.Count is not > 0 &&
                 parameter.TemporalType == TemporalType.Instant &&
                 !parameter.Expression.Contains('|', StringComparison.Ordinal);
         }

@@ -115,12 +115,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     expression: "Slot.start") { TemporalType = TemporalType.Instant },
                 Parameter(type: SearchParamType.Composite),
                 Parameter(type: SearchParamType.String),
-                new SearchParameterInfo(
-                    "start",
-                    "start",
-                    SearchParamType.Date,
-                    components: new[] { new SearchParameterComponentInfo(new Uri("http://example.org/component"), "start") },
-                    expression: "Slot.start") { IsSystemDefined = true, TemporalType = TemporalType.Instant },
             };
             foreach (SearchParameterInfo parameter in parameters)
             {
