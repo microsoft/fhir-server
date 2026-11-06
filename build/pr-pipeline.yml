@@ -475,23 +475,20 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- template: ./stages/resource-id-long-tests.yml
+- template: ./stages/sql-profile-tests.yml
   parameters:
     version: Stu3
-    baselineAppName: $(DeploymentEnvironmentNameSql)
-    lifecycle: PR
+    appName: $(DeploymentEnvironmentNameSql)
 
-- template: ./stages/resource-id-long-tests.yml
+- template: ./stages/sql-profile-tests.yml
   parameters:
     version: R4
-    baselineAppName: $(DeploymentEnvironmentNameR4Sql)
-    lifecycle: PR
+    appName: $(DeploymentEnvironmentNameR4Sql)
 
-- template: ./stages/resource-id-long-tests.yml
+- template: ./stages/sql-profile-tests.yml
   parameters:
     version: R5
-    baselineAppName: $(DeploymentEnvironmentNameR5Sql)
-    lifecycle: PR
+    appName: $(DeploymentEnvironmentNameR5Sql)
 
 - template: ./stages/cleanup-pr-test-resources.yml
   parameters:

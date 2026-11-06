@@ -13,8 +13,8 @@ stages:
   displayName: 'Clean up ${{ parameters.version }} SQL resources'
   dependsOn:
   - ${{ parameters.testStage }}
-  - test${{ parameters.version }}SqlLong128
-  condition: and(not(canceled()), eq(dependencies.${{ parameters.testStage }}.result, 'Succeeded'), eq(dependencies.test${{ parameters.version }}SqlLong128.result, 'Succeeded'))
+  - test${{ parameters.version }}SqlProfiles
+  condition: and(not(canceled()), eq(dependencies.${{ parameters.testStage }}.result, 'Succeeded'), eq(dependencies.test${{ parameters.version }}SqlProfiles.result, 'Succeeded'))
   jobs:
   - job: CleanupResources
     pool:

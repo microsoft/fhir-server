@@ -18,6 +18,7 @@ parameters:
   - None
   - Standard64
   - Long128
+  - Runtime
 
 steps:
   - template: e2e-tests-extract.yml
@@ -45,10 +46,30 @@ steps:
         Write-Host "##vso[task.setvariable variable=ResourceIdResultsDirectory]$results"
         $started = [DateTimeOffset]::UtcNow
         $env:ResourceIdExpectedUrl = $env:TestEnvironmentUrl_${{ parameters.version }}_Sql
-        if ('${{ parameters.resourceIdProfile }}' -ne 'None') {
-          $env:ResourceIdProfile = '${{ parameters.resourceIdProfile }}'
-        } else {
+        $categoryFilter = '${{ parameters.categoryFilter }}'
+        $runTitle = '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}'
+        $resultsArtifact = 'ResourceIdResults_${{ parameters.version }}_${{ parameters.resourceIdProfile }}_$(System.JobName)_attempt$(System.JobAttempt)'
+        $resourceIdProfile = '${{ parameters.resourceIdProfile }}'
+        if ($resourceIdProfile -ceq 'Runtime') {
+          foreach ($name in @('SQLREVISIONPROFILE', 'SQLPROFILECATEGORYFILTER', 'SQLRESOURCEIDPROFILE')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Runtime resource ID profile requires the matrix variable $name."
+            }
+          }
+
+          $categoryFilter = $env:SQLPROFILECATEGORYFILTER
+          $runTitle = "$runTitle $($env:SQLREVISIONPROFILE)"
+          $resultsArtifact = "ResourceIdResults_${{ parameters.version }}_$($env:SQLREVISIONPROFILE)_$(System.JobName)_attempt$(System.JobAttempt)"
+          $resourceIdProfile = $env:SQLRESOURCEIDPROFILE
+        }
+
+        Write-Host "##vso[task.setvariable variable=ResourceIdResultsArtifact]$resultsArtifact"
+        if ($resourceIdProfile -cin @('Standard64', 'Long128')) {
+          $env:ResourceIdProfile = $resourceIdProfile
+        } elseif ($resourceIdProfile -ceq 'None') {
           Remove-Item Env:ResourceIdProfile -ErrorAction SilentlyContinue
+        } else {
+          throw "Unsupported resource ID profile '$resourceIdProfile'."
         }
         $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E"
         $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
@@ -56,9 +77,9 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $categoryPredicates = "${{ parameters.categoryFilter }}".Split('&') | ForEach-Object { "($_)" }
+        $categoryPredicates = $categoryFilter.Split('&') | ForEach-Object { "($_)" }
         $query = "/[(DataStore=${{ parameters.appServiceType }})&$($categoryPredicates -join '&')]"
-        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--results-directory', $results, '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}')
+        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--results-directory', $results, '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', $runTitle)
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -72,8 +93,8 @@ steps:
           }
         }
 
-        if ('${{ parameters.resourceIdProfile }}' -ne 'None') {
-          & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-ResourceIdResults.ps1" -ResultsDirectory $results -Profile '${{ parameters.resourceIdProfile }}' -StartedUtc $started
+        if ($resourceIdProfile -cne 'None') {
+          & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-ResourceIdResults.ps1" -ResultsDirectory $results -Profile $resourceIdProfile -StartedUtc $started
         }
         if ($testExitCode -ne 0) {
           throw "E2E tests failed with exit code $testExitCode"
@@ -118,11 +139,47 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+      ${{ if eq(parameters.resourceIdProfile, 'Runtime') }}:
+        'SQLREVISIONPROFILE': $(SqlRevisionProfile)
+        'SQLPROFILECATEGORYFILTER': $(SqlProfileCategoryFilter)
+        'SQLRESOURCEIDPROFILE': $(SqlResourceIdProfile)
 
-  - ${{ if ne(parameters.resourceIdProfile, 'None') }}:
+  - ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.resourceIdProfile, 'None')) }}:
+    - task: AzurePowerShell@5
+      displayName: 'Recheck selected SQL revision after tests'
+      retryCountOnTaskFailure: 1
+      condition: and(succeededOrFailed(), ne('', variables['ResourceIdSelectedBinding']))
+      env:
+        RESOURCEIDSELECTEDPROFILE: $(ResourceIdSelectedProfile)
+        RESOURCEIDSELECTEDBINDING: $(ResourceIdSelectedBinding)
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        pwsh: true
+        ScriptType: InlineScript
+        Inline: |
+          $ErrorActionPreference = 'Stop'
+          $containerApp = Get-AzResource -ResourceGroupName '$(UniqueResourceGroupName)' -ResourceType 'Microsoft.App/containerApps' -Name '${{ parameters.containerAppName }}'
+          if ($null -eq $containerApp) {
+            throw "Container App '${{ parameters.containerAppName }}' was not found in resource group '$(UniqueResourceGroupName)'."
+          }
+
+          $armToken = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').Token
+          if ($armToken -is [string]) {
+            $armToken = ConvertTo-SecureString -String $armToken -AsPlainText -Force
+          }
+
+          $selection = & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1" -Goal Resolve -AppResourceId $containerApp.ResourceId -AccessToken $armToken -RevisionProfile $env:RESOURCEIDSELECTEDPROFILE -Binding $env:RESOURCEIDSELECTEDBINDING -Expect
+          $armToken = $null
+          if (-not $selection.Ready) {
+            throw "Selected revision '$($selection.Revision)' is no longer active, provisioned and healthy after the tests."
+          }
+
+          Write-Host "After the tests revision '$($selection.Revision)' (label '$($selection.Label)', baseline '$($selection.BaselineRevision)') still serves $($selection.Url) with the captured template."
+
     - task: PublishBuildArtifacts@1
       displayName: 'Publish resource ID contract TRX'
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), ne('', variables['ResourceIdResultsArtifact']))
       inputs:
         pathToPublish: $(ResourceIdResultsDirectory)
-        artifactName: 'ResourceIdResults_${{ parameters.version }}_${{ parameters.resourceIdProfile }}'
+        artifactName: $(ResourceIdResultsArtifact)
