@@ -389,6 +389,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void GivenCallerSuppliedRelativeReference_WhenCreatedInARequestWithoutSmartScopes_ThenItStillMatchesAnyBase()
+        {
+            SearchOptionsFactory factory = CreateFactory(strictHandling: false, isBackgroundTask: false, smartRequest: false);
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(ReferenceParameterCode, "Patient/B") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains(
+                "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(nameof(FieldName.ReferenceBaseUri), expression, StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData(KnownQueryParameterNames.StartSurrogateId, false)]
         [InlineData(KnownQueryParameterNames.EndSurrogateId, false)]
@@ -492,6 +511,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private static SearchOptionsFactory CreateFactory(bool strictHandling, bool isBackgroundTask, params ScopeRestriction[] scopeRestrictions)
         {
+            return CreateFactory(strictHandling, isBackgroundTask, smartRequest: true, scopeRestrictions);
+        }
+
+        private static SearchOptionsFactory CreateFactory(bool strictHandling, bool isBackgroundTask, bool smartRequest, params ScopeRestriction[] scopeRestrictions)
+        {
             // The expression parser resolves through the searchable definition manager, so a disabled, pending
             // delete, or reindexing parameter surfaces here as SearchParameterNotSupportedException.
             var expressionParser = Substitute.For<IExpressionParser>();
@@ -570,8 +594,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 IsBackgroundTask = isBackgroundTask,
                 AccessControlContext = new AccessControlContext
                 {
-                    ApplyFineGrainedAccessControl = true,
-                    ApplyFineGrainedAccessControlWithSearchParameters = true,
+                    ApplyFineGrainedAccessControl = smartRequest,
+                    ApplyFineGrainedAccessControlWithSearchParameters = smartRequest,
                 },
             };
 
