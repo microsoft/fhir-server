@@ -13,7 +13,7 @@ Every 60 seconds, report Created and Running job counts and oldest Created-job a
 Use existing indexes on the `JobQueue` table.
 
 ## Options Considered
-1. **Status-only SQL aggregate over `JobQueue`** - Returns only counts and oldest dates, but lacks the leading `PartitionId` predicate needed for selective access through the existing index. Rejected because a small result set does not prevent scans of retained job history and resulting query timeouts.
+1. **SQL query issued from the watchdog filtering `JobQueue` by status and aggregating results** - Returns only counts and oldest dates and is very simple. Unfortunately, it lacks the leading `PartitionId` predicate needed for selective access through the existing index. Originally implemented but is being replaced now because a small result set does not prevent scans of retained job history and resulting query timeouts.
 2. **New partition-aware aggregate stored procedure** - Supplies queue type and each of the 16 partition IDs, then aggregates in SQL. Viable with existing indexes and a smaller result set, but introduces a separate retrieval implementation and stored-procedure contract.
 3. **Existing active-job retrieval with client aggregation** - Reuses `GetActiveJobsByQueueTypeAsync` and computes counts and oldest dates in the watchdog. Chosen because the CPU assessment below predicts a small client cost at the expected scale, making a separate aggregate stored procedure unnecessary while preserving existing indexed access.
 
