@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                             new FhirJsonSerializer(),
                             Deserializers.ResourceDeserializer,
                             ArrayPool<char>.Shared,
-                            new BundleSerializer(),
+                            new BundleSerializer(new FhirJsonSerializer()),
                             ModelInfoProvider.Instance));
                     }).ConfigureApplicationPartManager(manager =>
                     {

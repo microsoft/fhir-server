@@ -11,6 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -26,10 +27,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             .Select(e => Tuple.Create(e.GetLiteral(), e)).ToArray();
 
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
+        private readonly IVectorSearchParameterResolver _vectorSearchParameterResolver;
 
         public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser)
+            : this(referenceSearchValueParser, null)
+        {
+        }
+
+        public SearchParameterExpressionParser(
+            IReferenceSearchValueParser referenceSearchValueParser,
+            IVectorSearchParameterResolver vectorSearchParameterResolver)
         {
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
+            _vectorSearchParameterResolver = vectorSearchParameterResolver;
 
             _parserDictionary = new (SearchParamType type, Func<string, ISearchValue> parser)[]
                 {
@@ -51,6 +61,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         {
             EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
+
+            if (searchParameter.Type == SearchParamType.Special && searchParameter.VectorConfig != null)
+            {
+                if (modifier != null)
+                {
+                    throw new InvalidSearchOperationException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
+                }
+
+                if (searchParameter.Url == null)
+                {
+                    throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Code}' must declare a canonical URL.");
+                }
+
+                if (_vectorSearchParameterResolver == null)
+                {
+                    throw new SearchParameterNotSupportedException(searchParameter.Url);
+                }
+
+                SearchParameterInfo enabledSearchParameter = _vectorSearchParameterResolver.GetSearchParameter(searchParameter.Url);
+                return new VectorSearchExpression(enabledSearchParameter, value);
+            }
 
             Expression outputExpression;
 
