@@ -64,6 +64,11 @@ Multiple-mode apps with latest-based default routing or floating labels are
 refused without writes. Every baseline source must be active, provisioned, and
 healthy, including a settled baseline at minimum zero.
 
+For an accepted asynchronous ARM write, the script waits for the operation to
+complete before proceeding. It then verifies the resulting revision or traffic
+state. Failed, canceled, or timed-out operations stop the job without repeating
+the accepted write.
+
 During each controller attempt, an unexpected change to the default revision,
 its source template, or the revision mode fails before the next planned step.
 The controller accepts its own verified mode change and baseline promotion.
@@ -95,10 +100,12 @@ resource-ID contract.
 ## Run the checks locally
 
 Run the self-contained PowerShell checks without Azure credentials. The revision
-check fakes the ARM boundary and covers a second synthetic profile.
+check fakes the ARM boundary and covers a second synthetic profile. The ARM
+transport check also uses a local HTTP server for response and timeout tests.
 
 ```powershell
 	& build/jobs/scripts/Test-RevisionProfiles.ps1
+	& build/jobs/scripts/Test-RevisionArmTransport.ps1
 	& build/jobs/scripts/Test-ResourceIdResults.ps1
 	& build/jobs/scripts/Test-ResourceIdCleanup.ps1
 ```
