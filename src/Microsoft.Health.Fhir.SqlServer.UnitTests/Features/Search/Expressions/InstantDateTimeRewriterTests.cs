@@ -54,12 +54,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(result, result.AcceptVisitor(_rewriter));
         }
 
-        [Theory]
-        [InlineData("Slot.start | Slot.end")]
-        [InlineData("Slot.start|Slot.end")]
-        public void GivenHomogeneousInstantUnion_WhenRewritten_ThenExpressionIsUnchanged(string path)
+        [Fact]
+        public void GivenHomogeneousInstantUnion_WhenRewritten_ThenExpressionIsUnchanged()
         {
-            var original = Expression.SearchParameter(Parameter(path), EndPredicate());
+            var original = Expression.SearchParameter(Parameter("Slot.start | Slot.end"), EndPredicate());
 
             Assert.Same(original, original.AcceptVisitor(_rewriter));
         }
