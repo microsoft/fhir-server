@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -34,6 +35,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -319,6 +321,74 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenCmkFailure_WhenOrchestratorExecutes_ThenFailureIsCustomerCaused()
+        {
+            // Arrange
+            var failure = new CustomerManagedKeyException("Customer managed key is inaccessible.");
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
+                .Returns(Task.FromException<IReadOnlyCollection<ResourceSearchParameterStatus>>(failure));
+            var jobInfo = await CreateReindexJobRecord();
+            var orchestrator = CreateReindexOrchestratorJob();
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => orchestrator.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+            var result = Assert.IsType<ReindexOrchestratorJobResult>(exception.Error);
+            Assert.Contains(result.Error, issue => issue.Diagnostics == failure.Message);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [InlineData(null)]
+        public async Task GivenWorkerFailure_WhenOrchestratorProcessesResult_ThenClassificationIsPreserved(bool? isCustomerCaused)
+        {
+            // Arrange
+            var parameter = CreateSearchParameterInfo();
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
+                .Returns(new List<ResourceSearchParameterStatus>
+                {
+                    new ResourceSearchParameterStatus { Uri = parameter.Url, Status = SearchParameterStatus.Supported },
+                });
+            _searchDefinitionManager.TryGetSearchParameter(parameter.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(call =>
+                {
+                    call[1] = parameter;
+                    return true;
+                });
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, ITypedElement> { [parameter.Url.OriginalString] = Substitute.For<ITypedElement>() });
+            SetupGetSurrogateIdRangesMock(count: 5, resourceType: "Patient");
+            var jobInfo = await CreateReindexJobRecord();
+            var orchestrator = CreateReindexOrchestratorJob();
+            var execution = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+            var workers = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(10));
+            var worker = Assert.Single(workers);
+            worker.Status = JobStatus.Failed;
+            var workerResult = JObject.Parse("{\"SucceededResourceCount\":2,\"Error\":\"SQL connection failed.\"}");
+            if (isCustomerCaused.HasValue)
+            {
+                workerResult["isCustomerCaused"] = isCustomerCaused.Value;
+            }
+
+            worker.Result = workerResult.ToString();
+            await _queueClient.CompleteJobAsync(worker, false, _cancellationToken);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => execution);
+
+            // Assert
+            Assert.Equal(isCustomerCaused ?? false, exception.IsCustomerCaused);
+            var result = Assert.IsType<ReindexOrchestratorJobResult>(exception.Error);
+            Assert.Equal(2, result.SucceededResources);
+            Assert.Equal(3, result.FailedResources);
+            Assert.Contains(result.Error, issue => issue.Diagnostics.Contains("SQL connection failed.", StringComparison.Ordinal));
+        }
+
+        [Fact]
         public async Task ExecuteAsync_WithExceptionInProcessing_ThrowsJobExecutionExceptionWithErrorResult()
         {
             // Arrange
@@ -337,6 +407,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.NotNull(jobResult);
             Assert.NotNull(jobResult.Error);
             Assert.Contains(jobResult.Error, e => e.Severity == OperationOutcomeConstants.IssueSeverity.Error);
+            Assert.False(exception.IsCustomerCaused);
         }
 
         [Fact]

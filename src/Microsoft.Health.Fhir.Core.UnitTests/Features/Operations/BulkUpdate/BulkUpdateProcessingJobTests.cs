@@ -483,6 +483,78 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
 
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenUpdateFailure_WhenProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns<Task<BulkUpdateResult>>(_ => throw failure);
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedCustomerCaused)
+            {
+                var jobException = Assert.IsType<JobExecutionException>(exception);
+                Assert.True(jobException.IsCustomerCaused);
+                Assert.Same(failure, jobException.InnerException);
+                Assert.NotEmpty(Assert.IsType<BulkUpdateResult>(jobException.Error).Issues);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenIncompleteUpdate_WhenProcessingExecutes_ThenClassificationAndPartialResultsArePreserved(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var partialResult = new BulkUpdateResult();
+            partialResult.ResourcesUpdated["Patient"] = 2;
+            partialResult.ResourcesPatchFailed["Patient"] = 1;
+            var incomplete = new IncompleteOperationException<BulkUpdateResult>(failure, partialResult);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns<Task<BulkUpdateResult>>(_ => throw incomplete);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            Assert.Same(incomplete, exception.InnerException);
+            var result = Assert.IsType<BulkUpdateResult>(exception.Error);
+            Assert.Equal(2, result.ResourcesUpdated["Patient"]);
+            Assert.Equal(1, result.ResourcesPatchFailed["Patient"]);
+            Assert.Contains(failure.Message, result.Issues);
+        }
+
+        [Fact]
+        public async Task GivenCancellation_WhenUpdating_ThenCancellationIsPropagated()
+        {
+            // Arrange
+            var canceled = new OperationCanceledException();
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns<Task<BulkUpdateResult>>(_ => throw canceled);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.Same(canceled, exception);
+        }
+
         [Fact]
         public async Task GivenProcessingJobWhenIncompleteOperationExceptionIsThrown_WhenJobIsRun_ThenJobExecutionExceptionIsThrownAndPartialResultsAreHandled()
         {
