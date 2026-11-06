@@ -35,20 +35,20 @@ $environmentName = $DeploymentEnvironmentName.ToLowerInvariant()
 $versionSuffix = if ($Version -eq 'Stu3') { '' } else { "-$($Version.ToLowerInvariant())" }
 $appName = "$environmentName$versionSuffix-sql"
 
-$resources = @(Get-AzResource -ResourceGroupName $ResourceGroupName -ErrorAction Stop)
 $targets = @(
     "$resourceGroupId/providers/Microsoft.App/containerApps/$appName"
     "$resourceGroupId/providers/Microsoft.Sql/servers/$environmentName/databases/FHIR$Version"
 )
 
 foreach ($resourceId in $targets) {
-    if ($resources.ResourceId -notcontains $resourceId) {
-        Write-Host "Already absent: $resourceId"
-        continue
-    }
-
-    Write-Host "Deleting stage-owned resource: $resourceId"
     Invoke-WithRetry -OperationName "Delete $resourceId" -ScriptBlock {
+        $present = @(Get-AzResource -ResourceGroupName $ResourceGroupName -ErrorAction Stop).ResourceId -contains $resourceId
+        if (-not $present) {
+            Write-Host "Already absent: $resourceId"
+            return
+        }
+
+        Write-Host "Deleting stage-owned resource: $resourceId"
         Remove-AzResource -ResourceId $resourceId -Force -ErrorAction Stop
     }
 }

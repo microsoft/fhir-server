@@ -115,6 +115,7 @@ jobs:
       containerAppName: '${{ parameters.containerAppName }}'
       appServiceType: 'SqlServer'
       categoryFilter: '${{ parameters.mainCategoryFilter }}'
+      resourceIdProfile: Standard64
 
 - ${{ if eq(parameters.runReindexJob, true) }}:
   - job: 'sqlE2eTests_Reindex'

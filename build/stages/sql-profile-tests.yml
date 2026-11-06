@@ -1,0 +1,78 @@
+parameters:
+- name: version
+  type: string
+  values:
+  - Stu3
+  - R4
+  - R5
+- name: appName
+  type: string
+
+stages:
+- stage: test${{ parameters.version }}SqlProfiles
+  displayName: 'Run ${{ parameters.version }} SQL revision profiles'
+  dependsOn:
+  - test${{ parameters.version }}Sql
+  jobs:
+  - job: prepare
+    displayName: 'Converge labeled profile revisions'
+    timeoutInMinutes: 45
+    pool:
+      name: '$(InternalPool)'
+      demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: AzurePowerShell@5
+      name: profiles
+      displayName: 'Converge ${{ parameters.version }} SQL revision profiles'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        pwsh: true
+        ScriptType: InlineScript
+        Inline: |
+          $ErrorActionPreference = 'Stop'
+          $app = Get-AzResource -ResourceGroupName '$(UniqueResourceGroupName)' -ResourceType 'Microsoft.App/containerApps' -Name '${{ parameters.appName }}'
+          if ($null -eq $app) {
+            throw "Container App '${{ parameters.appName }}' was not found in resource group '$(UniqueResourceGroupName)'."
+          }
+
+          $armToken = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').Token
+          if ($armToken -is [string]) {
+            $armToken = ConvertTo-SecureString -String $armToken -AsPlainText -Force
+          }
+
+          $result = & '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1' `
+            -Goal Converge `
+            -AppResourceId $app.ResourceId `
+            -AccessToken $armToken `
+            -BuildId '$(Build.BuildId)' `
+            -Attempt '$(System.StageAttempt)'
+          $armToken = $null
+
+          Write-Host "Baseline revision: $($result.BaselineRevision)"
+          foreach ($binding in $result.Bindings) {
+            Write-Host "Profile $($binding.Profile): revision $($binding.Revision), label $($binding.Label), $($binding.Url)"
+          }
+
+          Write-Host "##vso[task.setvariable variable=matrix;isOutput=true]$($result.Matrix)"
+
+  - job: profileTests
+    displayName: 'Profile'
+    dependsOn: prepare
+    timeoutInMinutes: 45
+    strategy:
+      matrix: $[ dependencies.prepare.outputs['profiles.matrix'] ]
+      maxParallel: 1
+    pool:
+      name: '$(InternalPool)'
+      demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - template: ../jobs/e2e-setup.yml
+    - template: ../jobs/e2e-tests.yml
+      parameters:
+        version: ${{ parameters.version }}
+        containerAppName: ${{ parameters.appName }}
+        appServiceType: SqlServer
+        resourceIdProfile: Runtime
