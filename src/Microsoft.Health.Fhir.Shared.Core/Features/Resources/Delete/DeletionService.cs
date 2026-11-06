@@ -780,7 +780,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
                     var fhirDataStore = scopedDataStore.GetDataStore();
-                    await fhirDataStore.MergeAsync(modifiedResources, cancellationToken);
+                    MergeOutcome mergeOutcome = await fhirDataStore.MergeAsync(modifiedResources, cancellationToken);
+
+                    // A referencing resource that the data store rejects (for example because of URI values its index can't tell apart)
+                    // still holds the reference. Fail before the target is deleted so no dangling reference is left.
+                    BadRequestException rejected = mergeOutcome.Results.Values.Select(r => r.Exception).OfType<BadRequestException>().FirstOrDefault();
+                    if (rejected != null)
+                    {
+                        throw rejected;
+                    }
 
                     if (includesContinuationToken != null)
                     {

@@ -1182,6 +1182,38 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         }
 
         [Fact]
+        public async Task GivenIncrementalImportWithCollidingUriSearchValuesOnlyInAHistoryVersion_WhenImportData_ThenAllVersionsAreImported()
+        {
+            // History versions aren't indexed, so values that collide in the URI index are accepted there.
+            string prefix = "https://example.org/fhir/StructureDefinition/" + new string('b', 211);
+            string id = Guid.NewGuid().ToString("N");
+            string Line(int version, string lastUpdated, params string[] profiles) =>
+                $"{{\"resourceType\":\"Patient\",\"id\":\"{id}\",\"meta\":{{\"versionId\":\"{version}\",\"lastUpdated\":\"{lastUpdated}\",\"profile\":[{string.Join(",", profiles.Select(p => $"\"{p}\""))}]}}}}";
+            string ndJson = string.Join("\r\n", Line(1, "2020-01-01T00:00:00Z", prefix + "first", prefix + "second"), Line(2, "2020-01-02T00:00:00Z", prefix + "current")) + "\r\n";
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>() { new InputResource() { Url = location, Etag = etag, Type = "Patient" } },
+                Mode = ImportMode.IncrementalLoad.ToString(),
+            };
+
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+
+            HttpResponseMessage response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
+            Assert.Equal(2, result.Output.Sum(o => o.Count));
+            Assert.Empty(result.Error);
+
+            using FhirResponse<Bundle> history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(new[] { "1", "2" }, history.Resource.Entry.Select(e => e.Resource.VersionId).OrderBy(v => v).ToArray());
+        }
+
+        [Fact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {
