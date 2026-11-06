@@ -37,6 +37,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SqlServerSearchServiceTests
+    public class SqlServerSearchServiceTests : IClassFixture<ModelInfoProviderFixture>
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
@@ -71,8 +72,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
 
-        public SqlServerSearchServiceTests()
+        public SqlServerSearchServiceTests(ModelInfoProviderFixture modelInfoProviderFixture)
         {
+            _ = modelInfoProviderFixture;
             _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _model = Substitute.For<ISqlServerFhirModel>();
@@ -397,6 +399,62 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.Same(operationCanceledException, exception);
             Assert.Equal(cts.Token, exception.CancellationToken);
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public void GivenDateRangeSearch_WhenDefaultSearchExpressionIsCreated_ThenDateBoundedRangeOptimizationIsApplied(bool typeScoped, bool includeChain)
+        {
+            // Arrange - same shape as /Slot?schedule.actor=Location/X&start=ge{day}&start=lt{day+1}, expressed on types the
+            // mock ModelInfoProvider knows: /Observation?subject.organization=Organization/X&date=ge{day}&date=lt{day+1}.
+            // SearchOptionsFactory adds the _type predicate for every type-scoped search; typeScoped=false is the system-level (/) control.
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            var day = new DateTimeOffset(2025, 10, 30, 0, 0, 0, TimeSpan.Zero);
+            var date = new SearchParameterInfo("date", "date", SearchParamType.Date, new Uri("http://hl7.org/fhir/SearchParameter/Observation-date"));
+            var expressions = new List<Expression>();
+
+            if (typeScoped)
+            {
+                expressions.Add(Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "Observation", false)));
+            }
+
+            if (includeChain)
+            {
+                var subject = new SearchParameterInfo("subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"), null, null, ["Patient"]);
+                var organization = new SearchParameterInfo("organization", "organization", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Patient-organization"), null, null, ["Organization"]);
+                expressions.Add(Expression.Chained(
+                    ["Observation"],
+                    subject,
+                    ["Patient"],
+                    false,
+                    Expression.SearchParameter(
+                        organization,
+                        Expression.And(
+                            Expression.StringEquals(FieldName.ReferenceResourceType, null, "Organization", false),
+                            Expression.StringEquals(FieldName.ReferenceResourceId, null, "X", false)))));
+            }
+
+            expressions.Add(Expression.SearchParameter(date, Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, day)));
+            expressions.Add(Expression.SearchParameter(date, Expression.LessThan(FieldName.DateTimeStart, null, day.AddDays(1))));
+
+            var sqlSearchOptions = new SqlSearchOptions(new SearchOptions
+            {
+                MaxItemCount = 1000,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+            });
+
+            MethodInfo createDefaultSearchExpression = typeof(SqlServerSearchService)
+                .GetMethod("CreateDefaultSearchExpression", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            // Act
+            var result = (SqlRootExpression)createDefaultSearchExpression.Invoke(searchService, [Expression.And(expressions), sqlSearchOptions]);
+
+            // Assert
+            Assert.Contains(result.SearchParamTableExpressions, e => e.Kind == SearchParamTableExpressionKind.Concatenation);
         }
 
         private static SqlServerFhirModel CreateConcreteModel(ISqlRetryService sqlRetryService)
