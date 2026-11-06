@@ -85,6 +85,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 
+            // Data stores return an empty outcome by default; tests that need specific outcomes set up their own data store.
+            IFhirDataStore defaultFhirDataStore = CreateFhirDataStore();
+            var defaultScopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            defaultScopedFhirDataStore.Value.Returns(defaultFhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(defaultScopedFhirDataStore);
+
             _claimsExtractor = Substitute.For<IClaimsExtractor>();
             _compartmentIndexer = Substitute.For<ICompartmentIndexer>();
             _searchIndexer = Substitute.For<ISearchIndexer>();
@@ -176,7 +182,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 ResourceVersionType.Latest,
                 false,
                 false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -232,7 +238,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 ResourceVersionType.Latest,
                 false,
                 false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -254,6 +260,56 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.Empty(result.ResourcesUpdated);
             Assert.Equal(1, result.ResourcesIgnored[resourceType]);
             await fhirDataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenTheDataStoreRejectsAResource_ItIsCountedAsFailedNotUpdated()
+        {
+            // Arrange
+            const string resourceType = "Patient";
+            const string rejection = "The resource has more than one value for the URI search parameter '_profile' that are identical in their first 256 characters.";
+            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                conditionalParameters,
+                CancellationToken.None,
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 3 } }));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+            {
+                ResourceWrapperOperation first = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>()[0];
+                return new MergeOutcome(
+                    MergeOutcomeFinalState.Completed,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> { { first.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(rejection)) } });
+            });
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                patchParameters,
+                false,
+                0,
+                false,
+                conditionalParameters,
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None);
+
+            // Assert
+            Assert.Equal(2, result.ResourcesUpdated[resourceType]);
+            Assert.Equal(1, result.ResourcesPatchFailed[resourceType]);
+            Assert.Contains(rejection, result.Issues);
         }
 
         [Theory]
@@ -832,7 +888,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 }, { "ValueSet", 1 } }, null, includesContinuationToken));
             });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -941,7 +997,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                     return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 2 }, { "Observation", 1 }, { "Practitioner", 2 } }));
                 });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -1006,7 +1062,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 false,
                 isIncludesRequest).Returns(Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 1 } })));
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -1060,7 +1116,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                     return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 2 }, { "Observation", 1 }, { "Practitioner", 2 } }));
                 });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -1157,6 +1213,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
+        }
+
+        private static IFhirDataStore CreateFhirDataStore()
+        {
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(MergeOutcome.Empty);
+            return fhirDataStore;
         }
 
         private SearchResult GenerateSearchResult(

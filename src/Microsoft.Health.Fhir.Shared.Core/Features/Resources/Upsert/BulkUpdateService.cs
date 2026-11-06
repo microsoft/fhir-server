@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ConcurrentDictionary<string, long> patchFailures = new ConcurrentDictionary<string, long>();
             Dictionary<string, ConditionalPatchResourceRequest> conditionalPatchResourceRequests = new Dictionary<string, ConditionalPatchResourceRequest>();
             ConcurrentDictionary<string, List<(string, Exception)>> patchExceptions = new ConcurrentDictionary<string, List<(string, Exception)>>();
-            var updateTasks = new List<Task<Dictionary<string, long>>>();
+            var updateTasks = new List<Task<BulkUpdateResult>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             searchResult = await Search(resourceType, isIncludesRequest, conditionalParameters, cancellationToken);
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         updateTasks.Add(UpdateResourcePage(patchedResources, resourceType, bundleResourceContext, searchResults, finalBulkUpdateResult, metaHistory, cancellationTokenSource.Token));
                         if (!updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
                         {
-                            AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
+                            AppendPageResults(finalBulkUpdateResult, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
                             updateTasks = updateTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
                         }
@@ -223,12 +223,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 _logger.LogError(ex, "Generic exception during bulk update operation while waiting for all update tasks");
             }
 
-            AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
+            AppendPageResults(finalBulkUpdateResult, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
             if (updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
             {
                 var exceptions = new List<Exception>();
-                updateTasks.Where((task) => task.IsFaulted || task.IsCanceled).ToList().ForEach((Task<Dictionary<string, long>> result) =>
+                updateTasks.Where((task) => task.IsFaulted || task.IsCanceled).ToList().ForEach((Task<BulkUpdateResult> result) =>
                 {
                     if (result.Exception != null)
                     {
@@ -551,7 +551,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <summary>
         /// Updates a page of patched resources in the data store, logs audit events, and returns update counts by resource type.
         /// </summary>
-        private async Task<Dictionary<string, long>> UpdateResourcePage(
+        private async Task<BulkUpdateResult> UpdateResourcePage(
             ConcurrentDictionary<string, (bool IsInclude, ResourceElement ResourceElement)> patchedResources,
             string resourceType,
             BundleResourceContext bundleResourceContext,
@@ -586,6 +586,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }));
 
             var partialResults = new List<(string, string, bool)>();
+            var rejected = new List<(string ResourceType, string Id, bool IsInclude)>();
+            var rejectedMessages = new List<string>();
             try
             {
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
@@ -593,12 +595,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // Update includes first so that the reference for match result remains intact for next pages
                 if (wrapperOperationsIncludes.Any())
                 {
-                    await fhirDataStore.Value.MergeAsync(wrapperOperationsIncludes, cancellationToken);
+                    CollectRejected(await fhirDataStore.Value.MergeAsync(wrapperOperationsIncludes, cancellationToken), isInclude: true);
                 }
 
                 if (wrapperOperationsMatches.Any())
                 {
-                    await fhirDataStore.Value.MergeAsync(wrapperOperationsMatches, cancellationToken);
+                    CollectRejected(await fhirDataStore.Value.MergeAsync(wrapperOperationsMatches, cancellationToken), isInclude: false);
                 }
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
@@ -629,9 +631,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             await CreateAuditLog(
                 resourceType,
                 true,
-                patchedResources.Select((item) => (item.Value.ResourceElement.InstanceType, item.Key, item.Value.IsInclude)));
+                patchedResources
+                    .Where(item => !rejected.Any(r => r.Id == item.Key && r.ResourceType == item.Value.ResourceElement.InstanceType))
+                    .Select((item) => (item.Value.ResourceElement.InstanceType, item.Key, item.Value.IsInclude)));
 
-            return patchedResources.GroupBy(x => x.Value.ResourceElement.InstanceType).ToDictionary(x => x.Key, x => (long)x.Count());
+            var pageResult = new BulkUpdateResult();
+            foreach (var group in patchedResources.GroupBy(x => x.Value.ResourceElement.InstanceType))
+            {
+                long rejectedCount = rejected.Count(r => r.ResourceType == group.Key);
+                if (group.Count() > rejectedCount)
+                {
+                    pageResult.ResourcesUpdated[group.Key] = group.Count() - rejectedCount;
+                }
+            }
+
+            if (rejected.Count > 0)
+            {
+                // The data store rejects resources it can't index (for example URI values it can't tell apart). They were not updated.
+                _logger.LogWarning("Bulk update: {Count} resource(s) were rejected by the data store and not updated.", rejected.Count);
+                await CreateAuditLog(resourceType, false, rejected, typeOfAudit: "Patch Failed Items");
+                foreach (var group in rejected.GroupBy(r => r.ResourceType))
+                {
+                    pageResult.ResourcesPatchFailed[group.Key] = group.Count();
+                }
+
+                foreach (string message in rejectedMessages.Distinct())
+                {
+                    pageResult.Issues.Add(message);
+                }
+            }
+
+            return pageResult;
+
+            void CollectRejected(MergeOutcome outcome, bool isInclude)
+            {
+                foreach (var (identifier, result) in outcome.Results)
+                {
+                    if (result.Exception is BadRequestException badRequest)
+                    {
+                        rejected.Add((identifier.ResourceType, identifier.Id, isInclude));
+                        rejectedMessages.Add(badRequest.Message);
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -687,6 +729,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return _contextAccessor.RequestContext.BundleIssues.Any(
                 x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Adds the updated and rejected counts, and the issues, of completed pages to the final result.
+        /// </summary>
+        private static void AppendPageResults(BulkUpdateResult finalResult, IEnumerable<BulkUpdateResult> pageResults)
+        {
+            foreach (BulkUpdateResult pageResult in pageResults)
+            {
+                AppendUpdateResults(finalResult.ResourcesUpdated as Dictionary<string, long>, new[] { new Dictionary<string, long>(pageResult.ResourcesUpdated) });
+                AppendUpdateResults(finalResult.ResourcesPatchFailed as Dictionary<string, long>, new[] { new Dictionary<string, long>(pageResult.ResourcesPatchFailed) });
+                foreach (string issue in pageResult.Issues.Where(issue => !finalResult.Issues.Contains(issue)))
+                {
+                    finalResult.Issues.Add(issue);
+                }
+            }
         }
 
         /// <summary>

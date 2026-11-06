@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             if (failed && issues.Count > 0)
             {
-                return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
+                return CreateResponse(failureResultCode);
             }
             else if (cancelled)
             {
@@ -192,16 +192,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     OperationOutcomeConstants.IssueSeverity.Warning,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job Canceled"));
-                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.OK);
+                return CreateResponse(HttpStatusCode.OK);
             }
             else if (failed)
             {
                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
-                return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
+                return CreateResponse(failureResultCode);
             }
             else if (succeeded)
             {
-                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.OK);
+                return CreateResponse(HttpStatusCode.OK);
             }
             else
             {
@@ -209,8 +209,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job In Progress"));
-                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.Accepted);
+                return CreateResponse(HttpStatusCode.Accepted);
             }
+
+            // Warnings saved when the job was submitted are added last so they don't affect the status logic above.
+            GetBulkDeleteResponse CreateResponse(HttpStatusCode statusCode)
+            {
+                issues.AddRange(GetSearchWarningIssues(jobs));
+                return new GetBulkDeleteResponse(fhirResults, issues, statusCode);
+            }
+        }
+
+        private static IEnumerable<OperationOutcomeIssue> GetSearchWarningIssues(IReadOnlyList<JobInfo> jobs)
+        {
+            JobInfo orchestratorJob = jobs.FirstOrDefault(job => job.GetJobTypeId() == (int)JobType.BulkDeleteOrchestrator);
+            IList<string> warnings = orchestratorJob?.DeserializeDefinition<BulkDeleteDefinition>().SearchWarnings;
+
+            return warnings?.Select(warning => new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, diagnostics: warning))
+                ?? Enumerable.Empty<OperationOutcomeIssue>();
         }
     }
 }

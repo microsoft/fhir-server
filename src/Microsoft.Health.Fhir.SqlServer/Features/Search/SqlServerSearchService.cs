@@ -236,6 +236,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
+            AddLongUriSearchValueWarning(searchOptions?.Expression, _requestContextAccessor.RequestContext, _logger);
+
             var isFirstPage = searchOptions.ContinuationToken == null;
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
@@ -451,6 +453,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override bool IsValidResourceType(string resourceType)
         {
             return _model.TryGetResourceTypeId(resourceType, out _);
+        }
+
+        /// <summary>
+        /// Warns the caller when a URI search value is too long for the URI search index to tell apart from
+        /// other values with the same prefix. The search still runs; this is a documented limitation.
+        /// </summary>
+        /// <param name="expression">The search expression, including any SMART scope restrictions.</param>
+        /// <param name="requestContext">The current request context, or <c>null</c> outside of a request.</param>
+        /// <param name="logger">The logger.</param>
+        internal static void AddLongUriSearchValueWarning(Expression expression, IFhirRequestContext requestContext, ILogger logger)
+        {
+            IList<OperationOutcomeIssue> bundleIssues = requestContext?.BundleIssues;
+            IReadOnlyCollection<string> parameterCodes = expression?.AcceptVisitor(LongUriSearchValueFinder.Instance, null);
+
+            if (bundleIssues == null || parameterCodes == null || parameterCodes.Count == 0)
+            {
+                return;
+            }
+
+            OperationOutcomeIssue issue = LongUriSearchValueIssue.Create(parameterCodes, LongUriSearchValueFinder.IndexedUriMaxLength);
+
+            // A request can run several searches (for example $everything), so add the warning once.
+            if (bundleIssues.Any(i => string.Equals(i.Diagnostics, issue.Diagnostics, StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            bundleIssues.Add(issue);
+
+            logger.LogWarning(
+                "Search used URI values of at least {IndexedLength} characters. SearchParameters={SearchParameters}",
+                LongUriSearchValueFinder.IndexedUriMaxLength,
+                string.Join(", ", parameterCodes));
         }
 
         private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)

@@ -282,6 +282,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
+        [Theory]
+        [InlineData(JobStatus.Completed, System.Net.HttpStatusCode.OK)]
+        [InlineData(JobStatus.Failed, System.Net.HttpStatusCode.InternalServerError)]
+        public async Task GivenAJobSubmittedWithSearchWarnings_WhenStatusRequested_ThenTheWarningsAreReturnedWithoutChangingTheStatus(JobStatus processingStatus, System.Net.HttpStatusCode expectedStatusCode)
+        {
+            const string warning = "The value of URI search parameter(s) '_profile' is 256 characters or longer.";
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+            var orchestratorJob = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, null, "test", "test", "test", searchWarnings: new List<string> { warning })),
+            };
+            var processingJob = new JobInfo
+            {
+                Status = processingStatus,
+                Definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, null, "test", "test", "test")),
+                Result = processingStatus == JobStatus.Completed ? JsonConvert.SerializeObject(new BulkDeleteResult()) : null,
+            };
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(new List<JobInfo> { orchestratorJob, processingJob });
+
+            GetBulkDeleteResponse response = await _handler.HandleAsync(new GetBulkDeleteRequest(1), CancellationToken.None);
+
+            Assert.Equal(expectedStatusCode, response.HttpStatusCode);
+            Assert.Contains(response.Issues, i => i.Severity == OperationOutcomeConstants.IssueSeverity.Information && i.Code == OperationOutcomeConstants.IssueType.Informational && i.Diagnostics == warning);
+            if (processingStatus == JobStatus.Failed)
+            {
+                Assert.Contains(response.Issues, i => i.Severity == OperationOutcomeConstants.IssueSeverity.Error && i.DetailsText == "Encountered an unhandled exception. The job will be marked as failed.");
+            }
+        }
+
         [Fact]
         public async Task GivenNonExistantBulkDeleteJob_WhenStatusRequested_ThenNotFoundIsReturned()
         {

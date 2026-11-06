@@ -656,6 +656,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenAJobSubmittedWithSearchWarnings_WhenStatusRequested_ThenTheWarningsAreReturned()
+        {
+            const string warning = "The value of URI search parameter(s) '_profile' is 256 characters or longer.";
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            var orchestratorJob = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, searchWarnings: new List<string> { warning })),
+            };
+            var processingJob = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null)),
+                Result = JsonConvert.SerializeObject(new BulkUpdateResult()),
+            };
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(new List<JobInfo> { orchestratorJob, processingJob });
+
+            GetBulkUpdateResponse response = await _handler.HandleAsync(new GetBulkUpdateRequest(1), CancellationToken.None);
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
+            OperationOutcomeIssue issue = Assert.Single(response.Issues);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Information, issue.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Informational, issue.Code);
+            Assert.Equal(warning, issue.Diagnostics);
+        }
+
+        [Fact]
+        public void GivenADefinitionWithoutSearchWarnings_WhenSerialized_ThenTheFieldIsOmitted()
+        {
+            string json = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, searchWarnings: new List<string>()));
+
+            Assert.DoesNotContain(JobRecordProperties.SearchWarnings, json, StringComparison.Ordinal);
+            Assert.Null(JsonConvert.DeserializeObject<BulkUpdateDefinition>(json).SearchWarnings);
+        }
+
+        [Fact]
         public async Task GivenNonExistantBulkUpdateJob_WhenStatusRequested_ThenNotFoundIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);

@@ -424,7 +424,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>()).Returns(
                 Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
@@ -487,7 +487,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                     null,
                     null,
                     Array.Empty<Tuple<string, string>>())));
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
             var skipped = new Dictionary<string, long>();
             Action<string, long> onProfileResourceSkipped = allowProfileResourceModification
@@ -547,7 +547,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                     null,
                     null,
                     Array.Empty<Tuple<string, string>>())));
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
             var skipped = new Dictionary<string, long>();
 
@@ -603,7 +603,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>()).Returns(
                 Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
@@ -648,7 +648,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>()).Returns(
                 Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
@@ -703,7 +703,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 return new SearchResult(secondPageEntries, null, null, Array.Empty<Tuple<string, string>>());
             }
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             fhirDataStore.HardDeleteAsync(
                 Arg.Is<ResourceKey>(key => key.ResourceType == "Provenance"),
                 Arg.Any<bool>(),
@@ -782,7 +782,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                     _ => ThrowAfterIncludedProfileIsDeletedAsync(),
                 });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             fhirDataStore.HardDeleteAsync(
                 Arg.Is<ResourceKey>(key => key.ResourceType == "StructureDefinition"),
                 Arg.Any<bool>(),
@@ -980,6 +980,54 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             }
         }
 
+        [Fact]
+        public async Task GivenBulkHardDeleteWithRemoveReferences_WhenAReferencingResourceIsRejected_ThenNothingIsDeleted()
+        {
+            // Arrange
+            var request = new ConditionalDeleteResourceRequest(
+                KnownResourceTypes.Patient,
+                new List<Tuple<string, string>> { Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                removeReferences: true);
+
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Id = "target";
+            patient.VersionId = "1";
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "referencing";
+            observation.VersionId = "1";
+            observation.Subject = new ResourceReference("Patient/target");
+
+            SearchResultEntry target = CreateEntry(patient, SearchEntryMode.Match);
+            SearchResultEntry referencing = CreateEntry(observation, SearchEntryMode.Include);
+            IFhirDataStore fhirDataStore = SetUpDeletionSearch(
+                Task.FromResult(new SearchResult(new[] { target }, null, null, Array.Empty<Tuple<string, string>>())),
+                Task.FromResult(new SearchResult(new[] { target, referencing }, null, null, Array.Empty<Tuple<string, string>>())));
+            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(observation.ToResourceElement());
+            _resourceWrapperFactory.Create(Arg.Any<ResourceElement>(), false, true).Returns(referencing.Resource);
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+                new MergeOutcome(
+                    MergeOutcomeFinalState.Completed,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>
+                    {
+                        { callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>()[0].GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException("rejected")) },
+                    }));
+
+            // Act
+            await Assert.ThrowsAnyAsync<Exception>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(default, default, default, default);
+
+            static SearchResultEntry CreateEntry(Resource resource, SearchEntryMode mode)
+            {
+                var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+                var wrapper = new ResourceWrapper(resource.ToResourceElement(), rawResource, Substitute.For<ResourceRequest>(), false, null, Substitute.For<CompartmentIndices>(), new List<KeyValuePair<string, string>>(), "hash");
+                return new SearchResultEntry(wrapper, mode);
+            }
+        }
+
         private Task<string> ExecuteBulkDeleteJobAsync(DeleteOperation deleteOperation, CancellationToken cancellationToken)
         {
             var job = new BulkDeleteProcessingJob(
@@ -1015,8 +1063,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>(),
                 Arg.Any<bool>()).Returns(pages[0], pages.Skip(1).ToArray());
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+            return fhirDataStore;
+        }
+
+        private static IFhirDataStore CreateFhirDataStore()
+        {
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(MergeOutcome.Empty);
             return fhirDataStore;
         }
 
@@ -1070,7 +1125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>()).Returns(
                 Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
@@ -1132,7 +1187,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 Arg.Any<bool>()).Returns(
                 Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
             _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
 
@@ -1210,7 +1265,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                     }
                 });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {

@@ -106,7 +106,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
-            if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0 && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase)))
+            List<string> searchWarnings = _contextAccessor.RequestContext?.BundleIssues?.Where(LongUriSearchValueIssue.IsMatch).Select(i => i.Diagnostics).ToList();
+            if (searchWarnings?.Count > 0)
+            {
+                // Not an invalid parameter: the URI is valid but only partially compared, so the job may update more resources than intended.
+                _logger.LogWarning("Bulk update filter uses URI values that are only partially compared, so it can match more resources than intended. ResourceType={ResourceType}", request.ResourceType);
+            }
+
+            if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0
+                && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase) && !LongUriSearchValueIssue.IsMatch(x)))
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
@@ -136,7 +144,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 request.IsParallel,
                 maximumNumberOfResourcesPerQuery: request.MaxCount,
                 metaHistory: request.MetaHistory,
-                allowProfileResourceModification: allowProfileResourceModification);
+                allowProfileResourceModification: allowProfileResourceModification,
+                searchWarnings: searchWarnings);
 
             IReadOnlyList<JobInfo> jobInfo;
             try

@@ -1009,4 +1009,8 @@
     <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
     <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>
   </data>
+  <data name="LongUriSearchValue" xml:space="preserve">
+    <value>The value of URI search parameter(s) '{0}' is {1} characters or longer. Only the first {1} characters of URI values are compared, so the results can include resources whose URI only shares those characters with the requested value.</value>
+    <comment>{0} is a comma-separated list of search parameter codes. {1} is the number of URI characters the data store compares.</comment>
+  </data>
 </root>
