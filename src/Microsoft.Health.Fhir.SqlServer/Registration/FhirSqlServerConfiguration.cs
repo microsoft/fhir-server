@@ -16,7 +16,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
         public bool ReuseQueryPlans { get; set; } = false;
 
         /// <summary>
-        /// Gets or sets whether independent SQL search chains, and root-level filters after a chain, intersect distinct predecessor source keys.
+        /// Gets or sets whether a SQL search chain that restarts after another chain, and root-level filters after a reverse chain,
+        /// intersect distinct predecessor source keys.
         /// This feature flag is temporary and can be removed in 2027. Enabled by default.
         /// Set <c>FhirSqlServer:EnableChainSourceDeduplication=false</c>
         /// (or environment variable <c>FhirSqlServer__EnableChainSourceDeduplication=false</c>)

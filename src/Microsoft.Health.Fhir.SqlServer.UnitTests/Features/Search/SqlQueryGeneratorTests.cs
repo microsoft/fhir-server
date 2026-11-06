@@ -490,50 +490,22 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool enabled = true)
     {
         // Arrange
-        var reference = new SearchParameterInfo(
-            "subject",
-            "subject",
-            SearchParamType.Reference,
-            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
-            null,
-            "Observation.subject",
-            ["Patient"]);
         _fhirModel.GetResourceTypeId("Observation").Returns((short)10);
         _fhirModel.GetResourceTypeId("Patient").Returns((short)11);
-        _fhirModel.GetSearchParamId(reference.Url).Returns((short)20);
+        _fhirModel.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject")).Returns((short)20);
         var tables = new List<SearchParamTableExpression>
         {
             new(null, null, SearchParamTableExpressionKind.All),
         };
         for (int i = 0; i < chainCount; i++)
         {
-            tables.Add(new SearchParamTableExpression(
-                ChainLinkQueryGenerator.Instance,
-                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
-                SearchParamTableExpressionKind.Chain,
-                chainLevel: 1));
+            tables.Add(ChainTable(1, reversed));
         }
 
         // Act
-        using Data.SqlClient.SqlCommand command = new();
-        var generator = new SqlQueryGenerator(
-            _strBuilder,
-            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
-            _fhirModel,
-            _schemaInformation,
-            _queryGeneratorFactory,
-            false,
-            false,
-            enableChainSourceDeduplication: enabled);
-        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
-        {
-            Sort = [],
-            CountOnly = true,
-            ResourceVersionTypes = ResourceVersionType.Latest,
-        });
+        string sql = GenerateCountSql(tables, enabled);
 
         // Assert
-        string sql = _strBuilder.ToString();
         string alias = reversed ? "refTarget" : "refSource";
         if (chainCount == 1)
         {
@@ -541,7 +513,10 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         }
         else
         {
-            for (int i = 0; i < chainCount; i++)
+            // The first chain restarts over the All table, which has one row per resource and needs no deduplication.
+            Assert.Contains($"JOIN cte0 ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+            Assert.DoesNotContain("FROM cte0) predecessor", sql);
+            for (int i = 1; i < chainCount; i++)
             {
                 if (enabled)
                 {
@@ -563,6 +538,110 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed)
     {
         // Arrange
+        var tables = new List<SearchParamTableExpression> { new(null, null, SearchParamTableExpressionKind.All) };
+        for (int level = 1; level <= 5; level++)
+        {
+            tables.Add(ChainTable(level, reversed));
+        }
+
+        // Act
+        string sql = GenerateCountSql(tables);
+
+        // Assert
+        string alias = reversed ? "refTarget" : "refSource";
+        Assert.Contains($"JOIN cte0 ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
+        Assert.DoesNotContain(") predecessor", sql);
+        for (int i = 1; i < 5; i++)
+        {
+            Assert.Contains($"JOIN cte{i} ON {alias}.ResourceTypeId = T2 AND {alias}.ResourceSurrogateId = Sid2", sql);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenChainFollowedByRootFilters_WhenSqlGenerated_ThenOnlyReverseChainSourcesAreDeduplicated(bool reversed)
+    {
+        // Arrange
+        // Mirrors Slot?schedule.actor=...&start=ge...&start=lt...: a two-level chain followed by root filters.
+        var tables = new List<SearchParamTableExpression>
+        {
+            new(null, null, SearchParamTableExpressionKind.All),
+            ChainTable(1, reversed),
+            ChainTable(2, false),
+            RootFilterTable("a"),
+            RootFilterTable("b"),
+            RootFilterTable("c"),
+        };
+
+        // Act
+        string sql = GenerateCountSql(tables);
+
+        // Assert
+        if (reversed)
+        {
+            Assert.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte2) predecessor", sql);
+            Assert.Contains("JOIN cte3 ON", sql);
+        }
+        else
+        {
+            Assert.DoesNotContain(") predecessor", sql);
+            Assert.Contains("JOIN cte2 ON", sql);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenRootFiltersFollowedBySingleChain_WhenSqlGenerated_ThenChainJoinsPredecessorDirectly(bool reversed)
+    {
+        // Arrange
+        // Mirrors Task?code=...&status=...&subject.identifier=...: the only chain restarts over plain root filters.
+        var tables = new List<SearchParamTableExpression>
+        {
+            new(null, null, SearchParamTableExpressionKind.All),
+            RootFilterTable("a"),
+            RootFilterTable("b"),
+            RootFilterTable("c"),
+            ChainTable(1, reversed),
+            ChainTable(2, false),
+        };
+
+        // Act
+        string sql = GenerateCountSql(tables);
+
+        // Assert
+        Assert.DoesNotContain(") predecessor", sql);
+        Assert.Contains($"JOIN cte3 ON {(reversed ? "refTarget" : "refSource")}.ResourceTypeId = T1", sql);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GivenChainFilterAndRestartedChain_WhenSqlGenerated_ThenRestartDeduplicatesFannedOutPredecessor(bool enabled)
+    {
+        // Arrange
+        // A root filter joined to a forward chain inherits its fan-out, so a later chain restart must still deduplicate it.
+        var tables = new List<SearchParamTableExpression>
+        {
+            new(null, null, SearchParamTableExpressionKind.All),
+            ChainTable(1, false),
+            RootFilterTable("a"),
+            RootFilterTable("b"),
+            RootFilterTable("c"),
+            ChainTable(1, false),
+        };
+
+        // Act
+        string sql = GenerateCountSql(tables, enabled);
+
+        // Assert
+        Assert.DoesNotContain("FROM cte1) predecessor", sql);
+        Assert.Equal(enabled, sql.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte4) predecessor", StringComparison.Ordinal));
+    }
+
+    private static SearchParamTableExpression ChainTable(int chainLevel, bool reversed)
+    {
         var reference = new SearchParameterInfo(
             "subject",
             "subject",
@@ -571,32 +650,41 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             null,
             "Observation.subject",
             ["Patient"]);
-        var tables = new List<SearchParamTableExpression> { new(null, null, SearchParamTableExpressionKind.All) };
-        for (int level = 1; level <= 5; level++)
-        {
-            tables.Add(new SearchParamTableExpression(
-                ChainLinkQueryGenerator.Instance,
-                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
-                SearchParamTableExpressionKind.Chain,
-                level));
-        }
+        return new SearchParamTableExpression(
+            ChainLinkQueryGenerator.Instance,
+            new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+            SearchParamTableExpressionKind.Chain,
+            chainLevel);
+    }
 
-        // Act
-        _queryGenerator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+    private static SearchParamTableExpression RootFilterTable(string code)
+    {
+        var parameter = new SearchParameterInfo(code, code, SearchParamType.Token, new Uri($"http://example.org/SearchParameter/{code}"));
+        return new SearchParamTableExpression(
+            TokenQueryGenerator.Instance,
+            Expression.SearchParameter(parameter, Expression.StringEquals(FieldName.TokenCode, null, code, false)),
+            SearchParamTableExpressionKind.Normal);
+    }
+
+    private string GenerateCountSql(List<SearchParamTableExpression> tables, bool enableChainSourceDeduplication = true)
+    {
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false,
+            enableChainSourceDeduplication: enableChainSourceDeduplication);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
         {
             Sort = [],
             CountOnly = true,
             ResourceVersionTypes = ResourceVersionType.Latest,
         });
-
-        // Assert
-        string sql = _strBuilder.ToString();
-        Assert.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte0) predecessor", sql);
-        string alias = reversed ? "refTarget" : "refSource";
-        for (int i = 1; i < 5; i++)
-        {
-            Assert.Contains($"JOIN cte{i} ON {alias}.ResourceTypeId = T2 AND {alias}.ResourceSurrogateId = Sid2", sql);
-        }
+        return _strBuilder.ToString();
     }
 
     private (SqlQueryGenerator Generator, string Sql) GenerateSqlWithHashedParameter(
