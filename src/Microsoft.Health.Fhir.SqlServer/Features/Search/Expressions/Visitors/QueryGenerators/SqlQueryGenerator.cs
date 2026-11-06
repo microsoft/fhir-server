@@ -1237,16 +1237,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                var includesContinuationToken = IncludesContinuationToken.FromString(context.IncludesContinuationToken);
-                if (!context.IsIncludesOperation || IsIncludesCount(context) || includesContinuationToken?.IncludeResourceTypeId == null || includesContinuationToken?.IncludeResourceSurrogateId == null)
+                if (includeExpression.Reversed && includeExpression.SourceResourceType != "*")
                 {
-                    if (includeExpression.Reversed && includeExpression.SourceResourceType != "*")
-                    {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
-                    }
+                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                        .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
                 }
-                else
+
+                var includesContinuationToken = IncludesContinuationToken.FromString(context.IncludesContinuationToken);
+                if (context.IsIncludesOperation && !IsIncludesCount(context) && includesContinuationToken?.IncludeResourceTypeId != null && includesContinuationToken?.IncludeResourceSurrogateId != null)
                 {
                     var tableAlias = includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
                     delimited.BeginDelimitedElement()
