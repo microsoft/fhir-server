@@ -68,6 +68,13 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     var config = new FhirSqlServerConfiguration();
                     provider.GetService<IConfiguration>().GetSection("FhirSqlServer").Bind(config);
+                    if (config.EnableInstantDateTimeRewriter &&
+                        !provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.EnableSearchParameterTemporalClassification)
+                    {
+                        provider.GetRequiredService<ILogger<FhirSqlServerConfiguration>>().LogWarning(
+                            "FhirSqlServer:EnableInstantDateTimeRewriter is enabled, but FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification is disabled. Instant searches will use existing SQL.");
+                    }
+
                     return config;
                 })
                 .Singleton()

@@ -12,8 +12,12 @@ using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -44,6 +48,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirSqlServerConfiguration flags = server.Server.Services.GetRequiredService<FhirSqlServerConfiguration>();
             Assert.Equal(instant, flags.EnableInstantDateTimeRewriter);
             Assert.Equal(containment, flags.EnableFhirDateContainment);
+            Assert.True(server.Server.Services.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.EnableSearchParameterTemporalClassification);
+            Assert.Equal(
+                TemporalType.Instant,
+                server.Server.Services.GetRequiredService<ISearchParameterDefinitionManager>().GetSearchParameter("Slot", "start").TemporalType);
             await server.ConfigureSecurityOptions();
             TestFhirClient client = server.GetTestFhirClient(ResourceFormat.Json, reusable: false);
             client.HttpClient.DefaultRequestHeaders.TryAddWithoutValidation(KnownHeaders.EnableChainSearch, "true");
@@ -168,6 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public override void ConfigureServices(IServiceCollection services)
             {
+                Configuration["FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification"] = "true";
                 string connectionString = Environment.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
                 if (!string.IsNullOrEmpty(connectionString))
                 {

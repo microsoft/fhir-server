@@ -107,6 +107,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool SupportsSelectableSearchParameters { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether built-in search parameters are classified by temporal type.
+        /// This setting is read when search parameter definitions are initialized.
+        /// </summary>
+        public bool EnableSearchParameterTemporalClassification { get; set; }
+
+        /// <summary>
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;

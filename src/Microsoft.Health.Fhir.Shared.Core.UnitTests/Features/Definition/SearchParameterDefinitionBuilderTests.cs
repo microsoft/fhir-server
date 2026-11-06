@@ -10,6 +10,7 @@ using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -102,7 +103,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 ModelInfoProvider.Instance,
                 _searchParameterComparer,
                 NullLogger.Instance,
-                isSystemDefined: true);
+                isSystemDefined: true,
+                enableTemporalClassification: true);
             SearchParameterInfo original = _uriDictionary[$"http://hl7.org/fhir/SearchParameter/{canonicalName}"];
 
             SearchParameterDefinitionBuilder.Build(
@@ -121,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Fact]
-        public void GivenCustomDefinitionWithSubmittedTemporalType_WhenBuilt_ThenOnlyActiveModelDeterminesType()
+        public void GivenCustomDefinitionWithSubmittedTemporalType_WhenBuilt_ThenTemporalTypeIsUnknown()
         {
             const string url = "http://example.org/SearchParameter/custom-start";
             var parser = new FhirJsonParser(new ParserSettings { AcceptUnknownMembers = true });
@@ -145,12 +147,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 _resourceTypeDictionary,
                 ModelInfoProvider.Instance,
                 _searchParameterComparer,
-                NullLogger.Instance);
+                NullLogger.Instance,
+                enableTemporalClassification: true);
 
-            Assert.Equal(TemporalType.Instant, _uriDictionary[url].TemporalType);
+            Assert.Equal(TemporalType.Unknown, _uriDictionary[url].TemporalType);
             Assert.False(_uriDictionary[url].IsSystemDefined);
             Assert.DoesNotContain("TemporalType", Newtonsoft.Json.JsonConvert.SerializeObject(_uriDictionary[url]));
             Assert.DoesNotContain("TemporalType", System.Text.Json.JsonSerializer.Serialize(_uriDictionary[url]));
+        }
+
+        [Theory]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public void GivenDisabledOrCustomClassification_WhenBuilding_ThenModelMetadataIsNotAccessed(
+            bool isSystemDefined,
+            bool enableTemporalClassification)
+        {
+            var model = CreateSlotModel();
+            model.StructureDefinitionSummaryProvider.Provide("Slot")
+                .Returns(_ => throw new InvalidOperationException("Classification must not run"));
+
+            SearchParameterDefinitionBuilder.Build(
+                new[] { CreateSlotSearchParameter().ToTypedElement() },
+                _uriDictionary,
+                _resourceTypeDictionary,
+                model,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: isSystemDefined,
+                enableTemporalClassification: enableTemporalClassification);
+
+            Assert.Equal(TemporalType.Unknown, _uriDictionary["http://example.org/SearchParameter/test-start"].TemporalType);
+            model.StructureDefinitionSummaryProvider.DidNotReceive().Provide("Slot");
         }
 
         [Theory]
@@ -448,6 +476,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Collection(
                 _resourceTypeDictionary[resourceType][code],
                 x => string.Equals(searchParameters.First().Url, _uriDictionary[x].Url.OriginalString, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private SearchParameter CreateSlotSearchParameter() => _jsonParser.Parse<SearchParameter>("""
+            {
+              "resourceType": "SearchParameter",
+              "url": "http://example.org/SearchParameter/test-start",
+              "name": "test-start",
+              "code": "test-start",
+              "status": "active",
+              "base": ["Slot"],
+              "type": "date",
+              "expression": "Slot.start"
+            }
+            """);
+
+        private static IModelInfoProvider CreateSlotModel()
+        {
+            var model = Substitute.For<IModelInfoProvider>();
+            model.Version.Returns(ModelInfoProvider.Instance.Version);
+            model.GetResourceTypeNames().Returns(new[] { "Slot" });
+            model.GetTypeForFhirType("Slot").Returns(typeof(Slot));
+            model.GetFhirTypeNameForType(Arg.Any<Type>()).Returns((string)null);
+            model.IsKnownResource("Slot", false).Returns(true);
+            return model;
         }
 
         private SearchParameterWrapper CreateWrapper(string expression)

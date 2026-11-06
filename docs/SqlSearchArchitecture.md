@@ -64,7 +64,10 @@ preserved when those parameter names are present.
 
 `FhirSqlServer:EnableInstantDateTimeRewriter` enables single-column date predicates for model-proven FHIR `instant` search parameters.
 The setting defaults to `false`. Its environment variable is `FhirSqlServer__EnableInstantDateTimeRewriter`.
-It is independent of `EnableFhirDateContainment` and `EnableScalarTemporalEqualityRewriter`.
+It also requires `FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification` to be enabled at startup
+(environment variable `FhirServer__CoreFeatures__EnableSearchParameterTemporalClassification`).
+If the SQL setting is enabled while Core classification is off, the server logs a startup warning and uses
+the existing SQL. The settings are independent of `EnableFhirDateContainment` and `EnableScalarTemporalEqualityRewriter`.
 
 The instant converter creates equal UTC `Start` and `End` values, including fractional seconds.
 The date row generator passes both endpoints through the precision-7 table-valued parameter (TVP).
@@ -81,7 +84,7 @@ For example, the built-in `Slot-start` parameter uses `Slot.start`.
 An instant-valued path alone does not establish eligibility. The path must belong to a qualifying built-in search parameter.
 The query literal's precision does not establish eligibility.
 
-Custom parameters retain their existing SQL, even when their current path resolves to `instant`.
+Custom parameters retain their existing SQL and are not classified, even when their current path resolves to `instant`.
 Mutable definitions can leave stale definition caches and index rows on other instances.
 Dates, dateTimes, Periods, composites, unresolved paths, unions, functions, and casts also retain their existing SQL.
 Even homogeneous instant unions are excluded: shared type knowledge is broader than this optimization's policy.

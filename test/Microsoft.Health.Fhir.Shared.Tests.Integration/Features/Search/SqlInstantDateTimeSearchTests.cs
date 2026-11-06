@@ -190,6 +190,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         }
 
         [Theory]
+        [InlineData(false, false, false)]
+        [InlineData(false, true, false)]
+        [InlineData(true, false, false)]
+        [InlineData(true, true, true)]
+        public void GivenCoreAndSqlFlags_WhenLiteralSlotRangeIsGenerated_ThenBothMustBeEnabled(
+            bool classificationEnabled,
+            bool instantEnabled,
+            bool expectedRewrite)
+        {
+            var fixture = new InstantSearchFixture(classificationEnabled);
+
+            using SqlCommand command = fixture.Generate("Slot?start=ge2026-10-01&start=lt2026-10-02", instantEnabled);
+
+            Assert.Contains("StartDateTime", command.CommandText);
+            Assert.Equal(!expectedRewrite, command.CommandText.Contains("EndDateTime", StringComparison.Ordinal));
+        }
+
+        [Theory]
         [MemberData(nameof(Prefixes))]
         public void GivenLiteralPrefix_WhenProductionSqlGenerated_ThenOnlyDateFieldsChange(string prefix, bool containment, bool scalar)
         {
@@ -466,9 +484,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
             private readonly ExpressionParser _parser;
             private readonly SearchParamTableExpressionQueryGeneratorFactory _factory = new(new SearchParameterToSearchValueTypeMap());
             private readonly SchemaInformation _schema = new(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
+            private readonly bool _classificationEnabled;
 
             public InstantSearchFixture()
+                : this(true)
             {
+            }
+
+            internal InstantSearchFixture(bool classificationEnabled)
+            {
+                _classificationEnabled = classificationEnabled;
                 Definitions = new SearchParameterDefinitionManager(
                     ModelInfoProvider.Instance,
                     Substitute.For<IMediator>(),
@@ -476,7 +501,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                     Substitute.For<ISearchParameterComparer<SearchParameterInfo>>(),
                     Substitute.For<ISearchParameterStatusDataStore>().CreateMockScopeProvider(),
                     Substitute.For<IFhirDataStore>().CreateMockScopeProvider(),
-                    NullLogger<SearchParameterDefinitionManager>.Instance);
+                    NullLogger<SearchParameterDefinitionManager>.Instance,
+                    Options.Create(new CoreFeatureConfiguration { EnableSearchParameterTemporalClassification = classificationEnabled }));
                 foreach (var custom in new[]
                 {
                     (Code: "custom-start", Path: "Slot.start"),
@@ -572,7 +598,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                     Substitute.For<ICompressedRawResourceConverter>(),
                     Substitute.For<ISqlQueryHashCalculator>(),
                     Substitute.For<IQueryPlanReuseChecker>(),
-                    Options.Create(new CoreFeatureConfiguration()),
+                    Options.Create(new CoreFeatureConfiguration { EnableSearchParameterTemporalClassification = _classificationEnabled }),
                     NullLogger<SqlServerSearchService>.Instance);
                 var method = typeof(SqlServerSearchService).GetMethod("CreateDefaultSearchExpression", BindingFlags.Instance | BindingFlags.NonPublic);
                 return (SqlRootExpression)method.Invoke(service, new object[] { expression, new SqlSearchOptions(CreateOptions()) });
