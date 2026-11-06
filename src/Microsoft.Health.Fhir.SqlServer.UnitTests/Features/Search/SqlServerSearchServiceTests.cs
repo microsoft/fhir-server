@@ -447,11 +447,49 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Theory]
+        [InlineData(null, false)]
+        [InlineData("", false)]
+        [InlineData("unused-tenant", false)]
+        [InlineData(null, true)]
+        [InlineData("", true)]
+        [InlineData("unused-tenant", true)]
+        public async Task GivenNoConfiguredTenants_WhenSearchSqlIsGenerated_ThenTwoPartTableNamesAreUsed(string tenantId, bool includesOperation)
+        {
+            // Arrange
+            var context = Substitute.For<IFhirRequestContext>();
+            context.TenantId.Returns(tenantId);
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            string generatedSql = null;
+            var stopBeforeExecution = new OperationCanceledException("Query captured before database execution.");
+            _queryHashCalculator.CalculateHash(Arg.Any<string>()).Returns(call =>
+            {
+                generatedSql = call.Arg<string>();
+                throw stopBeforeExecution;
+            });
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Same(stopBeforeExecution, exception);
+            Assert.Contains("FROM dbo.Resource", generatedSql, StringComparison.Ordinal);
+            Assert.DoesNotContain("[dbo]", generatedSql, StringComparison.Ordinal);
+        }
+
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenUnknownRequestTenant_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
         {
             // Arrange
+            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
             context.TenantId.Returns("unknown-tenant");
             _requestContextAccessor.RequestContext.Returns(context);
@@ -518,6 +556,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public async Task GivenUnknownTenant_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
         {
             // Arrange
+            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
             context.TenantId.Returns("unknown-tenant");
             _requestContextAccessor.RequestContext.Returns(context);

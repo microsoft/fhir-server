@@ -139,6 +139,44 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             await connectionBuilder.DidNotReceiveWithAnyArgs().GetSqlConnectionAsync(default(bool), default(string));
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("unused-tenant")]
+        public async Task GivenNoConfiguredTenants_WhenExecutingProcedure_ThenLegacyNameReachesConnectionBuilder(string tenantId)
+        {
+            // Arrange
+            SetTenant(tenantId);
+            var resolver = new SqlTenantDatabaseResolver(
+                _accessor,
+                new TenantManager(Options.Create(new TenantConfiguration())),
+                NullLogger<SqlTenantDatabaseResolver>.Instance);
+            var builder = Substitute.For<ISqlConnectionBuilder>();
+            var stop = new OperationCanceledException("Stop before opening the connection.");
+            builder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>()).Returns(Task.FromException<SqlConnection>(stop));
+            var service = new SqlRetryService(
+                builder,
+                Options.Create(new SqlServerDataStoreConfiguration()),
+                Options.Create(new SqlRetryServiceOptions { MaxRetries = 1 }),
+                new SqlRetryServiceDelegateOptions(),
+                Options.Create(new CoreFeatureConfiguration()),
+                resolver);
+            using var command = new SqlCommand("dbo.GetResources") { CommandType = CommandType.StoredProcedure };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => service.ExecuteSql(
+                command,
+                (_, _) => Task.CompletedTask,
+                NullLogger.Instance,
+                null,
+                CancellationToken.None));
+
+            // Assert
+            Assert.Same(stop, exception);
+            Assert.Null(resolver.GetDatabaseName());
+            Assert.Equal("dbo.GetResources", command.CommandText);
+        }
+
         [Fact]
         public async Task GivenRetriedProcedure_WhenConnectionFails_ThenQualifiedNameRemainsStable()
         {

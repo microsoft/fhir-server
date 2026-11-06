@@ -37,10 +37,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         /// <summary>
-        /// Gets the request tenant's database, or null for a tenant-independent operation.
+        /// Gets the request tenant's database, or null when tenancy is disabled or the operation is tenant-independent.
         /// </summary>
         public string GetDatabaseName()
         {
+            if (_tenantManager.Tenants.Count == 0)
+            {
+                return null;
+            }
+
             string tenantId = _requestContextAccessor.RequestContext?.TenantId;
             if (tenantId == null)
             {
