@@ -48,8 +48,8 @@ BEGIN TRY
          ,Status = 1 -- running
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
          ,@JobId = T.JobId
-      -- PAGLOCK enables to deallocate an empty page immediately not waiting for ghost records cleanup.
-      -- If pages with only ghost records are be accumulated, this will significaly increase execution time and lower the throughput.
+      -- PAGLOCK enables deallocation of an empty page immediately not waiting for ghost records cleanup.
+      -- If pages with only ghost records are accumulated (ghost cleanup is always slow), this significaly increases execution time and lowers the throughput.
       FROM dbo.JobQueue T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
                         JobId
