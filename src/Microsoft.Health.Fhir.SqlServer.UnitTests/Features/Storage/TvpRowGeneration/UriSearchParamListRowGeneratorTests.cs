@@ -207,6 +207,78 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Null(result);
         }
 
+        [Fact]
+        public void GivenSeveralCollidingSearchParameters_WhenGettingCollisions_ThenEachIsReturnedOnce()
+        {
+            // Arrange
+            var profile = new SearchParameterInfo("_profile", "_profile", SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/Resource-profile"));
+            ResourceWrapper resource = Wrap(
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "a"), false)),
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "b"), false)),
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "c"), false)),
+                new SearchIndexEntry(profile, new UriSearchValue(CreateUri(300, "a"), false)),
+                new SearchIndexEntry(profile, new UriSearchValue(CreateUri(300, "b"), false)))[0].ResourceWrapper;
+
+            // Act
+            IReadOnlyList<SearchParameterInfo> result = UriSearchParamListRowGenerator.GetCollidingUriSearchParameters(resource);
+
+            // Assert
+            Assert.Equal(new[] { InstantiatesUri.Url, profile.Url }, result.Select(p => p.Url));
+        }
+
+        [Fact]
+        public void GivenAResourceWithCollidingValues_WhenExcludingForReindex_ThenOnlyThatSearchParameterIsExcludedAndReported()
+        {
+            // Arrange
+            var logger = new CapturingLogger();
+            var profile = new SearchParameterInfo("_profile", "_profile", SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/Resource-profile"));
+            var status = new SearchParameterInfo("status", "status", SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/CarePlan-status"));
+            var profileEntry = new SearchIndexEntry(profile, new UriSearchValue(CreateUri(300, "only"), false));
+            var statusEntry = new SearchIndexEntry(status, new TokenSearchValue(null, "active", null));
+            ResourceWrapper colliding = Wrap(
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "allow"), false)),
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "private"), false)),
+                profileEntry,
+                statusEntry)[0].ResourceWrapper;
+            var otherEntry = new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "allow"), false));
+            ResourceWrapper other = Wrap(otherEntry)[0].ResourceWrapper;
+
+            // Act
+            List<string> warnings = SqlServerFhirDataStore.ExcludeCollidingUriSearchValues(new[] { colliding, other }, logger);
+
+            // Assert
+            Assert.Equal(new[] { profileEntry, statusEntry }, colliding.SearchIndices);
+            Assert.Equal(new[] { otherEntry }, other.SearchIndices);
+            string warning = Assert.Single(warnings);
+            Assert.Contains("CarePlan/cp-a", warning, StringComparison.Ordinal);
+            Assert.Contains("'instantiates-uri'", warning, StringComparison.Ordinal);
+            Assert.Contains("256", warning, StringComparison.Ordinal);
+            Assert.DoesNotContain(Prefix, warning, StringComparison.Ordinal);
+            (LogLevel level, string message) = Assert.Single(logger.Entries);
+            Assert.Equal(LogLevel.Warning, level);
+            Assert.Contains($"SearchParameter={InstantiatesUri.Url}", message, StringComparison.Ordinal);
+            Assert.DoesNotContain(Prefix, message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenResourcesWithoutCollisions_WhenExcludingForReindex_ThenNothingChanges()
+        {
+            // Arrange
+            var logger = new CapturingLogger();
+            var first = new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "same"), false));
+            var second = new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "same"), false));
+            ResourceWrapper resource = Wrap(first, second)[0].ResourceWrapper;
+            IReadOnlyCollection<SearchIndexEntry> before = resource.SearchIndices;
+
+            // Act
+            List<string> warnings = SqlServerFhirDataStore.ExcludeCollidingUriSearchValues(new[] { resource }, logger);
+
+            // Assert
+            Assert.Empty(warnings);
+            Assert.Same(before, resource.SearchIndices);
+            Assert.Empty(logger.Entries);
+        }
+
         private static string CreateUri(int length, string suffix)
         {
             // The shared 'b' run ensures URIs with different suffixes only differ after the indexed length when length > 256.

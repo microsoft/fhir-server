@@ -1440,6 +1440,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} more reindex warning(s) were not listed..
+        /// </summary>
+        internal static string ReindexWarningsOmitted {
+            get {
+                return ResourceManager.GetString("ReindexWarningsOmitted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A Reindex Job is currently running. Wait till it has completed before trying again..
         /// </summary>
         internal static string ReindexRunningException {

@@ -300,7 +300,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _resourceWrapperFactory.Update(resource);
             }
 
-            await _bulkUpdateRetries.ExecuteAsync(async () => await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken));
+            IReadOnlyList<string> warnings = await _bulkUpdateRetries.ExecuteAsync(async () => await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken));
+            if (warnings?.Count > 0)
+            {
+                _logger.LogJobWarning(_jobInfo, $"Reindex: {warnings.Count} search value warning(s) for resource type {_definition.ResourceType}.");
+                _result.AddWarnings(warnings);
+            }
         }
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate)

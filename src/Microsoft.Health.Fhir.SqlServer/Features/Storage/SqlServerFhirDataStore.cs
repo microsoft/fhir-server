@@ -32,6 +32,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -1046,12 +1047,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
         }
 
-        public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<string>> BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             if (resources.Count == 0)
             {
-                return;
+                return Array.Empty<string>();
             }
+
+            IReadOnlyList<string> warnings = ExcludeCollidingUriSearchValues(resources, _logger);
 
             int? failedResourceCount;
             try
@@ -1092,6 +1095,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 _logger.LogWarning(string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount) + " " + Core.Resources.ReindexingUserAction);
             }
+
+            return warnings;
+        }
+
+        /// <summary>
+        /// Removes the values of URI search parameters that the index can't tell apart (two values of the same parameter that are
+        /// identical in their first <see cref="UriSearchParamListRowGenerator.IndexedUriMaxLength"/> characters) from the resources
+        /// being reindexed. New writes with such values are rejected, but resources stored before a URI search parameter was added
+        /// can still have them. The rest of the resource is indexed, so one resource doesn't fail the whole reindex.
+        /// </summary>
+        /// <param name="resources">The resources being reindexed.</param>
+        /// <param name="logger">The logger.</param>
+        /// <returns>A warning for each excluded resource and search parameter.</returns>
+        internal static List<string> ExcludeCollidingUriSearchValues(IReadOnlyCollection<ResourceWrapper> resources, ILogger logger)
+        {
+            var warnings = new List<string>();
+            foreach (ResourceWrapper resource in resources)
+            {
+                IReadOnlyList<SearchParameterInfo> colliding = UriSearchParamListRowGenerator.GetCollidingUriSearchParameters(resource);
+                if (colliding.Count == 0)
+                {
+                    continue;
+                }
+
+                var collidingUrls = colliding.Select(p => p.Url).ToHashSet();
+                resource.UpdateSearchIndices(resource.SearchIndices.Where(e => !(e.Value is UriSearchValue && collidingUrls.Contains(e.SearchParameter.Url))).ToList());
+
+                foreach (SearchParameterInfo searchParameter in colliding)
+                {
+                    logger.LogWarning(
+                        "Reindex excluded URI search values that are identical in their indexed characters. ResourceType={ResourceType}, SearchParameter={SearchParameter}, IndexedLength={IndexedLength}",
+                        resource.ResourceTypeName,
+                        searchParameter.Url,
+                        UriSearchParamListRowGenerator.IndexedUriMaxLength);
+
+                    warnings.Add(string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.ReindexSkippedCollidingUriSearchValues,
+                        resource.ResourceTypeName,
+                        resource.ResourceId,
+                        searchParameter.Code ?? searchParameter.Url?.ToString(),
+                        UriSearchParamListRowGenerator.IndexedUriMaxLength));
+                }
+            }
+
+            return warnings;
         }
 
         private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)

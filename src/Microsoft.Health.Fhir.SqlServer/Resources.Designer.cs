@@ -178,6 +178,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resource {0}/{1} was not indexed for the URI search parameter &apos;{2}&apos; because it has more than one value for it that are identical in their first {3} characters. Searches using &apos;{2}&apos; will not return this resource..
+        /// </summary>
+        internal static string ReindexSkippedCollidingUriSearchValues {
+            get {
+                return ResourceManager.GetString("ReindexSkippedCollidingUriSearchValues", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates.
         /// </summary>
         internal static string ResourceConcurrentUpdateConflict {

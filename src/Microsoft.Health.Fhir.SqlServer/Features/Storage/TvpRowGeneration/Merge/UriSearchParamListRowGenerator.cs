@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 
@@ -44,14 +45,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         /// <returns>The code of the first colliding search parameter, or <c>null</c> if there is none.</returns>
         internal static string FindCollidingUriSearchParameter(ResourceWrapper resource)
         {
+            IReadOnlyList<SearchParameterInfo> colliding = GetCollidingUriSearchParameters(resource);
+            SearchParameterInfo searchParameter = colliding.Count == 0 ? null : colliding[0];
+            return searchParameter == null ? null : searchParameter.Code ?? searchParameter.Url?.ToString();
+        }
+
+        /// <summary>
+        /// Gets every URI search parameter for which the resource has two different values that are identical in their first
+        /// <see cref="IndexedUriMaxLength"/> characters.
+        /// </summary>
+        /// <param name="resource">The resource.</param>
+        /// <returns>The colliding search parameters, in the order they are found. Empty if there are none.</returns>
+        internal static IReadOnlyList<SearchParameterInfo> GetCollidingUriSearchParameters(ResourceWrapper resource)
+        {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             if (resource.SearchIndices == null)
             {
-                return null;
+                return Array.Empty<SearchParameterInfo>();
             }
 
             Dictionary<(Uri SearchParameter, string IndexedValue), string> seen = null;
+            List<SearchParameterInfo> colliding = null;
             foreach (SearchIndexEntry entry in resource.SearchIndices)
             {
                 if (entry.Value is not UriSearchValue uriValue || uriValue.Uri.Length < IndexedUriMaxLength)
@@ -65,13 +80,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     seen[key] = uriValue.Uri;
                 }
-                else if (!string.Equals(firstValue, uriValue.Uri, StringComparison.Ordinal))
+                else if (!string.Equals(firstValue, uriValue.Uri, StringComparison.Ordinal) &&
+                    (colliding == null || !colliding.Exists(p => p.Url == entry.SearchParameter.Url)))
                 {
-                    return entry.SearchParameter.Code ?? entry.SearchParameter.Url?.ToString();
+                    colliding ??= new List<SearchParameterInfo>();
+                    colliding.Add(entry.SearchParameter);
                 }
             }
 
-            return null;
+            return colliding ?? (IReadOnlyList<SearchParameterInfo>)Array.Empty<SearchParameterInfo>();
         }
 
         /// <summary>
@@ -132,8 +149,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, UriSearchValue searchValue, HashSet<UriSearchParamListRow> results, out UriSearchParamListRow row)
         {
             // Truncate explicitly to what the column stores, so that values differing only past the indexed length are
-            // de-duplicated here instead of colliding on the table type's primary key in SQL. New writes with such values
-            // are rejected (see FindCollidingUriSearchParameter); this keeps reindexing of already stored resources working.
+            // de-duplicated here instead of colliding on the table type's primary key in SQL. Writes and reindex exclude
+            // such values before rows are generated (see FindCollidingUriSearchParameter); this is a safety net.
             string uri = searchValue.Uri.Length > IndexedUriMaxLength ? searchValue.Uri[..IndexedUriMaxLength] : searchValue.Uri;
 
             row = new UriSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, uri);

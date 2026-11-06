@@ -891,6 +891,10 @@
   <data name="ReindexingNoSearchParameterstoReindex" xml:space="preserve">
     <value>There are no search parameters to reindex for job Id: {0}.</value>
   </data>
+  <data name="ReindexWarningsOmitted" xml:space="preserve">
+    <value>{0} more reindex warning(s) were not listed.</value>
+    <comment>{0} is the number of warnings not listed.</comment>
+  </data>
   <data name="SearchParameterDefinitionInvalidUriExceedsMaxLength" xml:space="preserve">
     <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
   </data>

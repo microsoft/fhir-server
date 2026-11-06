@@ -640,7 +640,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<string>> BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
             // this is a place holder update until we batch update resources
@@ -648,6 +648,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 await UpdateSearchParameterIndicesAsync(resource, cancellationToken);
             }
+
+            return Array.Empty<string>();
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken)

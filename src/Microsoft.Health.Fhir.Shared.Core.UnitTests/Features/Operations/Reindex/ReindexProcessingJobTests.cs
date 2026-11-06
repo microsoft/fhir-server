@@ -233,6 +233,63 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
             Assert.NotNull(jobResult);
             Assert.Equal(2, jobResult.SucceededResourceCount);
+            Assert.Null(jobResult.Warnings);
+            Assert.DoesNotContain("Warning", result, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenTheDataStoreReturnsWarnings_WhenExecuted_ThenTheJobCompletesAndReportsThem()
+        {
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = "Patient",
+                ResourceCount = new SearchResultReindex() { Count = 2, StartResourceSurrogateId = 1, EndResourceSurrogateId = 100 },
+                SearchParameterHash = "patientHash",
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(job), QueueType = (byte)QueueType.Reindex, GroupId = 1, CreateDate = DateTime.UtcNow, Status = JobStatus.Running };
+            _searchService.SearchBySurrogateIdRange(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+                .Returns(new SearchResult(new[] { CreateSearchResultEntry("1", "Patient"), CreateSearchResultEntry("2", "Patient") }, null, null, new List<Tuple<string, string>>()));
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<string> { "Resource Patient/1 was not indexed." });
+
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            Assert.Equal(2, jobResult.SucceededResourceCount);
+            Assert.Null(jobResult.Error);
+            Assert.Equal(new[] { "Resource Patient/1 was not indexed." }, jobResult.Warnings);
+            Assert.Equal(0, jobResult.OmittedWarningCount);
+        }
+
+        [Fact]
+        public void GivenMoreWarningsThanTheMaximum_WhenAdded_ThenTheRestAreCounted()
+        {
+            var result = new ReindexProcessingJobResult();
+
+            result.AddWarnings(Enumerable.Range(0, ReindexProcessingJobResult.MaxWarnings - 1).Select(i => $"w{i}"));
+            result.AddWarnings(new[] { "last", "omitted1", "omitted2" });
+            result.AddWarnings(null);
+
+            Assert.Equal(ReindexProcessingJobResult.MaxWarnings, result.Warnings.Count);
+            Assert.Equal("last", result.Warnings[^1]);
+            Assert.Equal(2, result.OmittedWarningCount);
+
+            var roundTripped = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(JsonConvert.SerializeObject(result));
+            Assert.Equal(result.Warnings, roundTripped.Warnings);
+            Assert.Equal(2, roundTripped.OmittedWarningCount);
+        }
+
+        [Fact]
+        public void GivenAResultFromAnOlderVersion_WhenDeserialized_ThenItHasNoWarnings()
+        {
+            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>("{\"SucceededResourceCount\":5,\"Error\":null}");
+
+            Assert.Equal(5, result.SucceededResourceCount);
+            Assert.Null(result.Warnings);
+            Assert.Equal(0, result.OmittedWarningCount);
         }
 
         [Fact]
@@ -374,7 +431,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(
                 Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
                 Arg.Any<CancellationToken>())
-                .Returns(Task.FromException(new InvalidOperationException("General error during bulk update")));
+                .Returns(Task.FromException<IReadOnlyList<string>>(new InvalidOperationException("General error during bulk update")));
 
             // Expect JobExecutionSoftFailureException to be thrown
             var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
@@ -677,7 +734,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(
                     Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
                     Arg.Any<CancellationToken>())
-                    .Returns(_ => Task.FromException(new OutOfMemoryException("Simulated OOM")));
+                    .Returns(_ => Task.FromException<IReadOnlyList<string>>(new OutOfMemoryException("Simulated OOM")));
             }
 
             var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
