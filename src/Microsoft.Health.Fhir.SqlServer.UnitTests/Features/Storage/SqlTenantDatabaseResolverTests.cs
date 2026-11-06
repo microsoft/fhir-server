@@ -5,6 +5,7 @@
 
 using System;
 using System.Data;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -251,6 +252,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             // Assert
             Assert.Same(stop, exception);
             Assert.Equal("[database.a]]].[dbo].[GetResources]", command.CommandText);
+        }
+
+        [Theory]
+        [InlineData(null, "tenant-a", "[database.a]]].[dbo].[LogEvent]")]
+        [InlineData("Server=log-server;Database=logs", "tenant-a", "dbo.LogEvent")]
+        [InlineData("Server=log-server;Database=logs", "unknown", "dbo.LogEvent")]
+        public void GivenEventLogDestination_WhenCreatingCommand_ThenOnlyDataConnectionUsesTenantDatabase(string connectionString, string tenantId, string expectedName)
+        {
+            // Arrange
+            SetTenant(tenantId);
+            var service = CreateRetryService(Substitute.For<ISqlConnectionBuilder>());
+            var method = typeof(SqlRetryService).GetMethod("CreateEventLogCommand", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            // Act
+            using var command = (SqlCommand)method.Invoke(service, new object[] { connectionString });
+
+            // Assert
+            Assert.Equal(CommandType.StoredProcedure, command.CommandType);
+            Assert.Equal(expectedName, command.CommandText);
         }
 
         private SqlRetryService CreateRetryService(ISqlConnectionBuilder builder) => new(

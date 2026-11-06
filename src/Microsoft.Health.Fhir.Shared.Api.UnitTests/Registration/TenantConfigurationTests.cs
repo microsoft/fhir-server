@@ -93,6 +93,57 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             }));
         }
 
+        [Theory]
+        [InlineData("Patient")]
+        [InlineData("patient")]
+        [InlineData("Account")]
+        [InlineData("metadata")]
+        [InlineData("_history")]
+        [InlineData("CustomError")]
+        [InlineData("Operations")]
+        [InlineData("OperationDefinition")]
+        public void GivenTenantIdConflictingWithFhirRoute_WhenRegisteringTheServer_ThenStartupFails(string id)
+        {
+            var services = new ServiceCollection();
+
+            var exception = Assert.Throws<InvalidOperationException>(() => services.AddFhirServer(configureAction: config =>
+                config.TenantConfiguration.Tenants.Add(new TenantInfo { Id = id, DatabaseName = "database" })));
+
+            Assert.Contains("conflicts", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData("CosmosDb", 0)]
+        [InlineData("CosmosDb", 1)]
+        [InlineData("cosmosdb", 2)]
+        [InlineData("SqlServer", 1)]
+        public void GivenStorageBackend_WhenRegisteringTenants_ThenUnsupportedTenantStorageIsRejected(string dataStore, int tenantCount)
+        {
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["DataStore"] = dataStore,
+            }).Build();
+            var services = new ServiceCollection();
+
+            var exception = Record.Exception(() => services.AddFhirServer(configuration, configureAction: config =>
+            {
+                for (int i = 0; i < tenantCount; i++)
+                {
+                    config.TenantConfiguration.Tenants.Add(new TenantInfo { Id = $"tenant-{i}", DatabaseName = $"database-{i}" });
+                }
+            }));
+
+            if (tenantCount > 0 && dataStore.Equals("CosmosDb", StringComparison.OrdinalIgnoreCase))
+            {
+                Assert.IsType<InvalidOperationException>(exception);
+                Assert.Contains("Cosmos", exception.Message, StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.Null(exception);
+            }
+        }
+
         [Fact]
         public void GivenNullTenant_WhenRegisteringTheServer_ThenStartupFails()
         {

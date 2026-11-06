@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             // Arrange
             var configuration = new TenantConfiguration();
             var accessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            accessor.RequestContext.Returns((IFhirRequestContext)null);
+            accessor.RequestContext.Returns(_ => null);
             if (databaseName != null)
             {
                 configuration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = databaseName });

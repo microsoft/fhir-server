@@ -402,8 +402,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                await using var cmd = new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = "dbo.LogEvent" };
-                _tenantDatabaseResolver?.PrepareCommand(cmd);
+                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
+                await using var cmd = CreateEventLogCommand(connStr);
 
                 cmd.Parameters.AddWithValue("@Process", process);
                 cmd.Parameters.AddWithValue("@Status", status);
@@ -413,7 +413,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
-                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
                 if (connStr == null)
                 {
                     using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -435,6 +434,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // do nothing;
             }
+        }
+
+        private SqlCommand CreateEventLogCommand(string eventLogConnectionString)
+        {
+            string procedureName = eventLogConnectionString == null
+                ? _tenantDatabaseResolver?.GetStoredProcedureName("dbo.LogEvent") ?? "dbo.LogEvent"
+                : "dbo.LogEvent";
+#pragma warning disable CA2100 // The resolver emits only parsed, safely quoted SQL identifiers.
+            return new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = procedureName };
+#pragma warning restore CA2100
         }
 
         private static void InitReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)

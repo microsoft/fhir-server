@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
-            _fhirRequestContextAccessor.RequestContext.TenantId.Returns((string)null);
+            _fhirRequestContextAccessor.RequestContext.TenantId.Returns(_ => null);
             TenantDatabaseResolver = new SqlTenantDatabaseResolver(
                 _fhirRequestContextAccessor,
                 new Core.Features.Tenants.TenantManager(Options.Create(new TenantConfiguration())),
