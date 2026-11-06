@@ -482,6 +482,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var validSearchParameters = new List<SearchParameterInfo>();
 
+            // In a SMART request a relative reference (for example subject=Patient/123) names a resource on this
+            // server, whether it comes from the caller's query or from a wildcard scope merged into it.
+            bool restrictRelativeReferencesToLocal = _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true;
+
             // Deduplicate exact (name, value) query parameter pairs before parsing. Repeated identical parameters produce
             // redundant database lookups (one per expression) without affecting query semantics. Per FHIR spec, repeated
             // parameters are AND semantics (set intersection), and AND of identical predicates is idempotent: X AND X ≡ X.
@@ -491,6 +495,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 try
                 {
                     var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+
+                    if (restrictRelativeReferencesToLocal)
+                    {
+                        parsed = parsed.AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
+                    }
 
                     foreach (var resourceTypeString in resourceTypesString)
                     {
@@ -1175,7 +1184,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     try
                     {
-                        fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2));
+                        fineGrainedSmartSearchExpressions.Add(
+                            _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
+                                .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null));
                     }
                     catch (SearchParameterNotSupportedException)
                     {
