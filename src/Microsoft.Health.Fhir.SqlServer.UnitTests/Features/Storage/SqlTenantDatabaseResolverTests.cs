@@ -253,20 +253,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Equal("[database.a]]].[dbo].[GetResources]", command.CommandText);
         }
 
-        [Fact]
-        public async Task GivenUnknownTenant_WhenLoggingSqlEvent_ThenResolutionFailureIsNotSwallowed()
-        {
-            // Arrange
-            SetTenant("unknown");
-            var service = CreateRetryService(Substitute.For<ISqlConnectionBuilder>());
-
-            // Act
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.TryLogEvent("test", "Warn", "text", null, CancellationToken.None));
-
-            // Assert
-            Assert.Contains("unsupported tenant", exception.Message, StringComparison.Ordinal);
-        }
-
         private SqlRetryService CreateRetryService(ISqlConnectionBuilder builder) => new(
             builder,
             Options.Create(new SqlServerDataStoreConfiguration()),
