@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             using (context.StringBuilder.Indent())
             {
                 context.StringBuilder.AppendLine($"SELECT *");
-                context.StringBuilder.Append($"FROM (SELECT SourceResourceTypeId = {VLatest.ReferenceSearchParam.ResourceTypeId}, {VLatest.ReferenceSearchParam.SearchParamId}, {VLatest.ReferenceSearchParam.ReferenceResourceId}, {VLatest.ReferenceSearchParam.ReferenceResourceTypeId} FROM ").Append(VLatest.ReferenceSearchParam).AppendLine(") R");
+                context.StringBuilder.Append($"FROM (SELECT SourceResourceTypeId = {VLatest.ReferenceSearchParam.ResourceTypeId}, {VLatest.ReferenceSearchParam.SearchParamId}, {VLatest.ReferenceSearchParam.ReferenceResourceId}, {VLatest.ReferenceSearchParam.ReferenceResourceTypeId} FROM ").Append(context.GetTableName(VLatest.ReferenceSearchParam)).AppendLine(") R");
 
                 using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
                 {
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             using (context.StringBuilder.Indent())
             {
                 context.StringBuilder.AppendLine("SELECT *");
-                context.StringBuilder.Append($"FROM (SELECT RefResourceTypeId = {VLatest.ReferenceSearchParam.ResourceTypeId}, RefResourceSurrogateId = {VLatest.ReferenceSearchParam.ResourceSurrogateId}, {VLatest.ReferenceSearchParam.SearchParamId} FROM ").Append(VLatest.ReferenceSearchParam).AppendLine(") R");
+                context.StringBuilder.Append($"FROM (SELECT RefResourceTypeId = {VLatest.ReferenceSearchParam.ResourceTypeId}, RefResourceSurrogateId = {VLatest.ReferenceSearchParam.ResourceSurrogateId}, {VLatest.ReferenceSearchParam.SearchParamId} FROM ").Append(context.GetTableName(VLatest.ReferenceSearchParam)).AppendLine(") R");
 
                 using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
                 {

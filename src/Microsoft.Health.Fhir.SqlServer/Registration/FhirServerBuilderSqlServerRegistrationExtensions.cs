@@ -144,6 +144,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
+            services.AddSingleton<SqlTenantDatabaseResolver>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()

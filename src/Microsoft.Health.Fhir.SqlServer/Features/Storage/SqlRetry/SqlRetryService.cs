@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
         private CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly SqlTenantDatabaseResolver _tenantDatabaseResolver;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -56,12 +57,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="sqlRetryServiceOptions">Initializes various retry parameters. <see cref="SqlRetryServiceOptions"/></param>
         /// <param name="sqlRetryServiceDelegateOptions">Initializes custom delegate that is used to examine if the thrown exception represent a retriable error. <see cref="SqlRetryServiceDelegateOptions"/></param>
         /// <param name="coreFeatureConfiguration">Checks if SQL replicas are enabled</param>
+        /// <param name="tenantDatabaseResolver">Resolves procedure databases for the current request.</param>
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
             SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions,
-            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
+            SqlTenantDatabaseResolver tenantDatabaseResolver)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
@@ -70,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _tenantDatabaseResolver = EnsureArg.IsNotNull(tenantDatabaseResolver, nameof(tenantDatabaseResolver));
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _transientErrors = new HashSet<int>(SqlExceptionExtensions.TransientErrors);
 
@@ -93,9 +97,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             InitEventLogHandler();
         }
 
-        private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
+        private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder, SqlTenantDatabaseResolver tenantDatabaseResolver)
         {
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _tenantDatabaseResolver = tenantDatabaseResolver;
             _coreFeatureConfiguration = new CoreFeatureConfiguration();
             InitReplicaHandler(_coreFeatureConfiguration);
             InitEventLogHandler();
@@ -117,10 +122,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="commandTimeout">command timeout.</param>
         /// <param name="maxRetries">max retries.</param>
         /// <param name="retryMillisecondsDelay">retry milliseconds delay.</param>
-        public static SqlRetryService GetInstance(ISqlConnectionBuilder sqlConnectionBuilder, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000)
+        /// <param name="tenantDatabaseResolver">Tenant resolver, or null for standalone tenant-independent callers.</param>
+        public static SqlRetryService GetInstance(ISqlConnectionBuilder sqlConnectionBuilder, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000, SqlTenantDatabaseResolver tenantDatabaseResolver = null)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
-            var service = new SqlRetryService(sqlConnectionBuilder);
+            var service = new SqlRetryService(sqlConnectionBuilder, tenantDatabaseResolver);
             service._commandTimeout = commandTimeout;
             service._maxRetries = maxRetries;
             service._retryMillisecondsDelay = retryMillisecondsDelay;
@@ -246,6 +252,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            _tenantDatabaseResolver?.PrepareCommand(sqlCommand);
             if (logMessage == null)
             {
                 logMessage = $"{sqlCommand.CommandText} failed.";
@@ -395,7 +402,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                await using var cmd = new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = "dbo.LogEvent" };
+                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
+                await using var cmd = CreateEventLogCommand(connStr);
+
                 cmd.Parameters.AddWithValue("@Process", process);
                 cmd.Parameters.AddWithValue("@Status", status);
                 cmd.Parameters.AddWithValue("@Text", text);
@@ -404,7 +413,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
-                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
                 if (connStr == null)
                 {
                     using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -426,6 +434,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // do nothing;
             }
+        }
+
+        private SqlCommand CreateEventLogCommand(string eventLogConnectionString)
+        {
+            string procedureName = eventLogConnectionString == null
+                ? _tenantDatabaseResolver?.GetStoredProcedureName("dbo.LogEvent") ?? "dbo.LogEvent"
+                : "dbo.LogEvent";
+#pragma warning disable CA2100 // The resolver emits only parsed, safely quoted SQL identifiers.
+            return new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = procedureName };
+#pragma warning restore CA2100
         }
 
         private static void InitReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)
