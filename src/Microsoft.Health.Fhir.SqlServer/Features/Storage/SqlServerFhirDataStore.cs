@@ -935,6 +935,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 UriSearchParamListRowGenerator.LogTruncatedUris(mergeWrappers, _logger);
+                AddLongUriWriteWarning(mergeWrappers);
                 new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1097,6 +1098,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return warnings;
+        }
+
+        /// <summary>
+        /// When a single resource is written with URI values longer than the indexed length, adds the long URI warning to the
+        /// request context, so the API can return it to the caller. Writes of several resources at once (import, bulk update,
+        /// parallel bundles) only log, because the request context can't be tied to one resource.
+        /// </summary>
+        /// <param name="mergeWrappers">The resources being written.</param>
+        private void AddLongUriWriteWarning(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
+        {
+            IList<OperationOutcomeIssue> issues = _requestContextAccessor.RequestContext?.BundleIssues;
+            List<MergeResourceWrapper> current = mergeWrappers.Where(w => !w.ResourceWrapper.IsHistory).Take(2).ToList();
+            if (issues == null || current.Count != 1)
+            {
+                return;
+            }
+
+            IReadOnlyList<string> codes = UriSearchParamListRowGenerator.GetTruncatedUriSearchParameterCodes(current[0].ResourceWrapper);
+            if (codes.Count == 0)
+            {
+                return;
+            }
+
+            OperationOutcomeIssue warning = LongUriSearchValueIssue.Create(codes, UriSearchParamListRowGenerator.IndexedUriMaxLength);
+            if (!issues.Any(i => LongUriSearchValueIssue.IsMatch(i) && string.Equals(i.Diagnostics, warning.Diagnostics, StringComparison.Ordinal)))
+            {
+                issues.Add(warning);
+            }
         }
 
         /// <summary>

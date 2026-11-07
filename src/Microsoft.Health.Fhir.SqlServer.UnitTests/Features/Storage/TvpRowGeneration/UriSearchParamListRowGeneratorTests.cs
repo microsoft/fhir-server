@@ -208,6 +208,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         }
 
         [Fact]
+        public void GivenUriValuesOfDifferentLengths_WhenGettingTruncatedCodes_ThenOnlyParametersWithValuesOverTheIndexedLengthAreReturnedOnce()
+        {
+            var profile = new SearchParameterInfo("_profile", "_profile", SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/Resource-profile"));
+            ResourceWrapper resource = Wrap(
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(257, "a"), false)),
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(300, "b"), false)),
+                new SearchIndexEntry(profile, new UriSearchValue(CreateUri(IndexedLength, "c"), false)))[0].ResourceWrapper;
+
+            IReadOnlyList<string> codes = UriSearchParamListRowGenerator.GetTruncatedUriSearchParameterCodes(resource);
+
+            Assert.Equal(new[] { "instantiates-uri" }, codes);
+        }
+
+        [Fact]
         public void GivenSeveralCollidingSearchParameters_WhenGettingCollisions_ThenEachIsReturnedOnce()
         {
             // Arrange

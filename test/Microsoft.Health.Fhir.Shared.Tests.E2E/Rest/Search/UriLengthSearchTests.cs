@@ -206,6 +206,141 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains(createOutcome.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Warning && i.Diagnostics == LongUriWarning);
         }
 
+        [Fact]
+        public async Task GivenACreateWithALongUri_WhenPreferOperationOutcome_ThenTheWarningIsReturned()
+        {
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, Guid.NewGuid().ToString(), Fixture.SharedPrefix + "create");
+
+            (HttpStatusCode status, Resource body, HttpResponseMessage response) = await SendAsync(HttpMethod.Post, "Patient", patient, preferOperationOutcome: true);
+
+            Assert.Equal(HttpStatusCode.Created, status);
+            Assert.NotNull(response.Headers.Location);
+            AssertOnlyLongUriWarning(Assert.IsType<OperationOutcome>(body));
+            response.Dispose();
+
+            (status, body, response) = await SendAsync(HttpMethod.Post, "Patient", patient, preferOperationOutcome: false);
+            Assert.Equal(HttpStatusCode.Created, status);
+            Assert.IsType<Patient>(body);
+            response.Dispose();
+        }
+
+        [Fact]
+        public async Task GivenAConditionalUpdateMatchingOneResourceByALongUri_WhenPreferOperationOutcome_ThenItIsUpdatedAndTheWarningIsReturned()
+        {
+            string tag = Guid.NewGuid().ToString();
+            string profile = Fixture.SharedPrefix + "conditional-update";
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, tag, profile);
+            using FhirResponse<Patient> created = await Client.CreateAsync(patient);
+            created.Resource.Gender = AdministrativeGender.Female;
+
+            (HttpStatusCode status, Resource body, HttpResponseMessage response) = await SendAsync(HttpMethod.Put, ConditionPath(profile, tag), created.Resource, preferOperationOutcome: true);
+            using (response)
+            {
+                Assert.Equal(HttpStatusCode.OK, status);
+                AssertOnlyLongUriWarning(Assert.IsType<OperationOutcome>(body));
+            }
+
+            using FhirResponse<Patient> read = await Client.ReadAsync<Patient>(ResourceType.Patient, created.Resource.Id);
+            Assert.Equal(AdministrativeGender.Female, read.Resource.Gender);
+        }
+
+        [Fact]
+        public async Task GivenAConditionalUpdateMatchingTwoResourcesByALongUri_WhenSent_ThenPreconditionFailedIncludesTheWarning()
+        {
+            string tag = Guid.NewGuid().ToString();
+            var first = new Patient();
+            Fixture.SetTagAndProfiles(first, tag, Fixture.SharedPrefix + "a");
+            var second = new Patient();
+            Fixture.SetTagAndProfiles(second, tag, Fixture.SharedPrefix + "b");
+            using FhirResponse<Patient> createdFirst = await Client.CreateAsync(first);
+            using FhirResponse<Patient> createdSecond = await Client.CreateAsync(second);
+
+            (HttpStatusCode status, Resource body, HttpResponseMessage response) = await SendAsync(HttpMethod.Put, ConditionPath(Fixture.SharedPrefix + "a", tag), new Patient { Meta = first.Meta }, preferOperationOutcome: false);
+            using (response)
+            {
+                Assert.Equal(HttpStatusCode.PreconditionFailed, status);
+                var outcome = Assert.IsType<OperationOutcome>(body);
+                Assert.Contains(outcome.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Error);
+                Assert.Contains(outcome.Issue, i => i.Severity == OperationOutcome.IssueSeverity.Warning && i.Diagnostics == LongUriWarning);
+            }
+        }
+
+        [Fact]
+        public async Task GivenAConditionalDeleteMatchingOneResourceByALongUri_WhenPreferOperationOutcome_ThenItIsDeletedAndTheWarningIsReturned()
+        {
+            string tag = Guid.NewGuid().ToString();
+            string profile = Fixture.SharedPrefix + "conditional-delete";
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, tag, profile);
+            using FhirResponse<Patient> created = await Client.CreateAsync(patient);
+
+            (HttpStatusCode status, Resource body, HttpResponseMessage response) = await SendAsync(HttpMethod.Delete, ConditionPath(profile, tag), null, preferOperationOutcome: true);
+            using (response)
+            {
+                Assert.Equal(HttpStatusCode.OK, status);
+                AssertOnlyLongUriWarning(Assert.IsType<OperationOutcome>(body));
+            }
+
+            Bundle remaining = await Client.SearchAsync(ResourceType.Patient, $"_tag={tag}");
+            Assert.DoesNotContain(remaining.Entry, e => e.Resource is Patient);
+        }
+
+        [Fact]
+        public async Task GivenATransactionCreatingAResourceWithALongUri_WhenPreferOperationOutcome_ThenTheTransactionStillSucceeds()
+        {
+            // A transaction fails when an entry returns an OperationOutcome, so transaction entries don't get the warning.
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, Guid.NewGuid().ToString(), Fixture.SharedPrefix + "transaction");
+            var transaction = new Bundle
+            {
+                Type = Bundle.BundleType.Transaction,
+                Entry = new List<Bundle.EntryComponent>
+                {
+                    new() { Resource = patient, Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.POST, Url = "Patient" } },
+                },
+            };
+
+            (HttpStatusCode status, Resource body, HttpResponseMessage response) = await SendAsync(HttpMethod.Post, string.Empty, transaction, preferOperationOutcome: true);
+            using (response)
+            {
+                Assert.Equal(HttpStatusCode.OK, status);
+                Bundle.EntryComponent entry = Assert.Single(Assert.IsType<Bundle>(body).Entry);
+                Assert.StartsWith("201", entry.Response.Status, StringComparison.Ordinal);
+                Assert.Null(entry.Response.Outcome);
+            }
+        }
+
+        private static string ConditionPath(string profile, string tag) => $"Patient?_profile={HttpUtility.UrlEncode(profile)}&_tag={tag}";
+
+        private async System.Threading.Tasks.Task<(HttpStatusCode Status, Resource Body, HttpResponseMessage Response)> SendAsync(HttpMethod method, string path, Resource resource, bool preferOperationOutcome)
+        {
+            using var request = new HttpRequestMessage(method, new Uri(Fixture.HttpClient.BaseAddress, path));
+            if (resource != null)
+            {
+                request.Content = new StringContent(resource.ToJson(), System.Text.Encoding.UTF8, "application/fhir+json");
+            }
+
+            if (preferOperationOutcome)
+            {
+                request.Headers.Add(KnownHeaders.Prefer, "return=OperationOutcome");
+            }
+
+            HttpResponseMessage response = await Fixture.HttpClient.SendAsync(request);
+            string content = await response.Content.ReadAsStringAsync();
+            Resource body = string.IsNullOrWhiteSpace(content) ? null : new FhirJsonParser().Parse<Resource>(content);
+            return (response.StatusCode, body, response);
+        }
+
+        private static void AssertOnlyLongUriWarning(OperationOutcome outcome)
+        {
+            OperationOutcome.IssueComponent issue = Assert.Single(outcome.Issue);
+            Assert.Equal(OperationOutcome.IssueSeverity.Warning, issue.Severity);
+            Assert.Equal(OperationOutcome.IssueType.Informational, issue.Code);
+            Assert.Equal(LongUriWarning, issue.Diagnostics);
+        }
+
         private async System.Threading.Tasks.Task<Bundle> SearchByProfileAsync(string profile, string tag = null)
         {
             return await Client.SearchAsync(ResourceType.Patient, $"_profile={HttpUtility.UrlEncode(profile)}&_tag={tag ?? Fixture.FixtureTag}");

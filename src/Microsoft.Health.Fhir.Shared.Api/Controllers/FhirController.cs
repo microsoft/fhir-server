@@ -11,6 +11,7 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Medino;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -182,10 +183,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     HttpContext.RequestAborted),
                 "Create");
 
-            return FhirResult.Create(_logger, response, HttpStatusCode.Created)
-                .SetETagHeader()
-                .SetLastModifiedHeader()
-                .SetLocationHeader(_urlResolver);
+            ReturnPreference? returnPreference = GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings);
+            return FhirResult.Create(_logger, response, HttpStatusCode.Created, true, true, true, _urlResolver, returnPreference, additionalIssues: longUriWarnings);
         }
 
         /// <summary>
@@ -296,17 +295,51 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             switch (saveOutcome.Outcome)
             {
                 case SaveOutcomeType.Created:
-                    return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.Created)
-                        .SetETagHeader()
-                        .SetLastModifiedHeader()
-                        .SetLocationHeader(_urlResolver);
                 case SaveOutcomeType.Updated:
-                    return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.OK)
-                        .SetETagHeader()
-                        .SetLastModifiedHeader();
+                    bool created = saveOutcome.Outcome == SaveOutcomeType.Created;
+                    ReturnPreference? returnPreference = GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings);
+                    return FhirResult.Create(
+                        _logger,
+                        saveOutcome.RawResourceElement,
+                        created ? HttpStatusCode.Created : HttpStatusCode.OK,
+                        setETagheader: true,
+                        setLastModifiedHeader: true,
+                        setLocationHeader: created,
+                        urlResolver: _urlResolver,
+                        returnPreference: returnPreference,
+                        additionalIssues: longUriWarnings);
             }
 
             return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
+        }
+
+        /// <summary>
+        /// Returns <see cref="ReturnPreference.OperationOutcome"/> when the client asked for it with the Prefer header and the request
+        /// used URI values that are only partially compared; otherwise <c>null</c>, which keeps the default response.
+        /// Transaction entries are left unchanged, because a transaction fails when an entry returns an OperationOutcome.
+        /// </summary>
+        /// <param name="longUriWarnings">The long URI warnings to return, or <c>null</c>.</param>
+        private ReturnPreference? GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings)
+        {
+            longUriWarnings = null;
+            if (_fhirRequestContextAccessor.GetReturnPreferenceValue() != ReturnPreference.OperationOutcome ||
+                GetBundleResourceContext()?.IsTransactionalBundle == true)
+            {
+                return null;
+            }
+
+            List<OperationOutcomeIssue> warnings = _fhirRequestContextAccessor.RequestContext?.BundleIssues
+                .Where(LongUriSearchValueIssue.IsMatch)
+                .GroupBy(i => i.Diagnostics, StringComparer.Ordinal)
+                .Select(g => g.First())
+                .ToList();
+            if (warnings == null || warnings.Count == 0)
+            {
+                return null;
+            }
+
+            longUriWarnings = warnings;
+            return ReturnPreference.OperationOutcome;
         }
 
         /// <summary>
@@ -515,6 +548,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (maxDeleteCount.HasValue)
             {
                 Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings) == ReturnPreference.OperationOutcome)
+            {
+                var operationOutcome = new OperationOutcome { Issue = longUriWarnings.Select(i => i.ToPoco()).ToList() };
+                return FhirResult.Create(_logger, operationOutcome.ToResourceElement(), HttpStatusCode.OK).SetETagHeader(response?.WeakETag);
             }
 
             return FhirResult.NoContent(_logger).SetETagHeader(response?.WeakETag);

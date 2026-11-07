@@ -195,5 +195,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
                 });
             Assert.Equal(HttpStatusCode.Created, fhirResult.StatusCode);
         }
+
+        [Fact]
+        public void GivenNoOperationOutcomeMessage_WhenCreatingAnOperationOutcome_ThenOnlyTheAdditionalIssuesAreReturned()
+        {
+            var additionalIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, "long uri warning");
+
+            var fhirResult = FhirResult.Create(
+                NullLogger.Instance,
+                _mockResource,
+                HttpStatusCode.OK,
+                setETagheader: true,
+                returnPreference: ReturnPreference.OperationOutcome,
+                additionalIssues: new[] { additionalIssue });
+
+            var outcome = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+            Assert.Equal("long uri warning", Assert.Single(outcome.Issue).Diagnostics);
+            Assert.Equal(WeakETag.FromVersionId(_mockResource.VersionId).ToString(), fhirResult.Headers[HeaderNames.ETag]);
+        }
     }
 }

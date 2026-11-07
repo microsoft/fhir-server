@@ -108,16 +108,19 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 else if (returnPreference == ReturnPreference.OperationOutcome)
                 {
                     var operationOutcome = new OperationOutcome();
-                    operationOutcome.Issue.Add(
-                        new OperationOutcome.IssueComponent()
-                        {
-                            Severity = OperationOutcome.IssueSeverity.Information,
-                            Diagnostics = operationOutcomeMessage,
-                            Details = new CodeableConcept()
+                    if (!string.IsNullOrEmpty(operationOutcomeMessage))
+                    {
+                        operationOutcome.Issue.Add(
+                            new OperationOutcome.IssueComponent()
                             {
-                                Text = operationOutcomeMessage,
-                            },
-                        });
+                                Severity = OperationOutcome.IssueSeverity.Information,
+                                Diagnostics = operationOutcomeMessage,
+                                Details = new CodeableConcept()
+                                {
+                                    Text = operationOutcomeMessage,
+                                },
+                            });
+                    }
 
                     foreach (OperationOutcomeIssue issue in additionalIssues ?? Enumerable.Empty<OperationOutcomeIssue>())
                     {

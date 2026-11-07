@@ -92,6 +92,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         }
 
         /// <summary>
+        /// Gets the codes of the URI search parameters for which the resource has a value longer than <see cref="IndexedUriMaxLength"/>.
+        /// </summary>
+        /// <param name="resource">The resource.</param>
+        /// <returns>The distinct codes, in the order found. Empty if there are none.</returns>
+        internal static IReadOnlyList<string> GetTruncatedUriSearchParameterCodes(ResourceWrapper resource)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            List<string> codes = null;
+            foreach (SearchIndexEntry entry in resource.SearchIndices ?? Array.Empty<SearchIndexEntry>())
+            {
+                if (entry.Value is UriSearchValue uriValue && uriValue.Uri.Length > IndexedUriMaxLength)
+                {
+                    string code = entry.SearchParameter.Code ?? entry.SearchParameter.Url?.ToString();
+                    codes ??= new List<string>();
+                    if (!codes.Contains(code))
+                    {
+                        codes.Add(code);
+                    }
+                }
+            }
+
+            return codes ?? (IReadOnlyList<string>)Array.Empty<string>();
+        }
+
+        /// <summary>
         /// Logs one warning per resource type and search parameter for URI values longer than the indexed length.
         /// Such values are stored truncated, so searches on them can match resources whose URI shares the indexed prefix.
         /// The URI values are not logged because they may contain sensitive data.

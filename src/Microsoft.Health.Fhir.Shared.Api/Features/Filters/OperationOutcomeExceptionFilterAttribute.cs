@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -130,6 +131,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case PreconditionFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.PreconditionFailed;
+
+                        // A condition with URI values that are only partially compared can match more resources than intended.
+                        foreach (OperationOutcomeIssue issue in _fhirRequestContextAccessor.RequestContext?.BundleIssues.Where(LongUriSearchValueIssue.IsMatch) ?? Enumerable.Empty<OperationOutcomeIssue>())
+                        {
+                            OperationOutcome.IssueComponent poco = issue.ToPoco();
+                            if (!operationOutcomeResult.Result.Issue.Any(i => string.Equals(i.Diagnostics, poco.Diagnostics, StringComparison.Ordinal)))
+                            {
+                                operationOutcomeResult.Result.Issue.Add(poco);
+                            }
+                        }
+
                         break;
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
