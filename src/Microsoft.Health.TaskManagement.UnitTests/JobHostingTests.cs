@@ -145,6 +145,32 @@ namespace Microsoft.Health.JobManagement.UnitTests
         }
 
         [Fact]
+        public async Task GivenServiceCausedJobExecutionException_WhenJobRuns_ThenHostLogsError()
+        {
+            var error = new { error = "Service failure" };
+            var exception = new JobExecutionException("Service failure", error, false);
+            var queue = new TestQueueClient();
+            var jobInfo = (await queue.EnqueueAsync(0, ["definition"], null, false, CancellationToken.None)).Single();
+            var factory = new TestJobFactory(_ => new TestJob(_ => throw exception));
+            var metric = Substitute.For<IJobMetric>();
+            var metricFactory = Substitute.For<IJobMetricFactory>();
+            metricFactory.Create(Arg.Any<JobInfo>()).Returns(metric);
+            var host = new JobHosting(queue, factory, metricFactory, _logger) { PollingFrequencyInSeconds = 0 };
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            queue.CompleteFaultAction = () => cancellation.Cancel();
+
+            await host.ExecuteAsync(0, 1, "test", cancellation);
+
+            Assert.Equal(JobStatus.Failed, jobInfo.Status);
+            Assert.Equal(JsonConvert.SerializeObject(error), jobInfo.Result);
+            Assert.Contains(_logger.ReceivedCalls(), call =>
+                call.GetMethodInfo().Name == nameof(ILogger.Log) &&
+                (LogLevel)call.GetArguments()[0] == LogLevel.Error &&
+                ReferenceEquals(call.GetArguments()[3], exception));
+            metric.Received(1).EmitFailure(nameof(JobExecutionException));
+        }
+
+        [Fact]
         public async Task GivenAnCrashJob_WhenJobHostingStart_ThenJobShouldBeRePickup()
         {
             int executeCount0 = 0;

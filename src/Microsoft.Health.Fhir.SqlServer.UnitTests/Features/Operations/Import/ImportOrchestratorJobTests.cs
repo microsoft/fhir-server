@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -84,6 +85,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
             Assert.True(jobExecutionException.IsCustomerCaused);
+            var originalException = Assert.IsType<JobExecutionException>(jobExecutionException.InnerException);
+            Assert.True(originalException.IsCustomerCaused);
+            Assert.Same(resultDetails, originalException.Error);
 
             _ = mediator.Received().PublishAsync(
                 Arg.Is<ImportJobMetricsNotification>(
@@ -132,6 +136,36 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                                callerIpAddress: default,
                                callerClaims: default);
             }
+
+            var hostLogger = Substitute.For<ILogger<JobHosting>>();
+            var metric = Substitute.For<IJobMetric>();
+            var metricFactory = Substitute.For<IJobMetricFactory>();
+            metricFactory.Create(Arg.Any<JobInfo>()).Returns(metric);
+            var scopedJob = Substitute.For<IScoped<IJob>>();
+            scopedJob.Value.Returns(orchestratorJob);
+            var jobFactory = Substitute.For<IJobFactory>();
+            jobFactory.Create(Arg.Any<JobInfo>()).Returns(scopedJob);
+            var host = new JobHosting(testQueueClient, jobFactory, metricFactory, hostLogger)
+            {
+                PollingFrequencyInSeconds = 0,
+            };
+            using var hostCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            testQueueClient.CompleteFaultAction = () => hostCancellation.Cancel();
+
+            await host.ExecuteAsync(0, 1, "test", hostCancellation);
+
+            Assert.Equal(JobStatus.Failed, orchestratorJobInfo.Status);
+            var hostedResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(orchestratorJobInfo.Result);
+            Assert.Equal(HttpStatusCode.BadRequest, hostedResult.HttpStatusCode);
+            Assert.Equal(resultDetails.ErrorMessage, hostedResult.ErrorMessage);
+            Assert.Contains(hostLogger.ReceivedCalls(), call =>
+                call.GetMethodInfo().Name == nameof(ILogger.Log) &&
+                (LogLevel)call.GetArguments()[0] == LogLevel.Warning &&
+                call.GetArguments()[3] is JobExecutionException);
+            Assert.DoesNotContain(hostLogger.ReceivedCalls(), call =>
+                call.GetMethodInfo().Name == nameof(ILogger.Log) &&
+                (LogLevel)call.GetArguments()[0] >= LogLevel.Error);
+            metric.DidNotReceive().EmitFailure(Arg.Any<string>());
         }
 
         [Theory]
@@ -204,8 +238,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             // Arrange
             var client = Substitute.For<IIntegrationDataStoreClient>();
             var error = new ImportJobErrorResult { ErrorMessage = "Input failure.", HttpStatusCode = HttpStatusCode.BadRequest };
+            var originalException = new JobExecutionException(error.ErrorMessage, error, isCustomerCaused);
             client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-                .Returns<Task<Dictionary<string, object>>>(_ => throw new JobExecutionException(error.ErrorMessage, error, isCustomerCaused));
+                .Returns<Task<Dictionary<string, object>>>(_ => throw originalException);
             var job = CreateOrchestratorJob(client, Substitute.For<IQueueClient>());
             var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
 
@@ -215,6 +250,37 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             // Assert
             Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
             Assert.Same(error, exception.Error);
+            Assert.Same(originalException, exception.InnerException);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenJobExecutionExceptionWithoutStatus_WhenOrchestratorExecutes_ThenFailureIsNormalized(bool hasError)
+        {
+            var client = Substitute.For<IIntegrationDataStoreClient>();
+            var originalError = hasError ? new ImportJobErrorResult { ErrorMessage = "Input failure." } : null;
+            var originalException = new JobExecutionException("Input failure.", originalError, true);
+            client.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns<Task<Dictionary<string, object>>>(_ => throw originalException);
+            var job = CreateOrchestratorJob(client, Substitute.For<IQueueClient>());
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(CreateInput()) };
+
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Equal(HttpStatusCode.InternalServerError, error.HttpStatusCode);
+            Assert.Equal("Input failure.", error.ErrorMessage);
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Same(originalException, exception.InnerException);
+            if (hasError)
+            {
+                Assert.Same(originalError, error);
+            }
+            else
+            {
+                Assert.Contains("Input failure.", error.ErrorDetails);
+            }
         }
 
         [Fact]
