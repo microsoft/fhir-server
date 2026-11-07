@@ -881,6 +881,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                     continue;
                                 }
 
+                                // Clear the throttled response before reusing the context for the retry.
+                                httpContext.Response.Clear();
                                 await resourceContext.Context.Handler.Invoke(httpContext);
                             }
                         }
