@@ -316,7 +316,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 call.GetMethodInfo().Name == nameof(IAuditLogger.LogAudit) && (AuditAction)call.GetArguments()[0] == AuditAction.Executed);
             var auditProperties = Assert.Single(audit.GetArguments().OfType<IReadOnlyDictionary<string, string>>(), value => value.ContainsKey("Affected Items"));
             Assert.Equal("[Include] Patient/completed", auditProperties["Affected Items"]);
-            Assert.Same(conflict, exception.InnerException);
+            Assert.Same(conflict, Assert.Single(CustomerCausedExceptionExtensions.GetLeaves(exception.InnerException)));
+            Assert.True(exception.IsCustomerCaused);
             Assert.StartsWith("JobConflictException:", result.Issues.First());
         }
 
