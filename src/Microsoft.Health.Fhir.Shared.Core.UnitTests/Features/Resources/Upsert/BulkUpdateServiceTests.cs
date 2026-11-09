@@ -312,6 +312,63 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.Contains(rejection, result.Issues);
         }
 
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenTheDataStoreRejectsAResourceOnlyOnALaterPage_TheRejectionIsReported()
+        {
+            // Arrange
+            const string resourceType = "Patient";
+            const string rejection = "The resource has more than one value for the URI search parameter '_profile' that are identical in their first 256 characters.";
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(
+                    GenerateSearchResult(new Dictionary<string, int> { { resourceType, 2 } }, "continuationToken"),
+                    GenerateSearchResult(new Dictionary<string, int> { { resourceType, 2 } }));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            int mergeCalls = 0;
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+            {
+                // The sub-page is processed before the current page, so the first merge is for the later page.
+                if (Interlocked.Increment(ref mergeCalls) != 1)
+                {
+                    return MergeOutcome.Empty;
+                }
+
+                ResourceWrapperOperation first = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>()[0];
+                return new MergeOutcome(
+                    MergeOutcomeFinalState.Completed,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> { { first.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(rejection)) } });
+            });
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                fhirPatchParameters,
+                true,
+                0,
+                false,
+                new List<Tuple<string, string>>(),
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None);
+
+            // Assert
+            Assert.Equal(1, result.ResourcesPatchFailed[resourceType]);
+            Assert.Equal(3, result.ResourcesUpdated[resourceType]);
+            Assert.Equal(new[] { rejection }, result.Issues);
+        }
+
         [Theory]
         [InlineData(0)]
         [InlineData(1)]

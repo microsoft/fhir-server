@@ -472,15 +472,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return;
             }
 
-            OperationOutcomeIssue issue = LongUriSearchValueIssue.Create(parameterCodes, LongUriSearchValueFinder.IndexedUriMaxLength);
-
-            // A request can run several searches (for example $everything), so add the warning once.
-            if (bundleIssues.Any(i => string.Equals(i.Diagnostics, issue.Diagnostics, StringComparison.Ordinal)))
+            // A request can run several searches (for example $everything) and writes, so keep a single warning naming all parameters.
+            if (!LongUriSearchValueIssue.AddOrMerge(bundleIssues, parameterCodes, LongUriSearchValueFinder.IndexedUriMaxLength))
             {
                 return;
             }
-
-            bundleIssues.Add(issue);
 
             logger.LogWarning(
                 "Search used URI values of at least {IndexedLength} characters. SearchParameters={SearchParameters}",

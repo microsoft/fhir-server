@@ -93,6 +93,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenSearchesWithDifferentLongUriParameters_WhenSearching_ThenOneWarningNamesBoth()
+        {
+            // Arrange
+            var profile = new SearchParameterInfo("_profile", "_profile", SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/Resource-profile"));
+            Expression profileExpression = Expression.SearchParameter(profile, Expression.StringEquals(FieldName.Uri, null, new string('p', 300), false));
+
+            // Act
+            SqlServerSearchService.AddLongUriSearchValueWarning(CreateUriExpression(300), _requestContext, _logger);
+            SqlServerSearchService.AddLongUriSearchValueWarning(profileExpression, _requestContext, _logger);
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(_bundleIssues);
+            Assert.Contains("'_profile, instantiates-uri'", issue.Diagnostics, StringComparison.Ordinal);
+            Assert.Equal(2, _logger.Messages.Count);
+        }
+
+        [Fact]
         public void GivenNoRequestContextOrExpression_WhenSearching_ThenNothingHappens()
         {
             // Act

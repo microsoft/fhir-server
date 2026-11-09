@@ -312,6 +312,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        [Fact]
+        public async Task GivenAnUnchangedUpdateOfAResourceWithALongUri_WhenPreferOperationOutcome_ThenTheWarningIsReturned()
+        {
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, Guid.NewGuid().ToString(), Fixture.SharedPrefix + "unchanged");
+            using FhirResponse<Patient> created = await Client.CreateAsync(patient);
+
+            (HttpStatusCode status, Resource body, HttpResponseMessage response) = await SendAsync(HttpMethod.Put, $"Patient/{created.Resource.Id}", created.Resource, preferOperationOutcome: true);
+            using (response)
+            {
+                Assert.Equal(HttpStatusCode.OK, status);
+                Assert.Equal(created.Headers.ETag?.Tag, response.Headers.ETag?.Tag);
+                AssertOnlyLongUriWarning(Assert.IsType<OperationOutcome>(body));
+            }
+        }
+
+        [Fact]
+        public async Task GivenACreateWithALongUriAndAnInvalidPreferValue_WhenCreated_ThenTheResourceIsReturned()
+        {
+            var patient = new Patient();
+            Fixture.SetTagAndProfiles(patient, Guid.NewGuid().ToString(), Fixture.SharedPrefix + "invalid-prefer");
+            using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(Fixture.HttpClient.BaseAddress, "Patient"))
+            {
+                Content = new StringContent(patient.ToJson(), System.Text.Encoding.UTF8, "application/fhir+json"),
+            };
+            request.Headers.TryAddWithoutValidation(KnownHeaders.Prefer, "return=invalid");
+
+            using HttpResponseMessage response = await Fixture.HttpClient.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.IsType<Patient>(new FhirJsonParser().Parse<Resource>(await response.Content.ReadAsStringAsync()));
+        }
+
         private static string ConditionPath(string profile, string tag) => $"Patient?_profile={HttpUtility.UrlEncode(profile)}&_tag={tag}";
 
         private async System.Threading.Tasks.Task<(HttpStatusCode Status, Resource Body, HttpResponseMessage Response)> SendAsync(HttpMethod method, string path, Resource resource, bool preferOperationOutcome)

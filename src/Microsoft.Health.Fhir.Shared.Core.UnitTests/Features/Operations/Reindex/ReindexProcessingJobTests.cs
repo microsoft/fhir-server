@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -331,6 +332,35 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r => r.Count == 2),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenTheFirstWriteAttemptIsThrottled_WhenExecuted_ThenIndicesAreRecomputedAndTheRetryWarningsAreReported()
+        {
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = "Patient",
+                ResourceCount = new SearchResultReindex() { Count = 1, StartResourceSurrogateId = 1, EndResourceSurrogateId = 100 },
+                SearchParameterHash = "patientHash",
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(job), QueueType = (byte)QueueType.Reindex, GroupId = 1, CreateDate = DateTime.UtcNow, Status = JobStatus.Running };
+            SearchResultEntry entry = CreateSearchResultEntry("1", "Patient");
+            _searchService.SearchBySurrogateIdRange(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+                .Returns(new SearchResult(new[] { entry }, null, null, new List<Tuple<string, string>>()));
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(
+                    _ => Task.FromException<IReadOnlyList<string>>(new RequestRateExceededException(TimeSpan.FromMilliseconds(1))),
+                    _ => Task.FromResult<IReadOnlyList<string>>(new List<string> { "Resource Patient/1 was not indexed." }));
+
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            _resourceWrapperFactory.Received(2).Update(entry.Resource);
+            Assert.Equal(1, jobResult.SucceededResourceCount);
+            Assert.Equal(new[] { "Resource Patient/1 was not indexed." }, jobResult.Warnings);
         }
 
         [Fact]

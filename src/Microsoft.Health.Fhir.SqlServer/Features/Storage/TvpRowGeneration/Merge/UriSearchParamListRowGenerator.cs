@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -136,13 +137,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             Dictionary<(string ResourceType, Uri SearchParameter), (int Count, int MaxLength)> truncated = null;
 
-            foreach (MergeResourceWrapper merge in resources)
+            foreach (MergeResourceWrapper merge in resources.Where(r => !r.ResourceWrapper.IsHistory && r.ResourceWrapper.SearchIndices != null))
             {
-                if (merge.ResourceWrapper.IsHistory || merge.ResourceWrapper.SearchIndices == null)
-                {
-                    continue;
-                }
-
                 foreach (SearchIndexEntry entry in merge.ResourceWrapper.SearchIndices)
                 {
                     if (entry.Value is UriSearchValue uriValue && uriValue.Uri.Length > IndexedUriMaxLength)

@@ -29,16 +29,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(searchParameterCodes, nameof(searchParameterCodes));
 
+            var codes = new SortedSet<string>(searchParameterCodes, StringComparer.Ordinal);
             string diagnostics = string.Format(
                 CultureInfo.InvariantCulture,
                 Core.Resources.LongUriSearchValue,
-                string.Join(", ", searchParameterCodes.OrderBy(c => c, StringComparer.Ordinal)),
+                string.Join(", ", codes),
                 comparedLength);
 
-            return new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Warning,
-                OperationOutcomeConstants.IssueType.Informational,
-                diagnostics);
+            return new Issue(diagnostics, codes, comparedLength);
+        }
+
+        /// <summary>
+        /// Adds the warning to <paramref name="issues"/>, or, if the list already has it, updates that warning to also name
+        /// <paramref name="searchParameterCodes"/>. A request can run several searches and writes, and gets a single warning.
+        /// </summary>
+        /// <param name="issues">The issues of the request.</param>
+        /// <param name="searchParameterCodes">The codes of the affected search parameters.</param>
+        /// <param name="comparedLength">The number of URI characters the data store compares.</param>
+        /// <returns><c>true</c> if the warning was added or changed; <c>false</c> if it already named all the codes.</returns>
+        public static bool AddOrMerge(IList<OperationOutcomeIssue> issues, IEnumerable<string> searchParameterCodes, int comparedLength)
+        {
+            EnsureArg.IsNotNull(issues, nameof(issues));
+            EnsureArg.IsNotNull(searchParameterCodes, nameof(searchParameterCodes));
+
+            var codes = new SortedSet<string>(searchParameterCodes, StringComparer.Ordinal);
+            for (int i = 0; i < issues.Count; i++)
+            {
+                if (issues[i] is Issue existing && existing.ComparedLength == comparedLength)
+                {
+                    if (existing.Codes.IsSupersetOf(codes))
+                    {
+                        return false;
+                    }
+
+                    codes.UnionWith(existing.Codes);
+                    issues[i] = Create(codes, comparedLength);
+                    return true;
+                }
+            }
+
+            issues.Add(Create(codes, comparedLength));
+            return true;
         }
 
         /// <summary>
@@ -59,6 +90,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string format = Core.Resources.LongUriSearchValue;
             int index = format.IndexOf("{0}", StringComparison.Ordinal);
             return index > 0 ? format[..index] : format;
+        }
+
+        private sealed class Issue : OperationOutcomeIssue
+        {
+            public Issue(string diagnostics, IReadOnlySet<string> codes, int comparedLength)
+                : base(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, diagnostics)
+            {
+                Codes = codes;
+                ComparedLength = comparedLength;
+            }
+
+            public IReadOnlySet<string> Codes { get; }
+
+            public int ComparedLength { get; }
         }
     }
 }

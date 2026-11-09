@@ -779,6 +779,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             AppendUpdateResults(result.ResourcesUpdated as Dictionary<string, long>, new[] { new Dictionary<string, long>(newResult.ResourcesUpdated) });
             AppendUpdateResults(result.ResourcesIgnored as Dictionary<string, long>, new[] { new Dictionary<string, long>(newResult.ResourcesIgnored) });
             AppendUpdateResults(result.ResourcesPatchFailed as Dictionary<string, long>, new[] { new Dictionary<string, long>(newResult.ResourcesPatchFailed) });
+            foreach (string issue in newResult.Issues.Where(issue => !result.Issues.Contains(issue)))
+            {
+                result.Issues.Add(issue);
+            }
 
             return result;
         }

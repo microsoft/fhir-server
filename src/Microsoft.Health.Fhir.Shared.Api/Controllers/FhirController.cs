@@ -322,7 +322,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private ReturnPreference? GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings)
         {
             longUriWarnings = null;
-            if (_fhirRequestContextAccessor.GetReturnPreferenceValue() != ReturnPreference.OperationOutcome ||
+
+            // This runs after the write is saved, so an invalid Prefer value must not turn it into an error response.
+            ReturnPreference? returnPreference;
+            try
+            {
+                returnPreference = _fhirRequestContextAccessor.GetReturnPreferenceValue();
+            }
+            catch (BadRequestException)
+            {
+                return null;
+            }
+
+            if (returnPreference != ReturnPreference.OperationOutcome ||
                 GetBundleResourceContext()?.IsTransactionalBundle == true)
             {
                 return null;

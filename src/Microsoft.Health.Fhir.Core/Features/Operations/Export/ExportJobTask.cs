@@ -401,7 +401,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 foreach (OperationOutcomeIssue issue in _contextAccessor.RequestContext.BundleIssues)
                 {
-                    _exportJobRecord.Issues.Add(issue);
+                    // Each page's search can raise the same issue again (for example the long URI warning), so keep one copy.
+                    if (!_exportJobRecord.Issues.Any(existing =>
+                        existing.Severity == issue.Severity
+                        && existing.Code == issue.Code
+                        && existing.Diagnostics == issue.Diagnostics))
+                    {
+                        _exportJobRecord.Issues.Add(issue);
+                    }
                 }
             }
 

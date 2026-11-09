@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -38,6 +39,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.False(LongUriSearchValueIssue.IsMatch(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Informational, diagnostics)));
             Assert.False(LongUriSearchValueIssue.IsMatch(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Invalid, diagnostics)));
             Assert.False(LongUriSearchValueIssue.IsMatch(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational)));
+        }
+
+        [Fact]
+        public void GivenWarningsForDifferentParameters_WhenAddedOrMerged_ThenOneWarningNamesAllOfThemInPlace()
+        {
+            var other = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.NotSupported, "other");
+            var issues = new List<OperationOutcomeIssue>();
+
+            Assert.True(LongUriSearchValueIssue.AddOrMerge(issues, new[] { "url" }, 256));
+            issues.Add(other);
+            Assert.True(LongUriSearchValueIssue.AddOrMerge(issues, new[] { "_profile" }, 256));
+            Assert.False(LongUriSearchValueIssue.AddOrMerge(issues, new[] { "url", "_profile" }, 256));
+            Assert.False(LongUriSearchValueIssue.AddOrMerge(issues, new[] { "url" }, 256));
+
+            Assert.Equal(2, issues.Count);
+            Assert.Equal(LongUriSearchValueIssue.Create(new[] { "_profile", "url" }, 256).Diagnostics, issues[0].Diagnostics);
+            Assert.True(LongUriSearchValueIssue.IsMatch(issues[0]));
+            Assert.Same(other, issues[1]);
         }
     }
 }

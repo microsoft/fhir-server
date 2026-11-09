@@ -721,6 +721,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public async Task GivenEachPageSearchRaisesTheSameIssue_WhenCommittedAfterEachPage_ThenTheIssueIsRecordedOnce()
+        {
+            SetupExportJobRecordAndOperationDataStore(CreateExportJobRecord(numberOfPagesPerCommit: 1));
+
+            int numberOfCalls = 0;
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue("warning", "informational", "long uri warning"));
+                    return CreateSearchResult(
+                        new[] { CreateSearchResultEntry(numberOfCalls.ToString(CultureInfo.InvariantCulture), KnownResourceTypes.Patient) },
+                        continuationToken: numberOfCalls >= 3 ? null : "ct");
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(3, numberOfCalls);
+            Assert.Equal("long uri warning", Assert.Single(_exportJobRecord.Issues).Diagnostics);
+        }
+
+        [Fact]
         public async Task GivenNumberOfSearch_WhenExecuted_ThenItShouldCommitOneLastTime()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(

@@ -396,6 +396,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
                         {
                             _logger.LogInformation("Update operation resulted in no changes for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
+                            if (resources.Count == 1)
+                            {
+                                AddLongUriWriteWarning(resource);
+                            }
 
                             // Send the existing resource in the response
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
@@ -1108,24 +1112,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="mergeWrappers">The resources being written.</param>
         private void AddLongUriWriteWarning(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
         {
-            IList<OperationOutcomeIssue> issues = _requestContextAccessor.RequestContext?.BundleIssues;
             List<MergeResourceWrapper> current = mergeWrappers.Where(w => !w.ResourceWrapper.IsHistory).Take(2).ToList();
-            if (issues == null || current.Count != 1)
+            if (current.Count == 1)
+            {
+                AddLongUriWriteWarning(current[0].ResourceWrapper);
+            }
+        }
+
+        /// <summary>
+        /// Adds the long URI warning to the request context if <paramref name="resource"/> has URI values longer than the indexed length.
+        /// </summary>
+        /// <param name="resource">The single resource written by the request.</param>
+        private void AddLongUriWriteWarning(ResourceWrapper resource)
+        {
+            IFhirRequestContext requestContext = _requestContextAccessor.RequestContext;
+            IList<OperationOutcomeIssue> issues = requestContext?.BundleIssues;
+            if (issues == null || IsParallelBundleRequest(requestContext))
             {
                 return;
             }
 
-            IReadOnlyList<string> codes = UriSearchParamListRowGenerator.GetTruncatedUriSearchParameterCodes(current[0].ResourceWrapper);
-            if (codes.Count == 0)
+            IReadOnlyList<string> codes = UriSearchParamListRowGenerator.GetTruncatedUriSearchParameterCodes(resource);
+            if (codes.Count > 0)
             {
-                return;
+                LongUriSearchValueIssue.AddOrMerge(issues, codes, UriSearchParamListRowGenerator.IndexedUriMaxLength);
             }
+        }
 
-            OperationOutcomeIssue warning = LongUriSearchValueIssue.Create(codes, UriSearchParamListRowGenerator.IndexedUriMaxLength);
-            if (!issues.Any(i => LongUriSearchValueIssue.IsMatch(i) && string.Equals(i.Diagnostics, warning.Diagnostics, StringComparison.Ordinal)))
-            {
-                issues.Add(warning);
-            }
+        /// <summary>
+        /// Parallel bundles merge several entries in one call, under the request context of one of them, so a write warning
+        /// could be attached to the wrong entry.
+        /// </summary>
+        private static bool IsParallelBundleRequest(IFhirRequestContext requestContext)
+        {
+            return requestContext.Properties != null &&
+                requestContext.Properties.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, out object value) &&
+                value is BundleResourceContext { IsParallelBundle: true };
         }
 
         /// <summary>
