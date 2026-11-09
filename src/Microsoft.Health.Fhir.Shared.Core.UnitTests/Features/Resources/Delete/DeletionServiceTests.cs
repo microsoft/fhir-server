@@ -267,7 +267,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             var aggregate = Assert.IsType<AggregateException>(exception.InnerException.InnerException);
             var page = Assert.IsType<IncompleteOperationException<Dictionary<string, long>>>(Assert.Single(aggregate.InnerExceptions));
             Assert.Same(failure, page.InnerException);
-            Assert.Contains(failure.Message, exception.Message);
+            var reportedFailure = failureKind == 2 ? failure.InnerException : failure;
+            Assert.Contains(reportedFailure.Message, exception.Message);
         }
 
         [Theory]
