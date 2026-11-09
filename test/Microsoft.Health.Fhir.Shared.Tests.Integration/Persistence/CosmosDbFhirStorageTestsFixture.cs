@@ -134,7 +134,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);

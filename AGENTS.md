@@ -45,6 +45,12 @@ This is the **Microsoft FHIR Server** — an open-source, standards-compliant im
 - If the total is under ~1% of the operation's duration, drop it.
 - Measure before proposing added indirection. If the measurement kills the rationale, withdraw it — don't re-justify on other grounds.
 
+### SQL Performance Reviews
+
+- For every review that adds or changes SQL, assess query performance; do not omit the assessment because a live database or execution plan is unavailable.
+- Inspect the relevant table schema and indexes in the repository, and compare them with the query's predicates, joins, grouping, and ordering. Consider the expected data volume, execution frequency, and whether the plan may scan or transfer substantially more data than needed.
+- Since runtime database evidence is unavailable during review, state that limitation, report the static query/index assessment, and avoid presenting runtime performance as verified.
+
 ---
 
 ## Response Style

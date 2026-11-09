@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -277,6 +278,37 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
+        public async Task GivenCmkFailure_WhenProcessingExecutes_ThenSoftFailureIsCustomerCaused()
+        {
+            // Arrange
+            var definition = new ReindexProcessingJobDefinition
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = "Patient",
+                ResourceCount = new SearchResultReindex { Count = 1, StartResourceSurrogateId = 1, EndResourceSurrogateId = 100 },
+                SearchParameterHash = "patientHash",
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+            _searchParameterOperations.GetSearchParameterHash("Patient").Returns("patientHash");
+            var failure = new CustomerManagedKeyException("Customer managed key is inaccessible.");
+            _searchService.SearchBySurrogateIdRange(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<SearchResult>(failure));
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(() => _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+            var result = Assert.IsType<ReindexProcessingJobResult>(exception.Error);
+            Assert.Equal(failure.Message, result.Error);
+            var serializedResult = JObject.Parse(JsonConvert.SerializeObject(result));
+            Assert.True(serializedResult["isCustomerCaused"].Value<bool>());
+        }
+
+        [Fact]
         public async Task ProcessQueryAsync_WithSearchServiceException_ThrowsReindexException()
         {
             var expectedResourceType = "Patient";
@@ -322,6 +354,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var jobResult = exception.Error as ReindexProcessingJobResult;
             string errorMessage = Assert.IsType<string>(jobResult?.Error);
             Assert.Contains("Search service error", errorMessage);
+            Assert.False(exception.IsCustomerCaused);
         }
 
         [Fact]

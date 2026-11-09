@@ -7,13 +7,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -36,6 +41,105 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 CommandTimeout = TimeSpan.FromSeconds(300),
             });
             _coreFeatureConfiguration = Options.Create(new CoreFeatureConfiguration());
+        }
+
+        [Fact]
+        public async Task GivenNonCmkConnectionFailure_WhenExecutingSql_ThenOriginalExceptionIsPreserved()
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(18456, "Login failed.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(failure));
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<SqlException>(() => service.ExecuteSql(
+                command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None));
+
+            // Assert
+            Assert.Same(failure, exception);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenRetriableCmkConnectionFailure_WhenRetriesAreExhausted_ThenCustomerManagedKeyExceptionIsThrown(bool useConnectionDelegate)
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(SqlErrorCodes.CannotConnectToDBInCurrentState, "Customer managed key is inaccessible.");
+            var attempts = 0;
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(_ =>
+                {
+                    attempts++;
+                    return Task.FromException<SqlConnection>(failure);
+                });
+            var options = new SqlRetryServiceOptions { MaxRetries = 2, RetryMillisecondsDelay = 0 };
+            options.AddTransientErrors.Add(SqlErrorCodes.CannotConnectToDBInCurrentState);
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                _sqlServerDataStoreConfiguration,
+                Options.Create(options),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<CustomerManagedKeyException>(() => useConnectionDelegate
+                ? service.ExecuteSql((_, _, _) => Task.CompletedTask, NullLogger.Instance, CancellationToken.None)
+                : service.ExecuteSql(command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(2, attempts);
+            Assert.Same(failure, exception.InnerException);
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.KeyVaultCriticalError, false)]
+        [InlineData(SqlErrorCodes.KeyVaultEncounteredError, false)]
+        [InlineData(SqlErrorCodes.KeyVaultErrorObtainingInfo, false)]
+        [InlineData(SqlErrorCodes.CannotConnectToDBInCurrentState, false)]
+        [InlineData(SqlErrorCodes.CannotConnectToDBInCurrentState, true)]
+        public async Task GivenCmkConnectionFailure_WhenExecutingSql_ThenCustomerManagedKeyExceptionIsThrown(int errorCode, bool useConnectionDelegate)
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(errorCode, "Customer managed key is inaccessible.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(failure));
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<CustomerManagedKeyException>(() => useConnectionDelegate
+                ? service.ExecuteSql((_, _, _) => Task.CompletedTask, NullLogger.Instance, CancellationToken.None)
+                : service.ExecuteSql(command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(Core.Resources.OperationFailedForCustomerManagedKey, exception.Message);
+            Assert.Same(failure, exception.InnerException);
+        }
+
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        public async Task GivenTooManyParameters_WhenExecutingSql_ThenRequestNotValidExceptionIsThrown(bool useConnectionDelegate, bool disableRetries)
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(SqlErrorCodes.TooManyParameters, "Too many SQL parameters.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(failure));
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => useConnectionDelegate
+                ? service.ExecuteSql((_, _, _) => Task.CompletedTask, NullLogger.Instance, CancellationToken.None)
+                : service.ExecuteSql(command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None, disableRetries: disableRetries));
+
+            // Assert
+            Assert.Equal(Core.Resources.TooManyParameters, exception.Message);
         }
 
         [Fact]

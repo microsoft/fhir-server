@@ -52,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
     [Trait(Traits.Category, Categories.BulkDelete)]
     public class DeletionServiceTests
     {
+        private const int WrappedCancellationFailure = 2;
+
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private readonly Lazy<IConformanceProvider> _conformanceProvider = new Lazy<IConformanceProvider>(() => Substitute.For<IConformanceProvider>());
         private readonly IDeletionServiceDataStoreFactory _dataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
@@ -198,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         [InlineData(false, 0)]
         [InlineData(true, 0)]
         [InlineData(true, 1)]
-        [InlineData(true, 2)]
+        [InlineData(true, WrappedCancellationFailure)]
         public async Task GivenCanceledPageAndAnotherFailure_WhenExecutingBulkDelete_ThenTheJobReportsTheOtherFailureAndPartialCount(bool wrappedCancellation, int failureKind)
         {
             // Arrange
@@ -225,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             {
                 0 => new InvalidOperationException("Storage delete failed."),
                 1 => new AggregateException(),
-                2 => new Exception("Unknown wrapper.", new OperationCanceledException()),
+                WrappedCancellationFailure => new Exception("Unknown wrapper.", new OperationCanceledException()),
                 _ => throw new ArgumentOutOfRangeException(nameof(failureKind)),
             };
             var capabilityCalls = 0;
@@ -267,7 +269,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             var aggregate = Assert.IsType<AggregateException>(exception.InnerException.InnerException);
             var page = Assert.IsType<IncompleteOperationException<Dictionary<string, long>>>(Assert.Single(aggregate.InnerExceptions));
             Assert.Same(failure, page.InnerException);
-            Assert.Contains(failure.Message, exception.Message);
+            var reportedFailure = failureKind == WrappedCancellationFailure ? failure.InnerException : failure;
+            Assert.Contains(reportedFailure.Message, exception.Message);
         }
 
         [Theory]
@@ -316,7 +319,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
                 call.GetMethodInfo().Name == nameof(IAuditLogger.LogAudit) && (AuditAction)call.GetArguments()[0] == AuditAction.Executed);
             var auditProperties = Assert.Single(audit.GetArguments().OfType<IReadOnlyDictionary<string, string>>(), value => value.ContainsKey("Affected Items"));
             Assert.Equal("[Include] Patient/completed", auditProperties["Affected Items"]);
-            Assert.Same(conflict, exception.InnerException);
+            var leaves = CustomerCausedExceptionExtensions.GetLeaves(exception.InnerException).ToList();
+            Assert.Contains(leaves, ex => ReferenceEquals(ex, conflict));
+            Assert.True(exception.IsCustomerCaused);
             Assert.StartsWith("JobConflictException:", result.Issues.First());
         }
 
