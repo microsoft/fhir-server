@@ -456,10 +456,10 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
-    [InlineData(null, true)]
+    [InlineData(null, false)]
     [InlineData("true", true)]
     [InlineData("false", false)]
-    public void GivenChainSourceDeduplicationConfiguration_WhenBound_ThenDefaultAndRollbackAreSupported(string value, bool expected)
+    public void GivenChainSourceDeduplicationConfiguration_WhenBound_ThenDefaultAndExplicitSettingsAreSupported(string value, bool expected)
     {
         // Arrange
         var settings = new Dictionary<string, string>();
@@ -487,7 +487,9 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     [InlineData(1, true, false)]
     [InlineData(5, false, false)]
     [InlineData(5, true, false)]
-    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool enabled = true)
+    [InlineData(5, false, null)]
+    [InlineData(5, true, null)]
+    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool? enabled = true)
     {
         // Arrange
         var reference = new SearchParameterInfo(
@@ -516,15 +518,10 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Act
         using Data.SqlClient.SqlCommand command = new();
-        var generator = new SqlQueryGenerator(
-            _strBuilder,
-            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
-            _fhirModel,
-            _schemaInformation,
-            _queryGeneratorFactory,
-            false,
-            false,
-            enableChainSourceDeduplication: enabled);
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        var generator = enabled.HasValue
+            ? new SqlQueryGenerator(_strBuilder, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, enableChainSourceDeduplication: enabled.Value)
+            : new SqlQueryGenerator(_strBuilder, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false);
         generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
         {
             Sort = [],
@@ -543,7 +540,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         {
             for (int i = 0; i < chainCount; i++)
             {
-                if (enabled)
+                if (enabled == true)
                 {
                     Assert.Contains($"JOIN (SELECT DISTINCT T1, Sid1 FROM cte{i}) predecessor ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
                     Assert.DoesNotContain($"JOIN cte{i} ON {alias}.ResourceTypeId = T1", sql);
@@ -558,9 +555,11 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed)
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed, bool enabled)
     {
         // Arrange
         var reference = new SearchParameterInfo(
@@ -582,7 +581,17 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         }
 
         // Act
-        _queryGenerator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false,
+            enableChainSourceDeduplication: enabled);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
         {
             Sort = [],
             CountOnly = true,
@@ -591,7 +600,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Assert
         string sql = _strBuilder.ToString();
-        Assert.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte0) predecessor", sql);
+        Assert.Contains(enabled ? "JOIN (SELECT DISTINCT T1, Sid1 FROM cte0) predecessor" : "JOIN cte0 ON", sql);
         string alias = reversed ? "refTarget" : "refSource";
         for (int i = 1; i < 5; i++)
         {

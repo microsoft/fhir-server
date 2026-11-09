@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -29,17 +28,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         /// </summary>
         internal const int StaleQueueWarningThresholdSeconds = 600;
 
-        private readonly ISqlRetryService _sqlRetryService;
+        private readonly SqlQueueClient _sqlQueueClient;
         private readonly IMediator _mediator;
         private readonly ILogger<JobMonitorWatchdog> _logger;
 
         public JobMonitorWatchdog(
             ISqlRetryService sqlRetryService,
             ILogger<JobMonitorWatchdog> logger,
-            IMediator mediator)
+            IMediator mediator,
+            SqlQueueClient sqlQueueClient)
             : base(sqlRetryService, logger)
         {
-            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _sqlQueueClient = EnsureArg.IsNotNull(sqlQueueClient, nameof(sqlQueueClient));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
@@ -103,30 +103,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
         }
 
-        private async Task<IReadOnlyList<QueueStatusAggregate>> GetQueueStatusAggregatesAsync(CancellationToken cancellationToken)
+        internal async Task<IReadOnlyList<QueueStatusAggregate>> GetQueueStatusAggregatesAsync(CancellationToken cancellationToken)
         {
-            // Lightweight aggregate over dbo.JobQueue. Only Status 0 (Created) and 1 (Running) are read, and
-            // only QueueType, Status, the oldest CreateDate, and a count are returned. The heavy varchar(max)
-            // Definition/Result payloads are never touched.
-            await using var cmd = new SqlCommand(
-                @"SELECT QueueType, Status, MIN(CreateDate) AS OldestCreateDate, COUNT(*) AS JobCount
-                  FROM dbo.JobQueue
-                  WHERE Status IN (@Created, @Running)
-                  GROUP BY QueueType, Status");
-            cmd.Parameters.AddWithValue("@Created", (byte)JobStatus.Created);
-            cmd.Parameters.AddWithValue("@Running", (byte)JobStatus.Running);
+            var aggregates = new List<QueueStatusAggregate>();
+            foreach (var queueType in MonitoredQueueTypes)
+            {
+                // TODO: Pass ReturnDefinition = false through the queue client after schema 122 is deployed.
+                var jobs = await _sqlQueueClient.GetActiveJobsByQueueTypeAsync((byte)queueType, returnParentOnly: false, cancellationToken);
+                foreach (var group in jobs.GroupBy(job => job.Status.Value)) // JobQueue.Status is NOT NULL
+                {
+                    aggregates.Add(new QueueStatusAggregate(queueType, group.Key, group.Min(job => job.CreateDate), group.Count()));
+                }
+            }
 
-            return await _sqlRetryService.ExecuteReaderAsync(
-                cmd,
-                reader => new QueueStatusAggregate(
-                    (QueueType)reader.GetByte(0),
-                    (JobStatus)reader.GetByte(1),
-                    reader.GetDateTime(2),
-                    reader.GetInt32(3)),
-                _logger,
-                "Failed to read job queue status aggregates",
-                cancellationToken,
-                isReadOnly: true);
+            return aggregates;
         }
 
         internal static Dictionary<QueueType, long> ComputeQueueAges(
@@ -169,7 +159,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         }
 
         /// <summary>
-        /// A single GROUP BY row over dbo.JobQueue: the count and oldest CreateDate of active jobs of one
+        /// The count and oldest CreateDate of active jobs of one
         /// <see cref="JobStatus"/> within one <see cref="QueueType"/>.
         /// </summary>
         internal readonly record struct QueueStatusAggregate(
