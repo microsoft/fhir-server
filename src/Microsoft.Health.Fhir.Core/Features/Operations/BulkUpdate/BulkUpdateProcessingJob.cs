@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -67,6 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
             var result = new BulkUpdateResult();
+            Exception exception = null;
+            Exception failure = null;
+            string serializedResult = null;
 
             try
             {
@@ -87,7 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 using IScoped<IBulkUpdateService> upsertService = _updateFactory.Invoke();
-                Exception exception = null;
                 uint readUpto = 0;
 
                 var queryParametersList = new List<Tuple<string, string>>();
@@ -131,12 +134,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
                     result = ex.PartialResults;
-                    result.Issues.Add(ex.Message);
+                    result.Issues.Add(ex.GetBulkJobFailureIssue());
                     exception = ex;
                 }
                 catch (Exception ex) when (ex.IsCustomerCaused())
                 {
-                    result.Issues.Add(ex.Message);
+                    result.Issues.Add(ex.GetBulkJobFailureIssue());
                     exception = ex;
                 }
 
@@ -150,12 +153,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 if (result.ResourcesUpdated.Any())
                 {
-                    await _mediator.PublishAsync(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
+                    try
+                    {
+                        await _mediator.PublishAsync(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), exception == null ? cancellationToken : CancellationToken.None);
+                    }
+                    catch (Exception metricsException) when (exception != null)
+                    {
+                        exception = new AggregateException(exception, metricsException);
+                        result.Issues.Add(exception.GetBulkJobFailureIssue());
+                    }
                 }
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while updating resources: {result.Issues.First()}", result, exception, exception.IsCustomerCaused());
+                    throw new JobExecutionException($"Exception encounted while updating resources: {exception.GetBulkJobFailureIssue()}", result, exception, exception.IsCustomerCaused());
                 }
                 else
                 {
@@ -170,58 +181,76 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     }
                 }
 
-                return JsonConvert.SerializeObject(result);
+                serializedResult = JsonConvert.SerializeObject(result);
+            }
+            catch (Exception ex)
+            {
+                exception ??= ex;
+                failure = ex;
             }
             finally
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
-
-                // Get all jobs for the group
-                var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken)).ToList();
-
-                // Filter out the current job and group job, and keep only active subjobs
-                var activeJobs = jobs.Where(j => j.Id != jobInfo.Id && j.Id != jobInfo.GroupId &&
-                    (j.Status == JobStatus.Created || j.Status == JobStatus.Running)).ToList();
-
-                // Only proceed if this is the last active subjob in the group
-                if (activeJobs.Count == 0)
+                try
                 {
-                    _logger.LogInformation("This is the last processing job of Bulk update group job {GroupId}. Checking if any profile resources were updated", jobInfo.GroupId);
-                    var profileTypes = _supportedProfiles.GetProfilesTypes();
+                    await RefreshProfilesIfLastJobAsync(jobInfo, result, exception == null ? cancellationToken : CancellationToken.None);
+                }
+                catch (Exception cleanupException) when (failure != null)
+                {
+                    var failures = new AggregateException(exception, cleanupException);
+                    var message = failures.GetBulkJobFailureIssue();
+                    result.Issues.Add(message);
+                    failure = new JobExecutionException($"Exception encounted while updating resources: {message}", result, failures, failures.IsCustomerCaused());
+                }
+            }
 
-                    // Check if current result or any completed job in the group updated a profile resource type
-                    bool needRefresh = result.ResourcesUpdated.Keys.Any(profileTypes.Contains);
+            if (failure != null)
+            {
+                ExceptionDispatchInfo.Capture(failure).Throw();
+            }
 
-                    // Filter jobs to completed subjobs with results (excluding group job)
-                    var completedJobs = jobs.Where(j => j.Id != jobInfo.GroupId && j.Result != null).ToList();
+            return serializedResult;
+        }
 
-                    if (!needRefresh)
+        private async Task RefreshProfilesIfLastJobAsync(JobInfo jobInfo, BulkUpdateResult result, CancellationToken cancellationToken)
+        {
+            var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, jobInfo.GroupId, true, cancellationToken)).ToList();
+            var activeJobs = jobs.Where(j => j.Id != jobInfo.Id && j.Id != jobInfo.GroupId &&
+                (j.Status == JobStatus.Created || j.Status == JobStatus.Running)).ToList();
+
+            if (activeJobs.Count == 0)
+            {
+                _logger.LogInformation("This is the last processing job of Bulk update group job {GroupId}. Checking if any profile resources were updated", jobInfo.GroupId);
+                var profileTypes = _supportedProfiles.GetProfilesTypes();
+                bool needRefresh = result.ResourcesUpdated.Keys.Any(profileTypes.Contains);
+                var completedJobs = jobs.Where(j => j.Id != jobInfo.GroupId && j.Result != null).ToList();
+
+                if (!needRefresh)
+                {
+                    foreach (var job in completedJobs)
                     {
-                        foreach (var job in completedJobs)
+                        BulkUpdateResult bulkUpdateResult;
+                        try
                         {
-                            BulkUpdateResult bulkUpdateResult;
-                            try
-                            {
-                                bulkUpdateResult = job.DeserializeResult<BulkUpdateResult>();
-                            }
-                            catch
-                            {
-                                continue; // Skip if deserialization fails
-                            }
+                            bulkUpdateResult = job.DeserializeResult<BulkUpdateResult>();
+                        }
+                        catch
+                        {
+                            continue; // Skip if deserialization fails
+                        }
 
-                            if (bulkUpdateResult?.ResourcesUpdated.Keys.Any(profileTypes.Contains) == true)
-                            {
-                                _supportedProfiles.Refresh();
-                                _logger.LogInformation("Bulk update job {GroupId} and {JobId} updated profile resources, refreshing supported profiles.", job.GroupId, job.Id);
-                                break;
-                            }
+                        if (bulkUpdateResult?.ResourcesUpdated.Keys.Any(profileTypes.Contains) == true)
+                        {
+                            _supportedProfiles.Refresh();
+                            _logger.LogInformation("Bulk update job {GroupId} and {JobId} updated profile resources, refreshing supported profiles.", job.GroupId, job.Id);
+                            break;
                         }
                     }
-                    else
-                    {
-                        _logger.LogInformation("Bulk update job {GroupId} and {JobId} updated profile resources, refreshing supported profiles.", jobInfo.GroupId, jobInfo.Id);
-                        _supportedProfiles.Refresh();
-                    }
+                }
+                else
+                {
+                    _logger.LogInformation("Bulk update job {GroupId} and {JobId} updated profile resources, refreshing supported profiles.", jobInfo.GroupId, jobInfo.Id);
+                    _supportedProfiles.Refresh();
                 }
             }
         }

@@ -73,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 var jobException = Assert.IsType<JobExecutionException>(exception);
                 Assert.True(jobException.IsCustomerCaused);
                 Assert.Same(failure, jobException.InnerException);
-                Assert.Contains(failure.Message, Assert.IsType<BulkUpdateResult>(jobException.Error).Issues);
+                Assert.Single(Assert.IsType<BulkUpdateResult>(jobException.Error).Issues);
+                Assert.DoesNotContain("Patient/secret-123", JsonConvert.SerializeObject(jobException.Error));
             }
             else
             {

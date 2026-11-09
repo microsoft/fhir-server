@@ -119,6 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Dictionary<string, ConditionalPatchResourceRequest> conditionalPatchResourceRequests = new Dictionary<string, ConditionalPatchResourceRequest>();
             ConcurrentDictionary<string, List<(string, Exception)>> patchExceptions = new ConcurrentDictionary<string, List<(string, Exception)>>();
             var updateTasks = new List<Task<Dictionary<string, long>>>();
+            Exception operationException = null;
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             searchResult = await Search(resourceType, isIncludesRequest, conditionalParameters, cancellationToken);
@@ -202,6 +203,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating");
+                operationException = ex;
+                if (ex is IncompleteOperationException<BulkUpdateResult> incomplete)
+                {
+                    finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, incomplete.PartialResults);
+                }
+
                 await cancellationTokenSource.CancelAsync();
             }
 
@@ -225,12 +232,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
-            if (updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
+            if (operationException != null || updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
             {
                 var exceptions = new List<Exception>();
+                if (operationException != null)
+                {
+                    exceptions.Add(operationException);
+                }
+
                 updateTasks.Where((task) => task.IsFaulted || task.IsCanceled).ToList().ForEach((Task<Dictionary<string, long>> result) =>
                 {
-                    if (result.Exception != null)
+                    if (result.IsCanceled)
+                    {
+                        exceptions.Add(new TaskCanceledException(result));
+                    }
+                    else if (result.Exception != null)
                     {
                         // Count the number of resources updated before the exception was thrown. Update the total.
                         if (result.Exception.InnerExceptions.Any(ex => ex is IncompleteOperationException<BulkUpdateResult>))
@@ -242,8 +258,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                         if (result.IsFaulted)
                         {
-                            // Filter out noise from the cancellation exceptions caused by the core exception.
-                            exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException));
+                            exceptions.AddRange(result.Exception.InnerExceptions);
                         }
                     }
                 });

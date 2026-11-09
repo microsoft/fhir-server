@@ -108,22 +108,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
-                    foreach (var error in CustomerCausedExceptionExtensions.GetLeaves(ex))
-                    {
-                        result.Issues.Add($"{error.GetType().Name}: {error.Message}");
-                    }
-
-                    if (result.Issues.Count == 0)
-                    {
-                        result.Issues.Add(ex.Message);
-                    }
-
+                    result.Issues.Add(ex.GetBulkJobFailureIssue());
                     exception = ex;
                     isCustomerCaused = ex.IsCustomerCaused();
                 }
                 catch (Exception ex) when (ex.IsCustomerCaused())
                 {
-                    result.Issues.Add($"{ex.GetType().Name}: {ex.Message}");
+                    result.Issues.Add(ex.GetBulkJobFailureIssue());
                     exception = ex;
                     isCustomerCaused = true;
                 }
@@ -141,11 +132,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     result.Issues.Add($"Skipped {count} {resourceType} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not deleted.");
                 }
 
-                await _mediator.PublishAsync(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
+                try
+                {
+                    await _mediator.PublishAsync(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), exception == null ? cancellationToken : CancellationToken.None);
+                }
+                catch (Exception metricsException) when (exception != null)
+                {
+                    exception = new AggregateException(exception, metricsException);
+                    isCustomerCaused = exception.IsCustomerCaused();
+                    result.Issues.Add(exception.GetBulkJobFailureIssue());
+                }
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, isCustomerCaused);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {exception.GetBulkJobFailureIssue()}", result, exception, isCustomerCaused);
                 }
 
                 if (types.Count > 1)
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             }
             catch (Exception ex) when (ex is not JobExecutionException && ex.IsCustomerCaused())
             {
-                result.Issues.Add($"{ex.GetType().Name}: {ex.Message}");
+                result.Issues.Add(ex.GetBulkJobFailureIssue());
                 throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, ex, true);
             }
             finally

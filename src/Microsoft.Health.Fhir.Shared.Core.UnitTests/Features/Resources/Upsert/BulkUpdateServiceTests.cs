@@ -550,6 +550,64 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1);
         }
 
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenContinuationSearchFails_PreservesTheFailure()
+        {
+            // Arrange
+            var failure = new InvalidOperationException("Patient/secret-123", new OperationCanceledException());
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            var calls = 0;
+            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), false)
+                .Returns(_ =>
+                {
+                    if (++calls == 1)
+                    {
+                        return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 1 } }, "continuationToken"));
+                    }
+
+                    throw failure;
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(() =>
+                _service.UpdateMultipleAsync("Patient", fhirPatchParameters, true, 0, false, new List<Tuple<string, string>>(), null, true, CancellationToken.None));
+
+            // Assert
+            Assert.Contains(failure, Assert.IsType<AggregateException>(exception.InnerException).InnerExceptions);
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenContinuationUpdateFails_PreservesPartialResults()
+        {
+            // Arrange
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            var calls = 0;
+            searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), false)
+                .Returns(_ => Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 1 } }, ++calls == 1 ? "continuationToken" : null)));
+            var partial = new BulkUpdateResult();
+            partial.ResourcesUpdated["Patient"] = 3;
+            var failure = new IncompleteOperationException<BulkUpdateResult>(new InvalidOperationException("Patient/secret-123"), partial);
+            var dataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedDataStore.Value.Returns(dataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedDataStore);
+            dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns<Task<MergeOutcome>>(_ => throw failure);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(() =>
+                _service.UpdateMultipleAsync("Patient", fhirPatchParameters, true, 0, false, new List<Tuple<string, string>>(), null, true, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(3, exception.PartialResults.ResourcesUpdated["Patient"]);
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
@@ -1100,6 +1158,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(ex.PartialResults.ResourcesPatchFailed.Count == 1);
             Assert.True(ex.PartialResults.ResourcesPatchFailed["Practitioner"] == 2); // Practitioner failed on immutable property update
             Assert.True(ex.PartialResults.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
+            Assert.Contains(Assert.IsType<AggregateException>(ex.InnerException).InnerExceptions, error => error is OperationCanceledException);
         }
 
         [Fact]

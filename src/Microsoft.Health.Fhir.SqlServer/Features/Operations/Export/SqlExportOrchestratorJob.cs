@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             {
                 _logger.LogJobWarning(ex, jobInfo, "Export orchestration failed due to a customer-caused error.");
                 record.Status = OperationStatus.Failed;
-                record.FailureDetails = new JobFailureDetails(ex.Message, ex.GetJobFailureStatusCode(), ex.ToString(), isCustomerCaused: true);
+                record.FailureDetails = new JobFailureDetails(ex.GetJobFailureMessage(), ex.GetJobFailureStatusCode(), ex.ToString(), isCustomerCaused: true);
                 throw new JobExecutionException(ex.Message, record, ex, isCustomerCaused: true);
             }
         }

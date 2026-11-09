@@ -75,6 +75,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 {
                     failed = true;
                     succeeded = false;
+                    bool jobCancelled = false;
+                    bool jobHasFailure = false;
 
                     if (result != null)
                     {
@@ -83,30 +85,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                             if (issue == "A task was canceled." && job.CancelRequested)
                             {
                                 cancelled = true;
+                                jobCancelled = true;
+                            }
+                            else if (IsProfileResourceSkippedIssue(issue, result))
+                            {
+                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, detailsText: issue));
                             }
                             else
                             {
+                                jobHasFailure = true;
                                 if (issue.StartsWith("JobConflictException:", StringComparison.Ordinal))
                                 {
-                                    failureResultCode = HttpStatusCode.Conflict;
-                                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Conflict, detailsText: issue.Substring("JobConflictException:".Length).TrimStart()));
+                                    if (failureResultCode != HttpStatusCode.InternalServerError)
+                                    {
+                                        failureResultCode = HttpStatusCode.Conflict;
+                                    }
+
+                                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Conflict, detailsText: Core.Resources.ReindexRunningException));
                                 }
                                 else
                                 {
-                                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
+                                    failureResultCode = HttpStatusCode.InternalServerError;
+                                    var message = issue == Core.Resources.OperationFailedForCustomerManagedKey || issue == Core.Resources.TooManyParameters
+                                        ? issue
+                                        : Core.Resources.InternalServerError;
+                                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: message));
                                 }
                             }
                         }
                     }
-                    else
-                    {
-                        issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
-                    }
 
-                    // Need a way to get a failure result code. Most likely will be 503, 400, or 403
-                    if (failureResultCode == HttpStatusCode.OK)
+                    if (!jobHasFailure && !jobCancelled)
                     {
                         failureResultCode = HttpStatusCode.InternalServerError;
+                        issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
                     }
                 }
                 else if (job.Status == JobStatus.Cancelled)
@@ -182,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             AddParameterComponent(resourcesDeleted, ResourceDeletedCountName);
             AddParameterComponent(resourcesIgnored, ResourceIgnoredCountName);
 
-            if (failed && issues.Count > 0)
+            if (failed && issues.Any(issue => issue.Severity == OperationOutcomeConstants.IssueSeverity.Error || issue.Severity == OperationOutcomeConstants.IssueSeverity.Fatal))
             {
                 return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
             }
@@ -211,6 +223,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     detailsText: "Job In Progress"));
                 return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.Accepted);
             }
+        }
+
+        private static bool IsProfileResourceSkippedIssue(string issue, BulkDeleteResult result)
+        {
+            return result.ResourcesIgnored.Any(resource =>
+                OperationsConstants.ProtectedProfileResourceTypes.Contains(resource.Key)
+                && issue == $"Skipped {resource.Value} {resource.Key} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not deleted.");
         }
     }
 }

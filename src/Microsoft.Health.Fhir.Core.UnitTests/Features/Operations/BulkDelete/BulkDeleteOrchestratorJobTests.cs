@@ -61,7 +61,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 var jobException = Assert.IsType<JobExecutionException>(exception);
                 Assert.True(jobException.IsCustomerCaused);
                 Assert.Same(failure, jobException.InnerException);
-                Assert.Contains(failure.Message, Assert.IsType<BulkDeleteResult>(jobException.Error).Issues);
+                Assert.Single(Assert.IsType<BulkDeleteResult>(jobException.Error).Issues);
+                Assert.DoesNotContain("Patient/secret-123", JsonConvert.SerializeObject(jobException.Error));
             }
             else
             {

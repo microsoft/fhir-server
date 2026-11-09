@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
                 }
 
-                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() };
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.GetJobFailureMessage(), ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
                 throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex, isCustomerCaused);
             }
@@ -365,7 +365,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
                 }
 
-                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() }, ex, isCustomerCaused);
+                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.GetJobFailureMessage(), ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() }, ex, isCustomerCaused);
             }
         }
     }

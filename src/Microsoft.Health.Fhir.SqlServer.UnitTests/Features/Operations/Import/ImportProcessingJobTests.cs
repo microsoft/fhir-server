@@ -315,7 +315,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 var errorLogs = logger.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log) && (LogLevel)call.GetArguments()[0] == LogLevel.Error);
                 if (expectedStatus != HttpStatusCode.InternalServerError)
                 {
-                    Assert.Equal(failure.Message, error.ErrorMessage);
+                    var expectedMessage = expectedStatus switch
+                    {
+                        HttpStatusCode.Forbidden => Core.Resources.OperationFailedForCustomerManagedKey,
+                        HttpStatusCode.Conflict => Core.Resources.ReindexRunningException,
+                        _ => Core.Resources.TooManyParameters,
+                    };
+                    Assert.Equal(expectedMessage, error.ErrorMessage);
+                    Assert.DoesNotContain("Patient/secret-123", error.ErrorMessage);
                     Assert.Empty(errorLogs);
                     Assert.Contains(logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log) && (LogLevel)call.GetArguments()[0] == LogLevel.Warning);
                 }

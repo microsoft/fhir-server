@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             Assert.False(exception.IsCustomerCaused);
             var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
             Assert.Equal(HttpStatusCode.InternalServerError, error.HttpStatusCode);
-            Assert.Equal(canceled.Message, error.ErrorMessage);
+            Assert.Equal(Core.Resources.InternalServerError, error.ErrorMessage);
             await mediator.Received(1).PublishAsync(
                 Arg.Is<ImportJobMetricsNotification>(notification => notification.Status == JobStatus.Failed.ToString()),
                 CancellationToken.None);

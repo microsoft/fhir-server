@@ -35,7 +35,11 @@ namespace Microsoft.Health.Fhir.Tests.Common
             yield return new object[] { "mixed", false };
             yield return new object[] { "conflict", true };
             yield return new object[] { "wrapped-conflict", true };
+            yield return new object[] { "unknown-wrapper-conflict", false };
+            yield return new object[] { "unknown-wrapper-cancellation", false };
+            yield return new object[] { "customer-and-empty-aggregate", false };
             yield return new object[] { "customer-and-cancel", true };
+            yield return new object[] { "customer-and-sensitive-cancel", true };
             yield return new object[] { "customer-and-operation-canceled", true };
             yield return new object[] { "customer-and-wrapped-cancellation", true };
             yield return new object[] { "mixed-and-wrapped-cancellation", false };
@@ -77,6 +81,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
             yield return new object[] { "parameters", HttpStatusCode.BadRequest };
             yield return new object[] { "wrapped-parameters", HttpStatusCode.BadRequest };
             yield return new object[] { "wrapped-conflict", HttpStatusCode.Conflict };
+            yield return new object[] { "unknown-wrapper-conflict", HttpStatusCode.InternalServerError };
+            yield return new object[] { "unknown-wrapper-cancellation", HttpStatusCode.InternalServerError };
+            yield return new object[] { "customer-and-empty-aggregate", HttpStatusCode.InternalServerError };
+            yield return new object[] { "customer-and-sensitive-cancel", HttpStatusCode.Forbidden };
             yield return new object[] { "timeout", HttpStatusCode.InternalServerError };
             yield return new object[] { "mixed", HttpStatusCode.InternalServerError };
             yield return new object[] { "mixed-and-wrapped-cancellation", HttpStatusCode.InternalServerError };
@@ -99,7 +107,11 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 "mixed" => Wrap(new AggregateException(CreateException("cmk"), CreateException("timeout"))),
                 "conflict" => new Core.Features.Operations.JobConflictException("A reindex job is currently running."),
                 "wrapped-conflict" => Wrap(CreateException("conflict")),
+                "unknown-wrapper-conflict" => new InvalidOperationException("Unknown failure.", CreateException("conflict")),
+                "unknown-wrapper-cancellation" => new InvalidOperationException("Unknown failure.", new OperationCanceledException()),
+                "customer-and-empty-aggregate" => new AggregateException(CreateException("conflict"), new AggregateException()),
                 "customer-and-cancel" => Wrap(new AggregateException(CreateException("cmk"), new TaskCanceledException())),
+                "customer-and-sensitive-cancel" => Wrap(new AggregateException(CreateException("cmk"), new OperationCanceledException("Patient/secret-123"))),
                 "customer-and-operation-canceled" => Wrap(new AggregateException(CreateException("cmk"), new OperationCanceledException())),
                 "customer-and-wrapped-cancellation" => Wrap(new AggregateException(
                     new IncompleteOperationException<Dictionary<string, long>>(CreateException("cmk"), new Dictionary<string, long>()),

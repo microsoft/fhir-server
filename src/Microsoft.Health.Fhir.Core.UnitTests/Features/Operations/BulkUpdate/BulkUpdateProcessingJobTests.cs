@@ -535,7 +535,131 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var result = Assert.IsType<BulkUpdateResult>(exception.Error);
             Assert.Equal(2, result.ResourcesUpdated["Patient"]);
             Assert.Equal(1, result.ResourcesPatchFailed["Patient"]);
-            Assert.Contains(failure.Message, result.Issues);
+            Assert.Single(result.Issues);
+            Assert.DoesNotContain("Patient/secret-123", JsonConvert.SerializeObject(result));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenUnknownWrappedFailure_WhenUpdateIsIncomplete_ThenTheJobReportsASafeSystemFailure(bool wrapsConflict)
+        {
+            // Arrange
+            const string sensitiveMessage = "Patient/secret-123";
+            Exception inner = wrapsConflict
+                ? new Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException("A reindex job is running.")
+                : new OperationCanceledException("Cancellation details");
+            var failure = new InvalidOperationException(sensitiveMessage, inner);
+            var partialResult = new BulkUpdateResult();
+            partialResult.ResourcesUpdated["Patient"] = 2;
+            var incomplete = new IncompleteOperationException<BulkUpdateResult>(failure, partialResult);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns<Task<BulkUpdateResult>>(_ => throw incomplete);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Same(incomplete, exception.InnerException);
+            var result = Assert.IsType<BulkUpdateResult>(exception.Error);
+            Assert.Equal(2, result.ResourcesUpdated["Patient"]);
+            Assert.DoesNotContain(sensitiveMessage, JsonConvert.SerializeObject(result));
+            Assert.DoesNotContain(sensitiveMessage, exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenCancelledTokenAndIncompleteUpdate_WhenReporting_ThenPartialResultsAndTheOriginalFailureArePreserved()
+        {
+            // Arrange
+            var failure = new IncompleteOperationException<BulkUpdateResult>(
+                new InvalidOperationException("Patient/secret-123", new OperationCanceledException()),
+                new BulkUpdateResult());
+            failure.PartialResults.ResourcesUpdated["Patient"] = 2;
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns<Task<BulkUpdateResult>>(_ => throw failure);
+            _mediator.PublishAsync(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    call.Arg<CancellationToken>().ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                });
+            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    call.Arg<CancellationToken>().ThrowIfCancellationRequested();
+                    return new List<JobInfo>();
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, new CancellationToken(true)));
+
+            // Assert
+            Assert.Same(failure, exception.InnerException);
+            Assert.Equal(2, Assert.IsType<BulkUpdateResult>(exception.Error).ResourcesUpdated["Patient"]);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncompleteUpdate_WhenReportingAlsoFails_ThenBothFailuresAndPartialResultsArePreserved(bool metricsFails)
+        {
+            // Arrange
+            var failure = new IncompleteOperationException<BulkUpdateResult>(new InvalidOperationException("Patient/secret-123"), new BulkUpdateResult());
+            failure.PartialResults.ResourcesUpdated["Patient"] = 2;
+            var reportingFailure = new InvalidOperationException("Reporting failed");
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns<Task<BulkUpdateResult>>(_ => throw failure);
+            if (metricsFails)
+            {
+                _mediator.PublishAsync(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>())
+                    .Returns<Task>(_ => throw reportingFailure);
+            }
+            else
+            {
+                _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw reportingFailure);
+            }
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Equal(2, Assert.IsType<BulkUpdateResult>(exception.Error).ResourcesUpdated["Patient"]);
+            var failures = Assert.IsType<AggregateException>(exception.InnerException).InnerExceptions;
+            Assert.Contains(failure, failures);
+            Assert.Contains(reportingFailure, failures);
+            Assert.DoesNotContain("Patient/secret-123", JsonConvert.SerializeObject(exception.Error));
+        }
+
+        [Fact]
+        public async Task GivenCancelledTokenAndUnknownUpdateFailure_WhenCleanupRuns_ThenTheOriginalFailureIsPreserved()
+        {
+            // Arrange
+            var failure = new InvalidOperationException("Patient/secret-123", new OperationCanceledException());
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null);
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns<Task<BulkUpdateResult>>(_ => throw failure);
+            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    call.Arg<CancellationToken>().ThrowIfCancellationRequested();
+                    return new List<JobInfo>();
+                });
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _processingJob.ExecuteAsync(jobInfo, new CancellationToken(true)));
+
+            // Assert
+            Assert.Same(failure, exception);
         }
 
         [Fact]
@@ -576,11 +700,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), 0, Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns<Task<BulkUpdateResult>>(x => { throw incompleteException; });
 
             var ex = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
-            Assert.Contains(exceptionMessage, ex.Message);
+            Assert.Contains(Core.Resources.InternalServerError, ex.Message);
             Assert.NotNull(ex.Error);
             var errorResult = Assert.IsType<BulkUpdateResult>(ex.Error);
             Assert.Equal(2, errorResult.ResourcesUpdated["Patient"]);
-            Assert.Contains(exceptionMessage, errorResult.Issues);
+            Assert.Contains(Core.Resources.InternalServerError, errorResult.Issues);
+            Assert.Same(incompleteException, ex.InnerException);
             Assert.Equal(1, errorResult.ResourcesPatchFailed["Patient"]);
 
             await _mediator.Received(1).PublishAsync(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 2), Arg.Any<CancellationToken>());
@@ -698,6 +823,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.UtcNow,
             };
 
+            _updater.UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<uint>(), Arg.Any<bool>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<bool>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns(new BulkUpdateResult());
             _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Throws(new InvalidOperationException("Queue error"));
 

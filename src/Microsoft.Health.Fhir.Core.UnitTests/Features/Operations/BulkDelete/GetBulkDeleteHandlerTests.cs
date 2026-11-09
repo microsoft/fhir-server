@@ -223,6 +223,64 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenConflictAndSystemFailure_WhenStatusRequested_ThenSystemFailureTakesPrecedence(bool conflictFirst)
+        {
+            // Arrange
+            var conflict = new BulkDeleteResult();
+            conflict.Issues.Add("JobConflictException: A reindex job is running.");
+            var system = new BulkDeleteResult();
+            system.Issues.Add(Core.Resources.InternalServerError);
+            var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, null, "test", "test", "test"));
+            var jobs = new[]
+            {
+                new JobInfo { Status = JobStatus.Failed, Definition = definition, Result = JsonConvert.SerializeObject(conflict) },
+                new JobInfo { Status = JobStatus.Failed, Definition = definition, Result = JsonConvert.SerializeObject(system) },
+            };
+            if (!conflictFirst)
+            {
+                Array.Reverse(jobs);
+            }
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs.ToList());
+
+            // Act
+            var response = await _handler.HandleAsync(new GetBulkDeleteRequest(1), CancellationToken.None);
+
+            // Assert
+            Assert.Equal(System.Net.HttpStatusCode.InternalServerError, response.HttpStatusCode);
+        }
+
+        [Theory]
+        [InlineData("A task was canceled.", true, System.Net.HttpStatusCode.OK)]
+        [InlineData("InvalidOperationException: Patient/secret-123", true, System.Net.HttpStatusCode.InternalServerError)]
+        [InlineData("JobConflictException: Patient/secret-123", false, System.Net.HttpStatusCode.Conflict)]
+        public async Task GivenStoredFailure_WhenStatusRequested_ThenReportsAreSafeAndPartialCountsArePreserved(string failure, bool cancelRequested, System.Net.HttpStatusCode expectedStatus)
+        {
+            // Arrange
+            var result = new BulkDeleteResult();
+            result.ResourcesDeleted["Patient"] = 2;
+            result.ResourcesIgnored["StructureDefinition"] = 1;
+            result.Issues.Add(failure);
+            result.Issues.Add("Skipped 1 StructureDefinition resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not deleted.");
+            var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, null, "test", "test", "test"));
+            var jobs = new List<JobInfo> { new() { Status = JobStatus.Failed, CancelRequested = cancelRequested, Definition = definition, Result = JsonConvert.SerializeObject(result) } };
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs);
+
+            // Act
+            var response = await _handler.HandleAsync(new GetBulkDeleteRequest(1), CancellationToken.None);
+
+            // Assert
+            Assert.Equal(expectedStatus, response.HttpStatusCode);
+            Assert.Contains(response.Results, parameter => parameter.Name == "ResourceDeletedCount" && parameter.Part.Any(part => part.Name == "Patient" && ((Integer64)part.Value).Value == 2));
+            Assert.Contains(response.Issues, issue => issue.Severity == OperationOutcomeConstants.IssueSeverity.Information && issue.DetailsText.Contains("Skipped 1 StructureDefinition"));
+            Assert.DoesNotContain("Patient/secret-123", JsonConvert.SerializeObject(response));
+        }
+
         [Fact]
         public async Task GivenCancelledBulkDeleteJob_WhenStatusRequested_ThenStatusIsReturned()
         {

@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                     var error = new ImportJobErrorResult()
                     {
-                        ErrorMessage = isCustomerCaused ? ex.Message : "Generic exception. Failed to load data.",
+                        ErrorMessage = isCustomerCaused ? ex.GetJobFailureMessage() : "Generic exception. Failed to load data.",
                         HttpStatusCode = ex.GetJobFailureStatusCode(),
                         ErrorDetails = ex.ToString(),
                     };
@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
                 }
 
-                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() };
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.GetJobFailureMessage(), ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() };
                 throw new JobExecutionException(ex.Message, error, ex, isCustomerCaused);
             }
         }

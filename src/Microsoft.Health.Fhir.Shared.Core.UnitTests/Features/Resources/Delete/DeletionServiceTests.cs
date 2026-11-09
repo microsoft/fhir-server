@@ -269,8 +269,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
             var aggregate = Assert.IsType<AggregateException>(exception.InnerException.InnerException);
             var page = Assert.IsType<IncompleteOperationException<Dictionary<string, long>>>(Assert.Single(aggregate.InnerExceptions));
             Assert.Same(failure, page.InnerException);
-            var reportedFailure = failureKind == WrappedCancellationFailure ? failure.InnerException : failure;
-            Assert.Contains(reportedFailure.Message, exception.Message);
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Contains(Core.Resources.InternalServerError, exception.Message);
+            Assert.Contains(Core.Resources.InternalServerError, result.Issues);
         }
 
         [Theory]

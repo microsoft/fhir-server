@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -48,6 +49,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
             _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeFactory(), _queueClient);
+        }
+
+        [Fact]
+        public async Task GivenIncompleteDelete_WhenMetricsAlsoFail_ThenBothFailuresAndPartialResultsArePreserved()
+        {
+            // Arrange
+            var failure = new IncompleteOperationException<IDictionary<string, long>>(new FhirJobConflictException("Patient/secret-123"), new Dictionary<string, long> { ["Patient"] = 2 });
+            var metricsFailure = new InvalidOperationException("Metrics failed");
+            var mediator = Substitute.For<IMediator>();
+            mediator.PublishAsync(Arg.Any<BulkDeleteMetricsNotification>(), Arg.Any<CancellationToken>())
+                .Returns<Task>(_ => throw metricsFailure);
+            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), mediator, _searchService.CreateMockScopeFactory(), _queueClient);
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
+                .Returns<Task<IDictionary<string, long>>>(_ => throw failure);
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), new List<string>(), "https:\\test.com", "https:\\test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Equal(2, Assert.IsType<BulkDeleteResult>(exception.Error).ResourcesDeleted["Patient"]);
+            var failures = Assert.IsType<AggregateException>(exception.InnerException).InnerExceptions;
+            Assert.Contains(failure, failures);
+            Assert.Contains(metricsFailure, failures);
+            Assert.DoesNotContain("Patient/secret-123", JsonConvert.SerializeObject(exception.Error));
         }
 
         [Fact]
@@ -274,6 +302,122 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         }
 
         [Theory]
+        [InlineData("cancellation")]
+        [InlineData("conflict")]
+        [InlineData("mixed")]
+        public async Task GivenUnknownFailure_WhenDeletionIsIncomplete_ThenTheJobReportsASafeSystemFailure(string scenario)
+        {
+            // Arrange
+            const string sensitiveMessage = "Patient/secret-123";
+            Exception failure = scenario switch
+            {
+                "cancellation" => new InvalidOperationException(sensitiveMessage, new OperationCanceledException("Cancellation details")),
+                "conflict" => new InvalidOperationException(sensitiveMessage, new FhirJobConflictException("A reindex job is running.")),
+                "mixed" => new AggregateException(new FhirJobConflictException("A reindex job is running."), new InvalidOperationException(sensitiveMessage)),
+                _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
+            };
+            var incomplete = new IncompleteOperationException<IDictionary<string, long>>(failure, new Dictionary<string, long> { ["Patient"] = 2 });
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), new List<string>(), "https://test.com", "https://test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
+                .Returns<Task<IDictionary<string, long>>>(_ => throw incomplete);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Same(incomplete, exception.InnerException);
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(2, result.ResourcesDeleted["Patient"]);
+            Assert.Contains(Core.Resources.InternalServerError, result.Issues);
+            Assert.DoesNotContain(sensitiveMessage, JsonConvert.SerializeObject(result));
+            Assert.DoesNotContain(sensitiveMessage, exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenCancellationOnly_WhenDeletionIsIncomplete_ThenTheJobReportsCancellationWithoutDetails()
+        {
+            // Arrange
+            const string sensitiveMessage = "Patient/secret-123";
+            var failure = new IncompleteOperationException<IDictionary<string, long>>(
+                new AggregateException(new OperationCanceledException(sensitiveMessage)),
+                new Dictionary<string, long> { ["Patient"] = 2 });
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), new List<string>(), "https://test.com", "https://test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
+                .Returns<Task<IDictionary<string, long>>>(_ => throw failure);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(2, result.ResourcesDeleted["Patient"]);
+            Assert.Equal("A task was canceled.", Assert.Single(result.Issues));
+            Assert.DoesNotContain(sensitiveMessage, JsonConvert.SerializeObject(result));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenCancelledTokenAndIncompleteDeletion_WhenReporting_ThenPartialResultsAndTheOriginalFailureArePreserved(bool cancellationOnly)
+        {
+            // Arrange
+            Exception cause = cancellationOnly
+                ? new OperationCanceledException()
+                : new InvalidOperationException("Patient/secret-123", new OperationCanceledException());
+            var failure = new IncompleteOperationException<IDictionary<string, long>>(cause, new Dictionary<string, long> { ["Patient"] = 2 });
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), new List<string>(), "https://test.com", "https://test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition), CancelRequested = true };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
+                .Returns<Task<IDictionary<string, long>>>(_ => throw failure);
+            var mediator = Substitute.For<IMediator>();
+            mediator.PublishAsync(Arg.Any<BulkDeleteMetricsNotification>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    call.Arg<CancellationToken>().ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                });
+            var processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), mediator, _searchService.CreateMockScopeFactory(), _queueClient);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, new CancellationToken(true)));
+
+            // Assert
+            Assert.Same(failure, exception.InnerException);
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(2, result.ResourcesDeleted["Patient"]);
+            Assert.Equal(cancellationOnly ? "A task was canceled." : Core.Resources.InternalServerError, Assert.Single(result.Issues));
+        }
+
+        [Fact]
+        public async Task GivenConflictWithSensitiveDetails_WhenDeletionIsIncomplete_ThenOnlyTheSafeConflictIsReported()
+        {
+            // Arrange
+            const string sensitiveMessage = "Patient/secret-123";
+            var failure = new IncompleteOperationException<IDictionary<string, long>>(
+                new AggregateException(new FhirJobConflictException(sensitiveMessage)),
+                new Dictionary<string, long> { ["Patient"] = 2 });
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), new List<string>(), "https://test.com", "https://test.com", "test");
+            var jobInfo = new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) };
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>(), Arg.Any<IList<string>>(), Arg.Any<Action<string, long>>())
+                .Returns<Task<IDictionary<string, long>>>(_ => throw failure);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal($"JobConflictException: {Core.Resources.ReindexRunningException}", Assert.Single(result.Issues));
+            Assert.DoesNotContain(sensitiveMessage, JsonConvert.SerializeObject(result));
+        }
+
+        [Theory]
         [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
         public async Task GivenFollowUpSearchFailure_WhenProcessingExecutes_ThenCompletedDeletionCountsArePreserved(string scenario, bool expectedCustomerCaused)
         {
@@ -356,14 +500,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             Assert.Equal(2, result.ResourcesDeleted["SearchParameter"]);
             Assert.NotEmpty(result.Issues);
             Assert.Same(incomplete, exception.InnerException);
-            if (reindexConflict)
+            if (reindexConflict && !systemFailure)
             {
-                Assert.Contains("JobConflictException: A reindex job is currently running.", result.Issues);
+                Assert.Contains($"JobConflictException: {Core.Resources.ReindexRunningException}", result.Issues);
             }
 
             if (systemFailure)
             {
-                Assert.Contains("InvalidOperationException: Storage failure.", result.Issues);
+                Assert.Contains(Core.Resources.InternalServerError, result.Issues);
             }
         }
     }

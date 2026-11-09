@@ -43,6 +43,33 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 : HttpStatusCode.BadRequest;
         }
 
+        /// <summary>
+        /// Returns a client-safe description of a classified job failure.
+        /// </summary>
+        public static string GetJobFailureMessage(this Exception exception)
+        {
+            return exception.GetJobFailureStatusCode() switch
+            {
+                HttpStatusCode.Forbidden => Resources.OperationFailedForCustomerManagedKey,
+                HttpStatusCode.Conflict => Resources.ReindexRunningException,
+                HttpStatusCode.BadRequest => Resources.TooManyParameters,
+                _ => Resources.InternalServerError,
+            };
+        }
+
+        internal static string GetBulkJobFailureIssue(this Exception exception)
+        {
+            if (GetLeaves(exception).All(leaf => leaf is OperationCanceledException))
+            {
+                return "A task was canceled.";
+            }
+
+            var message = exception.GetJobFailureMessage();
+            return exception.GetJobFailureStatusCode() == HttpStatusCode.Conflict
+                ? $"JobConflictException: {message}"
+                : message;
+        }
+
         internal static IEnumerable<Exception> GetLeaves(Exception exception)
         {
             // Typed customer errors retain their classification even when they wrap a raw SQL error.
@@ -50,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             {
                 yield return exception;
             }
-            else if (exception is AggregateException aggregate)
+            else if (exception is AggregateException aggregate && aggregate.InnerExceptions.Count > 0)
             {
                 foreach (var inner in aggregate.InnerExceptions)
                 {
@@ -60,7 +87,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                     }
                 }
             }
-            else if (exception.InnerException != null)
+            else if (exception.GetType().IsGenericType
+                && exception.GetType().GetGenericTypeDefinition() == typeof(IncompleteOperationException<>)
+                && exception.InnerException != null)
             {
                 foreach (var leaf in GetLeaves(exception.InnerException))
                 {

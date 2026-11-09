@@ -46,6 +46,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _handler = new GetBulkUpdateHandler(_authorizationService, _queueClient);
         }
 
+        [Theory]
+        [InlineData("A task was canceled.", true, System.Net.HttpStatusCode.OK)]
+        [InlineData("InvalidOperationException: Patient/secret-123", true, System.Net.HttpStatusCode.InternalServerError)]
+        [InlineData("JobConflictException: Patient/secret-123", false, System.Net.HttpStatusCode.InternalServerError)]
+        public async Task GivenStoredFailure_WhenStatusRequested_ThenReportsAreSafeAndPartialCountsArePreserved(string failure, bool cancelRequested, System.Net.HttpStatusCode expectedStatus)
+        {
+            // Arrange
+            var result = new BulkUpdateResult();
+            result.ResourcesUpdated["Patient"] = 2;
+            result.ResourcesIgnored["StructureDefinition"] = 1;
+            result.Issues.Add(failure);
+            result.Issues.Add("Skipped 1 StructureDefinition resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not updated.");
+            var definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, "Patient", null, "test", "test", "test", null));
+            var jobs = new List<JobInfo> { new() { Status = JobStatus.Failed, CancelRequested = cancelRequested, Definition = definition, Result = JsonConvert.SerializeObject(result) } };
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs);
+
+            // Act
+            var response = await _handler.HandleAsync(new GetBulkUpdateRequest(1), CancellationToken.None);
+
+            // Assert
+            Assert.Equal(expectedStatus, response.HttpStatusCode);
+            Assert.Contains(response.Results, parameter => parameter.Name == "ResourceUpdatedCount" && parameter.Part.Any(part => part.Name == "Patient" && ((Integer64)part.Value).Value == 2));
+            Assert.Contains(response.Issues, issue => issue.Severity == OperationOutcomeConstants.IssueSeverity.Information && issue.DetailsText.Contains("Skipped 1 StructureDefinition"));
+            Assert.DoesNotContain("Patient/secret-123", JsonConvert.SerializeObject(response));
+        }
+
         [Fact]
         public async Task GivenBulkUpdateJobGroupWithOnlyCreatedJobs_WhenStatusRequested_ThenAcceptedWithNoResults()
         {

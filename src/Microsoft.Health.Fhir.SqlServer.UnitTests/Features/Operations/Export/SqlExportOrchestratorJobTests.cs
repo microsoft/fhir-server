@@ -72,7 +72,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
                 var record = Assert.IsType<ExportJobRecord>(jobException.Error);
                 Assert.Equal(OperationStatus.Failed, record.Status);
                 Assert.True(record.FailureDetails.IsCustomerCaused);
-                Assert.Contains(failure.Message, record.FailureDetails.FailureReason);
+                Assert.Contains(record.FailureDetails.FailureReason, new[]
+                {
+                    Core.Resources.OperationFailedForCustomerManagedKey,
+                    Core.Resources.ReindexRunningException,
+                    Core.Resources.TooManyParameters,
+                });
+                Assert.DoesNotContain("Patient/secret-123", record.FailureDetails.FailureReason);
             }
             else
             {

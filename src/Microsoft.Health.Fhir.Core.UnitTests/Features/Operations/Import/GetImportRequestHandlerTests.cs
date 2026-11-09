@@ -92,6 +92,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, HttpStatusCode.InternalServerError, resourceLocation.OriginalString), ofe.Message);
         }
 
+        [Theory]
+        [InlineData(HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.InternalServerError)]
+        public async Task GivenInternalFailureDetails_WhenImportStatusIsRequested_ThenDetailsAreNotExposed(HttpStatusCode statusCode)
+        {
+            // Arrange
+            const string sensitiveDetails = "Patient/secret-123";
+            var coord = new JobInfo { Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var error = new ImportJobErrorResult
+            {
+                ErrorMessage = statusCode == HttpStatusCode.InternalServerError ? sensitiveDetails : Core.Resources.OperationFailedForCustomerManagedKey,
+                ErrorDetails = sensitiveDetails,
+                HttpStatusCode = statusCode,
+            };
+            var worker = new JobInfo
+            {
+                Id = 1,
+                Status = JobStatus.Failed,
+                Result = JsonConvert.SerializeObject(error),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition { ResourceLocation = "http://xyz" }),
+            };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
+
+            // Assert
+            Assert.Equal(statusCode, exception.ResponseStatusCode);
+            Assert.DoesNotContain(sensitiveDetails, exception.Message);
+        }
+
         [Fact]
         public async Task WhenGettingImpprtWithCancelledOrchestratorJob_ThenExceptionIsThrownWithBadResponseCode()
         {

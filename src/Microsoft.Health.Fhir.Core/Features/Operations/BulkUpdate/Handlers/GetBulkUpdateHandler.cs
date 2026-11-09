@@ -90,13 +90,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                             {
                                 cancelled = true;
                             }
-                            else if (IsProfileResourceSkippedIssue(issue))
+                            else if (IsProfileResourceSkippedIssue(issue, result))
                             {
                                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, detailsText: issue));
                             }
                             else
                             {
-                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
+                                var message = issue switch
+                                {
+                                    var value when value.StartsWith("JobConflictException:", StringComparison.Ordinal) => Core.Resources.ReindexRunningException,
+                                    var value when value == Core.Resources.OperationFailedForCustomerManagedKey || value == Core.Resources.TooManyParameters => value,
+                                    _ => Core.Resources.InternalServerError,
+                                };
+                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: message));
                             }
                         }
                     }
@@ -237,10 +243,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             return new GetBulkUpdateResponse(fhirResults, issues, statusCode);
         }
 
-        private static bool IsProfileResourceSkippedIssue(string issue)
+        private static bool IsProfileResourceSkippedIssue(string issue, BulkUpdateResult result)
         {
-            return issue.StartsWith("Skipped ", StringComparison.Ordinal)
-                && issue.Contains("because the submitting caller did not have EditProfileDefinitions permission.", StringComparison.Ordinal);
+            return result.ResourcesIgnored.Any(resource =>
+                OperationsConstants.ProtectedProfileResourceTypes.Contains(resource.Key)
+                && issue == $"Skipped {resource.Value} {resource.Key} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not updated.");
         }
     }
 }

@@ -784,6 +784,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(Core.Resources.TooManyParameters, record.FailureDetails.FailureReason);
         }
 
+        [Fact]
+        public async Task GivenCustomerFailureAndCancellation_WhenExportExecutes_ThenCancellationDetailsAreNotReported()
+        {
+            // Arrange
+            const string sensitiveMessage = "Patient/secret-123";
+            var failure = new AggregateException(
+                new RequestNotValidException(Core.Resources.TooManyParameters),
+                new OperationCanceledException(sensitiveMessage));
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw failure);
+
+            // Act
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, _exportJobRecord.FailureDetails.FailureStatusCode);
+            Assert.DoesNotContain(sensitiveMessage, _exportJobRecord.FailureDetails.FailureReason);
+        }
+
         [Theory]
         [InlineData(HttpStatusCode.Unauthorized, true)]
         [InlineData(HttpStatusCode.Forbidden, true)]
