@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
         private static readonly Uri VectorCanonical = new Uri("https://example.org/fhir/SearchParameter/semantic-text");
         private readonly IEmbeddingClient _embeddingClient = Substitute.For<IEmbeddingClient>();
         private readonly IEmbeddingModelRegistry _embeddingModelRegistry = Substitute.For<IEmbeddingModelRegistry>();
+        private readonly ITextChunker _textChunker = Substitute.For<ITextChunker>();
 
         public VectorSearchQueryProcessorTests()
         {
@@ -195,9 +197,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             await _embeddingModelRegistry.DidNotReceiveWithAnyArgs().GetEmbeddingModelIdAsync(default);
         }
 
+        [Fact]
+        public async Task GivenQueryTextOverTokenLimit_WhenPreparing_ThenBadRequestIsThrownBeforeEmbedding()
+        {
+            // Arrange
+            const int queryTokens = VectorSearchConfiguration.MaxEmbeddingInputTokens + 1;
+            _textChunker.CountTokens(Arg.Any<string>()).Returns(queryTokens);
+            VectorSearchQueryProcessor processor = CreateProcessor();
+
+            // Act
+            Func<Task> prepare = () => processor.PrepareAsync(CreateVectorExpression(), CancellationToken.None);
+
+            // Assert
+            BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(prepare);
+            Assert.Contains("semantic-text", exception.Message);
+            Assert.Contains(queryTokens.ToString(), exception.Message);
+            Assert.Contains(VectorSearchConfiguration.MaxEmbeddingInputTokens.ToString(), exception.Message);
+            await _embeddingClient.DidNotReceiveWithAnyArgs().GenerateEmbeddingsAsync(default, default);
+            await _embeddingModelRegistry.DidNotReceiveWithAnyArgs().GetEmbeddingModelIdAsync(default);
+        }
+
+        [Fact]
+        public async Task GivenQueryTextAtTokenLimit_WhenPreparing_ThenEmbeddingIsGenerated()
+        {
+            // Arrange
+            const short embeddingModelId = 7;
+            _textChunker.CountTokens(Arg.Any<string>()).Returns(VectorSearchConfiguration.MaxEmbeddingInputTokens);
+            _embeddingClient.GenerateEmbeddingsAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<float[]>>(new[] { new float[VectorSearchConfiguration.SupportedDimensions] }));
+            _embeddingModelRegistry.GetEmbeddingModelIdAsync(Arg.Any<CancellationToken>()).Returns(embeddingModelId);
+            VectorSearchQueryProcessor processor = CreateProcessor();
+
+            // Act
+            PreparedVectorSearchQuery result = await processor.PrepareAsync(CreateVectorExpression(), CancellationToken.None);
+
+            // Assert
+            Assert.Equal(embeddingModelId, result.EmbeddingModelId);
+            await _embeddingClient.Received(1).GenerateEmbeddingsAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>());
+        }
+
         private VectorSearchQueryProcessor CreateProcessor()
         {
-            return new VectorSearchQueryProcessor(_embeddingClient, _embeddingModelRegistry);
+            return new VectorSearchQueryProcessor(_embeddingClient, _embeddingModelRegistry, _textChunker);
         }
 
         private static VectorSearchExpression CreateVectorExpression()

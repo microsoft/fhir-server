@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -21,18 +22,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
     {
         private readonly IEmbeddingClient _embeddingClient;
         private readonly IEmbeddingModelRegistry _embeddingModelRegistry;
+        private readonly ITextChunker _textChunker;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VectorSearchQueryProcessor"/> class.
         /// </summary>
         /// <param name="embeddingClient">The configured embedding client.</param>
         /// <param name="embeddingModelRegistry">The embedding model registry.</param>
+        /// <param name="textChunker">The tokenizer-backed text chunker used to validate query length.</param>
         public VectorSearchQueryProcessor(
             IEmbeddingClient embeddingClient,
-            IEmbeddingModelRegistry embeddingModelRegistry)
+            IEmbeddingModelRegistry embeddingModelRegistry,
+            ITextChunker textChunker)
         {
             _embeddingClient = EnsureArg.IsNotNull(embeddingClient, nameof(embeddingClient));
             _embeddingModelRegistry = EnsureArg.IsNotNull(embeddingModelRegistry, nameof(embeddingModelRegistry));
+            _textChunker = EnsureArg.IsNotNull(textChunker, nameof(textChunker));
         }
 
         /// <inheritdoc />
@@ -67,6 +72,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             if (collectedExpression.IsChained)
             {
                 throw new InvalidSearchOperationException("Semantic search chains are not supported.");
+            }
+
+            int queryTokens = _textChunker.CountTokens(vectorExpression.QueryText);
+            if (queryTokens > VectorSearchConfiguration.MaxEmbeddingInputTokens)
+            {
+                throw new BadRequestException(
+                    $"The '{vectorExpression.Parameter.Code}' search text contains {queryTokens} tokens, which exceeds the maximum of {VectorSearchConfiguration.MaxEmbeddingInputTokens} tokens. Shorten the search text.");
             }
 
             IReadOnlyList<float[]> embeddings = await _embeddingClient.GenerateEmbeddingsAsync(

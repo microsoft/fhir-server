@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch
     /// </summary>
     public sealed class SqlEmbeddingModelRegistry : IEmbeddingModelRegistry, IDisposable
     {
+        // The column is case-sensitive while configuration accepts any casing, so the metric is compared and stored lowercase.
         private const string ResolveEmbeddingModel = @"
 SET XACT_ABORT ON;
 SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
@@ -36,7 +37,7 @@ WHERE ModelName = @ModelName
 IF @EmbeddingModelId IS NULL
 BEGIN
     INSERT INTO dbo.EmbeddingModel (ModelName, ModelVersion, Dimension, DistanceMetric)
-    VALUES (@ModelName, @ModelVersion, @Dimension, @DistanceMetric);
+    VALUES (@ModelName, @ModelVersion, @Dimension, LOWER(@DistanceMetric));
 
     SET @EmbeddingModelId = CONVERT(SMALLINT, SCOPE_IDENTITY());
 END
@@ -45,7 +46,7 @@ ELSE IF EXISTS
     SELECT 1
     FROM dbo.EmbeddingModel
     WHERE EmbeddingModelId = @EmbeddingModelId
-      AND (Dimension <> @Dimension OR DistanceMetric <> @DistanceMetric)
+      AND (Dimension <> @Dimension OR LOWER(DistanceMetric) <> LOWER(@DistanceMetric))
 )
 BEGIN
     THROW 50000, 'The configured embedding model metadata does not match the existing registry row.', 1;

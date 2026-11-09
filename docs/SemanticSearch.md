@@ -43,7 +43,8 @@ Example configuration:
 ```
 
 Invalid enabled configuration fails during service registration. When the feature is disabled,
-semantic services are not registered and no embedding request is made.
+semantic services are not registered and no embedding request is made. `Query:DistanceMetric` must
+be `cosine`; it is matched case-insensitively and stored lowercase in the embedding model registry.
 
 ### Optional approximate retrieval (DiskANN)
 
@@ -115,7 +116,8 @@ The server creates exactly one query embedding, applies ordinary structured filt
 authorization, ranks and deduplicates matching resources by native cosine distance, and returns the
 normalized value in `Bundle.entry.search.score`. Relevance order is the default. Supported explicit
 structured sorts override relevance order, and continuation tokens preserve deterministic paging
-with stable resource keys.
+with stable resource keys. Search text longer than the provider's 8,192-token per-input limit is
+rejected with HTTP 400 before any embedding request is made.
 
 ## Unsupported behavior
 
