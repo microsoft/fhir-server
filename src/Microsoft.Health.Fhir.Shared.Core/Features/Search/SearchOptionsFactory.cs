@@ -492,6 +492,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
 
+                    // A semantic predicate ranks and thresholds rather than authorizes, so it cannot stand in for a
+                    // mandatory SMART scope constraint that was merged into the query.
+                    if (smartScopeInjectedParameters.Contains(q) && ContainsVectorSearch(parsed))
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, q.Item1));
+                    }
+
                     foreach (var resourceTypeString in resourceTypesString)
                     {
                         if (_searchParameterDefinitionManager.TryGetSearchParameter(resourceTypeString, q.Item1, out var searchParameter))
@@ -628,7 +636,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (string.Equals(sorting.Item1, SearchParameterNames.Score, StringComparison.Ordinal))
                     {
-                        if (sorting.Item2 == Hl7.Fhir.Rest.SortOrder.Ascending && ContainsVectorSearch(searchOptions.Expression))
+                        // _score orders by relevance and cannot be combined with other sort keys, so it is only valid
+                        // as the sole ascending sort of a semantic search.
+                        if (searchParams.Sort.Count == 1 && sorting.Item2 == Hl7.Fhir.Rest.SortOrder.Ascending && ContainsVectorSearch(searchOptions.Expression))
                         {
                             sortings.Add((SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending));
                         }
@@ -1193,15 +1203,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 smartSearchParams.Add(param.Item1, param.Item2);
                 foreach (Tuple<string, string> q in smartSearchParams.Parameters)
                 {
+                    Expression parsed;
                     try
                     {
-                        fineGrainedSmartSearchExpressions.Add(_expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2));
+                        parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2);
                     }
                     catch (SearchParameterNotSupportedException)
                     {
                         unenforceableParameter = q.Item1;
                         return false;
                     }
+
+                    // A semantic predicate is evaluated once, over the primary matches, and cannot be re-evaluated for
+                    // resources reached through _include/_revinclude, so a scope constraint using one is unenforceable.
+                    if (ContainsVectorSearch(parsed))
+                    {
+                        unenforceableParameter = q.Item1;
+                        return false;
+                    }
+
+                    fineGrainedSmartSearchExpressions.Add(parsed);
                 }
 
                 var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());

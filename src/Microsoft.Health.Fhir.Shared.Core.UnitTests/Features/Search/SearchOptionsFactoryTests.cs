@@ -5,12 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -605,6 +607,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Empty(options.Sort);
             Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(SearchParameterNames.Score, StringComparison.Ordinal));
+        }
+
+        [Theory]
+        [InlineData("_score", "_lastUpdated")]
+        [InlineData("_score", "-_lastUpdated")]
+        [InlineData("_type", "_score")]
+        public void GivenSemanticSearchWithCompoundScoreSort_WhenCreated_ThenSortIsRejectedBeforeSortingValidation(string firstSort, string secondSort)
+        {
+            // _score is only valid as the sole sort key. The sorting validator cannot represent _score in a compound
+            // sort, so the factory has to reject the combination itself.
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            _sortingValidator.ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>()).ReturnsForAnyArgs(true);
+            var queryParameters = new[]
+            {
+                Tuple.Create(semanticParameterName, "fracture"),
+                Tuple.Create(KnownQueryParameterNames.Sort, firstSort),
+                Tuple.Create(KnownQueryParameterNames.Sort, secondSort),
+            };
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters);
+
+            Assert.Empty(options.Sort);
+            Assert.Contains(
+                _defaultFhirRequestContext.BundleIssues,
+                issue => issue.Diagnostics == string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, SearchParameterNames.Score));
+            _sortingValidator.DidNotReceiveWithAnyArgs().ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>());
+        }
+
+        [Fact]
+        public void GivenSemanticSearchWithCompoundScoreSortAndStrictHandling_WhenCreated_ThenBadRequestIsThrown()
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            _sortingValidator.ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>()).ReturnsForAnyArgs(true);
+            _defaultFhirRequestContext.RequestHeaders = new Dictionary<string, StringValues>
+            {
+                { KnownHeaders.Prefer, new StringValues("handling=strict") },
+            };
+            var queryParameters = new[]
+            {
+                Tuple.Create(semanticParameterName, "fracture"),
+                Tuple.Create(KnownQueryParameterNames.Sort, SearchParameterNames.Score),
+                Tuple.Create(KnownQueryParameterNames.Sort, SearchParameterNames.LastUpdated),
+            };
+
+            BadRequestException exception = Assert.Throws<BadRequestException>(
+                () => CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters));
+
+            Assert.Equal(
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, SearchParameterNames.Score),
+                exception.Message);
         }
 
         [Fact]

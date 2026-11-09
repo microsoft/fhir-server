@@ -119,6 +119,16 @@ structured sorts override relevance order, and continuation tokens preserve dete
 with stable resource keys. Search text longer than the provider's 8,192-token per-input limit is
 rejected with HTTP 400 before any embedding request is made.
 
+`_sort=_score` is supported only as the sole sort key. A compound sort that includes it, such as
+`_sort=_score,_lastUpdated`, is rejected like any other unsupported sort: HTTP 400 under
+`Prefer: handling=strict`; otherwise a warning is returned and the default relevance order applies.
+
+Semantic parameters are request-level only. A SMART scope constraint that uses one cannot be
+enforced, because the relevance predicate cannot be re-evaluated for resources reached through
+`_include` or `_revinclude`. Such a scope never authorizes access on its own: a request that depends
+on it is denied with HTTP 403, regardless of `Prefer: handling`, while a request that another scope
+fully authorizes is unaffected.
+
 ## Unsupported behavior
 
 This MVP does not support:

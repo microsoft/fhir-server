@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string ConcreteOnlyParameterCode = "status";
         private const string ObservationOnlyParameterCode = "value-quantity";
         private const string TagParameterCode = "_tag";
+        private const string SemanticParameterCode = "semantic-text";
 
         [Fact]
         public void GivenResourceSpecificScopeWithUnavailableParameter_WhenCreated_ThenRequestIsDenied()
@@ -334,6 +335,115 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenResourceSpecificScopeWithSemanticParameter_WhenCreated_ThenRequestIsDenied(bool strictHandling)
+        {
+            // A semantic predicate is a request-level relevance query that is evaluated once over the primary matches.
+            // It cannot be re-evaluated for resources reached through _include/_revinclude, so a scope constrained by
+            // one cannot be enforced and must fail closed regardless of the caller's Prefer header.
+            SearchOptionsFactory factory = CreateFactory(
+                strictHandling,
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"), (ConcreteOnlyParameterCode, "final"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenSemanticScopeForAnIncludedTypeAndRevInclude_WhenCreated_ThenRequestIsDenied()
+        {
+            // Patient is authorized outright, but Observation, reached through _revinclude, is only authorized by a
+            // scope whose semantic constraint cannot be applied to included resources.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "user"),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"), (ConcreteOnlyParameterCode, "final"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Patient,
+                    new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithSemanticParameterAndRevInclude_WhenCreated_ThenRequestIsDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Patient,
+                    new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithSemanticParameter_WhenCreated_ThenRequestIsDenied()
+        {
+            // Without _include/_revinclude a wildcard scope constraint is merged into the caller's query. It must not
+            // become a semantic query, which ranks and thresholds rather than authorizing.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenASemanticScopeAndAnUnrestrictedScopeForTheSameType_WhenCreated_ThenTheUnrestrictedScopeStillAuthorizes(bool semanticScopeFirst)
+        {
+            // Scopes are alternatives. The unrestricted scope already grants every Observation, so withdrawing the
+            // semantic one loses nothing and the request must not be denied, regardless of scope order.
+            var semantic = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture")));
+            var unrestricted = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user");
+
+            SearchOptionsFactory factory = semanticScopeFirst
+                ? CreateFactory(semantic, unrestricted)
+                : CreateFactory(unrestricted, semantic);
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation)]
+        [InlineData(KnownResourceTypes.All)]
+        public void GivenARequestLevelSemanticParameterAndAnOrdinaryScopeConstraint_WhenCreated_ThenBothArePartOfTheQuery(string scopeResource)
+        {
+            // Only a semantic predicate used as a scope constraint is unenforceable. One the caller supplies is an
+            // ordinary request parameter and must keep working alongside the scope's own predicates.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(scopeResource, DataActions.Read, "user", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(SemanticParameterCode, "fracture") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", expression, StringComparison.Ordinal);
+            Assert.Contains(SemanticParameterCode, expression, StringComparison.Ordinal);
+        }
+
+        [Theory]
         [InlineData(KnownQueryParameterNames.StartSurrogateId, false)]
         [InlineData(KnownQueryParameterNames.EndSurrogateId, false)]
         [InlineData(KnownQueryParameterNames.GlobalEndSurrogateId, false)]
@@ -460,6 +570,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         !string.Equals(targetType, KnownResourceTypes.Observation, StringComparison.Ordinal))
                     {
                         throw new SearchParameterNotSupportedException(targetType, code);
+                    }
+
+                    if (string.Equals(code, SemanticParameterCode, StringComparison.Ordinal))
+                    {
+                        return new VectorSearchExpression(
+                            new SearchParameterInfo(SemanticParameterCode, SemanticParameterCode, ValueSets.SearchParamType.Special),
+                            callInfo.ArgAt<string>(2));
                     }
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");
