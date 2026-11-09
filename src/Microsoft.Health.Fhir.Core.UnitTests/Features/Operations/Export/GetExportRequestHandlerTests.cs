@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -24,7 +25,9 @@ using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
@@ -58,6 +61,91 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenProcessingJobWithExcludedInclusionWarning_WhenGettingCompletedExport_ThenWarningIsReturnedToClient(bool multipleProcessingJobs)
+        {
+            // Arrange
+            var queueClient = Substitute.For<IQueueClient>();
+            var dataStore = Substitute.ForPartsOf<FhirOperationDataStoreBase>(queueClient, NullLoggerFactory.Instance);
+            var parentRecord = CreateExportJobRecord(OperationStatus.Completed);
+            var childRecord = CreateExportJobRecord(OperationStatus.Completed);
+            parentRecord.Issues.Add(new OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Information,
+                OperationOutcomeConstants.IssueType.Informational,
+                "Existing parent issue"));
+            const string diagnostic = "Included resources of type 'Patient' were excluded because the caller does not have the required SMART export permissions for this resource type.";
+            childRecord.Issues.Add(new OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Warning,
+                OperationOutcomeConstants.IssueType.Forbidden,
+                diagnostic));
+            var parentJob = new JobInfo
+            {
+                Id = 1,
+                GroupId = 1,
+                Status = JobStatus.Completed,
+                CreateDate = DateTime.UtcNow.AddMinutes(-1),
+                Definition = JsonConvert.SerializeObject(parentRecord),
+            };
+            var childJob = new JobInfo
+            {
+                Id = 2,
+                GroupId = 1,
+                Status = JobStatus.Completed,
+                EndDate = DateTime.UtcNow.AddMinutes(-1),
+                Result = JsonConvert.SerializeObject(childRecord),
+            };
+            var groupJobs = new List<JobInfo> { parentJob, childJob };
+            if (multipleProcessingJobs)
+            {
+                var anotherChildRecord = CreateExportJobRecord(OperationStatus.Completed);
+                anotherChildRecord.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Warning,
+                    OperationOutcomeConstants.IssueType.Forbidden,
+                    diagnostic));
+                anotherChildRecord.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Warning,
+                    OperationOutcomeConstants.IssueType.Forbidden,
+                    "Included resources of type 'Encounter' were excluded because the caller does not have the required SMART export permissions for this resource type."));
+                anotherChildRecord.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Warning,
+                    OperationOutcomeConstants.IssueType.Forbidden,
+                    diagnostic,
+                    detailsText: "Distinct issue details"));
+                groupJobs.Add(new JobInfo
+                {
+                    Id = 3,
+                    GroupId = 1,
+                    Status = JobStatus.Completed,
+                    EndDate = DateTime.UtcNow.AddMinutes(-1),
+                    Result = JsonConvert.SerializeObject(anotherChildRecord),
+                });
+            }
+
+            queueClient.GetJobByIdAsync(QueueType.Export, 1, true, _cancellationToken).Returns(parentJob);
+            queueClient.GetJobByGroupIdAsync(QueueType.Export, 1, false, _cancellationToken)
+                .Returns(groupJobs);
+            var handler = new GetExportRequestHandler(dataStore, DisabledFhirAuthorizationService.Instance, _exportSmartScopeAuthorizer);
+
+            // Act
+            var response = await handler.HandleAsync(new GetExportRequest(new Uri("http://localhost"), "1"), _cancellationToken);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(multipleProcessingJobs ? 4 : 2, response.JobResult.Issues.Count);
+            Assert.Contains(response.JobResult.Issues, issue => issue.Diagnostics == "Existing parent issue");
+            var warning = Assert.Single(response.JobResult.Issues, issue => issue.Diagnostics == diagnostic && issue.DetailsText == null);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, warning.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Forbidden, warning.Code);
+            Assert.Equal(diagnostic, warning.Diagnostics);
+            if (multipleProcessingJobs)
+            {
+                Assert.Contains(response.JobResult.Issues, issue => issue.Diagnostics.Contains("'Encounter'", StringComparison.Ordinal));
+                Assert.Contains(response.JobResult.Issues, issue => issue.DetailsText == "Distinct issue details");
+            }
         }
 
         /// <summary>

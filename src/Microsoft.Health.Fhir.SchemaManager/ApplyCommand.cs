@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.CommandLine;
-using System.CommandLine.NamingConventionBinder;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -15,6 +14,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Manager.Model;
 namespace Microsoft.Health.Fhir.SchemaManager;
 
 [SuppressMessage("Naming", "CA1710: Identifiers should have correct suffix", Justification = "Base class is also called Command.")]
+[SuppressMessage("Design", "CA1010: Generic interface should also be implemented", Justification = "System.CommandLine.Command implements only the non-generic IEnumerable interface.")]
 public class ApplyCommand : Command
 {
     private readonly ISchemaManager _schemaManager;
@@ -28,20 +28,31 @@ public class ApplyCommand : Command
         EnsureArg.IsNotNull(logger, nameof(logger));
         EnsureArg.IsNotNull(schemaManager, nameof(schemaManager));
 
-        AddOption(CommandOptions.ConnectionStringOption());
-        AddOption(CommandOptions.ManagedIdentityClientIdOption());
-        AddOption(CommandOptions.AuthenticationTypeOption());
-        AddOption(CommandOptions.EnableWorkloadIdentityOptions());
-        AddOption(CommandOptions.VersionOption());
-        AddOption(CommandOptions.NextOption());
-        AddOption(CommandOptions.LatestOption());
-        AddOption(CommandOptions.ForceOption());
+        var versionOption = CommandOptions.VersionOption();
+        var nextOption = CommandOptions.NextOption();
+        var latestOption = CommandOptions.LatestOption();
+        var forceOption = CommandOptions.ForceOption();
 
-        AddValidator(commandResult => MutuallyExclusiveOptionValidator.Validate(commandResult, new List<Option> { CommandOptions.VersionOption(), CommandOptions.NextOption(), CommandOptions.LatestOption() }, Resources.MutuallyExclusiveValidation));
+        Options.Add(CommandOptions.ConnectionStringOption());
+        Options.Add(CommandOptions.ManagedIdentityClientIdOption());
+        Options.Add(CommandOptions.AuthenticationTypeOption());
+        Options.Add(CommandOptions.EnableWorkloadIdentityOptions());
+        Options.Add(versionOption);
+        Options.Add(nextOption);
+        Options.Add(latestOption);
+        Options.Add(forceOption);
 
-        Handler = CommandHandler.Create(
-            (MutuallyExclusiveType type, bool force, CancellationToken token)
-            => ApplyHandler(type, force, token));
+        Validators.Add(commandResult => MutuallyExclusiveOptionValidator.Validate(commandResult, new List<Option> { versionOption, nextOption, latestOption }, Resources.MutuallyExclusiveValidation));
+
+        SetAction((parseResult, token) => ApplyHandler(
+            new MutuallyExclusiveType
+            {
+                Version = parseResult.GetValue(versionOption),
+                Next = parseResult.GetValue(nextOption),
+                Latest = parseResult.GetValue(latestOption),
+            },
+            parseResult.GetValue(forceOption),
+            token));
 
         _schemaManager = schemaManager;
         _logger = logger;

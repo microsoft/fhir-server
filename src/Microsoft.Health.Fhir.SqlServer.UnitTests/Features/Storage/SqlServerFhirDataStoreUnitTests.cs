@@ -354,6 +354,69 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task MergeAsync_WhenCreateOnlyConflicts_DoesNotPersistPendingSearchParameterStatus()
+        {
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var existingResource = CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\"}");
+            var executedProcedures = new List<string>();
+
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Returns(Task.FromResult<IReadOnlyList<ResourceWrapper>>(new[] { existingResource }));
+
+            sqlRetryService.ExecuteSql(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>())
+            .Returns(callInfo =>
+            {
+                var command = callInfo.Arg<SqlCommand>();
+                executedProcedures.Add(command.CommandText);
+                if (command.CommandText == "dbo.MergeResourcesBeginTransaction")
+                {
+                    command.Parameters["@TransactionId"].Value = 1L;
+                    command.Parameters["@SequenceRangeFirstValue"].Value = 1;
+                }
+
+                return Task.CompletedTask;
+            });
+
+            var operation = new ResourceWrapperOperation(
+                CreateResourceWrapper("{\"resourceType\":\"Patient\",\"id\":\"123\",\"active\":true}"),
+                allowCreate: true,
+                keepHistory: false,
+                weakETag: null,
+                requireETagOnUpdate: false,
+                keepVersion: false,
+                bundleResourceContext: null,
+                createOnly: true)
+            {
+                PendingSearchParameterStatus = new ResourceSearchParameterStatus
+                {
+                    Uri = new Uri("http://example.org/SearchParameter/test"),
+                    Status = SearchParameterStatus.Enabled,
+                },
+            };
+
+            var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
+
+            var outcome = await dataStore.MergeAsync(new[] { operation }, CancellationToken.None);
+
+            Assert.False(outcome.Results[operation.GetIdentifier()].IsOperationSuccessful);
+            Assert.DoesNotContain("dbo.MergeResourcesAndSearchParams", executedProcedures);
+        }
+
+        [Fact]
         public void GivenKnownResourceType_WhenGettingResourceTypeId_ThenResourceTypeIdIsReturned()
         {
             var sqlRetryService = Substitute.For<ISqlRetryService>();
@@ -407,7 +470,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, modelInfoProvider);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };

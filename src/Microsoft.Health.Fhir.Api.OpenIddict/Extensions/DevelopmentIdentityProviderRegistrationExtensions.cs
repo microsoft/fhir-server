@@ -154,9 +154,19 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                                 return default;
                             }).SetOrder(int.MinValue)); // Ensure this runs early
 
+                        // This development IdP derives token audiences from granted scopes, not requested resources.
+                        // Clear resources before OpenIddict validates their URI format and registration.
+                        options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+                            builder.UseInlineHandler(context =>
+                            {
+                                context.Request.Resources = null;
+
+                                return default;
+                            }).SetOrder(int.MinValue));
+
                         // Note: OpenIddict has a default token validation handler that does more granular validation
-                        //   including checking the cliend Id and secret. So, we may not need this event handler.
-                        //   https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
+                        // including checking the cliend Id and secret. So, we may not need this event handler.
+                        // https://github.com/openiddict/openiddict-core/blob/38e84b862dc4ac765ee90d673999f6dc97354815/src/OpenIddict.Server/OpenIddictServerHandlers.Exchange.cs#L24
                         options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
                             builder.UseInlineHandler(context =>
                             {

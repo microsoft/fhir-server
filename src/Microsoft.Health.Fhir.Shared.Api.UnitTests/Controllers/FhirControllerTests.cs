@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -146,6 +146,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SystemHistory", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
+
+            // Controllers outside FhirController that should also have the search metric emitter.
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "PatientEverythingById", typeof(EverythingController));
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Search", typeof(IncludesController));
+
+            // DocRefController GET Search only (POST overload does not emit search latency).
+            var docRefGetSearch = typeof(DocRefController).GetMethod("Search", Type.EmptyTypes);
+            Assert.True(docRefGetSearch != null, "DocRefController.Search() (GET) method not found.");
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, docRefGetSearch);
         }
 
         [Fact]
@@ -510,6 +519,60 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _requestContextAccessor.RequestContext.Properties
                 .Received(queryProcessingLogic.HasValue && queryProcessingLogic.Value == ConditionalQueryProcessingLogic.Parallel ? 1 : 0)
                 .TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
+        }
+
+        [Theory]
+        [InlineData(null, ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("upsert", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("create", ConditionalUpdateNoMatchBehavior.Create)]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsSpecified_ThenRequestCarriesTheBehavior(string headerValue, ConditionalUpdateNoMatchBehavior expectedBehavior)
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = headerValue;
+            }
+
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            var request = default(ConditionalUpsertResourceRequest);
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Do<ConditionalUpsertResourceRequest>(x => request = x),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
+
+            await _fhirController.ConditionalUpdate(resource);
+
+            Assert.NotNull(request);
+            Assert.Equal(expectedBehavior, request.NoMatchBehavior);
+        }
+
+        [Fact]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsInvalid_ThenBadRequestIsThrownBeforeDispatch()
+        {
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = "true";
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _fhirController.ConditionalUpdate(new Patient { Id = Guid.NewGuid().ToString() }));
+
+            Assert.Empty(_mediator.ReceivedCalls());
         }
 
         [Fact]
@@ -1538,12 +1601,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             MethodInfo bundleMethodInfo = targetClassType.GetMethod(methodName);
             Assert.True(bundleMethodInfo != null, $"The method '{methodName}' was not found in '{targetClassType.Name}'. Was it renamed or removed?");
 
-            TypeFilterAttribute latencyFilter = Attribute.GetCustomAttributes(bundleMethodInfo, typeof(TypeFilterAttribute))
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttributeType, bundleMethodInfo);
+        }
+
+        private static void TestIfTargetMethodContainsCustomAttribute(Type expectedCustomAttributeType, MethodInfo methodInfo)
+        {
+            TypeFilterAttribute latencyFilter = Attribute.GetCustomAttributes(methodInfo, typeof(TypeFilterAttribute))
                 .Select(a => a as TypeFilterAttribute)
                 .Where(a => a.ImplementationType == expectedCustomAttributeType)
                 .SingleOrDefault();
 
-            Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodName}' from '{targetClassType.Name}'.");
+            Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodInfo.Name}' from '{methodInfo.DeclaringType?.Name}'.");
         }
 
         [Fact]

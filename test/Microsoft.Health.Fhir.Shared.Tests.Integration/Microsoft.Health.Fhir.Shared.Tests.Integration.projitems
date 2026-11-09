@@ -27,6 +27,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlChainedSearchGenerationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlBirthdateSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlBirthdateStorageTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlInstantDateTimeSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InstantDateClockCollection.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchSharedFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\ExpiredResourceCleanupWatchdogTests.cs" />
@@ -48,6 +50,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\JobMonitor\JobMonitorWatchdogLogicTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSearchParameterInitializationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\BackgroundTaskRequestContext.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageTests.cs" />

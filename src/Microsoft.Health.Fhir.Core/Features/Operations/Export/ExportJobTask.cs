@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -28,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using Polly;
 using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
@@ -51,6 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
         private ExportFileManager _fileManager;
+        private HashSet<string> _authorizedIncludeResourceTypes;
+        private readonly HashSet<string> _omittedIncludeResourceTypes = new HashSet<string>(StringComparer.Ordinal);
         private readonly AsyncRetryPolicy _exportSearchRetryPolicy;
 
         public ExportJobTask(
@@ -121,8 +125,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
             _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
+            _authorizedIncludeResourceTypes = new HashSet<string>(
+                exportJobRecord.AuthorizedIncludeResourceTypes ?? Array.Empty<string>(),
+                StringComparer.Ordinal);
+            _omittedIncludeResourceTypes.Clear();
 
             var existingFhirRequestContext = _contextAccessor.RequestContext;
+            bool destinationConnected = false;
 
             // Don't allow jobs to loop forever if they are failing.
             if (exportJobRecord.RestartCount > _exportJobConfiguration.MaxJobRestartCount)
@@ -181,6 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Connect to export destination using appropriate client.
                 await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
+                destinationConnected = true;
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -257,9 +267,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (DestinationConnectionException dce)
             {
-                _logger.LogInformation(dce, "[JobId:{JobId}] Can't connect to destination. The job will be marked as failed.", _exportJobRecord.Id);
+                _logger.LogInformation(dce, "[JobId:{JobId}] Export destination operation failed. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(
+                    dce.Message,
+                    dce.StatusCode,
+                    isCustomerCaused: !destinationConnected && (dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden || dce.StatusCode == HttpStatusCode.NotFound || dce.StatusCode == HttpStatusCode.BadRequest));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (ResourceNotFoundException rnfe)
@@ -273,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _logger.LogError(rnfe, "[JobId:{JobId}] Can't find specified resource. The job will be marked as failed.", _exportJobRecord.Id);
                 }
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (FailedToParseAnonymizationConfigurationException ex)
@@ -294,7 +307,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(ex, "[JobId:{JobId}] Cannot found anonymization configuration. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (AnonymizationConfigurationFetchException ex)
@@ -323,6 +336,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 // Let OOM bubble up to ExportProcessingJob for batch size reduction and retry.
                 throw;
+            }
+            catch (Exception ex) when (ex.IsCustomerCaused())
+            {
+                _logger.LogInformation(ex, "[JobId:{JobId}] Export failed due to a customer-caused error.", _exportJobRecord.Id);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, ex.GetJobFailureStatusCode(), ex.ToString(), isCustomerCaused: true);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -565,7 +584,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
-                    var searchResultEntries = searchResult?.Results?.ToList();
+                    var searchResultEntries = searchResult?.Results?.Where(IsAuthorizedSearchResult).ToList();
                     if (searchResultEntries?.Any() ?? false)
                     {
                         var startSurrogateId = sharedQueryParametersList
@@ -811,8 +830,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
+        private bool IsAuthorizedSearchResult(SearchResultEntry result)
+        {
+            if (!_exportJobRecord.SmartRequest
+                || result.SearchEntryMode != SearchEntryMode.Include
+                || _authorizedIncludeResourceTypes.Contains(KnownResourceTypes.All)
+                || _authorizedIncludeResourceTypes.Contains(result.Resource.ResourceTypeName))
+            {
+                return true;
+            }
+
+            if (_omittedIncludeResourceTypes.Add(result.Resource.ResourceTypeName))
+            {
+                _logger.LogInformation(
+                    "[JobId:{JobId}] Omitted included resources of type {ResourceType} because SMART export permission was not granted.",
+                    _exportJobRecord.Id,
+                    result.Resource.ResourceTypeName);
+                string diagnostic = string.Format(CultureInfo.InvariantCulture, Core.Resources.ExportUnauthorizedIncludesOmitted, result.Resource.ResourceTypeName);
+                if (!_exportJobRecord.Issues.Any(issue =>
+                    issue.Severity == OperationOutcomeConstants.IssueSeverity.Warning
+                    && issue.Code == OperationOutcomeConstants.IssueType.Forbidden
+                    && issue.Diagnostics == diagnostic))
+                {
+                    _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Forbidden,
+                        diagnostic));
+                }
+            }
+
+            return false;
+        }
+
         private void ProcessSearchResult(SearchResultEntry result, IAnonymizer anonymizer)
         {
+            if (!IsAuthorizedSearchResult(result))
+            {
+                return;
+            }
+
             ResourceWrapper resourceWrapper = result.Resource;
             ResourceElement overrideDataElement = null;
             var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;

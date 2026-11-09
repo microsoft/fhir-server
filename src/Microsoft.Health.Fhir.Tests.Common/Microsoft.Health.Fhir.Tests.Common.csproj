@@ -255,6 +255,10 @@
     <EmbeddedResource Include="TestFiles\R4B\binary-example.json" />
     <EmbeddedResource Include="TestFiles\R4B\CommunicationAttachment.json" />
     <EmbeddedResource Include="TestFiles\R4B\DocumentReference-example-with-base64.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\FhirPackage-SearchParameters.tgz" />
+    <EmbeddedResource Include="TestFiles\R4\FhirPackage-SearchParameters.tgz" />
+    <EmbeddedResource Include="TestFiles\R4B\FhirPackage-SearchParameters.tgz" />
+    <EmbeddedResource Include="TestFiles\R5\FhirPackage-SearchParameters.tgz" />
     <EmbeddedResource Include="TestFiles\R4\account-example.json" />
     <EmbeddedResource Include="TestFiles\R4\activitydefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R4\adverseevent-example.json" />

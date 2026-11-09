@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _fhirDataStore,
                 _model,
                 sqlRootExpressionRewriter,
+                new InstantDateTimeRewriter(),
                 chainFlatteningRewriter,
                 sortRewriter,
                 partitionEliminationRewriter,
@@ -188,6 +189,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
                 UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
                 IncludesContinuationToken = "not-a-token",
+            };
+
+            // Act and Assert
+            await Assert.ThrowsAsync<BadRequestException>(() => _searchService.SearchAsync(options, CancellationToken.None));
+            Assert.Empty(_sqlRetryService.ReceivedCalls());
+        }
+
+        [Theory]
+        [InlineData("[0,0]")]
+        [InlineData("[-1,0]")]
+        [InlineData("[151,0]")]
+        public async Task GivenAContinuationTokenWithAnOutOfRangeResourceTypeId_WhenSearched_ThenRejectedBeforeSql(string continuationToken)
+        {
+            // Arrange
+            _model.ResourceTypeIdRange.Returns(((short)1, (short)150));
+            var options = new SearchOptions
+            {
+                MaxItemCount = 10,
+                Sort = Array.Empty<(SearchParameterInfo, Core.Features.Search.SortOrder)>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                ContinuationToken = continuationToken,
             };
 
             // Act and Assert
@@ -446,6 +468,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _fhirDataStore,
                 model,
                 sqlRootExpressionRewriter,
+                new InstantDateTimeRewriter(),
                 chainFlatteningRewriter,
                 sortRewriter,
                 partitionEliminationRewriter,
@@ -535,6 +558,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _fhirDataStore,
                     model,
                     sqlRootExpressionRewriter,
+                    new InstantDateTimeRewriter(),
                     chainFlatteningRewriter,
                     sortRewriter,
                     partitionEliminationRewriter,
@@ -585,6 +609,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _fhirDataStore,
                     model,
                     sqlRootExpressionRewriter,
+                    new InstantDateTimeRewriter(),
                     chainFlatteningRewriter,
                     sortRewriter,
                     partitionEliminationRewriter,
@@ -635,6 +660,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _fhirDataStore,
                     model,
                     sqlRootExpressionRewriter,
+                    new InstantDateTimeRewriter(),
                     chainFlatteningRewriter,
                     sortRewriter,
                     partitionEliminationRewriter,

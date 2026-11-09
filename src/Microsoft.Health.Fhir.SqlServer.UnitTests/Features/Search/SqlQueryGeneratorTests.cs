@@ -456,10 +456,10 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
-    [InlineData(null, true)]
+    [InlineData(null, false)]
     [InlineData("true", true)]
     [InlineData("false", false)]
-    public void GivenChainSourceDeduplicationConfiguration_WhenBound_ThenDefaultAndRollbackAreSupported(string value, bool expected)
+    public void GivenChainSourceDeduplicationConfiguration_WhenBound_ThenDefaultAndExplicitSettingsAreSupported(string value, bool expected)
     {
         // Arrange
         var settings = new Dictionary<string, string>();
@@ -487,7 +487,9 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     [InlineData(1, true, false)]
     [InlineData(5, false, false)]
     [InlineData(5, true, false)]
-    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool enabled = true)
+    [InlineData(5, false, null)]
+    [InlineData(5, true, null)]
+    public void GivenIndependentChains_WhenSqlGenerated_ThenPredecessorOnlyEstablishesSourceExistence(int chainCount, bool reversed, bool? enabled = true)
     {
         // Arrange
         var reference = new SearchParameterInfo(
@@ -516,15 +518,10 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Act
         using Data.SqlClient.SqlCommand command = new();
-        var generator = new SqlQueryGenerator(
-            _strBuilder,
-            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
-            _fhirModel,
-            _schemaInformation,
-            _queryGeneratorFactory,
-            false,
-            false,
-            enableChainSourceDeduplication: enabled);
+        var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
+        var generator = enabled.HasValue
+            ? new SqlQueryGenerator(_strBuilder, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false, enableChainSourceDeduplication: enabled.Value)
+            : new SqlQueryGenerator(_strBuilder, parameters, _fhirModel, _schemaInformation, _queryGeneratorFactory, false, false);
         generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
         {
             Sort = [],
@@ -543,7 +540,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         {
             for (int i = 0; i < chainCount; i++)
             {
-                if (enabled)
+                if (enabled == true)
                 {
                     Assert.Contains($"JOIN (SELECT DISTINCT T1, Sid1 FROM cte{i}) predecessor ON {alias}.ResourceTypeId = T1 AND {alias}.ResourceSurrogateId = Sid1", sql);
                     Assert.DoesNotContain($"JOIN cte{i} ON {alias}.ResourceTypeId = T1", sql);
@@ -558,9 +555,11 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed)
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void GivenNestedChain_WhenSqlGenerated_ThenTargetBindingIsPreserved(bool reversed, bool enabled)
     {
         // Arrange
         var reference = new SearchParameterInfo(
@@ -582,7 +581,17 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         }
 
         // Act
-        _queryGenerator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false,
+            enableChainSourceDeduplication: enabled);
+        generator.VisitSqlRoot(new SqlRootExpression(tables, []), new SearchOptions
         {
             Sort = [],
             CountOnly = true,
@@ -591,7 +600,7 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 
         // Assert
         string sql = _strBuilder.ToString();
-        Assert.Contains("JOIN (SELECT DISTINCT T1, Sid1 FROM cte0) predecessor", sql);
+        Assert.Contains(enabled ? "JOIN (SELECT DISTINCT T1, Sid1 FROM cte0) predecessor" : "JOIN cte0 ON", sql);
         string alias = reversed ? "refTarget" : "refSource";
         for (int i = 1; i < 5; i++)
         {
@@ -675,6 +684,74 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         var top = Regex.Match(_strBuilder.ToString(), @"SELECT DISTINCT TOP \((@\w+)\)");
         Assert.True(top.Success);
         Assert.Equal(expectedLimit, command.Parameters[top.Groups[1].Value].Value);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("[11,100,300,null,null,false]", false)]
+    [InlineData("[11,100,300,10,250,false]", true)]
+    [InlineData("[11,100,300,12,250,false]", true)]
+    public void GivenTypedReverseInclude_WhenSqlGenerated_ThenSourceTypeIsRestrictedRegardlessOfContinuationToken(string includesToken, bool hasCursor)
+    {
+        // Arrange
+        var parameter = new SearchParameterInfo(
+            "patient",
+            "patient",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/clinical-patient"),
+            null,
+            null,
+            ["Patient"]);
+        var include = new IncludeExpression(["Patient"], parameter, "Observation", "Patient", null, false, true, false);
+        SqlRootExpression expression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
+                new SearchParamTableExpression(IncludeQueryGenerator.Instance, include, SearchParamTableExpressionKind.Include),
+            ],
+            []);
+        expression = (SqlRootExpression)expression.AcceptVisitor(
+            includesToken == null ? IncludeRewriter.Instance : IncludesOperationRewriter.Instance,
+            null);
+
+        var options = new SearchOptions
+        {
+            IncludesContinuationToken = includesToken,
+            IncludeCount = 1,
+            MaxItemCount = 1,
+            Sort = [(new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated), SortOrder.Ascending)],
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        };
+        _fhirModel.GetResourceTypeId("Observation").Returns((short)10);
+        _fhirModel.GetResourceTypeId("Patient").Returns((short)11);
+        _fhirModel.GetSearchParamId(parameter.Url).Returns((short)40);
+        using Data.SqlClient.SqlCommand command = new();
+        var generator = new SqlQueryGenerator(
+            _strBuilder,
+            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters)),
+            _fhirModel,
+            _schemaInformation,
+            _queryGeneratorFactory,
+            false,
+            false);
+
+        // Act
+        generator.VisitSqlRoot(expression, options);
+
+        // Assert
+        string sql = _strBuilder.ToString();
+        Assert.Contains("AND refSource.ResourceTypeId = 10", sql);
+        if (hasCursor)
+        {
+            var token = IncludesContinuationToken.FromString(includesToken);
+            Assert.Contains(
+                $"AND (refSource.ResourceTypeId > {token.IncludeResourceTypeId} OR (refSource.ResourceTypeId = {token.IncludeResourceTypeId} AND refSource.ResourceSurrogateId > {token.IncludeResourceSurrogateId}))",
+                sql);
+        }
+        else
+        {
+            Assert.DoesNotContain("refSource.ResourceSurrogateId >", sql);
+        }
     }
 
     [Theory]

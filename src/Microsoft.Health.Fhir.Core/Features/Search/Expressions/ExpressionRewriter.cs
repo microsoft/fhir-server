@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// An abstract <see cref="IExpressionVisitor{TContext,TOutput}"/> for rewriting an expression tree.
     /// Expression trees are treated as immutable, so if no changes have been made, the same instance is returned.
+    /// Rebuilt multiary and union expressions retain their SMART scope authorization marker.
     /// </summary>
     /// <typeparam name="TContext">The type of the context parameter passed to each Visit method</typeparam>
     public abstract class ExpressionRewriter<TContext> : IExpressionVisitor<TContext, Expression>

@@ -125,47 +125,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenJobsAcrossQueueTypes_WhenGetJobsByQueueType_ThenOnlyRequestedQueueIsReturned()
-        {
-            // Arrange
-            byte queueType = (byte)TestQueueType.GivenJobsAcrossQueueTypes_WhenGetJobsByQueueType_ThenOnlyRequestedQueueIsReturned;
-            byte otherQueueType = (byte)TestQueueType.GivenJobsAcrossQueueTypes_OtherQueue;
-            byte emptyQueueType = (byte)TestQueueType.GivenJobsAcrossQueueTypes_EmptyQueue;
-            await _queueClient.EnqueueAsync(queueType, ["requested-queue-job"], null, false, CancellationToken.None);
-            await _queueClient.EnqueueAsync(otherQueueType, ["other-queue-job"], null, false, CancellationToken.None);
-
-            // Act
-            JobInfo requestedQueueJob = await _queueClient.GetMostRecentJobByQueueTypeAsync(queueType, CancellationToken.None);
-            JobInfo emptyQueueJob = await _queueClient.GetMostRecentJobByQueueTypeAsync(emptyQueueType, CancellationToken.None);
-
-            // Assert
-            Assert.Equal("requested-queue-job", requestedQueueJob.Definition);
-            Assert.Null(emptyQueueJob);
-        }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenCompletedJob_WhenGetJobsByQueueType_ThenJobIsReturned()
-        {
-            // Arrange
-            byte queueType = (byte)TestQueueType.GivenCompletedJob_WhenGetJobsByQueueType_ThenJobIsReturned;
-            await _queueClient.EnqueueAsync(queueType, ["completed-job"], null, false, CancellationToken.None);
-            JobInfo jobToComplete = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
-            jobToComplete.Status = JobStatus.Completed;
-            jobToComplete.Result = "completed";
-            await _queueClient.CompleteJobAsync(jobToComplete, false, CancellationToken.None);
-
-            // Act
-            JobInfo job = await _queueClient.GetMostRecentJobByQueueTypeAsync(queueType, CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(job);
-            Assert.Equal(JobStatus.Completed, job.Status);
-            Assert.Equal("completed", job.Result);
-        }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued()
         {
             byte queueType = (byte)TestQueueType.GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued;

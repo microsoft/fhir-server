@@ -53,7 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             bool includeDeleted = false,
             int schemaVersion = 2,
             int typeId = (int)JobType.ExportOrchestrator,
-            bool smartRequest = false)
+            bool smartRequest = false,
+            IReadOnlyCollection<string> authorizedIncludeResourceTypes = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -107,6 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             FeedRange = feedRange;
 
             SmartRequest = smartRequest;
+            AuthorizedIncludeResourceTypes = authorizedIncludeResourceTypes;
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
@@ -238,6 +240,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.SmartRequest)]
         public bool SmartRequest { get; private set; }
+
+        /// <summary>
+        /// The caller's authorized inclusion types captured at creation, independently of the requested output types.
+        /// Missing authorization on a legacy SMART job does not grant access to included resources.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.AuthorizedIncludeResourceTypes)]
+        public IReadOnlyCollection<string> AuthorizedIncludeResourceTypes { get; private set; }
 
         internal ExportJobRecord Clone()
         {

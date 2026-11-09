@@ -83,6 +83,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Security
         }
 
         /// <inheritdoc />
+        public IReadOnlyCollection<string> GetAuthorizedIncludeResourceTypes()
+        {
+            if (_requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl != true)
+            {
+                return null;
+            }
+
+            // The creation/status compatibility switch must not allow inclusions to bypass SMART permissions.
+            ScopeRestriction[] systemScopes = GetUnconstrainedSystemScopes(_requestContextAccessor.RequestContext.AccessControlContext);
+            return HasCompleteExportReadAccess(systemScopes, KnownResourceTypes.All)
+                ? new[] { KnownResourceTypes.All }
+                : InferEligibleOutputResourceTypes(systemScopes);
+        }
+
+        /// <inheritdoc />
         public void AuthorizeJobAccess(ExportJobRecord exportJobRecord)
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
