@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -109,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
 
-            foreach (var rootObject in rootObjects)
+            foreach (var rootObject in EnumerateSearchParameterValues(rootObjects, searchParameter.Url.ToString()))
             {
                 int numberOfComponents = searchParameter.Component.Count;
                 bool skip = false;
@@ -226,6 +227,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return results;
             }
 
+            extractedValues = EnumerateSearchParameterValues(extractedValues, searchParameterDefinitionUrl);
+
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
                 allowedReferenceResourceTypes?.Count > 0)
@@ -312,6 +315,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return results;
+        }
+
+        private static IEnumerable<ITypedElement> EnumerateSearchParameterValues(IEnumerable<ITypedElement> values, string searchParameterUrl)
+        {
+            IEnumerator<ITypedElement> enumerator;
+            try
+            {
+                enumerator = values.GetEnumerator();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+            {
+                throw new SearchParameterEvaluationException(new Uri(searchParameterUrl), ex);
+            }
+
+            using (enumerator)
+            {
+                while (true)
+                {
+                    ITypedElement current;
+                    try
+                    {
+                        if (!enumerator.MoveNext())
+                        {
+                            yield break;
+                        }
+
+                        current = enumerator.Current;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+                    {
+                        throw new SearchParameterEvaluationException(new Uri(searchParameterUrl), ex);
+                    }
+
+                    yield return current;
+                }
+            }
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
