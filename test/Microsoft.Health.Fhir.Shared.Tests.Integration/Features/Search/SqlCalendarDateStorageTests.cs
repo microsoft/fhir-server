@@ -42,40 +42,42 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
 {
     /// <summary>
-    /// Verifies birthdate search results through the storage fixture's production parser and search service.
+    /// Verifies calendar-date search results through the storage fixture's production parser and search service.
     /// SMART scopes are injected request context, not authenticated HTTP grants.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait("DataStore", "SqlServer")]
-    public class SqlBirthdateStorageTests : IClassFixture<SqlBirthdateStorageTests.BirthdateStorageFixture>, IAsyncLifetime
+    public class SqlCalendarDateStorageTests : IClassFixture<SqlCalendarDateStorageTests.CalendarDateStorageFixture>, IAsyncLifetime
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly FhirSqlServerConfiguration _configuration;
         private readonly bool _originalScalarSetting;
+        private readonly bool _originalContainmentSetting;
         private readonly IFhirRequestContext _originalRequestContext;
         private ResourceWrapperFactory _wrapperFactory;
 
-        static SqlBirthdateStorageTests()
+        static SqlCalendarDateStorageTests()
         {
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SqlBirthdateStorageTests"/> class.
+        /// Initializes a new instance of the <see cref="SqlCalendarDateStorageTests"/> class.
         /// </summary>
         /// <param name="fixture">The class-scoped SQL storage fixture.</param>
-        public SqlBirthdateStorageTests(BirthdateStorageFixture fixture)
+        public SqlCalendarDateStorageTests(CalendarDateStorageFixture fixture)
         {
             _fixture = fixture;
             _configuration = fixture.Service.GetRequiredService<FhirSqlServerConfiguration>();
             _originalScalarSetting = _configuration.EnableScalarTemporalEqualityRewriter;
+            _originalContainmentSetting = _configuration.EnableFhirDateContainment;
             _originalRequestContext = fixture.FhirRequestContextAccessor.RequestContext;
             fixture.FhirRequestContextAccessor.RequestContext = new FhirRequestContext(
                 "PUT",
                 "http://localhost/",
                 "http://localhost/",
-                nameof(SqlBirthdateStorageTests),
+                nameof(SqlCalendarDateStorageTests),
                 new Dictionary<string, StringValues>(),
                 new Dictionary<string, StringValues>());
         }
@@ -84,6 +86,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         public async ValueTask InitializeAsync()
         {
             Assert.Equal(TemporalType.Date, _fixture.SearchParameterDefinitionManager.GetSearchParameter("Patient", "birthdate").TemporalType);
+            Assert.Equal(TemporalType.Date, _fixture.SearchParameterDefinitionManager.GetSearchParameter("ClaimResponse", "payment-date").TemporalType);
             var parser = new ReferenceSearchValueParser(_fixture.FhirRequestContextAccessor, new FhirServerInstanceConfiguration(), ResourceIdPolicy.Standard);
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
@@ -115,8 +118,70 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         public ValueTask DisposeAsync()
         {
             _configuration.EnableScalarTemporalEqualityRewriter = _originalScalarSetting;
+            _configuration.EnableFhirDateContainment = _originalContainmentSetting;
             _fixture.FhirRequestContextAccessor.RequestContext = _originalRequestContext;
             return ValueTask.CompletedTask;
+        }
+
+        /// <summary>
+        /// Payment dates retain day, month, and year matches under the selected equality semantics.
+        /// </summary>
+        /// <param name="scalarEnabled">Whether exact-day scalar rewriting is enabled.</param>
+        /// <param name="containment">Whether equality uses containment instead of overlap.</param>
+        /// <returns>The test task.</returns>
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task GivenStoredPaymentDates_WhenSearchingCalendarDateEquality_ThenResultsAndCountsPreserveSelectedSemantics(
+            bool scalarEnabled,
+            bool containment)
+        {
+            _configuration.EnableScalarTemporalEqualityRewriter = scalarEnabled;
+            _configuration.EnableFhirDateContainment = containment;
+            string prefix = $"payment-{scalarEnabled}-{containment}-";
+            (string Id, string Date)[] dates =
+            [
+                ("year", "2016"),
+                ("month", "2016-07"),
+                ("day", "2016-07-06"),
+                ("next-day", "2016-07-07"),
+                ("wrong-month", "2016-08"),
+                ("wrong-year", "2017"),
+                ("missing", null),
+            ];
+            var resources = dates.Select(date => new ClaimResponse
+            {
+                Id = prefix + date.Id,
+                Payment = date.Date == null ? null : new ClaimResponse.PaymentComponent { Date = date.Date },
+            }).ToArray();
+            await UpsertResourcesAsync(resources);
+
+            (string Query, string[] Matches)[] cases =
+            [
+                ("2016-07-06", containment ? ["day"] : ["year", "month", "day"]),
+                ("2016-07", containment ? ["month", "day", "next-day"] : ["year", "month", "day", "next-day"]),
+                ("2016", ["year", "month", "day", "next-day", "wrong-month"]),
+            ];
+            foreach (var testCase in cases)
+            {
+                var query = new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", string.Join(",", resources.Select(resource => resource.Id))),
+                    Tuple.Create("payment-date", testCase.Query),
+                    Tuple.Create("_total", "accurate"),
+                };
+
+                var result = await _fixture.SearchService.SearchAsync("ClaimResponse", query, CancellationToken.None);
+
+                AssertResults(result, testCase.Matches.Select(id => "ClaimResponse/" + prefix + id).ToArray());
+                Assert.Equal(testCase.Matches.Length, result.TotalCount);
+                query.Add(Tuple.Create("_summary", "count"));
+                var count = await _fixture.SearchService.SearchAsync("ClaimResponse", query, CancellationToken.None);
+                AssertResults(count, Array.Empty<string>());
+                Assert.Equal(testCase.Matches.Length, count.TotalCount);
+            }
         }
 
         /// <summary>
@@ -128,7 +193,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenLinkedBirthdates_WhenReverseSearchingMissing_ThenOnlyRootsWithLiveMissingLinksMatch(bool scalarEnabled)
+        public async Task GivenPatientAndRelatedPersonBirthdates_WhenReverseSearchingMissing_ThenOnlyRootsWithLiveMissingLinksMatch(bool scalarEnabled)
         {
             _configuration.EnableScalarTemporalEqualityRewriter = scalarEnabled;
             string prefix = $"missing-{scalarEnabled}-";
@@ -170,7 +235,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         /// <summary>
-        /// DOB and token constraints intersect within a scope and union across scopes.
+        /// Patient birthdate and token constraints intersect within a scope and union across scopes.
         /// Reverse includes require an Observation resource-type grant.
         /// </summary>
         /// <param name="scalarEnabled">Whether exact-day scalar rewriting is enabled for this fixture.</param>
@@ -181,7 +246,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         [InlineData(false, true)]
         [InlineData(true, false)]
         [InlineData(true, true)]
-        public async Task GivenBirthdateAndTokenScopeUnion_WhenSearchingWithReverseIncludes_ThenOnlyGrantedResourcesMatch(bool scalarEnabled, bool grantObservations)
+        public async Task GivenPatientBirthdateAndTokenScopeUnion_WhenSearchingWithReverseIncludes_ThenOnlyGrantedResourcesMatch(bool scalarEnabled, bool grantObservations)
         {
             _configuration.EnableScalarTemporalEqualityRewriter = scalarEnabled;
             string prefix = $"scope-{scalarEnabled}-{grantObservations}-";
@@ -239,14 +304,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         /// <summary>
-        /// Exact-day DOB overlap and the Organization chain must both hold for each result and its count.
+        /// Exact-day Patient birthdate overlap and the Organization chain must both hold for each result and its count.
         /// </summary>
         /// <param name="scalarEnabled">Whether exact-day scalar rewriting is enabled for this fixture.</param>
         /// <returns>The test task.</returns>
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenBirthdatesAndOrganizations_WhenSearchingBoth_ThenResultsAndCountPreserveEachBinding(bool scalarEnabled)
+        public async Task GivenPatientBirthdatesAndOrganizations_WhenSearchingBoth_ThenResultsAndCountPreserveEachBinding(bool scalarEnabled)
         {
             _configuration.EnableScalarTemporalEqualityRewriter = scalarEnabled;
             string prefix = $"organization-{scalarEnabled}-";
@@ -325,15 +390,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         /// <summary>
         /// Enables temporal classification before this class's SQL definitions initialize.
         /// </summary>
-        public sealed class BirthdateStorageFixture : FhirStorageTestsFixture
+        public sealed class CalendarDateStorageFixture : FhirStorageTestsFixture
         {
             /// <summary>
-            /// Initializes a new instance of the <see cref="BirthdateStorageFixture"/> class.
+            /// Initializes a new instance of the <see cref="CalendarDateStorageFixture"/> class.
             /// </summary>
-            public BirthdateStorageFixture()
+            public CalendarDateStorageFixture()
                 : base(new SqlServerFhirStorageTestsFixture(
                     SchemaVersionConstants.Max,
-                    nameof(SqlBirthdateStorageTests) + Guid.NewGuid().ToString("N"),
+                    nameof(SqlCalendarDateStorageTests) + Guid.NewGuid().ToString("N"),
                     Options.Create(new CoreFeatureConfiguration
                     {
                         SupportsIncludes = true,

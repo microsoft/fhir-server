@@ -2360,7 +2360,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Applies the optional birthdate optimization without changing the selected date equality semantics.
+        /// Applies the optional calendar-date optimization without changing the selected date equality semantics.
         /// No path introduces a temporal <see cref="UnionExpression"/>.
         /// </summary>
         /// <param name="expression">The expression tree to transform. May be null.</param>

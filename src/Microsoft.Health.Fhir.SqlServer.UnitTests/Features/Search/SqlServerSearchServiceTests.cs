@@ -878,7 +878,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Fact]
         public void ApplyDateEqualitySemantics_WhenContainmentEnabledAndScalarOff_PassesExpressionThroughUnchanged()
         {
-            SearchParameterExpression containment = BuildExactDayBirthdateEquality();
+            SearchParameterExpression containment = BuildExactDayCalendarDateEquality();
 
             Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(containment, enableFhirDateContainment: true, enableScalarTemporalRewriter: false);
 
@@ -906,7 +906,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             bool expectEndOnlyCollapse,
             bool expectLegacyOverlap)
         {
-            SearchParameterExpression query = BuildExactDayBirthdateEquality();
+            SearchParameterExpression query = BuildExactDayCalendarDateEquality();
 
             Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(
                 query, enableFhirDateContainment, enableScalarTemporalRewriter);
@@ -923,15 +923,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.False(ContainsPredicate(result, e => e is UnionExpression), "No date-equality flag combination may emit a temporal UNION.");
         }
 
-        private static SearchParameterExpression BuildExactDayBirthdateEquality()
+        private static SearchParameterExpression BuildExactDayCalendarDateEquality()
         {
             var dateParam = new SearchParameterInfo(
-                "birthdate",
-                "birthdate",
+                "payment-date",
+                "payment-date",
                 SearchParamType.Date,
-                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
-                expression: "Patient.birthDate",
-                baseResourceTypes: new[] { "Patient" })
+                new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-payment-date"),
+                expression: "ClaimResponse.payment.date",
+                baseResourceTypes: new[] { "ClaimResponse" })
             {
                 IsSystemDefined = true,
                 TemporalType = TemporalType.Date,
