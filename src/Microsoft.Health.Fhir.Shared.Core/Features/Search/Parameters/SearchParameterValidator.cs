@@ -168,131 +168,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
         private void CheckForConflictingCodeValue(SearchParameter searchParam, List<ValidationFailure> validationFailures)
         {
-            // Ensure the search parameter's code value does not already exist for its base type(s)
-            var baseTypes = searchParam.Base?.Where(x => x != null).Select(x => x?.ToString()).ToList() ?? new List<string>();
-            foreach (string baseType in baseTypes)
-            {
-                if (searchParam.Code is null)
-                {
-                    _logger.LogInformation("Search parameter definition has a null or empty code value. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType);
-                    validationFailures.Add(
-                        new ValidationFailure(
-                            nameof(searchParam.Code),
-                            string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType)));
-                }
-                else
-                {
-                    if (string.Equals(baseType, KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase))
-                    {
-                        foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
-                        {
-                            if (_searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, true, out var existingSearchParameter)
-                                && !CompareSearchParameterProperties(baseType, searchParam.Code, searchParam, existingSearchParameter, validationFailures))
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    else if (baseType == KnownResourceTypes.DomainResource)
-                    {
-                        foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
-                        {
-                            Type type = _modelInfoProvider.GetTypeForFhirType(resource);
-                            string fhirBaseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
-
-                            if (fhirBaseType == KnownResourceTypes.DomainResource
-                                && _searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, true, out var existingSearchParameter)
-                                && !CompareSearchParameterProperties(baseType, searchParam.Code, searchParam, existingSearchParameter, validationFailures))
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType, searchParam.Code, true, out var existingSearchParameter))
-                    {
-                        CompareSearchParameterProperties(baseType, searchParam.Code, searchParam, existingSearchParameter, validationFailures);
-                    }
-                }
-            }
-        }
-
-        private bool CompareSearchParameterProperties(
-            string baseType,
-            string code,
-            SearchParameter incomingSearchParameter,
-            SearchParameterInfo existingSearchParameter,
-            List<ValidationFailure> validationFailures)
-        {
-            EnsureArg.IsNotNull(incomingSearchParameter, nameof(incomingSearchParameter));
-            EnsureArg.IsNotNull(existingSearchParameter, nameof(existingSearchParameter));
-
-            _logger.LogInformation($"Comparing types...: '{incomingSearchParameter.Type}', '{existingSearchParameter.Type}'");
-            if (!string.Equals(incomingSearchParameter.Type?.ToString(), existingSearchParameter.Type.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation("The types of the incoming and existing search parameter are different.");
-                validationFailures.Add(
-                    new ValidationFailure(
-                        nameof(code),
-                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, code, baseType)));
-                return false;
-            }
-
-            try
-            {
-                var result = _searchParameterComparer.CompareExpression(
-                    incomingSearchParameter.Expression,
-                    existingSearchParameter.Expression,
-                    existingSearchParameter.IsBaseTypeSearchParameter());
-                switch (result)
-                {
-                    case 0:
-                        _logger.LogInformation("The expressions of the incoming and existing search parameter are identical.");
-                        break;
-
-                    case 1:
-                        _logger.LogInformation("The incoming expression is a superset of the existing expression.");
-                        break;
-
-                    case -1:
-                        _logger.LogInformation("The existing expression is a superset of the incoming expression.");
-                        break;
-
-                    default:
-                        _logger.LogInformation("The expressions of the incoming and existing search parameter are different.");
-                        validationFailures.Add(
-                            new ValidationFailure(
-                                nameof(code),
-                                string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, code, baseType)));
-                        return false;
-                }
-            }
-            catch (FormatException ex)
-            {
-                _logger.LogError(ex, "Failed to parse expression.");
-                validationFailures.Add(
-                    new ValidationFailure(
-                        nameof(code),
-                        Resources.SearchParameterDefinitionContainsInvalidEntry));
-                return false;
-            }
-
-            if (incomingSearchParameter.Type == SearchParamType.Composite)
-            {
-                _logger.LogInformation($"Comparing components...: '{incomingSearchParameter.Component?.Count ?? 0} components', '{existingSearchParameter.Component?.Count ?? 0} components'");
-                var incomingComponent = incomingSearchParameter.Component?.Select<SearchParameter.ComponentComponent, (string, string)>(x => new(x.GetComponentDefinitionUri().OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
-                var existingComponent = existingSearchParameter.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
-                if (_searchParameterComparer.CompareComponent(incomingComponent, existingComponent) != 0)
-                {
-                    _logger.LogInformation("Components are different.");
-                    validationFailures.Add(
-                        new ValidationFailure(
-                            nameof(code),
-                            string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, code, baseType)));
-                    return false;
-                }
-            }
-
-            return true;
+            SearchParameterConflictRules.CheckForConflictingCodeValue(
+                searchParam,
+                _searchParameterDefinitionManager,
+                _modelInfoProvider,
+                _searchParameterComparer,
+                _logger,
+                validationFailures);
         }
     }
 }

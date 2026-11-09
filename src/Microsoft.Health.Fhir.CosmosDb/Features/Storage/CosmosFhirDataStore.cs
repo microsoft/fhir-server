@@ -218,7 +218,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         innerCt,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.CreateOnly);
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
@@ -278,7 +279,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         cancellationToken,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.CreateOnly);
 
                     if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
                     {
@@ -305,7 +307,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool allowCreate,
             bool keepHistory,
             CancellationToken cancellationToken,
-            bool requireETagOnUpdate = false)
+            bool requireETagOnUpdate = false,
+            bool createOnly = false)
         {
             using IScoped<Container> containerScope = _containerScope.Invoke();
 
@@ -366,20 +369,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
-            // If the versioning policy is set to versioned-update and no if-match header is provided
-            if (requireETagOnUpdate && weakETag == null)
-            {
-                // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
-                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
-                {
-                    _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
-                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
-                }
-
-                _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
-                throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
-            }
-
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -414,6 +403,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     throw;
                 }
 
+                // Checked after every read so a live resource created concurrently (the replace below fails on the ETag and re-reads) is never overwritten.
+                if (createOnly && !existingItemResource.IsDeleted)
+                {
+                    _logger.LogInformation("Conflict: ResourceAlreadyExists");
+                    throw new ResourceConflictException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceAlreadyExists, resource.ResourceTypeName, resource.ResourceId));
+                }
+
+                // If the versioning policy is set to versioned-update and no if-match header is provided
+                if (requireETagOnUpdate && weakETag == null)
+                {
+                    // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
+                    if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                    {
+                        _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
+                        throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                    }
+
+                    _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
+                    throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                }
+
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
                 {
                     // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
@@ -432,8 +442,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     return null;
                 }
 
-                // If not a delete then check if its an update with no data change
-                if (!cosmosWrapper.IsDeleted)
+                // Replacing a deleted resource with a live one re-creates it (FHIR R4 HTTP Update: 201 Created).
+                bool isResurrection = existingItemResource.IsDeleted && !cosmosWrapper.IsDeleted;
+
+                // If not a delete then check if its an update with no data change.
+                // A deleted existing resource must never be short-circuited, otherwise the tombstone would remain.
+                if (!cosmosWrapper.IsDeleted && !existingItemResource.IsDeleted)
                 {
                     // check if the new resource data is same as existing resource data
                     if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper), StringComparison.Ordinal))
@@ -518,7 +532,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     }
                 }
 
-                return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Updated);
+                return new UpsertOutcome(cosmosWrapper, isResurrection ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
             }
         }
 

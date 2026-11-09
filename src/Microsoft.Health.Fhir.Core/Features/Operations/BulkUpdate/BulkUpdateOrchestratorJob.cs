@@ -241,6 +241,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 return OperationCompleted;
             }
+            catch (Exception ex) when (ex.IsCustomerCaused())
+            {
+                _logger.LogJobWarning(ex, jobInfo, "Bulk update orchestration failed due to a customer-caused error.");
+                var result = new BulkUpdateResult();
+                result.Issues.Add(ex.Message);
+                throw new JobExecutionException(ex.Message, result, ex, isCustomerCaused: true);
+            }
             finally
             {
                 _contextAccessor.RequestContext = existingFhirRequestContext;
