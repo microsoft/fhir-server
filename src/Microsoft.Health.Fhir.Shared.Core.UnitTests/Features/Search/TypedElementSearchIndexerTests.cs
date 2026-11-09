@@ -97,6 +97,62 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.DoesNotContain("synthetic-value", exception.Message);
         }
 
+        [Fact]
+        public void GivenCompositeComponentExpressionFailure_WhenExtract_ThenExceptionIdentifiesOwningComposite()
+        {
+            // Arrange
+            var compositeUrl = new Uri("http://example.org/SearchParameter/composite");
+            var componentUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-value");
+            var componentDefinition = new SearchParameterInfo(
+                "value",
+                "value",
+                ValueSets.SearchParamType.String,
+                componentUrl,
+                expression: "Observation.value");
+            var component = new SearchParameterComponentInfo(
+                componentUrl,
+                "value.where(matches($this & '['))")
+            {
+                ResolvedSearchParameter = componentDefinition,
+            };
+            var composite = new SearchParameterInfo(
+                "composite",
+                "composite",
+                ValueSets.SearchParamType.Composite,
+                compositeUrl,
+                components: new[] { component },
+                expression: "Observation");
+            _definitionManager.GetSearchParameters("Observation").Returns(new[] { composite });
+            var observation = new Observation { Value = new FhirString("synthetic-value") };
+
+            // Act
+            var exception = Assert.Throws<SearchParameterEvaluationException>(() => _searchIndexer.Extract(observation.ToResourceElement()));
+
+            // Assert
+            Assert.Equal(compositeUrl, exception.SearchParameterUrl);
+            Assert.Equal(string.Format(Core.Resources.SearchParameterEvaluationFailed, compositeUrl), exception.Message);
+            Assert.DoesNotContain(componentUrl.ToString(), exception.Message);
+            Assert.DoesNotContain("synthetic-value", exception.Message);
+        }
+
+        [Fact]
+        public void GivenCompositeSearchParameterWithoutUrl_WhenExtract_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var composite = new SearchParameterInfo(
+                "composite",
+                "composite",
+                ValueSets.SearchParamType.Composite,
+                expression: "Observation");
+            _definitionManager.GetSearchParameters("Observation").Returns(new[] { composite });
+
+            // Act
+            var exception = Assert.Throws<ArgumentNullException>(() => _searchIndexer.Extract(new Observation().ToResourceElement()));
+
+            // Assert
+            Assert.Equal("Url", exception.ParamName);
+        }
+
         [Theory]
         [InlineData("Observation.value.where(")]
         [InlineData("Observation.value.nonExistingFunction()")]

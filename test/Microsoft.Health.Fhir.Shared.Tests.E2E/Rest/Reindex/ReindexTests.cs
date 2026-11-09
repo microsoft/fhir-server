@@ -176,15 +176,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 exceptions.Add(testFailure);
             }
 
-            if (searchParameter != null)
-            {
-                var cleanupFailure = await Record.ExceptionAsync(() => client.DeleteAsync(searchParameter));
-                if (cleanupFailure != null)
-                {
-                    exceptions.Add(cleanupFailure);
-                }
-            }
-
             if (jobUri != null && !jobIsTerminal)
             {
                 var cleanupFailure = await Record.ExceptionAsync(async () =>
@@ -192,7 +183,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     using var cancelResponse = await client.HttpClient.DeleteAsync(jobUri);
                     cancelResponse.EnsureSuccessStatusCode();
                     var canceledJob = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromMinutes(3));
-                    Assert.Contains(canceledJob.Status, new[] { OperationStatus.Failed, OperationStatus.Completed, OperationStatus.Canceled });
+                    if (canceledJob.Status is not (OperationStatus.Failed or OperationStatus.Completed or OperationStatus.Canceled))
+                    {
+                        throw new TimeoutException($"Original reindex job did not reach a terminal state before cleanup. Last status: {canceledJob.Status}.");
+                    }
+
+                    jobIsTerminal = true;
                 });
                 if (cleanupFailure != null)
                 {
@@ -200,7 +196,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
             }
 
-            if (searchParameter != null)
+            bool searchParameterDeleted = false;
+            if (searchParameter != null && (jobUri == null || jobIsTerminal))
+            {
+                var cleanupFailure = await Record.ExceptionAsync(() => client.DeleteAsync(searchParameter));
+                if (cleanupFailure != null)
+                {
+                    exceptions.Add(cleanupFailure);
+                }
+                else
+                {
+                    searchParameterDeleted = true;
+                }
+            }
+
+            if (searchParameterDeleted)
             {
                 var cleanupFailure = await Record.ExceptionAsync(async () =>
                 {
