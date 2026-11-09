@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             }
 
             var parameters = LongReferenceIdIssue.GetOverlongReferences(resource.SearchIndices)
-                .Select(item => (item.Entry.SearchParameter.Code, MaxLength: item.Reference.MaxResourceIdLength.Value))
+                .Select(item => (item.Entry.SearchParameter.Code, MaxLength: item.MaxResourceIdLength))
                 .Distinct();
 
             foreach ((string code, int maxLength) in parameters)

@@ -566,7 +566,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("POST")]
         public async Task GivenAResourceWithAnOverlongReference_WhenReindexedSingly_ThenTheResponseHasAnIssuesParameterWithTheWarning(string method)
         {
-            using HttpResponseMessage response = await Fixture.HttpClient.SendAsync(new HttpRequestMessage(new HttpMethod(method), $"Patient/{Fixture.PrivatePatient.Id}/$reindex"));
+            using var request = new HttpRequestMessage(new HttpMethod(method), $"Patient/{Fixture.PrivatePatient.Id}/$reindex");
+            using HttpResponseMessage response = await Fixture.HttpClient.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var parameters = Assert.IsType<Parameters>(await ParseAsync(response));

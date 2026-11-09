@@ -64,15 +64,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
                 foreach (SearchIndexEntry entry in merge.ResourceWrapper.SearchIndices)
                 {
-                    foreach (ReferenceSearchValue reference in GetReferences(entry.Value))
+                    foreach (int length in GetReferences(entry.Value).Where(r => r.OverlongResourceIdLength != null).Select(r => r.OverlongResourceIdLength.GetValueOrDefault()))
                     {
-                        if (reference.OverlongResourceIdLength is int length)
-                        {
-                            truncated ??= new Dictionary<(string, Uri), (int, int)>();
-                            var key = (merge.ResourceWrapper.ResourceTypeName, entry.SearchParameter.Url);
-                            truncated.TryGetValue(key, out (int Count, int MaxLength) current);
-                            truncated[key] = (current.Count + 1, Math.Max(current.MaxLength, length));
-                        }
+                        truncated ??= new Dictionary<(string, Uri), (int, int)>();
+                        var key = (merge.ResourceWrapper.ResourceTypeName, entry.SearchParameter.Url);
+                        truncated.TryGetValue(key, out (int Count, int MaxLength) current);
+                        truncated[key] = (current.Count + 1, Math.Max(current.MaxLength, length));
                     }
                 }
             }

@@ -58,6 +58,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        public async Task GivenAnImportWithADuplicateResource_WhenTheImportCompletes_ThenOnlyTheImportedResourceIsCounted()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient patient = CreatePatient(tag, Guid.NewGuid().ToString("N") + new string('a', 33));
+
+            JObject status = await ImportAsync(patient, patient);
+
+            Assert.Equal(1, Assert.Single(status["error"])["count"].Value<long>());
+            JToken issue = Assert.Single(status["issues"]);
+            Assert.Equal("Patient", issue["type"].Value<string>());
+            Assert.Equal(1, issue["count"].Value<long>());
+        }
+
+        [Fact]
         public async Task GivenImportedResourcesWithoutOverlongReferenceIds_WhenTheImportCompletes_ThenTheStatusHasNoIssues()
         {
             string tag = Guid.NewGuid().ToString();

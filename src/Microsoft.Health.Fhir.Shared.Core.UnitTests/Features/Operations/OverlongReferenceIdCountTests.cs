@@ -134,9 +134,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations
                 new SearchIndexEntry(Subject, new StringSearchValue("not a reference")),
             };
 
-            (SearchIndexEntry entry, ReferenceSearchValue reference) = Assert.Single(LongReferenceIdIssue.GetOverlongReferences(entries));
+            (SearchIndexEntry entry, ReferenceSearchValue reference, int maxResourceIdLength) = Assert.Single(LongReferenceIdIssue.GetOverlongReferences(entries));
             Assert.Equal("performer", entry.SearchParameter.Code);
             Assert.Equal(65, reference.OverlongResourceIdLength);
+            Assert.Equal(64, maxResourceIdLength);
             Assert.Empty(LongReferenceIdIssue.GetOverlongReferences(null));
         }
 

@@ -235,9 +235,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds));
             int? expectedMaxLength = expectedOverlongLength == null ? null : (useLongResourceIds ? 128 : 64);
 
-            foreach (string reference in new[] { $"Patient/{resourceId}", $"https://localhost/stu3/Patient/{resourceId}", $"https://external-server.com/fhir/Patient/{resourceId}/_history/2", resourceId })
+            foreach (ReferenceSearchValue value in new[] { $"Patient/{resourceId}", $"https://localhost/stu3/Patient/{resourceId}", $"https://external-server.com/fhir/Patient/{resourceId}/_history/2", resourceId }.Select(parser.Parse))
             {
-                ReferenceSearchValue value = parser.Parse(reference);
                 Assert.Equal(expectedOverlongLength, value.OverlongResourceIdLength);
                 Assert.Equal(expectedMaxLength, value.MaxResourceIdLength);
             }

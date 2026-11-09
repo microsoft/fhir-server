@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Returns the search index entries whose reference, or reference component, has a resource id longer than the maximum.
         /// </summary>
         /// <param name="searchIndices">The search index entries of a resource.</param>
-        /// <returns>Each affected entry with the overlong reference.</returns>
-        public static IEnumerable<(SearchIndexEntry Entry, ReferenceSearchValue Reference)> GetOverlongReferences(IEnumerable<SearchIndexEntry> searchIndices)
+        /// <returns>Each affected entry with the overlong reference and the maximum resource id length.</returns>
+        public static IEnumerable<(SearchIndexEntry Entry, ReferenceSearchValue Reference, int MaxResourceIdLength)> GetOverlongReferences(IEnumerable<SearchIndexEntry> searchIndices)
         {
             if (searchIndices == null)
             {
@@ -92,12 +92,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     ? composite.Components.SelectMany(component => component)
                     : [entry.Value];
 
-                foreach (ReferenceSearchValue reference in values.OfType<ReferenceSearchValue>())
+                foreach (ReferenceSearchValue reference in values.OfType<ReferenceSearchValue>().Where(r => r.OverlongResourceIdLength != null && r.MaxResourceIdLength != null))
                 {
-                    if (reference.OverlongResourceIdLength != null && reference.MaxResourceIdLength != null)
-                    {
-                        yield return (entry, reference);
-                    }
+                    yield return (entry, reference, reference.MaxResourceIdLength.GetValueOrDefault());
                 }
             }
         }

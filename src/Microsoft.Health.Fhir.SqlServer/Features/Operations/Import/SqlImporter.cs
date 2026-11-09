@@ -97,12 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             var importResult = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
             errors.AddRange(importResult.Errors);
-
-            // Errors from the data store aren't mapped to resources, so every valid resource in the batch is counted.
-            foreach (ImportResource resource in validResources)
-            {
-                OverlongReferenceIdCount.Add(overlongReferenceIds, resource.ResourceWrapper);
-            }
+            OverlongReferenceIdCount.Merge(overlongReferenceIds, importResult.OverlongReferenceIds);
 
             var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();

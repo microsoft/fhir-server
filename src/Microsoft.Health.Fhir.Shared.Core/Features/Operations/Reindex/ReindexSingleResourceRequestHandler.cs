@@ -124,9 +124,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Overlong reference ids are indexed truncated, so tell the caller which search parameters are affected.
             var longReferenceIdIssues = new List<OperationOutcomeIssue>();
-            foreach ((SearchIndexEntry entry, ReferenceSearchValue reference) in LongReferenceIdIssue.GetOverlongReferences(newIndices))
+            foreach ((SearchIndexEntry entry, _, int maxResourceIdLength) in LongReferenceIdIssue.GetOverlongReferences(newIndices))
             {
-                LongReferenceIdIssue.TryAdd(longReferenceIdIssues, entry.SearchParameter.Code, reference.MaxResourceIdLength.Value);
+                LongReferenceIdIssue.TryAdd(longReferenceIdIssues, entry.SearchParameter.Code, maxResourceIdLength);
             }
 
             issues.AddRange(longReferenceIdIssues.Select(issue => issue.ToPoco()));

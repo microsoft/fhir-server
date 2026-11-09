@@ -96,8 +96,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            return entries.Distinct().ToList();
+            return Distinct(entries);
         }
+
+        /// <summary>
+        /// Removes duplicate entries, keeping the order. Entries that differ only in the overlong reference id length are equal, so
+        /// the one with the longest overlong id is kept, and the truncation is still reported when the resource is written.
+        /// </summary>
+        private static List<SearchIndexEntry> Distinct(List<SearchIndexEntry> entries)
+        {
+            var indexes = new Dictionary<SearchIndexEntry, int>();
+            var result = new List<SearchIndexEntry>(entries.Count);
+            foreach (SearchIndexEntry entry in entries)
+            {
+                if (!indexes.TryGetValue(entry, out int index))
+                {
+                    indexes.Add(entry, result.Count);
+                    result.Add(entry);
+                }
+                else if (GetOverlongResourceIdLength(entry) > GetOverlongResourceIdLength(result[index]))
+                {
+                    result[index] = entry;
+                }
+            }
+
+            return result;
+        }
+
+        private static int GetOverlongResourceIdLength(SearchIndexEntry entry)
+            => LongReferenceIdIssue.GetOverlongReferences([entry])
+                .Select(item => item.Reference.OverlongResourceIdLength.GetValueOrDefault())
+                .DefaultIfEmpty(0)
+                .Max();
 
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {

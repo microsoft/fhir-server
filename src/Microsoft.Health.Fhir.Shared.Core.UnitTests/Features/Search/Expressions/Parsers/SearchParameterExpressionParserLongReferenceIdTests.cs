@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [Fact]
         public void GivenNoRequestContext_WhenAnOverlongReferenceIsParsed_ThenItIsLogged()
         {
-            _contextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+            _contextAccessor.RequestContext.Returns(default(IFhirRequestContext));
             SearchParameterExpressionParser parser = CreateParser(ResourceIdPolicy.Standard);
 
             parser.Parse(Performer, null, $"Patient/{CreateResourceId(65)}");

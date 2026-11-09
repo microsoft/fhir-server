@@ -137,9 +137,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return;
             }
 
-            foreach ((SearchIndexEntry entry, ReferenceSearchValue reference) in LongReferenceIdIssue.GetOverlongReferences(searchIndices))
+            foreach ((SearchIndexEntry entry, _, int maxResourceIdLength) in LongReferenceIdIssue.GetOverlongReferences(searchIndices))
             {
-                LongReferenceIdIssue.TryAdd(fhirRequestContext.BundleIssues, entry.SearchParameter.Code, reference.MaxResourceIdLength.Value);
+                LongReferenceIdIssue.TryAdd(fhirRequestContext.BundleIssues, entry.SearchParameter.Code, maxResourceIdLength);
             }
         }
 
