@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
@@ -35,6 +36,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private const string HttpPostName = "POST";
+
+        /// <summary>
+        /// The name of the parameter that holds warnings, as an OperationOutcome, in the response.
+        /// </summary>
+        internal const string IssuesParameterName = "Issues";
 
         public ReindexSingleResourceRequestHandler(
             IAuthorizationService<DataActions> authorizationService,
@@ -106,19 +112,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 parametersResource.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent() { Name = searchIndex.SearchParameter.Code.ToString(), Value = new FhirString(searchIndex.Value.ToString()) });
             }
 
+            var issues = new List<OperationOutcome.IssueComponent>();
+
             // Search values the data store couldn't index (for example URI values it can't tell apart) are not stored.
-            if (warnings?.Count > 0)
+            issues.AddRange((warnings ?? Array.Empty<string>()).Select(warning => new OperationOutcome.IssueComponent
             {
-                var operationOutcome = new OperationOutcome
-                {
-                    Issue = warnings.Select(warning => new OperationOutcome.IssueComponent
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Warning,
-                        Code = OperationOutcome.IssueType.Informational,
-                        Diagnostics = warning,
-                    }).ToList(),
-                };
-                parametersResource.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent { Name = "Issues", Resource = operationOutcome });
+                Severity = OperationOutcome.IssueSeverity.Warning,
+                Code = OperationOutcome.IssueType.Informational,
+                Diagnostics = warning,
+            }));
+
+            // Overlong reference ids are indexed truncated, so tell the caller which search parameters are affected.
+            var longReferenceIdIssues = new List<OperationOutcomeIssue>();
+            foreach ((SearchIndexEntry entry, ReferenceSearchValue reference) in LongReferenceIdIssue.GetOverlongReferences(newIndices))
+            {
+                LongReferenceIdIssue.TryAdd(longReferenceIdIssues, entry.SearchParameter.Code, reference.MaxResourceIdLength.Value);
+            }
+
+            issues.AddRange(longReferenceIdIssues.Select(issue => issue.ToPoco()));
+
+            if (issues.Count > 0)
+            {
+                parametersResource.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent { Name = IssuesParameterName, Resource = new OperationOutcome { Issue = issues } });
             }
 
             return new ReindexSingleResourceResponse(parametersResource.ToResourceElement());

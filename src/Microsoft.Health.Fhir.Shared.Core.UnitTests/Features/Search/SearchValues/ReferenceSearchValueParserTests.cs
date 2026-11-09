@@ -220,6 +220,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(resourceId[..expectedLength], value.ResourceId);
         }
 
+        [Theory]
+        [InlineData(false, 63, null)]
+        [InlineData(false, 64, null)]
+        [InlineData(false, 65, 65)]
+        [InlineData(false, 129, 129)]
+        [InlineData(true, 64, null)]
+        [InlineData(true, 128, null)]
+        [InlineData(true, 129, 129)]
+        [InlineData(true, 200, 200)]
+        public void GivenAReferenceWithAnIdNearTheLimits_WhenParsing_ThenTheOverlongIdLengthIsReported(bool useLongResourceIds, int length, int? expectedOverlongLength)
+        {
+            string resourceId = CreateResourceId(length);
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds));
+            int? expectedMaxLength = expectedOverlongLength == null ? null : (useLongResourceIds ? 128 : 64);
+
+            foreach (string reference in new[] { $"Patient/{resourceId}", $"https://localhost/stu3/Patient/{resourceId}", $"https://external-server.com/fhir/Patient/{resourceId}/_history/2", resourceId })
+            {
+                ReferenceSearchValue value = parser.Parse(reference);
+                Assert.Equal(expectedOverlongLength, value.OverlongResourceIdLength);
+                Assert.Equal(expectedMaxLength, value.MaxResourceIdLength);
+            }
+        }
+
+        [Fact]
+        public void GivenALongReferenceThatIsNotAResourceId_WhenParsing_ThenNoOverlongIdLengthIsReported()
+        {
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.Standard);
+
+            Assert.Null(parser.Parse("urn:oid:" + string.Join('.', Enumerable.Repeat("1234567890", 10))).OverlongResourceIdLength);
+            Assert.Null(parser.Parse("http://test.com/" + new string('a', 100)).OverlongResourceIdLength);
+            Assert.Null(parser.Parse("#" + new string('a', 100)).OverlongResourceIdLength);
+        }
+
         private static string CreateResourceId(int length)
             => string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
 

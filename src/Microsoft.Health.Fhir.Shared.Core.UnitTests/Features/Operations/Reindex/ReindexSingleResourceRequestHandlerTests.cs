@@ -113,6 +113,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Theory]
         [InlineData(HttpGetName)]
         [InlineData(HttpPostName)]
+        public async Task GivenAResourceWithAnOverlongReferenceId_WhenHandle_ThenTheResponseHasAnIssuesParameterWithTheWarning(string httpMethodName)
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var performer = new SearchParameterInfo("performer", "performer");
+            var reference = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64)) { OverlongResourceIdLength = 65, MaxResourceIdLength = 64 };
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { new SearchIndexEntry(performer, reference), new SearchIndexEntry(performer, reference) });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(httpMethodName), _cancellationToken);
+
+            Parameters parameters = response.ParameterResource.ToPoco<Parameters>();
+            var outcome = Assert.IsType<OperationOutcome>(Assert.Single(parameters.Parameter, p => p.Name == "Issues").Resource);
+            OperationOutcome.IssueComponent issue = Assert.Single(outcome.Issue);
+            Assert.Equal(OperationOutcome.IssueSeverity.Warning, issue.Severity);
+            Assert.Equal("Reference parameter 'performer' ID exceeds 64 characters. Index truncation applied after 64 characters, which may yield over-inclusive results", issue.Diagnostics);
+        }
+
+        [Fact]
+        public async Task GivenAResourceWithoutOverlongReferenceIds_WhenHandle_ThenTheResponseHasNoIssuesParameter()
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var reference = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { new SearchIndexEntry(new SearchParameterInfo("performer", "performer"), reference) });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(HttpGetName), _cancellationToken);
+
+            Assert.DoesNotContain(response.ParameterResource.ToPoco<Parameters>().Parameter, p => p.Name == "Issues");
+        }
+
+        [Theory]
+        [InlineData(HttpGetName)]
+        [InlineData(HttpPostName)]
         public async Task GivenNewSearchIndicesGetRequest_WhenHandle_ThenTheirValuesArePresentInResponse(string httpMethodName)
         {
             SetupDataStoreToReturnDummyResourceWrapper();

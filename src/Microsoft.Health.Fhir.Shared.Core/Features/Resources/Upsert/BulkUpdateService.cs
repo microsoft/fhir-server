@@ -660,8 +660,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
             }
 
-            return pageResult;
+            // Updated resources with reference ids longer than the maximum resource id length, which are indexed truncated.
+            foreach (ResourceWrapperOperation operation in wrapperOperationsIncludes.Concat(wrapperOperationsMatches))
+            {
+                if (!rejected.Any(r => r.Id == operation.Wrapper.ResourceId && r.ResourceType == operation.Wrapper.ResourceTypeName))
+                {
+                    OverlongReferenceIdCount.Add(pageResult.OverlongReferenceIds, operation.Wrapper);
+                }
+            }
 
+            return pageResult;
             void CollectRejected(MergeOutcome outcome, bool isInclude)
             {
                 foreach (var (identifier, result) in outcome.Results)
@@ -743,6 +751,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     finalResult.Issues.Add(issue);
                 }
+
+                AppendOverlongReferenceIds(finalResult, pageResult.OverlongReferenceIds);
             }
         }
 
@@ -783,7 +793,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 result.Issues.Add(issue);
             }
 
+            AppendOverlongReferenceIds(result, newResult.OverlongReferenceIds);
             return result;
+        }
+
+        /// <summary>
+        /// Adds counts of updated resources with overlong reference ids to <paramref name="result"/>. Pages are updated in
+        /// parallel, so the counts are locked.
+        /// </summary>
+        private static void AppendOverlongReferenceIds(BulkUpdateResult result, IEnumerable<OverlongReferenceIdCount> counts)
+        {
+            lock (result.OverlongReferenceIds)
+            {
+                OverlongReferenceIdCount.Merge(result.OverlongReferenceIds, counts);
+            }
         }
     }
 }

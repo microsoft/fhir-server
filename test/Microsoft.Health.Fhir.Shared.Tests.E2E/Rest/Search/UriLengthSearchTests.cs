@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenATransactionCreatingAResourceWithALongUri_WhenPreferOperationOutcome_ThenTheTransactionStillSucceeds()
         {
-            // A transaction fails when an entry returns an OperationOutcome, so transaction entries don't get the warning.
+            // An entry with a successful status and only warnings doesn't fail the transaction, so transaction entries get the warning too.
             var patient = new Patient();
             Fixture.SetTagAndProfiles(patient, Guid.NewGuid().ToString(), Fixture.SharedPrefix + "transaction");
             var transaction = new Bundle
@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal(HttpStatusCode.OK, status);
                 Bundle.EntryComponent entry = Assert.Single(Assert.IsType<Bundle>(body).Entry);
                 Assert.StartsWith("201", entry.Response.Status, StringComparison.Ordinal);
-                Assert.Null(entry.Response.Outcome);
+                AssertOnlyLongUriWarning(Assert.IsType<OperationOutcome>(entry.Response.Outcome));
             }
         }
 

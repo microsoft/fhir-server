@@ -312,6 +312,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobWarning(_jobInfo, $"Reindex: {warnings.Count} search value warning(s) for resource type {_definition.ResourceType}.");
                 _result.AddWarnings(warnings);
             }
+
+            // Counted after the write succeeds, so a retry doesn't count a resource twice.
+            var overlongReferenceIds = new List<OverlongReferenceIdCount>();
+            foreach (var resource in resources)
+            {
+                OverlongReferenceIdCount.Add(overlongReferenceIds, resource);
+            }
+
+            if (overlongReferenceIds.Count > 0)
+            {
+                _result ??= new ReindexProcessingJobResult();
+                OverlongReferenceIdCount.Merge(_result.OverlongReferenceIds, overlongReferenceIds);
+            }
         }
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate)
