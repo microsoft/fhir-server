@@ -20,18 +20,18 @@ Feature 206292 · US 210971 (catalogue) · US 211098 (cache management) · ADR `
 | # | Cache | What it does | Loaded | Refreshed | Level | Refactor effort | Phase |
 |---|---|---|---|---|---|---|---|
 | 1 | Spec search parameters | Search parameters defined by the FHIR specification | App startup | Never | Tenant group | Medium | 2 |
-| 2 | Built-in reference data | Compartments, code system map, compiled FHIRPath, FHIR spec package | Startup or first use | Never | Tenant group | None | — |
+| 2 | Built-in reference data | Compartments, code system map, compiled FHIRPath, FHIR spec package | Startup or first use | Never (spec package re-read every 4 h) | Tenant group | Low | — |
 | 3 | App configuration caches | RBAC roles, identity provider keys, container registry tokens | Startup or first use | Roles never; keys and tokens on expiry | Tenant group | None | — |
 | 4 | Custom search parameters and statuses | Customer-defined search parameters and the status of every parameter | Startup | Every 20 s, and before any SearchParameter write | Tenant | High | 2 |
 | 5 | SQL ID maps | Maps resource types, search parameters, claim and compartment types to SQL IDs | Startup | On schema upgrade; new search parameter IDs added by #4 | Tenant | High | 2 |
 | 6 | Code system and unit IDs | Maps token systems and quantity units to SQL IDs | Startup, then on first use of a value | Entries expire after 24 h | Tenant | Medium | 2 |
 | 7 | Schema version | Decides which SQL features and procedures can be used | Startup | Polled by the shared schema package | Tenant | Medium | 2 |
-| 8 | Capability statement | The `/metadata` document and "is X supported?" checks | First `/metadata` request | Checked every 60 s; rebuilt every 4 h or when search parameters or profiles change | Tenant | High | 3 |
-| 9 | Profiles | Customer StructureDefinition, ValueSet and CodeSystem resources for validation | First use | Every 4 h, or after a profile write on the same instance | Tenant | Medium | 3 |
-| 10 | Profile validator | Compiled Firely validator built from the spec and the tenant's profiles | First validation | Every 30 min | Tenant | Medium | 3 |
-| 11 | Custom query procedures | Hand-tuned stored procedures used for specific searches | First search | Every 60 s | Tenant | Low | 1 |
-| 12 | SQL statistics list | Which SQL statistics already exist, so they aren't created again | First search needing stats | Never | Tenant | Low | 1 |
-| 13 | `dbo.Parameters` values | Feature flags and settings ops change in the database | First use | Every 10 min | Tenant | Low | 1 |
+| 8 | Capability statement | The `/metadata` document and "is X supported?" checks | First request that needs it | Checked every 60 s; rebuilt every 4 h, or when search parameters or profiles change | Tenant | High | 3 |
+| 9 | Profiles | Customer StructureDefinition, ValueSet and CodeSystem resources for validation | First use | Every 4 h; other instances detect changes within ~5 min | Tenant | Medium | 3 |
+| 10 | Profile validator | Reused Firely validator wired to the spec package and the tenant's profiles | First validation | Every 30 min | Tenant | Medium | 3 |
+| 11 | Custom query procedures | Hand-tuned stored procedures used for specific searches | First search | Expires after 60 s | Tenant | Low | 1 |
+| 12 | SQL statistics list | Which SQL statistics already exist, so they aren't created again | First search | Never | Tenant | Low | 1 |
+| 13 | `dbo.Parameters` values | Feature flags and settings ops change in the database | First use | Expires after 10 min | Tenant | Low | 1 |
 | 14 | Skewed search parameters | Parameters with uneven data, where query plans shouldn't be reused (off by default) | After search parameters load | Every 1 h | Tenant | Low | 1 |
 | 15 | Change feed resource type names | Converts resource type IDs to names in the change feed | First change feed read | Never | Tenant | Low | 2 |
 | 16 | Customer-managed key health | Whether the customer-managed encryption key is healthy | First health check | Set by the shared package | Tenant | Low | 1 |
@@ -45,7 +45,7 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 
 | Phase | Caches | Why together |
 |---|---|---|
-| 1 | Cache manager + #11 Custom query procedures, #12 SQL statistics list, #13 `dbo.Parameters` values, #14 Skewed search parameters, #16 Customer-managed key health | Adds the per-tenant cache manager and moves the small, self-contained SQL caches (mostly statics). Low risk; sets the pattern. |
+| 1 | Cache manager + #11 Custom query procedures, #12 SQL statistics list, #13 `dbo.Parameters` values, #14 Skewed search parameters, #16 Customer-managed key health | Adds the per-tenant cache manager and moves the small SQL caches (mostly statics). Low risk; sets the pattern. |
 | 2 | #1 Spec search parameters, #4 Custom search parameters and statuses, #5 SQL ID maps, #6 Code system and unit IDs, #7 Schema version, #15 Change feed resource type names, #17 Search helper lookups | Tightly linked: they load together at startup, the search parameter refresh feeds the SQL ID maps, and the helper lookups are built from search parameters. Splits spec (shared) from custom (per tenant). Largest PR; can be split further if needed. #7 depends on the shared-package schema work. |
 | 3 | #8 Capability statement, #9 Profiles, #10 Profile validator | Built on top of phase 2: the capability statement uses search parameters and profiles, and the validator uses profiles. |
 | — | #2 Built-in reference data, #3 App configuration caches | Already shared at tenant group level. No change. |
@@ -58,7 +58,7 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 - **What it does:** Definitions of the search parameters from the FHIR specification.
 - **Loads from:** Embedded `search-parameters.json`.
 - **When:** App startup.
-- **Refresh:** Never. Spec parameters do not change and are always enabled, so no per-tenant status or reindex tracking.
+- **Refresh:** Never. Spec parameters are treated as always enabled for every tenant (decided Nov 6), so they need no per-tenant status or reindex. Today each database also stores a status for every spec parameter (new ones start as `Supported` until reindex); that per-database status stops being used.
 - **Used by:** Search, indexing, sorting, capability statement.
 - **Code:** `SearchParameterDefinitionManager` (Core).
 - **Refactor effort:** Medium – today spec and custom parameters live in the same dictionaries, and statuses are stored on the shared objects. They need to be split.
@@ -67,14 +67,16 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 - **What it does:** Compartment definitions, resource path to code system map, compiled FHIRPath expressions, FHIR spec package used by the validator.
 - **Loads from:** Embedded files and compiled code.
 - **When:** Startup or first use.
-- **Refresh:** Never.
+- **Refresh:** Never. The validator's copy of the spec package is re-read every 4 hours.
 - **Code:** `CompartmentDefinitionManager`, `CodeSystemResolver`, `TypedElementSearchIndexer`, `ProfileValidator` (spec package).
-- **Refactor effort:** None – already safe to share.
+- **Refactor effort:** Low – already safe to share. `TypedElementSearchIndexer` also holds a per-tenant lookup (#17), so that class needs a split.
 
 ### 3. App configuration caches
 - **What it does:** RBAC roles, identity provider signing keys, container registry tokens.
 - **Loads from:** App settings (`roles.json`), identity provider, Azure Container Registry.
-- **Refresh:** Roles at startup; keys and tokens on expiry.
+- **When:** Roles at startup; keys and tokens on first use.
+- **Refresh:** Roles never; keys and tokens on expiry.
+- **Code:** `RoleLoader`, `DefaultTokenIntrospectionService`, `OidcDiscoveryService`, `ContainerRegistryTemplateProvider`, `AnonymizationConfigurationArtifactProvider`.
 - **Refactor effort:** None – app configuration is shared by the group. Revisit only if tenants need different roles.
 
 ---
@@ -82,13 +84,13 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 ## Tenant caches
 
 ### 4. Custom search parameters and statuses
-- **What it does:** Customer-defined search parameters, plus the status of every parameter (enabled, supported, disabled, pending delete).
+- **What it does:** Customer-defined search parameters, the status of every parameter (enabled, supported, disabled, pending delete), and a per-resource-type hash of the search parameters that is stored on each written resource and used by reindex.
 - **Loads from:** SearchParameter resources in `dbo.Resource`; statuses in `dbo.SearchParam`.
 - **When:** Startup, after the SQL ID maps are loaded.
-- **Refresh:** Every 20 seconds, reading only rows changed since the last refresh. Also refreshed before any SearchParameter write. Each instance logs its progress to `dbo.EventLog`; reindex uses this to check that all instances are in sync.
+- **Refresh:** Every 20 seconds (`SearchParameterCacheRefreshIntervalSeconds`), reading only rows changed since the last refresh. Also refreshed before any SearchParameter write. Each instance logs its progress to `dbo.EventLog`; reindex uses this to check that all instances are in sync.
 - **Used by:** Search, indexing, sorting, reindex, capability statement.
 - **Code:** `SearchParameterDefinitionManager`, `SearchParameterStatusManager`, `SearchParameterOperations`, `SearchParameterCacheRefreshBackgroundService` (Core).
-- **Refactor effort:** High – `ISearchParameterDefinitionManager` is used in about 28 files.
+- **Refactor effort:** High – `ISearchParameterDefinitionManager` is used in about 30 files.
 
 ### 5. SQL ID maps
 - **What it does:** Maps names to the small integer IDs stored in SQL tables: resource types, search parameters, claim types, compartment types.
@@ -97,7 +99,7 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 - **Refresh:** No timer. IDs never change once assigned.
 - **Used by:** Every SQL write (index rows) and every search query.
 - **Code:** `SqlServerFhirModel` (SqlServer).
-- **Refactor effort:** High – `ISqlServerFhirModel` is used in about 10 files, including all row generators. Highest risk: one tenant's IDs used against another tenant's database writes wrong index rows.
+- **Refactor effort:** High – `SqlServerFhirModel` / `ISqlServerFhirModel` are used in about 30 files, including all row generators. Highest risk: one tenant's IDs used against another tenant's database writes wrong index rows.
 
 ### 6. Code system and unit IDs
 - **What it does:** Maps token code systems and quantity units to integer IDs.
@@ -119,25 +121,25 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 ### 8. Capability statement
 - **What it does:** The `/metadata` document, and answers to checks such as "does this server support update on Patient?".
 - **Loads from:** Built from #1, #4, #9 and app configuration. Includes the tenant's base URL.
-- **When:** First `/metadata` request.
-- **Refresh:** Checked every 60 seconds; fully rebuilt every 4 hours; rebuilt when search parameters or profiles change on the same instance.
-- **Code:** `SystemConformanceProvider` (Core).
+- **When:** First request that needs it (`/metadata`, format checks, "is X supported?" checks).
+- **Refresh:** Checked every 60 seconds; fully rebuilt every 4 hours (`SystemConformanceProviderRebuildIntervalSeconds`); also rebuilt when #4 picks up a search parameter change or #9 detects a profile change. Answers to "is X supported?" are cached separately and never cleared.
+- **Code:** `SystemConformanceProvider`, `CapabilityStatementBuilder` (Core).
 - **Refactor effort:** High – singleton with its own background loop.
 
 ### 9. Profiles
 - **What it does:** The customer's StructureDefinition, ValueSet and CodeSystem resources.
 - **Loads from:** `dbo.Resource` (search by resource type).
 - **When:** First use.
-- **Refresh:** Every 4 hours (`ValidateOperationConfiguration.CacheDurationInSeconds`), or immediately after a profile write on the same instance. Other instances can be up to 4 hours behind.
+- **Refresh:** Every 4 hours (`ValidateOperationConfiguration.CacheDurationInSeconds`). After a profile write on the same instance, reloaded on next use. Other instances detect changes within about 5 minutes (`BackgroundProfileStatusCheckIntervalInSeconds`).
 - **Used by:** `$validate`, profile validation on create/update, supported profiles in the capability statement.
 - **Code:** `ServerProvideProfileValidation` (Shared.Core).
-- **Refactor effort:** Medium – used in about 15 files, but the class is self-contained.
+- **Refactor effort:** Medium – used in about 13 files, but the class is self-contained.
 
 ### 10. Profile validator
-- **What it does:** A compiled Firely validator, so it is not rebuilt per request.
+- **What it does:** A reused Firely validator wired to the spec package and the tenant's profiles, so it is not rebuilt per request.
 - **Loads from:** FHIR spec package (#2) + the tenant's profiles (#9).
 - **When:** First validation.
-- **Refresh:** Rebuilt every 30 minutes.
+- **Refresh:** Rebuilt every 30 minutes (hard-coded).
 - **Code:** `ProfileValidator` (Shared.Core).
 - **Refactor effort:** Medium – moves together with #9.
 
@@ -145,14 +147,14 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 - **What it does:** Lets a search use a hand-tuned stored procedure (`CustomQuery_<hash>`) when one exists for its query hash.
 - **Loads from:** `sys.objects`.
 - **When:** First search.
-- **Refresh:** Every 60 seconds.
+- **Refresh:** Expires after 60 seconds; reloaded on the next search.
 - **Code:** `CustomQueries` (static, SqlServer).
-- **Refactor effort:** Low – small static class. Note: query hashes now include the tenant database name.
+- **Refactor effort:** Low – small static class.
 
 ### 12. SQL statistics list
 - **What it does:** Remembers which SQL statistics already exist on search tables so they are not created again.
 - **Loads from:** `sys.stats` (via `dbo.GetResourceSearchParamStats`).
-- **When:** First search that needs statistics.
+- **When:** First search.
 - **Refresh:** Never.
 - **Code:** `SqlServerSearchService._resourceSearchParamStats` (static).
 - **Refactor effort:** Low.
@@ -161,13 +163,13 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 - **What it does:** Settings ops can change in the database without redeploying: feature flags (for example `MergeResources.RawResourceDeduping.IsEnabled`), long-running query thresholds, read replica traffic ratio, event log connection string.
 - **Loads from:** `dbo.Parameters`.
 - **When:** First use.
-- **Refresh:** Every 10 minutes. The event log connection string is never refreshed.
-- **Code:** `CachedParameter` (static fields in `SqlServerSearchService`, `SqlServerFhirDataStore`), `SqlRetryService` (static), `SqlServerParameterStore`.
+- **Refresh:** Expires after 10 minutes. The event log connection string is never refreshed.
+- **Code:** `CachedParameter` (static fields in `SqlServerSearchService`, `SqlServerFhirDataStore`), `SqlRetryService` (static), `SqlServerParameterStore` (no callers in this repo).
 - **Refactor effort:** Low – mostly statics that need one copy per tenant.
 
 ### 14. Skewed search parameters
 - **What it does:** Search parameters with very uneven data, for which SQL should not reuse a cached query plan.
-- **Loads from:** SQL statistics (via `dbo.GetResourceSearchParamStatsProperties`).
+- **Loads from:** SQL statistics (via `dbo.GetResourceSearchParamStatsProperties`) and `dbo.SearchParam`.
 - **When:** After search parameters load. Off by default.
 - **Refresh:** Every hour.
 - **Code:** `QueryPlanReuseChecker` (SqlServer).
@@ -184,7 +186,8 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 ### 16. Customer-managed key health
 - **What it does:** Whether the customer-managed encryption key is healthy, so health checks do not hit the database every time.
 - **Loads from:** Database / Key Vault check in the shared package.
-- **Code:** `ValueCache<CustomerKeyHealth>` (SqlServer).
+- **When / Refresh:** Set by the shared package.
+- **Code:** `ValueCache<CustomerKeyHealth>` (shared package; registered in SqlServer, read by `SqlStatusReporter`).
 - **Refactor effort:** Low. Could be tenant group level if the key is set on the server or pool rather than per database.
 
 ### 17. Search helper lookups
