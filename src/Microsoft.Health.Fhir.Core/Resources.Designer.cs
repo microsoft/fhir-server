@@ -1458,6 +1458,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; with id &apos;{1}&apos; already exists and did not match the conditional update criteria..
+        /// </summary>
+        internal static string ResourceAlreadyExists {
+            get {
+                return ResourceManager.GetString("ResourceAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource creation is not allowed..
         /// </summary>
         internal static string ResourceCreationNotAllowed {
