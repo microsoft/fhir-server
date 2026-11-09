@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Integration.Features.Search;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
@@ -39,13 +40,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
     [Trait("DataStore", "SqlServer")]
     public class SqlBirthdateSearchTests
     {
-        private static readonly SearchParameterInfo Birthdate = new(
-            "birthdate",
-            "birthdate",
-            SearchParamType.Date,
-            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
-            expression: "Patient.birthDate",
-            baseResourceTypes: ["Patient"]);
+        private static readonly SearchParameterInfo Birthdate = new SqlInstantDateTimeSearchTests.InstantSearchFixture()
+            .Definitions.GetSearchParameter("Patient", "birthdate");
 
         private static readonly SearchParameterInfo Subject = new(
             "subject",

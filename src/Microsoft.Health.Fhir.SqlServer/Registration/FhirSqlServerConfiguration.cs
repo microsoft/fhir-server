@@ -30,13 +30,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Registration
         public double QueryPlanReuseCheckerRefreshPeriod { get; set; } = 3600.0;
 
         /// <summary>
-        /// Optimizes exact-day equality on allow-listed scalar date parameters (currently <c>birthdate</c>)
-        /// using <c>DateTimeEnd</c> equality for day-precision stored dates. When
+        /// Optimizes full UTC-day equality on built-in, non-composite date search parameters
+        /// with derived <c>TemporalType.Date</c>, including homogeneous date unions.
+        /// Uses <c>DateTimeEnd</c> equality for day-precision stored dates. When
         /// <see cref="EnableFhirDateContainment"/> is false, a disjoint predicate-level OR retains
         /// overlapping month/year stored dates. No temporal <c>UNION ALL</c> is introduced.
-        /// Disabled by default; opt in via
-        /// <c>FhirSqlServer:EnableScalarTemporalEqualityRewriter=true</c> (or env var
-        /// <c>FhirSqlServer__EnableScalarTemporalEqualityRewriter=true</c>). Tracked alongside AB#191826.
+        /// Requires both <c>FhirSqlServer:EnableScalarTemporalEqualityRewriter</c> and
+        /// <c>FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification</c>.
+        /// Both default to false. Environment variables use double underscores in place of colons.
+        /// Classification occurs during definition initialization. Restart after changing these settings.
+        /// Without classification, logs a startup warning and retains existing SQL.
+        /// Custom definitions and other temporal leaf types retain existing SQL and search semantics.
+        /// Tracked alongside AB#191826.
         /// </summary>
         public bool EnableScalarTemporalEqualityRewriter { get; set; } = false;
 

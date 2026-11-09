@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance,
-                Options.Create(new CoreFeatureConfiguration()));
+                _options);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 

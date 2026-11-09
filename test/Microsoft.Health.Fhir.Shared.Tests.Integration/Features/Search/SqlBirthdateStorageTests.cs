@@ -15,8 +15,10 @@ using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -27,9 +29,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
@@ -46,8 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait("DataStore", "SqlServer")]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-    public class SqlBirthdateStorageTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
+    public class SqlBirthdateStorageTests : IClassFixture<SqlBirthdateStorageTests.BirthdateStorageFixture>, IAsyncLifetime
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly FhirSqlServerConfiguration _configuration;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         /// Initializes a new instance of the <see cref="SqlBirthdateStorageTests"/> class.
         /// </summary>
         /// <param name="fixture">The class-scoped SQL storage fixture.</param>
-        public SqlBirthdateStorageTests(FhirStorageTestsFixture fixture)
+        public SqlBirthdateStorageTests(BirthdateStorageFixture fixture)
         {
             _fixture = fixture;
             _configuration = fixture.Service.GetRequiredService<FhirSqlServerConfiguration>();
@@ -82,6 +83,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         /// <inheritdoc />
         public async ValueTask InitializeAsync()
         {
+            Assert.Equal(TemporalType.Date, _fixture.SearchParameterDefinitionManager.GetSearchParameter("Patient", "birthdate").TemporalType);
             var parser = new ReferenceSearchValueParser(_fixture.FhirRequestContextAccessor, new FhirServerInstanceConfiguration(), ResourceIdPolicy.Standard);
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
@@ -318,6 +320,27 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             await _fixture.DataStore.UpsertAsync(
                 new ResourceWrapperOperation(wrapper, true, true, null, false, false, null),
                 CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Enables temporal classification before this class's SQL definitions initialize.
+        /// </summary>
+        public sealed class BirthdateStorageFixture : FhirStorageTestsFixture
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="BirthdateStorageFixture"/> class.
+            /// </summary>
+            public BirthdateStorageFixture()
+                : base(new SqlServerFhirStorageTestsFixture(
+                    SchemaVersionConstants.Max,
+                    nameof(SqlBirthdateStorageTests) + Guid.NewGuid().ToString("N"),
+                    Options.Create(new CoreFeatureConfiguration
+                    {
+                        SupportsIncludes = true,
+                        EnableSearchParameterTemporalClassification = true,
+                    })))
+            {
+            }
         }
     }
 }

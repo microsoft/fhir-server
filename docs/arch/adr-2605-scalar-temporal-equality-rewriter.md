@@ -1,4 +1,4 @@
-# Scalar Temporal Equality Rewriter for Birthdate
+# Scalar temporal equality rewriter for built-in calendar dates
 
 ## Context
 
@@ -6,9 +6,9 @@ FHIR date `eq` on `dbo.DateTimeSearchParam` has two supported behaviors. Core em
 
 The earlier optimization split birthdate equality into a Core `UnionExpression`. PR #5569 introduced that query-level split. PRs #5607/#5608 and #5621 restricted it after regressions inside chains and beside sibling chains. The additional table/CTE structure, rather than the date predicate itself, coupled the optimization to SQL-generation rules.
 
-This ADR initially avoided the split by requiring containment. The revision below removes that requirement without reintroducing a temporal union.
+This ADR initially avoided the split by requiring containment. The revision below removes that requirement without reintroducing a temporal union. Temporal classification from PR #6009 now proves which built-in definitions extract only FHIR `date` leaves, so eligibility no longer needs a DOB URL allowlist.
 
-## Options Considered
+## Options considered
 
 1. **Containment as a prerequisite**. Rejected for this optimization because changing customer-visible semantics is out of scope. The separate containment option remains available.
 2. **End-only equality for every stored value**. Rejected because it drops matching month/year birthdates.
@@ -18,9 +18,9 @@ This ADR initially avoided the split by requiring containment. The revision belo
 
 ## Decision
 
-Make **`EnableScalarTemporalEqualityRewriter`** independent of **`EnableFhirDateContainment`**. Both defaults remain `false`. With scalar optimization enabled, run `ScalarTemporalEqualityRewriter` before applying the selected equality semantics.
+Keep `EnableScalarTemporalEqualityRewriter` independent of `EnableFhirDateContainment`. Both defaults remain `false`. Scalar optimization also requires Core's default-off `EnableSearchParameterTemporalClassification`. With classification and scalar optimization enabled, run `ScalarTemporalEqualityRewriter` before applying the selected equality semantics.
 
-| `EnableScalarTemporalEqualityRewriter` | `EnableFhirDateContainment` | `ScalarTemporalEqualityRewriter` | `DateTimeEqualityRewriter` (overlap) | birthdate `eq` | other date `eq` | Core temporal union introduced |
+| `EnableScalarTemporalEqualityRewriter` | `EnableFhirDateContainment` | `ScalarTemporalEqualityRewriter` | `DateTimeEqualityRewriter` (overlap) | eligible calendar-date `eq` | ineligible date `eq` | Core temporal union introduced |
 |---|---|---|---|---|---|---|
 | on | on | runs → End-only predicate | skipped | End-only seek (containment) | containment | none |
 | off | on | does not run | skipped | Core containment | containment | none |
@@ -29,9 +29,11 @@ Make **`EnableScalarTemporalEqualityRewriter`** independent of **`EnableFhirDate
 
 For an eligible day query, the short branch is `IsLongerThanADay = 0 AND DateTimeEnd = endOfDay`. When containment is off, retain the original equality range under `IsLongerThanADay = 1` in a second OR branch. The existing equality rewriter converts that retained range to overlap. The branches are disjoint, and neither adds a Core `UnionExpression`, a table expression, or a generator special case.
 
-Eligibility remains the built-in `individual-birthdate` allow-list, a non-composite date parameter, and one inclusive equality pair covering a full UTC calendar day. Query year/month precision, timestamps, other operators, other parameters, and comma-OR expressions retain their existing paths. Repeated parameters and chained predicates can each be optimized independently when their individual expression has the eligible shape. The maximum representable day uses the existing overflow-safe end calculation.
+The table assumes Core classification is enabled before definition initialization. Eligibility requires `IsSystemDefined`, search type `Date`, no components, and derived `TemporalType.Date`. Homogeneous date unions remain eligible, including built-in `individual-birthdate` expressions. `ClaimResponse.payment.date` qualifies in R4, R5, and STU3. `Basic.created` qualifies in R4 and STU3, but its R5 `dateTime` leaf does not.
 
-The stored-value invariant is specific to [FHIR `date`](https://hl7.org/fhir/R4/datatypes.html#date). A valid birthdate is a calendar year, month, or day. The date converter expands it to the corresponding UTC interval. Only a stored day has `IsLongerThanADay = 0`, so overlap with a query day is equivalent to equality of their end points. Month/year rows still use both endpoints. An arbitrary short interval would invalidate this equivalence and must not be added to the allow-list.
+The query must have one inclusive equality pair covering a full UTC calendar day. Query year/month precision, timestamps, other operators, and comma-OR expressions retain their existing paths. Repeated parameters and chained predicates can each be optimized independently when their individual expression has the eligible shape. The maximum representable day uses the existing overflow-safe end calculation.
+
+The stored-value invariant is specific to [FHIR `date`](https://hl7.org/fhir/R4/datatypes.html#date). A valid date is a calendar year, month, or day. The date converter expands it to the corresponding UTC interval. Only a stored day has `IsLongerThanADay = 0`, so overlap with a query day is equivalent to equality of their end points. Month/year rows still use both endpoints. Custom definitions, composites, and `DateTime`, `Instant`, `Period`, `Timing`, `Mixed`, or `Unknown` classifications are ineligible, even if a custom definition carries `Date` metadata.
 
 The real typed-JSON conversion rejects timestamp-valued birthdates. The production HTTP parser's existing `TruncateDateTimeToDate` setting instead normalizes them to dates before indexing. Constructing an invalid POCO directly can bypass that boundary; it does not extend the supported birthdate contract.
 
@@ -59,18 +61,22 @@ Proposed revision to the accepted containment-only decision, implemented behind 
 | Legacy | off / off | overlap | `SqlServerSearchServiceTests` and baseline executions in `SqlBirthdateSearchTests` |
 | Overlap + scalar | on / off | unchanged overlap results | `SqlBirthdateSearchTests`, using generated SQL against connection-local SQL Server tables |
 | Containment | off / on | containment | `SqlServerSearchServiceTests.ApplyDateEqualitySemantics` containment case (containment survives, no overlap swap, no union) |
-| Containment + scalar | on / on | containment, birthdate End-only seek | `ScalarTemporalEqualityRewriterTests` (single predicate, no `UnionExpression`) |
+| Containment + scalar | on / on | containment, calendar-date End-only seek | `ScalarTemporalEqualityRewriterTests` (single predicate, no `UnionExpression`) |
+
+`SqlCalendarDateSearchTests` loads production built-in definitions and drives the parser-to-SQL pipeline for R4, R5, and STU3. It covers non-DOB dates, homogeneous DOB unions, non-date leaves, both required flags, and partial-precision/operator fallbacks without a database. Versioned `SearchParameterDefinitionBuilderTests` verifies the underlying built-in metadata.
 
 The generated-SQL suite compares exact results with the optimization off and on. It covers direct queries, forward/reverse and sibling chains, sorting, includes/revincludes, counts, keyset pages, repeated and comma-separated parameters, scoped matches/includes, leap days, and minimum/maximum dates. Partial-precision and timestamp query fallbacks retain identical SQL. Keyset tests exercise generated page predicates, not HTTP continuation-token encoding.
 
 The scope cases include birthdate inside mixed date/token scope unions, resource-specific include grants, and scopes combined with forward and reverse chains. Negative controls distinguish a missing value on the linked resource from an absent link, including roots with both present and missing linked targets. The generated-SQL tests do not establish authenticated HTTP authorization or continuation-token encoding.
 
-`SqlBirthdateStorageTests` provides permanent coverage through the production query parser, `SearchOptionsFactory`, indexing, and SQL storage. It checks reverse-chain missing predicates, mixed DOB/token scope unions with reverse-include grants, and DOB/Organization conjunctions with accurate and count-only totals. Each case runs with scalar optimization disabled and enabled, using the ordinary SQL storage fixture. Its injected request scopes do not substitute for authenticated HTTP validation.
+`SqlBirthdateStorageTests` provides permanent coverage through the production query parser, `SearchOptionsFactory`, indexing, and SQL storage. It checks reverse-chain missing predicates, mixed DOB/token scope unions with reverse-include grants, and DOB/Organization conjunctions with accurate and count-only totals. Its class-scoped SQL fixture enables classification before definitions initialize, without changing defaults for other storage tests. Each case runs with scalar optimization disabled and enabled. Its injected request scopes do not substitute for authenticated HTTP validation.
 
 A local diagnostic using the complete generated direct query over synthetic date rows demonstrated an EndDateTime equality seek and a separate filtered long-date seek. It does not establish customer latency or throughput. XML and bulk-import ingestion were not included in the stored-date probe.
 
 ## Rollout
 
-The deployment default remains `FhirSqlServer:EnableScalarTemporalEqualityRewriter=false`. An overlap-preserving rollout enables that flag without changing `FhirSqlServer:EnableFhirDateContainment`. Disabling the scalar flag restores the previous date query path. No schema migration or data rewrite is part of this change.
+The deployment defaults remain `FhirSqlServer:EnableScalarTemporalEqualityRewriter=false` and `FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification=false`. Enable both for this optimization. Their environment variables are `FhirSqlServer__EnableScalarTemporalEqualityRewriter` and `FhirServer__CoreFeatures__EnableSearchParameterTemporalClassification`. Restart after configuration changes because classification runs during built-in definition initialization. Derived metadata is not serialized, and reloading an existing definition retains its instance and classification.
+
+If scalar optimization is enabled without classification, a startup warning explains why searches retain existing SQL. An overlap-preserving rollout does not change `FhirSqlServer:EnableFhirDateContainment`. Disabling the scalar flag restores the previous date query path. No schema migration, reindex, or data rewrite is part of this change. The instant rewriter and temporal classifier are unchanged.
 
 Enablement requires representative customer-shaped validation of exact result sets, sorted continuation pages, authenticated SMART scopes, and query plans at realistic cardinalities. The synthetic regression suites do not prove every inventoried customer shape or a customer performance improvement. Keep the flag disabled until those acceptance checks are complete.

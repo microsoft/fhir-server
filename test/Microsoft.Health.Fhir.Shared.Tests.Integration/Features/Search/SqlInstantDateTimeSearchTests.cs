@@ -508,8 +508,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                 {
                     (Code: "custom-start", Path: "Slot.start"),
                     (Code: "custom-union", Path: "Slot.start | Slot.end"),
+                    (Code: "custom-date", Path: "Patient.birthDate"),
                 })
                 {
+                    string resourceType = custom.Path.Split('.')[0];
                     var parameter = new SearchParameter
                     {
                         Url = $"http://example.org/SearchParameter/{custom.Code}",
@@ -518,14 +520,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                         Type = Hl7.Fhir.Model.SearchParamType.Date,
                         Expression = custom.Path,
 #if Stu3 || R4 || R4B
-                        Base = new List<ResourceType?> { ResourceType.Slot },
+                        Base = new List<ResourceType?> { Enum.Parse<ResourceType>(resourceType) },
 #else
-                        Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Slot },
+                        Base = new List<VersionIndependentResourceTypesAll?> { Enum.Parse<VersionIndependentResourceTypesAll>(resourceType) },
 #endif
                     };
                     Definitions.AddNewSearchParameters(new[] { parameter.ToTypedElement() }, calculateHash: false);
                     Definitions.UpdateSearchParameterStatus(parameter.Url, SearchParameterStatus.Enabled);
-                    Assert.False(Definitions.GetSearchParameter("Slot", custom.Code).IsSystemDefined);
+                    Assert.False(Definitions.GetSearchParameter(resourceType, custom.Code).IsSystemDefined);
                 }
 
                 var instance = Substitute.For<IFhirServerInstanceConfiguration>();

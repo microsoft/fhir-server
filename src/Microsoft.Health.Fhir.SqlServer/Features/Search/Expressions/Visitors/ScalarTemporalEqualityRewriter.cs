@@ -4,33 +4,26 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// For allow-listed scalar date parameters (currently <c>birthdate</c>), collapses Core's exact-day
+    /// For built-in scalar parameters proven to extract FHIR <c>date</c> leaves, collapses Core's exact-day
     /// equality containment (<c>DateTimeStart &gt;= lo AND DateTimeEnd &lt;= hi</c>) into a single
     /// <c>DateTimeEnd</c> predicate with <c>IsLongerThanADay = false</c>.
     /// Under legacy overlap semantics, retains long stored dates in a disjoint predicate-level OR branch.
     /// No <see cref="UnionExpression"/> or additional table expression is introduced.
-    /// Other query precisions, range/<c>ap</c> operators, and composite or non-allow-listed parameters
+    /// Other query precisions, range/<c>ap</c> operators, and composite or unproven parameters
     /// pass through unchanged. Runs before date equality semantics and Core-to-SQL conversion.
     /// </summary>
     internal class ScalarTemporalEqualityRewriter : SqlExpressionRewriterWithInitialContext<bool>
     {
         internal static readonly ScalarTemporalEqualityRewriter Instance = new ScalarTemporalEqualityRewriter();
-
-        // NOTE: This list is only for parameters that are the same across all FHIR versions. Before adding parameters
-        // this approach may need to be revisited to support version-specific allow lists.
-        private static readonly HashSet<string> _allowList = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "http://hl7.org/fhir/SearchParameter/individual-birthdate",
-        };
 
         private enum Precision
         {
@@ -40,19 +33,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, bool preserveOverlappingLongDates)
         {
-            // 1. Only allow-listed scalar date parameters are eligible.
             if (!IsActivatedScalarTemporalParameter(expression))
             {
                 return expression;
             }
 
-            // 2. The inner expression must be the two-predicate equality pattern Core emits.
+            // The inner expression must be the two-predicate equality pattern Core emits.
             if (!TryMatchEqualityPattern(expression.Expression, out BinaryExpression startPredicate, out BinaryExpression endPredicate))
             {
                 return expression;
             }
 
-            // 3. The predicate operands must be concrete DateTimeOffset values so we can inspect
+            // The predicate operands must be concrete DateTimeOffset values so we can inspect
             //    the start/end boundaries and decide whether they cover exactly one calendar day.
             //    Anything else (null, string, partial date) is not something we can classify, so pass through.
             if (startPredicate.Value is not DateTimeOffset startValue ||
@@ -71,15 +63,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         internal static bool IsActivatedScalarTemporalParameter(SearchParameterExpression expression)
         {
             var p = expression?.Parameter;
-            if (p == null)
-            {
-                return false;
-            }
-
-            bool isScalarDate = p.Type == SearchParamType.Date && (p.Component == null || p.Component.Count == 0);
-            bool isAllowListed = p.Url != null && _allowList.Contains(p.Url.OriginalString);
-
-            return isScalarDate && isAllowListed;
+            return p != null &&
+                p.IsSystemDefined &&
+                p.Type == SearchParamType.Date &&
+                (p.Component == null || p.Component.Count == 0) &&
+                p.TemporalType == TemporalType.Date;
         }
 
         /// <summary>

@@ -75,6 +75,13 @@ namespace Microsoft.Extensions.DependencyInjection
                             "FhirSqlServer:EnableInstantDateTimeRewriter is enabled, but FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification is disabled. Instant searches will use existing SQL.");
                     }
 
+                    if (config.EnableScalarTemporalEqualityRewriter &&
+                        !provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.EnableSearchParameterTemporalClassification)
+                    {
+                        provider.GetRequiredService<ILogger<FhirSqlServerConfiguration>>().LogWarning(
+                            "FhirSqlServer:EnableScalarTemporalEqualityRewriter is enabled, but FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification is disabled. Calendar date searches will use existing SQL.");
+                    }
+
                     return config;
                 })
                 .Singleton()

@@ -931,7 +931,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 SearchParamType.Date,
                 new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
                 expression: "Patient.birthDate",
-                baseResourceTypes: new[] { "Patient" });
+                baseResourceTypes: new[] { "Patient" })
+            {
+                IsSystemDefined = true,
+                TemporalType = TemporalType.Date,
+            };
 
             // Exact UTC calendar day (end-of-day to the tick) so the scalar-temporal rewriter collapses it.
             var lo = new DateTimeOffset(1990, 5, 15, 0, 0, 0, TimeSpan.Zero);

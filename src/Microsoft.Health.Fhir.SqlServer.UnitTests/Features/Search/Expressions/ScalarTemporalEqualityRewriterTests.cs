@@ -58,9 +58,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             EqualityPattern(StartOfMaximumDate, DateTimeOffset.MaxValue.AddTicks(-1)), // not the full final day
         };
 
-        public static TheoryData<SearchParameterInfo> NonAllowListedParameters => new()
+        public static TheoryData<SearchParameterInfo> IneligibleParameters => new()
         {
-            BuildBirthdateParam(new Uri("http://example.org/SearchParameter/test-date")),
+            BuildBirthdateParam(new Uri("http://example.org/SearchParameter/test-date"), isSystemDefined: false),
             BuildBirthdateParam(searchParamType: SearchParamType.String),
             new SearchParameterInfo(
                 "Patient-code-birthdate",
@@ -68,10 +68,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 SearchParamType.Composite,
                 new Uri("http://example.org/SearchParameter/Patient-code-birthdate"),
                 expression: "Patient",
-                baseResourceTypes: new[] { "Patient" }),
+                baseResourceTypes: new[] { "Patient" })
+            {
+                IsSystemDefined = true,
+                TemporalType = TemporalType.Date,
+            },
         };
 
-        private static SearchParameterInfo BuildBirthdateParam(Uri url = null, SearchParamType searchParamType = SearchParamType.Date)
+        private static SearchParameterInfo BuildBirthdateParam(Uri url = null, SearchParamType searchParamType = SearchParamType.Date, bool isSystemDefined = true)
         {
             return new SearchParameterInfo(
                 "birthdate",
@@ -79,7 +83,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 searchParamType,
                 url ?? new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
                 expression: "Patient.birthDate",
-                baseResourceTypes: new[] { "Patient" });
+                baseResourceTypes: new[] { "Patient" })
+            {
+                IsSystemDefined = isSystemDefined,
+                TemporalType = TemporalType.Date,
+            };
         }
 
         private static SearchParameterInfo BuildReferenceParam()
@@ -116,9 +124,77 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, start),
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, end));
 
+        [Fact]
+        public void GivenBuiltInNonBirthdateDate_WhenRewritten_ThenEmitsEndOnlyPredicate()
+        {
+            var parameter = new SearchParameterInfo(
+                "payment-date",
+                "payment-date",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-payment-date"))
+            {
+                IsSystemDefined = true,
+                TemporalType = TemporalType.Date,
+            };
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            AssertEndOnlyPredicate(result, EndOfDay);
+        }
+
+        [Theory]
+        [InlineData(TemporalType.Unknown)]
+        [InlineData(TemporalType.DateTime)]
+        [InlineData(TemporalType.Instant)]
+        [InlineData(TemporalType.Period)]
+        [InlineData(TemporalType.Timing)]
+        [InlineData(TemporalType.Mixed)]
+        public void GivenNonDateTemporalType_WhenExactDayMatched_ThenPassThrough(TemporalType temporalType)
+        {
+            var parameter = BuildBirthdateParam();
+            parameter.TemporalType = temporalType;
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.Same(expression, result);
+        }
+
+        [Fact]
+        public void GivenCustomDateWithDateMetadata_WhenExactDayMatched_ThenPassThrough()
+        {
+            var parameter = BuildBirthdateParam(isSystemDefined: false);
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.Same(expression, result);
+        }
+
+        [Fact]
+        public void GivenDateWithComponents_WhenExactDayMatched_ThenPassThrough()
+        {
+            var parameter = new SearchParameterInfo(
+                "birthdate",
+                "birthdate",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                components: new[] { new SearchParameterComponentInfo(new Uri("http://example.org/component"), "Patient.birthDate") })
+            {
+                IsSystemDefined = true,
+                TemporalType = TemporalType.Date,
+            };
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.Same(expression, result);
+        }
+
         [Theory]
         [MemberData(nameof(ExactDayDates))]
-        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenEmitsEndOnlyPredicate(DateTimeOffset start, DateTimeOffset end)
+        public void GivenBuiltInBirthdateExactDay_WhenRewritten_ThenEmitsEndOnlyPredicate(DateTimeOffset start, DateTimeOffset end)
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(start, end));
 
@@ -128,7 +204,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayReversedOperandOrder_WhenRewritten_ThenEmitsEndOnlyPredicate()
+        public void GivenBuiltInBirthdateExactDayReversedOperandOrder_WhenRewritten_ThenEmitsEndOnlyPredicate()
         {
             var reversedPattern = Expression.And(
                 Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay),
@@ -141,7 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDay_WhenRewritten_ThenNoUnionExpressionIsEmitted()
+        public void GivenBuiltInBirthdateExactDay_WhenRewritten_ThenNoUnionExpressionIsEmitted()
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), EqualityPattern(StartOfDay, EndOfDay));
 
@@ -153,7 +229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayInChainedExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicate()
+        public void GivenBuiltInBirthdateExactDayInChainedExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicate()
         {
             // Rewriting the inner predicate forces the base visitor to rebuild the ChainedExpression,
             // whose constructor validates resource/target types against the static ModelInfoProvider
@@ -168,7 +244,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenAllowListedBirthdateExactDayInsideUnionExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicateWithoutNestedUnion()
+        public void GivenBuiltInBirthdateExactDayInsideUnionExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicateWithoutNestedUnion()
         {
             // Day-precision collapses to a single end-only predicate (no UNION), so an eligible birthdate
             // equality nested inside a UnionExpression (e.g. the SMART v2 scope union built in
@@ -186,7 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         [Theory]
         [MemberData(nameof(NonRewritableExpressions))]
-        public void GivenAllowListedBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
+        public void GivenBuiltInBirthdateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
         {
             var expr = new SearchParameterExpression(BuildBirthdateParam(), inner);
 
@@ -196,8 +272,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Theory]
-        [MemberData(nameof(NonAllowListedParameters))]
-        public void GivenNonAllowListedParameter_WhenEqualityPatternMatched_ThenPassThrough(SearchParameterInfo param)
+        [MemberData(nameof(IneligibleParameters))]
+        public void GivenIneligibleParameter_WhenEqualityPatternMatched_ThenPassThrough(SearchParameterInfo param)
         {
             var expr = new SearchParameterExpression(param, EqualityPattern(StartOfDay, EndOfDay));
 
