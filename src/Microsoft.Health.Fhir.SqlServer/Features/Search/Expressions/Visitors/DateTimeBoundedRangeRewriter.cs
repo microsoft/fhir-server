@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.ValueSets;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     new BinaryExpression(right.BinaryOperator, FieldName.DateTimeStart, right.ComponentIndex, right.Value));
             }
 
-            return expression;
+            return expression.MultiaryOperation == MultiaryOperator.And ? base.VisitMultiary(expression, context) : expression;
         }
 
         private class Scout : SqlExpressionRewriterWithInitialContext<object>
@@ -96,7 +97,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     }
                 }
 
-                return expression;
+                if (expression.MultiaryOperation != MultiaryOperator.And)
+                {
+                    return expression;
+                }
+
+                // Look through conjunctions with other predicates, such as the _type predicate added by
+                // ResourceColumnPredicatePushdownRewriter. Only a single date range is rewritten so that
+                // the two concatenation branches remain exhaustive.
+                Expression[] rewritten = null;
+                for (int i = 0; i < expression.Expressions.Count; i++)
+                {
+                    Expression child = expression.Expressions[i].AcceptVisitor(this, context);
+                    if (!ReferenceEquals(child, expression.Expressions[i]))
+                    {
+                        if (rewritten != null)
+                        {
+                            return expression;
+                        }
+
+                        rewritten = expression.Expressions.ToArray();
+                        rewritten[i] = child;
+                    }
+                }
+
+                return rewritten == null ? expression : Expression.And(rewritten);
             }
         }
     }

@@ -7,9 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -411,6 +413,111 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             // Assert
             Assert.Equal(2, result.SearchParamTableExpressions.Count);
             Assert.Equal(SearchParamTableExpressionKind.Concatenation, result.SearchParamTableExpressions[1].Kind);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenDateRangeConjoinedWithTypePredicate_WhenRewritten_ThenBothBranchesKeepTypePredicate(bool typeFirst)
+        {
+            // Arrange - shape produced by ResourceColumnPredicatePushdownRewriter for a type-scoped search
+            Expression dateRange = CreateDateParameter(Expression.And(
+                Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, BaseDate),
+                Expression.LessThan(FieldName.DateTimeStart, null, BaseDate.AddDays(1))));
+            Expression typePredicate = CreateTypePredicate();
+            var sqlRoot = CreateSqlRootWithExpression(typeFirst ? Expression.And(typePredicate, dateRange) : Expression.And(dateRange, typePredicate));
+            int dateIndex = typeFirst ? 1 : 0;
+            int typeIndex = typeFirst ? 0 : 1;
+
+            // Act
+            var result = (SqlRootExpression)sqlRoot.AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);
+
+            // Assert
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            Assert.Equal(SearchParamTableExpressionKind.Normal, result.SearchParamTableExpressions[0].Kind);
+            Assert.Equal(SearchParamTableExpressionKind.Concatenation, result.SearchParamTableExpressions[1].Kind);
+
+            var longBranch = Assert.IsType<MultiaryExpression>(result.SearchParamTableExpressions[0].Predicate);
+            Assert.Equal(2, longBranch.Expressions.Count);
+            Assert.Same(typePredicate, longBranch.Expressions[typeIndex]);
+            var longDate = Assert.IsType<MultiaryExpression>(Assert.IsType<SearchParameterExpression>(longBranch.Expressions[dateIndex]).Expression);
+            Assert.Equal(3, longDate.Expressions.Count);
+            Assert.Equal(true, Assert.IsType<BinaryExpression>(longDate.Expressions[0]).Value);
+
+            var shortBranch = Assert.IsType<MultiaryExpression>(result.SearchParamTableExpressions[1].Predicate);
+            Assert.Equal(2, shortBranch.Expressions.Count);
+            Assert.Same(typePredicate, shortBranch.Expressions[typeIndex]);
+            var shortDate = Assert.IsType<MultiaryExpression>(Assert.IsType<SearchParameterExpression>(shortBranch.Expressions[dateIndex]).Expression);
+            Assert.Equal(4, shortDate.Expressions.Count);
+            Assert.Equal(false, Assert.IsType<BinaryExpression>(shortDate.Expressions[0]).Value);
+            var boundedStart = Assert.IsType<BinaryExpression>(shortDate.Expressions[2]);
+            Assert.Equal(FieldName.DateTimeStart, boundedStart.FieldName);
+            Assert.Equal(BaseDate.AddTicks(-TimeSpan.TicksPerDay), boundedStart.Value);
+        }
+
+        [Fact]
+        public void GivenSingleBoundDateConjoinedWithTypePredicate_WhenRewritten_ThenNoRewriteOccurs()
+        {
+            // Arrange
+            var predicate = Expression.And(
+                CreateDateParameter(Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, BaseDate)),
+                CreateTypePredicate());
+            var sqlRoot = CreateSqlRootWithExpression(predicate);
+
+            // Act
+            var result = (SqlRootExpression)sqlRoot.AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);
+
+            // Assert
+            Assert.Same(sqlRoot, result);
+        }
+
+        [Fact]
+        public void GivenTwoDateRangesInOneConjunction_WhenRewritten_ThenNoRewriteOccurs()
+        {
+            // Arrange - rewriting both ranges would miss rows where only one of the ranges is longer than a day
+            var predicate = Expression.And(
+                CreateDateParameter(Expression.And(
+                    Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, BaseDate),
+                    Expression.LessThan(FieldName.DateTimeStart, null, BaseDate.AddDays(1)))),
+                CreateDateParameter(Expression.And(
+                    Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, BaseDate.AddDays(5)),
+                    Expression.LessThan(FieldName.DateTimeStart, null, BaseDate.AddDays(6)))));
+            var sqlRoot = CreateSqlRootWithExpression(predicate);
+
+            // Act
+            var result = (SqlRootExpression)sqlRoot.AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);
+
+            // Assert
+            Assert.Same(sqlRoot, result);
+        }
+
+        [Fact]
+        public void GivenDateRangeInsideOr_WhenRewritten_ThenNoRewriteOccurs()
+        {
+            // Arrange
+            var predicate = Expression.Or(
+                CreateDateParameter(Expression.And(
+                    Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, null, BaseDate),
+                    Expression.LessThan(FieldName.DateTimeStart, null, BaseDate.AddDays(1)))),
+                CreateTypePredicate());
+            var sqlRoot = CreateSqlRootWithExpression(predicate);
+
+            // Act
+            var result = (SqlRootExpression)sqlRoot.AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);
+
+            // Assert
+            Assert.Same(sqlRoot, result);
+        }
+
+        private static SearchParameterExpression CreateDateParameter(Expression expression)
+        {
+            var date = new SearchParameterInfo("date", "date", SearchParamType.Date, new Uri("http://hl7.org/fhir/SearchParameter/Observation-date"));
+            return Expression.SearchParameter(date, expression);
+        }
+
+        private static SearchParameterExpression CreateTypePredicate()
+        {
+            return Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "Observation", false));
         }
 
         private static SqlRootExpression CreateSqlRootWithExpression(Expression expression)
