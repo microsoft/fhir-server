@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     {
                         foreach (var issue in result.Issues)
                         {
-                            if (issue == "A task was canceled." && job.CancelRequested)
+                            if (BulkJobFailureIssues.IsCancellation(issue) && job.CancelRequested)
                             {
                                 cancelled = true;
                                 jobCancelled = true;
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                             else
                             {
                                 jobHasFailure = true;
-                                if (issue.StartsWith("JobConflictException:", StringComparison.Ordinal))
+                                if (BulkJobFailureIssues.IsConflict(issue))
                                 {
                                     if (failureResultCode != HttpStatusCode.InternalServerError)
                                     {

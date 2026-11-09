@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             {
                 _logger.LogJobWarning(ex, jobInfo, "Bulk update orchestration failed due to a customer-caused error.");
                 var result = new BulkUpdateResult();
-                var message = ex.GetBulkJobFailureIssue();
+                var message = BulkJobFailureIssues.FromException(ex);
                 result.Issues.Add(message);
                 throw new JobExecutionException(message, result, ex, isCustomerCaused: true);
             }

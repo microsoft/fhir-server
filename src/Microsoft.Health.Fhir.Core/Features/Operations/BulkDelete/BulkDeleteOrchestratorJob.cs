@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             catch (Exception ex) when (ex.IsCustomerCaused())
             {
                 var result = new BulkDeleteResult();
-                var message = ex.GetBulkJobFailureIssue();
+                var message = BulkJobFailureIssues.FromException(ex);
                 result.Issues.Add(message);
                 throw new JobExecutionException(message, result, ex, isCustomerCaused: true);
             }

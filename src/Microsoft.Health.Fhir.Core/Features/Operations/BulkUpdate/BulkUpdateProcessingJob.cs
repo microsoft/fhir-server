@@ -134,12 +134,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
                     result = ex.PartialResults;
-                    result.Issues.Add(ex.GetBulkJobFailureIssue());
+                    result.Issues.Add(BulkJobFailureIssues.FromException(ex));
                     exception = ex;
                 }
                 catch (Exception ex) when (ex.IsCustomerCaused())
                 {
-                    result.Issues.Add(ex.GetBulkJobFailureIssue());
+                    result.Issues.Add(BulkJobFailureIssues.FromException(ex));
                     exception = ex;
                 }
 
@@ -160,13 +160,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     catch (Exception metricsException) when (exception != null)
                     {
                         exception = new AggregateException(exception, metricsException);
-                        result.Issues.Add(exception.GetBulkJobFailureIssue());
+                        result.Issues.Add(BulkJobFailureIssues.FromException(exception));
                     }
                 }
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while updating resources: {exception.GetBulkJobFailureIssue()}", result, exception, exception.IsCustomerCaused());
+                    throw new JobExecutionException($"Exception encounted while updating resources: {BulkJobFailureIssues.FromException(exception)}", result, exception, exception.IsCustomerCaused());
                 }
                 else
                 {
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 catch (Exception cleanupException) when (failure != null)
                 {
                     var failures = new AggregateException(exception, cleanupException);
-                    var message = failures.GetBulkJobFailureIssue();
+                    var message = BulkJobFailureIssues.FromException(failures);
                     result.Issues.Add(message);
                     failure = new JobExecutionException($"Exception encounted while updating resources: {message}", result, failures, failures.IsCustomerCaused());
                 }

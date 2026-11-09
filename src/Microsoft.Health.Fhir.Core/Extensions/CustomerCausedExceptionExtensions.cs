@@ -57,19 +57,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             };
         }
 
-        internal static string GetBulkJobFailureIssue(this Exception exception)
-        {
-            if (GetLeaves(exception).All(leaf => leaf is OperationCanceledException))
-            {
-                return "A task was canceled.";
-            }
-
-            var message = exception.GetJobFailureMessage();
-            return exception.GetJobFailureStatusCode() == HttpStatusCode.Conflict
-                ? $"JobConflictException: {message}"
-                : message;
-        }
-
         internal static IEnumerable<Exception> GetLeaves(Exception exception)
         {
             // Typed customer errors retain their classification even when they wrap a raw SQL error.

@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     {
                         foreach (var issue in result.Issues)
                         {
-                            if (issue == "A task was canceled." && job.CancelRequested)
+                            if (BulkJobFailureIssues.IsCancellation(issue) && job.CancelRequested)
                             {
                                 cancelled = true;
                             }
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                             {
                                 var message = issue switch
                                 {
-                                    var value when value.StartsWith("JobConflictException:", StringComparison.Ordinal) => Core.Resources.ReindexRunningException,
+                                    var value when BulkJobFailureIssues.IsConflict(value) => Core.Resources.ReindexRunningException,
                                     var value when value == Core.Resources.OperationFailedForCustomerManagedKey || value == Core.Resources.TooManyParameters => value,
                                     _ => Core.Resources.InternalServerError,
                                 };

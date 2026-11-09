@@ -108,13 +108,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
-                    result.Issues.Add(ex.GetBulkJobFailureIssue());
+                    result.Issues.Add(BulkJobFailureIssues.FromException(ex));
                     exception = ex;
                     isCustomerCaused = ex.IsCustomerCaused();
                 }
                 catch (Exception ex) when (ex.IsCustomerCaused())
                 {
-                    result.Issues.Add(ex.GetBulkJobFailureIssue());
+                    result.Issues.Add(BulkJobFailureIssues.FromException(ex));
                     exception = ex;
                     isCustomerCaused = true;
                 }
@@ -140,12 +140,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 {
                     exception = new AggregateException(exception, metricsException);
                     isCustomerCaused = exception.IsCustomerCaused();
-                    result.Issues.Add(exception.GetBulkJobFailureIssue());
+                    result.Issues.Add(BulkJobFailureIssues.FromException(exception));
                 }
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {exception.GetBulkJobFailureIssue()}", result, exception, isCustomerCaused);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {BulkJobFailureIssues.FromException(exception)}", result, exception, isCustomerCaused);
                 }
 
                 if (types.Count > 1)
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             }
             catch (Exception ex) when (ex is not JobExecutionException && ex.IsCustomerCaused())
             {
-                result.Issues.Add(ex.GetBulkJobFailureIssue());
+                result.Issues.Add(BulkJobFailureIssues.FromException(ex));
                 throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, ex, true);
             }
             finally
