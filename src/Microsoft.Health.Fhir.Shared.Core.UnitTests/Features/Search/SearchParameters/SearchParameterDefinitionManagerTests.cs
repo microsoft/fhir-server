@@ -14,8 +14,10 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -83,7 +85,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 mockStatusDataStoreScopeProvider,
                 mockFhirDataStoreProvider,
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
@@ -597,7 +600,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -795,7 +799,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -883,7 +888,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -966,7 +972,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -1035,7 +1042,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             var notification = new Messages.Storage.StorageInitializedNotification();
             await definitionManager.HandleAsync(notification, CancellationToken.None);
@@ -1078,7 +1086,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             // When SearchParameterDefinitionManagerInitialized is published, simulate a status-stage failure
             mediator.PublishAsync(

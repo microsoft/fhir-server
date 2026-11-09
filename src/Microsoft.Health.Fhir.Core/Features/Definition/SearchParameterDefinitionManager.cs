@@ -15,7 +15,9 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Medino;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -56,7 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             IScopeProvider<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
             IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
-            ILogger<SearchParameterDefinitionManager> logger)
+            ILogger<SearchParameterDefinitionManager> logger,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -65,6 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             EnsureArg.IsNotNull(searchParameterStatusDataStoreFactory, nameof(searchParameterStatusDataStoreFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
 
             _modelInfoProvider = modelInfoProvider;
             _mediator = mediator;
@@ -90,7 +94,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 _modelInfoProvider,
                 _searchParameterComparer,
                 _logger,
-                isSystemDefined: true);
+                isSystemDefined: true,
+                enableTemporalClassification: coreFeatureConfiguration.Value.EnableSearchParameterTemporalClassification);
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
