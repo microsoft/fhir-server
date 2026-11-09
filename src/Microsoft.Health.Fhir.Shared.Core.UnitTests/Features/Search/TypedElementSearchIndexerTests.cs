@@ -105,6 +105,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(familyName, nameSearchValue.String);
          }
 
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAnOverlongBareReferenceIdAndASingleTargetType_WhenExtract_ThenTheOverlongIdLengthIsKept()
+        {
+            var supportedSearchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            supportedSearchParameterDefinitionManager.GetSearchParameters(Arg.Any<string>()).Returns(new[]
+            {
+                new SearchParameterInfo(
+                    "subject",
+                    "subject",
+                    ValueSets.SearchParamType.Reference,
+                    new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+                    expression: "Observation.subject",
+                    targetResourceTypes: new List<string> { "Patient" },
+                    baseResourceTypes: new List<string> { "Observation" }),
+            });
+            var searchIndexer = new TypedElementSearchIndexer(
+                supportedSearchParameterDefinitionManager,
+                await GetTypeConverterAsync(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+            string overlongId = new string('a', 65);
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Subject = new ResourceReference(overlongId);
+
+            ReferenceSearchValue value = Assert.IsType<ReferenceSearchValue>(Assert.Single(searchIndexer.Extract(observation.ToResourceElement())).Value);
+
+            Assert.Equal("Patient", value.ResourceType);
+            Assert.Equal(65, value.OverlongResourceIdLength);
+            Assert.Equal(64, value.MaxResourceIdLength);
+        }
+
 #if !Stu3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
         [Fact]

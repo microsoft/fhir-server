@@ -296,7 +296,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         {
                             if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
                             {
-                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId));
+                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId)
+                                {
+                                    OverlongResourceIdLength = rsr.OverlongResourceIdLength,
+                                    MaxResourceIdLength = rsr.MaxResourceIdLength,
+                                });
                             }
                             else
                             {
