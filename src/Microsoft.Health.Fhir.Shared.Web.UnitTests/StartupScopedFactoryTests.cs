@@ -65,8 +65,7 @@ namespace Microsoft.Health.Fhir.Web.UnitTests
                 }
 
                 using IScoped<IJob> job = jobFactory.Create(new JobInfo { Definition = $"{{\"typeId\":{(int)jobType}}}" });
-                var attribute = Attribute.GetCustomAttribute(job.Value.GetType(), typeof(JobTypeIdAttribute)) as JobTypeIdAttribute;
-                Assert.NotNull(attribute);
+                var attribute = Assert.IsType<JobTypeIdAttribute>(Attribute.GetCustomAttribute(job.Value.GetType(), typeof(JobTypeIdAttribute)));
                 Assert.Equal((int)jobType, attribute.JobTypeId);
             }
         }

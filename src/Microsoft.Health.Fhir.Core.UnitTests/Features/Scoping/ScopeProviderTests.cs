@@ -64,8 +64,6 @@ public class ScopeProviderTests
 
         (WeakReference payload, WeakReference childProvider) = CreateDisposedPayload(factory);
         GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
 
         Assert.False(payload.IsAlive, "The live root or factory retained the scoped payload.");
         Assert.False(childProvider.IsAlive, "The live root or factory retained the disposed child provider.");
