@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             bool reuseQueryPlans,
             bool isAsyncOperation,
             SqlException sqlException = null,
-            bool enableChainSourceDeduplication = true)
+            bool enableChainSourceDeduplication = false)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));

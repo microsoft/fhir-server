@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
@@ -40,6 +41,68 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
         public SqlExportOrchestratorJobTests()
         {
             _mockSearchService.IsValidResourceType(Arg.Any<string>()).Returns(true);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.OrchestratorFailureCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenExecuted_ThenClassificationIsPreserved(string scenario, bool expectedCustomerCaused, string stage)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "discovery" ? Task.FromException<IReadOnlyList<string>>(failure) : Task.FromResult<IReadOnlyList<string>>(new[] { "Patient" }));
+            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "search"
+                    ? Task.FromException<IReadOnlyList<(long, long, int)>>(failure)
+                    : Task.FromResult<IReadOnlyList<(long, long, int)>>(new[] { (1L, 2L, 2) }));
+            _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+            var jobInfo = GetJobInfoArray(0, 10000, false, 10000, isParallel: true).First();
+            var job = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedCustomerCaused)
+            {
+                var jobException = Assert.IsType<JobExecutionException>(exception);
+                Assert.True(jobException.IsCustomerCaused);
+                Assert.Same(failure, jobException.InnerException);
+                var record = Assert.IsType<ExportJobRecord>(jobException.Error);
+                Assert.Equal(OperationStatus.Failed, record.Status);
+                Assert.True(record.FailureDetails.IsCustomerCaused);
+                Assert.Contains(failure.Message, record.FailureDetails.FailureReason);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.FailureStatusCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenCustomerCaused_ThenStatusMatchesApi(string scenario, HttpStatusCode expectedStatus)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<string>>>(_ => throw failure);
+            var jobInfo = GetJobInfoArray(0, 10000, false, 10000, isParallel: true).First();
+            var job = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedStatus != HttpStatusCode.InternalServerError)
+            {
+                Assert.Equal(expectedStatus, Assert.IsType<ExportJobRecord>(Assert.IsType<JobExecutionException>(exception).Error).FailureDetails.FailureStatusCode);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
         }
 
         [Theory]

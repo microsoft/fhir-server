@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
+        private readonly InstantDateTimeRewriter _instantDateTimeRewriter;
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
@@ -159,6 +160,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             IFhirDataStore fhirDataStore,
             ISqlServerFhirModel model,
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
+            InstantDateTimeRewriter instantDateTimeRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             SortRewriter sortRewriter,
             PartitionEliminationRewriter partitionEliminationRewriter,
@@ -180,6 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
+            EnsureArg.IsNotNull(instantDateTimeRewriter, nameof(instantDateTimeRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -197,6 +200,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _fhirDataStore = fhirDataStore;
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
+            _instantDateTimeRewriter = instantDateTimeRewriter;
             _sortRewriter = sortRewriter;
             _queryGeneratorFactory = queryGeneratorFactory;
             _partitionEliminationRewriter = partitionEliminationRewriter;
@@ -2386,12 +2390,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _fhirSqlServerConfiguration.EnableFhirDateContainment,
                 _fhirSqlServerConfiguration.EnableScalarTemporalEqualityRewriter);
 
-            return (SqlRootExpression)afterDateEquality
+            Expression afterDateCombiner = afterDateEquality
                 ?.AcceptVisitor(FlatteningRewriter.Instance)
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)
                 .AcceptVisitor(_sqlRootExpressionRewriter)
-                .AcceptVisitor(DateTimeTableExpressionCombiner.Instance)
-                .AcceptVisitor(_partitionEliminationRewriter)
+                .AcceptVisitor(DateTimeTableExpressionCombiner.Instance);
+
+            if (_fhirSqlServerConfiguration.EnableInstantDateTimeRewriter)
+            {
+                afterDateCombiner = afterDateCombiner?.AcceptVisitor(_instantDateTimeRewriter);
+            }
+
+            return (SqlRootExpression)afterDateCombiner
+                ?.AcceptVisitor(_partitionEliminationRewriter)
                 .AcceptVisitor(_sortRewriter, searchOptions)
                 .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
                 .AcceptVisitor(MissingSearchParamVisitor.Instance)

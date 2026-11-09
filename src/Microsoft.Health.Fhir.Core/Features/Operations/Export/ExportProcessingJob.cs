@@ -331,7 +331,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     return JsonConvert.SerializeObject(record);
                 case OperationStatus.Failed:
-                    throw new JobExecutionException(record.FailureDetails.FailureReason, record, false);
+                    throw new JobExecutionException(record.FailureDetails.FailureReason, record, record.FailureDetails.IsCustomerCaused);
                 case OperationStatus.Canceled:
                     throw new OperationCanceledException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job cancelled.");
                 case OperationStatus.Queued:

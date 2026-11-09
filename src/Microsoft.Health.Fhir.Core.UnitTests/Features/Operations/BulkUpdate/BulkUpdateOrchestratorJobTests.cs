@@ -48,6 +48,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Theory]
+        [MemberData(nameof(JobFailureTestData.OrchestratorFailureCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenExecuted_ThenClassificationIsPreserved(string scenario, bool expectedCustomerCaused, string stage)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "discovery" ? Task.FromException<IReadOnlyList<string>>(failure) : Task.FromResult<IReadOnlyList<string>>(new[] { "Patient" }));
+            _searchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "search"
+                    ? Task.FromException<IReadOnlyList<(long, long, int)>>(failure)
+                    : Task.FromResult<IReadOnlyList<(long, long, int)>>(new[] { (1L, 2L, 2) }));
+            _queueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo { GroupId = 1, Definition = JsonConvert.SerializeObject(definition), CreateDate = DateTime.UtcNow };
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedCustomerCaused)
+            {
+                var jobException = Assert.IsType<JobExecutionException>(exception);
+                Assert.True(jobException.IsCustomerCaused);
+                Assert.Same(failure, jobException.InnerException);
+                Assert.Contains(failure.Message, Assert.IsType<BulkUpdateResult>(jobException.Error).Issues);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
+        }
+
+        [Theory]
         [MemberData(nameof(GetAllowedSearchParameters))]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenOrAreAllowedAndIsParallelIsTrue_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges(List<Tuple<string, string>> searchParams)
         {

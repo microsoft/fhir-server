@@ -11,6 +11,7 @@ using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -48,6 +49,138 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             _uriDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
             _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
+        }
+
+        [Theory]
+        [InlineData("Slot.start", TemporalType.Instant)]
+        [InlineData("Slot.start.first()", TemporalType.Unknown)]
+        public void GivenWrapperAndActiveModel_WhenConstructed_ThenTemporalTypeIsDerived(string expression, TemporalType expected)
+        {
+            SearchParameterWrapper wrapper = CreateWrapper(expression);
+
+            var parameter = new SearchParameterInfo(wrapper, ModelInfoProvider.Instance);
+
+            Assert.Equal(expected, parameter.TemporalType);
+        }
+
+        [Fact]
+        public void GivenWrapperAndDifferentModel_WhenConstructed_ThenSuppliedModelDeterminesTemporalType()
+        {
+            SearchParameterWrapper wrapper = CreateWrapper("Slot.start");
+            var model = Substitute.For<IModelInfoProvider>();
+
+            var parameter = new SearchParameterInfo(wrapper, model);
+
+            Assert.Equal(TemporalType.Unknown, parameter.TemporalType);
+        }
+
+        [Fact]
+        public void GivenWrapperWithoutModel_WhenConstructed_ThenTemporalTypeIsUnknown()
+        {
+            SearchParameterWrapper wrapper = CreateWrapper("Slot.start");
+
+            var parameter = new SearchParameterInfo(wrapper);
+
+            Assert.Equal(TemporalType.Unknown, parameter.TemporalType);
+        }
+
+        [Theory]
+        [InlineData("Slot-start", TemporalType.Instant)]
+        [InlineData("Resource-lastUpdated", TemporalType.Instant)]
+        [InlineData("individual-birthdate", TemporalType.Date)]
+        [InlineData("Schedule-date", TemporalType.Period)]
+#if !R5
+        [InlineData("Appointment-date", TemporalType.Instant)]
+#endif
+        public void GivenBundledDefinition_WhenLoadedAgain_ThenDerivedTemporalTypeAndInstanceAreRetained(
+            string canonicalName,
+            TemporalType expected)
+        {
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", ModelInfoProvider.Instance);
+            var entries = bundle.Entries.Select(e => e.Resource).ToList();
+            SearchParameterDefinitionBuilder.Build(
+                entries,
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: true,
+                enableTemporalClassification: true);
+            SearchParameterInfo original = _uriDictionary[$"http://hl7.org/fhir/SearchParameter/{canonicalName}"];
+
+            SearchParameterDefinitionBuilder.Build(
+                entries,
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+
+            SearchParameterInfo retained = _uriDictionary[original.Url.OriginalString];
+            Assert.Same(original, retained);
+            Assert.Equal(expected, retained.TemporalType);
+            Assert.True(retained.IsSystemDefined);
+            Assert.Equal(ValueSets.SearchParamType.Date, retained.Type);
+        }
+
+        [Fact]
+        public void GivenCustomDefinitionWithSubmittedTemporalType_WhenBuilt_ThenTemporalTypeIsUnknown()
+        {
+            const string url = "http://example.org/SearchParameter/custom-start";
+            var parser = new FhirJsonParser(new ParserSettings { AcceptUnknownMembers = true });
+            var resource = parser.Parse<SearchParameter>("""
+                {
+                  "resourceType": "SearchParameter",
+                  "url": "http://example.org/SearchParameter/custom-start",
+                  "name": "custom-start",
+                  "code": "custom-start",
+                  "status": "active",
+                  "base": ["Slot"],
+                  "type": "date",
+                  "expression": "Slot.start",
+                  "temporalType": "Period"
+                }
+                """);
+
+            SearchParameterDefinitionBuilder.Build(
+                new[] { resource.ToTypedElement() },
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                enableTemporalClassification: true);
+
+            Assert.Equal(TemporalType.Unknown, _uriDictionary[url].TemporalType);
+            Assert.False(_uriDictionary[url].IsSystemDefined);
+            Assert.DoesNotContain("TemporalType", Newtonsoft.Json.JsonConvert.SerializeObject(_uriDictionary[url]));
+            Assert.DoesNotContain("TemporalType", System.Text.Json.JsonSerializer.Serialize(_uriDictionary[url]));
+        }
+
+        [Theory]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public void GivenDisabledOrCustomClassification_WhenBuilding_ThenModelMetadataIsNotAccessed(
+            bool isSystemDefined,
+            bool enableTemporalClassification)
+        {
+            var model = CreateSlotModel();
+            model.StructureDefinitionSummaryProvider.Provide("Slot")
+                .Returns(_ => throw new InvalidOperationException("Classification must not run"));
+
+            SearchParameterDefinitionBuilder.Build(
+                new[] { CreateSlotSearchParameter().ToTypedElement() },
+                _uriDictionary,
+                _resourceTypeDictionary,
+                model,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: isSystemDefined,
+                enableTemporalClassification: enableTemporalClassification);
+
+            Assert.Equal(TemporalType.Unknown, _uriDictionary["http://example.org/SearchParameter/test-start"].TemporalType);
+            model.StructureDefinitionSummaryProvider.DidNotReceive().Provide("Slot");
         }
 
         [Theory]
@@ -522,6 +655,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Collection(
                 _resourceTypeDictionary[resourceType][code],
                 x => string.Equals(searchParameters.First().Url, _uriDictionary[x].Url.OriginalString, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private SearchParameter CreateSlotSearchParameter() => _jsonParser.Parse<SearchParameter>("""
+            {
+              "resourceType": "SearchParameter",
+              "url": "http://example.org/SearchParameter/test-start",
+              "name": "test-start",
+              "code": "test-start",
+              "status": "active",
+              "base": ["Slot"],
+              "type": "date",
+              "expression": "Slot.start"
+            }
+            """);
+
+        private static IModelInfoProvider CreateSlotModel()
+        {
+            var model = Substitute.For<IModelInfoProvider>();
+            model.Version.Returns(ModelInfoProvider.Instance.Version);
+            model.GetResourceTypeNames().Returns(new[] { "Slot" });
+            model.GetTypeForFhirType("Slot").Returns(typeof(Slot));
+            model.GetFhirTypeNameForType(Arg.Any<Type>()).Returns((string)null);
+            model.IsKnownResource("Slot", false).Returns(true);
+            return model;
+        }
+
+        private SearchParameterWrapper CreateWrapper(string expression)
+        {
+            SearchParameter resource = _jsonParser.Parse<SearchParameter>(
+                $$"""
+                {
+                  "resourceType": "SearchParameter",
+                  "url": "http://example.org/SearchParameter/test-start",
+                  "name": "test-start",
+                  "code": "test-start",
+                  "status": "active",
+                  "base": ["Slot"],
+                  "type": "date",
+                  "expression": "{{expression}}"
+                }
+                """);
+            return new SearchParameterWrapper(resource.ToTypedElement());
         }
 
         private void BuildAndVerify(string filename, string expectedIssue)
