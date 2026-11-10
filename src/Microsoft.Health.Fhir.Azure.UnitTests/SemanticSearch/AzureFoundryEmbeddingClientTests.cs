@@ -161,10 +161,33 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
             Assert.Equal(new[] { 2 }, handler.RequestInputCounts);
         }
 
+        [Fact]
+        public async Task GivenSendDimensionsParameterIsDisabled_WhenEmbedding_ThenTheDimensionsParameterIsNotSent()
+        {
+            var handler = new RecordingEmbeddingHandler();
+            AzureFoundryEmbeddingClient client = CreateClient(handler, maxBatchInputCount: 2);
+
+            await client.GenerateEmbeddingsAsync(new[] { "input 0", "input 1", "input 2" }, CancellationToken.None);
+
+            Assert.Equal(new int?[] { null, null }, handler.RequestedDimensions);
+        }
+
+        [Fact]
+        public async Task GivenSendDimensionsParameter_WhenEmbedding_ThenEveryBatchRequestsTheConfiguredDimensions()
+        {
+            var handler = new RecordingEmbeddingHandler();
+            AzureFoundryEmbeddingClient client = CreateClient(handler, maxBatchInputCount: 2, sendDimensionsParameter: true);
+
+            await client.GenerateEmbeddingsAsync(new[] { "input 0", "input 1", "input 2" }, CancellationToken.None);
+
+            Assert.Equal(new int?[] { 2, 2 }, handler.RequestedDimensions);
+        }
+
         private static AzureFoundryEmbeddingClient CreateClient(
             RecordingEmbeddingHandler handler,
             int maxBatchInputCount = AzureFoundryEmbeddingClient.MaxBatchInputCount,
-            int maxBatchTokenCount = AzureFoundryEmbeddingClient.MaxBatchTokenCount)
+            int maxBatchTokenCount = AzureFoundryEmbeddingClient.MaxBatchTokenCount,
+            bool sendDimensionsParameter = false)
         {
             var configuration = new VectorSearchEmbeddingConfiguration
             {
@@ -172,6 +195,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
                 DeploymentName = "text-embedding-3-small",
                 ModelName = "text-embedding-3-small",
                 Dimensions = 2,
+                SendDimensionsParameter = sendDimensionsParameter,
             };
             var options = new AzureOpenAIClientOptions
             {
@@ -217,6 +241,8 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
 
             public List<int> RequestInputCounts { get; } = new List<int>();
 
+            public List<int?> RequestedDimensions { get; } = new List<int?>();
+
             public TaskCompletionSource RequestStarted { get; } = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public Exception ExceptionToThrow { get; set; }
@@ -231,6 +257,10 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.SemanticSearch
                 using JsonDocument requestDocument = JsonDocument.Parse(requestJson);
                 JsonElement inputs = requestDocument.RootElement.GetProperty("input");
                 RequestInputCounts.Add(inputs.GetArrayLength());
+                int? requestedDimensions = requestDocument.RootElement.TryGetProperty("dimensions", out JsonElement dimensions)
+                    ? dimensions.GetInt32()
+                    : null;
+                RequestedDimensions.Add(requestedDimensions);
                 RequestStarted.TrySetResult();
 
                 if (ExceptionToThrow != null)

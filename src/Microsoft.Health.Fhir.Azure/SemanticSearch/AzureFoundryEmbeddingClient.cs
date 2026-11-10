@@ -21,7 +21,9 @@ namespace Microsoft.Health.Fhir.Azure.SemanticSearch
     /// <summary>
     /// An <see cref="IEmbeddingClient"/> that calls an external Azure OpenAI / Foundry embedding deployment.
     /// It authenticates with a <see cref="TokenCredential"/> (managed identity in production, developer sign-in
-    /// locally), so no API key is ever stored.
+    /// locally), so no API key is ever stored. The <c>dimensions</c> request parameter is sent only when
+    /// <see cref="VectorSearchEmbeddingConfiguration.SendDimensionsParameter"/> is enabled, because models such as
+    /// <c>text-embedding-ada-002</c> reject it; callers validate the length of every returned vector.
     /// </summary>
     public sealed class AzureFoundryEmbeddingClient : IEmbeddingClient
     {
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Azure.SemanticSearch
 
         private readonly EmbeddingClient _embeddingClient;
         private readonly ITextChunker _textChunker;
+        private readonly int? _requestedDimensions;
         private readonly int _maxBatchInputCount;
         private readonly int _maxBatchTokenCount;
 
@@ -73,6 +76,7 @@ namespace Microsoft.Health.Fhir.Azure.SemanticSearch
             _maxBatchTokenCount = EnsureArg.IsGt(maxBatchTokenCount, 0, nameof(maxBatchTokenCount));
 
             Dimensions = configuration.Dimensions;
+            _requestedDimensions = configuration.SendDimensionsParameter ? configuration.Dimensions : null;
 
             var azureClient = new AzureOpenAIClient(configuration.Endpoint, tokenCredential, clientOptions);
             _embeddingClient = azureClient.GetEmbeddingClient(configuration.DeploymentName);
@@ -125,7 +129,7 @@ namespace Microsoft.Health.Fhir.Azure.SemanticSearch
 
         private async Task<IReadOnlyList<float[]>> GenerateBatchAsync(List<string> texts, CancellationToken cancellationToken)
         {
-            var options = new EmbeddingGenerationOptions { Dimensions = Dimensions };
+            var options = new EmbeddingGenerationOptions { Dimensions = _requestedDimensions };
             ClientResult<OpenAIEmbeddingCollection> response = await _embeddingClient.GenerateEmbeddingsAsync(texts, options, cancellationToken);
             List<float[]> embeddings = response.Value
                 .Select(embedding => embedding.ToFloats().ToArray())

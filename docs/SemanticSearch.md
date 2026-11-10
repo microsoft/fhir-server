@@ -9,7 +9,9 @@ direct text extracted from the resource being indexed.
 - SQL Server 2025 or a supported Azure SQL engine with native vector support.
 - An Azure Foundry embedding deployment accessible through the server's configured
   `TokenCredential`.
-- A 1,536-dimension cosine embedding model.
+- A 1,536-dimension cosine embedding model, either one that natively returns 1,536 dimensions
+  (`text-embedding-3-small`, `text-embedding-ada-002`) or one that can shorten its output to 1,536
+  (`text-embedding-3-large`; see `Embedding:SendDimensionsParameter` below).
 - A registered, active, supported SearchParameter with type `special`, a FHIRPath expression that
   produces text, and the vector-search configuration extension.
 
@@ -26,7 +28,8 @@ Example configuration:
           "DeploymentName": "text-embedding-3-small",
           "ModelName": "text-embedding-3-small",
           "ModelVersion": "1",
-          "Dimensions": 1536
+          "Dimensions": 1536,
+          "SendDimensionsParameter": false
         },
         "Indexing": {
           "Mode": "Synchronous",
@@ -48,6 +51,13 @@ be `cosine`; it is matched case-insensitively and stored lowercase in the embedd
 `Embedding:ModelName` (at most 128 characters) and `Embedding:ModelVersion` (at most 64) identify the
 model in that registry, so they must be printable ASCII without leading or trailing whitespace. Values
 the registry columns could truncate or alter are rejected instead of resolving to another declared model.
+
+`Embedding:Dimensions` must be 1,536, the vector width of the SQL schema. `Embedding:SendDimensionsParameter`
+(default `false`) controls whether that value is also sent to the service as the request's `dimensions`
+parameter. Leave it `false` for a deployment that natively returns 1,536 dimensions; `text-embedding-ada-002`
+rejects the parameter with HTTP 400. Set it to `true` for a model that natively returns more dimensions but can
+shorten its output, such as `text-embedding-3-large`. Either way, indexing and querying fail with an explicit
+error if the service returns a vector whose length is not 1,536.
 
 ### Optional approximate retrieval (DiskANN)
 

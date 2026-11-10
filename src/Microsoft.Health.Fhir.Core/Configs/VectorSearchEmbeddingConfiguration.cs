@@ -43,5 +43,17 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the number of dimensions produced for each embedding.
         /// </summary>
         public int Dimensions { get; set; } = VectorSearchConfiguration.SupportedDimensions;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether <see cref="Dimensions"/> is also sent to the embedding service as the
+        /// request's <c>dimensions</c> parameter.
+        /// </summary>
+        /// <remarks>
+        /// Leave <c>false</c> (the default) when the deployment natively returns <see cref="Dimensions"/> values, as
+        /// <c>text-embedding-3-small</c> and <c>text-embedding-ada-002</c> do; <c>text-embedding-ada-002</c> rejects the
+        /// parameter with HTTP 400. Set <c>true</c> for a model that natively returns more dimensions but can shorten its
+        /// output to the requested size, such as <c>text-embedding-3-large</c>.
+        /// </remarks>
+        public bool SendDimensionsParameter { get; set; }
     }
 }

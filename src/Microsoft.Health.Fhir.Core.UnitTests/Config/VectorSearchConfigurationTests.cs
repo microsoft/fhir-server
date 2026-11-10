@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Equal("text-embedding-3-small", configuration.Embedding.ModelName);
             Assert.Null(configuration.Embedding.ModelVersion);
             Assert.Equal(VectorSearchConfiguration.SupportedDimensions, configuration.Embedding.Dimensions);
+            Assert.False(configuration.Embedding.SendDimensionsParameter);
             Assert.Equal(VectorSearchIndexingMode.Synchronous, configuration.Indexing.Mode);
             Assert.Equal(800, configuration.Indexing.ChunkSizeTokens);
             Assert.Equal(100, configuration.Indexing.ChunkOverlapTokens);
@@ -430,6 +431,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             // Assert
             Assert.Equal(VectorSearchApproximateMode.Auto, configuration.Query.ApproximateSearch);
             Assert.Equal(25, configuration.Query.ApproximateCandidateMultiplier);
+        }
+
+        [Fact]
+        public void GivenSendDimensionsParameterValue_WhenBoundFromConfiguration_ThenItIsApplied()
+        {
+            // Arrange
+            IConfiguration source = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["Embedding:SendDimensionsParameter"] = "true",
+                })
+                .Build();
+            var configuration = new VectorSearchConfiguration();
+
+            // Act
+            source.Bind(configuration);
+
+            // Assert
+            Assert.True(configuration.Embedding.SendDimensionsParameter);
         }
 
         private static VectorSearchConfiguration CreateValidConfiguration()
