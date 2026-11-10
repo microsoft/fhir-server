@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +25,8 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 {
@@ -42,7 +45,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ITransactionHandler _transactionHandler;
-        private readonly ISearchParameterPackageStoreCheck _storeCheck;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly ISqlServerFhirModel _model;
         private readonly ISearchParameterPackageRecordStore _recordStore;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -55,7 +59,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         /// </summary>
         /// <param name="fhirDataStore">Writes the SearchParameter resources and statuses.</param>
         /// <param name="transactionHandler">Starts the transaction that the whole write enlists in.</param>
-        /// <param name="storeCheck">Checks the empty-store precondition.</param>
+        /// <param name="sqlConnectionWrapperFactory">Provides the connection enlisted in the write transaction for the empty-store check.</param>
+        /// <param name="model">Resolves the SearchParameter resource type id.</param>
         /// <param name="recordStore">Reads and writes the applied-package record.</param>
         /// <param name="resourceWrapperFactory">Builds the stored form of each SearchParameter.</param>
         /// <param name="modelInfoProvider">Provides the structure definitions used to stamp server-assigned metadata.</param>
@@ -65,7 +70,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         public SqlServerSearchParameterPackageWriter(
             IFhirDataStore fhirDataStore,
             ITransactionHandler transactionHandler,
-            ISearchParameterPackageStoreCheck storeCheck,
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            ISqlServerFhirModel model,
             ISearchParameterPackageRecordStore recordStore,
             IResourceWrapperFactory resourceWrapperFactory,
             IModelInfoProvider modelInfoProvider,
@@ -75,7 +81,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         {
             _fhirDataStore = EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             _transactionHandler = EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
-            _storeCheck = EnsureArg.IsNotNull(storeCheck, nameof(storeCheck));
+            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _model = EnsureArg.IsNotNull(model, nameof(model));
             _recordStore = EnsureArg.IsNotNull(recordStore, nameof(recordStore));
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -140,7 +147,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             {
                 using ITransactionScope transaction = _transactionHandler.BeginTransaction();
 
-                if (await _storeCheck.ContainsDataAsync(cancellationToken))
+                if (await ContainsDataAsync(cancellationToken))
                 {
                     _logger.LogWarning(
                         "FHIR package {PackageId} version {Version} was not installed because the data store contains resources.",
@@ -250,6 +257,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             meta.Add(provider, "lastUpdated", Hl7.Fhir.ElementModel.Types.DateTime.FromDateTimeOffset(Clock.UtcNow.UtcDateTime.TruncateToMillisecond()));
 
             return new ResourceElement(node);
+        }
+
+        /// <summary>
+        /// Applies the SearchParameter status initialization rule (new parameters are enabled only while <c>dbo.Resource</c>
+        /// is empty), except that SearchParameter rows are ignored because earlier package installs write them.
+        /// </summary>
+        /// <remarks>
+        /// Runs inside the write transaction. HOLDLOCK keeps range locks until it ends, so no counted row can be inserted
+        /// before the package commits.
+        /// </remarks>
+        private async Task<bool> ContainsDataAsync(CancellationToken cancellationToken)
+        {
+            using SqlConnectionWrapper conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true);
+            using var cmd = new SqlCommand
+            {
+                CommandType = CommandType.Text,
+                CommandText = "SELECT TOP 1 1 FROM dbo.Resource WITH (HOLDLOCK) WHERE ResourceTypeId <> @SearchParameterTypeId",
+                Connection = conn.SqlConnection,
+                Transaction = conn.SqlTransaction,
+            };
+            cmd.Parameters.Add(new SqlParameter("@SearchParameterTypeId", SqlDbType.SmallInt) { Value = _model.GetResourceTypeId(KnownResourceTypes.SearchParameter) });
+
+            return await cmd.ExecuteScalarAsync(cancellationToken) != null;
         }
 
         /// <returns><c>true</c> if the same content is already installed.</returns>

@@ -117,6 +117,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task GivenTheRecordWriteFails_WhenAPackageIsWritten_ThenNothingIsWritten()
+        {
+            // Arrange
+            string url = NewUrl();
+            _recordStore.FailNextAdd = true;
+
+            // Act
+            await Assert.ThrowsAsync<InvalidOperationException>(() => WriteAsync(Package("partner.a"), CurrentToken(), (url, NewCode())));
+
+            // Assert
+            await AssertNothingWrittenAsync(url, "partner.a");
+        }
+
+        [Fact]
         public async Task GivenOnlySearchParametersFromAnEarlierPackage_WhenAnotherPackageIsWritten_ThenTheStoreCountsAsEmpty()
         {
             // Arrange
@@ -293,7 +307,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return new SqlServerSearchParameterPackageWriter(
                 _fixture.DataStore,
                 _fixture.TransactionHandler,
-                new SqlServerSearchParameterPackageStoreCheck(_sqlFixture.SqlConnectionWrapperFactory, _sqlFixture.SqlTransactionHandler, _sqlFixture.SqlServerFhirModel),
+                _sqlFixture.SqlConnectionWrapperFactory,
+                _sqlFixture.SqlServerFhirModel,
                 _recordStore,
                 resourceWrapperFactory,
                 ModelInfoProvider.Instance,
@@ -390,6 +405,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             public IReadOnlyCollection<SearchParameterPackageRecord> Records => _records.Values.ToList();
 
+            public bool FailNextAdd { get; set; }
+
             public void HideRecordsForNextReads(int count) => _hiddenReads = count;
 
             public Task<SearchParameterPackageRecord> GetAsync(string packageId, CancellationToken cancellationToken)
@@ -404,6 +421,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             public Task AddAsync(SearchParameterPackageRecord record, CancellationToken cancellationToken)
             {
+                if (FailNextAdd)
+                {
+                    FailNextAdd = false;
+                    throw new InvalidOperationException("Simulated record write failure.");
+                }
+
                 if (!_records.TryAdd(record.PackageId, record))
                 {
                     throw new InvalidOperationException($"Package {record.PackageId} already has a record.");
