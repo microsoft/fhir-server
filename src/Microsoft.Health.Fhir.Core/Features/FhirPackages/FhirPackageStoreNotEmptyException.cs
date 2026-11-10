@@ -25,13 +25,13 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         /// <param name="packageId">The package id.</param>
         /// <param name="version">The package version.</param>
         public FhirPackageStoreNotEmptyException(string packageId, string version)
-            : base(
-                  Format(packageId, version),
-                  new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Conflict, Format(packageId, version)))
+            : this(string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageStoreNotEmpty, packageId, version))
         {
         }
 
-        private static string Format(string packageId, string version) =>
-            string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageStoreNotEmpty, packageId, version);
+        private FhirPackageStoreNotEmptyException(string message)
+            : base(message, new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Conflict, message))
+        {
+        }
     }
 }

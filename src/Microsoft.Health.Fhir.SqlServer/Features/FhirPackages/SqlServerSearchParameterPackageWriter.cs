@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,8 +42,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
     /// </remarks>
     public sealed class SqlServerSearchParameterPackageWriter : ISearchParameterPackageWriter
     {
-        private const int SqlDeadlockErrorNumber = 1205;
-
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ITransactionHandler _transactionHandler;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -173,9 +172,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
                     }
 
                     throw new FhirPackageWriteConflictException(
-                        string.Format(Core.Resources.FhirPackageSearchParameterResourceConflict, record.PackageId, record.Version, string.Join(" ", failures.Select(x => x.Message))),
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterResourceConflict, record.PackageId, record.Version, string.Join(" ", failures.Select(x => x.Message))),
                         isRetryable: false,
-                        failures.Count == 1 ? failures[0] : new AggregateException(failures));
+                        new AggregateException(failures));
                 }
 
                 await _recordStore.AddAsync(record, cancellationToken);
@@ -195,7 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
                 _logger.LogWarning(ex, "FHIR package {PackageId} version {Version} conflicted with a concurrent SearchParameter change or reindex.", record.PackageId, record.Version);
 
                 throw new FhirPackageWriteConflictException(
-                    string.Format(Core.Resources.FhirPackageWriteConflictRetryable, record.PackageId, record.Version, ex.Message),
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageWriteConflictRetryable, record.PackageId, record.Version, ex.Message),
                     isRetryable: true,
                     ex);
             }
@@ -299,7 +298,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             }
 
             throw new FhirPackageWriteConflictException(
-                string.Format(Core.Resources.FhirPackageInstalledWithDifferentContent, installed.PackageId, installed.Version, installed.Integrity, record.Version, record.Integrity),
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageInstalledWithDifferentContent, installed.PackageId, installed.Version, installed.Integrity, record.Version, record.Integrity),
                 isRetryable: false);
         }
 
@@ -308,7 +307,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             return ex is JobConflictException
                 || ex is ResourceConflictException
                 || (ex is BadRequestException && string.Equals(ex.Message, Core.Resources.SearchParameterConcurrencyConflict, StringComparison.Ordinal))
-                || (ex is SqlException sqlEx && sqlEx.Number == SqlDeadlockErrorNumber);
+                || (ex is SqlException sqlEx && sqlEx.IsSqlTransientException());
         }
 
         private static FhirRequestContext CreateBackgroundContext()

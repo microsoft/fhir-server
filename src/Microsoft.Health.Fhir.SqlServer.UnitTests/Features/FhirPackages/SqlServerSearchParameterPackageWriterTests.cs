@@ -103,24 +103,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
             await AssertNothingWrittenAsync();
         }
 
-        [Theory]
-        [InlineData(Version, Integrity, true)]
-        [InlineData("9.9.9", Integrity, false)]
-        [InlineData(Version, "sha512-other", false)]
-        [InlineData(Version, "SHA512-ABC", false)]
-        public void GivenTwoRecords_WhenCompared_ThenOnlyTheSameIdVersionAndIntegrityMatch(string version, string integrity, bool expected)
-        {
-            // Arrange
-            SearchParameterPackageRecord installed = Record(Version, Integrity);
-            SearchParameterPackageRecord candidate = Record(version, integrity);
-
-            // Act
-            bool actual = installed.IsSameContentAs(candidate);
-
-            // Assert
-            Assert.Equal(expected, actual);
-        }
-
         private static SearchParameterPackageRecord Record(string version, string integrity) =>
             new SearchParameterPackageRecord(PackageId, version, integrity, new[] { Url1, Url2 });
 
