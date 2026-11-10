@@ -592,6 +592,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var partialResults = new List<(string, string, bool)>();
             var rejected = new List<(string ResourceType, string Id, bool IsInclude)>();
             var rejectedMessages = new List<string>();
+            var failed = new HashSet<(string ResourceType, string Id)>();
             try
             {
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
@@ -676,8 +677,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Updated resources with reference ids longer than the maximum resource id length, which are indexed truncated.
+            // Resources whose write failed for any reason (rejected, or for example throttled or a precondition failure in Cosmos DB) weren't saved.
             foreach (ResourceWrapperOperation operation in wrapperOperationsIncludes.Concat(wrapperOperationsMatches)
-                .Where(operation => !rejected.Any(r => r.Id == operation.Wrapper.ResourceId && r.ResourceType == operation.Wrapper.ResourceTypeName)))
+                .Where(operation => !failed.Contains((operation.Wrapper.ResourceTypeName, operation.Wrapper.ResourceId))))
             {
                 OverlongReferenceIdCount.Add(pageResult.OverlongReferenceIds, operation.Wrapper);
             }
@@ -688,6 +690,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 foreach (var (identifier, result) in outcome.Results)
                 {
+                    if (result.Exception != null)
+                    {
+                        failed.Add((identifier.ResourceType, identifier.Id));
+                    }
+
                     if (result.Exception is BadRequestException badRequest)
                     {
                         rejected.Add((identifier.ResourceType, identifier.Id, isInclude));

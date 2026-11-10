@@ -394,6 +394,32 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Fact]
+        public async Task UpdateMultipleAsync_WhenAWriteFailsWithAnotherException_ThatResourceIsNotCounted()
+        {
+            const string resourceType = "Patient";
+            SetUpOverlongReferenceSearch(resourceType, 3);
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+            {
+                IReadOnlyList<ResourceWrapperOperation> operations = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>();
+                return new MergeOutcome(
+                    MergeOutcomeFinalState.CompletedWithFailures,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>
+                    {
+                        { operations[0].GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(operations[0].Wrapper, SaveOutcomeType.Updated)) },
+                        { operations[1].GetIdentifier(), new DataStoreOperationOutcome(new RequestRateExceededException(TimeSpan.FromSeconds(1))) },
+                        { operations[2].GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException("precondition failed")) },
+                    });
+            });
+            SetUpFhirDataStore(fhirDataStore);
+
+            BulkUpdateResult result = await _service.UpdateMultipleAsync(resourceType, "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}", false, 0, false, new List<Tuple<string, string>>(), bundleResourceContext: null, true, CancellationToken.None);
+
+            OverlongReferenceIdCount count = Assert.Single(result.OverlongReferenceIds);
+            Assert.Equal(1, count.Count);
+        }
+
+        [Fact]
         public async Task UpdateMultipleAsync_WhenTheMergeFailsAfterSavingSomeResources_TheSavedResourcesAreCounted()
         {
             const string resourceType = "Patient";

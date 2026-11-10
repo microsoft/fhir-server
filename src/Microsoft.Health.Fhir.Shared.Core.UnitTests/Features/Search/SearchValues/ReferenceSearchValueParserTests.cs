@@ -7,9 +7,11 @@ using System;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -250,6 +252,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Null(parser.Parse("urn:oid:" + string.Join('.', Enumerable.Repeat("1234567890", 10))).OverlongResourceIdLength);
             Assert.Null(parser.Parse("http://test.com/" + new string('a', 100)).OverlongResourceIdLength);
             Assert.Null(parser.Parse("#" + new string('a', 100)).OverlongResourceIdLength);
+        }
+
+        [Theory]
+        [InlineData(KnownDataStores.SqlServer, 65)]
+        [InlineData(KnownDataStores.CosmosDb, null)]
+        public void GivenAnOverlongBareId_WhenParsing_ThenItIsFlaggedOnlyWhenTheDataStoreTruncatesIt(string dataStore, int? expectedOverlongLength)
+        {
+            var runtimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            runtimeConfiguration.DataStore.Returns(dataStore);
+            var parser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, _instanceConfig, ResourceIdPolicy.Standard, runtimeConfiguration);
+            string resourceId = CreateResourceId(65);
+
+            ReferenceSearchValue bare = parser.Parse(resourceId);
+            ReferenceSearchValue typed = parser.Parse($"Patient/{resourceId}");
+
+            Assert.Equal(resourceId, bare.ResourceId);
+            Assert.Equal(expectedOverlongLength, bare.OverlongResourceIdLength);
+
+            // A typed reference is truncated by the parser itself, so it is flagged on every data store.
+            Assert.Equal(64, typed.ResourceId.Length);
+            Assert.Equal(65, typed.OverlongResourceIdLength);
         }
 
         private static string CreateResourceId(int length)

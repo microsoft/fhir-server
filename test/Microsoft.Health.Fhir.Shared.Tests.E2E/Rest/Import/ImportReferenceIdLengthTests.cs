@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
@@ -109,11 +110,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_fixture.TestFhirClient, request);
+
+            // A stalled import worker keeps returning 202, so bound the wait instead of polling forever.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
             HttpResponseMessage response;
-            while ((response = await _fixture.TestFhirClient.CheckImportAsync(checkLocation)).StatusCode == HttpStatusCode.Accepted)
+            try
             {
-                response.Dispose();
-                await Task.Delay(TimeSpan.FromSeconds(2));
+                while ((response = await _fixture.TestFhirClient.CheckImportAsync(checkLocation, cancellationToken: timeout.Token)).StatusCode == HttpStatusCode.Accepted)
+                {
+                    response.Dispose();
+                    await Task.Delay(TimeSpan.FromSeconds(2), timeout.Token);
+                }
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                throw new TimeoutException($"Import {checkLocation} did not complete within 5 minutes.");
             }
 
             using (response)
