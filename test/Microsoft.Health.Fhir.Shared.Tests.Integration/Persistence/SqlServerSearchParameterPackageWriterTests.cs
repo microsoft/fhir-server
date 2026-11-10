@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.FhirPackages;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -252,6 +253,49 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(SearchParameterStatus.Enabled, await GetStatusAsync(url));
         }
 
+        [Fact]
+        public async Task GivenAnotherWriterInstalledTheSamePackageBeforeDataArrived_WhenThisOneWrites_ThenItIsANoOp()
+        {
+            // Arrange: this writer read the record before the other committed, and data arrived before its empty-store check.
+            string url = NewUrl();
+            string code = NewCode();
+            FhirPackage package = Package("partner.a");
+            await WriteAsync(package, CurrentToken(), (url, code));
+            await _fixture.Mediator.UpsertResourceAsync(new Patient().ToResourceElement());
+            _recordStore.HideRecordsForNextReads(1);
+
+            // Act
+            await WriteAsync(package, CurrentToken(), (url, code));
+
+            // Assert
+            Assert.Single(_recordStore.Records);
+            Assert.Equal(1, await CountSearchParameterResourcesAsync(url));
+        }
+
+        [Fact]
+        public async Task GivenNoRequestContext_WhenAPackageIsWritten_ThenItIsWrittenAndTheContextIsRestored()
+        {
+            // Arrange: package convergence runs at startup, outside any HTTP request.
+            string url = NewUrl();
+            IFhirRequestContext originalContext = _fixture.FhirRequestContextAccessor.RequestContext;
+            _fixture.FhirRequestContextAccessor.RequestContext = null;
+
+            try
+            {
+                // Act
+                await WriteAsync(Package("partner.a"), CurrentToken(), (url, NewCode()));
+
+                // Assert
+                Assert.Null(_fixture.FhirRequestContextAccessor.RequestContext);
+                Assert.Equal(SearchParameterStatus.Enabled, await GetStatusAsync(url));
+                Assert.Equal("POST", await GetRequestMethodAsync(url));
+            }
+            finally
+            {
+                _fixture.FhirRequestContextAccessor.RequestContext = originalContext;
+            }
+        }
+
         private static string NewUrl() => $"http://partner.example/SearchParameter/{Guid.NewGuid():N}";
 
         private static string NewCode() => $"p{Guid.NewGuid():N}".Substring(0, 20);
@@ -368,6 +412,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private Task<int> CountReindexJobsAsync() =>
             ExecuteScalarAsync($"SELECT COUNT(*) FROM dbo.JobQueue WHERE QueueType = {(byte)QueueType.Reindex}");
+
+        private async Task<string> GetRequestMethodAsync(string url)
+        {
+            await using SqlConnection connection = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            await connection.OpenAsync();
+            await using SqlCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT RequestMethod FROM dbo.Resource WHERE ResourceTypeId = (SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name = 'SearchParameter') AND ResourceId = @Id";
+            command.Parameters.Add(new SqlParameter("@Id", SearchParameterResource(url, "x").Id));
+            return (string)await command.ExecuteScalarAsync();
+        }
 
         private async Task<int> ExecuteScalarAsync(string sql, params SqlParameter[] parameters)
         {
