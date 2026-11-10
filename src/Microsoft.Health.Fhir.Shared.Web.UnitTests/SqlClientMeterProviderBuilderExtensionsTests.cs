@@ -54,14 +54,12 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             listener.Start();
             Volatile.Write(ref capturing, true);
 
-            using (MeterProvider meterProvider = Sdk.CreateMeterProviderBuilder().AddSqlClientConnectionPoolInstrumentation().Build())
-            {
-                await CreateSqlClientPoolAsync();
+            using MeterProvider _ = Sdk.CreateMeterProviderBuilder().AddSqlClientConnectionPoolInstrumentation().Build();
+            await CreateSqlClientPoolAsync();
 
-                await WaitUntilAsync(() => SnapshotCounters.Concat(IncrementCounters).All(counter => FindInstrument(instruments, counter) != null));
+            await WaitUntilAsync(() => SnapshotCounters.Concat(IncrementCounters).All(counter => FindInstrument(instruments, counter) != null));
 
-                listener.RecordObservableInstruments();
-            }
+            listener.RecordObservableInstruments();
 
             Assert.All(SnapshotCounters, counter => Assert.IsType<ObservableGauge<double>>(FindInstrument(instruments, counter)));
             Assert.All(IncrementCounters, counter => Assert.IsType<ObservableCounter<double>>(FindInstrument(instruments, counter)));
