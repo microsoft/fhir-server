@@ -133,15 +133,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.PreconditionFailed;
 
                         // A condition with URI values that are only partially compared can match more resources than intended.
+                        // The filter is evaluated lazily, so a warning already added is not added again.
                         IEnumerable<OperationOutcome.IssueComponent> longUriWarnings = (_fhirRequestContextAccessor.RequestContext?.BundleIssues ?? Enumerable.Empty<OperationOutcomeIssue>())
                             .Where(LongUriSearchValueIssue.IsMatch)
-                            .Select(issue => issue.ToPoco());
+                            .Select(issue => issue.ToPoco())
+                            .Where(poco => !operationOutcomeResult.Result.Issue.Any(i => string.Equals(i.Diagnostics, poco.Diagnostics, StringComparison.Ordinal)));
                         foreach (OperationOutcome.IssueComponent poco in longUriWarnings)
                         {
-                            if (!operationOutcomeResult.Result.Issue.Any(i => string.Equals(i.Diagnostics, poco.Diagnostics, StringComparison.Ordinal)))
-                            {
-                                operationOutcomeResult.Result.Issue.Add(poco);
-                            }
+                            operationOutcomeResult.Result.Issue.Add(poco);
                         }
 
                         break;

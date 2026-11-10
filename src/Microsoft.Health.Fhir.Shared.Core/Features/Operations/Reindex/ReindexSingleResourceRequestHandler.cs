@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -86,9 +87,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IReadOnlyCollection<SearchIndexEntry> newIndices = _searchIndexer.Extract(resourceElement);
 
             // If it's a post request we need to go update the resource in the database.
+            IReadOnlyList<string> warnings = null;
             if (request.HttpMethod == HttpPostName)
             {
-                await ProcessPostReindexSingleResourceRequest(storedResource, newIndices);
+                (newIndices, warnings) = await ProcessPostReindexSingleResourceRequest(storedResource, newIndices);
             }
 
             // Create a new parameter resource and include the new search indices and the corresponding values.
@@ -104,10 +106,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 parametersResource.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent() { Name = searchIndex.SearchParameter.Code.ToString(), Value = new FhirString(searchIndex.Value.ToString()) });
             }
 
+            // Search values the data store couldn't index (for example URI values it can't tell apart) are not stored.
+            if (warnings?.Count > 0)
+            {
+                var operationOutcome = new OperationOutcome
+                {
+                    Issue = warnings.Select(warning => new OperationOutcome.IssueComponent
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Warning,
+                        Code = OperationOutcome.IssueType.Informational,
+                        Diagnostics = warning,
+                    }).ToList(),
+                };
+                parametersResource.Parameter.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent { Name = "Issues", Resource = operationOutcome });
+            }
+
             return new ReindexSingleResourceResponse(parametersResource.ToResourceElement());
         }
 
-        private async System.Threading.Tasks.Task ProcessPostReindexSingleResourceRequest(ResourceWrapper originalResource, IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        private async Task<(IReadOnlyCollection<SearchIndexEntry> StoredIndices, IReadOnlyList<string> Warnings)> ProcessPostReindexSingleResourceRequest(ResourceWrapper originalResource, IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
             var hashValue = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(originalResource.ResourceTypeName);
             ResourceWrapper updatedResource = new ResourceWrapper(
@@ -124,7 +141,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 hashValue,
                 originalResource.ResourceSurrogateId);
 
-            await _fhirDataStore.UpdateSearchParameterIndicesAsync(updatedResource, CancellationToken.None);
+            // The data store can leave out values it can't index; it removes them from the wrapper and returns warnings.
+            IReadOnlyList<string> warnings = await _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(new[] { updatedResource }, CancellationToken.None);
+            return (updatedResource.SearchIndices ?? searchIndices, warnings);
         }
     }
 }
