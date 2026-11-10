@@ -7,10 +7,10 @@ using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -36,19 +36,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (searchParameter.VectorConfig != null)
             {
-                if (searchParameter.Type == SearchParamType.Special)
+                // Create/update is the entry point for a vector SearchParameter, so reject one the server cannot serve
+                // here rather than accepting it and failing every query that reaches it.
+                if (!_vectorSearchConfiguration.Enabled)
                 {
-                    if (_vectorSearchConfiguration.TryResolveChunkSettings(searchParameter.VectorConfig, out _, out _, out string chunkSettingsError))
-                    {
-                        return true;
-                    }
-
-                    errorMessage = $"Vector SearchParameter has invalid effective chunk settings. {chunkSettingsError}";
+                    errorMessage = "Vector SearchParameters cannot be created or updated because semantic search is not enabled on this server.";
                     return false;
                 }
 
-                errorMessage = string.Format(Resources.SearchParameterTypeNotSupportedBySQLServer, searchParameter.Type);
-                return false;
+                return VectorSearchParameterResolver.TryValidateDefinition(searchParameter, _vectorSearchConfiguration, out errorMessage);
             }
 
             var factory = new SearchParamTableExpressionQueryGeneratorFactory(_searchParameterToSearchValueTypeMap);

@@ -83,8 +83,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
             }
         }
 
-        private bool TryValidate(SearchParameterInfo searchParameter, bool requireSearchable, out string errorMessage)
+        /// <summary>
+        /// Determines whether a SearchParameter definition is one the server can serve as a vector SearchParameter.
+        /// Only the definition is checked; whether the feature is enabled and whether the SearchParameter has been
+        /// activated are runtime state and are not considered.
+        /// </summary>
+        /// <param name="searchParameter">The SearchParameter definition to check.</param>
+        /// <param name="configuration">The server vector search defaults used to resolve the effective chunk settings.</param>
+        /// <param name="errorMessage">The reason the definition cannot be served, or <c>null</c> when it can.</param>
+        /// <returns><c>true</c> when the definition can be served; otherwise <c>false</c>.</returns>
+        public static bool TryValidateDefinition(SearchParameterInfo searchParameter, VectorSearchConfiguration configuration, out string errorMessage)
         {
+            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+
             if (searchParameter.Type != SearchParamType.Special)
             {
                 errorMessage = $"Vector SearchParameter '{searchParameter.Url}' must use FHIR type 'special'.";
@@ -115,9 +127,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch
                 return false;
             }
 
-            if (!_configuration.TryResolveChunkSettings(searchParameter.VectorConfig, out _, out _, out string chunkSettingsError))
+            if (!configuration.TryResolveChunkSettings(searchParameter.VectorConfig, out _, out _, out string chunkSettingsError))
             {
                 errorMessage = $"Vector SearchParameter '{searchParameter.Url}' has invalid effective chunk settings. {chunkSettingsError}";
+                return false;
+            }
+
+            errorMessage = null;
+            return true;
+        }
+
+        private bool TryValidate(SearchParameterInfo searchParameter, bool requireSearchable, out string errorMessage)
+        {
+            if (!TryValidateDefinition(searchParameter, _configuration, out errorMessage))
+            {
                 return false;
             }
 

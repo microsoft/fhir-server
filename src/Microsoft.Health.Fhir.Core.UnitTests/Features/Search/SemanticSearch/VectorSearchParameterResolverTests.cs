@@ -193,6 +193,90 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             Assert.Throws<InvalidOperationException>(resolve);
         }
 
+        [Fact]
+        public void GivenServableVectorSearchParameterDefinition_WhenValidatingDefinition_ThenDefinitionIsValid()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(VectorCanonical);
+
+            bool result = VectorSearchParameterResolver.TryValidateDefinition(searchParameter, new VectorSearchConfiguration(), out string errorMessage);
+
+            Assert.True(result);
+            Assert.Null(errorMessage);
+        }
+
+        [Fact]
+        public void GivenVectorSearchParameterDefinitionThatIsNotSpecial_WhenValidatingDefinition_ThenDefinitionIsInvalid()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(VectorCanonical, searchParamType: SearchParamType.String);
+
+            bool result = VectorSearchParameterResolver.TryValidateDefinition(searchParameter, new VectorSearchConfiguration(), out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains("FHIR type 'special'", errorMessage);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("draft")]
+        [InlineData("retired")]
+        public void GivenVectorSearchParameterDefinitionThatIsNotActive_WhenValidatingDefinition_ThenDefinitionIsInvalid(string definitionStatus)
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(VectorCanonical, definitionStatus: definitionStatus);
+
+            bool result = VectorSearchParameterResolver.TryValidateDefinition(searchParameter, new VectorSearchConfiguration(), out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains("publication status 'active'", errorMessage);
+        }
+
+        [Fact]
+        public void GivenVectorSearchParameterDefinitionWithoutBaseResourceTypes_WhenValidatingDefinition_ThenDefinitionIsInvalid()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(VectorCanonical, baseResourceTypes: Array.Empty<string>());
+
+            bool result = VectorSearchParameterResolver.TryValidateDefinition(searchParameter, new VectorSearchConfiguration(), out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains("base resource type", errorMessage);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("  ")]
+        public void GivenVectorSearchParameterDefinitionWithoutAnExpression_WhenValidatingDefinition_ThenDefinitionIsInvalid(string expression)
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(VectorCanonical, expression: expression);
+
+            bool result = VectorSearchParameterResolver.TryValidateDefinition(searchParameter, new VectorSearchConfiguration(), out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains("must declare an expression", errorMessage);
+        }
+
+        [Fact]
+        public void GivenSearchParameterDefinitionWithoutVectorExtension_WhenValidatingDefinition_ThenDefinitionIsInvalid()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(VectorCanonical, includeVectorConfig: false);
+
+            bool result = VectorSearchParameterResolver.TryValidateDefinition(searchParameter, new VectorSearchConfiguration(), out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains(VectorSearchParameterConfig.ExtensionUrl, errorMessage);
+        }
+
+        [Fact]
+        public void GivenVectorSearchParameterDefinitionWithInvalidEffectiveChunkSettings_WhenValidatingDefinition_ThenDefinitionIsInvalid()
+        {
+            SearchParameterInfo searchParameter = CreateVectorSearchParameter(
+                VectorCanonical,
+                vectorConfig: new VectorSearchParameterConfig { ChunkOverlapTokens = 800 });
+
+            bool result = VectorSearchParameterResolver.TryValidateDefinition(searchParameter, new VectorSearchConfiguration(), out string errorMessage);
+
+            Assert.False(result);
+            Assert.Contains("chunk overlap", errorMessage);
+        }
+
         private static VectorSearchParameterResolver CreateResolver(ISearchParameterDefinitionManager definitionManager)
         {
             return new VectorSearchParameterResolver(
@@ -206,15 +290,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             string definitionStatus = "active",
             bool isSearchable = true,
             SearchParameterStatus searchParameterStatus = SearchParameterStatus.Enabled,
-            VectorSearchParameterConfig vectorConfig = null)
+            VectorSearchParameterConfig vectorConfig = null,
+            SearchParamType searchParamType = SearchParamType.Special,
+            string expression = "Observation.note.text",
+            IReadOnlyList<string> baseResourceTypes = null)
         {
             var searchParameter = new SearchParameterInfo(
                 name: "ObservationNoteVector",
                 code: "note-vector",
-                searchParamType: SearchParamType.Special,
+                searchParamType: searchParamType,
                 url: canonicalUri,
-                expression: "Observation.note.text",
-                baseResourceTypes: new[] { "Observation" },
+                expression: expression,
+                baseResourceTypes: baseResourceTypes ?? new[] { "Observation" },
                 vectorConfig: includeVectorConfig ? vectorConfig ?? new VectorSearchParameterConfig() : null,
                 definitionStatus: definitionStatus);
 

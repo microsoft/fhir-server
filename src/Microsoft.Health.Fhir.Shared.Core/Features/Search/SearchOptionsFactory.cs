@@ -493,7 +493,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
 
                     // A semantic predicate ranks and thresholds rather than authorizes, so it cannot stand in for a
-                    // mandatory SMART scope constraint that was merged into the query.
+                    // mandatory SMART scope constraint that was merged into the query. Dropping it would widen the
+                    // caller's access, so the request is denied independent of "Prefer: handling".
                     if (smartScopeInjectedParameters.Contains(q) && ContainsVectorSearch(parsed))
                     {
                         throw new InvalidSearchOperationException(

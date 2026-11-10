@@ -422,6 +422,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void GivenASemanticScopeOnlyForAnUnrequestedType_WhenCreated_ThenTheRequestIsNotDenied()
+        {
+            // A semantic scope constraint only matters for the types a request reaches. One granted for a type that
+            // is not requested must not deny a request that the other scopes fully authorize.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction("Condition", DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user"));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData(KnownResourceTypes.Observation)]
         [InlineData(KnownResourceTypes.All)]

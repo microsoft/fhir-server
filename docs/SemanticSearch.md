@@ -12,8 +12,8 @@ direct text extracted from the resource being indexed.
 - A 1,536-dimension cosine embedding model, either one that natively returns 1,536 dimensions
   (`text-embedding-3-small`, `text-embedding-ada-002`) or one that can shorten its output to 1,536
   (`text-embedding-3-large`; see `Embedding:SendDimensionsParameter` below).
-- A registered, active, supported SearchParameter with type `special`, a FHIRPath expression that
-  produces text, and the vector-search configuration extension.
+- A registered, active, supported SearchParameter with type `special`, at least one base resource
+  type, a FHIRPath expression that produces text, and the vector-search configuration extension.
 
 Example configuration:
 
@@ -97,6 +97,13 @@ per-input limit.
 
 The SearchParameter must be active and enabled through the existing SearchParameter lifecycle.
 First activation uses the normal reindex workflow to backfill existing resources.
+
+A SearchParameter that carries the extension is validated when it is created, updated, or installed from
+a package, so the server never accepts a definition it cannot serve. The request fails with HTTP 400 (a
+package reports a not-supported issue) unless semantic search is enabled and the definition has type
+`special`, FHIR publication status `active`, at least one base resource type, an expression, and valid
+effective chunk settings. The same check runs on update, so a vector SearchParameter cannot be moved to
+another publication status; delete it instead. The Cosmos DB data store rejects these SearchParameters.
 
 ## Indexing and recovery
 
