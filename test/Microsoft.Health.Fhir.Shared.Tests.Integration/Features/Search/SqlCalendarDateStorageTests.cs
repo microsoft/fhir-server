@@ -185,56 +185,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         /// <summary>
-        /// A reverse missing predicate requires a live linked resource without a birthdate.
-        /// A second linked resource with a birthdate does not disqualify the root.
-        /// </summary>
-        /// <param name="scalarEnabled">Whether exact-day scalar rewriting is enabled for this fixture.</param>
-        /// <returns>The test task.</returns>
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenPatientAndRelatedPersonBirthdates_WhenReverseSearchingMissing_ThenOnlyRootsWithLiveMissingLinksMatch(bool scalarEnabled)
-        {
-            _configuration.EnableScalarTemporalEqualityRewriter = scalarEnabled;
-            string prefix = $"missing-{scalarEnabled}-";
-            var deletedRoot = new Patient { Id = prefix + "deleted-root", BirthDate = "2016-07-06" };
-            var patients = new[]
-            {
-                new Patient { Id = prefix + "missing", BirthDate = "2016-07-06" },
-                new Patient { Id = prefix + "mixed", BirthDate = "2016-07-06" },
-                new Patient { Id = prefix + "present", BirthDate = "2016-07-06" },
-                new Patient { Id = prefix + "unlinked", BirthDate = "2016-07-06" },
-                new Patient { Id = prefix + "deleted-link", BirthDate = "2016-07-06" },
-                new Patient { Id = prefix + "wrong-date", BirthDate = "2017" },
-                deletedRoot,
-            };
-            var deletedLink = new RelatedPerson { Id = prefix + "link-deleted", Patient = new ResourceReference("Patient/" + prefix + "deleted-link") };
-            await UpsertResourcesAsync(patients);
-            await UpsertResourcesAsync(
-                new RelatedPerson { Id = prefix + "link-missing", Patient = new ResourceReference("Patient/" + prefix + "missing") },
-                new RelatedPerson { Id = prefix + "link-mixed-missing", Patient = new ResourceReference("Patient/" + prefix + "mixed") },
-                new RelatedPerson { Id = prefix + "link-mixed-present", Patient = new ResourceReference("Patient/" + prefix + "mixed"), BirthDate = "2016-07-06" },
-                new RelatedPerson { Id = prefix + "link-present", Patient = new ResourceReference("Patient/" + prefix + "present"), BirthDate = "2016-07-06" },
-                new RelatedPerson { Id = prefix + "link-deleted-root", Patient = new ResourceReference("Patient/" + deletedRoot.Id) },
-                new RelatedPerson { Id = prefix + "link-wrong-date", Patient = new ResourceReference("Patient/" + prefix + "wrong-date") },
-                deletedLink);
-            await UpsertResourceAsync(deletedLink, deleted: true);
-            await UpsertResourceAsync(deletedRoot, deleted: true);
-
-            var result = await _fixture.SearchService.SearchAsync(
-                "Patient",
-                new[]
-                {
-                    Tuple.Create("_id", string.Join(",", patients.Select(patient => patient.Id))),
-                    Tuple.Create("birthdate", "2016-07-06"),
-                    Tuple.Create("_has:RelatedPerson:patient:birthdate:missing", "true"),
-                },
-                CancellationToken.None);
-
-            AssertResults(result, new[] { "Patient/" + prefix + "missing", "Patient/" + prefix + "mixed" });
-        }
-
-        /// <summary>
         /// Patient birthdate and token constraints intersect within a scope and union across scopes.
         /// Reverse includes require an Observation resource-type grant.
         /// </summary>

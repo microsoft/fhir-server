@@ -55,14 +55,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         private static readonly SearchParameterInfo Code = new(
             "code", "code", SearchParamType.Token, new Uri("http://hl7.org/fhir/SearchParameter/clinical-code"));
 
-        private static readonly SearchParameterInfo PatientReference = new(
-            "patient",
-            "patient",
-            SearchParamType.Reference,
-            new Uri("http://hl7.org/fhir/SearchParameter/RelatedPerson-patient"),
-            expression: "RelatedPerson.patient",
-            targetResourceTypes: ["Patient"]);
-
         private static readonly SearchParameterInfo Gender = new(
             "gender",
             "gender",
@@ -311,48 +303,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Theory]
-        [InlineData("direct-missing", false, "missing", "missing-female")]
-        [InlineData("direct-missing", true, "missing", "missing-female")]
-        [InlineData("forward-missing", false, "observation-missing", "observation-missing-female")]
-        [InlineData("forward-missing", true, "observation-missing", "observation-missing-female")]
-        [InlineData("reverse-missing", false, "day", "missing")]
-        [InlineData("reverse-missing", true, "day", "missing")]
-        [InlineData("reverse-present", false, "year", "day")]
-        [InlineData("reverse-present", true, "year", "day")]
-        [InlineData("nested-missing", false, "observation-day", "observation-missing")]
-        [InlineData("nested-missing", true, "observation-day", "observation-missing")]
-        [InlineData("reverse-missing-with-birthdate", false, "day")]
-        [InlineData("reverse-missing-with-birthdate", true, "day")]
-        [InlineData("forward-missing-and-gender", false, "observation-missing")]
-        [InlineData("forward-missing-and-gender", true, "observation-missing")]
-        [InlineData("reverse-missing-and-gender", false, "missing")]
-        [InlineData("reverse-missing-and-gender", true, "missing")]
-        [InlineData("reverse-forward-missing", false, "missing")]
-        [InlineData("reverse-forward-missing", true, "missing")]
-        [InlineData("sibling-missing-and-present", false, "day")]
-        [InlineData("sibling-missing-and-present", true, "day")]
-        [InlineData("reverse-missing-gender", false, "year")]
-        [InlineData("reverse-missing-gender", true, "year")]
-        public async Task GivenMissingParametersInPatientGraph_WhenSearched_ThenMissingAppliesToTheCorrectResource(
-            string shape,
-            bool scalar,
-            params string[] expected)
-        {
-            using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
-            await connection.OpenAsync();
-            await SeedAsync(connection);
-            await SeedCompositionWitnessesAsync(connection);
-            using var command = CreateCommand(connection, shape, sorted: false, scalar: scalar);
-
-            var rows = await ReadRowsAsync(command);
-
-            Assert.Equal(expected.Order(), rows.Select(r => r.Id).Order());
-            Assert.Equal(rows.Count, rows.Distinct().Count());
-            using var count = CreateCommand(connection, shape, sorted: false, scalar: scalar, countOnly: true);
-            Assert.Equal(expected.Length, Convert.ToInt32(await count.ExecuteScalarAsync()));
-        }
-
-        [Theory]
         [InlineData("scope-birthdate-token", false, "year", "day", "december")]
         [InlineData("scope-birthdate-token", true, "year", "day", "december")]
         [InlineData("scope-birthdate-token-filtered", false, "year", "day")]
@@ -361,8 +311,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         [InlineData("scope-birthdate-token-revinclude", true, "year", "day")]
         [InlineData("scope-birthdate-token-organization", false, "year")]
         [InlineData("scope-birthdate-token-organization", true, "year")]
-        [InlineData("scope-birthdate-token-reverse-missing", false, "day")]
-        [InlineData("scope-birthdate-token-reverse-missing", true, "day")]
         public async Task GivenSmartScopesWithPatientBirthdateAndGender_WhenSearched_ThenEachScopeConjunctionIsPreserved(
             string shape,
             bool scalar,
@@ -470,12 +418,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             model.ResourceTypeIdRange.Returns(((short)1, (short)5));
             model.GetResourceTypeId("Patient").Returns((short)1);
             model.GetResourceTypeId("Observation").Returns((short)2);
-            model.GetResourceTypeId("RelatedPerson").Returns((short)3);
             model.GetResourceTypeId("Organization").Returns((short)4);
             model.GetResourceTypeId("ClaimResponse").Returns((short)5);
             model.GetResourceTypeName(1).Returns("Patient");
             model.GetResourceTypeName(2).Returns("Observation");
-            model.GetResourceTypeName(3).Returns("RelatedPerson");
             model.GetResourceTypeName(4).Returns("Organization");
             model.GetResourceTypeName(5).Returns("ClaimResponse");
             var typeParameter = new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType);
@@ -492,11 +438,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 call[1] = (short)2;
                 return true;
             });
-            model.TryGetResourceTypeId("RelatedPerson", out Arg.Any<short>()).Returns(call =>
-            {
-                call[1] = (short)3;
-                return true;
-            });
             model.TryGetResourceTypeId("Organization", out Arg.Any<short>()).Returns(call =>
             {
                 call[1] = (short)4;
@@ -510,41 +451,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             model.GetSearchParamId(Birthdate.Url).Returns((short)10);
             model.GetSearchParamId(Subject.Url).Returns((short)11);
             model.GetSearchParamId(Code.Url).Returns((short)12);
-            model.GetSearchParamId(PatientReference.Url).Returns((short)13);
             model.GetSearchParamId(Gender.Url).Returns((short)14);
             model.GetSearchParamId(Organization.Url).Returns((short)15);
             model.GetSearchParamId(OrganizationIdentifier.Url).Returns((short)16);
             model.GetSearchParamId(PaymentDate.Url).Returns((short)17);
             Expression dateEquality = Equality(dateParameter, query);
-            var missingBirthdate = Expression.MissingSearchParameter(Birthdate, true);
-            var reverseMissing = Expression.Chained(["RelatedPerson"], PatientReference, ["Patient"], true, missingBirthdate);
-            var reversePresent = Expression.Chained(
-                ["RelatedPerson"], PatientReference, ["Patient"], true, Expression.MissingSearchParameter(Birthdate, false));
             var male = Expression.SearchParameter(Gender, Expression.StringEquals(FieldName.TokenCode, null, "male", false));
-            string resourceType = shape is "forward" or "include" or "forward-missing" or "forward-missing-and-gender" or "nested-missing" ? "Observation" : rootResourceType;
+            string resourceType = shape is "forward" or "include" ? "Observation" : rootResourceType;
             Expression expression = shape switch
             {
-                "direct-missing" => missingBirthdate,
                 "forward" or "include" => Expression.Chained(["Observation"], Subject, ["Patient"], false, dateEquality),
-                "forward-missing" => Expression.Chained(["Observation"], Subject, ["Patient"], false, missingBirthdate),
-                "reverse-missing" => reverseMissing,
-                "reverse-present" => reversePresent,
-                "nested-missing" => Expression.Chained(["Observation"], Subject, ["Patient"], false, reverseMissing),
-                "reverse-missing-with-birthdate" => Expression.And(dateEquality, reverseMissing),
-                "scope-birthdate-token-reverse-missing" => Expression.And(dateEquality, reverseMissing),
-                "forward-missing-and-gender" => Expression.Chained(
-                    ["Observation"], Subject, ["Patient"], false, Expression.And(missingBirthdate, male)),
-                "reverse-missing-and-gender" => Expression.Chained(
-                    ["RelatedPerson"], PatientReference, ["Patient"], true, Expression.And(missingBirthdate, male)),
-                "reverse-forward-missing" => Expression.Chained(
-                    ["RelatedPerson"],
-                    PatientReference,
-                    ["Patient"],
-                    true,
-                    Expression.Chained(["RelatedPerson"], PatientReference, ["Patient"], false, missingBirthdate)),
-                "sibling-missing-and-present" => Expression.And(reverseMissing, reversePresent),
-                "reverse-missing-gender" => Expression.Chained(
-                    ["RelatedPerson"], PatientReference, ["Patient"], true, Expression.MissingSearchParameter(Gender, true)),
                 "reverse" => Expression.And(
                     Expression.Chained(
                         ["Observation"],
@@ -576,7 +492,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 }
             }
 
-            if (shape is "scope-birthdate-token" or "scope-birthdate-token-filtered" or "scope-birthdate-token-revinclude" or "scope-birthdate-token-organization" or "scope-birthdate-token-reverse-missing")
+            if (shape is "scope-birthdate-token" or "scope-birthdate-token-filtered" or "scope-birthdate-token-revinclude" or "scope-birthdate-token-organization")
             {
                 var scopes = new List<Expression>
                 {
@@ -787,42 +703,23 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                     VALUES (1, 20, 'missing', 0, 0), (2, 120, 'observation-missing', 0, 0),
                            (1, 21, 'missing-female', 0, 0), (2, 123, 'observation-missing-female', 0, 0),
                            (1, 90, 'year', 1, 0),
-                           (2, 121, 'observation-dangling', 0, 0), (2, 122, 'observation-wrong-type', 0, 0),
-                           (3, 201, 'related-missing', 0, 0), (3, 202, 'related-present', 0, 0),
-                           (3, 203, 'related-mixed-missing', 0, 0), (3, 204, 'related-mixed-present', 0, 0),
-                           (3, 205, 'related-no-reference', 0, 0),
-                           (3, 206, 'related-deleted', 0, 1), (3, 207, 'related-history', 1, 0),
-                           (3, 208, 'related-dangling', 0, 0), (3, 209, 'related-second-missing', 0, 0),
                            (4, 301, 'org', 0, 0), (4, 302, 'wrong-org', 0, 0);
                 INSERT #ReferenceSearchParam VALUES
                     (2, 120, 11, 1, 'missing', NULL),
-                    (2, 123, 11, 1, 'missing-female', NULL),
-                    (2, 121, 11, 1, 'does-not-exist', NULL), (2, 122, 11, 3, 'related-missing', NULL),
-                    (3, 201, 13, 1, 'missing', NULL), (3, 202, 13, 1, 'year', NULL),
-                    (3, 203, 13, 1, 'day', NULL), (3, 204, 13, 1, 'day', NULL),
-                    (3, 206, 13, 1, 'year', NULL), (3, 207, 13, 1, 'year', NULL),
-                    (3, 208, 13, 1, 'does-not-exist', NULL), (3, 209, 13, 1, 'missing', NULL);
+                    (2, 123, 11, 1, 'missing-female', NULL);
                 INSERT #ReferenceSearchParam
                     SELECT 1, ResourceSurrogateId, 15, 4,
                         CASE WHEN ResourceId = 'day' THEN 'wrong-org' ELSE 'org' END, NULL
                     FROM #Resource WHERE ResourceTypeId = 1 AND IsHistory = 0;
                 INSERT #TokenSearchParam VALUES (4, 301, 16, 'allowed-org', NULL, NULL), (4, 302, 16, 'other-org', NULL, NULL);
                 INSERT #DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay)
-                    SELECT 3, related.Sid, 10, dates.StartDateTime, dates.EndDateTime, dates.IsLongerThanADay
-                    FROM #DateTimeSearchParam dates CROSS JOIN (VALUES (202), (204)) related(Sid)
-                    WHERE dates.ResourceTypeId = 1 AND dates.ResourceSurrogateId = 3;
-                INSERT #DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay)
                     SELECT target.ResourceTypeId, target.Sid, 99, dates.StartDateTime, dates.EndDateTime, dates.IsLongerThanADay
-                    FROM #DateTimeSearchParam dates CROSS JOIN (VALUES (1, 20), (3, 201)) target(ResourceTypeId, Sid)
+                    FROM #DateTimeSearchParam dates CROSS JOIN (VALUES (1, 20)) target(ResourceTypeId, Sid)
                     WHERE dates.ResourceTypeId = 1 AND dates.ResourceSurrogateId = 3;
                 INSERT #TokenSearchParam
                     SELECT 1, ResourceSurrogateId, 14,
                         CASE WHEN ResourceId IN ('month', 'december', 'missing-female') THEN 'female' ELSE 'male' END, NULL, NULL
                     FROM #Resource WHERE ResourceTypeId = 1;
-                INSERT #TokenSearchParam VALUES
-                    (3, 201, 14, 'male', NULL, NULL),
-                    (3, 203, 14, 'female', NULL, NULL), (3, 204, 14, 'male', NULL, NULL),
-                    (3, 209, 14, 'male', NULL, NULL);
                 """;
             await command.ExecuteNonQueryAsync();
         }

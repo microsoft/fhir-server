@@ -28,9 +28,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 SearchParamTableExpression searchParamTableExpression = expression.SearchParamTableExpressions[i];
 
-                // Chained absence applies to the linked resource, not the root result.
-                if (searchParamTableExpression.Kind is not (SearchParamTableExpressionKind.Sort or SearchParamTableExpressionKind.Chain) &&
-                    searchParamTableExpression.Predicate?.AcceptVisitor(Scout.Instance, null) == true)
+                // Ignore Sort as it has its own visitor.
+                if (searchParamTableExpression.Kind != SearchParamTableExpressionKind.Sort && searchParamTableExpression.Predicate?.AcceptVisitor(Scout.Instance, null) == true)
                 {
                     EnsureAllocatedAndPopulated(ref newTableExpressions, expression.SearchParamTableExpressions, i);
 
