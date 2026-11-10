@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,7 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
@@ -24,13 +26,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private const double MiB = 1024.0 * 1024.0;
 
+        // Profile validation dominates bundle latency regardless of the number of entries, so any bundle
+        // running it is classified as Extreme. This cost equals the Extreme threshold used by GetComplexity.
+        private const int ProfileValidationCost = 1000;
+
+        private const string ControllerRouteKey = "controller";
+        private const string ValidateControllerName = "Validate";
+
         /// <summary>
         /// Identifies the complexity of a bundle based on the scope of its internal operations.
         /// </summary>
+        /// <param name="processingLogic">Bundle processing logic.</param>
+        /// <param name="requests">Internal operations grouped by HTTP verb.</param>
+        /// <param name="profileResolver">Provider of the resource types that refresh profiles.</param>
+        /// <param name="profileValidationOnCreate">Server default for profile validation on create (POST).</param>
+        /// <param name="profileValidationOnUpdate">Server default for profile validation on update (PUT).</param>
+        /// <param name="logger">Logger.</param>
         public static BundleComplexity CalculateBundleComplexity(
             BundleProcessingLogic processingLogic,
             Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests,
             IProvideProfilesForValidation profileResolver,
+            bool profileValidationOnCreate,
+            bool profileValidationOnUpdate,
             ILogger logger)
         {
             EnsureArg.IsNotNull(requests, nameof(requests));
@@ -45,6 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             long maxResourceSizeBytes = 0;
 
             bool requiresProfileRefresh = false;
+            bool requiresProfileValidation = false;
 
             IReadOnlySet<string> profileResourceTypes = profileResolver.GetProfilesTypes();
 
@@ -70,6 +88,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     requiresProfileRefresh = true;
                 }
 
+                if (!requiresProfileValidation && RequiresProfileValidation(operation, profileValidationOnCreate, profileValidationOnUpdate))
+                {
+                    requiresProfileValidation = true;
+                }
+
                 long resourceSizeBytes = operation.Context?.HttpContext?.Request?.Body?.Length ?? 0;
 
                 totalResourceSizeBytes += resourceSizeBytes;
@@ -90,6 +113,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             int profileRefreshCost = CalculateProfileRefreshCost(requiresProfileRefresh);
 
+            int profileValidationCost = requiresProfileValidation ? ProfileValidationCost : 0;
+
             int searchCost = CalculateSearchCost(searchOperationCount);
 
             long payloadCost = CalculatePayloadScore(
@@ -102,6 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 executionCost +
                 searchCost +
                 profileRefreshCost +
+                profileValidationCost +
                 payloadCost;
 
             BundleComplexity bundleComplexity = GetComplexity(score);
@@ -121,6 +147,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     "TotalResourceSizeBytes: {TotalResourceSizeBytes}, " +
                     "MaxResourceSizeBytes: {MaxResourceSizeBytes}, " +
                     "RequiresProfileRefresh: {RequiresProfileRefresh}, " +
+                    "RequiresProfileValidation: {RequiresProfileValidation}, " +
+                    "ProfileValidationCost: {ProfileValidationCost}, " +
                     "ProcessingLogic: {ProcessingLogic}",
                     bundleComplexity,
                     score,
@@ -135,10 +163,59 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     totalResourceSizeBytes,
                     maxResourceSizeBytes,
                     requiresProfileRefresh,
+                    requiresProfileValidation,
+                    profileValidationCost,
                     processingLogic);
             }
 
             return bundleComplexity;
+        }
+
+        /// <summary>
+        /// Determines whether an internal operation runs FHIR profile validation.
+        /// $validate operations always validate. Creates (POST) and updates (PUT) carrying a resource validate when the
+        /// x-ms-profile-validation header is a valid boolean set to true, or, when the header is absent or invalid, when
+        /// the server default for that verb is enabled. This mirrors the precedence in ResourceProfileValidator.
+        /// </summary>
+        private static bool RequiresProfileValidation(
+            BundleHandlerInternalOperationExecutionContext operation,
+            bool profileValidationOnCreate,
+            bool profileValidationOnUpdate)
+        {
+            if (operation.Context?.RouteData?.Values.TryGetValue(ControllerRouteKey, out object controller) == true
+                && string.Equals(controller as string, ValidateControllerName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            bool runsProfileValidation;
+            if (operation.HttpVerb == HTTPVerb.POST)
+            {
+                runsProfileValidation = profileValidationOnCreate;
+            }
+            else if (operation.HttpVerb == HTTPVerb.PUT)
+            {
+                runsProfileValidation = profileValidationOnUpdate;
+            }
+            else
+            {
+                return false;
+            }
+
+            if (operation.ResourceType == null)
+            {
+                return false;
+            }
+
+            IHeaderDictionary headers = operation.Context?.HttpContext?.Request?.Headers;
+            if (headers != null
+                && headers.TryGetValue(KnownHeaders.ProfileValidation, out var headerValue)
+                && bool.TryParse(headerValue, out bool headerEnabled))
+            {
+                runsProfileValidation = headerEnabled;
+            }
+
+            return runsProfileValidation;
         }
 
         private static int CalculateProfileRefreshCost(bool requiresProfileRefresh)

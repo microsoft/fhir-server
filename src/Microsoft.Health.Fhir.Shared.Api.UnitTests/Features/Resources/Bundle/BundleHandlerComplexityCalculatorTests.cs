@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -128,6 +129,81 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedComplexity, complexity);
         }
 
+        [Theory]
+        [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.POST, 1, 1)]
+        [InlineData(BundleProcessingLogic.Sequential, HTTPVerb.POST, 1, 1)]
+        [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.POST, 10, 1)]
+        [InlineData(BundleProcessingLogic.Sequential, HTTPVerb.POST, 10, 10)]
+        [InlineData(BundleProcessingLogic.Sequential, HTTPVerb.POST, 100, 100)]
+        [InlineData(BundleProcessingLogic.Parallel, HTTPVerb.GET, 1, 1)]
+        public void GivenBundle_WhenAnyEntryIsValidateOperation_ReturnsExtremeComplexity(
+            BundleProcessingLogic processingLogic,
+            HTTPVerb verb,
+            int operationCount,
+            int validateOperationCount)
+        {
+            var requests = CreateRequests(
+                operationCount,
+                verb,
+                validateOperationCount: validateOperationCount,
+                resourceType: verb == HTTPVerb.GET ? null : "Patient");
+
+            BundleComplexity complexity = CalculateComplexity(processingLogic, requests);
+
+            Assert.Equal(BundleComplexity.Extreme, complexity);
+        }
+
+        [Theory]
+        [InlineData(HTTPVerb.POST, "true", false, false, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.PUT, "true", false, false, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, "TRUE", false, false, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, null, true, false, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.PUT, null, false, true, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, "invalid", true, false, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, "false", true, true, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.PUT, "false", true, true, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.POST, null, false, true, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.PUT, null, true, false, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.POST, "invalid", false, false, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.POST, null, false, false, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.DELETE, "true", true, true, BundleComplexity.Low)]
+        public void GivenSequentialBundle_WhenProfileValidationHeaderAndServerDefaultsVary_ReturnsExpectedComplexity(
+            HTTPVerb verb,
+            string profileValidationHeader,
+            bool profileValidationOnCreate,
+            bool profileValidationOnUpdate,
+            BundleComplexity expectedComplexity)
+        {
+            var requests = CreateRequests(10, verb, profileValidationHeader: profileValidationHeader);
+
+            BundleComplexity complexity = CalculateComplexity(
+                BundleProcessingLogic.Sequential,
+                requests,
+                profileValidationOnCreate,
+                profileValidationOnUpdate);
+
+            Assert.Equal(expectedComplexity, complexity);
+        }
+
+        [Theory]
+        [InlineData(HTTPVerb.POST, "true", false)]
+        [InlineData(HTTPVerb.PUT, null, true)]
+        public void GivenBundle_WhenWriteEntryHasNoResource_DoesNotApplyProfileValidationCost(
+            HTTPVerb verb,
+            string profileValidationHeader,
+            bool serverDefaultEnabled)
+        {
+            var requests = CreateRequests(10, verb, resourceType: null, profileValidationHeader: profileValidationHeader);
+
+            BundleComplexity complexity = CalculateComplexity(
+                BundleProcessingLogic.Sequential,
+                requests,
+                profileValidationOnCreate: serverDefaultEnabled,
+                profileValidationOnUpdate: serverDefaultEnabled);
+
+            Assert.Equal(BundleComplexity.Low, complexity);
+        }
+
         private static Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> CreateRequests(
             int operationCount,
             HTTPVerb verb,
@@ -137,7 +213,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             int payloadOperationCount = 1,
             string resourceType = "Patient",
             bool setContentLength = true,
-            int profileOperationCount = 0)
+            int profileOperationCount = 0,
+            int validateOperationCount = 0,
+            string profileValidationHeader = null)
         {
             var requests = new Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>>();
 
@@ -150,18 +228,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     requests.Add(requestVerb, operations);
                 }
 
+                bool hasPayload = i < payloadOperationCount && bodyLength.HasValue;
+                bool isValidateOperation = i < validateOperationCount;
+
                 RouteContext routeContext = null;
-                if (i < payloadOperationCount && bodyLength.HasValue)
+                if (hasPayload || isValidateOperation || profileValidationHeader != null)
                 {
                     var httpContext = new DefaultHttpContext();
-                    if (setContentLength)
+                    if (hasPayload)
                     {
-                        httpContext.Request.ContentLength = bodyLength;
+                        if (setContentLength)
+                        {
+                            httpContext.Request.ContentLength = bodyLength;
+                        }
+
+                        httpContext.Request.Body = new System.IO.MemoryStream();
+                        httpContext.Request.Body.SetLength(bodyLength.Value);
                     }
 
-                    httpContext.Request.Body = new System.IO.MemoryStream();
-                    httpContext.Request.Body.SetLength(bodyLength.Value);
+                    if (profileValidationHeader != null)
+                    {
+                        httpContext.Request.Headers[KnownHeaders.ProfileValidation] = profileValidationHeader;
+                    }
+
                     routeContext = new RouteContext(httpContext);
+                    if (isValidateOperation)
+                    {
+                        routeContext.RouteData.Values["controller"] = "Validate";
+                        routeContext.RouteData.Values["action"] = "Validate";
+                    }
                 }
 
                 operations.Add(new BundleHandlerInternalOperationExecutionContext(
@@ -178,12 +273,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
         private static BundleComplexity CalculateComplexity(
             BundleProcessingLogic processingLogic,
-            Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests)
+            Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests,
+            bool profileValidationOnCreate = false,
+            bool profileValidationOnUpdate = false)
         {
             var profileResolver = Substitute.For<IProvideProfilesForValidation>();
             profileResolver.GetProfilesTypes().Returns(ProfileSupportedTypes);
 
-            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(processingLogic, requests, profileResolver, NullLogger.Instance);
+            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(
+                processingLogic,
+                requests,
+                profileResolver,
+                profileValidationOnCreate,
+                profileValidationOnUpdate,
+                NullLogger.Instance);
         }
     }
 }

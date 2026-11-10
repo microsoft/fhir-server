@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -87,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly string _originalRequestBase;
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
@@ -147,6 +148,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceReferenceResolver referenceResolver,
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IAuthorizationService<DataActions> authorizationService,
             IProvideProfilesForValidation profilesResolver,
             IModelInfoProvider modelInfoProvider,
@@ -170,6 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _referenceResolver = EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
             _auditEventTypeMapping = EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             _bundleConfiguration = EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
+            _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _router = EnsureArg.IsNotNull(router, nameof(router));
@@ -549,6 +552,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     processingLogic,
                     _requests,
                     _profilesResolver,
+                    _coreFeatureConfiguration.ProfileValidationOnCreate,
+                    _coreFeatureConfiguration.ProfileValidationOnUpdate,
                     _logger);
             }
             catch (InvalidOperationException e)
