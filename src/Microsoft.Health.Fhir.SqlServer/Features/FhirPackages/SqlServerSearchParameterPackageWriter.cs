@@ -105,36 +105,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
                 descriptor.Integrity,
                 searchParameters.Select(x => x.Instance.Children("url").FirstOrDefault()?.Value as string).ToList());
 
-            if (await IsAlreadyInstalledAsync(record, cancellationToken))
+            if (!await IsAlreadyInstalledAsync(record, cancellationToken))
             {
-                return;
-            }
-
-            IFhirRequestContext originalContext = _requestContextAccessor.RequestContext;
-            if (originalContext == null)
-            {
-                _requestContextAccessor.RequestContext = CreateBackgroundContext();
-            }
-
-            try
-            {
-                bool written = await WriteInTransactionAsync(record, searchParameters, referenceSetLastUpdated, cancellationToken);
-                if (!written)
+                IFhirRequestContext originalContext = _requestContextAccessor.RequestContext;
+                if (originalContext == null)
                 {
-                    return;
+                    _requestContextAccessor.RequestContext = CreateBackgroundContext();
+                }
+
+                try
+                {
+                    if (await WriteInTransactionAsync(record, searchParameters, referenceSetLastUpdated, cancellationToken))
+                    {
+                        _logger.LogInformation(
+                            "Installed {Count} SearchParameter(s) from FHIR package {PackageId} version {Version} as Enabled without reindex.",
+                            searchParameters.Count,
+                            descriptor.PackageId,
+                            descriptor.Version);
+                    }
+                }
+                finally
+                {
+                    _requestContextAccessor.RequestContext = originalContext;
                 }
             }
-            finally
-            {
-                _requestContextAccessor.RequestContext = originalContext;
-            }
 
-            _logger.LogInformation(
-                "Installed {Count} SearchParameter(s) from FHIR package {PackageId} version {Version} as Enabled without reindex.",
-                searchParameters.Count,
-                descriptor.PackageId,
-                descriptor.Version);
-
+            // Refresh even when another writer installed the package, so this instance can search by its parameters now.
             // Other instances pick up the new parameters through their periodic SearchParameter refresh.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
         }
@@ -148,11 +144,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 
                 if (await ContainsDataAsync(cancellationToken))
                 {
-                    _logger.LogWarning(
-                        "FHIR package {PackageId} version {Version} was not installed because the data store contains resources.",
-                        record.PackageId,
-                        record.Version);
-
                     throw new FhirPackageStoreNotEmptyException(record.PackageId, record.Version);
                 }
 
@@ -181,6 +172,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 
                 transaction.Complete();
                 return true;
+            }
+            catch (FhirPackageStoreNotEmptyException)
+            {
+                // Another writer may have installed this package before data arrived; that is the goal state, not a failure.
+                if (await IsAlreadyInstalledAsync(record, cancellationToken))
+                {
+                    return false;
+                }
+
+                _logger.LogWarning(
+                    "FHIR package {PackageId} version {Version} was not installed because the data store contains resources.",
+                    record.PackageId,
+                    record.Version);
+
+                throw;
             }
             catch (Exception ex) when (IsConcurrencyConflict(ex))
             {
@@ -282,10 +288,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         }
 
         /// <returns><c>true</c> if the same content is already installed.</returns>
-        /// <exception cref="FhirPackageWriteConflictException">A different version or integrity of the package is installed.</exception>
+        /// <exception cref="FhirPackageWriteConflictException">A different version or integrity of the package is installed, or the lookup hit a transient SQL error.</exception>
         private async Task<bool> IsAlreadyInstalledAsync(SearchParameterPackageRecord record, CancellationToken cancellationToken)
         {
-            SearchParameterPackageRecord installed = await _recordStore.GetAsync(record.PackageId, cancellationToken);
+            SearchParameterPackageRecord installed;
+            try
+            {
+                installed = await _recordStore.GetAsync(record.PackageId, cancellationToken);
+            }
+            catch (Exception ex) when (IsTransientSqlError(ex))
+            {
+                throw new FhirPackageWriteConflictException(
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageWriteConflictRetryable, record.PackageId, record.Version, ex.Message),
+                    isRetryable: true,
+                    ex);
+            }
+
             if (installed == null)
             {
                 return false;
@@ -307,13 +325,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             return ex is JobConflictException
                 || ex is ResourceConflictException
                 || (ex is BadRequestException && string.Equals(ex.Message, Core.Resources.SearchParameterConcurrencyConflict, StringComparison.Ordinal))
-                || (ex is SqlException sqlEx && sqlEx.IsSqlTransientException());
+                || IsTransientSqlError(ex);
+        }
+
+        private static bool IsTransientSqlError(Exception ex)
+        {
+            // Same classification as SqlRetryService: transient error numbers plus transport and availability failures.
+            return ex is SqlException sqlEx && (sqlEx.IsSqlTransientException() || sqlEx.IsRetriable());
         }
 
         private static FhirRequestContext CreateBackgroundContext()
         {
+            // The method is stored in Resource.RequestMethod, varchar(10).
             return new FhirRequestContext(
-                method: "FhirPackageInstall",
+                method: "POST",
                 uriString: "https://localhost/SearchParameter",
                 baseUriString: "https://localhost/",
                 correlationId: Guid.NewGuid().ToString(),

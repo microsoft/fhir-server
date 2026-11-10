@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.FhirPackages;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -83,7 +84,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
             // Assert
             _transactionHandler.DidNotReceive().BeginTransaction();
             await AssertNothingWrittenAsync();
-            await _searchParameterOperations.DidNotReceiveWithAnyArgs().GetAndApplySearchParameterUpdates(default);
+            await _searchParameterOperations.Received(1).GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenTheRecordLookupHitsATransportError_WhenWritten_ThenARetryableConflictIsReturned()
+        {
+            // Arrange
+            SqlException transportError = SqlExceptionFactory.GetSqlException("A transport-level error has occurred when receiving results from the server.", null);
+            _recordStore.GetAsync(PackageId, Arg.Any<CancellationToken>()).Returns<SearchParameterPackageRecord>(_ => throw transportError);
+
+            // Act
+            FhirPackageWriteConflictException ex = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(WriteAsync);
+
+            // Assert
+            Assert.True(ex.IsRetryable);
+            Assert.Same(transportError, ex.InnerException);
+            _transactionHandler.DidNotReceive().BeginTransaction();
+            await AssertNothingWrittenAsync();
         }
 
         [Theory]
