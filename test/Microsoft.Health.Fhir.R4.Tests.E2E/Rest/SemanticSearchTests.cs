@@ -239,6 +239,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenSourceTextWithSearchEscapeSequences_WhenQueriedWithTheSameText_ThenTheQueryMatchesTheStoredPassage()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
+
+            // Source text is unescaped like any string search value, so the query text must be too: the same text
+            // must produce the same embedded passage whether it was indexed or searched.
+            const string text = @"wheezing\, worse at night \| no fever \$ \\ resolved";
+            await EnsureObservationSemanticSearchParameterAsync();
+            Observation observation = await CreateAsync(CreateObservation(text, ObservationStatus.Final));
+
+            Bundle bundle = await SearchStrictAsync($"Observation?semantic-text={Uri.EscapeDataString(text)}&_tag={_testTag}");
+
+            Bundle.EntryComponent match = Assert.Single(bundle.Entry);
+            Assert.Equal(observation.Id, match.Resource.Id);
+            Assert.Equal(1m, match.Search.Score);
+        }
+
+        [Fact]
         public async Task GivenSemanticSearchWithInclude_WhenPaging_ThenIncludesFollowTheRankedPageOfMatches()
         {
             Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires the in-process host with the deterministic embedding client and direct SQL access.");
@@ -360,6 +378,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("system/Observation.rs", true, true)]
         [InlineData("system/Observation.rs?status=final", true, false)]
         [InlineData("system/Observation.rs system/Observation.rs?semantic-text=dyspnea", true, true)]
+        [InlineData("system/*.rs?semantic-text=dyspnea system/Observation.rs", true, true)]
+        [InlineData("system/*.rs?semantic-text=dyspnea system/Observation.rs?status=final", true, false)]
         public async Task GivenSmartScopeThatAuthorizesTheSearch_WhenSemanticSearchIsInvoked_ThenOnlyResourcesWithinTheScopeAreReturned(
             string scope,
             bool finalIsReturned,
@@ -399,15 +419,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(outcome.Issue, issue => issue.Diagnostics != null && issue.Diagnostics.Contains("semantic-text", StringComparison.Ordinal));
         }
 
-        [Fact]
-        public async Task GivenSmartScopeForAnotherResourceType_WhenSemanticSearchIsInvoked_ThenTheRequestIsForbidden()
+        [Theory]
+        [InlineData("system/Patient.rs")]
+        [InlineData("system/*.rs?semantic-text=dyspnea system/Patient.rs")]
+        public async Task GivenSmartScopeForAnotherResourceType_WhenSemanticSearchIsInvoked_ThenTheRequestIsForbidden(string scope)
         {
             Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
 
             await EnsureObservationSemanticSearchParameterAsync();
             await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
             Assert.Single((await SearchStrictAsync(SemanticObservationSearchUrl())).Entry);
-            using HttpClient smartClient = await CreateSmartClientAsync("system/Patient.rs");
+            using HttpClient smartClient = await CreateSmartClientAsync(scope);
 
             using HttpResponseMessage response = await smartClient.GetAsync(SemanticObservationSearchUrl());
 

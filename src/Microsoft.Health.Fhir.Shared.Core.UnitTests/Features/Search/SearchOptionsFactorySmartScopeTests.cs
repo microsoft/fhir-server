@@ -425,6 +425,74 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenAWildcardSemanticScopeAndAnUnrestrictedTypedScope_WhenCreated_ThenTheTypedScopeStillAuthorizes(bool wildcardScopeFirst)
+        {
+            // A semantic scope constraint authorizes nothing on its own, but scopes are alternatives. The typed scope
+            // already grants every Observation, so withdrawing the wildcard one loses nothing and the request must not
+            // be denied, regardless of scope order.
+            var wildcard = new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture")));
+            var typed = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user");
+
+            SearchOptionsFactory factory = wildcardScopeFirst
+                ? CreateFactory(wildcard, typed)
+                : CreateFactory(typed, wildcard);
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAWildcardSemanticScopeAndATypedScopeWithAnOrdinaryConstraint_WhenCreated_ThenOnlyTheTypedConstraintApplies()
+        {
+            // The typed scope's own constraint still limits what the caller sees; the unenforceable wildcard constraint
+            // is withdrawn rather than widening or replacing it.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((ConcreteOnlyParameterCode, "final"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains($"{ConcreteOnlyParameterCode}=final", expression, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAWildcardSemanticScopeAndATypedScopeForAnotherType_WhenCreated_ThenTheRequestIsDenied()
+        {
+            // The typed scope does not cover the requested type and the wildcard scope's semantic constraint cannot be
+            // enforced, so nothing authorizes the request.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "user"));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAWildcardSemanticScopeAndATypedScope_WhenCreatedAtSystemLevel_ThenTheRequestIsDenied()
+        {
+            // A system-level search reaches every type, so the wildcard scope's semantic constraint would have to be
+            // enforced for all of them.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user"));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(resourceType: null, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
         [Fact]
         public void GivenASemanticScopeOnlyForAnUnrequestedType_WhenCreated_ThenTheRequestIsNotDenied()
         {

@@ -962,7 +962,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// scopes. When <paramref name="hasIncludeOrRevInclude"/> is <see langword="false"/>, constraints from a
         /// wildcard (all-resource) scope are merged into <paramref name="searchParams"/> so they are parsed against
         /// the request's resource types alongside the caller's own query parameters and returned for a post-parse
-        /// enforceability check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>). When
+        /// enforceability check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>). A wildcard scope
+        /// constrained by a semantic predicate is not merged: it is withdrawn like any scope whose constraint cannot
+        /// be enforced, so the other scopes still apply. When
         /// <paramref name="hasIncludeOrRevInclude"/> is <see langword="true"/>, wildcard scope constraints are
         /// parsed here—first against <see cref="KnownResourceTypes.DomainResource"/> with a fallback to each
         /// concrete type in <paramref name="requiredResourceTypes"/>—to build a SMART scope union expression that
@@ -1009,6 +1011,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         if (!hasIncludeOrRevInclude)
                         {
+                            // A semantic predicate ranks and thresholds rather than authorizes, so it cannot be merged
+                            // into the query as a mandatory scope constraint. Withdraw the scope like any other
+                            // unenforceable one: scopes are alternatives, so the request is denied only when no other
+                            // scope authorizes the requested resource types.
+                            if (TryFindSemanticScopeConstraint(restriction, requiredResourceTypes, out string semanticParameter))
+                            {
+                                IEnumerable<string> withdrawnResourceTypes = requiredResourceTypes.Contains(KnownResourceTypes.DomainResource)
+                                    ? new[] { KnownResourceTypes.All }
+                                    : requiredResourceTypes.Distinct(StringComparer.Ordinal);
+
+                                foreach (string withdrawnResourceType in withdrawnResourceTypes)
+                                {
+                                    unenforceableScopeConstraints.Add((withdrawnResourceType, semanticParameter));
+                                }
+
+                                continue;
+                            }
+
                             allowAllResourceTypes = true;
 
                             // Check if SMART V2 search parameter constraint exists
@@ -1198,6 +1218,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return injectedScopeParameters;
+        }
+
+        /// <summary>
+        /// Finds a semantic predicate among the constraints of a wildcard scope, parsed against the request's resource
+        /// types exactly as they are once merged into the query. A constraint that cannot be parsed is not reported
+        /// here; <see cref="EnsureSmartScopeConstraintsAreEnforceable"/> denies it after the query is parsed.
+        /// </summary>
+        private bool TryFindSemanticScopeConstraint(
+            ScopeRestriction restriction,
+            IEnumerable<string> resourceTypes,
+            out string semanticParameter)
+        {
+            string[] targetResourceTypes = resourceTypes.ToArray();
+            foreach (Tuple<string, string> parameter in restriction.SearchParameters.Parameters)
+            {
+                try
+                {
+                    if (ContainsVectorSearch(_expressionParser.Parse(targetResourceTypes, parameter.Item1, parameter.Item2)))
+                    {
+                        semanticParameter = parameter.Item1;
+                        return true;
+                    }
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                    // Not a semantic predicate.
+                }
+            }
+
+            semanticParameter = null;
+            return false;
         }
 
         private bool TryBuildSmartScopeExpression(

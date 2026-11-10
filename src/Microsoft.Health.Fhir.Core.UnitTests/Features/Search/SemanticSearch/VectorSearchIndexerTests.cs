@@ -15,6 +15,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
@@ -252,6 +254,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             Assert.True(resource.VectorSearchIndicesUpdated);
             Assert.Empty(resource.VectorSearchIndices);
             Assert.Empty(embeddedTexts);
+        }
+
+        [Theory]
+        [InlineData(@"asthma\, overnight")]
+        [InlineData(@"pain\|rating \$5")]
+        [InlineData(@"C:\\Users\admin")]
+        [InlineData("asthma, overnight")]
+        public async Task GivenTheSameText_WhenIndexedAsSourceAndParsedAsQuery_ThenTheEmbeddedPassageEqualsTheQueryText(string text)
+        {
+            // Arrange
+            SearchParameterInfo searchParameter = CreateSearchParameter(VectorTextExtractionPolicy.Concatenate);
+            ResourceWrapper resource = CreateResource(searchParameter, new StringSearchValue(text));
+            var embeddedTexts = new List<string>();
+            VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts);
+            IVectorSearchParameterResolver resolver = Substitute.For<IVectorSearchParameterResolver>();
+            resolver.GetSearchParameter(VectorCanonical).Returns(searchParameter);
+            var parser = new SearchParameterExpressionParser(Substitute.For<IReferenceSearchValueParser>(), resolver);
+
+            // Act
+            await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
+            VectorSearchExpression query = Assert.IsType<VectorSearchExpression>(parser.Parse(searchParameter, null, text));
+
+            // Assert
+            Assert.Equal(query.QueryText, Assert.Single(embeddedTexts));
         }
 
         private static VectorSearchIndexer CreateIndexer(

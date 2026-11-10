@@ -108,5 +108,13 @@ are rejected before embedding.
   index version.
 - Enabled deployments make synchronous embedding calls during writes, reindex, transaction recovery,
   and semantic queries, so Foundry availability participates directly in those failure modes.
+- A SMART scope constraint that uses a semantic parameter cannot be enforced as a mandatory predicate,
+  because the relevance predicate ranks and thresholds rather than authorizes. Consistent with
+  [ADR-2609](adr-2609-smart-authorization-fail-closed.md) it fails closed: the scope is withdrawn and
+  contributes no access, so authorization is exactly what the caller's remaining scopes grant, and the
+  request is denied (HTTP 403) only when none of them authorizes the requested resource types. A wildcard
+  constraint on an ordinary parameter is still ANDed into the query; a wildcard semantic constraint cannot
+  be, so it is withdrawn like a resource-specific one. Query text is unescaped like indexed source text so
+  that identical text yields an identical embedding input.
 - Binary/PDF extraction, linked-resource resolution, provenance, evidence output, source refresh jobs,
   and dedicated semantic operations are outside this decision.

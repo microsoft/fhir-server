@@ -142,15 +142,23 @@ structured sorts override relevance order, and continuation tokens preserve dete
 with stable resource keys. Search text longer than the provider's 8,192-token per-input limit is
 rejected with HTTP 400 before any embedding request is made.
 
+The query is one natural-language value and is never split on `,`. Source text is extracted through
+the shared string indexing path, which unescapes the FHIR search escape sequences `\,`, `\|`, `\$`,
+and `\\`. The query text is unescaped the same way, so identical text produces an identical embedding
+input whether it was indexed from a resource or sent as a query. Other backslashes are unchanged.
+
 `_sort=_score` is supported only as the sole sort key. A compound sort that includes it, such as
 `_sort=_score,_lastUpdated`, is rejected like any other unsupported sort: HTTP 400 under
 `Prefer: handling=strict`; otherwise a warning is returned and the default relevance order applies.
 
 Semantic parameters are request-level only. A SMART scope constraint that uses one cannot be
 enforced, because the relevance predicate cannot be re-evaluated for resources reached through
-`_include` or `_revinclude`. Such a scope never authorizes access on its own: a request that depends
-on it is denied with HTTP 403, regardless of `Prefer: handling`, while a request that another scope
-fully authorizes is unaffected.
+`_include` or `_revinclude`. Such a scope is withdrawn rather than merged into the query, so it never
+authorizes access on its own. Scopes are alternatives: a request is denied with HTTP 403, regardless
+of `Prefer: handling`, only when no other scope authorizes the requested resource types. For example,
+given `system/*.rs?semantic-text=x` and `system/Observation.rs`, an `Observation` search is authorized
+by the typed scope alone (restricted to that scope's own constraints, if any), whereas a search of
+another resource type, or a system-level search, is denied.
 
 A semantic search does not offer an `_include`/`_revinclude` continuation. Included resources beyond
 the include count are truncated and a warning is returned instead of an includes `next` link, and a

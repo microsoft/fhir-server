@@ -153,6 +153,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
+        [InlineData(@"asthma\, overnight", "asthma, overnight")]
+        [InlineData(@"pain\|rating", "pain|rating")]
+        [InlineData(@"cost\$5", "cost$5")]
+        [InlineData(@"C:\\Users", @"C:\Users")]
+        [InlineData(@"a\,b\|c\$d\\e", @"a,b|c$d\e")]
+        public void GivenVectorQueryContainingSearchEscapeSequences_WhenParsed_ThenQueryTextIsUnescaped(string escapedQuery, string expectedQueryText)
+        {
+            VectorSearchExpression expression = Assert.IsType<VectorSearchExpression>(_parser.Parse(CreateEnabledVectorSearchParameter(), null, escapedQuery));
+
+            Assert.Equal(expectedQueryText, expression.QueryText);
+        }
+
+        [Fact]
+        public void GivenVectorQueryContainingBackslashesWithoutEscapeSequences_WhenParsed_ThenQueryTextIsUnchanged()
+        {
+            const string queryText = @"C:\Users\admin";
+
+            VectorSearchExpression expression = Assert.IsType<VectorSearchExpression>(_parser.Parse(CreateEnabledVectorSearchParameter(), null, queryText));
+
+            Assert.Equal(queryText, expression.QueryText);
+        }
+
+        [Theory]
         [InlineData(SearchModifierCode.Contains)]
         [InlineData(SearchModifierCode.Exact)]
         [InlineData(SearchModifierCode.Missing)]

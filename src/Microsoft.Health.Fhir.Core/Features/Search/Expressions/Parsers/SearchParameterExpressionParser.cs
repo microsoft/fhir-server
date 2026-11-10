@@ -81,7 +81,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
 
                 SearchParameterInfo enabledSearchParameter = _vectorSearchParameterResolver.GetSearchParameter(searchParameter.Url);
-                return new VectorSearchExpression(enabledSearchParameter, value);
+
+                // Indexed source text is unescaped by StringSearchValue, so the query is unescaped too and both embedding
+                // inputs are normalized identically. The value is a single natural-language query: it is never split on ','.
+                return new VectorSearchExpression(enabledSearchParameter, value.UnescapeSearchParameterValue());
             }
 
             Expression outputExpression;
