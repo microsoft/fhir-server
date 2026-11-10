@@ -9,7 +9,7 @@ CREATE TABLE dbo.JobQueue
      QueueType           tinyint       NOT NULL -- 1=export, 2=import, 3=whatever next
     ,GroupId             bigint        NOT NULL -- export id, import id
     ,JobId               bigint        NOT NULL
-    ,PartitionId         AS convert(tinyint, JobId % 16) PERSISTED -- physical separation for performance
+    ,PartitionId         AS convert(tinyint, JobId % 16) PERSISTED -- physical separation to spread parallel requests over more pages alleviating page latch contention.
     ,Definition          varchar(max)  NOT NULL -- unique info identifying a job
     ,DefinitionHash      varbinary(20) NOT NULL -- to ensure idempotence
     ,Version             bigint        NOT NULL CONSTRAINT DF_JobQueue_Version DEFAULT datediff_big(millisecond,'0001-01-01',getUTCdate()) -- to prevent racing

@@ -38,6 +38,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public long OmittedWarningCount { get; set; }
 
         /// <summary>
+        /// Gets or sets whether the processing failure was caused by customer configuration.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.IsCustomerCaused, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool IsCustomerCaused { get; set; }
+
+        /// <summary>
         /// Adds warnings, keeping at most <see cref="MaxWarnings"/> and counting the rest.
         /// </summary>
         /// <param name="warnings">The warnings to add.</param>

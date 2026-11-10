@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -41,27 +42,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 
-            BulkDeleteDefinition processingDefinition = null;
-
-            using var searchService = _searchService.Invoke();
-            if (string.IsNullOrEmpty(definition.Type))
+            try
             {
-                IReadOnlyList<string> resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
+                BulkDeleteDefinition processingDefinition = null;
 
-                processingDefinition = await CreateProcessingDefinition(jobInfo, definition, searchService.Value, new List<string>(resourceTypes), cancellationToken);
+                using var searchService = _searchService.Invoke();
+                if (string.IsNullOrEmpty(definition.Type))
+                {
+                    IReadOnlyList<string> resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
+
+                    processingDefinition = await CreateProcessingDefinition(jobInfo, definition, searchService.Value, new List<string>(resourceTypes), cancellationToken);
+                }
+                else
+                {
+                    processingDefinition = await CreateProcessingDefinition(jobInfo, definition, searchService.Value, new List<string>() { definition.Type }, cancellationToken);
+                }
+
+                // Processing Definition can be null if bulk delete was requested on criteria that didn't match any resources. If there is nothing to delete, just finish the job.
+                if (processingDefinition != null)
+                {
+                    await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
+                }
+
+                return OperationCompleted;
             }
-            else
+            catch (Exception ex) when (ex.IsCustomerCaused())
             {
-                processingDefinition = await CreateProcessingDefinition(jobInfo, definition, searchService.Value, new List<string>() { definition.Type }, cancellationToken);
+                var result = new BulkDeleteResult();
+                result.Issues.Add(ex.Message);
+                throw new JobExecutionException(ex.Message, result, ex, isCustomerCaused: true);
             }
-
-            // Processing Definition can be null if bulk delete was requested on criteria that didn't match any resources. If there is nothing to delete, just finish the job.
-            if (processingDefinition != null)
-            {
-                await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
-            }
-
-            return OperationCompleted;
         }
 
         // Creates a bulk delete processing job.

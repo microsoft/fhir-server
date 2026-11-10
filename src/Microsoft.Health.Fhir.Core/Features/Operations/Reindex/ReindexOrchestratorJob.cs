@@ -21,6 +21,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var msg = $"The reindex id={_jobInfo.Id} failed.";
                 _logger.LogJobError(ex, _jobInfo, msg);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
-                throw new JobExecutionException(msg, _result, ex, false);
+                throw new JobExecutionException(msg, _result, ex, ex is CustomerManagedKeyException);
             }
             finally
             {
@@ -670,7 +671,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _logger.LogJobError(_jobInfo, msg);
                         AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, msg);
 
-                        throw new JobExecutionException(msg, _result, false);
+                        throw new JobExecutionException(msg, _result, result?.IsCustomerCaused == true);
                     }
                 }
 

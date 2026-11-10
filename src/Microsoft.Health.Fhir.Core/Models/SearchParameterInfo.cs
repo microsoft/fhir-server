@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -83,6 +84,13 @@ namespace Microsoft.Health.Fhir.Core.Models
             }
         }
 
+        internal SearchParameterInfo(SearchParameterWrapper wrapper, IModelInfoProvider modelInfoProvider)
+            : this(wrapper)
+        {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            TemporalType = SearchParameterTemporalTypeClassifier.Classify(this, modelInfoProvider);
+        }
+
         public string Name { get; }
 
         public string Code { get; }
@@ -98,6 +106,14 @@ namespace Microsoft.Health.Fhir.Core.Models
         public Uri Url { get; }
 
         public SearchParamType Type { get; set; }
+
+        /// <summary>
+        /// Gets the temporal leaf type derived from the active model during definition loading.
+        /// Unknown means the complete expression has not been proven.
+        /// </summary>
+        [Newtonsoft.Json.JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
+        public TemporalType TemporalType { get; internal set; }
 
         /// <summary>
         /// Returns true if this parameter is enabled for searches
