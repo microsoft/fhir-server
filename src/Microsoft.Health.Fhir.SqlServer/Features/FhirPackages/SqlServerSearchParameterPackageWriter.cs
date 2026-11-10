@@ -1,0 +1,298 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using EnsureThat;
+using Hl7.Fhir.ElementModel;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.FhirPackages;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
+
+namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
+{
+    /// <summary>
+    /// Writes a package's SearchParameters directly as <c>Enabled</c> on a store that contains no data, together with the
+    /// applied-package record, in one SQL transaction. Never starts a reindex.
+    /// </summary>
+    /// <remarks>
+    /// The transaction asserts the empty-store precondition, then reuses <c>dbo.MergeResourcesAndSearchParams</c>, which
+    /// rejects the write if a reindex job is active or the SearchParameter reference set changed since validation, and
+    /// finally adds the applied-package record. Either everything commits or nothing does.
+    /// </remarks>
+    public sealed class SqlServerSearchParameterPackageWriter : ISearchParameterPackageWriter
+    {
+        private const int SqlDeadlockErrorNumber = 1205;
+
+        private readonly IFhirDataStore _fhirDataStore;
+        private readonly ITransactionHandler _transactionHandler;
+        private readonly ISearchParameterPackageStoreCheck _storeCheck;
+        private readonly ISearchParameterPackageRecordStore _recordStore;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
+        private readonly ILogger<SqlServerSearchParameterPackageWriter> _logger;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SqlServerSearchParameterPackageWriter"/> class.
+        /// </summary>
+        /// <param name="fhirDataStore">Writes the SearchParameter resources and statuses.</param>
+        /// <param name="transactionHandler">Starts the transaction that the whole write enlists in.</param>
+        /// <param name="storeCheck">Checks the empty-store precondition.</param>
+        /// <param name="recordStore">Reads and writes the applied-package record.</param>
+        /// <param name="resourceWrapperFactory">Builds the stored form of each SearchParameter.</param>
+        /// <param name="modelInfoProvider">Provides the structure definitions used to stamp server-assigned metadata.</param>
+        /// <param name="searchParameterOperations">Refreshes this instance's SearchParameter cache after the write.</param>
+        /// <param name="requestContextAccessor">The request context accessor.</param>
+        /// <param name="logger">The logger.</param>
+        public SqlServerSearchParameterPackageWriter(
+            IFhirDataStore fhirDataStore,
+            ITransactionHandler transactionHandler,
+            ISearchParameterPackageStoreCheck storeCheck,
+            ISearchParameterPackageRecordStore recordStore,
+            IResourceWrapperFactory resourceWrapperFactory,
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterOperations searchParameterOperations,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            ILogger<SqlServerSearchParameterPackageWriter> logger)
+        {
+            _fhirDataStore = EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            _transactionHandler = EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
+            _storeCheck = EnsureArg.IsNotNull(storeCheck, nameof(storeCheck));
+            _recordStore = EnsureArg.IsNotNull(recordStore, nameof(recordStore));
+            _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
+
+        /// <inheritdoc />
+        /// <exception cref="FhirPackageStoreNotEmptyException">The store contains data, so the parameters would need a reindex.</exception>
+        /// <exception cref="FhirPackageWriteConflictException">The write conflicted with other state; see <see cref="FhirPackageWriteConflictException.IsRetryable"/>.</exception>
+        public async Task WriteAsync(FhirPackage package, IReadOnlyList<ResourceElement> searchParameters, DateTimeOffset referenceSetLastUpdated, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(package, nameof(package));
+            EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
+
+            FhirPackageDescriptor descriptor = package.Descriptor;
+            var record = new SearchParameterPackageRecord(
+                descriptor.PackageId,
+                descriptor.Version,
+                descriptor.Integrity,
+                searchParameters.Select(x => x.Instance.Children("url").FirstOrDefault()?.Value as string).ToList());
+
+            if (await IsAlreadyInstalledAsync(record, cancellationToken))
+            {
+                return;
+            }
+
+            IFhirRequestContext originalContext = _requestContextAccessor.RequestContext;
+            if (originalContext == null)
+            {
+                _requestContextAccessor.RequestContext = CreateBackgroundContext();
+            }
+
+            try
+            {
+                bool written = await WriteInTransactionAsync(record, searchParameters, referenceSetLastUpdated, cancellationToken);
+                if (!written)
+                {
+                    return;
+                }
+            }
+            finally
+            {
+                _requestContextAccessor.RequestContext = originalContext;
+            }
+
+            _logger.LogInformation(
+                "Installed {Count} SearchParameter(s) from FHIR package {PackageId} version {Version} as Enabled without reindex.",
+                searchParameters.Count,
+                descriptor.PackageId,
+                descriptor.Version);
+
+            // Other instances pick up the new parameters through their periodic SearchParameter refresh.
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+        }
+
+        /// <returns><c>true</c> if this call committed the write; <c>false</c> if another writer installed the same package first.</returns>
+        private async Task<bool> WriteInTransactionAsync(SearchParameterPackageRecord record, IReadOnlyList<ResourceElement> searchParameters, DateTimeOffset referenceSetLastUpdated, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using ITransactionScope transaction = _transactionHandler.BeginTransaction();
+
+                if (await _storeCheck.ContainsDataAsync(cancellationToken))
+                {
+                    _logger.LogWarning(
+                        "FHIR package {PackageId} version {Version} was not installed because the data store contains resources.",
+                        record.PackageId,
+                        record.Version);
+
+                    throw new FhirPackageStoreNotEmptyException(record.PackageId, record.Version);
+                }
+
+                List<ResourceWrapperOperation> operations = searchParameters
+                    .Select((resource, i) => CreateOperation(resource, record.CanonicalUrls[i], referenceSetLastUpdated))
+                    .ToList();
+
+                MergeOutcome outcome = await _fhirDataStore.MergeAsync(operations, new MergeOptions(enlistTransaction: true, isBundleTransaction: true), cancellationToken);
+
+                List<Exception> failures = outcome.Results.Values.Where(x => !x.IsOperationSuccessful).Select(x => (Exception)x.Exception).ToList();
+                if (failures.Count > 0)
+                {
+                    // Nothing was persisted: a bundle-transaction merge validates every resource before it writes any.
+                    if (await IsAlreadyInstalledAsync(record, cancellationToken))
+                    {
+                        return false;
+                    }
+
+                    throw new FhirPackageWriteConflictException(
+                        string.Format(Core.Resources.FhirPackageSearchParameterResourceConflict, record.PackageId, record.Version, string.Join(" ", failures.Select(x => x.Message))),
+                        isRetryable: false,
+                        failures.Count == 1 ? failures[0] : new AggregateException(failures));
+                }
+
+                await _recordStore.AddAsync(record, cancellationToken);
+
+                transaction.Complete();
+                return true;
+            }
+            catch (Exception ex) when (IsConcurrencyConflict(ex))
+            {
+                // The transaction has rolled back. If the conflict was another writer installing this same package, the
+                // goal state is reached.
+                if (await IsAlreadyInstalledAsync(record, cancellationToken))
+                {
+                    return false;
+                }
+
+                _logger.LogWarning(ex, "FHIR package {PackageId} version {Version} conflicted with a concurrent SearchParameter change or reindex.", record.PackageId, record.Version);
+
+                throw new FhirPackageWriteConflictException(
+                    string.Format(Core.Resources.FhirPackageWriteConflictRetryable, record.PackageId, record.Version, ex.Message),
+                    isRetryable: true,
+                    ex);
+            }
+        }
+
+        private ResourceWrapperOperation CreateOperation(ResourceElement searchParameter, string url, DateTimeOffset referenceSetLastUpdated)
+        {
+            ResourceWrapper wrapper = _resourceWrapperFactory.Create(PrepareForWrite(searchParameter), deleted: false, keepMeta: true);
+
+            // createOnly: a package never overwrites a SearchParameter resource that already exists.
+            return new ResourceWrapperOperation(
+                wrapper,
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false,
+                keepVersion: false,
+                bundleResourceContext: null,
+                createOnly: true)
+            {
+                // The store is empty, so nothing needs reindexing and the parameter is searchable immediately.
+                // LastUpdated is the validated reference-set version, which the merge uses as its optimistic-concurrency token.
+                PendingSearchParameterStatus = new ResourceSearchParameterStatus
+                {
+                    Uri = new Uri(url),
+                    Status = SearchParameterStatus.Enabled,
+                    IsPartiallySupported = false,
+                    SortStatus = SortParameterStatus.Disabled,
+                    LastUpdated = referenceSetLastUpdated,
+                },
+            };
+        }
+
+        /// <summary>
+        /// Sets the metadata a normal create would assign: an id if the package didn't declare one, and the current
+        /// <c>meta.lastUpdated</c>, which the merge requires in the stored JSON.
+        /// </summary>
+        private ResourceElement PrepareForWrite(ResourceElement searchParameter)
+        {
+            var provider = _modelInfoProvider.StructureDefinitionSummaryProvider;
+            ElementNode node = ElementNode.FromElement(searchParameter.Instance);
+
+            if (string.IsNullOrWhiteSpace(searchParameter.Id))
+            {
+                foreach (ElementNode emptyId in node.Children("id").Cast<ElementNode>().ToList())
+                {
+                    node.Remove(emptyId);
+                }
+
+                node.Add(provider, "id", Guid.NewGuid().ToString());
+            }
+
+            ElementNode meta = node.Children("meta").Cast<ElementNode>().FirstOrDefault() ?? node.Add(provider, "meta");
+            foreach (ElementNode lastUpdated in meta.Children("lastUpdated").Cast<ElementNode>().ToList())
+            {
+                meta.Remove(lastUpdated);
+            }
+
+            meta.Add(provider, "lastUpdated", Hl7.Fhir.ElementModel.Types.DateTime.FromDateTimeOffset(Clock.UtcNow.UtcDateTime.TruncateToMillisecond()));
+
+            return new ResourceElement(node);
+        }
+
+        /// <returns><c>true</c> if the same content is already installed.</returns>
+        /// <exception cref="FhirPackageWriteConflictException">A different version or integrity of the package is installed.</exception>
+        private async Task<bool> IsAlreadyInstalledAsync(SearchParameterPackageRecord record, CancellationToken cancellationToken)
+        {
+            SearchParameterPackageRecord installed = await _recordStore.GetAsync(record.PackageId, cancellationToken);
+            if (installed == null)
+            {
+                return false;
+            }
+
+            if (installed.IsSameContentAs(record))
+            {
+                _logger.LogInformation("FHIR package {PackageId} version {Version} is already installed.", record.PackageId, record.Version);
+                return true;
+            }
+
+            throw new FhirPackageWriteConflictException(
+                string.Format(Core.Resources.FhirPackageInstalledWithDifferentContent, installed.PackageId, installed.Version, installed.Integrity, record.Version, record.Integrity),
+                isRetryable: false);
+        }
+
+        private static bool IsConcurrencyConflict(Exception ex)
+        {
+            return ex is JobConflictException
+                || ex is ResourceConflictException
+                || (ex is BadRequestException && string.Equals(ex.Message, Core.Resources.SearchParameterConcurrencyConflict, StringComparison.Ordinal))
+                || (ex is SqlException sqlEx && sqlEx.Number == SqlDeadlockErrorNumber);
+        }
+
+        private static FhirRequestContext CreateBackgroundContext()
+        {
+            return new FhirRequestContext(
+                method: "FhirPackageInstall",
+                uriString: "https://localhost/SearchParameter",
+                baseUriString: "https://localhost/",
+                correlationId: Guid.NewGuid().ToString(),
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>())
+            {
+                IsBackgroundTask = true,
+            };
+        }
+    }
+}
