@@ -18,6 +18,26 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class MissingSearchParamVisitorTests
     {
+        /// <summary>
+        /// A chained predicate must not become root-level absence.
+        /// </summary>
+        /// <param name="missing">Whether the linked value must be absent.</param>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenChainedMissingParameter_WhenVisited_ThenAbsenceRemainsOnTheLinkedResource(bool missing)
+        {
+            var predicate = new MissingSearchParameterExpression(new SearchParameterInfo("birthdate", "birthdate"), missing);
+            var chain = new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.Chain);
+            var input = SqlRootExpression.WithSearchParamTableExpressions(new[] { chain });
+
+            var result = (SqlRootExpression)input.AcceptVisitor(MissingSearchParamVisitor.Instance);
+
+            var actual = Assert.Single(result.SearchParamTableExpressions);
+            Assert.Equal(SearchParamTableExpressionKind.Chain, actual.Kind);
+            Assert.Same(predicate, actual.Predicate);
+        }
+
         [Fact]
         public void GivenExpressionWithMissingParameterExpression_WhenVisited_AllExpressionPrependedToExpressionList()
         {

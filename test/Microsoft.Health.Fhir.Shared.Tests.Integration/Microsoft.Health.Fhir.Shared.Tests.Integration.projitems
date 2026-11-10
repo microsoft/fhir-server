@@ -25,6 +25,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlServerSearchServiceIntegrationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlChainedSearchGenerationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlChainedMissingSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlChainedMissingStorageTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlInstantDateTimeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InstantDateClockCollection.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchSharedFixture.cs" />

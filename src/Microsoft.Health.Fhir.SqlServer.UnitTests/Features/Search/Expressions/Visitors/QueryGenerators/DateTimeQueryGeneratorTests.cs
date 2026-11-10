@@ -7,6 +7,7 @@ using System;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -39,6 +40,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             _model = Substitute.For<ISqlServerFhirModel>();
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
+        }
+
+        /// <summary>
+        /// Correlates date and token absence to the complete linked-resource identity and parameter.
+        /// </summary>
+        /// <param name="date">Whether the missing parameter uses the date index instead of the token index.</param>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenMissingLinkedParameter_WhenSqlGenerated_ThenNotExistsIsCorrelatedToTargetIdentity(bool date)
+        {
+            var parameter = new SearchParameterInfo("missing", "http://example.org/missing");
+            _model.GetSearchParamId(parameter.Url).Returns((short)42);
+            var context = CreateContext("target");
+            var table = date ? DateTimeQueryGenerator.Instance.Table : TokenQueryGenerator.Instance.Table;
+            var generator = new MissingSearchParameterQueryGenerator(table);
+
+            generator.VisitMissingSearchParameter(new MissingSearchParameterExpression(parameter, true), context);
+
+            string sql = context.StringBuilder.ToString();
+            Assert.Equal(VLatest.Resource.TableName, generator.Table.TableName);
+            Assert.Contains("NOT EXISTS (", sql);
+            Assert.Contains("FROM " + table.TableName, sql);
+            Assert.Contains("missingIndex.IndexedResourceTypeId = target.ResourceTypeId", sql);
+            Assert.Contains("missingIndex.IndexedResourceSurrogateId = target.ResourceSurrogateId", sql);
+            Assert.Contains("missingIndex.SearchParamId = 42", sql);
         }
 
         [Fact]
