@@ -197,9 +197,18 @@ table layout (five-column clustered key, PAGE compression), a cosine version-3 i
 then 34,112 vectors. The generated SQL ran unchanged: at 34,112 vectors the optimizer chose `Vector Index
 Seek` without a hint; page 1 and page 2 (continuation) matched the exact ranking, a resource filter returned
 its row with a three-chunk window, removing the index kept the query working, and index-reported distances
-equalled `VECTOR_DISTANCE` exactly for 2,000 chunks (the duplicate guard compares the two). Local SQL Server 2025
-RTM-GDR (17.0.1135.8) lacks `CREATE VECTOR INDEX` and `WITH APPROXIMATE`, so the setting must stay
-`Disabled` there and unit tests cover the generated SQL.
+equalled `VECTOR_DISTANCE` exactly for 2,000 chunks (the duplicate guard compares the two). That run predates later
+changes to the generated SQL (for example include expansion and count queries). The exact-ranking variant of those
+changes runs in the SQL integration and end-to-end tests, but the approximate (`VECTOR_SEARCH`) variant is covered
+by unit tests only, so repeat these checks on representative data before enabling `Auto`.
+
+The SQL Server 2025 builds checked cannot exercise the approximate query. Microsoft documents the latest index format and
+`SELECT TOP (N) WITH APPROXIMATE` only for Azure SQL Database, Azure SQL Managed Instance (Always-up-to-date policy)
+and Fabric. On SQL Server 2025 RTM-GDR 17.0.1145.4 and CU9 17.0.5005.3 (checked 2026-11-10), `WITH APPROXIMATE` is a
+syntax error. With `PREVIEW_FEATURES` enabled, `CREATE VECTOR INDEX` builds only an earlier-format index (no `Version`
+build parameter) and rejects the five-column clustered key of `VectorSearchParam` (Msg 42217: a clustered primary key on
+a single 4-byte `int` column is required). The detection query above, run unchanged on 17.0.1145.4 against such an
+index, reports it as unavailable, so the setting must stay `Disabled` there; unit tests cover the generated SQL.
 
 - [VECTOR_SEARCH syntax and filtering](https://learn.microsoft.com/en-us/sql/t-sql/functions/vector-search-transact-sql?view=azuresqldb-current).
 - [Index versions, DML and deployment restrictions](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-vector-index-transact-sql?view=azuresqldb-current).
