@@ -31,7 +31,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleProcessingLogic processingLogic,
             Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests,
             IProvideProfilesForValidation profileResolver,
-            ILogger logger)
+            ILogger logger,
+            bool profileValidationOnCreate = false,
+            bool profileValidationOnUpdate = false,
+            bool? profileValidationHeader = null)
         {
             EnsureArg.IsNotNull(requests, nameof(requests));
             EnsureArg.IsNotNull(profileResolver, nameof(profileResolver));
@@ -45,6 +48,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             long maxResourceSizeBytes = 0;
 
             bool requiresProfileRefresh = false;
+            bool requiresProfileValidation = false;
+
+            // The request header overrides the configured value, matching ResourceProfileValidator.
+            bool validateOnCreate = profileValidationHeader ?? profileValidationOnCreate;
+            bool validateOnUpdate = profileValidationHeader ?? profileValidationOnUpdate;
 
             IReadOnlySet<string> profileResourceTypes = profileResolver.GetProfilesTypes();
 
@@ -68,6 +76,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (!requiresProfileRefresh && operation.ResourceType != null && profileResourceTypes.Contains(operation.ResourceType))
                 {
                     requiresProfileRefresh = true;
+                }
+
+                if ((operation.HttpVerb == HTTPVerb.POST && validateOnCreate) ||
+                    (operation.HttpVerb == HTTPVerb.PUT && validateOnUpdate))
+                {
+                    requiresProfileValidation = true;
                 }
 
                 long resourceSizeBytes = operation.Context?.HttpContext?.Request?.Body?.Length ?? 0;
@@ -104,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 profileRefreshCost +
                 payloadCost;
 
-            BundleComplexity bundleComplexity = GetComplexity(score);
+            BundleComplexity bundleComplexity = requiresProfileValidation ? BundleComplexity.Extreme : GetComplexity(score);
 
             if (bundleComplexity is BundleComplexity.High or BundleComplexity.Extreme)
             {
@@ -121,6 +135,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     "TotalResourceSizeBytes: {TotalResourceSizeBytes}, " +
                     "MaxResourceSizeBytes: {MaxResourceSizeBytes}, " +
                     "RequiresProfileRefresh: {RequiresProfileRefresh}, " +
+                    "RequiresProfileValidation: {RequiresProfileValidation}, " +
                     "ProcessingLogic: {ProcessingLogic}",
                     bundleComplexity,
                     score,
@@ -135,6 +150,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     totalResourceSizeBytes,
                     maxResourceSizeBytes,
                     requiresProfileRefresh,
+                    requiresProfileValidation,
                     processingLogic);
             }
 

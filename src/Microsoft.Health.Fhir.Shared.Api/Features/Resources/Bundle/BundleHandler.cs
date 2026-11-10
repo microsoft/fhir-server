@@ -87,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly string _originalRequestBase;
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
@@ -147,6 +148,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceReferenceResolver referenceResolver,
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IAuthorizationService<DataActions> authorizationService,
             IProvideProfilesForValidation profilesResolver,
             IModelInfoProvider modelInfoProvider,
@@ -170,6 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _referenceResolver = EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
             _auditEventTypeMapping = EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             _bundleConfiguration = EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
+            _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _router = EnsureArg.IsNotNull(router, nameof(router));
@@ -549,7 +552,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     processingLogic,
                     _requests,
                     _profilesResolver,
-                    _logger);
+                    _logger,
+                    _coreFeatureConfiguration.ProfileValidationOnCreate,
+                    _coreFeatureConfiguration.ProfileValidationOnUpdate,
+                    GetProfileValidationHeader());
             }
             catch (InvalidOperationException e)
             {
@@ -563,6 +569,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 _logger.LogWarning(e, "Error while identifying bundle complexity. This error will not block the bundle processing.");
             }
+        }
+
+        private bool? GetProfileValidationHeader()
+        {
+            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var value) &&
+                bool.TryParse(value, out bool parsed))
+            {
+                return parsed;
+            }
+
+            return null;
         }
 
         private void AddFinalOperationOutcomesIfApplicable(Hl7.Fhir.Model.Bundle responseBundle, BundleType? bundleType)

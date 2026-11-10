@@ -128,6 +128,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedComplexity, complexity);
         }
 
+        [Theory]
+        [InlineData(HTTPVerb.POST, true, false, null, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, false, true, null, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.PUT, false, true, null, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.PUT, true, false, null, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.POST, false, false, true, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.PUT, false, false, true, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, true, true, false, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.GET, true, true, true, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.DELETE, true, true, true, BundleComplexity.Low)]
+        public void GivenBundle_WhenProfileValidationApplies_ReturnsExpectedComplexity(
+            HTTPVerb verb,
+            bool validateOnCreate,
+            bool validateOnUpdate,
+            bool? header,
+            BundleComplexity expectedComplexity)
+        {
+            var requests = CreateRequests(1, verb);
+
+            BundleComplexity complexity = CalculateComplexity(
+                BundleProcessingLogic.Parallel,
+                requests,
+                validateOnCreate,
+                validateOnUpdate,
+                header);
+
+            Assert.Equal(expectedComplexity, complexity);
+        }
+
         private static Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> CreateRequests(
             int operationCount,
             HTTPVerb verb,
@@ -178,12 +207,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
         private static BundleComplexity CalculateComplexity(
             BundleProcessingLogic processingLogic,
-            Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests)
+            Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests,
+            bool validateOnCreate = false,
+            bool validateOnUpdate = false,
+            bool? profileValidationHeader = null)
         {
             var profileResolver = Substitute.For<IProvideProfilesForValidation>();
             profileResolver.GetProfilesTypes().Returns(ProfileSupportedTypes);
 
-            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(processingLogic, requests, profileResolver, NullLogger.Instance);
+            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(processingLogic, requests, profileResolver, NullLogger.Instance, validateOnCreate, validateOnUpdate, profileValidationHeader);
         }
     }
 }
