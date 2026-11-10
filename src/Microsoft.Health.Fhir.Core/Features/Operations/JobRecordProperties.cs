@@ -209,5 +209,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string MetaHistory = "metaHistory";
 
         public const string SearchWarnings = "searchWarnings";
+
+        public const string OverlongReferenceIds = "overlongReferenceIds";
     }
 }

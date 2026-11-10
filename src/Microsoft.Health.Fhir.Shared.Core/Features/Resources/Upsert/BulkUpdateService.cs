@@ -237,6 +237,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             var resourcesUpdated = result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<BulkUpdateResult>)
                                     .Select(ex => ((IncompleteOperationException<BulkUpdateResult>)ex).PartialResults.ResourcesUpdated as Dictionary<string, long>);
                             AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, resourcesUpdated);
+
+                            foreach (IncompleteOperationException<BulkUpdateResult> incomplete in result.Exception.InnerExceptions.OfType<IncompleteOperationException<BulkUpdateResult>>())
+                            {
+                                AppendOverlongReferenceIds(finalBulkUpdateResult, incomplete.PartialResults.OverlongReferenceIds);
+                            }
                         }
 
                         if (result.IsFaulted)
@@ -621,6 +626,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var bulkUpdateResultsFromUpdateFlow = new BulkUpdateResult();
                 AppendUpdateResults(bulkUpdateResultsFromUpdateFlow.ResourcesUpdated as Dictionary<string, long>, new[] { new Dictionary<string, long>(resourceTypesUpdated) });
 
+                // Resources the data store saved before the failure can have reference ids that were indexed truncated.
+                foreach (ResourceWrapperOperation operation in wrapperOperationsIncludes.Concat(wrapperOperationsMatches)
+                    .Where(operation => ex.PartialResults.Any(item =>
+                        item.Value?.Exception == null &&
+                        item.Key.Id == operation.Wrapper.ResourceId &&
+                        item.Key.ResourceType == operation.Wrapper.ResourceTypeName)))
+                {
+                    OverlongReferenceIdCount.Add(bulkUpdateResultsFromUpdateFlow.OverlongReferenceIds, operation.Wrapper);
+                }
+
                 await CreateAuditLog(resourceType, true, ids);
                 throw new IncompleteOperationException<BulkUpdateResult>(
                     ex.InnerException,
@@ -658,6 +673,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     pageResult.Issues.Add(message);
                 }
+            }
+
+            // Updated resources with reference ids longer than the maximum resource id length, which are indexed truncated.
+            foreach (ResourceWrapperOperation operation in wrapperOperationsIncludes.Concat(wrapperOperationsMatches)
+                .Where(operation => !rejected.Any(r => r.Id == operation.Wrapper.ResourceId && r.ResourceType == operation.Wrapper.ResourceTypeName)))
+            {
+                OverlongReferenceIdCount.Add(pageResult.OverlongReferenceIds, operation.Wrapper);
             }
 
             return pageResult;
@@ -743,6 +765,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     finalResult.Issues.Add(issue);
                 }
+
+                AppendOverlongReferenceIds(finalResult, pageResult.OverlongReferenceIds);
             }
         }
 
@@ -783,7 +807,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 result.Issues.Add(issue);
             }
 
+            AppendOverlongReferenceIds(result, newResult.OverlongReferenceIds);
             return result;
+        }
+
+        /// <summary>
+        /// Adds counts of updated resources with overlong reference ids to <paramref name="result"/>. Pages are updated in
+        /// parallel, so the counts are locked.
+        /// </summary>
+        private static void AppendOverlongReferenceIds(BulkUpdateResult result, IEnumerable<OverlongReferenceIdCount> counts)
+        {
+            lock (result.OverlongReferenceIds)
+            {
+                OverlongReferenceIdCount.Merge(result.OverlongReferenceIds, counts);
+            }
         }
     }
 }

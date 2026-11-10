@@ -260,5 +260,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             Assert.False(_fhirRequestContextAccessor.RequestContext.Properties.ContainsKey(ResourceWrapperFactory.SearchIndexValuesPropertyName));
         }
+
+        [Fact]
+        public void GivenAResourceWithOverlongReferenceIds_WhenCreatedInARequest_ThenOneWarningPerSearchParameterIsAdded()
+        {
+            var performer = new SearchParameterInfo("performer", "performer", ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"));
+            var subject = new SearchParameterInfo("subject", "subject", ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+            _searchIndexer
+                .Extract(Arg.Any<ResourceElement>())
+                .Returns(new List<SearchIndexEntry>()
+                {
+                    new SearchIndexEntry(performer, OverlongReference(65)),
+                    new SearchIndexEntry(performer, OverlongReference(70)),
+                    new SearchIndexEntry(subject, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", "valid")),
+                });
+
+            _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+
+            OperationOutcomeIssue issue = Assert.Single(_fhirRequestContextAccessor.RequestContext.BundleIssues);
+            Assert.Equal(LongReferenceIdIssue.Create("performer", 64).Diagnostics, issue.Diagnostics);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, issue.Severity);
+        }
+
+        [Fact]
+        public void GivenAResourceWithOverlongReferenceIds_WhenCreatedInABackgroundTask_ThenNoWarningIsAdded()
+        {
+            _fhirRequestContextAccessor.RequestContext.IsBackgroundTask = true;
+            var performer = new SearchParameterInfo("performer", "performer", ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"));
+            _searchIndexer
+                .Extract(Arg.Any<ResourceElement>())
+                .Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(performer, OverlongReference(65)) });
+
+            _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+
+            Assert.Empty(_fhirRequestContextAccessor.RequestContext.BundleIssues);
+        }
+
+        [Fact]
+        public void GivenAResourceWithoutOverlongReferenceIds_WhenCreated_ThenNoWarningIsAdded()
+        {
+            var performer = new SearchParameterInfo("performer", "performer", ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"));
+            _searchIndexer
+                .Extract(Arg.Any<ResourceElement>())
+                .Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(performer, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64))) });
+
+            _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+
+            Assert.Empty(_fhirRequestContextAccessor.RequestContext.BundleIssues);
+        }
+
+        private static ReferenceSearchValue OverlongReference(int length)
+            => new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64))
+            {
+                OverlongResourceIdLength = length,
+                MaxResourceIdLength = 64,
+            };
     }
 }

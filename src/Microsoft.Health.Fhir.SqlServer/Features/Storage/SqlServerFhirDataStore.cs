@@ -564,11 +564,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
         }
 
-        internal async Task<(IReadOnlyList<string> Errors, long? DatabaseMilliseconds)> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
+        internal async Task<(IReadOnlyList<string> Errors, long? DatabaseMilliseconds, IReadOnlyList<OverlongReferenceIdCount> OverlongReferenceIds)> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             if (resources.Count == 0) // do not go to the database
             {
-                return (new List<string>(), 0);
+                return (new List<string>(), 0, Array.Empty<OverlongReferenceIdCount>());
             }
 
             long? databaseMilliseconds = 0;
@@ -611,7 +611,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var dups = resources.Except(results.Loaded).Except(results.Conflicts).Except(rejectedCollisions)?.ToList();
 
-            return (GetCollisionErrors().Concat(GetErrors(dups, results.Conflicts)).ToList(), databaseMilliseconds);
+            // Only loaded current versions are indexed, so only they count as affected by truncated reference ids.
+            var overlongReferenceIds = new List<OverlongReferenceIdCount>();
+            foreach (ImportResource resource in results.Loaded)
+            {
+                OverlongReferenceIdCount.Add(overlongReferenceIds, resource.ResourceWrapper);
+            }
+
+            return (GetCollisionErrors().Concat(GetErrors(dups, results.Conflicts)).ToList(), databaseMilliseconds, overlongReferenceIds);
 
             List<string> GetCollisionErrors()
             {
@@ -934,6 +941,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                ReferenceSearchParamListRowGenerator.LogTruncatedReferences(mergeWrappers, _model.ResourceIdPolicy.MaxLength, _logger);
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1070,6 +1078,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                ReferenceSearchParamListRowGenerator.LogTruncatedReferences(mergeWrappers, _model.ResourceIdPolicy.MaxLength, _logger);
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));

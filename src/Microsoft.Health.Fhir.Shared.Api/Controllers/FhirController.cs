@@ -183,8 +183,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     HttpContext.RequestAborted),
                 "Create");
 
-            ReturnPreference? returnPreference = GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings);
-            return FhirResult.Create(_logger, response, HttpStatusCode.Created, true, true, true, _urlResolver, returnPreference, additionalIssues: longUriWarnings);
+            ReturnPreference? returnPreference = GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings);
+            return FhirResult.Create(_logger, response, HttpStatusCode.Created, true, true, true, _urlResolver, returnPreference, additionalIssues: searchValueWarnings);
         }
 
         /// <summary>
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 _urlResolver,
                 preferHeader,
                 message,
-                _fhirRequestContextAccessor.RequestContext?.BundleIssues.Where(LongUriSearchValueIssue.IsMatch));
+                _fhirRequestContextAccessor.RequestContext?.BundleIssues.Where(PartiallyComparedSearchValueIssue.IsMatch));
         }
 
         /// <summary>
@@ -297,7 +297,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case SaveOutcomeType.Created:
                 case SaveOutcomeType.Updated:
                     bool created = saveOutcome.Outcome == SaveOutcomeType.Created;
-                    ReturnPreference? returnPreference = GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings);
+                    ReturnPreference? returnPreference = GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings);
                     return FhirResult.Create(
                         _logger,
                         saveOutcome.RawResourceElement,
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                         setLocationHeader: created,
                         urlResolver: _urlResolver,
                         returnPreference: returnPreference,
-                        additionalIssues: longUriWarnings);
+                        additionalIssues: searchValueWarnings);
             }
 
             return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
@@ -315,13 +315,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         /// <summary>
         /// Returns <see cref="ReturnPreference.OperationOutcome"/> when the client asked for it with the Prefer header and the request
-        /// used URI values that are only partially compared; otherwise <c>null</c>, which keeps the default response.
-        /// Transaction entries are left unchanged, because a transaction fails when an entry returns an OperationOutcome.
+        /// used search values that are only partially compared (long URI values, or reference ids longer than the maximum resource id
+        /// length); otherwise <c>null</c>, which keeps the default response. Transaction entries get the warnings too: an entry with a
+        /// successful status and only informational or warning issues doesn't fail the transaction.
         /// </summary>
-        /// <param name="longUriWarnings">The long URI warnings to return, or <c>null</c>.</param>
-        private ReturnPreference? GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings)
+        /// <param name="searchValueWarnings">The warnings to return, or <c>null</c>.</param>
+        private ReturnPreference? GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings)
         {
-            longUriWarnings = null;
+            searchValueWarnings = null;
 
             // This runs after the write is saved, so an invalid Prefer value must not turn it into an error response.
             ReturnPreference? returnPreference;
@@ -334,14 +335,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return null;
             }
 
-            if (returnPreference != ReturnPreference.OperationOutcome ||
-                GetBundleResourceContext()?.IsTransactionalBundle == true)
+            if (returnPreference != ReturnPreference.OperationOutcome)
             {
                 return null;
             }
 
             List<OperationOutcomeIssue> warnings = _fhirRequestContextAccessor.RequestContext?.BundleIssues
-                .Where(LongUriSearchValueIssue.IsMatch)
+                .Where(PartiallyComparedSearchValueIssue.IsMatch)
                 .GroupBy(i => i.Diagnostics, StringComparer.Ordinal)
                 .Select(g => g.First())
                 .ToList();
@@ -350,7 +350,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return null;
             }
 
-            longUriWarnings = warnings;
+            searchValueWarnings = warnings;
             return ReturnPreference.OperationOutcome;
         }
 
@@ -562,9 +562,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
             }
 
-            if (GetLongUriWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> longUriWarnings) == ReturnPreference.OperationOutcome)
+            if (GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings) == ReturnPreference.OperationOutcome)
             {
-                var operationOutcome = new OperationOutcome { Issue = longUriWarnings.Select(i => i.ToPoco()).ToList() };
+                var operationOutcome = new OperationOutcome { Issue = searchValueWarnings.Select(i => i.ToPoco()).ToList() };
                 return FhirResult.Create(_logger, operationOutcome.ToResourceElement(), HttpStatusCode.OK).SetETagHeader(response?.WeakETag);
             }
 
