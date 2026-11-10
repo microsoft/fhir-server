@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 long? databaseMilliseconds = 0;
                 long currentIndex = -1;
                 var errors = new List<string>();
+                var overlongReferenceIds = new List<OverlongReferenceIdCount>();
                 var resourceBatch = new List<ImportResource>();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync(cancellationToken))
                 {
@@ -67,18 +69,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         continue;
                     }
 
-                    var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
+                    var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, overlongReferenceIds, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                     succeededCount += resultInt.LoadedCount;
                     processedBytes += resultInt.ProcessedBytes;
                     databaseMilliseconds += resultInt.DatabaseMilliseconds;
                 }
 
-                var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
+                var result = await ImportResourcesInBuffer(resourceBatch, errors, overlongReferenceIds, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                 succeededCount += result.LoadedCount;
                 processedBytes += result.ProcessedBytes;
                 databaseMilliseconds += result.DatabaseMilliseconds;
 
-                return await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, databaseMilliseconds, cancellationToken);
+                ImportProcessingProgress progress = await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, databaseMilliseconds, cancellationToken);
+                OverlongReferenceIdCount.Merge(progress.OverlongReferenceIds, overlongReferenceIds);
+                return progress;
             }
             finally
             {
@@ -86,13 +90,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<(long LoadedCount, long ProcessedBytes, long? DatabaseMilliseconds)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
+        private async Task<(long LoadedCount, long ProcessedBytes, long? DatabaseMilliseconds)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, List<OverlongReferenceIdCount> overlongReferenceIds, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
             //// exclude resources with parsing error (ImportError != null)
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             var importResult = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
             errors.AddRange(importResult.Errors);
+            OverlongReferenceIdCount.Merge(overlongReferenceIds, importResult.OverlongReferenceIds);
+
             var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();
             return (validResources.Count - importResult.Errors.Count, totalBytes, importResult.DatabaseMilliseconds);

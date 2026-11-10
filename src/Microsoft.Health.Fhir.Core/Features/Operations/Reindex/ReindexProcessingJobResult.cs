@@ -45,6 +45,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public bool IsCustomerCaused { get; set; }
 
         /// <summary>
+        /// Gets the reindexed resources with a reference id longer than the maximum resource id length, by resource type
+        /// and search parameter.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.OverlongReferenceIds)]
+        public ICollection<OverlongReferenceIdCount> OverlongReferenceIds { get; } = new List<OverlongReferenceIdCount>();
+
+        /// <summary>
         /// Adds warnings that aren't already listed, keeping at most <see cref="MaxWarnings"/> and counting the rest.
         /// </summary>
         /// <param name="warnings">The warnings to add.</param>
@@ -74,5 +81,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 Warnings = kept;
             }
         }
+
+        /// <summary>
+        /// Omits <see cref="OverlongReferenceIds"/> from the serialized result when it's empty.
+        /// </summary>
+        /// <returns><c>true</c> if there are counts to serialize.</returns>
+        public bool ShouldSerializeOverlongReferenceIds() => OverlongReferenceIds.Count > 0;
     }
 }

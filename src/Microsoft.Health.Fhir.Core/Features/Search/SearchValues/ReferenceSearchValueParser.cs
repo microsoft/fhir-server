@@ -60,10 +60,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 ModelInfoProvider.EnsureValidResourceType(resourceTypeInString, nameof(s));
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
+                int? overlongResourceIdLength = null;
 
                 // Ids longer than the limit are cut off at the limit, as when the limit was fixed at 64.
+                // The original length is kept so that callers can log and warn about the truncation.
                 if (resourceId.Length > _resourceIdPolicy.MaxLength)
                 {
+                    overlongResourceIdLength = resourceId.Length;
                     resourceId = resourceId[.._resourceIdPolicy.MaxLength];
                 }
 
@@ -76,7 +79,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         ReferenceKind.InternalOrExternal,
                         null,
                         resourceTypeInString,
-                        resourceId);
+                        resourceId)
+                    {
+                        OverlongResourceIdLength = overlongResourceIdLength,
+                        MaxResourceIdLength = overlongResourceIdLength == null ? null : _resourceIdPolicy.MaxLength,
+                    };
                 }
 
                 Uri baseUri = null;
@@ -97,7 +104,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.Internal,
                             null,
                             resourceTypeInString,
-                            resourceId);
+                            resourceId)
+                        {
+                            OverlongResourceIdLength = overlongResourceIdLength,
+                            MaxResourceIdLength = overlongResourceIdLength == null ? null : _resourceIdPolicy.MaxLength,
+                        };
                     }
                     else if (baseUri.IsAbsoluteUri &&
                         SupportedSchemes.Contains(baseUri.Scheme, StringComparer.OrdinalIgnoreCase))
@@ -107,7 +118,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.External,
                             baseUri,
                             resourceTypeInString,
-                            resourceId);
+                            resourceId)
+                        {
+                            OverlongResourceIdLength = overlongResourceIdLength,
+                            MaxResourceIdLength = overlongResourceIdLength == null ? null : _resourceIdPolicy.MaxLength,
+                        };
                     }
                 }
                 catch (UriFormatException)
@@ -116,11 +131,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 }
             }
 
+            // A bare id (no resource type) isn't truncated here, but it is truncated to the same limit when indexed.
+            bool isOverlongBareId = _resourceIdPolicy.IsTooLong(s);
             return new ReferenceSearchValue(
                 ReferenceKind.InternalOrExternal,
                 baseUri: null,
                 resourceType: null,
-                resourceId: s);
+                resourceId: s)
+            {
+                OverlongResourceIdLength = isOverlongBareId ? s.Length : null,
+                MaxResourceIdLength = isOverlongBareId ? _resourceIdPolicy.MaxLength : null,
+            };
         }
     }
 }

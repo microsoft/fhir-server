@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -141,6 +142,70 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
+        }
+
+        [Fact]
+        public async Task GivenReindexedResourcesWithOverlongReferenceIds_WhenExecuted_ThenTheResultCountsThemPerResourceTypeAndParameter()
+        {
+            var expectedResourceType = "Observation";
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex() { Count = 3, EndResourceSurrogateId = 0, StartResourceSurrogateId = 0 },
+                SearchParameterHash = "observationHash",
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(job), QueueType = (byte)QueueType.Reindex, GroupId = 1, CreateDate = DateTime.UtcNow, Status = JobStatus.Running };
+
+            _searchService.SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), false, Arg.Any<CancellationToken>(), true)
+                .Returns(new SearchResult(Enumerable.Range(1, 3).Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType)).ToList(), null, null, new List<Tuple<string, string>>()));
+
+            var performer = new SearchParameterInfo("performer", "performer", ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"));
+            var overlong = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64)) { OverlongResourceIdLength = 65, MaxResourceIdLength = 64 };
+            _resourceWrapperFactory
+                .When(f => f.Update(Arg.Any<ResourceWrapper>()))
+                .Do(callInfo =>
+                {
+                    ResourceWrapper wrapper = callInfo.Arg<ResourceWrapper>();
+                    wrapper.UpdateSearchIndices(wrapper.ResourceId == "3" ? new List<SearchIndexEntry>() : new List<SearchIndexEntry> { new SearchIndexEntry(performer, overlong) });
+                });
+
+            string serialized = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(serialized);
+
+            Assert.Equal(3, result.SucceededResourceCount);
+            OverlongReferenceIdCount count = Assert.Single(result.OverlongReferenceIds);
+            Assert.Equal(expectedResourceType, count.ResourceType);
+            Assert.Equal("performer", count.SearchParameterCode);
+            Assert.Equal(64, count.MaxResourceIdLength);
+            Assert.Equal(2, count.Count);
+        }
+
+        [Fact]
+        public async Task GivenReindexedResourcesWithoutOverlongReferenceIds_WhenExecuted_ThenTheResultOmitsTheCounts()
+        {
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = "Account",
+                ResourceCount = new SearchResultReindex() { Count = 1, EndResourceSurrogateId = 0, StartResourceSurrogateId = 0 },
+                SearchParameterHash = "accountHash",
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(job), QueueType = (byte)QueueType.Reindex, GroupId = 1, CreateDate = DateTime.UtcNow, Status = JobStatus.Running };
+            _searchService.SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), false, Arg.Any<CancellationToken>(), true)
+                .Returns(new SearchResult(new List<SearchResultEntry> { CreateSearchResultEntry("1", "Account") }, null, null, new List<Tuple<string, string>>()));
+
+            string serialized = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+
+            Assert.DoesNotContain(JobRecordProperties.OverlongReferenceIds, serialized, StringComparison.Ordinal);
         }
 
         private SearchResultEntry CreateSearchResultEntry(string id, string type)

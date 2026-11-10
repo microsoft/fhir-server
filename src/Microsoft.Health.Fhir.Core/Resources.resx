@@ -1017,4 +1017,12 @@
     <value>URI parameter '{0}' exceeds {1} characters. Evaluation is limited to the first {1} characters, which may return broader search results.</value>
     <comment>{0} is a comma-separated list of search parameter codes. {1} is the number of URI characters the data store compares.</comment>
   </data>
+  <data name="LongReferenceId" xml:space="preserve">
+    <value>Reference parameter '{0}' ID exceeds {1} characters. Index truncation applied after {1} characters, which may yield over-inclusive results</value>
+    <comment>{0} is the code of the search parameter. {1} is the maximum resource id length.</comment>
+  </data>
+  <data name="LongReferenceIdAffectedResources" xml:space="preserve">
+    <value>Resource type '{0}': {1} resource(s) affected.</value>
+    <comment>{0} is a resource type. {1} is the number of resources with a reference id longer than the maximum resource id length.</comment>
+  </data>
 </root>

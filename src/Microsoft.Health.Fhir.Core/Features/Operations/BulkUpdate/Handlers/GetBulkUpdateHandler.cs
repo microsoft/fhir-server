@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             var resourcesUpdated = new Dictionary<string, long>();
             var resourcesIgnored = new Dictionary<string, long>();
             var resourcesPatchFailed = new Dictionary<string, long>();
+            var overlongReferenceIds = new List<OverlongReferenceIdCount>();
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
 
@@ -137,6 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     UpdateResources(result.ResourcesUpdated, resourcesUpdated);
                     UpdateResources(result.ResourcesIgnored, resourcesIgnored);
                     UpdateResources(result.ResourcesPatchFailed, resourcesPatchFailed);
+                    OverlongReferenceIdCount.Merge(overlongReferenceIds, result.OverlongReferenceIds);
 
                     if (job.Status == JobStatus.Completed)
                     {
@@ -240,6 +242,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             {
                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, diagnostics: warning));
             }
+
+            // Updated resources with reference ids longer than the maximum resource id length, which are indexed truncated.
+            issues.AddRange(overlongReferenceIds.Select(LongReferenceIdIssue.CreateForJob));
 
             return new GetBulkUpdateResponse(fhirResults, issues, statusCode);
         }

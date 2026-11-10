@@ -42,5 +42,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         [JsonProperty("executionStats", NullValueHandling = NullValueHandling.Ignore)]
         public IReadOnlyCollection<string> ExecutionStats { get; set; }
+
+        /// <summary>
+        /// Warnings about imported resources, for example references with ids longer than the maximum resource id length.
+        /// Omitted when there are none.
+        /// </summary>
+        [JsonProperty("issues", NullValueHandling = NullValueHandling.Ignore)]
+        public IReadOnlyCollection<ImportJobIssue> Issues { get; set; }
     }
 }

@@ -290,7 +290,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenATransactionCreatingAResourceWithALongUri_WhenPreferOperationOutcome_ThenTheTransactionStillSucceeds()
         {
-            // A transaction fails when an entry returns an OperationOutcome, so transaction entries don't get the warning.
+            // Parallel bundle entries don't get the long URI write warning, because the data store writes several entries under one request context.
+            // The transaction still succeeds.
             var patient = new Patient();
             Fixture.SetTagAndProfiles(patient, Guid.NewGuid().ToString(), Fixture.SharedPrefix + "transaction");
             var transaction = new Bundle

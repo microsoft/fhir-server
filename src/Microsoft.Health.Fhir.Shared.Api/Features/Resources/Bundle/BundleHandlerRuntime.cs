@@ -162,6 +162,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return cancellationToken.IsCancellationRequested && elapsedTime.TotalSeconds < bundleConfiguration.MaxExecutionTimeInSeconds;
         }
 
+        /// <summary>
+        /// Determines whether a transaction entry failed. An entry fails when its status isn't successful, or when its
+        /// <c>response.outcome</c> has an error or fatal issue. A successful entry whose outcome has only information or warning
+        /// issues, for example when the client sent <c>Prefer: return=OperationOutcome</c>, doesn't fail the transaction.
+        /// </summary>
+        /// <param name="entryComponent">The entry returned for the request.</param>
+        /// <param name="httpStatusCode">The final status code of the entry.</param>
+        /// <returns><c>true</c> if the transaction must fail.</returns>
+        public static bool IsFailedTransactionEntry(EntryComponent entryComponent, HttpStatusCode httpStatusCode)
+        {
+            EnsureArg.IsNotNull(entryComponent, nameof(entryComponent));
+
+            if (entryComponent.Response?.Outcome == null)
+            {
+                return false;
+            }
+
+            if ((int)httpStatusCode < 200 || (int)httpStatusCode > 299)
+            {
+                return true;
+            }
+
+            if (entryComponent.Response.Outcome is not Hl7.Fhir.Model.OperationOutcome outcome)
+            {
+                return true;
+            }
+
+            return outcome.Issue.Count == 0 || outcome.Issue.Any(issue =>
+                issue.Severity != Hl7.Fhir.Model.OperationOutcome.IssueSeverity.Information &&
+                issue.Severity != Hl7.Fhir.Model.OperationOutcome.IssueSeverity.Warning);
+        }
+
         internal static bool IsBundleProcessingLogicValid(HttpContext outerHttpContext)
         {
             EnsureArg.IsNotNull(outerHttpContext, nameof(outerHttpContext));

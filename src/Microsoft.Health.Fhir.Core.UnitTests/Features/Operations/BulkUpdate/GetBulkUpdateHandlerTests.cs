@@ -142,6 +142,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenCompletedBulkUpdateJobsThatUpdatedResourcesWithOverlongReferenceIds_WhenStatusRequested_ThenOneIssuePerResourceTypeAndParameterIsReturned()
+        {
+            var result1 = new BulkUpdateResult();
+            result1.ResourcesUpdated.Add(KnownResourceTypes.Patient, 2);
+            result1.OverlongReferenceIds.Add(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 2));
+
+            var result2 = new BulkUpdateResult();
+            result2.ResourcesUpdated.Add(KnownResourceTypes.Patient, 1);
+            result2.OverlongReferenceIds.Add(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 1));
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
+            {
+                { _resourceUpdatedCountLabel, new List<Tuple<string, Base>> { new(KnownResourceTypes.Patient, new Integer64(3)) } },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                LongReferenceIdIssue.CreateForJob(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 3)),
+            };
+
+            await RunGetBulkUpdateTest(
+                new List<Tuple<JobInfo, int>>
+                {
+                    new Tuple<JobInfo, int>(new() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result1) }, 2),
+                    new Tuple<JobInfo, int>(new() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result2) }, 1),
+                },
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
+
+            Assert.Equal("Resource type 'Patient': 3 resource(s) affected.", issues.Single().DetailsText);
+        }
+
+        [Fact]
         public async Task GivenMixedStatusJobs_WhenStatusRequested_ThenAggregatedStatusIsReturned()
         {
             var completedResult = new BulkUpdateResult();
