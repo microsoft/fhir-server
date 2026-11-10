@@ -468,6 +468,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenWildcardSmartScopeConstrainedBySemanticText_WhenAnOrdinarySearchIsInvoked_ThenTheRequestIsDenied()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            Assert.Single((await SearchStrictAsync($"Observation?_tag={_testTag}")).Entry);
+            using HttpClient smartClient = await CreateSmartClientAsync("system/*.rs?semantic-text=dyspnea");
+
+            using HttpResponseMessage response = await smartClient.GetAsync($"Observation?_tag={_testTag}");
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            OperationOutcome outcome = await ReadAsync<OperationOutcome>(response);
+            Assert.Contains(outcome.Issue, issue => issue.Diagnostics != null && issue.Diagnostics.Contains("semantic-text", StringComparison.Ordinal));
+        }
+
+        [Fact]
         public async Task GivenSmartScopeConstrainedByAnOrdinaryParameter_WhenSemanticSearchIsPaged_ThenEveryPageStaysWithinTheScope()
         {
             Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
