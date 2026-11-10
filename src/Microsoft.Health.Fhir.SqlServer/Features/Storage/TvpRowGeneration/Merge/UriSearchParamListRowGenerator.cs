@@ -101,21 +101,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            List<string> codes = null;
-            foreach (SearchIndexEntry entry in resource.SearchIndices ?? Array.Empty<SearchIndexEntry>())
-            {
-                if (entry.Value is UriSearchValue uriValue && uriValue.Uri.Length > IndexedUriMaxLength)
-                {
-                    string code = entry.SearchParameter.Code ?? entry.SearchParameter.Url?.ToString();
-                    codes ??= new List<string>();
-                    if (!codes.Contains(code))
-                    {
-                        codes.Add(code);
-                    }
-                }
-            }
-
-            return codes ?? (IReadOnlyList<string>)Array.Empty<string>();
+            return (resource.SearchIndices ?? Array.Empty<SearchIndexEntry>())
+                .Where(entry => entry.Value is UriSearchValue uriValue && uriValue.Uri.Length > IndexedUriMaxLength)
+                .Select(entry => entry.SearchParameter.Code ?? entry.SearchParameter.Url?.ToString())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
         }
 
         /// <summary>
