@@ -188,7 +188,7 @@
     <comment>{0} is the search parameter code. {1} is the number of URI characters the data store compares. {2} is the resource id. {3} is the line number.</comment>
   </data>
   <data name="ReindexSkippedCollidingUriSearchValues" xml:space="preserve">
-    <value>Resource {0}/{1} was not indexed for the URI search parameter '{2}' because it has more than one value for it that are identical in their first {3} characters. Searches using '{2}' will not return this resource.</value>
-    <comment>{0} is the resource type. {1} is the resource id. {2} is the search parameter code. {3} is the number of URI characters the data store compares.</comment>
+    <value>Resources of type {0} were not indexed for the URI search parameter '{1}' because they have more than one value for it that are identical in their first {2} characters. Searches using '{1}' will not return them.</value>
+    <comment>{0} is the resource type. {1} is the search parameter code. {2} is the number of URI characters the data store compares. Resource ids are not included because the reindex status only requires the Reindex permission.</comment>
   </data>
 </root>

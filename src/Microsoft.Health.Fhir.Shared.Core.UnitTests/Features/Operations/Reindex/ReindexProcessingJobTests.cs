@@ -267,6 +267,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
+        public void GivenTheSameWarningTwice_WhenAdded_ThenItIsKeptOnceAndNotCountedAsOmitted()
+        {
+            var result = new ReindexProcessingJobResult();
+
+            result.AddWarnings(new[] { "same", "same" });
+            result.AddWarnings(new[] { "same" });
+
+            Assert.Equal(new[] { "same" }, result.Warnings);
+            Assert.Equal(0, result.OmittedWarningCount);
+        }
+
+        [Fact]
         public void GivenMoreWarningsThanTheMaximum_WhenAdded_ThenTheRestAreCounted()
         {
             var result = new ReindexProcessingJobResult();

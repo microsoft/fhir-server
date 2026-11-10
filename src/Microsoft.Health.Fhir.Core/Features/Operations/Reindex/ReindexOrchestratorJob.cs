@@ -351,7 +351,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return;
             }
 
-            foreach (string warning in result.Warnings ?? Enumerable.Empty<string>())
+            // Different processing jobs report the same warning (one per resource type and search parameter), so list it once.
+            IEnumerable<string> newWarnings = (result.Warnings ?? Enumerable.Empty<string>())
+                .Where(warning => !_result.Error.Any(e => string.Equals(e.Diagnostics, warning, StringComparison.Ordinal)));
+            foreach (string warning in newWarnings)
             {
                 if (_listedWarningCount < ReindexProcessingJobResult.MaxWarnings)
                 {

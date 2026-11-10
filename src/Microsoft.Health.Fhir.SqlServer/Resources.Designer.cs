@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resource {0}/{1} was not indexed for the URI search parameter &apos;{2}&apos; because it has more than one value for it that are identical in their first {3} characters. Searches using &apos;{2}&apos; will not return this resource..
+        ///   Looks up a localized string similar to Resources of type {0} were not indexed for the URI search parameter &apos;{1}&apos; because they have more than one value for it that are identical in their first {2} characters. Searches using &apos;{1}&apos; will not return them..
         /// </summary>
         internal static string ReindexSkippedCollidingUriSearchValues {
             get {

@@ -264,14 +264,38 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Equal(new[] { profileEntry, statusEntry }, colliding.SearchIndices);
             Assert.Equal(new[] { otherEntry }, other.SearchIndices);
             string warning = Assert.Single(warnings);
-            Assert.Contains("CarePlan/cp-a", warning, StringComparison.Ordinal);
+            Assert.Contains("type CarePlan", warning, StringComparison.Ordinal);
+            Assert.DoesNotContain("cp-a", warning, StringComparison.Ordinal);
             Assert.Contains("'instantiates-uri'", warning, StringComparison.Ordinal);
             Assert.Contains("256", warning, StringComparison.Ordinal);
             Assert.DoesNotContain(Prefix, warning, StringComparison.Ordinal);
             (LogLevel level, string message) = Assert.Single(logger.Entries);
             Assert.Equal(LogLevel.Warning, level);
             Assert.Contains($"SearchParameter={InstantiatesUri.Url}", message, StringComparison.Ordinal);
+            Assert.Contains("ResourceId=cp-a", message, StringComparison.Ordinal);
             Assert.DoesNotContain(Prefix, message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenTwoResourcesOfOneTypeWithCollidingValues_WhenExcludingForReindex_ThenOneWarningIsReturnedAndBothAreLogged()
+        {
+            // Arrange
+            var logger = new CapturingLogger();
+            ResourceWrapper first = Wrap(
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "a"), false)),
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "b"), false)))[0].ResourceWrapper;
+            ResourceWrapper second = Wrap(
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "c"), false)),
+                new SearchIndexEntry(InstantiatesUri, new UriSearchValue(CreateUri(270, "d"), false)))[0].ResourceWrapper;
+
+            // Act
+            List<string> warnings = SqlServerFhirDataStore.ExcludeCollidingUriSearchValues(new[] { first, second }, logger);
+
+            // Assert
+            Assert.Single(warnings);
+            Assert.Equal(2, logger.Entries.Count);
+            Assert.Empty(first.SearchIndices);
+            Assert.Empty(second.SearchIndices);
         }
 
         [Fact]

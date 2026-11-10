@@ -1161,6 +1161,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <returns>A warning for each excluded resource and search parameter.</returns>
         internal static List<string> ExcludeCollidingUriSearchValues(IReadOnlyCollection<ResourceWrapper> resources, ILogger logger)
         {
+            // The warnings are shown in the reindex job status, which only requires the Reindex permission, so they name the
+            // resource type and search parameter but not resource ids. The ids are logged for support.
             var warnings = new List<string>();
             foreach (ResourceWrapper resource in resources)
             {
@@ -1176,18 +1178,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 foreach (SearchParameterInfo searchParameter in colliding)
                 {
                     logger.LogWarning(
-                        "Reindex excluded URI search values that are identical in their indexed characters. ResourceType={ResourceType}, SearchParameter={SearchParameter}, IndexedLength={IndexedLength}",
+                        "Reindex excluded URI search values that are identical in their indexed characters. ResourceType={ResourceType}, ResourceId={ResourceId}, SearchParameter={SearchParameter}, IndexedLength={IndexedLength}",
                         resource.ResourceTypeName,
+                        resource.ResourceId,
                         searchParameter.Url,
                         UriSearchParamListRowGenerator.IndexedUriMaxLength);
 
-                    warnings.Add(string.Format(
+                    string warning = string.Format(
                         CultureInfo.InvariantCulture,
                         Resources.ReindexSkippedCollidingUriSearchValues,
                         resource.ResourceTypeName,
-                        resource.ResourceId,
                         searchParameter.Code ?? searchParameter.Url?.ToString(),
-                        UriSearchParamListRowGenerator.IndexedUriMaxLength));
+                        UriSearchParamListRowGenerator.IndexedUriMaxLength);
+                    if (!warnings.Contains(warning))
+                    {
+                        warnings.Add(warning);
+                    }
                 }
             }
 

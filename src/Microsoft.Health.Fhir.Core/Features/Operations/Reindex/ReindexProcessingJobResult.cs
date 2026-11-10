@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public bool IsCustomerCaused { get; set; }
 
         /// <summary>
-        /// Adds warnings, keeping at most <see cref="MaxWarnings"/> and counting the rest.
+        /// Adds warnings that aren't already listed, keeping at most <see cref="MaxWarnings"/> and counting the rest.
         /// </summary>
         /// <param name="warnings">The warnings to add.</param>
         public void AddWarnings(IEnumerable<string> warnings)
@@ -54,12 +55,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return;
             }
 
-            List<string> kept = null;
-            foreach (string warning in warnings)
+            List<string> kept = Warnings == null ? new List<string>() : new List<string>(Warnings);
+            int countBefore = kept.Count;
+            foreach (string warning in warnings.Where(w => !kept.Contains(w)))
             {
-                if ((kept?.Count ?? Warnings?.Count ?? 0) < MaxWarnings)
+                if (kept.Count < MaxWarnings)
                 {
-                    kept ??= Warnings == null ? new List<string>() : new List<string>(Warnings);
                     kept.Add(warning);
                 }
                 else
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            if (kept != null)
+            if (kept.Count > countBefore)
             {
                 Warnings = kept;
             }
