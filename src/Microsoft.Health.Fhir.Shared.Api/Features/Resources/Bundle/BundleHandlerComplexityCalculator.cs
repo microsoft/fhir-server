@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
@@ -78,8 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     requiresProfileRefresh = true;
                 }
 
-                if ((operation.HttpVerb == HTTPVerb.POST && validateOnCreate) ||
-                    (operation.HttpVerb == HTTPVerb.PUT && validateOnUpdate))
+                if (!requiresProfileValidation && RunsProfileValidation(operation, validateOnCreate, validateOnUpdate))
                 {
                     requiresProfileValidation = true;
                 }
@@ -155,6 +155,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return bundleComplexity;
+        }
+
+        private static bool RunsProfileValidation(BundleHandlerInternalOperationExecutionContext operation, bool validateOnCreate, bool validateOnUpdate)
+        {
+            if (!validateOnCreate && !validateOnUpdate)
+            {
+                return false;
+            }
+
+            object action = null;
+            operation.Context?.RouteData?.Values?.TryGetValue("action", out action);
+            string actionName = action?.ToString();
+
+            switch (operation.HttpVerb)
+            {
+                case HTTPVerb.POST:
+                    // Other POST operations (e.g. $expand) do not run resource create validation.
+                    return validateOnCreate &&
+                        (string.Equals(actionName, nameof(FhirController.Create), StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(actionName, nameof(FhirController.ConditionalCreate), StringComparison.OrdinalIgnoreCase));
+                case HTTPVerb.PUT:
+                    // A conditional update can resolve to a create when there is no match, so either setting may apply.
+                    return operation.IsConditionalOperation ? (validateOnCreate || validateOnUpdate) : validateOnUpdate;
+                default:
+                    return false;
+            }
         }
 
         private static int CalculateProfileRefreshCost(bool requiresProfileRefresh)
