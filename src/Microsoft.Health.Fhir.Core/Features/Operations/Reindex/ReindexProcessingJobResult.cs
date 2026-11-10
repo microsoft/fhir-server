@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         [JsonProperty(JobRecordProperties.OverlongReferenceIds)]
         public ICollection<OverlongReferenceIdCount> OverlongReferenceIds { get; } = new List<OverlongReferenceIdCount>();
+
         /// <summary>
         /// Adds warnings, keeping at most <see cref="MaxWarnings"/> and counting the rest.
         /// </summary>
