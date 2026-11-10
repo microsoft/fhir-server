@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            AddLongUriSearchValueWarning(searchOptions?.Expression, _requestContextAccessor.RequestContext, _logger);
+            AddLongUriSearchValueWarning(searchOptions.Expression, _requestContextAccessor.RequestContext, _logger);
 
             var isFirstPage = searchOptions.ContinuationToken == null;
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);

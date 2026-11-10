@@ -129,15 +129,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             foreach (MergeResourceWrapper merge in resources.Where(r => !r.ResourceWrapper.IsHistory && r.ResourceWrapper.SearchIndices != null))
             {
-                foreach (SearchIndexEntry entry in merge.ResourceWrapper.SearchIndices)
+                IEnumerable<(Uri SearchParameter, int Length)> longValues = merge.ResourceWrapper.SearchIndices
+                    .Where(entry => entry.Value is UriSearchValue uriValue && uriValue.Uri.Length > IndexedUriMaxLength)
+                    .Select(entry => (entry.SearchParameter.Url, ((UriSearchValue)entry.Value).Uri.Length));
+                foreach ((Uri searchParameter, int length) in longValues)
                 {
-                    if (entry.Value is UriSearchValue uriValue && uriValue.Uri.Length > IndexedUriMaxLength)
-                    {
-                        truncated ??= new Dictionary<(string, Uri), (int, int)>();
-                        var key = (merge.ResourceWrapper.ResourceTypeName, entry.SearchParameter.Url);
-                        truncated.TryGetValue(key, out (int Count, int MaxLength) current);
-                        truncated[key] = (current.Count + 1, Math.Max(current.MaxLength, uriValue.Uri.Length));
-                    }
+                    truncated ??= new Dictionary<(string, Uri), (int, int)>();
+                    var key = (merge.ResourceWrapper.ResourceTypeName, searchParameter);
+                    truncated.TryGetValue(key, out (int Count, int MaxLength) current);
+                    truncated[key] = (current.Count + 1, Math.Max(current.MaxLength, length));
                 }
             }
 

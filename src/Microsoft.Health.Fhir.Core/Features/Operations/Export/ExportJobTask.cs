@@ -411,16 +411,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             if (_contextAccessor?.RequestContext?.BundleIssues != null)
             {
-                foreach (OperationOutcomeIssue issue in _contextAccessor.RequestContext.BundleIssues)
-                {
-                    // Each page's search can raise the same issue again (for example the long URI warning), so keep one copy.
-                    if (!_exportJobRecord.Issues.Any(existing =>
+                // Each page's search can raise the same issue again (for example the long URI warning), so keep one copy.
+                // The filter is evaluated lazily, so duplicates within the same page are skipped too.
+                IEnumerable<OperationOutcomeIssue> newIssues = _contextAccessor.RequestContext.BundleIssues.Where(issue =>
+                    !_exportJobRecord.Issues.Any(existing =>
                         existing.Severity == issue.Severity
                         && existing.Code == issue.Code
-                        && existing.Diagnostics == issue.Diagnostics))
-                    {
-                        _exportJobRecord.Issues.Add(issue);
-                    }
+                        && existing.Diagnostics == issue.Diagnostics));
+                foreach (OperationOutcomeIssue issue in newIssues)
+                {
+                    _exportJobRecord.Issues.Add(issue);
                 }
             }
 
