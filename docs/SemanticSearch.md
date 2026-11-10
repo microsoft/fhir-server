@@ -45,6 +45,9 @@ Example configuration:
 Invalid enabled configuration fails during service registration. When the feature is disabled,
 semantic services are not registered and no embedding request is made. `Query:DistanceMetric` must
 be `cosine`; it is matched case-insensitively and stored lowercase in the embedding model registry.
+`Embedding:ModelName` (at most 128 characters) and `Embedding:ModelVersion` (at most 64) identify the
+model in that registry, so they must be printable ASCII without leading or trailing whitespace. Values
+the registry columns could truncate or alter are rejected instead of resolving to another declared model.
 
 ### Optional approximate retrieval (DiskANN)
 
@@ -128,6 +131,10 @@ enforced, because the relevance predicate cannot be re-evaluated for resources r
 `_include` or `_revinclude`. Such a scope never authorizes access on its own: a request that depends
 on it is denied with HTTP 403, regardless of `Prefer: handling`, while a request that another scope
 fully authorizes is unaffected.
+
+A semantic search does not offer an `_include`/`_revinclude` continuation. Included resources beyond
+the include count are truncated and a warning is returned instead of an includes `next` link, and a
+`$includes` request that carries a semantic parameter is rejected with HTTP 400.
 
 ## Unsupported behavior
 

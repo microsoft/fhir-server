@@ -138,6 +138,95 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Throws<InvalidOperationException>(validate);
         }
 
+        [Fact]
+        public void GivenEnabledConfigurationWithModelIdentifiersAtColumnWidth_WhenValidated_ThenValidationSucceeds()
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Embedding.ModelName = new string('n', VectorSearchConfiguration.MaxModelNameLength);
+            configuration.Embedding.ModelVersion = new string('v', VectorSearchConfiguration.MaxModelVersionLength);
+
+            // Act
+            Exception exception = Record.Exception(configuration.Validate);
+
+            // Assert
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public void GivenEnabledConfigurationWithModelNameBeyondColumnWidth_WhenValidated_ThenValidationFails()
+        {
+            // Arrange
+            // The registry column would silently truncate the value, aliasing it with a different declared model.
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Embedding.ModelName = new string('n', VectorSearchConfiguration.MaxModelNameLength + 1);
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(validate);
+            Assert.Contains("model name", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void GivenEnabledConfigurationWithModelVersionBeyondColumnWidth_WhenValidated_ThenValidationFails()
+        {
+            // Arrange
+            // Two versions that differ only after the column width would otherwise resolve to the same model row.
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Embedding.ModelVersion = new string('v', VectorSearchConfiguration.MaxModelVersionLength + 1);
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(validate);
+            Assert.Contains("model version", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData("text-embedding-3-small ")]
+        [InlineData(" text-embedding-3-small")]
+        [InlineData("text-embedding-3-small\t")]
+        [InlineData("text-embedding-3-sm\u00e4ll")]
+        [InlineData("\u30c6\u30ad\u30b9\u30c8")]
+        public void GivenEnabledConfigurationWithModelNameTheRegistryCannotStoreExactly_WhenValidated_ThenValidationFails(string modelName)
+        {
+            // Arrange
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Embedding.ModelName = modelName;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(validate);
+            Assert.Contains("model name", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData("1 ")]
+        [InlineData(" 1")]
+        [InlineData("1\t")]
+        [InlineData("1\u00e9")]
+        [InlineData("\u30d0\u30fc\u30b8\u30e7\u30f3")]
+        public void GivenEnabledConfigurationWithModelVersionTheRegistryCannotStoreExactly_WhenValidated_ThenValidationFails(string modelVersion)
+        {
+            // Arrange
+            // SQL Server ignores trailing spaces when comparing, and non-code-page characters are stored as '?', so these
+            // values would alias a different declared version.
+            VectorSearchConfiguration configuration = CreateValidConfiguration();
+            configuration.Embedding.ModelVersion = modelVersion;
+
+            // Act
+            Action validate = configuration.Validate;
+
+            // Assert
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(validate);
+            Assert.Contains("model version", exception.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
         [Theory]
         [InlineData(0)]
         [InlineData(3072)]

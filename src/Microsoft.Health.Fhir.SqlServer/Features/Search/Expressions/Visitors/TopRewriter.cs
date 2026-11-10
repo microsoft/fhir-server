@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
-        // The $includes operation over a semantic search is not supported by this path and keeps its previous shape.
+        // SearchOptionsFactory rejects the $includes operation over a semantic search, so this shape is never reached with one.
         internal static bool SemanticMatchesExpandIncludes(SqlRootExpression expression, SearchOptions context)
         {
             return context is SqlSearchOptions { PreparedVectorQuery: not null }

@@ -25,11 +25,18 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the embedding model name recorded as vector provenance.
         /// </summary>
+        /// <remarks>
+        /// At most <see cref="VectorSearchConfiguration.MaxModelNameLength"/> printable ASCII characters with no leading or trailing whitespace.
+        /// </remarks>
         public string ModelName { get; set; } = "text-embedding-3-small";
 
         /// <summary>
         /// Gets or sets the embedding model version recorded as vector provenance.
         /// </summary>
+        /// <remarks>
+        /// At most <see cref="VectorSearchConfiguration.MaxModelVersionLength"/> printable ASCII characters with no leading or trailing whitespace.
+        /// Each distinct name and version pair identifies a separate embedding model.
+        /// </remarks>
         public string ModelVersion { get; set; }
 
         /// <summary>

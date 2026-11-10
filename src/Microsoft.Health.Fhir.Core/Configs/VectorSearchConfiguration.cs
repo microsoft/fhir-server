@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Configs
@@ -32,6 +33,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// The distance metric supported by the current semantic score calculation.
         /// </summary>
         public const string SupportedDistanceMetric = "cosine";
+
+        /// <summary>
+        /// The maximum length of <see cref="VectorSearchEmbeddingConfiguration.ModelName"/>, the width of the SQL embedding model registry column.
+        /// </summary>
+        public const int MaxModelNameLength = 128;
+
+        /// <summary>
+        /// The maximum length of <see cref="VectorSearchEmbeddingConfiguration.ModelVersion"/>, the width of the SQL embedding model registry column.
+        /// </summary>
+        public const int MaxModelVersionLength = 64;
 
         /// <summary>
         /// Gets or sets a value indicating whether vector search is enabled.
@@ -84,10 +95,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 throw new InvalidOperationException("Vector search embedding model name is required when vector search is enabled.");
             }
 
+            ValidateRegistryIdentifier(Embedding.ModelName, MaxModelNameLength, "model name");
+
             if (string.IsNullOrWhiteSpace(Embedding.ModelVersion))
             {
                 throw new InvalidOperationException("Vector search embedding model version is required when vector search is enabled.");
             }
+
+            ValidateRegistryIdentifier(Embedding.ModelVersion, MaxModelVersionLength, "model version");
 
             if (Embedding.Dimensions != SupportedDimensions)
             {
@@ -169,6 +184,21 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
             errorMessage = null;
             return true;
+        }
+
+        // The SQL registry stores these as bounded varchar columns, which truncate over-long values, replace characters outside
+        // the column code page and ignore trailing spaces when comparing. Any of those would let two declared models share a row.
+        private static void ValidateRegistryIdentifier(string value, int maxLength, string description)
+        {
+            if (value.Length > maxLength)
+            {
+                throw new InvalidOperationException($"Vector search embedding {description} must not exceed {maxLength} characters.");
+            }
+
+            if (value != value.Trim() || !value.All(c => c >= ' ' && c <= '~'))
+            {
+                throw new InvalidOperationException($"Vector search embedding {description} must contain only printable ASCII characters and must not start or end with whitespace.");
+            }
         }
     }
 }

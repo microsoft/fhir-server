@@ -733,6 +733,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression, grantedScopes);
 
+            // The $includes operation cannot replay a semantic search, so a semantic search never hands out an includes
+            // continuation token: included resources beyond the include count are truncated with a warning instead.
+            if (ContainsVectorSearch(searchOptions.Expression))
+            {
+                if (isIncludesOperation)
+                {
+                    throw new BadRequestException("The $includes operation is not supported for semantic searches.");
+                }
+
+                searchOptions.IncludesOperationSupported = false;
+            }
+
             try
             {
                 LogExpresssionSearchParameters(searchOptions.Expression);

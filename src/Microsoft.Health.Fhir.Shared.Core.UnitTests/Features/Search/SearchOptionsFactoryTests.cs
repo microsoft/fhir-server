@@ -943,6 +943,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenSemanticSearchWithIncludesSupport_WhenCreated_ThenIncludesOperationIsNotSupported()
+        {
+            // A semantic search cannot resume an includes continuation, so overflowing includes must be truncated
+            // with a warning instead of being replayed through the $includes operation.
+            _coreFeatures.SupportsIncludes = true;
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: new[] { CreateSemanticQueryParameter() });
+
+            Assert.False(options.IncludesOperationSupported);
+        }
+
+        [Fact]
+        public void GivenNonSemanticSearchWithIncludesSupport_WhenCreated_ThenIncludesOperationIsSupported()
+        {
+            _coreFeatures.SupportsIncludes = true;
+
+            SearchOptions options = CreateSearchOptions();
+
+            Assert.True(options.IncludesOperationSupported);
+        }
+
+        [Fact]
+        public void GivenIncludesOperationOverSemanticSearch_WhenCreated_ThenBadRequestIsThrown()
+        {
+            _coreFeatures.SupportsIncludes = true;
+
+            BadRequestException exception = Assert.Throws<BadRequestException>(() => CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: new[]
+                {
+                    CreateSemanticQueryParameter(),
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode("123")),
+                },
+                isIncludesOperation: true));
+
+            Assert.Contains("$includes", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void GivenQueryParameters_WhenSearchOptionsCreated_ThenNormalizedQueryContainsOnlySortedNames()
         {
             // Arrange
@@ -1213,6 +1252,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             bool isIncludesOperation = false)
         {
             return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes, isIncludesOperation: isIncludesOperation);
+        }
+
+        private Tuple<string, string> CreateSemanticQueryParameter()
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+
+            return Tuple.Create(semanticParameterName, "fracture");
         }
 
         // A simple stub implementation for Expression used in our test.
