@@ -181,7 +181,6 @@ namespace Microsoft.Health.Fhir.Web
             services.Add<JobHosting>()
                 .Scoped()
                 .AsSelf();
-            services.AddFactory<IScoped<JobHosting>>();
 
             services.RemoveServiceTypeExact<HostingBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>()
                 .Add<HostingBackgroundService>()

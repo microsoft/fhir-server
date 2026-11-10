@@ -30,17 +30,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddScoped<IResourceWrapperFactory, ResourceWrapperFactory>();
 
-            services.AddFactory<IScoped<ISearchService>>();
-            services.AddFactory<IScoped<IFhirDataStore>>();
-            services.AddFactory<IScoped<IFhirOperationDataStore>>();
-
             services.AddScoped<TransactionBundleValidator>();
             services.AddScoped<ResourceReferenceResolver>();
 
-            services.AddFactory<IScoped<IDeletionService>>();
             services.AddScoped<IDeletionService, DeletionService>();
 
-            services.AddFactory<IScoped<IBulkUpdateService>>();
             services.AddScoped<IBulkUpdateService, BulkUpdateService>();
         }
     }
