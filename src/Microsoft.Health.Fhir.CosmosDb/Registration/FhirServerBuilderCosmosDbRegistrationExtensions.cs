@@ -104,10 +104,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            services.Add<IScoped<Container>>(sp => sp.GetService<CosmosContainerProvider>().CreateContainerScope())
-                .Transient()
-                .AsSelf()
-                .AsFactory();
+            services.AddTransient<IScopeProvider<Container>, CosmosContainerScopeProvider>();
 
             services.Add<CosmosQueryFactory>()
                 .Singleton()
@@ -269,8 +266,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosQueueClient>()
                 .Scoped()
                 .AsSelf()
-                .AsImplementedInterfaces()
-                .AsFactory<IScoped<IQueueClient>>();
+                .AsImplementedInterfaces();
 
             services.Add<CosmosAccessTokenProviderFactory>(c => c.GetRequiredService<IAccessTokenProvider>)
                .Transient()

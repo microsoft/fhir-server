@@ -17,7 +17,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -37,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.JobManagement;
@@ -1036,10 +1036,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
         private Task<string> ExecuteBulkDeleteJobAsync(DeleteOperation deleteOperation, CancellationToken cancellationToken)
         {
             var job = new BulkDeleteProcessingJob(
-                _service.CreateMockScopeFactory<IDeletionService>(),
+                _service.CreateMockScopeProvider<IDeletionService>(),
                 _contextAccessor,
                 Substitute.For<IMediator>(),
-                Substitute.For<ISearchService>().CreateMockScopeFactory(),
+                Substitute.For<ISearchService>().CreateMockScopeProvider(),
                 Substitute.For<IQueueClient>());
             var definition = new BulkDeleteDefinition(
                 JobType.BulkDeleteProcessing,
