@@ -4,13 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
@@ -32,6 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private const string Query = "difficulty breathing after exercise";
         private const string UnrelatedText = "routine follow-up for a sprained ankle";
+        private const string SmartSkipReason = "Requires the in-process host with the deterministic embedding client and the development identity provider.";
         private readonly string _testTag = Guid.NewGuid().ToString();
         private readonly SemanticSearchTestFixture _fixture;
         private readonly TestFhirClient _client;
@@ -348,6 +354,179 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(3, countWithInclude.Total);
             Assert.Empty(countWithInclude.Entry);
+        }
+
+        [Theory]
+        [InlineData("system/Observation.rs", true, true)]
+        [InlineData("system/Observation.rs?status=final", true, false)]
+        [InlineData("system/Observation.rs system/Observation.rs?semantic-text=dyspnea", true, true)]
+        public async Task GivenSmartScopeThatAuthorizesTheSearch_WhenSemanticSearchIsInvoked_ThenOnlyResourcesWithinTheScopeAreReturned(
+            string scope,
+            bool finalIsReturned,
+            bool preliminaryIsReturned)
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            Observation final = await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            Observation preliminary = await CreateAsync(CreateObservation(Query, ObservationStatus.Preliminary));
+            Assert.Equal(2, (await SearchStrictAsync(SemanticObservationSearchUrl())).Entry.Count);
+            using HttpClient smartClient = await CreateSmartClientAsync(scope);
+
+            using HttpResponseMessage response = await smartClient.GetAsync(SemanticObservationSearchUrl());
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Bundle bundle = await ReadAsync<Bundle>(response);
+            Assert.Equal(finalIsReturned, bundle.Entry.Any(entry => entry.Resource.Id == final.Id));
+            Assert.Equal(preliminaryIsReturned, bundle.Entry.Any(entry => entry.Resource.Id == preliminary.Id));
+            Assert.All(bundle.Entry, entry => Assert.Equal(1m, entry.Search.Score));
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeConstrainedBySemanticText_WhenSemanticSearchIsInvoked_ThenTheRequestIsDenied()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            Assert.Single((await SearchStrictAsync(SemanticObservationSearchUrl())).Entry);
+            using HttpClient smartClient = await CreateSmartClientAsync("system/Observation.rs?semantic-text=dyspnea");
+
+            using HttpResponseMessage response = await smartClient.GetAsync(SemanticObservationSearchUrl());
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            OperationOutcome outcome = await ReadAsync<OperationOutcome>(response);
+            Assert.Contains(outcome.Issue, issue => issue.Diagnostics != null && issue.Diagnostics.Contains("semantic-text", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeForAnotherResourceType_WhenSemanticSearchIsInvoked_ThenTheRequestIsForbidden()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            Assert.Single((await SearchStrictAsync(SemanticObservationSearchUrl())).Entry);
+            using HttpClient smartClient = await CreateSmartClientAsync("system/Patient.rs");
+
+            using HttpResponseMessage response = await smartClient.GetAsync(SemanticObservationSearchUrl());
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeForIncludedType_WhenSemanticSearchIncludesIt_ThenTheIncludedResourceIsReturned()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            Patient patient = await CreateAsync(new Patient { Active = true });
+            Observation observation = await CreateAsync(CreateObservation(Query, ObservationStatus.Final, patient.Id));
+            using HttpClient smartClient = await CreateSmartClientAsync("system/Observation.rs system/Patient.rs");
+
+            using HttpResponseMessage response = await smartClient.GetAsync(SemanticObservationSearchUrl("&_include=Observation:subject"));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Bundle bundle = await ReadAsync<Bundle>(response);
+            Assert.Contains(bundle.Entry, entry => entry.Resource.Id == observation.Id && entry.Search.Mode == Bundle.SearchEntryMode.Match);
+            Assert.Contains(bundle.Entry, entry => entry.Resource.Id == patient.Id && entry.Search.Mode == Bundle.SearchEntryMode.Include);
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeForIncludedTypeConstrainedBySemanticText_WhenSemanticSearchIncludesIt_ThenTheRequestIsDenied()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            Patient patient = await CreateAsync(new Patient { Active = true });
+            await CreateAsync(CreateObservation(Query, ObservationStatus.Final, patient.Id));
+            Assert.Equal(2, (await SearchStrictAsync(SemanticObservationSearchUrl("&_include=Observation:subject"))).Entry.Count);
+            using HttpClient smartClient = await CreateSmartClientAsync("system/Observation.rs system/Patient.rs?semantic-text=dyspnea");
+
+            using HttpResponseMessage response = await smartClient.GetAsync(SemanticObservationSearchUrl("&_include=Observation:subject"));
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            OperationOutcome outcome = await ReadAsync<OperationOutcome>(response);
+            Assert.Contains(outcome.Issue, issue => issue.Diagnostics != null && issue.Diagnostics.Contains("semantic-text", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task GivenWildcardSmartScopeConstrainedBySemanticText_WhenSemanticSearchIsInvoked_ThenTheRequestIsDenied()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            Assert.Single((await SearchStrictAsync(SemanticObservationSearchUrl())).Entry);
+            using HttpClient smartClient = await CreateSmartClientAsync("system/*.rs?semantic-text=dyspnea");
+
+            using HttpResponseMessage response = await smartClient.GetAsync(SemanticObservationSearchUrl());
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            OperationOutcome outcome = await ReadAsync<OperationOutcome>(response);
+            Assert.Contains(outcome.Issue, issue => issue.Diagnostics != null && issue.Diagnostics.Contains("semantic-text", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeConstrainedByAnOrdinaryParameter_WhenSemanticSearchIsPaged_ThenEveryPageStaysWithinTheScope()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, SmartSkipReason);
+
+            await EnsureObservationSemanticSearchParameterAsync();
+            Observation first = await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            Observation second = await CreateAsync(CreateObservation(Query, ObservationStatus.Final));
+            Observation excluded = await CreateAsync(CreateObservation(Query, ObservationStatus.Preliminary));
+            using HttpClient smartClient = await CreateSmartClientAsync("system/Observation.rs?status=final");
+
+            using HttpResponseMessage firstResponse = await smartClient.GetAsync(SemanticObservationSearchUrl("&_count=1"));
+            Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+            Bundle firstPage = await ReadAsync<Bundle>(firstResponse);
+            Assert.NotNull(firstPage.NextLink);
+
+            using HttpResponseMessage nextResponse = await smartClient.GetAsync(firstPage.NextLink);
+            Assert.Equal(HttpStatusCode.OK, nextResponse.StatusCode);
+            Bundle secondPage = await ReadAsync<Bundle>(nextResponse);
+
+            string[] returnedIds = firstPage.Entry.Concat(secondPage.Entry).Select(entry => entry.Resource.Id).ToArray();
+            Assert.Equal(new[] { first.Id, second.Id }.OrderBy(id => id), returnedIds.OrderBy(id => id));
+            Assert.DoesNotContain(excluded.Id, returnedIds);
+        }
+
+        private string SemanticObservationSearchUrl(string additionalParameters = null)
+        {
+            return $"Observation?semantic-text={Uri.EscapeDataString(Query)}&_tag={_testTag}{additionalParameters}";
+        }
+
+        private async Task<HttpClient> CreateSmartClientAsync(string scope)
+        {
+            TestApplication application = TestApplications.SmartUserClient;
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "grant_type", application.GrantType },
+                { "client_id", application.ClientId },
+                { "client_secret", application.ClientSecret },
+                { "scope", scope },
+                { "resource", AuthenticationSettings.Resource },
+            });
+
+            using var authClient = new HttpClient(_fixture.TestFhirServer.CreateMessageHandler());
+            using HttpResponseMessage tokenResponse = await authClient.PostAsync(_fixture.TestFhirServer.TokenUri, content);
+            tokenResponse.EnsureSuccessStatusCode();
+            using JsonDocument token = JsonDocument.Parse(await tokenResponse.Content.ReadAsStringAsync());
+
+            var client = new HttpClient(_fixture.TestFhirServer.CreateMessageHandler())
+            {
+                BaseAddress = _fixture.TestFhirServer.BaseAddress,
+            };
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.RootElement.GetProperty("access_token").GetString());
+            client.DefaultRequestHeaders.Add(KnownHeaders.Prefer, "handling=strict");
+            return client;
+        }
+
+        private static async Task<T> ReadAsync<T>(HttpResponseMessage response)
+            where T : Resource
+        {
+            return new FhirJsonParser().Parse<T>(await response.Content.ReadAsStringAsync());
         }
 
         private Task EnsureObservationSemanticSearchParameterAsync()
