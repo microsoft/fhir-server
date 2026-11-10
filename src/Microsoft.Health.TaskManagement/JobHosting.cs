@@ -12,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Scoping;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement

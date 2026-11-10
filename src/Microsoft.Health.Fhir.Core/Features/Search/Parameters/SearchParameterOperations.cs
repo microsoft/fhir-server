@@ -12,7 +12,6 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -32,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
@@ -45,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             IModelInfoProvider modelInfoProvider,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
             ILogger<SearchParameterOperations> logger)
         {
