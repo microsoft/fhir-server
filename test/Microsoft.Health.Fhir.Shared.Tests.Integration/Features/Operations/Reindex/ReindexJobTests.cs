@@ -1427,7 +1427,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchParameterComparer,
                 _fixture.SearchParameterStatusDataStore.CreateMockScopeProvider(),
                 _fixture.DataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
 
             _searchParameterStatusManager2 = new SearchParameterStatusManager(_fixture.SearchParameterStatusDataStore, _searchParameterDefinitionManager2, _searchParameterSupportResolver, mediator, NullLogger<SearchParameterStatusManager>.Instance);
