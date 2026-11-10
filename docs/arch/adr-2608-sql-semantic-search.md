@@ -77,9 +77,11 @@ semantics still require execution validation.
 
 The application layer supports resource-local text extracted by active `special` search parameters.
 It chunks and embeds the extracted text synchronously with Azure Foundry, then persists vectors and
-compressed passages through the existing merge and reindex procedures. Ordinary FHIR search retains
-ownership of structured filters and authorization; SQL adds cosine ranking, continuation paging, and
-standard `Bundle.entry.search.score`. Semantic chained parameters are rejected before embedding.
+compressed passages through the existing merge and reindex procedures. Passage text is extracted from
+the finalized resource, so a write and a later reindex of the same resource produce identical vectors.
+Ordinary FHIR search retains ownership of structured filters and authorization; SQL adds cosine
+ranking, continuation paging, and standard `Bundle.entry.search.score`. Semantic chained parameters
+are rejected before embedding.
 
 ## Consequences
 

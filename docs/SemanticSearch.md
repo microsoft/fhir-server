@@ -114,6 +114,9 @@ reindex, and recovery still manage vector rows resource-wide, not independently 
 
 Create and update requests extract configured text, chunk it, create embeddings synchronously, and
 send vector rows in the same SQL merge operation as the resource and ordinary search indices.
+Source text is extracted from the finalized resource, after the server assigns its version and
+last-updated time, so an expression such as `meta.versionId` yields the same passage on write and on
+reindex. Embedding still happens once per write, outside the persistence retry loop.
 Deletes and empty extraction replace prior vector rows with an empty set. Reindex uses the existing `UpdateResourceSearchParams` procedure so ordinary and vector indices are
 updated atomically.
 Foundry requests are split without reordering when they would exceed 2,048 inputs or 300,000 total

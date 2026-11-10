@@ -435,6 +435,199 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Empty(vectorIndexer.ReceivedCalls());
         }
 
+        [Fact]
+        public async Task GivenFinalizedResource_WhenUpdatingVectorSearchIndices_ThenVectorSourcesAreExtractedFromTheFinalizedResource()
+        {
+            // Arrange
+            SearchParameterInfo vectorParameter = CreateVectorSearchParameter();
+            var ordinaryIndex = new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha"));
+            ConfigureVectorSources(vectorParameter, ordinaryIndex);
+            ResourceWrapper resource = _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+            resource.Version = "42";
+            var resources = new[] { resource };
+            IReadOnlyCollection<SearchIndexEntry> indicesSeenByVectorIndexer = null;
+            var vectorIndexer = Substitute.For<IVectorSearchIndexer>();
+            vectorIndexer.UpdateVectorSearchIndicesAsync(resources, CancellationToken.None).Returns(_ =>
+            {
+                indicesSeenByVectorIndexer = resource.SearchIndices;
+                return Task.CompletedTask;
+            });
+
+            // Act
+            await CreateFactory(vectorIndexer).UpdateVectorSearchIndicesAsync(resources, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(2, indicesSeenByVectorIndexer.Count);
+            Assert.Single(indicesSeenByVectorIndexer, entry => ReferenceEquals(entry, ordinaryIndex));
+            SearchIndexEntry vectorSource = Assert.Single(indicesSeenByVectorIndexer, entry => entry.SearchParameter.VectorConfig != null);
+            Assert.Equal("version:42", Assert.IsType<StringSearchValue>(vectorSource.Value).String);
+        }
+
+        [Fact]
+        public async Task GivenFinalizedResource_WhenUpdatingVectorSearchIndices_ThenSearchParameterHashAndVersionArePreserved()
+        {
+            // Arrange
+            ConfigureVectorSources(CreateVectorSearchParameter(), new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")));
+            ResourceWrapper resource = _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+            resource.Version = "42";
+            _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient").Returns("changedHash");
+
+            // Act
+            await CreateFactory(Substitute.For<IVectorSearchIndexer>()).UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
+
+            // Assert
+            Assert.Equal("hash", resource.SearchParameterHash);
+            Assert.Equal("42", resource.Version);
+        }
+
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        public async Task GivenDeletedOrHistoryResource_WhenUpdatingVectorSearchIndices_ThenVectorSourcesAreNotExtracted(bool deleted, bool history)
+        {
+            // Arrange
+            ConfigureVectorSources(CreateVectorSearchParameter(), new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")));
+            ResourceWrapper resource = _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted, keepMeta: false);
+            resource.IsHistory = history;
+            var resources = new[] { resource };
+            _searchIndexer.ClearReceivedCalls();
+            var vectorIndexer = Substitute.For<IVectorSearchIndexer>();
+
+            // Act
+            await CreateFactory(vectorIndexer).UpdateVectorSearchIndicesAsync(resources, CancellationToken.None);
+
+            // Assert
+            _searchIndexer.DidNotReceive().Extract(Arg.Any<ResourceElement>());
+            await vectorIndexer.Received(1).UpdateVectorSearchIndicesAsync(resources, CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenTypeWithoutVectorSearchParameters_WhenUpdatingVectorSearchIndices_ThenNothingIsExtracted()
+        {
+            // Arrange
+            _searchParameterDefinitionManager.GetSearchParameters("Patient").Returns(new[] { _nameSearchParameterInfo });
+            ResourceWrapper resource = _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+            IReadOnlyCollection<SearchIndexEntry> indices = resource.SearchIndices;
+            var resources = new[] { resource };
+            _searchIndexer.ClearReceivedCalls();
+            var vectorIndexer = Substitute.For<IVectorSearchIndexer>();
+
+            // Act
+            await CreateFactory(vectorIndexer).UpdateVectorSearchIndicesAsync(resources, CancellationToken.None);
+
+            // Assert
+            _searchIndexer.DidNotReceive().Extract(Arg.Any<ResourceElement>());
+            Assert.Same(indices, resource.SearchIndices);
+            await vectorIndexer.Received(1).UpdateVectorSearchIndicesAsync(resources, CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenVectorIndexingIsDisabled_WhenUpdatingVectorSearchIndices_ThenNothingIsExtracted()
+        {
+            // Arrange
+            ConfigureVectorSources(CreateVectorSearchParameter(), new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")));
+            ResourceWrapper resource = _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false);
+            _searchIndexer.ClearReceivedCalls();
+
+            // Act
+            await _resourceWrapperFactory.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);
+
+            // Assert
+            _searchIndexer.DidNotReceive().Extract(Arg.Any<ResourceElement>());
+            Assert.False(resource.VectorSearchIndicesUpdated);
+        }
+
+        [Fact]
+        public async Task GivenVectorSearchParameters_WhenUpdatingAsync_ThenEachResourceIsExtractedOnce()
+        {
+            // Arrange
+            ConfigureVectorSources(CreateVectorSearchParameter(), new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")));
+            var resources = new[]
+            {
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+            };
+            _searchIndexer.ClearReceivedCalls();
+            var vectorIndexer = Substitute.For<IVectorSearchIndexer>();
+
+            // Act
+            await CreateFactory(vectorIndexer).UpdateAsync(resources, CancellationToken.None);
+
+            // Assert
+            _searchIndexer.Received(2).Extract(Arg.Any<ResourceElement>());
+            await vectorIndexer.Received(1).UpdateVectorSearchIndicesAsync(resources, CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenFinalizedExtractionFailure_WhenUpdatingVectorSearchIndices_ThenVectorIndexingDoesNotStart()
+        {
+            // Arrange
+            ConfigureVectorSources(CreateVectorSearchParameter(), new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")));
+            var resources = new[] { _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false) };
+            var failure = new InvalidOperationException("extraction failed");
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(_ => throw failure);
+            var vectorIndexer = Substitute.For<IVectorSearchIndexer>();
+
+            // Act
+            Exception actual = await Record.ExceptionAsync(() => CreateFactory(vectorIndexer).UpdateVectorSearchIndicesAsync(resources, CancellationToken.None));
+
+            // Assert
+            Assert.Same(failure, actual);
+            Assert.Empty(vectorIndexer.ReceivedCalls());
+        }
+
+        [Fact]
+        public async Task GivenCancellationDuringRefresh_WhenUpdatingVectorSearchIndices_ThenRemainingResourcesAreSkippedAndVectorIndexingDoesNotStart()
+        {
+            // Arrange
+            ConfigureVectorSources(CreateVectorSearchParameter(), new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha")));
+            var resources = new[]
+            {
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+            };
+            using var cancellation = new CancellationTokenSource();
+            _searchIndexer.ClearReceivedCalls();
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(_ =>
+            {
+                cancellation.Cancel();
+                return new List<SearchIndexEntry>();
+            });
+            var vectorIndexer = Substitute.For<IVectorSearchIndexer>();
+
+            // Act
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateFactory(vectorIndexer).UpdateVectorSearchIndicesAsync(resources, cancellation.Token));
+
+            // Assert
+            _searchIndexer.Received(1).Extract(Arg.Any<ResourceElement>());
+            Assert.Empty(vectorIndexer.ReceivedCalls());
+        }
+
+        private static SearchParameterInfo CreateVectorSearchParameter()
+        {
+            return new SearchParameterInfo(
+                name: "patient-note-vector",
+                code: "note-vector",
+                searchParamType: ValueSets.SearchParamType.Special,
+                url: new Uri("https://localhost/searchParameter/patient-note-vector"),
+                expression: "Patient.meta.versionId",
+                baseResourceTypes: new[] { "Patient" },
+                vectorConfig: new VectorSearchParameterConfig(),
+                definitionStatus: "active");
+        }
+
+        // The vector source embeds the version of the element it was extracted from,
+        // so a test can tell which state of the resource was indexed.
+        private void ConfigureVectorSources(SearchParameterInfo vectorParameter, SearchIndexEntry ordinaryIndex)
+        {
+            _searchParameterDefinitionManager.GetSearchParameters("Patient").Returns(new[] { _nameSearchParameterInfo, vectorParameter });
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(call => new List<SearchIndexEntry>
+            {
+                ordinaryIndex,
+                new SearchIndexEntry(vectorParameter, new StringSearchValue($"version:{call.Arg<ResourceElement>().VersionId}")),
+            });
+        }
+
         private ResourceWrapperFactory CreateFactory(IVectorSearchIndexer vectorIndexer)
         {
             return new ResourceWrapperFactory(

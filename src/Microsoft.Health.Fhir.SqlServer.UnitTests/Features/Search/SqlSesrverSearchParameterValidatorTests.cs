@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     {
         private SearchParameterToSearchValueTypeMap _parameterToSearchValueTypeMap;
         private SqlServerSearchParameterValidator _sqlServerSearchParameterValidator;
-        private SqlServerSearchParameterValidator _vectorSearchEnabledValidator;
+        private readonly SqlServerSearchParameterValidator _vectorSearchEnabledValidator;
 
         public SqlSesrverSearchParameterValidatorTests()
         {

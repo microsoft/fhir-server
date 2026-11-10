@@ -42,7 +42,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         Task UpdateAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Completes vector indexing in one batch when enabled, using already extracted ordinary indices.
+        /// Completes vector indexing in one batch when enabled. Vector sources are re-extracted from each finalized
+        /// resource, so they match what a reindex of the persisted resource produces; ordinary indices are kept as created.
         /// Call after resource versions are finalized, within any transaction heartbeat and before persistence retries.
         /// When vector indexing is disabled, existing vector evaluation state is preserved.
         /// </summary>

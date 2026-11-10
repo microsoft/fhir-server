@@ -140,7 +140,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 Update(resource);
             }
 
-            await UpdateVectorSearchIndicesAsync(resources, cancellationToken);
+            // Update already extracted every index from the persisted resource, so vector sources need no refresh.
+            await IndexVectorsAsync(resources, cancellationToken);
         }
 
         /// <inheritdoc />
@@ -149,10 +150,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             EnsureArg.IsNotNull(resources, nameof(resources));
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (_vectorSearchIndexer == null)
+            {
+                return;
+            }
+
+            foreach (ResourceWrapper resource in resources)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                RefreshVectorSources(resource);
+            }
+
+            await IndexVectorsAsync(resources, cancellationToken);
+        }
+
+        private async Task IndexVectorsAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (_vectorSearchIndexer != null && resources.Count > 0)
             {
                 await _vectorSearchIndexer.UpdateVectorSearchIndicesAsync(resources, cancellationToken);
             }
+        }
+
+        // Vector sources are FHIRPath values, and an expression such as meta.versionId reads state that
+        // only exists once the version is finalized. Create extracted them from the input resource, so
+        // re-extract them from the finalized one; otherwise a reindex of the same resource would produce
+        // different passages. Ordinary indices, the search parameter hash and min/max flags stay as created.
+        private void RefreshVectorSources(ResourceWrapper resource)
+        {
+            if (resource.IsDeleted
+                || resource.IsHistory
+                || !_searchParameterDefinitionManager.GetSearchParameters(resource.ResourceTypeName).Any(searchParameter => searchParameter.VectorConfig != null))
+            {
+                return;
+            }
+
+            IEnumerable<SearchIndexEntry> vectorSources = _searchIndexer
+                .Extract(_resourceDeserializer.Deserialize(resource))
+                .Where(entry => entry.SearchParameter.VectorConfig != null);
+
+            resource.UpdateSearchIndices(
+                (resource.SearchIndices ?? Array.Empty<SearchIndexEntry>())
+                .Where(entry => entry.SearchParameter.VectorConfig == null)
+                .Concat(vectorSources)
+                .ToList());
         }
 
         // A given search parameter can have multiple values. We want to keep track of which
