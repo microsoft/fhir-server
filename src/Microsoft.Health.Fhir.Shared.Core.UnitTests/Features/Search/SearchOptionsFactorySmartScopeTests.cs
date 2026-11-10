@@ -45,6 +45,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string AvailableParameterCode = "code";
         private const string ConcreteOnlyParameterCode = "status";
         private const string ObservationOnlyParameterCode = "value-quantity";
+        private const string ReferenceParameterCode = "subject";
+        private const string LocalReferenceA = "(Param subject (And (MissingField ReferenceBaseUri) (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
+        private const string AnyBaseReferenceA = "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
         private const string TagParameterCode = "_tag";
         private const string SemanticParameterCode = "semantic-text";
 
@@ -460,6 +463,78 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [InlineData(KnownResourceTypes.Observation, KnownResourceTypes.Observation, null)]
+        [InlineData(KnownResourceTypes.All, KnownResourceTypes.Observation, null)]
+        [InlineData(KnownResourceTypes.All, KnownResourceTypes.Patient, "Observation:subject")]
+        public void GivenScopeWithRelativeReference_WhenCreated_ThenScopeMatchesOnlyLocalReferences(
+            string scopeResourceType,
+            string searchResourceType,
+            string revInclude)
+        {
+            // Covers the three ways a scope constraint reaches the query: a resource-specific scope, a wildcard scope
+            // merged into the caller's query, and a wildcard scope built as a union leg because of _revinclude.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(scopeResourceType, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A"))));
+
+            SearchOptions options = factory.Create(
+                searchResourceType,
+                revInclude == null ? null : new[] { Tuple.Create("_revinclude", revInclude) },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            Assert.Contains(LocalReferenceA, options.Expression.ToString(), StringComparison.Ordinal);
+            Assert.DoesNotContain(AnyBaseReferenceA, options.Expression.ToString(), StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation, false)]
+        [InlineData(KnownResourceTypes.All, false)]
+        [InlineData(KnownResourceTypes.All, true)]
+        public void GivenCallerSuppliedRelativeReference_WhenCreatedInASmartRequest_ThenItMatchesOnlyLocalReferences(string scopeResourceType, bool scopeHasReferenceConstraint)
+        {
+            // In a SMART request, Patient/B in the caller's query names the local Patient B, with or without a scope constraint.
+            SearchOptionsFactory factory = CreateFactory(
+                scopeHasReferenceConstraint
+                    ? new ScopeRestriction(scopeResourceType, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A")))
+                    : new ScopeRestriction(scopeResourceType, DataActions.Read, "system"));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(ReferenceParameterCode, "Patient/B") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains(
+                "(Param subject (And (MissingField ReferenceBaseUri) (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenCallerSuppliedRelativeReference_WhenCreatedInARequestWithoutSmartScopes_ThenItStillMatchesAnyBase()
+        {
+            SearchOptionsFactory factory = CreateFactory(strictHandling: false, isBackgroundTask: false, smartRequest: false);
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(ReferenceParameterCode, "Patient/B") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains(
+                "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(nameof(FieldName.ReferenceBaseUri), expression, StringComparison.Ordinal);
+        }
+
+        [Theory]
         [InlineData(KnownQueryParameterNames.StartSurrogateId, false)]
         [InlineData(KnownQueryParameterNames.EndSurrogateId, false)]
         [InlineData(KnownQueryParameterNames.GlobalEndSurrogateId, false)]
@@ -562,6 +637,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private static SearchOptionsFactory CreateFactory(bool strictHandling, bool isBackgroundTask, params ScopeRestriction[] scopeRestrictions)
         {
+            return CreateFactory(strictHandling, isBackgroundTask, smartRequest: true, scopeRestrictions);
+        }
+
+        private static SearchOptionsFactory CreateFactory(bool strictHandling, bool isBackgroundTask, bool smartRequest, params ScopeRestriction[] scopeRestrictions)
+        {
             // The expression parser resolves through the searchable definition manager, so a disabled, pending
             // delete, or reindexing parameter surfaces here as SearchParameterNotSupportedException.
             var expressionParser = Substitute.For<IExpressionParser>();
@@ -593,6 +673,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         return new VectorSearchExpression(
                             new SearchParameterInfo(SemanticParameterCode, SemanticParameterCode, ValueSets.SearchParamType.Special),
                             callInfo.ArgAt<string>(2));
+                    }
+
+                    if (string.Equals(code, ReferenceParameterCode, StringComparison.Ordinal))
+                    {
+                        // Same shape as the production parser for a relative reference such as Patient/A.
+                        string[] reference = callInfo.ArgAt<string>(2).Split('/');
+                        return Expression.SearchParameter(
+                            new SearchParameterInfo(ReferenceParameterCode, ReferenceParameterCode, ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject")),
+                            Expression.And(
+                                Expression.StringEquals(FieldName.ReferenceResourceType, null, reference[0], false),
+                                Expression.StringEquals(FieldName.ReferenceResourceId, null, reference[1], false)));
                     }
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");
@@ -636,8 +727,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 IsBackgroundTask = isBackgroundTask,
                 AccessControlContext = new AccessControlContext
                 {
-                    ApplyFineGrainedAccessControl = true,
-                    ApplyFineGrainedAccessControlWithSearchParameters = true,
+                    ApplyFineGrainedAccessControl = smartRequest,
+                    ApplyFineGrainedAccessControlWithSearchParameters = smartRequest,
                 },
             };
 
