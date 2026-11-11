@@ -4,14 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
 using Medino;
-using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -34,7 +36,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
 using Xunit;
 
@@ -278,7 +279,7 @@ COMMIT TRANSACTION
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            Task wsTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wsTask = wd.ExecuteAsync(cts.Token);
 
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
@@ -326,7 +327,7 @@ END
 
             var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
@@ -402,14 +403,17 @@ RAISERROR('Test',18,127)
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
+            var indexingFactory = Substitute.For<IResourceWrapperFactory>();
+            indexingFactory.UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(call => factory.UpdateAsync(call.Arg<IReadOnlyCollection<ResourceWrapper>>(), call.Arg<CancellationToken>()));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, indexingFactory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
                 AllowRebalance = true,
                 PeriodSec = 1,
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
@@ -429,6 +433,11 @@ RAISERROR('Test',18,127)
 
             await cts.CancelAsync();
             await wdTask;
+
+            await indexingFactory.Received(1).UpdateAsync(
+                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 1 && resources.Single().ResourceId == patient.Id),
+                cts.Token);
+            indexingFactory.DidNotReceive().Update(Arg.Any<ResourceWrapper>());
         }
 
         [Fact]
@@ -446,7 +455,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 20)
             {
@@ -521,8 +530,8 @@ RAISERROR('Test',18,127)
             // Initialize watchdog parameters
             var geoWatchdog = new GeoReplicationLagWatchdog();
             ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{geoWatchdog.PeriodSecId}', '{geoWatchdog.LeasePeriodSecId}')");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.PeriodSecId}', 1)");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.LeasePeriodSecId}', 2)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{geoWatchdog.PeriodSecId}', 1");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{geoWatchdog.LeasePeriodSecId}', 2");
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(2));
@@ -540,7 +549,7 @@ RAISERROR('Test',18,127)
                 LeasePeriodSec = 2,
             };
 
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             DateTime startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 30)
@@ -558,6 +567,50 @@ RAISERROR('Test',18,127)
             await wdTask;
 
             _testOutputHelper.WriteLine("Watchdog executed successfully");
+        }
+
+        [Fact]
+        public async Task PeriodsLongerThanLeasesAreHonored()
+        {
+            const string watchdog = nameof(TestPeriodWatchdog);
+            const int periodSec = 3;
+            const int leasePeriodSec = 1;
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{watchdog}.PeriodSec', '{watchdog}.LeasePeriodSec')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.PeriodSec', {periodSec}");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.LeasePeriodSec', {leasePeriodSec}");
+
+            ExecuteSql($"DELETE FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            var pastDate = DateTime.UtcNow.AddDays(-1);
+            ExecuteSql($@"
+INSERT INTO dbo.WatchdogLeases 
+    (        Watchdog,  LeaseHolder, LeaseEndTime,  LastRunTime)
+  SELECT '{watchdog}', 'old-worker', '{pastDate}', '{pastDate}'
+            ");
+
+            var executionTimes = new List<DateTime>();
+            var wd = new TestPeriodWatchdog(_fixture.SqlRetryService, XUnitLogger<TestPeriodWatchdog>.Create(_testOutputHelper), executionTimes);
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            var watchdogTask = wd.ExecuteAsync(cts.Token);
+
+            var start = DateTime.UtcNow;
+            const int executions = 3;
+            const double tolerance = 0.5; // seconds
+            while (executionTimes.Count < executions && (DateTime.UtcNow - start) < TimeSpan.FromSeconds(periodSec * executions * 2))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(0.5), cts.Token); // Allow the last-run timestamp write to finish before cancellation.
+            await cts.CancelAsync();
+            await watchdogTask;
+
+            Assert.True(executionTimes.Count >= executions, "The watchdog did not execute at least 3 times within the test window.");
+
+            Assert.InRange((executionTimes[executions - 1] - executionTimes[0]).TotalSeconds, periodSec * (executions - 1), ((periodSec + leasePeriodSec) * (executions - 1)) + tolerance);
+
+            var lastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            Assert.True(Math.Abs((lastRunTime - executionTimes[executions - 1]).TotalSeconds) < tolerance, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[executions - 1]:yyyy-MM-dd HH:mm:ss.fff}.");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()
@@ -783,12 +836,120 @@ RAISERROR('Test',18,127)
             Assert.Equal(1, captured.QueueDepths[QueueType.Import].Pending);
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        public async Task JobMonitorWatchdog_WhenReadingActiveJobs_ReturnsEquivalentAggregates(int scenario)
+        {
+            // Arrange
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            if (scenario > 0)
+            {
+                ExecuteSql($@"
+INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, CreateDate)
+SELECT Q.QueueType, D.Duplicate + 1, P.PartitionId + 16 * (S.Status + 7 * D.Duplicate), 'job', 0x00, S.Status,
+       dateadd(second, -(P.PartitionId + S.Status * 100 + D.Duplicate * 1000), convert(datetime, '20260101', 112))
+FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(255)) Q(QueueType)
+CROSS JOIN (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15)) P(PartitionId)
+CROSS JOIN (VALUES (0),(1),(2),(3),(4),(5),(6)) S(Status)
+CROSS JOIN (VALUES (0),(1)) D(Duplicate)
+WHERE S.Status >= {(scenario == 2 ? 2 : 0)}");
+            }
+
+            using var expectedCommand = new SqlCommand(@"
+SELECT QueueType, Status, min(CreateDate), count(*)
+FROM dbo.JobQueue
+WHERE Status IN (0,1) AND QueueType IN (1,2,3,4,5,6)
+GROUP BY QueueType, Status");
+            var expected = await _fixture.SqlRetryService.ExecuteReaderAsync(
+                expectedCommand,
+                reader => new JobMonitorWatchdog.QueueStatusAggregate(
+                    (QueueType)reader.GetByte(0),
+                    (JobStatus)reader.GetByte(1),
+                    reader.GetDateTime(2),
+                    reader.GetInt32(3)),
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                "Failed to read expected queue aggregates",
+                CancellationToken.None);
+            var watchdog = new JobMonitorWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                Substitute.For<IMediator>(),
+                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)));
+
+            // Act
+            var actual = await watchdog.GetQueueStatusAggregatesAsync(CancellationToken.None);
+
+            // Assert
+            Assert.Equal(scenario == 1 ? 12 : 0, actual.Count);
+            Assert.Equal(
+                expected.OrderBy(a => a.QueueType).ThenBy(a => a.Status),
+                actual.OrderBy(a => a.QueueType).ThenBy(a => a.Status));
+            if (scenario == 1)
+            {
+                Assert.All(actual, aggregate => Assert.Equal(32, aggregate.Count));
+            }
+        }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData(true, false)]
+        [InlineData(false, false)]
+        [InlineData(null, true)]
+        [InlineData(true, true)]
+        [InlineData(false, true)]
+        public async Task GetActiveJobs_WhenReturnDefinitionIsSpecified_PreservesJobMetadata(bool? returnDefinition, bool returnParentOnly)
+        {
+            // Arrange
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            ExecuteSql(@"
+INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, CreateDate)
+SELECT 1, 0, P.PartitionId + 16 * S.Status, 'job', 0x00, S.Status, convert(datetime, '20260101', 112)
+FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15)) P(PartitionId)
+CROSS JOIN (VALUES (0),(1)) S(Status)");
+            using var command = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
+            command.Parameters.Add("@QueueType", SqlDbType.TinyInt).Value = 1;
+            command.Parameters.Add("@ReturnParentOnly", SqlDbType.Bit).Value = returnParentOnly;
+            if (returnDefinition.HasValue)
+            {
+                command.Parameters.Add("@ReturnDefinition", SqlDbType.Bit).Value = returnDefinition.Value;
+            }
+
+            // Act
+            var jobs = await _fixture.SqlRetryService.ExecuteReaderAsync(
+                command,
+                reader => (
+                    Id: reader.GetInt64(reader.GetOrdinal("JobId")),
+                    GroupId: reader.GetInt64(reader.GetOrdinal("GroupId")),
+                    Status: reader.GetByte(reader.GetOrdinal("Status")),
+                    CreateDate: reader.GetDateTime(reader.GetOrdinal("CreateDate")),
+                    Definition: reader.IsDBNull(reader.GetOrdinal("Definition")) ? null : reader.GetString(reader.GetOrdinal("Definition"))),
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper),
+                "Failed to read active jobs",
+                CancellationToken.None);
+
+            // Assert
+            Assert.Equal(returnParentOnly ? 1 : 32, jobs.Count);
+            Assert.Equal(
+                Enumerable.Range(0, returnParentOnly ? 1 : 32).Select(id => (long)id),
+                jobs.Select(job => job.Id).OrderBy(id => id));
+            Assert.All(jobs, job =>
+            {
+                Assert.Equal(0, job.GroupId);
+                Assert.Equal((byte)(job.Id / 16), job.Status);
+                Assert.Equal(new DateTime(2026, 1, 1), job.CreateDate);
+                Assert.Equal(returnDefinition == false ? null : "job", job.Definition);
+            });
+        }
+
         private async Task RunJobMonitorWatchdogUntilPublishAsync(IMediator mediator, Func<bool> isPublished)
         {
             var wd = new JobMonitorWatchdog(
                 _fixture.SqlRetryService,
                 XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
-                mediator)
+                mediator,
+                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)))
             {
                 PeriodSec = 1,
                 LeasePeriodSec = 2,
@@ -796,12 +957,12 @@ RAISERROR('Test',18,127)
             };
 
             ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{wd.PeriodSecId}', '{wd.LeasePeriodSecId}')");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.PeriodSecId}', 1)");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{wd.LeasePeriodSecId}', 2)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{wd.PeriodSecId}', 1");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{wd.LeasePeriodSecId}', 2");
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(30));
-            Task wdTask = wd.ExecuteAsync(Guid.NewGuid(), cts.Token);
+            Task wdTask = wd.ExecuteAsync(cts.Token);
 
             var startTime = DateTime.UtcNow;
             while (!isPublished() && (DateTime.UtcNow - startTime).TotalSeconds < 20)
@@ -811,6 +972,29 @@ RAISERROR('Test',18,127)
 
             await cts.CancelAsync();
             await wdTask;
+        }
+
+        private sealed class TestPeriodWatchdog : Watchdog<TestPeriodWatchdog>
+        {
+            private readonly IList<DateTime> _executionTimes;
+
+            public TestPeriodWatchdog(ISqlRetryService sqlRetryService, ILogger<TestPeriodWatchdog> logger, IList<DateTime> executionTimes)
+                : base(sqlRetryService, logger)
+            {
+                _executionTimes = executionTimes;
+            }
+
+            public override double LeasePeriodSec { get; internal set; } = 200; // value is not relevant
+
+            public override bool AllowRebalance { get; internal set; } = false;
+
+            public override double PeriodSec { get; internal set; } = 200; // value is not relevant
+
+            protected override Task RunWorkAsync(CancellationToken cancellationToken)
+            {
+                _executionTimes.Add(DateTime.UtcNow);
+                return Task.CompletedTask;
+            }
         }
     }
 }

@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression rewritten = inputExpression.AcceptVisitor(_rewriter);
 
             Assert.Equal(
-                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo')) (Param _primaryKey (FieldGreaterThan 108 (PrimaryKeyRange (PrimaryKey 3 22) (Next 4))))))",
+                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _type (Or (StringEquals TokenCode 'Claim') (StringEquals TokenCode 'Condition') (StringEquals TokenCode 'Device'))) (Param _id (StringEquals TokenCode 'foo')) (Param _primaryKey (FieldGreaterThan 108 (PrimaryKeyRange (PrimaryKey 3 22) (Next 4))))))",
                 rewritten.ToString());
         }
 
@@ -134,8 +134,66 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression rewritten = inputExpression.AcceptVisitor(_rewriter);
 
             Assert.Equal(
-                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo')) (Param _primaryKey (FieldLessThan 108 (PrimaryKeyRange (PrimaryKey 3 22) (Next 2))))))",
+                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _type (Or (StringEquals TokenCode 'Claim') (StringEquals TokenCode 'Condition') (StringEquals TokenCode 'Device'))) (Param _id (StringEquals TokenCode 'foo')) (Param _primaryKey (FieldLessThan 108 (PrimaryKeyRange (PrimaryKey 3 22) (Next 2))))))",
                 rewritten.ToString());
+        }
+
+        [Fact]
+        public void GivenAnExpressionWithAnInTypeConstraintAndAContinuationToken_WhenRewritten_PrimaryKeyRangeIsLimitedToTheAllowedTypes()
+        {
+            // SMART clinical scopes restrict resource types with an IN list; the continuation must not widen it to every later type.
+            var inputExpression = new SqlRootExpression(
+                Array.Empty<SearchParamTableExpression>(),
+                new[]
+                {
+                    SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { nameof(Claim), nameof(Device) })),
+                    SearchParameter(SqlSearchParameters.PrimaryKeyParameter, GreaterThan(SqlFieldName.PrimaryKey, null, new PrimaryKeyValue(Claim, 22))),
+                });
+
+            Expression rewritten = inputExpression.AcceptVisitor(_rewriter);
+
+            Assert.Equal(
+                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _type (TokenCode IN (Claim, Device))) (Param _primaryKey (FieldGreaterThan 108 (PrimaryKeyRange (PrimaryKey 2 22) (Next 4))))))",
+                rewritten.ToString());
+        }
+
+        [Theory]
+        [InlineData(Condition)]
+        [InlineData(DiagnosticReport)]
+        public void GivenAContinuationTokenForADisallowedTypeWithAnInTypeConstraint_WhenRewritten_TypeConstraintIsRetained(short forgedResourceTypeId)
+        {
+            // The PrimaryKeyRange always admits the token's own type, so a client-forged token naming a type outside
+            // the allowed set must not be able to remove the _type constraint.
+            var inputExpression = new SqlRootExpression(
+                Array.Empty<SearchParamTableExpression>(),
+                new[]
+                {
+                    SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { nameof(Claim), nameof(Device) })),
+                    SearchParameter(SqlSearchParameters.PrimaryKeyParameter, GreaterThan(SqlFieldName.PrimaryKey, null, new PrimaryKeyValue(forgedResourceTypeId, 0))),
+                });
+
+            var rewritten = (SqlRootExpression)inputExpression.AcceptVisitor(_rewriter);
+
+            Assert.Contains(
+                rewritten.ResourceTableExpressions,
+                e => e is SearchParameterExpression { Parameter.Name: SearchParameterNames.ResourceType, Expression: InExpression<string> });
+        }
+
+        [Fact]
+        public void GivenAContinuationTokenForADisallowedTypeWithAnOrTypeConstraint_WhenRewritten_TypeConstraintIsRetained()
+        {
+            var typeConstraint = SearchParameter(TypeParameter, Or(Token(nameof(Claim)), Token(nameof(Device))));
+            var inputExpression = new SqlRootExpression(
+                Array.Empty<SearchParamTableExpression>(),
+                new[]
+                {
+                    typeConstraint,
+                    SearchParameter(SqlSearchParameters.PrimaryKeyParameter, GreaterThan(SqlFieldName.PrimaryKey, null, new PrimaryKeyValue(Condition, 0))),
+                });
+
+            var rewritten = (SqlRootExpression)inputExpression.AcceptVisitor(_rewriter);
+
+            Assert.Contains(typeConstraint, rewritten.ResourceTableExpressions);
         }
 
         private static StringExpression Token(string parameterValue) => StringEquals(FieldName.TokenCode, null, parameterValue, false);

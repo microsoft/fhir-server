@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
+using Azure.Core;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Medino;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
@@ -24,14 +26,17 @@ using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Api.OpenIddict.FeatureProviders;
 using Microsoft.Health.Fhir.Azure;
+using Microsoft.Health.Fhir.Azure.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
@@ -60,10 +65,15 @@ namespace Microsoft.Health.Fhir.Web
         {
             instanceId = $"{Configuration["WEBSITE_ROLE_INSTANCE_ID"]}--{Configuration["WEBSITE_INSTANCE_ID"]}--{Guid.NewGuid()}";
 
+            VectorSearchConfiguration vectorSearchConfiguration = null;
             Core.Registration.IFhirServerBuilder fhirServerBuilder =
                 services.AddFhirServer(
                     Configuration,
-                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary,
+                    fhirServerConfiguration =>
+                    {
+                        fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary;
+                        vectorSearchConfiguration = fhirServerConfiguration.CoreFeatures.VectorSearch;
+                    },
                     mvcBuilderAction: builder =>
                     {
                         builder.PartManager.FeatureProviders.Remove(builder.PartManager.FeatureProviders.OfType<ControllerFeatureProvider>().FirstOrDefault());
@@ -82,6 +92,7 @@ namespace Microsoft.Health.Fhir.Web
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
 
             AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
+            AddSemanticSearch(services, runtimeConfiguration, vectorSearchConfiguration);
 
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
@@ -116,6 +127,30 @@ namespace Microsoft.Health.Fhir.Web
             }
         }
 
+        private void AddSemanticSearch(
+            IServiceCollection services,
+            IFhirRuntimeConfiguration runtimeConfiguration,
+            VectorSearchConfiguration vectorSearchConfiguration)
+        {
+            if (runtimeConfiguration is not AzureHealthDataServicesRuntimeConfiguration ||
+                !vectorSearchConfiguration.Enabled)
+            {
+                return;
+            }
+
+            services.AddSingleton<ITextChunker, TextChunker>();
+            services.AddSingleton<IVectorSearchParameterResolver, VectorSearchParameterResolver>();
+            services.AddScoped<IEmbeddingClient>(provider => new AzureFoundryEmbeddingClient(
+                provider.GetRequiredService<IOptions<VectorSearchConfiguration>>().Value.Embedding,
+                provider.GetRequiredService<TokenCredential>(),
+                provider.GetRequiredService<ITextChunker>()));
+            services.AddSingleton<IEmbeddingModelRegistry>(provider => new SqlEmbeddingModelRegistry(
+                Configuration["SqlServer:ConnectionString"],
+                provider.GetRequiredService<IOptions<VectorSearchConfiguration>>()));
+            services.AddScoped<IVectorSearchIndexer, VectorSearchIndexer>();
+            services.AddScoped<IVectorSearchQueryProcessor, VectorSearchQueryProcessor>();
+        }
+
         private static IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
         {
             IFhirRuntimeConfiguration runtimeConfiguration = null;
@@ -145,7 +180,6 @@ namespace Microsoft.Health.Fhir.Web
             services.Add<JobHosting>()
                 .Scoped()
                 .AsSelf();
-            services.AddFactory<IScoped<JobHosting>>();
 
             services.RemoveServiceTypeExact<HostingBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>()
                 .Add<HostingBackgroundService>()

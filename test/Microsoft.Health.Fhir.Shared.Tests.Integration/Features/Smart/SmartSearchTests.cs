@@ -19,7 +19,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Smart;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -44,6 +43,7 @@ using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -193,6 +193,171 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             finally
             {
                 await _fixture.DataStore.HardDeleteAsync(new ResourceKey(resourceType, resourceId), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+            }
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation, false)]
+        [InlineData(KnownResourceTypes.Observation, true)]
+        [InlineData(KnownResourceTypes.All, false)]
+        [InlineData(KnownResourceTypes.All, true)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenReferenceScopeAndPatientIdCollision_WhenSearchingAndReading_ThenOnlyLocalReferencesAuthorizeAccess(string scopeResourceType, bool idOnlyScopeValue)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            string patientA = Guid.NewGuid().ToString("N");
+            string patientB = Guid.NewGuid().ToString("N");
+            (string localA, string externalA, string otherServerA, string localB) = await CreatePatientIdCollisionObservationsAsync(patientA, patientB);
+            string[] observationIds = { localA, externalA, otherServerA, localB };
+
+            try
+            {
+                // A relative scope value (subject=Patient/A or subject=A) names the local Patient A only.
+                ConfigureFhirRequestContext(
+                    _contextAccessor,
+                    new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("subject", idOnlyScopeValue ? patientA : $"Patient/{patientA}"))) },
+                    applyFineGrainedAccessControlWithSearchParameters: true);
+
+                SearchResult scopedResults = await _searchService.Value.SearchAsync(
+                    KnownResourceTypes.Observation,
+                    new List<Tuple<string, string>> { Tuple.Create("_count", "1000") },
+                    CancellationToken.None);
+
+                Assert.Equal(localA, Assert.Single(scopedResults.Results).Resource.ResourceId);
+
+                foreach (string id in observationIds)
+                {
+                    var request = new GetResourceRequest(new ResourceKey(KnownResourceTypes.Observation, id), bundleResourceContext: null);
+                    if (id == localA)
+                    {
+                        Assert.Equal(localA, (await _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None)).Resource.Id);
+                    }
+                    else
+                    {
+                        await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None));
+                    }
+                }
+
+                // A caller's own relative reference also names the local Patient A in a SMART request (scope without
+                // search parameters). Requests without SMART scopes keep matching Patient A on any server.
+                foreach (bool smartRequest in new[] { true, false })
+                {
+                    ConfigureFhirRequestContext(
+                        _contextAccessor,
+                        new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system") },
+                        applyFineGrainedAccessControlWithSearchParameters: true);
+                    _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = smartRequest;
+
+                    SearchResult callerResults = await _searchService.Value.SearchAsync(
+                        KnownResourceTypes.Observation,
+                        new List<Tuple<string, string>> { Tuple.Create("subject", $"Patient/{patientA}") },
+                        CancellationToken.None);
+
+                    Assert.Equal(
+                        (smartRequest ? new[] { localA } : new[] { localA, externalA, otherServerA }).Order(StringComparer.Ordinal),
+                        callerResults.Results.Select(entry => entry.Resource.ResourceId).Order(StringComparer.Ordinal));
+                }
+            }
+            finally
+            {
+                await DeleteObservationsAsync(observationIds);
+            }
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation)]
+        [InlineData(KnownResourceTypes.All)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenScopeForAnExternalReference_WhenSearchingAndReading_ThenOnlyThatServersReferencesAuthorizeAccess(string scopeResourceType)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            string patientA = Guid.NewGuid().ToString("N");
+            string patientB = Guid.NewGuid().ToString("N");
+            (string localA, string externalA, string otherServerA, string localB) = await CreatePatientIdCollisionObservationsAsync(patientA, patientB);
+            string[] observationIds = { localA, externalA, otherServerA, localB };
+
+            try
+            {
+                // An absolute scope value names Patient A on that server only. The base URL was already part of
+                // this predicate before the fix, so the external patient's Observation stays readable.
+                ConfigureFhirRequestContext(
+                    _contextAccessor,
+                    new[] { new ScopeRestriction(scopeResourceType, Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("subject", $"https://external.fhir.invalid/r4/Patient/{patientA}"))) },
+                    applyFineGrainedAccessControlWithSearchParameters: true);
+
+                // The caller's own subject parameter is ANDed with the scope. An absolute reference to the same server
+                // matches, while a relative Patient/A names the local patient and a third server matches nothing.
+                var expectedResults = new (string Parameter, string Value, string ExpectedId)[]
+                {
+                    ("_count", "1000", externalA),
+                    ("subject", $"https://external.fhir.invalid/r4/Patient/{patientA}", externalA),
+                    ("subject", $"Patient/{patientA}", null),
+                    ("subject", $"http://localhost/other-fhir/Patient/{patientA}", null),
+                };
+
+                foreach ((string parameter, string value, string expectedId) in expectedResults)
+                {
+                    SearchResult results = await _searchService.Value.SearchAsync(
+                        KnownResourceTypes.Observation,
+                        new List<Tuple<string, string>> { Tuple.Create(parameter, value) },
+                        CancellationToken.None);
+
+                    Assert.Equal(
+                        expectedId == null ? Array.Empty<string>() : new[] { expectedId },
+                        results.Results.Select(entry => entry.Resource.ResourceId).ToArray());
+                }
+
+                foreach (string id in observationIds)
+                {
+                    var request = new GetResourceRequest(new ResourceKey(KnownResourceTypes.Observation, id), bundleResourceContext: null);
+                    if (id == externalA)
+                    {
+                        Assert.Equal(externalA, (await _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None)).Resource.Id);
+                    }
+                    else
+                    {
+                        await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.HandleAsync(request, CancellationToken.None));
+                    }
+                }
+            }
+            finally
+            {
+                await DeleteObservationsAsync(observationIds);
+            }
+        }
+
+        private async Task<(string LocalA, string ExternalA, string OtherServerA, string LocalB)> CreatePatientIdCollisionObservationsAsync(string patientA, string patientB)
+        {
+            // Three Observations about "Patient A" on different servers, and one about the local Patient B.
+            (string Id, string Subject)[] observations =
+            {
+                (Guid.NewGuid().ToString("N"), $"Patient/{patientA}"),
+                (Guid.NewGuid().ToString("N"), $"https://external.fhir.invalid/r4/Patient/{patientA}"),
+                (Guid.NewGuid().ToString("N"), $"http://localhost/other-fhir/Patient/{patientA}"),
+                (Guid.NewGuid().ToString("N"), $"Patient/{patientB}"),
+            };
+
+            foreach ((string id, string subject) in observations)
+            {
+                await _smartFixture.UpsertResource(new Observation { Id = id, Status = ObservationStatus.Final, Code = new CodeableConcept("http://loinc.org", "1234-5"), Subject = new ResourceReference(subject) });
+            }
+
+            return (observations[0].Id, observations[1].Id, observations[2].Id, observations[3].Id);
+        }
+
+        private async Task DeleteObservationsAsync(IEnumerable<string> observationIds)
+        {
+            foreach (string id in observationIds)
+            {
+                await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Observation, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
             }
         }
 #endif
@@ -855,6 +1020,195 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(includedResources, result => result.Resource.ResourceId == "smart-practitioner-A");
             Assert.Contains(includedResources, result => result.Resource.ResourceId == "smart-leak-parent");
             Assert.DoesNotContain(includedResources, result => result.Resource.ResourceId == "smart-leak-child");
+        }
+
+        [Theory]
+        [InlineData("Observation:patient:Patient", 10)]
+        [InlineData("Observation:patient", 10)]
+        [InlineData("Observation:patient:Patient", 1)]
+        [InlineData("Observation:patient", 1)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenPatientAndObservationScopes_WhenTypedOrUntypedRevIncludeIsPaged_ThenOnlyObservationsAreIncluded(
+            string revInclude,
+            int includesCount)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var patientId = $"smart-revinclude-{Guid.NewGuid():N}";
+            var observationIds = new[]
+            {
+                $"{patientId}-observation-a",
+                $"{patientId}-observation-b",
+            };
+
+            await _smartFixture.UpsertResource(new Patient { Id = patientId });
+            foreach (string observationId in observationIds)
+            {
+                await _smartFixture.UpsertResource(new Observation
+                {
+                    Id = observationId,
+                    Status = ObservationStatus.Final,
+                    Subject = new ResourceReference($"Patient/{patientId}"),
+                });
+            }
+
+            await _smartFixture.UpsertResource(new Procedure
+            {
+                Id = $"{patientId}-procedure",
+                Status = EventStatus.Completed,
+                Subject = new ResourceReference($"Patient/{patientId}"),
+            });
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+            ConfigureFhirRequestContext(_contextAccessor, new[] { patientScope, observationScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = patientId;
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = KnownResourceTypes.Patient;
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_id", patientId),
+                Tuple.Create("_revinclude", revInclude),
+                Tuple.Create("_includesCount", includesCount.ToString()),
+            };
+
+            var page = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Equal(includesCount == 1, page.IncludesContinuationToken != null);
+
+            var includedResources = page.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include)
+                .ToList();
+            while (page.IncludesContinuationToken != null)
+            {
+                var continuationQuery = new List<Tuple<string, string>>(query)
+                {
+                    Tuple.Create(
+                        KnownQueryParameterNames.IncludesContinuationToken,
+                        ContinuationTokenEncoder.Encode(page.IncludesContinuationToken)),
+                };
+                page = await _searchService.Value.SearchAsync(
+                    "Patient",
+                    continuationQuery,
+                    CancellationToken.None,
+                    isIncludesOperation: true);
+                includedResources.AddRange(page.Results
+                    .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include));
+            }
+
+            Assert.DoesNotContain(includedResources, result => result.Resource.ResourceTypeName == "Procedure");
+            Assert.Equal(
+                observationIds.OrderBy(id => id, StringComparer.Ordinal),
+                includedResources
+                    .Where(result => result.Resource.ResourceTypeName == KnownResourceTypes.Observation)
+                    .Select(result => result.Resource.ResourceId)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(id => id, StringComparer.Ordinal));
+        }
+
+        [Theory]
+        [InlineData("Observation:subject:Patient", 10)]
+        [InlineData("Observation:subject", 10)]
+        [InlineData("Observation:subject:Patient", 1)]
+        [InlineData("Observation:subject", 1)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenPatientAndObservationScopes_WhenTypedOrUntypedIncludeIsPaged_ThenOnlyPatientsAreIncluded(
+            string include,
+            int includesCount)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var patientIds = new[]
+            {
+                $"smart-include-{Guid.NewGuid():N}-a",
+                $"smart-include-{Guid.NewGuid():N}-b",
+            };
+            var groupId = $"smart-include-{Guid.NewGuid():N}-group";
+            var observationIds = new[]
+            {
+                $"smart-include-{Guid.NewGuid():N}-observation-a",
+                $"smart-include-{Guid.NewGuid():N}-observation-b",
+                $"smart-include-{Guid.NewGuid():N}-observation-group",
+            };
+
+            foreach (string patientId in patientIds)
+            {
+                await _smartFixture.UpsertResource(new Patient { Id = patientId });
+            }
+
+            await _smartFixture.UpsertResource(new Group { Id = groupId, Type = Group.GroupType.Person });
+            for (int i = 0; i < observationIds.Length; i++)
+            {
+                string subjectReference = i < patientIds.Length
+                    ? $"Patient/{patientIds[i]}"
+                    : $"Group/{groupId}";
+                await _smartFixture.UpsertResource(new Observation
+                {
+                    Id = observationIds[i],
+                    Status = ObservationStatus.Final,
+                    Subject = new ResourceReference(subjectReference),
+                });
+            }
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Read,
+                "system");
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "system");
+            ConfigureFhirRequestContext(_contextAccessor, new[] { patientScope, observationScope });
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_id", string.Join(",", observationIds)),
+                Tuple.Create("_include", include),
+                Tuple.Create("_includesCount", includesCount.ToString()),
+            };
+
+            var page = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.Equal(includesCount == 1, page.IncludesContinuationToken != null);
+
+            var includedResources = page.Results
+                .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include)
+                .ToList();
+            while (page.IncludesContinuationToken != null)
+            {
+                var continuationQuery = new List<Tuple<string, string>>(query)
+                {
+                    Tuple.Create(
+                        KnownQueryParameterNames.IncludesContinuationToken,
+                        ContinuationTokenEncoder.Encode(page.IncludesContinuationToken)),
+                };
+                page = await _searchService.Value.SearchAsync(
+                    "Observation",
+                    continuationQuery,
+                    CancellationToken.None,
+                    isIncludesOperation: true);
+                includedResources.AddRange(page.Results
+                    .Where(result => result.SearchEntryMode == Microsoft.Health.Fhir.ValueSets.SearchEntryMode.Include));
+            }
+
+            Assert.DoesNotContain(includedResources, result => result.Resource.ResourceTypeName == KnownResourceTypes.Group);
+            Assert.Equal(
+                patientIds.OrderBy(id => id, StringComparer.Ordinal),
+                includedResources
+                    .Where(result => result.Resource.ResourceTypeName == KnownResourceTypes.Patient)
+                    .Select(result => result.Resource.ResourceId)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(id => id, StringComparer.Ordinal));
         }
 
         [Fact]
@@ -2751,6 +3105,69 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var updateResult = await _smartFixture.UpsertResource(updatedPatient);
             Assert.NotNull(updateResult);
             Assert.Equal(patientId, updateResult.Wrapper.ResourceId);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenSmartV2TagScopedObservationSearch_WhenRequestSuppliesSurrogateIdRange_ThenRequestIsRejectedAndUntaggedObservationIsNotReturned()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Arrange ─ MSRC 154497: a token limited to Observations with a specific _tag must not be able to
+            // reach the raw surrogate id range read, which ignores the scope's _tag predicate.
+            const string tagSystem = "http://example.org/smart-range-scope";
+            string tagCode = Guid.NewGuid().ToString("N");
+            string taggedId = CreateSmartV2TestResourceId("range-tagged");
+            string untaggedId = CreateSmartV2TestResourceId("range-untagged");
+
+            await _smartFixture.UpsertResource(CreateRangeScopeObservation(taggedId, new Coding(tagSystem, tagCode)));
+            await _smartFixture.UpsertResource(CreateRangeScopeObservation(untaggedId, tag: null));
+
+            var scopeRestriction = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read | Core.Features.Security.DataActions.Search,
+                "user",
+                CreateSearchParams(("_tag", $"{tagSystem}|{tagCode}")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction }, true);
+
+            var idQuery = new List<Tuple<string, string>>() { Tuple.Create("_id", $"{taggedId},{untaggedId}") };
+            var rangeQuery = new List<Tuple<string, string>>(idQuery)
+            {
+                Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Observation),
+                Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
+                Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
+            };
+
+            // Act
+            SearchResult scopedResults = await _searchService.Value.SearchAsync(KnownResourceTypes.Observation, idQuery, CancellationToken.None);
+            InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.Value.SearchAsync(KnownResourceTypes.Observation, rangeQuery, CancellationToken.None));
+
+            // Assert
+            Assert.Collection(scopedResults.Results, r => Assert.Equal(taggedId, r.Resource.ResourceId));
+            Assert.Contains(KnownQueryParameterNames.StartSurrogateId, exception.Message, StringComparison.Ordinal);
+        }
+
+        private static Observation CreateRangeScopeObservation(string id, Coding tag)
+        {
+            var observation = new Observation
+            {
+                Id = id,
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "8867-4"),
+                Value = new FhirString($"synthetic-{id}"),
+                Meta = new Meta(),
+            };
+
+            if (tag != null)
+            {
+                observation.Meta.Tag.Add(tag);
+            }
+
+            return observation;
         }
 
         // SMART v2 Granular Scope with Search parameters Tests
@@ -4743,6 +5160,163 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
         }
 
+        [Theory]
+        [InlineData(false, false, false, false)]
+        [InlineData(false, true, false, false)]
+        [InlineData(true, false, false, false)]
+        [InlineData(true, true, false, false)]
+        [InlineData(false, false, true, false)]
+        [InlineData(false, true, true, false)]
+        [InlineData(true, false, true, false)]
+        [InlineData(true, true, true, false)]
+        [InlineData(false, false, false, true)]
+        [InlineData(false, true, false, true)]
+        [InlineData(true, false, false, true)]
+        [InlineData(true, true, false, true)]
+        [InlineData(false, false, true, true)]
+        [InlineData(false, true, true, true)]
+        [InlineData(true, false, true, true)]
+        [InlineData(true, true, true, true)]
+        public async Task GivenReferenceFilteredSystemScopes_WhenIncludingResources_ThenEachCandidateMustSatisfyItsOwnScope(
+            bool typedObservationScope,
+            bool typedPatientScope,
+            bool reversed,
+            bool wildcard)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+            Assert.SkipWhen(
+                !string.Equals(_fixture.FhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase),
+                "Exercises the SQL untyped-reference rewrite pipeline.");
+
+            // Arrange
+            string practitionerA = CreateSmartV2TestResourceId("ref-practitioner-a");
+            string practitionerB = CreateSmartV2TestResourceId("ref-practitioner-b");
+            string patientA = CreateSmartV2TestResourceId("ref-patient-a");
+            string patientB = CreateSmartV2TestResourceId("ref-patient-b");
+            string allowedObservation = CreateSmartV2TestResourceId("ref-obs-allowed");
+            string outsidePatientObservation = CreateSmartV2TestResourceId("ref-obs-outside");
+            string restrictedObservation = CreateSmartV2TestResourceId("ref-obs-restricted");
+            var resources = new Resource[]
+            {
+                new Practitioner { Id = practitionerA },
+                new Practitioner { Id = practitionerB },
+                new Patient
+                {
+                    Id = patientA,
+                    GeneralPractitioner = new List<ResourceReference> { new ResourceReference($"Practitioner/{practitionerA}") },
+                },
+                new Patient
+                {
+                    Id = patientB,
+                    GeneralPractitioner = new List<ResourceReference> { new ResourceReference($"Practitioner/{practitionerB}") },
+                    Name = new List<HumanName> { new HumanName { Family = "SYNTHETIC_RESTRICTED_PATIENT" } },
+                },
+                new Observation
+                {
+                    Id = allowedObservation,
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference($"Patient/{patientA}"),
+                    Performer = new List<ResourceReference> { new ResourceReference($"Practitioner/{practitionerA}") },
+                },
+                new Observation
+                {
+                    Id = outsidePatientObservation,
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference($"Patient/{patientB}"),
+                    Performer = new List<ResourceReference> { new ResourceReference($"Practitioner/{practitionerA}") },
+                },
+                new Observation
+                {
+                    Id = restrictedObservation,
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference($"Patient/{patientA}"),
+                    Performer = new List<ResourceReference> { new ResourceReference($"Practitioner/{practitionerB}") },
+                },
+            };
+            try
+            {
+                foreach (Resource resource in resources)
+                {
+                    await _smartFixture.UpsertResource(resource);
+                }
+
+                string resourceType = reversed ? "Patient" : "Observation";
+                string observationScopeValue = typedObservationScope ? $"Practitioner/{practitionerA}" : practitionerA;
+                string patientScopeValue = typedPatientScope ? $"Practitioner/{practitionerA}" : practitionerA;
+                var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                {
+                    new Claim("scp", $"system/Observation.rs?performer={observationScopeValue} system/Patient.rs?general-practitioner={patientScopeValue}"),
+                }));
+                _contextAccessor.RequestContext = new FhirRequestContext(
+                    method: "GET",
+                    uriString: $"https://localhost/{resourceType}",
+                    baseUriString: "https://localhost/",
+                    correlationId: Guid.NewGuid().ToString(),
+                    requestHeaders: new HeaderDictionary(),
+                    responseHeaders: new HeaderDictionary())
+                {
+                    Principal = principal,
+                    ResourceType = resourceType,
+                };
+                var securityConfiguration = new SecurityConfiguration { Enabled = true };
+                securityConfiguration.Authorization.Enabled = true;
+                var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+                authorizationService.CheckAccess(DataActions.Smart, Arg.Any<CancellationToken>()).Returns(DataActions.Smart);
+                var middleware = new SmartClinicalScopesMiddleware(
+                    _ => Task.CompletedTask, NullLogger<SmartClinicalScopesMiddleware>.Instance, ResourceIdPolicy.Standard);
+                await middleware.Invoke(new DefaultHttpContext { User = principal }, _contextAccessor, Options.Create(securityConfiguration), authorizationService);
+
+                var query = new List<Tuple<string, string>>
+                {
+                    Tuple.Create(reversed ? "_revinclude" : "_include", wildcard ? "*:*" : "Observation:subject"),
+                    Tuple.Create("_count", "100"),
+                };
+
+                // Act
+                var results = await _searchService.Value.SearchAsync(resourceType, query, CancellationToken.None);
+                var directPatientSearch = await _searchService.Value.SearchAsync(
+                    "Patient", new List<Tuple<string, string>> { Tuple.Create("_id", patientB) }, CancellationToken.None);
+                var directObservation = await _fixture.GetResourceHandler.HandleAsync(
+                    new GetResourceRequest(new ResourceKey("Observation", outsidePatientObservation), bundleResourceContext: null), CancellationToken.None);
+
+                // Assert
+                Assert.Null(_contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType);
+                Assert.Empty(directPatientSearch.Results);
+                Assert.Equal(outsidePatientObservation, directObservation.Resource.Id);
+                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.HandleAsync(
+                    new GetResourceRequest(new ResourceKey("Patient", patientB), bundleResourceContext: null), CancellationToken.None));
+                Assert.Null(results.ContinuationToken);
+                Assert.Null(results.IncludesContinuationToken);
+                Assert.Equal(reversed ? 2 : 3, results.Results.Count());
+                Assert.Contains(results.Results, result =>
+                    result.Resource.ResourceId == patientA &&
+                    result.SearchEntryMode == (reversed ? ValueSets.SearchEntryMode.Match : ValueSets.SearchEntryMode.Include));
+                Assert.Contains(results.Results, result =>
+                    result.Resource.ResourceId == allowedObservation &&
+                    result.SearchEntryMode == (reversed ? ValueSets.SearchEntryMode.Include : ValueSets.SearchEntryMode.Match));
+                Assert.DoesNotContain(results.Results, result => result.Resource.ResourceId == patientB);
+                Assert.DoesNotContain(results.Results, result => result.Resource.ResourceId == restrictedObservation);
+                if (!reversed)
+                {
+                    Assert.Contains(results.Results, result =>
+                        result.Resource.ResourceId == outsidePatientObservation && result.SearchEntryMode == ValueSets.SearchEntryMode.Match);
+                }
+            }
+            finally
+            {
+                foreach (Resource resource in resources)
+                {
+                    await _fixture.DataStore.HardDeleteAsync(new ResourceKey(resource.TypeName, resource.Id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+                }
+            }
+        }
+
         [Fact]
         public async Task GivenSmartV2GranularScopeWithCodeAndGenderFilter_WhenSearchingObservationsWithInclude_ThenObservationsAndIncludedPatientsReturned()
         {
@@ -5116,7 +5690,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var scopeObservation = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "final")));
             var scopePatient = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
             var scopeDiagnosticReport = new ScopeRestriction("DiagnosticReport", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "final")));
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeObservation, scopePatient, scopeDiagnosticReport }, true);
+            var scopeOrganization = new ScopeRestriction("Organization", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeObservation, scopePatient, scopeDiagnosticReport, scopeOrganization }, true);
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
@@ -5185,6 +5760,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 results.Results,
                 r => Assert.Equal("smart-diagnosticreport-A1", r.Resource.ResourceId),
                 r1 => Assert.Equal("smart-diagnosticreport-A3-different-tag", r1.Resource.ResourceId));
+        }
+
+        [Fact]
+        public async Task GivenScopesWithoutOrganization_WhenSearchingWithMultiHopChain_ThenSearchIsRejected()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeDiagnosticReport = new ScopeRestriction("DiagnosticReport", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopePatient = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeDiagnosticReport, scopePatient }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>> { new("subject:Patient.organization.address-city", "Seattle") };
+
+            var exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.Value.SearchAsync("DiagnosticReport", query, CancellationToken.None));
+            Assert.Contains("Organization", exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenScopesWithoutProvenance_WhenSearchingWithNestedHas_ThenSearchIsRejected()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var scopeObservation = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopePatient = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction> { scopeObservation, scopePatient }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>> { new("_has:Observation:subject:_has:Provenance:target:agent", "Practitioner/smart-practitioner-A") };
+
+            var exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.Value.SearchAsync("Patient", query, CancellationToken.None));
+            Assert.Contains("Provenance", exception.Message);
         }
 
         [Fact]

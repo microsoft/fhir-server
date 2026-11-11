@@ -267,6 +267,97 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new TransactionDeadlockException(Core.Resources.TransactionDeadlock), HttpStatusCode.Conflict);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenCancellationOnlyNestedDeleteFailures_WhenExecutingAnAction_ThenTimeoutPreservesTheExceptionAndPartialResults(bool clientDisconnected)
+        {
+            // Arrange
+            _context.HttpContext.RequestAborted = new System.Threading.CancellationToken(clientDisconnected);
+            var partialResults = new Dictionary<string, long> { ["Patient"] = 2 };
+            var exception = new IncompleteOperationException<IDictionary<string, long>>(
+                new AggregateException(
+                    new IncompleteOperationException<Dictionary<string, long>>(
+                        new System.Threading.Tasks.TaskCanceledException(), partialResults),
+                    new AggregateException(
+                        new System.OperationCanceledException(),
+                        new IncompleteOperationException<IDictionary<string, long>>(
+                            new System.OperationCanceledException(), partialResults))),
+                partialResults);
+
+            // Act
+            var result = ValidateOperationOutcome(exception, HttpStatusCode.RequestTimeout);
+
+            // Assert
+            var issue = Assert.Single(result.Result.Issue);
+            Assert.Equal(OperationOutcome.IssueSeverity.Error, issue.Severity);
+            Assert.Equal(OperationOutcome.IssueType.Timeout, issue.Code);
+            Assert.Equal(Core.Resources.OperationCanceled, issue.Diagnostics);
+            Assert.True(_context.ExceptionHandled);
+            Assert.Same(exception, _context.Exception);
+            Assert.Same(partialResults, exception.PartialResults);
+            Assert.Equal(2, exception.PartialResults["Patient"]);
+            var log = Assert.Single(_logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log)).GetArguments();
+            Assert.Equal(LogLevel.Warning, log[0]);
+            Assert.Same(exception, log[3]);
+            Assert.Contains(new KeyValuePair<string, object>("ClientDisconnected", clientDisconnected), (IReadOnlyList<KeyValuePair<string, object>>)log[2]);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [InlineData(5)]
+        [InlineData(6)]
+        [InlineData(7)]
+        public void GivenRealOrUnknownDeleteFailures_WhenExecutingAnAction_ThenCancellationDoesNotHideTheFailure(int failureKind)
+        {
+            // Arrange
+            _context.HttpContext.RequestAborted = new System.Threading.CancellationToken(canceled: true);
+            Exception failure = failureKind switch
+            {
+                0 => new InvalidOperationException("Storage failure."),
+                1 => new AggregateException(new System.OperationCanceledException(), new InvalidOperationException("Storage failure.")),
+                2 => new AggregateException(new InvalidOperationException("Storage failure."), new System.OperationCanceledException()),
+                3 => new AggregateException(),
+                4 => new Exception("Unknown wrapper.", new System.OperationCanceledException()),
+                5 => new AggregateException(new System.OperationCanceledException(), new AggregateException()),
+                6 => new IncompleteOperationException<int>(new System.OperationCanceledException(), 0),
+                7 => new BundleOrchestratorOperationCanceledException("Bundle cancellation."),
+                _ => throw new ArgumentOutOfRangeException(nameof(failureKind)),
+            };
+            var partialResults = new Dictionary<string, long> { ["Patient"] = 2 };
+            var exception = new IncompleteOperationException<IDictionary<string, long>>(
+                new AggregateException(new IncompleteOperationException<Dictionary<string, long>>(failure, partialResults)),
+                partialResults);
+
+            // Act
+            var result = ValidateOperationOutcome(exception, HttpStatusCode.InternalServerError);
+
+            // Assert
+            Assert.Equal(OperationOutcome.IssueType.Unknown, Assert.Single(result.Result.Issue).Code);
+            Assert.Same(exception, _context.Exception);
+            Assert.Equal(2, exception.PartialResults["Patient"]);
+            var log = Assert.Single(_logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log)).GetArguments();
+            Assert.Equal(LogLevel.Error, log[0]);
+            Assert.Same(exception, log[3]);
+        }
+
+        [Fact]
+        public void GivenAnUnrelatedIncompleteOperationCanceled_WhenExecutingAnAction_ThenItsClassificationIsUnchanged()
+        {
+            // Arrange
+            var exception = new IncompleteOperationException<int>(new System.OperationCanceledException(), 1);
+
+            // Act
+            var result = ValidateOperationOutcome(exception, HttpStatusCode.InternalServerError);
+
+            // Assert
+            Assert.Equal(OperationOutcome.IssueType.Unknown, Assert.Single(result.Result.Issue).Code);
+        }
+
         [Fact]
         public void GivenAnOperationCanceledException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {

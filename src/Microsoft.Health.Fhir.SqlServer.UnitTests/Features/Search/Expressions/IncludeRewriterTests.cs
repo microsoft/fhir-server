@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -1659,7 +1661,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     searchParameterComparer,
                     statusDataStore.CreateMockScopeProvider(),
                     fhirDataStore.CreateMockScopeProvider(),
-                    logger);
+                    logger,
+                    Options.Create(new CoreFeatureConfiguration()));
             }
 
             public ISearchParameterDefinitionManager SearchParameterDefinitionManager { get; }

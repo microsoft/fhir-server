@@ -21,7 +21,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -38,6 +37,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
 
             _dataStore = new CosmosFhirDataStore(
-                _container,
+                _container.CreateMockScopeProviderFromScoped(),
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             var searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             var dataStore = new CosmosFhirDataStore(
-                _container,
+                _container.CreateMockScopeProviderFromScoped(),
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,

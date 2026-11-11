@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -103,6 +104,105 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             await Run(false, raw, query);
         }
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task GivenRawSearchBundleWithSemanticScore_WhenWritingResponse_ThenScoreShouldBeWrittenWithoutMaterializingResources(
+            bool extendedMetadata,
+            bool pretty)
+        {
+            using var body = new MemoryStream();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString(pretty ? "?_pretty=true" : null);
+            httpContext.Response.Body = body;
+            var bundle = (Hl7.Fhir.Model.Bundle)CreateObject(bundle: true, raw: true);
+            var rawEntry = Assert.IsType<RawBundleEntryComponent>(Assert.Single(bundle.Entry));
+            rawEntry.Search = CreateSearchMetadata(extendedMetadata);
+            var writeContext = new OutputFormatterWriteContext(
+                httpContext,
+                (_, _) => throw new InvalidOperationException("Raw search bundles must bypass the POCO writer."),
+                typeof(Hl7.Fhir.Model.Bundle),
+                bundle);
+            var formatter = new FhirJsonOutputFormatter(
+                new FhirJsonSerializer(),
+                Deserializers.ResourceDeserializer,
+                ArrayPool<char>.Shared,
+                new BundleSerializer(new FhirJsonSerializer()),
+                ModelInfoProvider.Instance);
+
+            await formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
+
+            Hl7.Fhir.Model.Bundle serializedBundle = Parser.Parse<Hl7.Fhir.Model.Bundle>(Encoding.UTF8.GetString(body.ToArray()));
+            SearchComponent search = Assert.Single(serializedBundle.Entry).Search;
+            Assert.Equal(0.91m, search.Score);
+            Assert.True(search.IsExactly(rawEntry.Search));
+            Assert.Null(rawEntry.Resource);
+        }
+
+        [Theory]
+        [InlineData("?_elements=identifier,status", false)]
+        [InlineData("?_summary=text", false)]
+        [InlineData(null, true)]
+        public async Task GivenRawSearchMetadataAndFilteringOrMixedEntries_WhenWritingResponse_ThenPocoFallbackPreservesMetadata(
+            string query,
+            bool mixed)
+        {
+            using var body = new MemoryStream();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString(query);
+            httpContext.Response.Body = body;
+            var bundle = (Hl7.Fhir.Model.Bundle)CreateObject(bundle: true, raw: !mixed);
+            var rawEntry = Assert.Single(bundle.Entry.OfType<RawBundleEntryComponent>());
+            rawEntry.Search = CreateSearchMetadata(extendedMetadata: true);
+            bool writerCreated = false;
+            var writeContext = new OutputFormatterWriteContext(
+                httpContext,
+                (stream, encoding) =>
+                {
+                    writerCreated = true;
+                    return new StreamWriter(stream, encoding, leaveOpen: true);
+                },
+                typeof(Hl7.Fhir.Model.Bundle),
+                bundle);
+            var formatter = new FhirJsonOutputFormatter(
+                new FhirJsonSerializer(),
+                Deserializers.ResourceDeserializer,
+                ArrayPool<char>.Shared,
+                new BundleSerializer(new FhirJsonSerializer()),
+                ModelInfoProvider.Instance);
+
+            await formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
+
+            body.Position = 0;
+            using var reader = new StreamReader(body);
+            var serializedBundle = Parser.Parse<Hl7.Fhir.Model.Bundle>(await reader.ReadToEndAsync());
+            Assert.True(writerCreated);
+            Assert.NotNull(rawEntry.Resource);
+            Assert.Equal(mixed ? 2 : 1, serializedBundle.Entry.Count);
+            Assert.True(serializedBundle.Entry[0].Search.IsExactly(rawEntry.Search));
+            if (query != null)
+            {
+                Assert.NotEmpty(serializedBundle.Entry[0].Resource.Meta.Tag);
+            }
+        }
+
+        private static SearchComponent CreateSearchMetadata(bool extendedMetadata)
+        {
+            var search = new SearchComponent { Mode = SearchEntryMode.Match, Score = 0.91m };
+            if (extendedMetadata)
+            {
+                search.ElementId = "search-id";
+                search.Extension.Add(new Extension("http://example.org/search", new FhirString("quoted \"value\"")));
+                search.ModifierExtension.Add(new Extension("http://example.org/modifier", new FhirBoolean(true)));
+                search.ModeElement.ElementId = "mode-id";
+                search.ScoreElement.Extension.Add(new Extension("http://example.org/score", new FhirDecimal(0.25m)));
+            }
+
+            return search;
+        }
+
         private static async Task Run(
             bool bundle,
             bool raw,
@@ -134,7 +234,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                new FhirJsonSerializer(),
                Deserializers.ResourceDeserializer,
                ArrayPool<char>.Shared,
-               new BundleSerializer(),
+               new BundleSerializer(new FhirJsonSerializer()),
                ModelInfoProvider.Instance);
             await formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
 
@@ -166,7 +266,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                new FhirJsonSerializer(),
                Deserializers.ResourceDeserializer,
                ArrayPool<char>.Shared,
-               new BundleSerializer(),
+               new BundleSerializer(new FhirJsonSerializer()),
                ModelInfoProvider.Instance);
 
             var defaultHttpContext = new DefaultHttpContext();

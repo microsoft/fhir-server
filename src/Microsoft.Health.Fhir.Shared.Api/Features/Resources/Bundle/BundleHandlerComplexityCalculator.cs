@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
@@ -31,7 +32,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleProcessingLogic processingLogic,
             Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests,
             IProvideProfilesForValidation profileResolver,
-            ILogger logger)
+            ILogger logger,
+            bool profileValidationOnCreate = false,
+            bool profileValidationOnUpdate = false,
+            bool? profileValidationHeader = null)
         {
             EnsureArg.IsNotNull(requests, nameof(requests));
             EnsureArg.IsNotNull(profileResolver, nameof(profileResolver));
@@ -45,6 +49,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             long maxResourceSizeBytes = 0;
 
             bool requiresProfileRefresh = false;
+            bool requiresProfileValidation = false;
+
+            // The request header overrides the configured value, matching ResourceProfileValidator.
+            bool validateOnCreate = profileValidationHeader ?? profileValidationOnCreate;
+            bool validateOnUpdate = profileValidationHeader ?? profileValidationOnUpdate;
 
             IReadOnlySet<string> profileResourceTypes = profileResolver.GetProfilesTypes();
 
@@ -68,6 +77,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (!requiresProfileRefresh && operation.ResourceType != null && profileResourceTypes.Contains(operation.ResourceType))
                 {
                     requiresProfileRefresh = true;
+                }
+
+                if (!requiresProfileValidation && RunsProfileValidation(operation, validateOnCreate, validateOnUpdate))
+                {
+                    requiresProfileValidation = true;
                 }
 
                 long resourceSizeBytes = operation.Context?.HttpContext?.Request?.Body?.Length ?? 0;
@@ -104,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 profileRefreshCost +
                 payloadCost;
 
-            BundleComplexity bundleComplexity = GetComplexity(score);
+            BundleComplexity bundleComplexity = requiresProfileValidation ? BundleComplexity.Extreme : GetComplexity(score);
 
             if (bundleComplexity is BundleComplexity.High or BundleComplexity.Extreme)
             {
@@ -121,6 +135,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     "TotalResourceSizeBytes: {TotalResourceSizeBytes}, " +
                     "MaxResourceSizeBytes: {MaxResourceSizeBytes}, " +
                     "RequiresProfileRefresh: {RequiresProfileRefresh}, " +
+                    "RequiresProfileValidation: {RequiresProfileValidation}, " +
                     "ProcessingLogic: {ProcessingLogic}",
                     bundleComplexity,
                     score,
@@ -135,10 +150,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     totalResourceSizeBytes,
                     maxResourceSizeBytes,
                     requiresProfileRefresh,
+                    requiresProfileValidation,
                     processingLogic);
             }
 
             return bundleComplexity;
+        }
+
+        private static bool RunsProfileValidation(BundleHandlerInternalOperationExecutionContext operation, bool validateOnCreate, bool validateOnUpdate)
+        {
+            if (!validateOnCreate && !validateOnUpdate)
+            {
+                return false;
+            }
+
+            object action = null;
+            operation.Context?.RouteData?.Values?.TryGetValue("action", out action);
+            string actionName = action?.ToString();
+
+            switch (operation.HttpVerb)
+            {
+                case HTTPVerb.POST:
+                    // Other POST operations (e.g. $expand) do not run resource create validation.
+                    return validateOnCreate &&
+                        (string.Equals(actionName, nameof(FhirController.Create), StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(actionName, nameof(FhirController.ConditionalCreate), StringComparison.OrdinalIgnoreCase));
+                case HTTPVerb.PUT:
+                    // A conditional update can resolve to a create when there is no match, so either setting may apply.
+                    return operation.IsConditionalOperation ? (validateOnCreate || validateOnUpdate) : validateOnUpdate;
+                default:
+                    return false;
+            }
         }
 
         private static int CalculateProfileRefreshCost(bool requiresProfileRefresh)
