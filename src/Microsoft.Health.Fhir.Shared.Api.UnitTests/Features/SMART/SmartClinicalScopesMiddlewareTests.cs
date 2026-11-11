@@ -413,45 +413,53 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         [MemberData(nameof(GetScopesWithNonFilteringParameters))]
         public async Task GivenSmartScopeWithNonFilteringParameter_WhenInvoked_ThenBadRequestIsThrown(string scopes, string expectedMessage)
         {
-            HttpContext httpContext = new DefaultHttpContext();
-
-            var fhirConfiguration = new FhirServerConfiguration();
-            fhirConfiguration.Security.Enabled = true;
-            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
-            await LoadRoles(authorizationConfiguration);
-
-            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
-            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
-
-            using var stream = new MemoryStream();
-            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            foreach (string scopeClaim in new[] { "scope", "roles" })
             {
-                stream.SetLength(0);
+                var httpContext = new DefaultHttpContext();
+                using var stream = new MemoryStream();
                 httpContext.Response.Body = stream;
-
-                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-
-                var fhirRequestContext = new DefaultFhirRequestContext()
+                var claims = new[]
                 {
-                    CorrelationId = Guid.NewGuid().ToString(),
+                    new Claim(scopeClaim, scopes),
+                    new Claim("fhirUser", "https://fhirServer/Patient/foo"),
                 };
 
-                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+                var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims);
 
-                var scopesClaim = new Claim(singleClaim, scopes);
-                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
-                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
-
-                httpContext.User = expectedPrincipal;
-                fhirRequestContext.Principal = expectedPrincipal;
-
-                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
-
-                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                Assert.False(nextCalled);
                 ValidateErrorResponse(httpContext, new[] { expectedMessage }, true);
-                Assert.Empty(fhirRequestContext.AccessControlContext.AllowedResourceActions);
+                Assert.Empty(accessControlContext.AllowedResourceActions);
             }
+        }
+
+        [Theory]
+        [InlineData("system/Patient.rs system/Condition.rs?_text=zzz", "cannot be enforced as a SMART on FHIR clinical scope constraint")]
+        [InlineData("system/Patient.rs system/Condition.rs?_count=abc", "Invalid search parameters in SMART on FHIR clinical scope")]
+        public async Task GivenValidScopeFollowedByNonFilteringParameterScope_WhenInvoked_ThenRequestIsStopped(string scopes, string expectedMessage)
+        {
+            var httpContext = new DefaultHttpContext();
+            using var stream = new MemoryStream();
+            httpContext.Response.Body = stream;
+
+            var (_, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, new[] { new Claim("scope", scopes) });
+
+            Assert.False(nextCalled);
+            ValidateErrorResponse(httpContext, new[] { expectedMessage }, true);
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeWithRepeatedTagConstraint_WhenInvoked_ThenBothDecodedConstraintsAreKept()
+        {
+            var claims = new[] { new Claim("scope", "system/Observation.rs?_tag=urn%3Atest%7CA&_tag=urn%3Atest%7CB") };
+
+            var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(new DefaultHttpContext(), claims);
+
+            Assert.True(nextCalled);
+            ScopeRestriction restriction = Assert.Single(accessControlContext.AllowedResourceActions);
+            Assert.Equal("Observation", restriction.Resource);
+            Assert.Equal(
+                new[] { Tuple.Create("_tag", "urn:test|A"), Tuple.Create("_tag", "urn:test|B") },
+                restriction.SearchParameters.Parameters);
         }
 
         [Theory]
