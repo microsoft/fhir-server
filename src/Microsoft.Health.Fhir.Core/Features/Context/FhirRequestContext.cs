@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             clone.IsBackgroundTask = IsBackgroundTask;
             clone.AccessControlContext = (AccessControlContext)AccessControlContext.Clone();
 
-            // clone expilicitly does not copy the RequestTimer to allow subrequests to have their own timer.
+            // clone explicitly does not copy the RequestTimer to allow subrequests to have their own timer.
 
             foreach (OperationOutcomeIssue bundleIssue in BundleIssues)
             {
