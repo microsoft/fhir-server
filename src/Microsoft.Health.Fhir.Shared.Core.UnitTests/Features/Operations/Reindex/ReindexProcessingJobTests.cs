@@ -167,11 +167,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var performer = new SearchParameterInfo("performer", "performer", ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"));
             var overlong = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64)) { OverlongResourceIdLength = 65, MaxResourceIdLength = 64 };
             _resourceWrapperFactory
-                .When(f => f.Update(Arg.Any<ResourceWrapper>()))
-                .Do(callInfo =>
+                .UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
                 {
-                    ResourceWrapper wrapper = callInfo.Arg<ResourceWrapper>();
-                    wrapper.UpdateSearchIndices(wrapper.ResourceId == "3" ? new List<SearchIndexEntry>() : new List<SearchIndexEntry> { new SearchIndexEntry(performer, overlong) });
+                    foreach (ResourceWrapper wrapper in callInfo.Arg<IReadOnlyCollection<ResourceWrapper>>())
+                    {
+                        wrapper.UpdateSearchIndices(wrapper.ResourceId == "3" ? new List<SearchIndexEntry>() : new List<SearchIndexEntry> { new SearchIndexEntry(performer, overlong) });
+                    }
+
+                    return Task.CompletedTask;
                 });
 
             string serialized = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
@@ -405,15 +409,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             await job.ComputeAndWrite(resources, _fhirDataStore, _cancellationToken);
 
-            _resourceWrapperFactory.Received(1).Update(resources[0]);
-            _resourceWrapperFactory.Received(1).Update(resources[1]);
+            await _resourceWrapperFactory.Received(1).UpdateAsync(resources, _cancellationToken);
+            _resourceWrapperFactory.DidNotReceive().Update(Arg.Any<ResourceWrapper>());
             await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r => r.Count == 2),
                 Arg.Any<CancellationToken>());
         }
 
         [Fact]
-        public async Task GivenTheFirstWriteAttemptIsThrottled_WhenExecuted_ThenIndicesAreRecomputedAndTheRetryWarningsAreReported()
+        public async Task GivenTheFirstWriteAttemptIsThrottled_WhenExecuted_ThenIndexingIsNotRepeatedAndTheRetryWarningsAreReported()
         {
             var job = new ReindexProcessingJobDefinition()
             {
@@ -427,18 +431,78 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
             var jobInfo = new JobInfo() { Id = 1, Definition = JsonConvert.SerializeObject(job), QueueType = (byte)QueueType.Reindex, GroupId = 1, CreateDate = DateTime.UtcNow, Status = JobStatus.Running };
             SearchResultEntry entry = CreateSearchResultEntry("1", "Patient");
+            var computedIndices = new List<SearchIndexEntry> { new SearchIndexEntry(new SearchParameterInfo("ext-uri", "ext-uri"), new StringSearchValue("value")) };
+            entry.Resource.UpdateSearchIndices(computedIndices);
             _searchService.SearchBySurrogateIdRange(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
                 .Returns(new SearchResult(new[] { entry }, null, null, new List<Tuple<string, string>>()));
+            var indicesSeenByTheDataStore = new List<int>();
+            int attempts = 0;
             _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
-                .Returns(
-                    _ => Task.FromException<IReadOnlyList<string>>(new RequestRateExceededException(TimeSpan.FromMilliseconds(1))),
-                    _ => Task.FromResult<IReadOnlyList<string>>(new List<string> { "Resource Patient/1 was not indexed." }));
+                .Returns(callInfo =>
+                {
+                    ResourceWrapper resource = callInfo.Arg<IReadOnlyCollection<ResourceWrapper>>().Single();
+                    indicesSeenByTheDataStore.Add(resource.SearchIndices.Count);
+
+                    // Like the SQL data store, remove the values it can't index from the wrapper before the write fails.
+                    resource.UpdateSearchIndices(new List<SearchIndexEntry>());
+                    return ++attempts == 1
+                        ? Task.FromException<IReadOnlyList<string>>(new RequestRateExceededException(TimeSpan.FromMilliseconds(1)))
+                        : Task.FromResult<IReadOnlyList<string>>(new List<string> { "Resources of type Patient were not indexed." });
+                });
 
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            _resourceWrapperFactory.Received(2).Update(entry.Resource);
+            await _resourceWrapperFactory.Received(1).UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>());
+            Assert.Equal(new[] { 1, 1 }, indicesSeenByTheDataStore);
             Assert.Equal(1, jobResult.SucceededResourceCount);
-            Assert.Equal(new[] { "Resource Patient/1 was not indexed." }, jobResult.Warnings);
+            Assert.Equal(new[] { "Resources of type Patient were not indexed." }, jobResult.Warnings);
+        }
+
+        [Fact]
+        public async Task ComputeAndWrite_WhenIndexingFails_DoesNotPersistOrRetryIndexing()
+        {
+            var resources = Array.Empty<ResourceWrapper>();
+            var failure = new InvalidOperationException("indexing failed");
+            _resourceWrapperFactory.UpdateAsync(resources, _cancellationToken).Returns(Task.FromException(failure));
+            var job = _reindexProcessingJobTaskFactory();
+
+            var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => job.ComputeAndWrite(resources, _fhirDataStore, _cancellationToken));
+
+            Assert.Same(failure, actual);
+            await _resourceWrapperFactory.Received(1).UpdateAsync(resources, _cancellationToken);
+            await _fhirDataStore.DidNotReceive().BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task ComputeAndWrite_WhenIndexingIsPending_WaitsBeforePersisting()
+        {
+            var resources = Array.Empty<ResourceWrapper>();
+            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _resourceWrapperFactory.UpdateAsync(resources, _cancellationToken).Returns(completion.Task);
+            var job = _reindexProcessingJobTaskFactory();
+
+            Task write = job.ComputeAndWrite(resources, _fhirDataStore, _cancellationToken);
+
+            Assert.False(write.IsCompleted);
+            await _fhirDataStore.DidNotReceive().BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>());
+            completion.SetResult();
+            await write;
+            await _resourceWrapperFactory.Received(1).UpdateAsync(resources, _cancellationToken);
+            await _fhirDataStore.Received(1).BulkUpdateSearchParameterIndicesAsync(resources, _cancellationToken);
+        }
+
+        [Fact]
+        public async Task ComputeAndWrite_WhenPersistenceIsRetried_DoesNotRepeatIndexing()
+        {
+            var resources = Array.Empty<ResourceWrapper>();
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(resources, _cancellationToken)
+                .Returns(Task.FromException<IReadOnlyList<string>>(new RequestRateExceededException(TimeSpan.Zero)), Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>()));
+            var job = _reindexProcessingJobTaskFactory();
+
+            await job.ComputeAndWrite(resources, _fhirDataStore, _cancellationToken);
+
+            await _resourceWrapperFactory.Received(1).UpdateAsync(resources, _cancellationToken);
+            await _fhirDataStore.Received(2).BulkUpdateSearchParameterIndicesAsync(resources, _cancellationToken);
         }
 
         [Fact]

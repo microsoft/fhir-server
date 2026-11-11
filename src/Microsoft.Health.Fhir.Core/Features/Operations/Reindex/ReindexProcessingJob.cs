@@ -296,13 +296,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         internal async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, IFhirDataStore store, CancellationToken cancellationToken)
         {
-            // Indices are computed inside each attempt, because the data store can remove values it can't index (and reports
-            // them as warnings), so a retry needs the full indices again to report the same warnings.
+            await _resourceWrapperFactory.UpdateAsync(resources, cancellationToken);
+
+            // The data store can leave out values it can't index: it removes them from the wrapper and returns warnings.
+            // Indexing isn't repeated on a retry, so restore the computed indices before each attempt to report the same warnings.
+            var computedIndices = resources.Select(resource => resource.SearchIndices).ToList();
             IReadOnlyList<string> warnings = await _bulkUpdateRetries.ExecuteAsync(async () =>
             {
-                foreach (var resource in resources)
+                for (int i = 0; i < resources.Count; i++)
                 {
-                    _resourceWrapperFactory.Update(resource);
+                    resources[i].UpdateSearchIndices(computedIndices[i]);
                 }
 
                 return await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken);

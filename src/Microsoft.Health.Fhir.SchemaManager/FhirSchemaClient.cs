@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.ObjectModel;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Exceptions;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -19,24 +20,35 @@ public class FhirSchemaClient : ISchemaClient
     private readonly IScriptProvider _scriptProvider;
     private readonly ISchemaDataStore _schemaDataStore;
     private readonly ISchemaManagerDataStore _schemaManagerDataStore;
+    private readonly ILogger<FhirSchemaClient> _logger;
 
     public FhirSchemaClient(
         IScriptProvider scriptProvider,
         ISchemaDataStore schemaDataStore,
-        ISchemaManagerDataStore schemaManagerDataStore)
+        ISchemaManagerDataStore schemaManagerDataStore,
+        ILogger<FhirSchemaClient> logger)
     {
         EnsureArg.IsNotNull(scriptProvider, nameof(scriptProvider));
         EnsureArg.IsNotNull(schemaDataStore, nameof(schemaDataStore));
         EnsureArg.IsNotNull(schemaManagerDataStore, nameof(schemaManagerDataStore));
+        EnsureArg.IsNotNull(logger, nameof(logger));
 
         _scriptProvider = scriptProvider;
         _schemaDataStore = schemaDataStore;
         _schemaManagerDataStore = schemaManagerDataStore;
+        _logger = logger;
     }
 
     public async Task<List<AvailableVersion>> GetAvailabilityAsync(CancellationToken cancellationToken = default)
     {
         int currentVersion = await _schemaManagerDataStore.GetCurrentSchemaVersionAsync(cancellationToken);
+
+        if (currentVersion > SchemaVersionConstants.Max)
+        {
+            // Expected after a failover to a region running an older build; skipping lets the schema job succeed.
+            _logger.LogError("Database schema version {CurrentVersion} is ahead of the maximum version {MaxVersion} supported by this build. Skipping schema upgrade; no migrations will be applied.", currentVersion, SchemaVersionConstants.Max);
+            return new List<AvailableVersion>();
+        }
 
         int numberOfAvailableVersions = SchemaVersionConstants.Max - currentVersion + 1;
         var availableVersions = Enumerable

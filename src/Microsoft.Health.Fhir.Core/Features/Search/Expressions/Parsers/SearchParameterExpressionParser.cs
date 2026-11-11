@@ -15,6 +15,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ResourceIdPolicy _resourceIdPolicy;
         private readonly ILogger<SearchParameterExpressionParser> _logger;
+        private readonly IVectorSearchParameterResolver _vectorSearchParameterResolver;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchParameterExpressionParser"/> class that doesn't report
@@ -41,7 +43,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         /// </summary>
         /// <param name="referenceSearchValueParser">The reference search value parser.</param>
         public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser)
-            : this(referenceSearchValueParser, contextAccessor: null, ResourceIdPolicy.Standard, NullLogger<SearchParameterExpressionParser>.Instance)
+            : this(referenceSearchValueParser, vectorSearchParameterResolver: null)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterExpressionParser"/> class without request warnings or logging of
+        /// reference values with resource ids longer than the maximum resource id length.
+        /// </summary>
+        /// <param name="referenceSearchValueParser">The reference search value parser.</param>
+        /// <param name="vectorSearchParameterResolver">The resolver for semantic (vector) search parameters. Can be <c>null</c>.</param>
+        public SearchParameterExpressionParser(
+            IReferenceSearchValueParser referenceSearchValueParser,
+            IVectorSearchParameterResolver vectorSearchParameterResolver)
+            : this(referenceSearchValueParser, contextAccessor: null, ResourceIdPolicy.Standard, NullLogger<SearchParameterExpressionParser>.Instance, vectorSearchParameterResolver)
         {
         }
 
@@ -52,11 +67,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         /// <param name="contextAccessor">The request context accessor, used to add search warnings to the response. Can be <c>null</c>.</param>
         /// <param name="resourceIdPolicy">The resource id policy, used for the maximum resource id length in the warning.</param>
         /// <param name="logger">The logger.</param>
+        /// <param name="vectorSearchParameterResolver">The resolver for semantic (vector) search parameters. Can be <c>null</c>.</param>
         public SearchParameterExpressionParser(
             IReferenceSearchValueParser referenceSearchValueParser,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ResourceIdPolicy resourceIdPolicy,
-            ILogger<SearchParameterExpressionParser> logger)
+            ILogger<SearchParameterExpressionParser> logger,
+            IVectorSearchParameterResolver vectorSearchParameterResolver = null)
         {
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
             EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
@@ -65,6 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             _contextAccessor = contextAccessor;
             _resourceIdPolicy = resourceIdPolicy;
             _logger = logger;
+            _vectorSearchParameterResolver = vectorSearchParameterResolver;
 
             _parserDictionary = new (SearchParamType type, Func<string, ISearchValue> parser)[]
                 {
@@ -86,6 +104,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         {
             EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
+
+            if (searchParameter.Type == SearchParamType.Special && searchParameter.VectorConfig != null)
+            {
+                if (modifier != null)
+                {
+                    throw new InvalidSearchOperationException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
+                }
+
+                if (searchParameter.Url == null)
+                {
+                    throw new InvalidOperationException($"Vector SearchParameter '{searchParameter.Code}' must declare a canonical URL.");
+                }
+
+                if (_vectorSearchParameterResolver == null)
+                {
+                    throw new SearchParameterNotSupportedException(searchParameter.Url);
+                }
+
+                SearchParameterInfo enabledSearchParameter = _vectorSearchParameterResolver.GetSearchParameter(searchParameter.Url);
+
+                // Indexed source text is unescaped by StringSearchValue, so the query is unescaped too and both embedding
+                // inputs are normalized identically. The value is a single natural-language query: it is never split on ','.
+                return new VectorSearchExpression(enabledSearchParameter, value.UnescapeSearchParameterValue());
+            }
 
             Expression outputExpression;
 

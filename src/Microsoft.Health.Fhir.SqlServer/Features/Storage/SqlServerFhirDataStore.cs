@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private static CachedParameter<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static CachedParameter<SqlServerFhirDataStore> _ignoreInputVersion;
         private static CachedParameter<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -90,7 +91,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient)
+            SqlStoreClient storeClient,
+            IResourceWrapperFactory resourceWrapperFactory)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -106,6 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -273,37 +276,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // TODO: MergeResourcesBeginTransaction accepts new parameter allowing to throw exception on overload.
             // TODO: Set this parameter to true when 429 instead of intenal waits is desired. Make sure that exception is NOT thrown only for API calls.
             (var transactionId, var minSequenceId) = await ExecTime(() => StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken), addDatabaseMilliseconds);
+            using var heartbeatCancellationSource = new CancellationTokenSource();
+            Task heartbeatTask = RunTransactionHeartbeatAsync(transactionId, heartbeatCancellationSource.Token);
 
-            var index = 0;
-            var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
-            ResourceKey prevResourceKey = null;
-            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
+            try
             {
-                var metaHistory = true;
-                var resource = resourceExt.Wrapper;
-                var setAsHistory = prevResourceKey == resource.ToResourceKey(true); // this assumes that first resource version is the latest one
-                //// negative versions are historical by definition
-                if (resourceExt.KeepVersion && int.Parse(resource.Version) < 0)
+                var index = 0;
+                var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
+                ResourceKey prevResourceKey = null;
+                foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
                 {
-                    setAsHistory = true;
-                }
+                    var metaHistory = true;
+                    var resource = resourceExt.Wrapper;
+                    var setAsHistory = prevResourceKey == resource.ToResourceKey(true); // this assumes that first resource version is the latest one
+                                                                                        //// negative versions are historical by definition
+                    if (resourceExt.KeepVersion && int.Parse(resource.Version) < 0)
+                    {
+                        setAsHistory = true;
+                    }
 
-                var previousResourceKey = prevResourceKey;
-                prevResourceKey = resource.ToResourceKey(true);
-                var weakETag = resourceExt.WeakETag;
-                int? eTag = weakETag == null
-                    ? null
-                    : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
+                    var previousResourceKey = prevResourceKey;
+                    prevResourceKey = resource.ToResourceKey(true);
+                    var weakETag = resourceExt.WeakETag;
+                    int? eTag = weakETag == null
+                        ? null
+                        : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
-                existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
-                var hasVersionToCompare = false;
-                var existingVersion = 0;
-                var isResurrection = false;
+                    existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
+                    var hasVersionToCompare = false;
+                    var existingVersion = 0;
+                    var isResurrection = false;
 
-                // Check for any validation errors
-                if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
-                {
-                    if (weakETag != null)
+                    // Check for any validation errors
+                    if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
                     {
                         // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
                         if (_modelInfoProvider.Version == FhirSpecification.Stu3)
@@ -316,210 +321,211 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
                         continue;
                     }
-                }
 
-                // There is no previous version of this resource, check validations and then simply call SP to create new version
-                if (existingResource == null)
-                {
-                    if (resource.IsDeleted && !keepAllDeleted)
+                    // There is no previous version of this resource, check validations and then simply call SP to create new version
+                    if (existingResource == null)
                     {
-                        // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
-                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
-                        continue;
-                    }
-
-                    if (eTag.HasValue)
-                    {
-                        // You can't update a resource with a specified version if the resource does not exist
-                        if (weakETag != null)
+                        if (resource.IsDeleted && !keepAllDeleted)
                         {
+                            // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
+                            continue;
+                        }
+
+                        if (eTag.HasValue)
+                        {
+                            // You can't update a resource with a specified version if the resource does not exist
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
                             continue;
                         }
-                    }
 
-                    if (!resourceExt.AllowCreate)
-                    {
-                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed)));
-                        continue;
-                    }
-
-                    resource.Version = resourceExt.KeepVersion ? resource.Version : InitialVersion;
-                    if (resource.Version == InitialVersion)
-                    {
-                        hasVersionToCompare = true;
-                    }
-
-                    resource.IsHistory = setAsHistory;
-                }
-                else
-                {
-                    if (resourceExt.CreateOnly && !existingResource.IsDeleted)
-                    {
-                        _logger.LogInformation("Conflict: ResourceAlreadyExists");
-                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceConflictException(string.Format(Core.Resources.ResourceAlreadyExists, resource.ResourceTypeName, resource.ResourceId))));
-                        continue;
-                    }
-
-                    if (resourceExt.RequireETagOnUpdate && !eTag.HasValue)
-                    {
-                        // This is a versioned update and no version was specified
-                        // TODO: Add this to SQL error codes in AB#88286
-                        // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
-                        if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                        if (!resourceExt.AllowCreate)
                         {
-                            _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
-                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed)));
                             continue;
                         }
 
-                        _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
-                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
-                        continue;
-                    }
-
-                    if (resource.IsDeleted && existingResource.IsDeleted && !keepAllDeleted)
-                    {
-                        // Already deleted - don't create a new version
-                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
-                        continue;
-                    }
-
-                    // Replacing a deleted resource with a live one re-creates it (FHIR R4 HTTP Update: 201 Created).
-                    isResurrection = existingResource.IsDeleted && !resource.IsDeleted;
-
-                    // Check if resources are equal if its not a Delete action.
-                    // A deleted existing resource must never be short-circuited, otherwise the tombstone would remain.
-                    if (!resource.IsDeleted && !existingResource.IsDeleted)
-                    {
-                        // check if the new resource data is same as existing resource data
-                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
+                        resource.Version = resourceExt.KeepVersion ? resource.Version : InitialVersion;
+                        if (resource.Version == InitialVersion)
                         {
-                            _logger.LogInformation("Update operation resulted in no changes for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
-                            if (resources.Count == 1)
+                            hasVersionToCompare = true;
+                        }
+
+                        resource.IsHistory = setAsHistory;
+                    }
+                    else
+                    {
+                        if (resourceExt.CreateOnly && !existingResource.IsDeleted)
+                        {
+                            _logger.LogInformation("Conflict: ResourceAlreadyExists");
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceConflictException(string.Format(Core.Resources.ResourceAlreadyExists, resource.ResourceTypeName, resource.ResourceId))));
+                            continue;
+                        }
+
+                        if (resourceExt.RequireETagOnUpdate && !eTag.HasValue)
+                        {
+                            // This is a versioned update and no version was specified
+                            // TODO: Add this to SQL error codes in AB#88286
+                            // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
+                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                             {
-                                AddLongUriWriteWarning(resource);
+                                _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
+                                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                                continue;
                             }
 
-                            // Send the existing resource in the response
-                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
+                            _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                             continue;
                         }
-                        else if (!resourceExt.MetaHistory && ChangesAreOnlyInMetadata(resource, existingResource))
+
+                        if (resource.IsDeleted && existingResource.IsDeleted && !keepAllDeleted)
                         {
-                            _logger.LogInformation("Update operation modified only meta fields for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
-                            metaHistory = false;
+                            // Already deleted - don't create a new version
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
+                            continue;
+                        }
+
+                        // Replacing a deleted resource with a live one re-creates it (FHIR R4 HTTP Update: 201 Created).
+                        isResurrection = existingResource.IsDeleted && !resource.IsDeleted;
+
+                        // Check if resources are equal if its not a Delete action.
+                        // A deleted existing resource must never be short-circuited, otherwise the tombstone would remain.
+                        if (!resource.IsDeleted && !existingResource.IsDeleted)
+                        {
+                            // check if the new resource data is same as existing resource data
+                            if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
+                            {
+                                _logger.LogInformation("Update operation resulted in no changes for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
+                                if (resources.Count == 1)
+                                {
+                                    AddLongUriWriteWarning(resource);
+                                }
+
+                                // Send the existing resource in the response
+                                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
+                                continue;
+                            }
+                            else if (!resourceExt.MetaHistory && ChangesAreOnlyInMetadata(resource, existingResource))
+                            {
+                                _logger.LogInformation("Update operation modified only meta fields for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
+                                metaHistory = false;
+                            }
+                        }
+
+                        existingVersion = int.Parse(existingResource.Version);
+                        var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
+                        if (!resourceExt.KeepVersion) // version is set on input
+                        {
+                            resource.Version = versionPlusOne;
+                        }
+
+                        // This is not part of the above check to cover the case of importing data in version order.
+                        if (resource.Version == versionPlusOne)
+                        {
+                            hasVersionToCompare = true;
+                        }
+
+                        if (int.Parse(resource.Version) < existingVersion || setAsHistory) // is history
+                        {
+                            resource.IsHistory = true;
                         }
                     }
 
-                    existingVersion = int.Parse(existingResource.Version);
-                    var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
-                    if (!resourceExt.KeepVersion) // version is set on input
+                    // The URI search index compares only the first IndexedUriMaxLength characters, so two different values of the
+                    // same search parameter that share them can't be indexed for one resource. Only the current version is indexed,
+                    // so history versions are accepted. Reject the resource with 400.
+                    string collidingSearchParameter = resource.IsHistory || resource.IsDeleted ? null : UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource);
+                    if (collidingSearchParameter != null)
                     {
-                        resource.Version = versionPlusOne;
+                        _logger.LogWarning("BadRequest: CollidingUriSearchValues. ResourceType={ResourceType}, SearchParameter={SearchParameter}", resource.ResourceTypeName, collidingSearchParameter);
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(CultureInfo.InvariantCulture, Resources.CollidingUriSearchValues, collidingSearchParameter, UriSearchParamListRowGenerator.IndexedUriMaxLength))));
+
+                        // Not stored, so an older version of the same resource later in this batch can become current.
+                        prevResourceKey = previousResourceKey;
+                        continue;
                     }
 
-                    // This is not part of the above check to cover the case of importing data in version order.
-                    if (resource.Version == versionPlusOne)
+                    long surrId;
+                    if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
                     {
-                        hasVersionToCompare = true;
+                        surrId = transactionId + index;
+                        resource.LastModified = surrId.ToLastUpdated();
+                        SyncVersionIdAndLastUpdatedInMeta(resource);
+                    }
+                    else
+                    {
+                        var surrIdBase = resource.LastModified.ToSurrogateId();
+                        surrId = surrIdBase + minSequenceId + index;
+                        SyncVersionIdInMeta(resource);
+                        singleTransaction = true; // There is no way to rollback until TransactionId is added to Resource table
                     }
 
-                    if (int.Parse(resource.Version) < existingVersion || setAsHistory) // is history
+                    resource.ResourceSurrogateId = surrId;
+                    if (resource.Version != InitialVersion) // Do not begin transaction if all creates
                     {
-                        resource.IsHistory = true;
+                        singleTransaction = true;
+                    }
+
+                    // exclude resources for search param deletes, as they are handled by reindex
+                    if (resourceExt.PendingSearchParameterStatus == null
+                        || (resourceExt.PendingSearchParameterStatus.Status != SearchParameterStatus.PendingDelete
+                            && resourceExt.PendingSearchParameterStatus.Status != SearchParameterStatus.PendingHardDelete))
+                    {
+                        mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && metaHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
+                    }
+
+                    index++;
+                    var saveOutcomeType = resource.Version == InitialVersion || (isResurrection && !resource.IsHistory)
+                        ? SaveOutcomeType.Created
+                        : SaveOutcomeType.Updated;
+                    results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, saveOutcomeType)));
+                }
+
+                // In case the operation is atomic (i.e., bundle transaction) and there are validation errors, then nothing should be persisted at the database.
+                // Instead, the errors should be reported and ensure the operation is atomic.
+                if (isBundleTransaction && results.Where(r => !r.Value.IsOperationSuccessful).Any())
+                {
+                    return new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
+                }
+
+                // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
+                // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
+                // Sort them in groups by resource id and order by version.
+                // In each group find the smallest version higher then existing
+                prevResourceKey = null;
+                var notSetInResoureGroup = false;
+                foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ToResourceKey(true)).ThenBy(x => x.ResourceVersion))
+                {
+                    if (prevResourceKey != mergeWrapper.Wrapper.ResourceWrapper.ToResourceKey(true)) // this should reset flag on each resource id group including first.
+                    {
+                        notSetInResoureGroup = true;
+                    }
+
+                    prevResourceKey = mergeWrapper.Wrapper.ResourceWrapper.ToResourceKey(true);
+
+                    if (notSetInResoureGroup && mergeWrapper.ResourceVersion > mergeWrapper.ExistingVersion)
+                    {
+                        mergeWrapper.Wrapper.HasVersionToCompare = true;
+                        notSetInResoureGroup = false;
                     }
                 }
 
-                // The URI search index compares only the first IndexedUriMaxLength characters, so two different values of the
-                // same search parameter that share them can't be indexed for one resource. Only the current version is indexed,
-                // so history versions are accepted. Reject the resource with 400.
-                string collidingSearchParameter = resource.IsHistory || resource.IsDeleted ? null : UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource);
-                if (collidingSearchParameter != null)
+                var pendingStatuses = resources
+                    .Where(resource => resource.PendingSearchParameterStatus != null
+                        && results.TryGetValue(resource.GetIdentifier(), out var outcome)
+                        && outcome.IsOperationSuccessful)
+                    .Select(resource => resource.PendingSearchParameterStatus)
+                    .ToList();
+                if (mergeWrappersWithVersions.Count > 0 || pendingStatuses.Count > 0) // Do not call DB with empty input
                 {
-                    _logger.LogWarning("BadRequest: CollidingUriSearchValues. ResourceType={ResourceType}, SearchParameter={SearchParameter}", resource.ResourceTypeName, collidingSearchParameter);
-                    results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(CultureInfo.InvariantCulture, Resources.CollidingUriSearchValues, collidingSearchParameter, UriSearchParamListRowGenerator.IndexedUriMaxLength))));
+                    if (mergeWrappersWithVersions.Count > 0)
+                    {
+                        await _resourceWrapperFactory.UpdateVectorSearchIndicesAsync(
+                            mergeWrappersWithVersions.Select(item => item.Wrapper.ResourceWrapper).ToList(),
+                            cancellationToken);
+                    }
 
-                    // Not stored, so an older version of the same resource later in this batch can become current.
-                    prevResourceKey = previousResourceKey;
-                    continue;
-                }
-
-                long surrId;
-                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
-                {
-                    surrId = transactionId + index;
-                    resource.LastModified = surrId.ToLastUpdated();
-                    SyncVersionIdAndLastUpdatedInMeta(resource);
-                }
-                else
-                {
-                    var surrIdBase = resource.LastModified.ToSurrogateId();
-                    surrId = surrIdBase + minSequenceId + index;
-                    SyncVersionIdInMeta(resource);
-                    singleTransaction = true; // There is no way to rollback until TransactionId is added to Resource table
-                }
-
-                resource.ResourceSurrogateId = surrId;
-                if (resource.Version != InitialVersion) // Do not begin transaction if all creates
-                {
-                    singleTransaction = true;
-                }
-
-                // exclude resources for search param deletes, as they are handled by reindex
-                if (resourceExt.PendingSearchParameterStatus == null
-                    || (resourceExt.PendingSearchParameterStatus.Status != SearchParameterStatus.PendingDelete
-                        && resourceExt.PendingSearchParameterStatus.Status != SearchParameterStatus.PendingHardDelete))
-                {
-                    mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && metaHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
-                }
-
-                index++;
-                var saveOutcomeType = resource.Version == InitialVersion || (isResurrection && !resource.IsHistory)
-                    ? SaveOutcomeType.Created
-                    : SaveOutcomeType.Updated;
-                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, saveOutcomeType)));
-            }
-
-            // In case the operation is atomic (i.e., bundle transaction) and there are validation errors, then nothing should be persisted at the database.
-            // Instead, the errors should be reported and ensure the operation is atomic.
-            if (isBundleTransaction && results.Where(r => !r.Value.IsOperationSuccessful).Any())
-            {
-                return new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
-            }
-
-            // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
-            // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
-            // Sort them in groups by resource id and order by version.
-            // In each group find the smallest version higher then existing
-            prevResourceKey = null;
-            var notSetInResoureGroup = false;
-            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ToResourceKey(true)).ThenBy(x => x.ResourceVersion))
-            {
-                if (prevResourceKey != mergeWrapper.Wrapper.ResourceWrapper.ToResourceKey(true)) // this should reset flag on each resource id group including first.
-                {
-                    notSetInResoureGroup = true;
-                }
-
-                prevResourceKey = mergeWrapper.Wrapper.ResourceWrapper.ToResourceKey(true);
-
-                if (notSetInResoureGroup && mergeWrapper.ResourceVersion > mergeWrapper.ExistingVersion)
-                {
-                    mergeWrapper.Wrapper.HasVersionToCompare = true;
-                    notSetInResoureGroup = false;
-                }
-            }
-
-            var pendingStatuses = resources
-                .Where(resource => resource.PendingSearchParameterStatus != null
-                    && results.TryGetValue(resource.GetIdentifier(), out var outcome)
-                    && outcome.IsOperationSuccessful)
-                .Select(resource => resource.PendingSearchParameterStatus)
-                .ToList();
-            if (mergeWrappersWithVersions.Count > 0 || pendingStatuses.Count > 0) // Do not call DB with empty input
-            {
-                await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
-                {
                     var retries = 0;
                     var timeoutRetries = 0;
                     while (true)
@@ -527,7 +533,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         try
                         {
                             await ExecTime(() => MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, pendingStatuses, cancellationToken), addDatabaseMilliseconds);
-
                             break;
                         }
                         catch (Exception e)
@@ -553,15 +558,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
                 }
-            }
-            else
-            {
-                await ExecTime(() => StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken), addDatabaseMilliseconds);
-            }
+                else
+                {
+                    await ExecTime(() => StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken), addDatabaseMilliseconds);
+                }
 
-            // If this is not an atomic operations, even if there are unsuccessful results, the operation state will be set as 'Completed'.
-            // For atomic operations, reaching this level means that all results are successful.
-            return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
+                // If this is not an atomic operations, even if there are unsuccessful results, the operation state will be set as 'Completed'.
+                // For atomic operations, reaching this level means that all results are successful.
+                return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
+            }
+            finally
+            {
+                await heartbeatCancellationSource.CancelAsync();
+                await heartbeatTask;
+            }
+        }
+
+        // The heartbeat is best effort: the watchdog only acts after several missed periods, so one failed heartbeat
+        // (for example, a timeout under SQL pressure) is logged and retried rather than failing the write.
+        private async Task RunTransactionHeartbeatAsync(long transactionId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                TimeSpan initialDelay = TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds);
+                await Task.Delay(initialDelay, cancellationToken);
+
+                while (true)
+                {
+                    try
+                    {
+                        await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken);
+                    }
+                    catch (Exception e) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogWarning(e, $"Error from SQL database on {nameof(SqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync)}");
+                    }
+
+                    await Task.Delay(MergeResourcesTransactionHeartbeatPeriod, cancellationToken);
+                }
+            }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+                // SqlClient can report cancellation of an in-flight heartbeat as SqlException.
+            }
         }
 
         internal async Task<(IReadOnlyList<string> Errors, long? DatabaseMilliseconds, IReadOnlyList<OverlongReferenceIdCount> OverlongReferenceIds)> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
@@ -954,7 +993,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 if (_schemaInformation.Current >= SchemaVersionConstants.VectorSearchVersion)
                 {
-                    new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator().GenerateRows(mergeWrappers));
+                    new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 }
 
                 new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1074,8 +1113,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // This logic relies on surrogate id in ResourceWrapper populated using database values
                 var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
+                var vectorMergeWrappers = mergeWrappers.Where(resource => resource.ResourceWrapper.VectorSearchIndicesUpdated).ToList();
+                bool updateVectorSearchIndices = ShouldUpdateVectorSearchIndices(resources, _schemaInformation.Current);
 
-                using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
+                using SqlCommand cmd = CreateBulkUpdateSearchParameterIndicesCommand(mergeWrappers.Count);
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 ReferenceSearchParamListRowGenerator.LogTruncatedReferences(mergeWrappers, _model.ResourceIdPolicy.MaxLength, _logger);
@@ -1094,6 +1135,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                if (updateVectorSearchIndices)
+                {
+                    new ResourceListTableValuedParameterDefinition("@VectorSearchResources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(vectorMergeWrappers));
+                    new VectorSearchParamListTableValuedParameterDefinition("@VectorSearchParams").AddParameter(cmd.Parameters, new VectorSearchParamListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(vectorMergeWrappers));
+                }
+
                 var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(failedResourcesParam);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
@@ -1207,6 +1254,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return warnings;
+        }
+
+        internal static bool ShouldUpdateVectorSearchIndices(IReadOnlyCollection<ResourceWrapper> resources, int? currentSchemaVersion)
+        {
+            return currentSchemaVersion >= SchemaVersionConstants.VectorSearchVersion && resources.Any(resource => resource.VectorSearchIndicesUpdated);
+        }
+
+        internal static SqlCommand CreateBulkUpdateSearchParameterIndicesCommand(int resourceCount)
+        {
+            var command = new SqlCommand
+            {
+                CommandText = "dbo.UpdateResourceSearchParams",
+                CommandType = CommandType.StoredProcedure,
+                CommandTimeout = 300 + (int)(3600.0 / 10000 * resourceCount),
+            };
+
+            return command;
         }
 
         private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)

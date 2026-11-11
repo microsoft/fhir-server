@@ -496,6 +496,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     var parsed = _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
 
+                    // A semantic predicate ranks and thresholds rather than authorizes, so it cannot stand in for a
+                    // mandatory SMART scope constraint that was merged into the query. Dropping it would widen the
+                    // caller's access, so the request is denied independent of "Prefer: handling".
+                    if (smartScopeInjectedParameters.Contains(q) && ContainsVectorSearch(parsed))
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, q.Item1));
+                    }
+
                     if (restrictRelativeReferencesToLocal)
                     {
                         parsed = parsed.AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
@@ -635,6 +644,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // Only parameters that are valid for searching can also be used as sort parameter values. Therefore first check if the sort parameter values are valid as search parameters.
                 foreach ((string, Hl7.Fhir.Rest.SortOrder) sorting in searchParams.Sort)
                 {
+                    if (string.Equals(sorting.Item1, SearchParameterNames.Score, StringComparison.Ordinal))
+                    {
+                        // _score orders by relevance and cannot be combined with other sort keys, so it is only valid
+                        // as the sole ascending sort of a semantic search.
+                        if (searchParams.Sort.Count == 1 && sorting.Item2 == Hl7.Fhir.Rest.SortOrder.Ascending && ContainsVectorSearch(searchOptions.Expression))
+                        {
+                            sortings.Add((SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending));
+                        }
+                        else
+                        {
+                            sortingsValid = false;
+                            otherSearchErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sorting.Item1));
+                        }
+
+                        continue;
+                    }
+
                     try
                     {
                         SearchParameterInfo searchParameterInfo = resourceTypesString.Select(t => _searchParameterDefinitionManager.GetSearchParameter(t, sorting.Item1)).Distinct().First();
@@ -717,6 +743,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression, grantedScopes);
 
+            // The $includes operation cannot replay a semantic search, so a semantic search never hands out an includes
+            // continuation token: included resources beyond the include count are truncated with a warning instead.
+            if (ContainsVectorSearch(searchOptions.Expression))
+            {
+                if (isIncludesOperation)
+                {
+                    throw new BadRequestException("The $includes operation is not supported for semantic searches.");
+                }
+
+                searchOptions.IncludesOperationSupported = false;
+            }
+
             try
             {
                 LogExpresssionSearchParameters(searchOptions.Expression);
@@ -733,6 +771,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 resourceVersionTypes.HasFlag(ResourceVersionType.History));
 
             return searchOptions;
+        }
+
+        private static bool ContainsVectorSearch(Expression expression)
+        {
+            return expression?.AcceptVisitor(VectorSearchPresenceVisitor.Instance, context: null) ?? false;
         }
 
         private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
@@ -919,7 +962,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// scopes. When <paramref name="hasIncludeOrRevInclude"/> is <see langword="false"/>, constraints from a
         /// wildcard (all-resource) scope are merged into <paramref name="searchParams"/> so they are parsed against
         /// the request's resource types alongside the caller's own query parameters and returned for a post-parse
-        /// enforceability check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>). When
+        /// enforceability check (see <see cref="EnsureSmartScopeConstraintsAreEnforceable"/>). A wildcard scope
+        /// constrained by a semantic predicate is not merged: it is withdrawn like any scope whose constraint cannot
+        /// be enforced, so the other scopes still apply. When
         /// <paramref name="hasIncludeOrRevInclude"/> is <see langword="true"/>, wildcard scope constraints are
         /// parsed here—first against <see cref="KnownResourceTypes.DomainResource"/> with a fallback to each
         /// concrete type in <paramref name="requiredResourceTypes"/>—to build a SMART scope union expression that
@@ -966,6 +1011,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         if (!hasIncludeOrRevInclude)
                         {
+                            // A semantic predicate ranks and thresholds rather than authorizes, so it cannot be merged
+                            // into the query as a mandatory scope constraint. Withdraw the scope like any other
+                            // unenforceable one: scopes are alternatives, so the request is denied only when no other
+                            // scope authorizes the requested resource types.
+                            if (TryFindSemanticScopeConstraint(restriction, requiredResourceTypes, out string semanticParameter))
+                            {
+                                IEnumerable<string> withdrawnResourceTypes = requiredResourceTypes.Contains(KnownResourceTypes.DomainResource)
+                                    ? new[] { KnownResourceTypes.All }
+                                    : requiredResourceTypes.Distinct(StringComparer.Ordinal);
+
+                                foreach (string withdrawnResourceType in withdrawnResourceTypes)
+                                {
+                                    unenforceableScopeConstraints.Add((withdrawnResourceType, semanticParameter));
+                                }
+
+                                continue;
+                            }
+
                             allowAllResourceTypes = true;
 
                             // Check if SMART V2 search parameter constraint exists
@@ -1157,6 +1220,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return injectedScopeParameters;
         }
 
+        /// <summary>
+        /// Finds a semantic predicate among the constraints of a wildcard scope, parsed against the request's resource
+        /// types exactly as they are once merged into the query. A constraint that cannot be parsed is not reported
+        /// here; <see cref="EnsureSmartScopeConstraintsAreEnforceable"/> denies it after the query is parsed.
+        /// </summary>
+        private bool TryFindSemanticScopeConstraint(
+            ScopeRestriction restriction,
+            IEnumerable<string> resourceTypes,
+            out string semanticParameter)
+        {
+            string[] targetResourceTypes = resourceTypes.ToArray();
+            foreach (Tuple<string, string> parameter in restriction.SearchParameters.Parameters)
+            {
+                try
+                {
+                    if (ContainsVectorSearch(_expressionParser.Parse(targetResourceTypes, parameter.Item1, parameter.Item2)))
+                    {
+                        semanticParameter = parameter.Item1;
+                        return true;
+                    }
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                    // Not a semantic predicate.
+                }
+            }
+
+            semanticParameter = null;
+            return false;
+        }
+
         private bool TryBuildSmartScopeExpression(
             ScopeRestriction restriction,
             string targetResourceType,
@@ -1182,17 +1276,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 smartSearchParams.Add(param.Item1, param.Item2);
                 foreach (Tuple<string, string> q in smartSearchParams.Parameters)
                 {
+                    Expression parsed;
                     try
                     {
-                        fineGrainedSmartSearchExpressions.Add(
-                            _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
-                                .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null));
+                        parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
+                            .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
                     }
                     catch (SearchParameterNotSupportedException)
                     {
                         unenforceableParameter = q.Item1;
                         return false;
                     }
+
+                    // A semantic predicate is evaluated once, over the primary matches, and cannot be re-evaluated for
+                    // resources reached through _include/_revinclude, so a scope constraint using one is unenforceable.
+                    if (ContainsVectorSearch(parsed))
+                    {
+                        unenforceableParameter = q.Item1;
+                        return false;
+                    }
+
+                    fineGrainedSmartSearchExpressions.Add(parsed);
                 }
 
                 var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
@@ -1234,6 +1338,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 throw new InvalidSearchOperationException(
                     string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, droppedConstraint.Item1));
             }
+        }
+
+        private sealed class VectorSearchPresenceVisitor : DefaultExpressionVisitor<object, bool>
+        {
+            public static readonly VectorSearchPresenceVisitor Instance = new VectorSearchPresenceVisitor();
+
+            private VectorSearchPresenceVisitor()
+                : base((found, current) => found || current)
+            {
+            }
+
+            public override bool VisitVectorSearch(VectorSearchExpression expression, object context) => true;
         }
     }
 }
