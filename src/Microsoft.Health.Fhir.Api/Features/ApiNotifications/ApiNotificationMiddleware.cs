@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
         protected virtual async Task PublishNotificationAsync(HttpContext context, RequestDelegate next)
         {
             var apiNotification = new ApiResponseNotification();
+            using ActionTimer requestTimer = _logger.BeginTimedScope(nameof(ApiNotificationMiddleware));
 
             try
             {
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 {
                     IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
                     var timer = fhirRequestContext?.RequestTimer;
-                    apiNotification.Latency = timer?.ElapsedTime ?? new TimeSpan(0);
+                    apiNotification.Latency = timer?.ElapsedTime ?? requestTimer.ElapsedTime;
 
                     // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
                     if (fhirRequestContext?.AuditEventType != null)
