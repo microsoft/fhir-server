@@ -63,9 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             using ActionTimer requestTimer = NullLogger<ActionTimer>.Instance.BeginTimedScope("Test");
             _fhirRequestContext.RequestTimer = requestTimer;
 
-            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
-
-            await _mediator.ReceivedWithAnyArgs(1).PublishAsync(
+            await _mediator.PublishAsync(
                 Arg.Do<ApiResponseNotification>(notification =>
                 {
                     Assert.Equal("read", notification.FhirOperation);
@@ -76,6 +74,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
                     Assert.True(notification.Latency.Ticks > 0);
                 }),
                 Arg.Any<CancellationToken>());
+
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
+
+            await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
