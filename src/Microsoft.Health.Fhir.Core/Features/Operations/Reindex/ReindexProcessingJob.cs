@@ -296,6 +296,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         internal async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, IFhirDataStore store, CancellationToken cancellationToken)
         {
+            // Set by ExecuteAsync; also called directly (for example in tests), so make sure there is a result to add to.
+            _result ??= new ReindexProcessingJobResult();
+
             await _resourceWrapperFactory.UpdateAsync(resources, cancellationToken);
 
             // The data store can leave out values it can't index: it removes them from the wrapper and returns warnings.
@@ -325,7 +328,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (overlongReferenceIds.Count > 0)
             {
-                _result ??= new ReindexProcessingJobResult();
                 OverlongReferenceIdCount.Merge(_result.OverlongReferenceIds, overlongReferenceIds);
             }
         }
