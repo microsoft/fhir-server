@@ -90,8 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly SortedSet<long> _transientProcessingJobIds = [];
 
         private DateTimeOffset _searchParamLastUpdated;
-        private int _listedWarningCount;
-        private long _omittedWarningCount;
+        private readonly HashSet<string> _seenWarnings = new(StringComparer.Ordinal);
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -342,7 +341,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         /// <summary>
         /// Reports warnings of a completed processing job as Warning issues, which show in the job status without failing the job.
-        /// At most <see cref="ReindexProcessingJobResult.MaxWarnings"/> are listed; the rest are counted and summarized once.
+        /// Processing jobs report the same warning (one per resource type and search parameter), so each distinct warning is counted
+        /// once across all jobs. At most <see cref="ReindexProcessingJobResult.MaxWarnings"/> are listed; the rest are summarized once.
         /// </summary>
         private void AddProcessingJobWarnings(ReindexProcessingJobResult result)
         {
@@ -351,31 +351,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return;
             }
 
-            // Different processing jobs report the same warning (one per resource type and search parameter), so list it once.
-            IEnumerable<string> newWarnings = (result.Warnings ?? Enumerable.Empty<string>())
-                .Where(warning => !_result.Error.Any(e => string.Equals(e.Diagnostics, warning, StringComparison.Ordinal)));
-            foreach (string warning in newWarnings)
+            foreach (string warning in (result.Warnings ?? Enumerable.Empty<string>()).Where(_seenWarnings.Add))
             {
-                if (_listedWarningCount < ReindexProcessingJobResult.MaxWarnings)
+                if (_seenWarnings.Count <= ReindexProcessingJobResult.MaxWarnings)
                 {
                     AddErrorResult(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, warning);
-                    _listedWarningCount++;
-                }
-                else
-                {
-                    _omittedWarningCount++;
                 }
             }
-
-            _omittedWarningCount += result.OmittedWarningCount;
         }
 
         private void AddOmittedWarningsSummary()
         {
-            if (_omittedWarningCount > 0)
+            int omitted = _seenWarnings.Count - ReindexProcessingJobResult.MaxWarnings;
+            if (omitted > 0)
             {
-                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, string.Format(CultureInfo.InvariantCulture, Core.Resources.ReindexWarningsOmitted, _omittedWarningCount));
-                _omittedWarningCount = 0;
+                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, string.Format(CultureInfo.InvariantCulture, Core.Resources.ReindexWarningsOmitted, omitted));
             }
         }
 

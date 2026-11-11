@@ -332,37 +332,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(2, jobResult.SucceededResourceCount);
             Assert.Null(jobResult.Error);
             Assert.Equal(new[] { "Resource Patient/1 was not indexed." }, jobResult.Warnings);
-            Assert.Equal(0, jobResult.OmittedWarningCount);
         }
 
         [Fact]
-        public void GivenTheSameWarningTwice_WhenAdded_ThenItIsKeptOnceAndNotCountedAsOmitted()
+        public void GivenTheSameWarningTwice_WhenAdded_ThenItIsKeptOnce()
         {
             var result = new ReindexProcessingJobResult();
 
             result.AddWarnings(new[] { "same", "same" });
-            result.AddWarnings(new[] { "same" });
-
-            Assert.Equal(new[] { "same" }, result.Warnings);
-            Assert.Equal(0, result.OmittedWarningCount);
-        }
-
-        [Fact]
-        public void GivenMoreWarningsThanTheMaximum_WhenAdded_ThenTheRestAreCounted()
-        {
-            var result = new ReindexProcessingJobResult();
-
-            result.AddWarnings(Enumerable.Range(0, ReindexProcessingJobResult.MaxWarnings - 1).Select(i => $"w{i}"));
-            result.AddWarnings(new[] { "last", "omitted1", "omitted2" });
+            result.AddWarnings(new[] { "same", "other" });
             result.AddWarnings(null);
 
-            Assert.Equal(ReindexProcessingJobResult.MaxWarnings, result.Warnings.Count);
-            Assert.Equal("last", result.Warnings[^1]);
-            Assert.Equal(2, result.OmittedWarningCount);
+            Assert.Equal(new[] { "same", "other" }, result.Warnings);
 
             var roundTripped = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(JsonConvert.SerializeObject(result));
             Assert.Equal(result.Warnings, roundTripped.Warnings);
-            Assert.Equal(2, roundTripped.OmittedWarningCount);
         }
 
         [Fact]
@@ -372,7 +356,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             Assert.Equal(5, result.SucceededResourceCount);
             Assert.Null(result.Warnings);
-            Assert.Equal(0, result.OmittedWarningCount);
         }
 
         [Fact]

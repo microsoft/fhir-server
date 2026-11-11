@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class ReindexProcessingJobResult
     {
         /// <summary>
-        /// The maximum number of warnings kept in a result. Further warnings are only counted.
+        /// The maximum number of distinct warnings listed in the reindex job status. Further distinct warnings are only counted.
         /// </summary>
         public const int MaxWarnings = 100;
 
@@ -27,16 +27,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public string Error { get; set; }
 
         /// <summary>
-        /// Non-critical issues, such as search values that could not be indexed. At most <see cref="MaxWarnings"/>.
+        /// Distinct non-critical issues, such as search values that could not be indexed. A warning names a resource type and
+        /// search parameter, not a resource, so the list stays small; the orchestrator caps what it lists at <see cref="MaxWarnings"/>.
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public IReadOnlyList<string> Warnings { get; set; }
-
-        /// <summary>
-        /// Number of warnings not kept in <see cref="Warnings"/> because of <see cref="MaxWarnings"/>.
-        /// </summary>
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public long OmittedWarningCount { get; set; }
 
         /// <summary>
         /// Gets or sets whether the processing failure was caused by customer configuration.
@@ -52,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public ICollection<OverlongReferenceIdCount> OverlongReferenceIds { get; } = new List<OverlongReferenceIdCount>();
 
         /// <summary>
-        /// Adds warnings that aren't already listed, keeping at most <see cref="MaxWarnings"/> and counting the rest.
+        /// Adds warnings that aren't already listed.
         /// </summary>
         /// <param name="warnings">The warnings to add.</param>
         public void AddWarnings(IEnumerable<string> warnings)
@@ -66,14 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             int countBefore = kept.Count;
             foreach (string warning in warnings.Where(w => !kept.Contains(w)))
             {
-                if (kept.Count < MaxWarnings)
-                {
-                    kept.Add(warning);
-                }
-                else
-                {
-                    OmittedWarningCount++;
-                }
+                kept.Add(warning);
             }
 
             if (kept.Count > countBefore)

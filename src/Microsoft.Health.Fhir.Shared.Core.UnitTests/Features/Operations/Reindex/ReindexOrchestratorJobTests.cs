@@ -877,8 +877,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             processingJob.Result = JsonConvert.SerializeObject(new ReindexProcessingJobResult
             {
                 SucceededResourceCount = 250,
-                Warnings = new List<string> { "warning 1", "warning 2" },
-                OmittedWarningCount = 3,
+
+                // 103 distinct warnings, two of them repeated: 100 are listed and the 3 other distinct ones are counted once.
+                Warnings = Enumerable.Range(0, ReindexProcessingJobResult.MaxWarnings + 3).Select(i => $"warning {i}").Concat(new[] { "warning 0", "warning 102" }).ToList(),
             });
             await _queueClient.CompleteJobAsync(processingJob, false, _cancellationToken);
 
@@ -888,7 +889,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(0, orchestratorResult.FailedResources);
             Assert.All(orchestratorResult.Error, e => Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, e.Severity));
             Assert.Equal(
-                new[] { "warning 1", "warning 2", string.Format(Core.Resources.ReindexWarningsOmitted, 3) }.OrderBy(d => d),
+                Enumerable.Range(0, ReindexProcessingJobResult.MaxWarnings).Select(i => $"warning {i}").Append(string.Format(Core.Resources.ReindexWarningsOmitted, 3)).OrderBy(d => d),
                 orchestratorResult.Error.Select(e => e.Diagnostics).OrderBy(d => d));
         }
 

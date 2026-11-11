@@ -100,8 +100,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <summary>
-        /// Removes duplicate entries, keeping the order. Entries that differ only in the overlong reference id length are equal, so
-        /// the one with the longest overlong id is kept, and the truncation is still reported when the resource is written.
+        /// Removes duplicate entries, keeping the order and the first entry's indexed values, like <c>Enumerable.Distinct</c>.
+        /// Duplicates compare reference ids case-insensitively, but the data store indexes them as written, so the first entry is
+        /// kept as is. Only the overlong reference id length of a later duplicate is carried over, so the truncation is still
+        /// reported when the resource is written.
         /// </summary>
         private static List<SearchIndexEntry> Distinct(List<SearchIndexEntry> entries)
         {
@@ -114,20 +116,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     indexes.Add(entry, result.Count);
                     result.Add(entry);
                 }
-                else if (GetOverlongResourceIdLength(entry) > GetOverlongResourceIdLength(result[index]))
+                else
                 {
-                    result[index] = entry;
+                    result[index] = new SearchIndexEntry(result[index].SearchParameter, MergeOverlongResourceIdLength(result[index].Value, entry.Value));
                 }
             }
 
             return result;
         }
 
-        private static int GetOverlongResourceIdLength(SearchIndexEntry entry)
-            => LongReferenceIdIssue.GetOverlongReferences([entry])
-                .Select(item => item.Reference.OverlongResourceIdLength.GetValueOrDefault())
-                .DefaultIfEmpty(0)
-                .Max();
+        /// <summary>
+        /// Returns <paramref name="kept"/> with the larger overlong reference id length of the two equal values, including in composite components.
+        /// </summary>
+        private static ISearchValue MergeOverlongResourceIdLength(ISearchValue kept, ISearchValue duplicate)
+        {
+            switch (kept)
+            {
+                case ReferenceSearchValue keptReference when duplicate is ReferenceSearchValue duplicateReference
+                    && duplicateReference.OverlongResourceIdLength.GetValueOrDefault() > keptReference.OverlongResourceIdLength.GetValueOrDefault():
+                    return new ReferenceSearchValue(keptReference.Kind, keptReference.BaseUri, keptReference.ResourceType, keptReference.ResourceId)
+                    {
+                        OverlongResourceIdLength = duplicateReference.OverlongResourceIdLength,
+                        MaxResourceIdLength = duplicateReference.MaxResourceIdLength,
+                    };
+                case CompositeSearchValue keptComposite when duplicate is CompositeSearchValue duplicateComposite
+                    && keptComposite.Components.Count == duplicateComposite.Components.Count:
+                    bool changed = false;
+                    var components = new List<IReadOnlyList<ISearchValue>>(keptComposite.Components.Count);
+                    for (int i = 0; i < keptComposite.Components.Count; i++)
+                    {
+                        IReadOnlyList<ISearchValue> keptValues = keptComposite.Components[i];
+                        IReadOnlyList<ISearchValue> duplicateValues = duplicateComposite.Components[i];
+                        var values = new List<ISearchValue>(keptValues.Count);
+                        for (int j = 0; j < keptValues.Count; j++)
+                        {
+                            ISearchValue merged = j < duplicateValues.Count ? MergeOverlongResourceIdLength(keptValues[j], duplicateValues[j]) : keptValues[j];
+                            changed |= !ReferenceEquals(merged, keptValues[j]);
+                            values.Add(merged);
+                        }
+
+                        components.Add(values);
+                    }
+
+                    return changed ? new CompositeSearchValue(components) : kept;
+                default:
+                    return kept;
+            }
+        }
 
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {

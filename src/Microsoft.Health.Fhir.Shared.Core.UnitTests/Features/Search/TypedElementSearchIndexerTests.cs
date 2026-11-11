@@ -142,6 +142,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(64, value.MaxResourceIdLength);
         }
 
+        [Fact]
+        public async System.Threading.Tasks.Task GivenReferencesThatDifferOnlyInCase_WhenExtract_ThenTheFirstIdIsIndexedWithTheOverlongLength()
+        {
+            // Reference values compare ids case-insensitively, but SQL Server indexes them as written, so the first one must be kept.
+            ISearchIndexer searchIndexer = await CreateReferenceSearchIndexer("performer", "Observation.performer", "Patient", "Practitioner");
+            string firstId = new string('A', 64);
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Performer = new List<ResourceReference> { new ResourceReference("Practitioner/" + firstId), new ResourceReference("Practitioner/" + new string('a', 65)) };
+
+            ReferenceSearchValue value = Assert.IsType<ReferenceSearchValue>(Assert.Single(searchIndexer.Extract(observation.ToResourceElement())).Value);
+
+            Assert.Equal(firstId, value.ResourceId);
+            Assert.Equal("Practitioner", value.ResourceType);
+            Assert.Equal(65, value.OverlongResourceIdLength);
+            Assert.Equal(64, value.MaxResourceIdLength);
+        }
+
 #if !Stu3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
         [Fact]
