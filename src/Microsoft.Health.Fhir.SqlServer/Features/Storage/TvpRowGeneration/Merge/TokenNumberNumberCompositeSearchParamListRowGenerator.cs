@@ -68,6 +68,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 _numberRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, null, out var token2Row) &&
                 _numberRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component3, null, out var token3Row))
             {
+                var token2LowValue = token2Row.LowValue ?? token2Row.SingleValue;
+                var token2HighValue = token2Row.HighValue ?? token2Row.SingleValue;
+                var token3LowValue = token3Row.LowValue ?? token3Row.SingleValue;
+                var token3HighValue = token3Row.HighValue ?? token3Row.SingleValue;
+
+                if (token2LowValue.HasValue)
+                {
+                    SqlDecimalValidator.Validate(token2LowValue.Value);
+                }
+
+                if (token2HighValue.HasValue)
+                {
+                    SqlDecimalValidator.Validate(token2HighValue.Value);
+                }
+
+                if (token3LowValue.HasValue)
+                {
+                    SqlDecimalValidator.Validate(token3LowValue.Value);
+                }
+
+                if (token3HighValue.HasValue)
+                {
+                    SqlDecimalValidator.Validate(token3HighValue.Value);
+                }
+
                 bool hasRange = token2Row.SingleValue == null || token3Row.SingleValue == null;
                 row = new TokenNumberNumberCompositeSearchParamListRow(
                     resourceTypeId,
@@ -77,11 +102,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     token1Row.Code,
                     token1Row.CodeOverflow,
                     hasRange ? null : token2Row.SingleValue,
-                    token2Row.LowValue ?? token2Row.SingleValue,
-                    token2Row.HighValue ?? token2Row.SingleValue,
+                    token2LowValue,
+                    token2HighValue,
                     hasRange ? null : token3Row.SingleValue,
-                    token3Row.LowValue ?? token3Row.SingleValue,
-                    token3Row.HighValue ?? token3Row.SingleValue,
+                    token3LowValue,
+                    token3HighValue,
                     HasRange: hasRange);
 
                 return results == null || results.Add(row);

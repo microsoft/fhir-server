@@ -6,12 +6,15 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -46,6 +49,138 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             _uriDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
             _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
+        }
+
+        [Theory]
+        [InlineData("Slot.start", TemporalType.Instant)]
+        [InlineData("Slot.start.first()", TemporalType.Unknown)]
+        public void GivenWrapperAndActiveModel_WhenConstructed_ThenTemporalTypeIsDerived(string expression, TemporalType expected)
+        {
+            SearchParameterWrapper wrapper = CreateWrapper(expression);
+
+            var parameter = new SearchParameterInfo(wrapper, ModelInfoProvider.Instance);
+
+            Assert.Equal(expected, parameter.TemporalType);
+        }
+
+        [Fact]
+        public void GivenWrapperAndDifferentModel_WhenConstructed_ThenSuppliedModelDeterminesTemporalType()
+        {
+            SearchParameterWrapper wrapper = CreateWrapper("Slot.start");
+            var model = Substitute.For<IModelInfoProvider>();
+
+            var parameter = new SearchParameterInfo(wrapper, model);
+
+            Assert.Equal(TemporalType.Unknown, parameter.TemporalType);
+        }
+
+        [Fact]
+        public void GivenWrapperWithoutModel_WhenConstructed_ThenTemporalTypeIsUnknown()
+        {
+            SearchParameterWrapper wrapper = CreateWrapper("Slot.start");
+
+            var parameter = new SearchParameterInfo(wrapper);
+
+            Assert.Equal(TemporalType.Unknown, parameter.TemporalType);
+        }
+
+        [Theory]
+        [InlineData("Slot-start", TemporalType.Instant)]
+        [InlineData("Resource-lastUpdated", TemporalType.Instant)]
+        [InlineData("individual-birthdate", TemporalType.Date)]
+        [InlineData("Schedule-date", TemporalType.Period)]
+#if !R5
+        [InlineData("Appointment-date", TemporalType.Instant)]
+#endif
+        public void GivenBundledDefinition_WhenLoadedAgain_ThenDerivedTemporalTypeAndInstanceAreRetained(
+            string canonicalName,
+            TemporalType expected)
+        {
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", ModelInfoProvider.Instance);
+            var entries = bundle.Entries.Select(e => e.Resource).ToList();
+            SearchParameterDefinitionBuilder.Build(
+                entries,
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: true,
+                enableTemporalClassification: true);
+            SearchParameterInfo original = _uriDictionary[$"http://hl7.org/fhir/SearchParameter/{canonicalName}"];
+
+            SearchParameterDefinitionBuilder.Build(
+                entries,
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+
+            SearchParameterInfo retained = _uriDictionary[original.Url.OriginalString];
+            Assert.Same(original, retained);
+            Assert.Equal(expected, retained.TemporalType);
+            Assert.True(retained.IsSystemDefined);
+            Assert.Equal(ValueSets.SearchParamType.Date, retained.Type);
+        }
+
+        [Fact]
+        public void GivenCustomDefinitionWithSubmittedTemporalType_WhenBuilt_ThenTemporalTypeIsUnknown()
+        {
+            const string url = "http://example.org/SearchParameter/custom-start";
+            var parser = new FhirJsonParser(new ParserSettings { AcceptUnknownMembers = true });
+            var resource = parser.Parse<SearchParameter>("""
+                {
+                  "resourceType": "SearchParameter",
+                  "url": "http://example.org/SearchParameter/custom-start",
+                  "name": "custom-start",
+                  "code": "custom-start",
+                  "status": "active",
+                  "base": ["Slot"],
+                  "type": "date",
+                  "expression": "Slot.start",
+                  "temporalType": "Period"
+                }
+                """);
+
+            SearchParameterDefinitionBuilder.Build(
+                new[] { resource.ToTypedElement() },
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                enableTemporalClassification: true);
+
+            Assert.Equal(TemporalType.Unknown, _uriDictionary[url].TemporalType);
+            Assert.False(_uriDictionary[url].IsSystemDefined);
+            Assert.DoesNotContain("TemporalType", Newtonsoft.Json.JsonConvert.SerializeObject(_uriDictionary[url]));
+            Assert.DoesNotContain("TemporalType", System.Text.Json.JsonSerializer.Serialize(_uriDictionary[url]));
+        }
+
+        [Theory]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public void GivenDisabledOrCustomClassification_WhenBuilding_ThenModelMetadataIsNotAccessed(
+            bool isSystemDefined,
+            bool enableTemporalClassification)
+        {
+            var model = CreateSlotModel();
+            model.StructureDefinitionSummaryProvider.Provide("Slot")
+                .Returns(_ => throw new InvalidOperationException("Classification must not run"));
+
+            SearchParameterDefinitionBuilder.Build(
+                new[] { CreateSlotSearchParameter().ToTypedElement() },
+                _uriDictionary,
+                _resourceTypeDictionary,
+                model,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: isSystemDefined,
+                enableTemporalClassification: enableTemporalClassification);
+
+            Assert.Equal(TemporalType.Unknown, _uriDictionary["http://example.org/SearchParameter/test-start"].TemporalType);
+            model.StructureDefinitionSummaryProvider.DidNotReceive().Provide("Slot");
         }
 
         [Theory]
@@ -97,6 +232,183 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Equal(
                 expectedUrls,
                 _uriDictionary.Values.Select(value => value.Url.ToString()).OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public void GivenVectorSearchParameterExtension_WhenWrapped_ThenVectorConfigurationIsParsed()
+        {
+            // Arrange
+            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"extractionPolicy\",\"valueCode\":\"perValueRow\"},{\"url\":\"maxInputTokens\",\"valueInteger\":1200},{\"url\":\"minimumScore\",\"valueDecimal\":0.65},{\"url\":\"chunkSizeTokens\",\"valueInteger\":400},{\"url\":\"chunkOverlapTokens\",\"valueInteger\":40},{\"url\":\"distanceMetric\",\"valueCode\":\"cosine\"}]}]}";
+
+            // Exercise the definition reader's typed-element boundary, not POCO enum validation:
+            // "special" is not a STU3 POCO enum value; these fixtures do not establish HTTP acceptance.
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
+
+            // Act
+            var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Equal("active", searchParameterInfo.DefinitionStatus);
+            Assert.NotNull(searchParameterInfo.VectorConfig);
+            Assert.Equal(VectorTextExtractionPolicy.PerValueRow, searchParameterInfo.VectorConfig.ExtractionPolicy);
+            Assert.Equal(1200, searchParameterInfo.VectorConfig.MaxInputTokens);
+            Assert.Equal(0.65m, searchParameterInfo.VectorConfig.MinimumScore);
+            Assert.Equal(400, searchParameterInfo.VectorConfig.ChunkSizeTokens);
+            Assert.Equal(40, searchParameterInfo.VectorConfig.ChunkOverlapTokens);
+            Assert.Equal("cosine", searchParameterInfo.VectorConfig.DistanceMetric);
+        }
+
+        [Theory]
+        [InlineData("chunkSizeTokens", "valueInteger", "0")]
+        [InlineData("chunkSizeTokens", "valueInteger", "3")]
+        [InlineData("chunkOverlapTokens", "valueInteger", "-1")]
+        [InlineData("distanceMetric", "valueCode", "euclidean")]
+        [InlineData("sourceStrategy", "valueCode", "directText")]
+        [InlineData("unsupportedSetting", "valueCode", "value")]
+        public void GivenInvalidVectorIndexSetting_WhenWrapped_ThenDefinitionIsRejected(string setting, string valueType, string value)
+        {
+            // Arrange
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"{setting}\",\"{valueType}\":{(valueType == "valueCode" ? $"\"{value}\"" : value)}}}]}}]}}";
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Fact]
+        public void GivenChunkOverlapNotSmallerThanChunkSize_WhenWrapped_ThenDefinitionIsRejected()
+        {
+            // Arrange
+            const string searchParameterJson = "{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{\"url\":\"chunkSizeTokens\",\"valueInteger\":100},{\"url\":\"chunkOverlapTokens\",\"valueInteger\":100}]}]}";
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Fact]
+        public void GivenChunkSizeAboveProviderLimit_WhenWrapped_ThenDefinitionIsRejected()
+        {
+            // Arrange
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"chunkSizeTokens\",\"valueInteger\":{VectorSearchConfiguration.MaxEmbeddingInputTokens + 1}}}]}}]}}";
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Theory]
+        [InlineData("-0.01")]
+        [InlineData("1.01")]
+        public void GivenInvalidVectorMinimumScore_WhenWrapped_ThenDefinitionIsRejected(string minimumScore)
+        {
+            // Arrange
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{{\"url\":\"minimumScore\",\"valueDecimal\":{minimumScore}}}]}}]}}";
+            ITypedElement searchParameter = FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Theory]
+        [InlineData("unsupported")]
+        [InlineData("999")]
+        [InlineData("1")]
+        [InlineData("firstValue,concatenate")]
+        public void GivenUnsupportedVectorExtractionPolicy_WhenWrapped_ThenDefinitionIsRejected(string extractionPolicy)
+        {
+            // Arrange
+            ITypedElement searchParameter = CreateVectorSearchParameter($"{{\"url\":\"extractionPolicy\",\"valueCode\":\"{extractionPolicy}\"}}");
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        [Theory]
+        [InlineData("firstValue", VectorTextExtractionPolicy.FirstValue)]
+        [InlineData("concatenate", VectorTextExtractionPolicy.Concatenate)]
+        [InlineData("perValueRow", VectorTextExtractionPolicy.PerValueRow)]
+        public void GivenDocumentedVectorExtractionPolicy_WhenWrapped_ThenPolicyIsParsed(string extractionPolicy, VectorTextExtractionPolicy expectedPolicy)
+        {
+            // Arrange
+            ITypedElement searchParameter = CreateVectorSearchParameter($"{{\"url\":\"extractionPolicy\",\"valueCode\":\"{extractionPolicy}\"}}");
+
+            // Act
+            var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Equal(expectedPolicy, searchParameterInfo.VectorConfig.ExtractionPolicy);
+        }
+
+        [Theory]
+        [InlineData("fr-FR")]
+        [InlineData("de-DE")]
+        public void GivenServerCultureUsesDecimalComma_WhenVectorMinimumScoreWrapped_ThenScoreIsParsedInvariantly(string cultureName)
+        {
+            // Arrange
+            ITypedElement searchParameter = CreateVectorSearchParameter("{\"url\":\"minimumScore\",\"valueDecimal\":0.65}");
+            CultureInfo originalCulture = CultureInfo.CurrentCulture;
+
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+
+                // Act
+                var searchParameterInfo = new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+                // Assert
+                Assert.Equal(0.65m, searchParameterInfo.VectorConfig.MinimumScore);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+            }
+        }
+
+        [Theory]
+        [InlineData("extractionPolicy")]
+        [InlineData("maxInputTokens")]
+        [InlineData("minimumScore")]
+        [InlineData("chunkSizeTokens")]
+        [InlineData("chunkOverlapTokens")]
+        [InlineData("distanceMetric")]
+        public void GivenVectorSettingWithoutValue_WhenWrapped_ThenDefinitionIsRejected(string setting)
+        {
+            // Arrange
+            ITypedElement searchParameter = CreateVectorSearchParameter($"{{\"url\":\"{setting}\"}}");
+
+            // Act
+            Action wrap = () => new SearchParameterInfo(new SearchParameterWrapper(searchParameter));
+
+            // Assert
+            Assert.Throws<InvalidDefinitionException>(wrap);
+        }
+
+        private static ITypedElement CreateVectorSearchParameter(string vectorSetting)
+        {
+            string searchParameterJson = $"{{\"resourceType\":\"SearchParameter\",\"url\":\"https://example.org/fhir/SearchParameter/observation-note-vector\",\"name\":\"ObservationNoteVector\",\"status\":\"active\",\"code\":\"note-vector\",\"base\":[\"Observation\"],\"type\":\"special\",\"expression\":\"Observation.note.text\",\"extension\":[{{\"url\":\"http://microsoft.com/fhir/StructureDefinition/vector-search-config\",\"extension\":[{vectorSetting}]}}]}}";
+            return FhirJsonNode.Parse(searchParameterJson)
+                .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
         }
 
         [Fact]
@@ -343,6 +655,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Collection(
                 _resourceTypeDictionary[resourceType][code],
                 x => string.Equals(searchParameters.First().Url, _uriDictionary[x].Url.OriginalString, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private SearchParameter CreateSlotSearchParameter() => _jsonParser.Parse<SearchParameter>("""
+            {
+              "resourceType": "SearchParameter",
+              "url": "http://example.org/SearchParameter/test-start",
+              "name": "test-start",
+              "code": "test-start",
+              "status": "active",
+              "base": ["Slot"],
+              "type": "date",
+              "expression": "Slot.start"
+            }
+            """);
+
+        private static IModelInfoProvider CreateSlotModel()
+        {
+            var model = Substitute.For<IModelInfoProvider>();
+            model.Version.Returns(ModelInfoProvider.Instance.Version);
+            model.GetResourceTypeNames().Returns(new[] { "Slot" });
+            model.GetTypeForFhirType("Slot").Returns(typeof(Slot));
+            model.GetFhirTypeNameForType(Arg.Any<Type>()).Returns((string)null);
+            model.IsKnownResource("Slot", false).Returns(true);
+            return model;
+        }
+
+        private SearchParameterWrapper CreateWrapper(string expression)
+        {
+            SearchParameter resource = _jsonParser.Parse<SearchParameter>(
+                $$"""
+                {
+                  "resourceType": "SearchParameter",
+                  "url": "http://example.org/SearchParameter/test-start",
+                  "name": "test-start",
+                  "code": "test-start",
+                  "status": "active",
+                  "base": ["Slot"],
+                  "type": "date",
+                  "expression": "{{expression}}"
+                }
+                """);
+            return new SearchParameterWrapper(resource.ToTypedElement());
         }
 
         private void BuildAndVerify(string filename, string expectedIssue)

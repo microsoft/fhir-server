@@ -110,7 +110,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterBehaviorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterDefinitionManagerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\FhirPackageInstallEndToEndTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\IgnixaFhirPackageReaderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\SearchParameterPackageHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverTests.cs" />
@@ -131,8 +133,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\BundleFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\ExpressionRewriterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\ExpressionToStringTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\SmartScopeLocalReferenceRewriterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ExpressionParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ModelInfoProviderSerialCollection.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\VectorSearchExpressionParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchExpressionTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactorySmartScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactoryTests.cs" />

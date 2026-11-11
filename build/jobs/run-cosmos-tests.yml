@@ -19,8 +19,6 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - checkout: self
     fetchDepth: 1
@@ -79,7 +77,7 @@ jobs:
         }
 
         # Both filters are required to exclude SqlServer traits and traitless SqlServer classes.
-        $args = @('--filter-not-trait', 'DataStore=SqlServer', '--filter-not-class', '*SqlServer*', '--retry-failed-tests', '3', '--coverage', '--coverage-output-format', 'cobertura', '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml", '--report-trx')
+        $args = @('--filter-not-trait', 'DataStore=SqlServer', '--filter-not-class', '*SqlServer*', '--retry-failed-tests', '3', '--coverage', '--coverage-output-format', 'cobertura', '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml", '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} Cosmos Integration Tests')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -96,16 +94,6 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-
-  - task: PublishTestResults@2
-    displayName: 'Publish integration test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      failTaskOnFailedTests: true
-    condition: succeededOrFailed()
 
   - task: reportgenerator@5
     displayName: 'Aggregate Cosmos integration test coverage'
@@ -129,8 +117,6 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests.yml
@@ -148,8 +134,6 @@ jobs:
       name: '$(InternalPool)'
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml

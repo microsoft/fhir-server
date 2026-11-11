@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         // Configures SQL workload identity authentication when Azure Pipelines credentials are available.
-        private static void ConfigureWorkloadIdentityAuthentication()
+        internal static void ConfigureWorkloadIdentityAuthentication()
         {
             string clientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
             string tenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);

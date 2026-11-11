@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -24,12 +23,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : ExportOrchestratorJob
     {
         private readonly IQueueClient _queueClient;
-        private readonly Func<IScoped<ISearchService>> _searchServiceScopeFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceScopeFactory;
         private readonly ILogger<CosmosExportOrchestratorJob> _logger;
 
         public CosmosExportOrchestratorJob(
             IQueueClient queueClient,
-            Func<IScoped<ISearchService>> searchServiceScopeFactory,
+            IScopeProvider<ISearchService> searchServiceScopeFactory,
             ILogger<CosmosExportOrchestratorJob> logger)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));

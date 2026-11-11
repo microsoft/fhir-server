@@ -12,7 +12,6 @@ using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -614,7 +613,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                Substitute.For<Func<IScoped<ISearchService>>>(),
+                Substitute.For<IScopeProvider<ISearchService>>(),
                 Substitute.For<IScopeProvider<IFhirDataStore>>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 
@@ -663,7 +662,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Substitute.For<IModelInfoProvider>(),
                 Substitute.For<ISearchParameterSupportResolver>(),
                 Substitute.For<IDataStoreSearchParameterValidator>(),
-                Substitute.For<Func<IScoped<ISearchService>>>(),
+                Substitute.For<IScopeProvider<ISearchService>>(),
                 Substitute.For<IScopeProvider<IFhirDataStore>>(),
                 Substitute.For<ILogger<SearchParameterOperations>>());
 

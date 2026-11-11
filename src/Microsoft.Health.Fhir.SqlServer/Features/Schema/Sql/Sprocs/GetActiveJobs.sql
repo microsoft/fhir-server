@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.GetActiveJobs
 GO
-CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL OUT, @ReturnParentOnly bit = 0, @IsExistsCheck bit = 0
+CREATE PROCEDURE dbo.GetActiveJobs @QueueType tinyint, @GroupId bigint = NULL OUT, @ReturnParentOnly bit = 0, @IsExistsCheck bit = 0, @ReturnDefinition bit = 1
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetActiveJobs'
@@ -46,7 +46,7 @@ BEGIN TRY
 
     INSERT INTO @JobIds SELECT Id FROM @JobRecords
 
-    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds, @ReturnDefinition = @ReturnDefinition
   END
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
