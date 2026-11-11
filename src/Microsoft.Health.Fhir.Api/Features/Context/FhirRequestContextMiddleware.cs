@@ -106,7 +106,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             context.Response.Headers[XFrameOptions] = XFrameOptionsValue;
             context.Response.Headers[ContentSecurityPolicy] = ContentSecurityPolicyValue;
 
-            fhirRequestContext.RequestTimer = _logger.BeginTimedScope("FhirRequestContextMiddleware");
+            using ActionTimer requestTimer = _logger.BeginTimedScope("FhirRequestContextMiddleware");
+            fhirRequestContext.RequestTimer = requestTimer;
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 
