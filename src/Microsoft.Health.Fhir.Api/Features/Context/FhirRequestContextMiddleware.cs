@@ -76,13 +76,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             if (_partitionManager.Partitions.Count > 0 && !IsServiceAuthenticationEndpoint(request.Path))
             {
                 bool isHealthCheck = request.Path.Equals(new PathString(KnownRoutes.HealthCheck), StringComparison.OrdinalIgnoreCase);
-                string firstSegment = request.Path.Value?.Split('/', 3).ElementAtOrDefault(1);
-                if (!isHealthCheck && firstSegment != null && _partitionManager.Partitions.TryGetValue(firstSegment, out partition))
+                if (request.Path.StartsWithSegments(new PathString("/partition"), StringComparison.OrdinalIgnoreCase, out PathString keyword, out PathString afterKeyword))
                 {
-                    var prefix = new PathString("/" + partition.Id);
-                    request.Path.StartsWithSegments(prefix, StringComparison.Ordinal, out PathString remaining);
-                    request.PathBase = request.PathBase.Add(prefix);
-                    request.Path = remaining;
+                    string partitionId = afterKeyword.Value?.Split('/', 3).ElementAtOrDefault(1);
+                    if (!string.IsNullOrEmpty(partitionId) && _partitionManager.Partitions.TryGetValue(partitionId, out partition))
+                    {
+                        afterKeyword.StartsWithSegments(new PathString("/" + partitionId), StringComparison.Ordinal, out PathString idPath, out PathString remaining);
+                        request.PathBase = request.PathBase.Add(keyword).Add(idPath);
+                        request.Path = remaining;
+                    }
+                    else
+                    {
+                        partitionRequired = true;
+                    }
                 }
                 else if (_partitionManager.Partitions.Count == 1)
                 {
@@ -193,10 +199,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             if (partitionRequired)
             {
-                _logger.LogWarning("Request rejected: a configured partition ID is required in the first URL segment.");
+                _logger.LogWarning("Request rejected: a configured partition ID is required after /partition.");
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
                 context.Response.ContentType = "text/plain";
-                await context.Response.WriteAsync("A configured partition ID is required in the first URL segment.");
+                await context.Response.WriteAsync("A configured partition ID is required after /partition.");
                 return;
             }
 

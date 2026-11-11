@@ -58,10 +58,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [Theory]
         [InlineData(0, "/Patient", "http://localhost/", null)]
         [InlineData(1, "/Patient", "http://localhost/", "partition-a")]
-        [InlineData(1, "/partition-a/Patient", "http://localhost/partition-a/", "partition-a")]
-        [InlineData(2, "/partition-a/Patient", "http://localhost/partition-a/", "partition-a")]
-        [InlineData(2, "/partition-b/Patient", "http://localhost/partition-b/", "partition-b")]
-        [InlineData(2, "/partition-a/Patient?name=Alice", "http://localhost/partition-a/", "partition-a")]
+        [InlineData(1, "/partition/partition-a/Patient", "http://localhost/partition/partition-a/", "partition-a")]
+        [InlineData(2, "/partition/partition-a/Patient", "http://localhost/partition/partition-a/", "partition-a")]
+        [InlineData(2, "/partition/partition-b/Patient", "http://localhost/partition/partition-b/", "partition-b")]
+        [InlineData(2, "/PARTITION/partition-a/Patient", "http://localhost/PARTITION/partition-a/", "partition-a")]
+        [InlineData(2, "/partition/partition-a/Patient?name=Alice", "http://localhost/partition/partition-a/", "partition-a")]
         public async Task GivenConfiguredPartitions_WhenRequestingPatients_ThenRouteAndBaseUriArePartitionAware(int partitionCount, string path, string baseUri, string partitionId)
         {
             using var host = CreateHost(partitionCount);
@@ -87,7 +88,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [InlineData("/Patient")]
         [InlineData("/unknown/Patient")]
         [InlineData("/partition-aa/Patient")]
+        [InlineData("/partition-a/Patient")]
         [InlineData("/PARTITION-A/Patient")]
+        [InlineData("/partition/unknown/Patient")]
+        [InlineData("/partition/PARTITION-A/Patient")]
+        [InlineData("/partition")]
+        [InlineData("/partition/")]
+        [InlineData("/partition//Patient")]
         [InlineData("/health/check/extra")]
         [InlineData("/health/check/")]
         [InlineData("/connect/token/extra")]
@@ -108,6 +115,53 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("/partition")]
+        [InlineData("/partition/")]
+        [InlineData("/partition/unknown/Patient")]
+        [InlineData("/partition/PARTITION-A/Patient")]
+        public async Task GivenOnePartition_WhenExplicitPartitionIsMissingOrUnknown_ThenRequestIsRejected(string path)
+        {
+            using var host = CreateHost(1);
+            using var client = host.GetTestClient();
+
+            using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("Patient")]
+        [InlineData("metadata")]
+        [InlineData("_history")]
+        [InlineData("connect")]
+        [InlineData("partition")]
+        public async Task GivenPartitionNamedAfterRoute_WhenRequestingPartition_ThenPartitionIsSelected(string partitionId)
+        {
+            using var host = CreateHost(2, partitionId);
+            using var client = host.GetTestClient();
+
+            using var response = await client.GetAsync(new Uri($"/partition/{partitionId}/Patient", UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal($"http://localhost/partition/{partitionId}/", await response.Content.ReadAsStringAsync());
+            Assert.Equal(partitionId, Assert.Single(response.Headers.GetValues("X-Test-Partition")));
+        }
+
+        [Fact]
+        public async Task GivenExistingPathBase_WhenRequestingPartition_ThenBothPrefixesArePreserved()
+        {
+            using var host = CreateHost(2, pathBase: "/fhir");
+            using var client = host.GetTestClient();
+
+            using var response = await client.GetAsync(new Uri("/fhir/partition/partition-a/Patient", UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("http://localhost/fhir/partition/partition-a/", await response.Content.ReadAsStringAsync());
+            Assert.Equal("http://localhost/fhir/partition/partition-a/Patient", Assert.Single(response.Headers.GetValues("X-Test-Link")));
+            Assert.Equal("http://localhost/fhir/partition/partition-a/Patient", Assert.Single(response.Headers.GetValues("X-Test-Uri")));
         }
 
         [Theory]

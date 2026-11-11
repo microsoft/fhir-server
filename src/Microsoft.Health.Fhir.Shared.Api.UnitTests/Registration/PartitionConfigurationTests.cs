@@ -102,14 +102,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         [InlineData("CustomError")]
         [InlineData("Operations")]
         [InlineData("OperationDefinition")]
-        public void GivenPartitionIdConflictingWithFhirRoute_WhenRegisteringTheServer_ThenStartupFails(string id)
+        public void GivenPartitionIdMatchingFhirRoute_WhenRegisteringTheServer_ThenPartitionIsAccepted(string id)
         {
             var services = new ServiceCollection();
 
-            var exception = Assert.Throws<InvalidOperationException>(() => services.AddFhirServer(configureAction: config =>
-                config.PartitionConfiguration.Partitions.Add(new PartitionInfo { Id = id, DatabaseName = "database" })));
+            services.AddFhirServer(configureAction: config =>
+                config.PartitionConfiguration.Partitions.Add(new PartitionInfo { Id = id, DatabaseName = "database" }));
+            using var provider = services.BuildServiceProvider();
 
-            Assert.Contains("conflicts", exception.Message, StringComparison.Ordinal);
+            Assert.True(provider.GetRequiredService<IPartitionManager>().Partitions.ContainsKey(id));
         }
 
         [Theory]

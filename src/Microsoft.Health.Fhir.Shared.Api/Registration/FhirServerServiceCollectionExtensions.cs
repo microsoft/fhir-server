@@ -32,7 +32,6 @@ using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -159,19 +158,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
 
             services.AddFhirServerBase(fhirServerConfiguration);
-
-            foreach (PartitionInfo partition in fhirServerConfiguration.PartitionConfiguration.Partitions)
-            {
-                if (ModelInfoProvider.IsKnownResource(partition.Id) ||
-                    string.Equals(partition.Id, KnownRoutes.Metadata, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(partition.Id, KnownRoutes.History, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals("/" + partition.Id, KnownRoutes.CustomError, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(partition.Id, KnownRoutes.OperationDefinition, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(partition.Id, OperationsConstants.Operations, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidOperationException($"FhirServer:PartitionConfiguration:Partitions Id '{partition.Id}' conflicts with an existing FHIR route.");
-                }
-            }
 
             services.AddHttpClient(Options.Options.DefaultName)
                 .AddTransientHttpErrorPolicy(builder =>

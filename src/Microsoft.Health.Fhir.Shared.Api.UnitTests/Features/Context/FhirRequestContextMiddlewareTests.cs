@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var manager = new PartitionManager(Options.Create(configuration));
             HttpContext httpContext = CreateHttpContext();
             httpContext.Request.Host = new HostString("api.example.com");
-            httpContext.Request.Path = new PathString("/partition-a/Patient");
+            httpContext.Request.Path = new PathString("/partition/partition-a/Patient");
             var accessor = new FhirRequestContextAccessor();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
             IFhirRequestContext capturedContext = null;
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                 {
                     capturedContext = accessor.RequestContext;
                     Assert.Equal("/Patient", context.Request.Path.Value);
-                    Assert.Equal("/stu3/partition-a", context.Request.PathBase.Value);
+                    Assert.Equal("/stu3/partition/partition-a", context.Request.PathBase.Value);
                     if (throwInNext)
                     {
                         throw new InvalidOperationException("Downstream failure");
@@ -172,17 +172,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.NotNull(capturedContext);
             Assert.Equal("partition-a", capturedContext.PartitionId);
-            Assert.Equal(new Uri("https://api.example.com/stu3/partition-a/Patient?code=123"), capturedContext.Uri);
-            Assert.Equal(new Uri("https://api.example.com/stu3/partition-a/"), capturedContext.BaseUri);
+            Assert.Equal(new Uri("https://api.example.com/stu3/partition/partition-a/Patient?code=123"), capturedContext.Uri);
+            Assert.Equal(new Uri("https://api.example.com/stu3/partition/partition-a/"), capturedContext.BaseUri);
             Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
-            Assert.Equal("/partition-a/Patient", httpContext.Request.Path.Value);
+            Assert.Equal("/partition/partition-a/Patient", httpContext.Request.Path.Value);
             Assert.Equal("/stu3", httpContext.Request.PathBase.Value);
         }
 
         [Fact]
         public void GivenPartitionContext_WhenCloning_ThenPartitionIdIsPreserved()
         {
-            var context = new FhirRequestContext("GET", "https://localhost/partition-a/Patient", "https://localhost/partition-a/", "request-id", new HeaderDictionary(), new HeaderDictionary())
+            var context = new FhirRequestContext("GET", "https://localhost/partition/partition-a/Patient", "https://localhost/partition/partition-a/", "request-id", new HeaderDictionary(), new HeaderDictionary())
             {
                 PartitionId = "partition-a",
                 Principal = new ClaimsPrincipal(),
