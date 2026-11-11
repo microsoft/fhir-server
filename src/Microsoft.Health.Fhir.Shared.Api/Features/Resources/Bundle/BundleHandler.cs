@@ -66,6 +66,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
+        private const string BundleLimitOperationName = "Bundle";
+        private const string BundleSizeExceededMetricType = "BundleSizeLimitExceeded";
+        private const string ResourceSizeExceededMetricType = "ResourceSizeLimitExceeded";
+        private const string EntryLimitExceededMetricType = "EntryLimitExceeded";
+
         private readonly IFhirRuntimeConfiguration _runtimeConfiguration;
         private readonly HttpContext _outerHttpContext;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
@@ -98,6 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IRouter _router;
         private readonly ILogger<BundleHandler> _logger;
         private readonly IBundleMetricHandler _metricHandler;
+        private readonly IFailureMetricHandler _failureMetricHandler;
 
         // Total number of requests in the bundle.
         private int _requestCount;
@@ -156,6 +162,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IMediator mediator,
             IRouter router,
             IBundleMetricHandler metricHandler,
+            IFailureMetricHandler failureMetricHandler,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -181,6 +188,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _metricHandler = EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
+            _failureMetricHandler = EnsureArg.IsNotNull(failureMetricHandler, nameof(failureMetricHandler));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<BundleHandlerInternalOperationExecutionContext>());
@@ -221,6 +229,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 throw new UnauthorizedFhirActionException();
             }
+
+            ValidateBundleRequestBodySize();
 
             _originalFhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -638,6 +648,41 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             await _mediator.PublishAsync(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, _outerHttpContext.Request.Scheme), CancellationToken.None);
         }
 
+        private void ValidateBundleRequestBodySize()
+        {
+            long? requestBodySize = _outerHttpContext.Request.ContentLength;
+            long limit = _bundleConfiguration.MaxBundleSizeBytes;
+
+            if (_bundleConfiguration.EnableSizeRestrictions && limit > 0 && requestBodySize > limit)
+            {
+                _logger.LogWarning("Bundle rejected: request body of {RequestBodySize} bytes exceeds the limit of {Limit} bytes.", requestBodySize, limit);
+                EmitBundleLimitExceeded(BundleSizeExceededMetricType);
+                throw new RequestEntityTooLargeException(string.Format(Api.Resources.BundleSizeLimitExceeded, requestBodySize, limit));
+            }
+        }
+
+        private void ValidateResourceSize(int entryIndex, string resourceType, long resourceSizeInBytes)
+        {
+            long limit = _bundleConfiguration.MaxResourceSizeBytes;
+
+            if (_bundleConfiguration.EnableSizeRestrictions && limit > 0 && resourceSizeInBytes > limit)
+            {
+                _logger.LogWarning("Bundle rejected: {ResourceType} resource at entry {EntryIndex} is {ResourceSize} bytes, exceeding the limit of {Limit} bytes.", resourceType, entryIndex, resourceSizeInBytes, limit);
+                EmitBundleLimitExceeded(ResourceSizeExceededMetricType);
+                throw new RequestEntityTooLargeException(string.Format(Api.Resources.BundleResourceSizeLimitExceeded, entryIndex, resourceType, resourceSizeInBytes, limit));
+            }
+        }
+
+        private void EmitBundleLimitExceeded(string limitType)
+        {
+            _failureMetricHandler.EmitException(new ExceptionMetricNotification
+            {
+                OperationName = BundleLimitOperationName,
+                ExceptionType = limitType,
+                Severity = LogLevel.Warning.ToString(),
+            });
+        }
+
         private async Task ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
         {
             try
@@ -684,6 +729,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (entryLimit != default && bundleEntries.Count > entryLimit)
             {
                 _logger.LogWarning("BundleEntryLimitExceededException: BundleEntryLimitExceeded");
+                EmitBundleLimitExceeded(EntryLimitExceededMetricType);
                 throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, entryLimit));
             }
 
@@ -809,6 +855,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 resourceSizeInBytes = 4 * ((memoryStream.Length + 2) / 3);
             }
 #endif
+
+            ValidateResourceSize(order, entry.Resource?.TypeName, resourceSizeInBytes);
 
             var routeContext = new RouteContext(httpContext);
 

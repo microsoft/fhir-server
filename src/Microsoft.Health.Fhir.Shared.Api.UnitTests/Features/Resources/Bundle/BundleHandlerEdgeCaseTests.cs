@@ -174,6 +174,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 mediator,
                 router,
                 metricHandler,
+                Substitute.For<IFailureMetricHandler>(),
                 NullLogger<BundleHandler>.Instance);
 
             return fhirRequestContextAccessor.RequestContext;

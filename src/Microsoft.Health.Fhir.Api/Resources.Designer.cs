@@ -97,6 +97,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The {1} resource in bundle entry {0} is {2} bytes, which exceeds the configured limit of {3} bytes..
+        /// </summary>
+        public static string BundleResourceSizeLimitExceeded {
+            get {
+                return ResourceManager.GetString("BundleResourceSizeLimitExceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The bundle request body of {0} bytes exceeds the configured limit of {1} bytes..
+        /// </summary>
+        public static string BundleSizeLimitExceeded {
+            get {
+                return ResourceManager.GetString("BundleSizeLimitExceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid combination of processing logic and bundle type: {0} and {1}..
         /// </summary>
         public static string BundleInvalidCombination {
