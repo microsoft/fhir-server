@@ -128,6 +128,43 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedComplexity, complexity);
         }
 
+        [Theory]
+        [InlineData(HTTPVerb.POST, "Create", false, true, false, null, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, "ConditionalCreate", true, true, false, null, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, "Create", false, false, true, null, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.POST, "Create", false, false, false, true, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.POST, "Create", false, true, true, false, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.POST, "Expand", false, true, true, null, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.POST, null, false, true, true, null, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.PUT, "Update", false, false, true, null, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.PUT, "Update", false, true, false, null, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.PUT, "ConditionalUpdate", true, true, false, null, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.PUT, "ConditionalUpdate", true, false, true, null, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.PUT, "ConditionalUpdate", true, false, false, null, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.PUT, "Update", false, false, false, true, BundleComplexity.Extreme)]
+        [InlineData(HTTPVerb.GET, null, false, true, true, true, BundleComplexity.Low)]
+        [InlineData(HTTPVerb.DELETE, null, false, true, true, true, BundleComplexity.Low)]
+        public void GivenBundle_WhenProfileValidationApplies_ReturnsExpectedComplexity(
+            HTTPVerb verb,
+            string action,
+            bool conditional,
+            bool validateOnCreate,
+            bool validateOnUpdate,
+            bool? header,
+            BundleComplexity expectedComplexity)
+        {
+            var requests = CreateRequests(1, verb, action: action, conditional: conditional);
+
+            BundleComplexity complexity = CalculateComplexity(
+                BundleProcessingLogic.Parallel,
+                requests,
+                validateOnCreate,
+                validateOnUpdate,
+                header);
+
+            Assert.Equal(expectedComplexity, complexity);
+        }
+
         private static Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> CreateRequests(
             int operationCount,
             HTTPVerb verb,
@@ -137,7 +174,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             int payloadOperationCount = 1,
             string resourceType = "Patient",
             bool setContentLength = true,
-            int profileOperationCount = 0)
+            int profileOperationCount = 0,
+            string action = null,
+            bool conditional = false)
         {
             var requests = new Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>>();
 
@@ -164,13 +203,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     routeContext = new RouteContext(httpContext);
                 }
 
+                if (action != null)
+                {
+                    routeContext ??= new RouteContext(new DefaultHttpContext());
+                    routeContext.RouteData.Values["action"] = action;
+                }
+
                 operations.Add(new BundleHandlerInternalOperationExecutionContext(
                     requestVerb,
                     i < profileOperationCount ? KnownResourceTypes.ValueSet : resourceType,
                     routeContext,
                     i,
                     persistedId: null,
-                    isConditionalOperation: i < conditionalOperationCount));
+                    isConditionalOperation: i < conditionalOperationCount || conditional));
             }
 
             return requests;
@@ -178,12 +223,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
         private static BundleComplexity CalculateComplexity(
             BundleProcessingLogic processingLogic,
-            Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests)
+            Dictionary<HTTPVerb, List<BundleHandlerInternalOperationExecutionContext>> requests,
+            bool validateOnCreate = false,
+            bool validateOnUpdate = false,
+            bool? profileValidationHeader = null)
         {
             var profileResolver = Substitute.For<IProvideProfilesForValidation>();
             profileResolver.GetProfilesTypes().Returns(ProfileSupportedTypes);
 
-            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(processingLogic, requests, profileResolver, NullLogger.Instance);
+            return BundleHandlerComplexityCalculator.CalculateBundleComplexity(processingLogic, requests, profileResolver, NullLogger.Instance, validateOnCreate, validateOnUpdate, profileValidationHeader);
         }
     }
 }

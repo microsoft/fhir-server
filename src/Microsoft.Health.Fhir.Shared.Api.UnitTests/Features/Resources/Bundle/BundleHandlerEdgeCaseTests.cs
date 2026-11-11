@@ -166,6 +166,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 resourceReferenceResolver,
                 auditEventTypeMapping,
                 bundleOptions,
+                Options.Create(new CoreFeatureConfiguration()),
                 DisabledFhirAuthorizationService.Instance,
                 profilesResolver,
                 Substitute.For<IModelInfoProvider>(),

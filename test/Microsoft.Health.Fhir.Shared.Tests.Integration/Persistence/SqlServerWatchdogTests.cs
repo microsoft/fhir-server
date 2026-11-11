@@ -403,7 +403,10 @@ RAISERROR('Test',18,127)
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
+            var indexingFactory = Substitute.For<IResourceWrapperFactory>();
+            indexingFactory.UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(call => factory.UpdateAsync(call.Arg<IReadOnlyCollection<ResourceWrapper>>(), call.Arg<CancellationToken>()));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, indexingFactory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
                 AllowRebalance = true,
                 PeriodSec = 1,
@@ -430,6 +433,11 @@ RAISERROR('Test',18,127)
 
             await cts.CancelAsync();
             await wdTask;
+
+            await indexingFactory.Received(1).UpdateAsync(
+                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 1 && resources.Single().ResourceId == patient.Id),
+                cts.Token);
+            indexingFactory.DidNotReceive().Update(Arg.Any<ResourceWrapper>());
         }
 
         [Fact]
