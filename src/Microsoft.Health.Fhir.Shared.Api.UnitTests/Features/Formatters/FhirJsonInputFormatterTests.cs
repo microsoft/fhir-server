@@ -17,6 +17,8 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -155,6 +157,59 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(4, modelStateDictionary.ErrorCount);
         }
 
+        [Fact]
+        public async Task GivenABundleBodyOverTheAppliedLimit_WhenParsing_ThenRequestEntityTooLargeIsThrown()
+        {
+            var modelStateDictionary = new ModelStateDictionary();
+            InputFormatterContext context = CreateContextWithFailingBody(modelStateDictionary);
+            context.HttpContext.Items[BundleRequestBodySizeMiddleware.AppliedLimitItemKey] = 1024L;
+
+            var exception = await Assert.ThrowsAsync<RequestEntityTooLargeException>(
+                () => new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared).ReadRequestBodyAsync(context));
+
+            Assert.Equal(string.Format(Api.Resources.BundleRequestBodyTooLarge, 1024L), exception.Message);
+            Assert.True(context.HttpContext.Items.ContainsKey(BundleRequestBodySizeMiddleware.LimitExceededItemKey));
+        }
+
+        [Fact]
+        public async Task GivenABodyOverTheDefaultLimitWithoutAnAppliedBundleLimit_WhenParsing_ThenAParsingErrorIsAddedToModelState()
+        {
+            var modelStateDictionary = new ModelStateDictionary();
+            InputFormatterContext context = CreateContextWithFailingBody(modelStateDictionary);
+
+            InputFormatterResult result = await new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared).ReadRequestBodyAsync(context);
+
+            Assert.False(result.IsModelSet);
+            Assert.Equal(1, modelStateDictionary.ErrorCount);
+        }
+
+        [Fact]
+        public void GivenTheFormatter_WhenCheckingTheExceptionPolicy_ThenOnlyMalformedInputBecomesAModelStateError()
+        {
+            var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
+
+            Assert.Equal(InputFormatterExceptionPolicy.MalformedInputExceptions, formatter.ExceptionPolicy);
+        }
+
+        private static InputFormatterContext CreateContextWithFailingBody(ModelStateDictionary modelStateDictionary)
+        {
+            var metaData = new DefaultModelMetadata(
+                new EmptyModelMetadataProvider(),
+                Substitute.For<ICompositeMetadataDetailsProvider>(),
+                new DefaultMetadataDetails(ModelMetadataIdentity.ForType(typeof(Resource)), ModelAttributes.GetAttributesForType(typeof(Resource))));
+            var context = new InputFormatterContext(
+                new DefaultHttpContext(),
+                KnownActionParameterNames.Bundle,
+                modelStateDictionary,
+                metaData,
+                (stream, encoding) => new StreamReader(new BodyTooLargeStream()));
+
+            context.HttpContext.Request.Method = "POST";
+            context.HttpContext.Request.Path = "/";
+
+            return context;
+        }
+
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary, bool isBundle)
         {
             var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
@@ -194,6 +249,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                     modelMetadata,
                     Substitute.For<Func<Stream, Encoding, TextReader>>()));
             return result;
+        }
+
+        private sealed class BodyTooLargeStream : MemoryStream
+        {
+            public override int Read(byte[] buffer, int offset, int count) =>
+                throw new BadHttpRequestException("Request body too large.", StatusCodes.Status413PayloadTooLarge);
+
+            public override System.Threading.Tasks.Task<int> ReadAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken) =>
+                throw new BadHttpRequestException("Request body too large.", StatusCodes.Status413PayloadTooLarge);
+
+            public override System.Threading.Tasks.ValueTask<int> ReadAsync(Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default) =>
+                throw new BadHttpRequestException("Request body too large.", StatusCodes.Status413PayloadTooLarge);
         }
     }
 }

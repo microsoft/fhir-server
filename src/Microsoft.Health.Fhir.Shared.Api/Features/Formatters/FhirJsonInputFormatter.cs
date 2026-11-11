@@ -13,11 +13,13 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    internal class FhirJsonInputFormatter : TextInputFormatter
+    internal class FhirJsonInputFormatter : TextInputFormatter, IInputFormatterExceptionPolicy
     {
         private readonly FhirJsonParser _parser;
         private readonly IArrayPool<char> _charPool;
@@ -37,6 +39,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.TextJson);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.ApplicationAnyJsonSyntax);
         }
+
+        // Lets RequestEntityTooLargeException reach the exception filter; parse errors are already added to model state below.
+        public InputFormatterExceptionPolicy ExceptionPolicy => InputFormatterExceptionPolicy.MalformedInputExceptions;
 
         protected override bool CanReadType(Type type)
         {
@@ -94,6 +99,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 try
                 {
                     model = await parserToUse.ParseAsync<Resource>(jsonReader);
+                }
+                catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge
+                    && context.HttpContext.Items.TryGetValue(BundleRequestBodySizeMiddleware.AppliedLimitItemKey, out object limit))
+                {
+                    context.HttpContext.Items[BundleRequestBodySizeMiddleware.LimitExceededItemKey] = true;
+                    throw new RequestEntityTooLargeException(string.Format(Api.Resources.BundleRequestBodyTooLarge, limit), ex);
                 }
                 catch (Exception ex)
                 {

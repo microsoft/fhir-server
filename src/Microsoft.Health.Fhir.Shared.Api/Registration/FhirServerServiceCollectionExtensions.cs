@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
@@ -306,6 +307,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
                     // It should also be after authentication
                     app.UseThrottling();
+
+                    // Must run before anything reads the request body, including host middleware added after this filter.
+                    app.UseMiddleware<BundleRequestBodySizeMiddleware>();
 
                     next(app);
                 };

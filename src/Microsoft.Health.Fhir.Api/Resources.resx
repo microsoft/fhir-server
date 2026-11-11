@@ -286,6 +286,10 @@
     <value>The bundle request body of {0} bytes exceeds the configured limit of {1} bytes.</value>
     <comment>{0} is the request body size. {1} is the configured limit.</comment>
   </data>
+  <data name="BundleRequestBodyTooLarge" xml:space="preserve">
+    <value>The bundle request body exceeds the configured limit of {0} bytes.</value>
+    <comment>{0} is the configured limit.</comment>
+  </data>
   <data name="BundleResourceSizeLimitExceeded" xml:space="preserve">
     <value>The {1} resource in bundle entry {0} is {2} bytes, which exceeds the configured limit of {3} bytes.</value>
     <comment>{0} is the zero-based entry index. {1} is the resource type. {2} is the resource size. {3} is the configured limit.</comment>
