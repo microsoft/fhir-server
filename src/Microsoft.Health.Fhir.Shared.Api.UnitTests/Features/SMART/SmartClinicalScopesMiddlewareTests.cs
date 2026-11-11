@@ -410,6 +410,51 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetScopesWithNonFilteringParameters))]
+        public async Task GivenSmartScopeWithNonFilteringParameter_WhenInvoked_ThenBadRequestIsThrown(string scopes, string expectedMessage)
+        {
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            using var stream = new MemoryStream();
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                stream.SetLength(0);
+                httpContext.Response.Body = stream;
+
+                var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+                var fhirRequestContext = new DefaultFhirRequestContext()
+                {
+                    CorrelationId = Guid.NewGuid().ToString(),
+                };
+
+                fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                ValidateErrorResponse(httpContext, new[] { expectedMessage }, true);
+                Assert.Empty(fhirRequestContext.AccessControlContext.AllowedResourceActions);
+            }
+        }
+
+        [Theory]
         [MemberData(nameof(GetMalformedScopes))]
         public async Task GivenMalformedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
         {
@@ -1519,6 +1564,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // _include hidden behind an encoded '_' in the key
             yield return new object[] { "patient/Observation.rs?%5Finclude=Observation:subject" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithNonFilteringParameters()
+        {
+            const string notEnforceable = "cannot be enforced as a SMART on FHIR clinical scope constraint";
+            const string invalid = "Invalid search parameters in SMART on FHIR clinical scope";
+
+            // Firely's SearchParams.Add stores these outside Parameters, so they would otherwise be dropped and the
+            // scope would grant the whole resource type.
+            foreach (string parameter in new[] { "_text=zzz", "_content=zzz", "_filter=zzz", "_query=zzz", "_sort=date", "_count=5", "_summary=true", "_elements=id", "_contained=both", "_containedType=container" })
+            {
+                yield return new object[] { $"system/Condition.rs?{parameter}", notEnforceable };
+            }
+
+            // Combined with a filtering parameter, on a wildcard scope, and hidden behind an encoded '_'
+            yield return new object[] { "patient/Observation.rs?category=laboratory&_filter=zzz", notEnforceable };
+            yield return new object[] { "user/*.rs?_content=zzz", notEnforceable };
+            yield return new object[] { "patient/Condition.rs?%5Ftext=zzz", notEnforceable };
+
+            // Values Firely rejects while storing them
+            yield return new object[] { "system/Condition.rs?_count=abc", invalid };
+            yield return new object[] { "system/Condition.rs?_summary=bogus", invalid };
         }
 
         public static IEnumerable<object[]> GetMalformedScopes()
