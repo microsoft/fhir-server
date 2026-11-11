@@ -185,6 +185,120 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         /// <summary>
+        /// Sorted day-equality pages preserve the selected semantics and surrogate-ID tie order across scalar modes.
+        /// </summary>
+        /// <param name="containment">Whether equality uses containment instead of overlap.</param>
+        /// <param name="descending">Whether birthdates are sorted in descending order.</param>
+        /// <returns>The test task.</returns>
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task GivenStoredCalendarDates_WhenPagingSortedDayEquality_ThenSelectedSemanticsAndOrderArePreserved(
+            bool containment,
+            bool descending)
+        {
+            string prefix = $"page-{Guid.NewGuid():N}-";
+            var year = new Patient { Id = prefix + "year", BirthDate = "2016" };
+            var month = new Patient { Id = prefix + "month", BirthDate = "2016-07" };
+            var patients = new[]
+            {
+                new Patient { Id = prefix + "day-z", BirthDate = "2016-07-06" },
+                month,
+                new Patient { Id = prefix + "day-a", BirthDate = "2016-07-06" },
+                year,
+                new Patient { Id = prefix + "day-m", BirthDate = "2016-07-06" },
+                new Patient { Id = prefix + "adjacent", BirthDate = "2016-07-07" },
+            };
+            await UpsertResourcesAsync(patients);
+
+            var storedTies = new List<ResourceWrapper>();
+            foreach (Patient patient in patients.Where(patient => patient.BirthDate == "2016-07-06"))
+            {
+                storedTies.Add(await _fixture.DataStore.GetAsync(new ResourceKey("Patient", patient.Id), CancellationToken.None));
+            }
+
+            string[] tiedIds = storedTies.OrderBy(resource => resource.ResourceSurrogateId)
+                .Select(resource => resource.ResourceTypeName + "/" + resource.ResourceId).ToArray();
+            string[] expectedIds = containment
+                ? tiedIds
+                : descending
+                    ? tiedIds.Concat(new[] { "Patient/" + month.Id, "Patient/" + year.Id }).ToArray()
+                    : new[] { "Patient/" + year.Id, "Patient/" + month.Id }.Concat(tiedIds).ToArray();
+            string[] scalarOffIds = null;
+
+            foreach (bool scalarEnabled in new[] { false, true })
+            {
+                _configuration.EnableFhirDateContainment = containment;
+                _configuration.EnableScalarTemporalEqualityRewriter = scalarEnabled;
+                var actualIds = new List<string>();
+                var seenTokens = new HashSet<string>(StringComparer.Ordinal);
+                string token = null;
+                for (int pageIndex = 0; pageIndex < expectedIds.Length + 1; pageIndex++)
+                {
+                    var query = new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_id", string.Join(",", patients.Select(patient => patient.Id))),
+                        Tuple.Create("birthdate", "2016-07-06"),
+                        Tuple.Create("_sort", descending ? "-birthdate" : "birthdate"),
+                        Tuple.Create("_count", "1"),
+                    };
+                    if (token != null)
+                    {
+                        query.Add(Tuple.Create("ct", ContinuationTokenEncoder.Encode(token)));
+                    }
+
+                    _fixture.FhirRequestContextAccessor.RequestContext = new FhirRequestContext(
+                        "GET",
+                        "http://localhost/",
+                        "http://localhost/",
+                        nameof(SqlCalendarDateStorageTests),
+                        new Dictionary<string, StringValues>(),
+                        new Dictionary<string, StringValues>());
+
+                    SearchResult page = await _fixture.SearchService.SearchAsync("Patient", query, CancellationToken.None);
+
+                    Assert.Empty(page.UnsupportedSearchParameters);
+                    Assert.Empty(page.SearchIssues);
+                    Assert.Null(page.IncludesContinuationToken);
+                    Assert.InRange(page.Results.Count(), 0, 1);
+                    Assert.All(page.Results, entry => Assert.Equal(SearchEntryMode.Match, entry.SearchEntryMode));
+                    if (pageIndex == 0)
+                    {
+                        Assert.False(string.IsNullOrEmpty(page.ContinuationToken));
+                    }
+
+                    token = page.ContinuationToken;
+                    if (token != null)
+                    {
+                        Assert.False(string.IsNullOrEmpty(token));
+                        Assert.Single(page.Results);
+                        Assert.True(seenTokens.Add(token), "Continuation tokens must advance on every page.");
+                    }
+
+                    actualIds.AddRange(page.Results.Select(entry => entry.Resource.ResourceTypeName + "/" + entry.Resource.ResourceId));
+                    if (token == null)
+                    {
+                        break;
+                    }
+                }
+
+                Assert.Null(token);
+                Assert.Equal(expectedIds, actualIds);
+                Assert.Equal(actualIds.Count, actualIds.Distinct(StringComparer.Ordinal).Count());
+                if (scalarEnabled)
+                {
+                    Assert.Equal(scalarOffIds, actualIds);
+                }
+                else
+                {
+                    scalarOffIds = actualIds.ToArray();
+                }
+            }
+        }
+
+        /// <summary>
         /// Patient birthdate and token constraints intersect within a scope and union across scopes.
         /// Reverse includes require an Observation resource-type grant.
         /// </summary>

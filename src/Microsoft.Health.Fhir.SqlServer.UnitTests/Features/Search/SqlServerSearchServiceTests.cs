@@ -1088,7 +1088,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void DateEqualityPipeline_AcrossFlagMatrix_AppliesExpectedSemanticsAndNeverUnions(
             bool enableScalarTemporalRewriter,
             bool enableFhirDateContainment,
-            bool expectEndOnlyCollapse,
+            bool expectScalarDayPredicate,
             bool expectLegacyOverlap)
         {
             SearchParameterExpression query = BuildExactDayCalendarDateEquality();
@@ -1096,14 +1096,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(
                 query, enableFhirDateContainment, enableScalarTemporalRewriter);
 
-            bool hasEndOnlyCollapse = ContainsPredicate(
+            bool hasScalarDayPredicate = ContainsPredicate(
                 result,
                 e => e is BinaryExpression { FieldName: SqlFieldName.DateTimeIsLongerThanADay, BinaryOperator: BinaryOperator.Equal, Value: false });
             bool hasOverlapPredicate = ContainsPredicate(
                 result,
                 e => e is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.LessThanOrEqual });
 
-            Assert.Equal(expectEndOnlyCollapse, hasEndOnlyCollapse);
+            Assert.Equal(expectScalarDayPredicate, hasScalarDayPredicate);
             Assert.Equal(expectLegacyOverlap, hasOverlapPredicate);
             Assert.False(ContainsPredicate(result, e => e is UnionExpression), "No date-equality flag combination may emit a temporal UNION.");
         }
