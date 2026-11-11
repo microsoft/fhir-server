@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         string ResourceType { get; set; }
 
         /// <summary>
-        /// Gets or sets the configured tenant identifier, or null for a tenant-independent request.
+        /// Gets or sets the configured partition identifier, or null for a partition-independent request.
         /// </summary>
-        string TenantId { get; set; }
+        string PartitionId { get; set; }
 
         /// <summary>
         /// A list of issues that will be returned inside a resulting search bundle

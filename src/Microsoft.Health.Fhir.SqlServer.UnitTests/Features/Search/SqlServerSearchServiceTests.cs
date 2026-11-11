@@ -22,13 +22,13 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
-        private readonly TenantConfiguration _tenantConfiguration = new TenantConfiguration();
+        private readonly PartitionConfiguration _partitionConfiguration = new PartitionConfiguration();
 
         public SqlServerSearchServiceTests()
         {
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
-                CreateTenantDatabaseResolver(),
+                CreatePartitionDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -404,19 +404,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Theory]
-        [InlineData("tenant-a", "FROM [database-a].[dbo].[Resource]", false)]
-        [InlineData("tenant-b", "FROM [database-b].[dbo].[Resource]", false)]
+        [InlineData("partition-a", "FROM [database-a].[dbo].[Resource]", false)]
+        [InlineData("partition-b", "FROM [database-b].[dbo].[Resource]", false)]
         [InlineData(null, "FROM dbo.Resource", false)]
-        [InlineData("tenant-a", "FROM [database-a].[dbo].[Resource]", true)]
-        [InlineData("tenant-b", "FROM [database-b].[dbo].[Resource]", true)]
+        [InlineData("partition-a", "FROM [database-a].[dbo].[Resource]", true)]
+        [InlineData("partition-b", "FROM [database-b].[dbo].[Resource]", true)]
         [InlineData(null, "FROM dbo.Resource", true)]
-        public async Task GivenRequestTenant_WhenSearchSqlIsGenerated_ThenConfiguredDatabaseIsUsed(string tenantId, string expectedTable, bool includesOperation)
+        public async Task GivenRequestPartition_WhenSearchSqlIsGenerated_ThenConfiguredDatabaseIsUsed(string partitionId, string expectedTable, bool includesOperation)
         {
             // Arrange
-            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
-            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-b", DatabaseName = "database-b" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.TenantId.Returns(tenantId);
+            context.PartitionId.Returns(partitionId);
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -440,7 +440,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Same(stopBeforeExecution, exception);
             Assert.NotNull(generatedSql);
             Assert.Contains(expectedTable, generatedSql, StringComparison.Ordinal);
-            if (tenantId != null)
+            if (partitionId != null)
             {
                 Assert.DoesNotContain("dbo.", generatedSql, StringComparison.Ordinal);
             }
@@ -449,15 +449,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData(null, false)]
         [InlineData("", false)]
-        [InlineData("unused-tenant", false)]
+        [InlineData("unused-partition", false)]
         [InlineData(null, true)]
         [InlineData("", true)]
-        [InlineData("unused-tenant", true)]
-        public async Task GivenNoConfiguredTenants_WhenSearchSqlIsGenerated_ThenTwoPartTableNamesAreUsed(string tenantId, bool includesOperation)
+        [InlineData("unused-partition", true)]
+        public async Task GivenNoConfiguredPartitions_WhenSearchSqlIsGenerated_ThenTwoPartTableNamesAreUsed(string partitionId, bool includesOperation)
         {
             // Arrange
             var context = Substitute.For<IFhirRequestContext>();
-            context.TenantId.Returns(tenantId);
+            context.PartitionId.Returns(partitionId);
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -486,12 +486,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenUnknownRequestTenant_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
+        public async Task GivenUnknownRequestPartition_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
         {
             // Arrange
-            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.TenantId.Returns("unknown-tenant");
+            context.PartitionId.Returns("unknown-partition");
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -505,16 +505,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
 
             // Assert
-            Assert.Contains("unknown-tenant", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("unknown-partition", exception.Message, StringComparison.Ordinal);
             _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
         }
 
         [Fact]
-        public async Task GivenChangingRequestContexts_WhenGeneratingQueries_ThenTenantDatabaseIsNotRetainedBetweenRequests()
+        public async Task GivenChangingRequestContexts_WhenGeneratingQueries_ThenPartitionDatabaseIsNotRetainedBetweenRequests()
         {
             // Arrange
-            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
-            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-b", DatabaseName = "database-b" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
             service.StoredProcedureLayerIsEnabled = false;
@@ -527,17 +527,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             });
             var options = new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
 
-            foreach (var (tenantId, table) in new[]
+            foreach (var (partitionId, table) in new[]
             {
-                ("tenant-a", "[database-a].[dbo].[Resource]"),
-                ("tenant-b", "[database-b].[dbo].[Resource]"),
+                ("partition-a", "[database-a].[dbo].[Resource]"),
+                ("partition-b", "[database-b].[dbo].[Resource]"),
                 (null, "dbo.Resource"),
             })
             {
-                var context = tenantId == null ? null : Substitute.For<IFhirRequestContext>();
+                var context = partitionId == null ? null : Substitute.For<IFhirRequestContext>();
                 if (context != null)
                 {
-                    context.TenantId.Returns(tenantId);
+                    context.PartitionId.Returns(partitionId);
                 }
 
                 _requestContextAccessor.RequestContext.Returns(context);
@@ -553,12 +553,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenUnknownTenant_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
+        public async Task GivenUnknownPartition_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
         {
             // Arrange
-            _tenantConfiguration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.TenantId.Returns("unknown-tenant");
+            context.PartitionId.Returns("unknown-partition");
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -577,14 +577,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
 
             // Assert
-            Assert.Contains("unsupported tenant 'unknown-tenant'", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("unsupported partition 'unknown-partition'", exception.Message, StringComparison.Ordinal);
             _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
         }
 
-        private SqlTenantDatabaseResolver CreateTenantDatabaseResolver() => new(
+        private SqlPartitionDatabaseResolver CreatePartitionDatabaseResolver() => new(
             _requestContextAccessor,
-            new TenantManager(Options.Create(_tenantConfiguration)),
-            NullLogger<SqlTenantDatabaseResolver>.Instance);
+            new PartitionManager(Options.Create(_partitionConfiguration)),
+            NullLogger<SqlPartitionDatabaseResolver>.Instance);
 
         private void ExecuteSqlCallbacks()
         {
@@ -691,7 +691,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
-                CreateTenantDatabaseResolver(),
+                CreatePartitionDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -781,7 +781,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    CreateTenantDatabaseResolver(),
+                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -832,7 +832,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    CreateTenantDatabaseResolver(),
+                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -883,7 +883,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    CreateTenantDatabaseResolver(),
+                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 

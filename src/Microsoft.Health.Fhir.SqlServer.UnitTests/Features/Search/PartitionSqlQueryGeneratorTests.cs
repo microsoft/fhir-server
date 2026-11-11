@@ -29,13 +29,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search;
 
 [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
 [Trait(Traits.Category, Categories.Search)]
-public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
+public class PartitionSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
 {
     private readonly ISqlServerFhirModel _model = Substitute.For<ISqlServerFhirModel>();
     private readonly SearchParamTableExpressionQueryGeneratorFactory _factory = new(new SearchParameterToSearchValueTypeMap());
     private readonly SchemaInformation _schema = new(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
 
-    public TenantSqlQueryGeneratorTests(ModelInfoProviderFixture fixture)
+    public PartitionSqlQueryGeneratorTests(ModelInfoProviderFixture fixture)
     {
         _ = fixture;
         _model.GetResourceTypeId("Observation").Returns((short)10);
@@ -44,12 +44,12 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
     }
 
     [Theory]
-    [InlineData("tenant-db", "[tenant-db].[dbo].[Resource]")]
-    [InlineData("tenant.db", "[tenant.db].[dbo].[Resource]")]
-    [InlineData("tenant]db", "[tenant]]db].[dbo].[Resource]")]
-    [InlineData("tenant]; SELECT 1;--", "[tenant]]; SELECT 1;--].[dbo].[Resource]")]
+    [InlineData("partition-db", "[partition-db].[dbo].[Resource]")]
+    [InlineData("partition.db", "[partition.db].[dbo].[Resource]")]
+    [InlineData("partition]db", "[partition]]db].[dbo].[Resource]")]
+    [InlineData("partition]; SELECT 1;--", "[partition]]; SELECT 1;--].[dbo].[Resource]")]
     [InlineData(null, "dbo.Resource")]
-    public void GivenTenantDatabase_WhenGeneratingResourceSearch_ThenTableIdentifierIsSafelyQualified(string database, string expectedTable)
+    public void GivenPartitionDatabase_WhenGeneratingResourceSearch_ThenTableIdentifierIsSafelyQualified(string database, string expectedTable)
     {
         // Arrange
         var root = new SqlRootExpression([], []);
@@ -65,7 +65,7 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
     [InlineData(SearchParamType.Token, FieldName.TokenSystem, "code", "TokenSearchParam", "System")]
     [InlineData(SearchParamType.Quantity, FieldName.QuantitySystem, "value-quantity", "QuantitySearchParam", "System")]
     [InlineData(SearchParamType.Quantity, FieldName.QuantityCode, "value-quantity", "QuantitySearchParam", "QuantityCode")]
-    public void GivenLookupSubquery_WhenGeneratingTenantSearch_ThenIndexAndLookupTablesUseTheTenantDatabase(
+    public void GivenLookupSubquery_WhenGeneratingPartitionSearch_ThenIndexAndLookupTablesUseThePartitionDatabase(
         SearchParamType type,
         FieldName field,
         string name,
@@ -79,12 +79,12 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
         var root = new SqlRootExpression([new(tableGenerator, predicate, SearchParamTableExpressionKind.Normal)], []);
 
         // Act
-        string sql = Generate(root, "tenant-db");
+        string sql = Generate(root, "partition-db");
 
         // Assert
-        Assert.Contains("FROM [tenant-db].[dbo].[" + indexTable + "]", sql, StringComparison.Ordinal);
-        Assert.Contains("FROM [tenant-db].[dbo].[" + lookupTable + "]", sql, StringComparison.Ordinal);
-        Assert.Contains("FROM [tenant-db].[dbo].[Resource] r", sql, StringComparison.Ordinal);
+        Assert.Contains("FROM [partition-db].[dbo].[" + indexTable + "]", sql, StringComparison.Ordinal);
+        Assert.Contains("FROM [partition-db].[dbo].[" + lookupTable + "]", sql, StringComparison.Ordinal);
+        Assert.Contains("FROM [partition-db].[dbo].[Resource] r", sql, StringComparison.Ordinal);
         Assert.DoesNotContain("dbo.", sql, StringComparison.Ordinal);
         Assert.Contains("@p", sql, StringComparison.Ordinal);
         Assert.Contains("JOIN cte", sql, StringComparison.Ordinal);
@@ -95,7 +95,7 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public void GivenChainAndInclude_WhenGeneratingTenantSearch_ThenAllPhysicalTablesUseTheTenantDatabase(bool reversed, bool countOnly)
+    public void GivenChainAndInclude_WhenGeneratingPartitionSearch_ThenAllPhysicalTablesUseThePartitionDatabase(bool reversed, bool countOnly)
     {
         // Arrange
         var reference = CreateReference();
@@ -111,11 +111,11 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
             []);
 
         // Act
-        string sql = Generate(root, "tenant-db", countOnly);
+        string sql = Generate(root, "partition-db", countOnly);
 
         // Assert
-        Assert.Contains("FROM [tenant-db].[dbo].[ReferenceSearchParam] refSource", sql, StringComparison.Ordinal);
-        Assert.Contains("JOIN [tenant-db].[dbo].[Resource] refTarget", sql, StringComparison.Ordinal);
+        Assert.Contains("FROM [partition-db].[dbo].[ReferenceSearchParam] refSource", sql, StringComparison.Ordinal);
+        Assert.Contains("JOIN [partition-db].[dbo].[Resource] refTarget", sql, StringComparison.Ordinal);
         Assert.DoesNotContain("dbo.", sql, StringComparison.Ordinal);
         Assert.DoesNotContain("[dbo].[cte", sql, StringComparison.Ordinal);
         Assert.Contains("FROM cte", sql, StringComparison.Ordinal);
@@ -127,7 +127,7 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
     }
 
     [Fact]
-    public void GivenAntiReferenceSubqueries_WhenGeneratingTenantSearch_ThenReferenceTablesUseTheTenantDatabase()
+    public void GivenAntiReferenceSubqueries_WhenGeneratingPartitionSearch_ThenReferenceTablesUseThePartitionDatabase()
     {
         // Arrange
         var root = new SqlRootExpression(
@@ -138,11 +138,11 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
             []);
 
         // Act
-        string sql = Generate(root, "tenant-db");
+        string sql = Generate(root, "partition-db");
 
         // Assert
-        Assert.Contains("FROM [tenant-db].[dbo].[Resource]", sql, StringComparison.Ordinal);
-        Assert.Contains("FROM [tenant-db].[dbo].[ReferenceSearchParam]) R", sql, StringComparison.Ordinal);
+        Assert.Contains("FROM [partition-db].[dbo].[Resource]", sql, StringComparison.Ordinal);
+        Assert.Contains("FROM [partition-db].[dbo].[ReferenceSearchParam]) R", sql, StringComparison.Ordinal);
         Assert.Contains("RefResourceSurrogateId", sql, StringComparison.Ordinal);
         Assert.Contains("SourceResourceTypeId", sql, StringComparison.Ordinal);
         Assert.DoesNotContain("dbo.", sql, StringComparison.Ordinal);
@@ -151,7 +151,7 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void GivenSmartCompartmentInclude_WhenGeneratingTenantSearch_ThenMembershipSubqueryUsesTheTenantDatabase(bool reversed)
+    public void GivenSmartCompartmentInclude_WhenGeneratingPartitionSearch_ThenMembershipSubqueryUsesThePartitionDatabase(bool reversed)
     {
         // Arrange
         _model.TryGetResourceTypeId("Observation", out Arg.Any<short>()).Returns(call =>
@@ -175,15 +175,15 @@ public class TenantSqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixtu
             membership);
 
         // Act
-        string sql = Generate(root, "tenant-db");
+        string sql = Generate(root, "partition-db");
 
         // Assert
-        Assert.Contains("FROM [tenant-db].[dbo].[ReferenceSearchParam] smartCompartmentMembership", sql, StringComparison.Ordinal);
+        Assert.Contains("FROM [partition-db].[dbo].[ReferenceSearchParam] smartCompartmentMembership", sql, StringComparison.Ordinal);
         Assert.DoesNotContain("dbo.", sql, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void GivenDifferentTenantDatabases_WhenCalculatingQueryHashes_ThenHashesAreDatabaseSpecific()
+    public void GivenDifferentPartitionDatabases_WhenCalculatingQueryHashes_ThenHashesAreDatabaseSpecific()
     {
         // Arrange
         var root = new SqlRootExpression([], []);

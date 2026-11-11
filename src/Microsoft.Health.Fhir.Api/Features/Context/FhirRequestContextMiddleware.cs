@@ -15,8 +15,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<FhirRequestContextMiddleware> _logger;
-        private readonly ITenantManager _tenantManager;
+        private readonly IPartitionManager _partitionManager;
 
         internal const string XContentTypeOptions = "X-Content-Type-Options";
         private const string XContentTypeOptionsValue = "nosniff";
@@ -51,14 +51,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
         public FhirRequestContextMiddleware(
             RequestDelegate next,
             ILogger<FhirRequestContextMiddleware> logger,
-            ITenantManager tenantManager)
+            IPartitionManager partitionManager)
         {
             EnsureArg.IsNotNull(next, nameof(next));
-            EnsureArg.IsNotNull(tenantManager, nameof(tenantManager));
+            EnsureArg.IsNotNull(partitionManager, nameof(partitionManager));
 
             _next = next;
             _logger = logger;
-            _tenantManager = tenantManager;
+            _partitionManager = partitionManager;
         }
 
         public async Task Invoke(
@@ -70,33 +70,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             HttpRequest request = context.Request;
             PathString originalPath = request.Path;
             PathString originalPathBase = request.PathBase;
-            TenantInfo tenant = null;
-            bool tenantRequired = false;
+            PartitionInfo partition = null;
+            bool partitionRequired = false;
 
-            if (_tenantManager.Tenants.Count > 0 && !IsServiceAuthenticationEndpoint(request.Path))
+            if (_partitionManager.Partitions.Count > 0 && !IsServiceAuthenticationEndpoint(request.Path))
             {
                 bool isHealthCheck = request.Path.Equals(new PathString(KnownRoutes.HealthCheck), StringComparison.OrdinalIgnoreCase);
                 string firstSegment = request.Path.Value?.Split('/', 3).ElementAtOrDefault(1);
-                if (!isHealthCheck && firstSegment != null && _tenantManager.Tenants.TryGetValue(firstSegment, out tenant))
+                if (!isHealthCheck && firstSegment != null && _partitionManager.Partitions.TryGetValue(firstSegment, out partition))
                 {
-                    var prefix = new PathString("/" + tenant.Id);
+                    var prefix = new PathString("/" + partition.Id);
                     request.Path.StartsWithSegments(prefix, StringComparison.Ordinal, out PathString remaining);
                     request.PathBase = request.PathBase.Add(prefix);
                     request.Path = remaining;
                 }
-                else if (_tenantManager.Tenants.Count == 1)
+                else if (_partitionManager.Partitions.Count == 1)
                 {
-                    tenant = _tenantManager.Tenants.Values.Single();
+                    partition = _partitionManager.Partitions.Values.Single();
                 }
                 else if (!isHealthCheck)
                 {
-                    tenantRequired = true;
+                    partitionRequired = true;
                 }
             }
 
             try
             {
-                await InvokeRequestAsync(context, fhirRequestContextAccessor, instanceConfiguration, correlationIdProvider, originalPathBase, tenant?.Id, tenantRequired);
+                await InvokeRequestAsync(context, fhirRequestContextAccessor, instanceConfiguration, correlationIdProvider, originalPathBase, partition?.Id, partitionRequired);
             }
             finally
             {
@@ -126,8 +126,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             IFhirServerInstanceConfiguration instanceConfiguration,
             CorrelationIdProvider correlationIdProvider,
             PathString instancePathBase,
-            string tenantId,
-            bool tenantRequired)
+            string partitionId,
+            bool partitionRequired)
         {
             HttpRequest request = context.Request;
 
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers)
             {
-                TenantId = tenantId,
+                PartitionId = partitionId,
             };
 
             context.Response.Headers[KnownHeaders.RequestId] = correlationId;
@@ -191,12 +191,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 
-            if (tenantRequired)
+            if (partitionRequired)
             {
-                _logger.LogWarning("Request rejected: a configured tenant ID is required in the first URL segment.");
+                _logger.LogWarning("Request rejected: a configured partition ID is required in the first URL segment.");
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
                 context.Response.ContentType = "text/plain";
-                await context.Response.WriteAsync("A configured tenant ID is required in the first URL segment.");
+                await context.Response.WriteAsync("A configured partition ID is required in the first URL segment.");
                 return;
             }
 

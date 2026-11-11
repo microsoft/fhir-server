@@ -10,55 +10,55 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
-    /// Resolves the current request's SQL database from the immutable tenant registry.
+    /// Resolves the current request's SQL database from the immutable partition registry.
     /// </summary>
-    public sealed class SqlTenantDatabaseResolver
+    public sealed class SqlPartitionDatabaseResolver
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private readonly ITenantManager _tenantManager;
-        private readonly ILogger<SqlTenantDatabaseResolver> _logger;
+        private readonly IPartitionManager _partitionManager;
+        private readonly ILogger<SqlPartitionDatabaseResolver> _logger;
 
         /// <summary>
-        /// Initializes a request-aware tenant database resolver.
+        /// Initializes a request-aware partition database resolver.
         /// </summary>
-        public SqlTenantDatabaseResolver(
+        public SqlPartitionDatabaseResolver(
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            ITenantManager tenantManager,
-            ILogger<SqlTenantDatabaseResolver> logger)
+            IPartitionManager partitionManager,
+            ILogger<SqlPartitionDatabaseResolver> logger)
         {
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
-            _tenantManager = EnsureArg.IsNotNull(tenantManager, nameof(tenantManager));
+            _partitionManager = EnsureArg.IsNotNull(partitionManager, nameof(partitionManager));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         /// <summary>
-        /// Gets the request tenant's database, or null when tenancy is disabled or the operation is tenant-independent.
+        /// Gets the request partition's database, or null when partitioning is disabled or the operation is partition-independent.
         /// </summary>
         public string GetDatabaseName()
         {
-            if (_tenantManager.Tenants.Count == 0)
+            if (_partitionManager.Partitions.Count == 0)
             {
                 return null;
             }
 
-            string tenantId = _requestContextAccessor.RequestContext?.TenantId;
-            if (tenantId == null)
+            string partitionId = _requestContextAccessor.RequestContext?.PartitionId;
+            if (partitionId == null)
             {
                 return null;
             }
 
-            if (!_tenantManager.Tenants.TryGetValue(tenantId, out TenantInfo tenant))
+            if (!_partitionManager.Partitions.TryGetValue(partitionId, out PartitionInfo partition))
             {
-                _logger.LogError("Cannot execute SQL for unsupported tenant {TenantId}.", tenantId);
-                throw new InvalidOperationException($"Cannot execute SQL for unsupported tenant '{tenantId}'.");
+                _logger.LogError("Cannot execute SQL for unsupported partition {PartitionId}.", partitionId);
+                throw new InvalidOperationException($"Cannot execute SQL for unsupported partition '{partitionId}'.");
             }
 
-            return tenant.DatabaseName;
+            return partition.DatabaseName;
         }
 
         /// <summary>

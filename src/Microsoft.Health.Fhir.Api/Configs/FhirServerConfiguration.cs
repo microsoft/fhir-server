@@ -46,8 +46,8 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public WatchdogConfiguration Watchdog { get; } = new WatchdogConfiguration();
 
         /// <summary>
-        /// Gets the tenants available at startup.
+        /// Gets the partitions available at startup.
         /// </summary>
-        public TenantConfiguration TenantConfiguration { get; } = new TenantConfiguration();
+        public PartitionConfiguration PartitionConfiguration { get; } = new PartitionConfiguration();
     }
 }

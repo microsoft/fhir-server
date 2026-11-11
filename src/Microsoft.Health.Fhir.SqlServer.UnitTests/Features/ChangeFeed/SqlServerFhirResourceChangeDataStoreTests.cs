@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -111,17 +111,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         [InlineData(19, "FetchResourceChanges")]
         [InlineData(20, "FetchResourceChanges_2")]
         [InlineData(24, "FetchResourceChanges_3")]
-        public void GivenTenant_WhenPopulatingChangeFeedCommand_ThenSchemaSpecificProcedureUsesTenantDatabase(int schemaVersion, string procedureName)
+        public void GivenPartition_WhenPopulatingChangeFeedCommand_ThenSchemaSpecificProcedureUsesPartitionDatabase(int schemaVersion, string procedureName)
         {
             // Arrange
             var context = Substitute.For<IFhirRequestContext>();
-            context.TenantId.Returns("tenant-a");
-            var configuration = new TenantConfiguration();
-            configuration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
-            var resolver = new SqlTenantDatabaseResolver(
+            context.PartitionId.Returns("partition-a");
+            var configuration = new PartitionConfiguration();
+            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            var resolver = new SqlPartitionDatabaseResolver(
                 new FhirRequestContextAccessor { RequestContext = context },
-                new TenantManager(Options.Create(configuration)),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
+                new PartitionManager(Options.Create(configuration)),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
             var store = GetResourcChangeDataStoreWithGivenConnectionString(LocalConnectionString, resolver, schemaVersion);
             using var command = new SqlCommand();
             using var wrapper = new SqlCommandWrapper(command);
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             Assert.Equal((short)10, command.Parameters["@pageSize"].Value);
         }
 
-        public SqlServerFhirResourceChangeDataStore GetResourcChangeDataStoreWithGivenConnectionString(string connectionString, SqlTenantDatabaseResolver tenantDatabaseResolver = null, int schemaVersion = SchemaVersionConstants.Max)
+        public SqlServerFhirResourceChangeDataStore GetResourcChangeDataStoreWithGivenConnectionString(string connectionString, SqlPartitionDatabaseResolver partitionDatabaseResolver = null, int schemaVersion = SchemaVersionConstants.Max)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
@@ -148,16 +148,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
 
             var schemaInformation = new SchemaInformation(Math.Min(schemaVersion, SchemaVersionConstants.Min), SchemaVersionConstants.Max);
             schemaInformation.Current = schemaVersion;
-            tenantDatabaseResolver ??= new SqlTenantDatabaseResolver(
+            partitionDatabaseResolver ??= new SqlPartitionDatabaseResolver(
                 new FhirRequestContextAccessor(),
-                new TenantManager(Options.Create(new TenantConfiguration())),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
+                new PartitionManager(Options.Create(new PartitionConfiguration())),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
 
             return new SqlServerFhirResourceChangeDataStore(
                 sqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 schemaInformation,
-                tenantDatabaseResolver);
+                partitionDatabaseResolver);
         }
     }
 }

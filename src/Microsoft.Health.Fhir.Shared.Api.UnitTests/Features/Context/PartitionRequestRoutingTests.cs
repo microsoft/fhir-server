@@ -28,11 +28,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Web)]
-    public class TenantRequestRoutingTests
+    public class PartitionRequestRoutingTests
     {
         public static IEnumerable<object[]> ServiceAuthenticationRequests()
         {
-            foreach (int tenantCount in new[] { 0, 1, 2 })
+            foreach (int partitionCount in new[] { 0, 1, 2 })
             {
                 foreach (var request in new[]
                 {
@@ -50,21 +50,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                     (Path: "/AadSmartOnFhirProxy/callback/aHR0cHM6Ly9jbGllbnQ/", Method: "GET"),
                 })
                 {
-                    yield return new object[] { tenantCount, request.Path, request.Method };
+                    yield return new object[] { partitionCount, request.Path, request.Method };
                 }
             }
         }
 
         [Theory]
         [InlineData(0, "/Patient", "http://localhost/", null)]
-        [InlineData(1, "/Patient", "http://localhost/", "tenant-a")]
-        [InlineData(1, "/tenant-a/Patient", "http://localhost/tenant-a/", "tenant-a")]
-        [InlineData(2, "/tenant-a/Patient", "http://localhost/tenant-a/", "tenant-a")]
-        [InlineData(2, "/tenant-b/Patient", "http://localhost/tenant-b/", "tenant-b")]
-        [InlineData(2, "/tenant-a/Patient?name=Alice", "http://localhost/tenant-a/", "tenant-a")]
-        public async Task GivenConfiguredTenants_WhenRequestingPatients_ThenRouteAndBaseUriAreTenantAware(int tenantCount, string path, string baseUri, string tenantId)
+        [InlineData(1, "/Patient", "http://localhost/", "partition-a")]
+        [InlineData(1, "/partition-a/Patient", "http://localhost/partition-a/", "partition-a")]
+        [InlineData(2, "/partition-a/Patient", "http://localhost/partition-a/", "partition-a")]
+        [InlineData(2, "/partition-b/Patient", "http://localhost/partition-b/", "partition-b")]
+        [InlineData(2, "/partition-a/Patient?name=Alice", "http://localhost/partition-a/", "partition-a")]
+        public async Task GivenConfiguredPartitions_WhenRequestingPatients_ThenRouteAndBaseUriArePartitionAware(int partitionCount, string path, string baseUri, string partitionId)
         {
-            using var host = CreateHost(tenantCount);
+            using var host = CreateHost(partitionCount);
             using var client = host.GetTestClient();
 
             using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
@@ -73,21 +73,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(baseUri, await response.Content.ReadAsStringAsync());
             Assert.Equal(baseUri + "Patient", Assert.Single(response.Headers.GetValues("X-Test-Link")));
             Assert.Equal(new Uri(client.BaseAddress, path).AbsoluteUri, Assert.Single(response.Headers.GetValues("X-Test-Uri")));
-            if (tenantId == null)
+            if (partitionId == null)
             {
-                Assert.False(response.Headers.Contains("X-Test-Tenant"));
+                Assert.False(response.Headers.Contains("X-Test-Partition"));
             }
             else
             {
-                Assert.Equal(tenantId, Assert.Single(response.Headers.GetValues("X-Test-Tenant")));
+                Assert.Equal(partitionId, Assert.Single(response.Headers.GetValues("X-Test-Partition")));
             }
         }
 
         [Theory]
         [InlineData("/Patient")]
         [InlineData("/unknown/Patient")]
-        [InlineData("/tenant-aa/Patient")]
-        [InlineData("/TENANT-A/Patient")]
+        [InlineData("/partition-aa/Patient")]
+        [InlineData("/PARTITION-A/Patient")]
         [InlineData("/health/check/extra")]
         [InlineData("/health/check/")]
         [InlineData("/connect/token/extra")]
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [InlineData("/AadSmartOnFhirProxy/callback/")]
         [InlineData("/AadSmartOnFhirProxy/callback/redirect/extra")]
         [InlineData("/")]
-        public async Task GivenMultipleTenants_WhenTenantIsMissingOrUnknown_ThenRequestIsRejected(string path)
+        public async Task GivenMultiplePartitions_WhenPartitionIsMissingOrUnknown_ThenRequestIsRejected(string path)
         {
             using var host = CreateHost(2);
             using var client = host.GetTestClient();
@@ -114,30 +114,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [InlineData(0)]
         [InlineData(1)]
         [InlineData(2)]
-        public async Task GivenConfiguredTenants_WhenRequestingHealthCheckWithoutTenant_ThenHealthCheckIsAccessible(int tenantCount)
+        public async Task GivenConfiguredPartitions_WhenRequestingHealthCheckWithoutPartition_ThenHealthCheckIsAccessible(int partitionCount)
         {
-            using var host = CreateHost(tenantCount);
+            using var host = CreateHost(partitionCount);
             using var client = host.GetTestClient();
 
             using var response = await client.GetAsync(new Uri("/health/check", UriKind.Relative));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("healthy", await response.Content.ReadAsStringAsync());
-            if (tenantCount == 1)
+            if (partitionCount == 1)
             {
-                Assert.Equal("tenant-a", Assert.Single(response.Headers.GetValues("X-Test-Tenant")));
+                Assert.Equal("partition-a", Assert.Single(response.Headers.GetValues("X-Test-Partition")));
             }
             else
             {
-                Assert.False(response.Headers.Contains("X-Test-Tenant"));
+                Assert.False(response.Headers.Contains("X-Test-Partition"));
             }
         }
 
         [Theory]
         [MemberData(nameof(ServiceAuthenticationRequests))]
-        public async Task GivenConfiguredTenants_WhenRequestingServiceAuthentication_ThenNoTenantIsSelected(int tenantCount, string path, string method)
+        public async Task GivenConfiguredPartitions_WhenRequestingServiceAuthentication_ThenNoPartitionIsSelected(int partitionCount, string path, string method)
         {
-            using var host = CreateHost(tenantCount);
+            using var host = CreateHost(partitionCount);
             using var client = host.GetTestClient();
             using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(path, UriKind.Relative));
 
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("http://localhost/", await response.Content.ReadAsStringAsync());
-            Assert.False(response.Headers.Contains("X-Test-Tenant"));
+            Assert.False(response.Headers.Contains("X-Test-Partition"));
             Assert.Equal(new Uri(client.BaseAddress, path).AbsoluteUri, Assert.Single(response.Headers.GetValues("X-Test-Uri")));
         }
 
@@ -153,9 +153,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [InlineData("connect", "/connect/token")]
         [InlineData(".well-known", "/.well-known/openid-configuration")]
         [InlineData("AadSmartOnFhirProxy", "/AadSmartOnFhirProxy/callback/redirect")]
-        public async Task GivenTenantIdMatchingAuthenticationPrefix_WhenRequestingServiceAuthentication_ThenPathIsNotTreatedAsTenantPrefix(string tenantId, string path)
+        public async Task GivenPartitionIdMatchingAuthenticationPrefix_WhenRequestingServiceAuthentication_ThenPathIsNotTreatedAsPartitionPrefix(string partitionId, string path)
         {
-            using var host = CreateHost(2, tenantId);
+            using var host = CreateHost(2, partitionId);
             using var client = host.GetTestClient();
             using var request = new HttpRequestMessage(path == "/connect/token" ? HttpMethod.Post : HttpMethod.Get, new Uri(path, UriKind.Relative));
 
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("http://localhost/", await response.Content.ReadAsStringAsync());
-            Assert.False(response.Headers.Contains("X-Test-Tenant"));
+            Assert.False(response.Headers.Contains("X-Test-Partition"));
         }
 
         [Fact]
@@ -176,17 +176,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("http://localhost/fhir/", await response.Content.ReadAsStringAsync());
-            Assert.False(response.Headers.Contains("X-Test-Tenant"));
+            Assert.False(response.Headers.Contains("X-Test-Partition"));
             Assert.Equal("http://localhost/fhir/connect/token", Assert.Single(response.Headers.GetValues("X-Test-Uri")));
         }
 
-        private static IHost CreateHost(int tenantCount, string firstTenantId = "tenant-a", string pathBase = null)
+        private static IHost CreateHost(int partitionCount, string firstPartitionId = "partition-a", string pathBase = null)
         {
             var values = new Dictionary<string, string>();
-            for (int i = 0; i < tenantCount; i++)
+            for (int i = 0; i < partitionCount; i++)
             {
-                values[$"FhirServer:TenantConfiguration:Tenants:{i}:Id"] = i == 0 ? firstTenantId : "tenant-b";
-                values[$"FhirServer:TenantConfiguration:Tenants:{i}:DatabaseName"] = $"database-{i}";
+                values[$"FhirServer:PartitionConfiguration:Partitions:{i}:Id"] = i == 0 ? firstPartitionId : "partition-b";
+                values[$"FhirServer:PartitionConfiguration:Partitions:{i}:DatabaseName"] = $"database-{i}";
             }
 
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
@@ -212,9 +212,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                         endpoints.MapGet("/Patient", async context =>
                         {
                             var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-                            if (accessor.RequestContext.TenantId != null)
+                            if (accessor.RequestContext.PartitionId != null)
                             {
-                                context.Response.Headers["X-Test-Tenant"] = accessor.RequestContext.TenantId;
+                                context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
                             }
 
                             var linkGenerator = context.RequestServices.GetRequiredService<LinkGenerator>();
@@ -225,9 +225,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                         endpoints.MapGet("/health/check", context =>
                         {
                             var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-                            if (accessor.RequestContext.TenantId != null)
+                            if (accessor.RequestContext.PartitionId != null)
                             {
-                                context.Response.Headers["X-Test-Tenant"] = accessor.RequestContext.TenantId;
+                                context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
                             }
 
                             return context.Response.WriteAsync("healthy");
@@ -248,9 +248,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                             endpoints.MapMethods(route, new[] { "GET", "POST" }, context =>
                             {
                                 var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-                                if (accessor.RequestContext.TenantId != null)
+                                if (accessor.RequestContext.PartitionId != null)
                                 {
-                                    context.Response.Headers["X-Test-Tenant"] = accessor.RequestContext.TenantId;
+                                    context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
                                 }
 
                                 context.Response.Headers["X-Test-Uri"] = accessor.RequestContext.Uri.AbsoluteUri;

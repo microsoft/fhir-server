@@ -140,11 +140,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlTransactionHandler = new SqlTransactionHandler();
             var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
-            var tenantDatabaseResolver = new SqlTenantDatabaseResolver(
+            var partitionDatabaseResolver = new SqlPartitionDatabaseResolver(
                 new Core.Features.Context.FhirRequestContextAccessor(),
-                new Core.Features.Tenants.TenantManager(Options.Create(new TenantConfiguration())),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
-            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), tenantDatabaseResolver);
+                new Core.Features.Partitions.PartitionManager(Options.Create(new PartitionConfiguration())),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), partitionDatabaseResolver);
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,

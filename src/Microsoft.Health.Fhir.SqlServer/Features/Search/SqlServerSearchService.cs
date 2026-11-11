@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
-        private readonly SqlTenantDatabaseResolver _tenantDatabaseResolver;
+        private readonly SqlPartitionDatabaseResolver _partitionDatabaseResolver;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            SqlTenantDatabaseResolver tenantDatabaseResolver,
+            SqlPartitionDatabaseResolver partitionDatabaseResolver,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(queryPlanReuseChecker, nameof(queryPlanReuseChecker));
-            EnsureArg.IsNotNull(tenantDatabaseResolver, nameof(tenantDatabaseResolver));
+            EnsureArg.IsNotNull(partitionDatabaseResolver, nameof(partitionDatabaseResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
-            _tenantDatabaseResolver = tenantDatabaseResolver;
+            _partitionDatabaseResolver = partitionDatabaseResolver;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -573,7 +573,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
                                 enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
-                                databaseName: _tenantDatabaseResolver.GetDatabaseName());
+                                databaseName: _partitionDatabaseResolver.GetDatabaseName());
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
@@ -600,7 +600,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
-                        _tenantDatabaseResolver.PrepareCommand(sqlCommand);
+                        _partitionDatabaseResolver.PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var st = DateTime.UtcNow;
@@ -2096,7 +2096,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
                                 enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
-                                databaseName: _tenantDatabaseResolver.GetDatabaseName());
+                                databaseName: _partitionDatabaseResolver.GetDatabaseName());
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
@@ -2120,7 +2120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
-                        _tenantDatabaseResolver.PrepareCommand(sqlCommand);
+                        _partitionDatabaseResolver.PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var executionStopwatch = Stopwatch.StartNew();

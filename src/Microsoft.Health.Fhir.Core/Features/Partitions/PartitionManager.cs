@@ -10,26 +10,25 @@ using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 
-namespace Microsoft.Health.Fhir.Core.Features.Tenants
+namespace Microsoft.Health.Fhir.Core.Features.Partitions
 {
     /// <summary>
-    /// Holds a snapshot of tenant settings loaded at startup.
+    /// Holds a snapshot of partition settings loaded at startup.
     /// </summary>
-    public sealed class TenantManager : ITenantManager
+    public sealed class PartitionManager : IPartitionManager
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="TenantManager"/> class.
+        /// Initializes a new instance of the <see cref="PartitionManager"/> class.
         /// </summary>
-        /// <param name="configuration">Tenant settings loaded at startup.</param>
-        public TenantManager(IOptions<TenantConfiguration> configuration)
+        /// <param name="configuration">Partition settings loaded at startup.</param>
+        public PartitionManager(IOptions<PartitionConfiguration> configuration)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            configuration.Value.Validate();
-            Tenants = configuration.Value.Tenants.ToFrozenDictionary(tenant => tenant.Id, StringComparer.Ordinal);
+            Partitions = configuration.Value.Partitions.ToFrozenDictionary(partition => partition.Id, StringComparer.Ordinal);
         }
 
         /// <inheritdoc />
-        public IReadOnlyDictionary<string, TenantInfo> Tenants { get; }
+        public IReadOnlyDictionary<string, PartitionInfo> Partitions { get; }
     }
 }

@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             using var cts = new CancellationTokenSource();
             cts.Cancel(); // Cancel immediately
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act - Query with a very high start ID that doesn't exist
             var result = await resourceChangeDataStore.GetRecordsAsync(long.MaxValue - 1, 10, CancellationToken.None);
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act - Request only 1 record
             var result = await resourceChangeDataStore.GetRecordsAsync(1, 1, CancellationToken.None);
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act - Request with very large page size
             var result = await resourceChangeDataStore.GetRecordsAsync(1, short.MaxValue, CancellationToken.None);
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act
             var result = await resourceChangeDataStore.GetRecordsAsync(1, checkpoint, 100, CancellationToken.None);
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act - Get records without DateTime filter
             var resultWithoutFilter = await resourceChangeDataStore.GetRecordsAsync(1, 100, CancellationToken.None);
@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act
             var result = await resourceChangeDataStore.GetRecordsAsync(1, futureCheckpoint, 100, CancellationToken.None);
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act - Call twice with same parameters
             var result1 = await resourceChangeDataStore.GetRecordsAsync(1, 10, CancellationToken.None);
@@ -294,7 +294,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act
             var result = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act
             var result = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
@@ -352,7 +352,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act - Fetch first batch
             var batch1 = await resourceChangeDataStore.GetRecordsAsync(1, 2, CancellationToken.None);
@@ -384,7 +384,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act
             var result = await resourceChangeDataStore.GetRecordsAsync(1, 10, CancellationToken.None);
@@ -414,7 +414,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act
             var result = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
@@ -449,7 +449,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act - Use the DateTime overload
             var result = await resourceChangeDataStore.GetRecordsAsync(1, checkpoint, 100, CancellationToken.None);
@@ -474,7 +474,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 _fixture.SqlConnectionWrapperFactory,
                 NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
                 _fixture.SchemaInformation,
-                _fixture.TenantDatabaseResolver);
+                _fixture.PartitionDatabaseResolver);
 
             // Act
             var result = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);

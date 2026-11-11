@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public SqlRetryService SqlRetryService => _sqlFixture.SqlRetryService;
 
-        public SqlTenantDatabaseResolver TenantDatabaseResolver => _sqlFixture.TenantDatabaseResolver;
+        public SqlPartitionDatabaseResolver PartitionDatabaseResolver => _sqlFixture.PartitionDatabaseResolver;
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 

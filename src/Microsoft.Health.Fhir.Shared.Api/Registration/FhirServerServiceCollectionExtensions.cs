@@ -33,10 +33,10 @@ using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
@@ -89,12 +89,12 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerConfiguration.Bundle.Validate();
             fhirServerConfiguration.CircuitBreaker.Validate();
-            fhirServerConfiguration.TenantConfiguration.Validate();
+            fhirServerConfiguration.PartitionConfiguration.Validate();
 
-            if (fhirServerConfiguration.TenantConfiguration.Tenants.Count > 0 &&
+            if (fhirServerConfiguration.PartitionConfiguration.Partitions.Count > 0 &&
                 string.Equals(dataStore, "CosmosDb", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("FhirServer:TenantConfiguration:Tenants is not supported with Cosmos DB storage. Tenant database routing is not implemented for Cosmos DB.");
+                throw new InvalidOperationException("FhirServer:PartitionConfiguration:Partitions is not supported with Cosmos DB storage. Partition database routing is not implemented for Cosmos DB.");
             }
 
             services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds));
@@ -117,8 +117,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CircuitBreaker));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Watchdog));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.TenantConfiguration));
-            services.AddSingleton<ITenantManager, TenantManager>();
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.PartitionConfiguration));
+            services.AddSingleton<IPartitionManager, PartitionManager>();
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {
@@ -160,16 +160,16 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddFhirServerBase(fhirServerConfiguration);
 
-            foreach (TenantInfo tenant in fhirServerConfiguration.TenantConfiguration.Tenants)
+            foreach (PartitionInfo partition in fhirServerConfiguration.PartitionConfiguration.Partitions)
             {
-                if (ModelInfoProvider.IsKnownResource(tenant.Id) ||
-                    string.Equals(tenant.Id, KnownRoutes.Metadata, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(tenant.Id, KnownRoutes.History, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals("/" + tenant.Id, KnownRoutes.CustomError, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(tenant.Id, KnownRoutes.OperationDefinition, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(tenant.Id, OperationsConstants.Operations, StringComparison.OrdinalIgnoreCase))
+                if (ModelInfoProvider.IsKnownResource(partition.Id) ||
+                    string.Equals(partition.Id, KnownRoutes.Metadata, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(partition.Id, KnownRoutes.History, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals("/" + partition.Id, KnownRoutes.CustomError, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(partition.Id, KnownRoutes.OperationDefinition, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(partition.Id, OperationsConstants.Operations, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new InvalidOperationException($"FhirServer:TenantConfiguration:Tenants Id '{tenant.Id}' conflicts with an existing FHIR route.");
+                    throw new InvalidOperationException($"FhirServer:PartitionConfiguration:Partitions Id '{partition.Id}' conflicts with an existing FHIR route.");
                 }
             }
 

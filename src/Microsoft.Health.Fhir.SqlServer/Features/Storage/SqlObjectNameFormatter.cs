@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var parts = match.Groups["part"].Captures.Select(capture => UnquoteIdentifier(capture.Value)).ToArray();
             if (parts.Length == 3 && !string.Equals(parts[0], _databaseName, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("The stored procedure database does not match the request tenant database.");
+                throw new InvalidOperationException("The stored procedure database does not match the request partition database.");
             }
 
             string schema = parts.Length == 1 ? "dbo" : parts[^2];

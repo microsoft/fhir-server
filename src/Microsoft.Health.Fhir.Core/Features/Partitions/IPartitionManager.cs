@@ -5,16 +5,16 @@
 
 using System.Collections.Generic;
 
-namespace Microsoft.Health.Fhir.Core.Features.Tenants
+namespace Microsoft.Health.Fhir.Core.Features.Partitions
 {
     /// <summary>
-    /// Provides the immutable startup registry of supported tenants.
+    /// Provides the immutable startup registry of supported partitions.
     /// </summary>
-    public interface ITenantManager
+    public interface IPartitionManager
     {
         /// <summary>
-        /// Gets the supported tenants keyed by case-sensitive tenant identifier.
+        /// Gets the supported partitions keyed by case-sensitive partition identifier.
         /// </summary>
-        IReadOnlyDictionary<string, TenantInfo> Tenants { get; }
+        IReadOnlyDictionary<string, PartitionInfo> Partitions { get; }
     }
 }

@@ -1833,12 +1833,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleType.Batch, BundleProcessingLogic.Parallel)]
         [InlineData(BundleType.Transaction, BundleProcessingLogic.Sequential)]
         [InlineData(BundleType.Transaction, BundleProcessingLogic.Parallel)]
-        public async Task GivenTenantBundle_WhenProcessingEntries_ThenEntriesInheritTheOuterTenant(BundleType bundleType, BundleProcessingLogic processingLogic)
+        public async Task GivenPartitionBundle_WhenProcessingEntries_ThenEntriesInheritTheOuterPartition(BundleType bundleType, BundleProcessingLogic processingLogic)
         {
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
             _bundleConfiguration.TransactionDefaultProcessingLogic = processingLogic;
-            _fhirRequestContext.TenantId = "tenant-a";
-            var capturedTenantIds = new ConcurrentBag<string>();
+            _fhirRequestContext.PartitionId = "partition-a";
+            var capturedPartitionIds = new ConcurrentBag<string>();
             var bundle = new Hl7.Fhir.Model.Bundle
             {
                 Type = bundleType,
@@ -1852,7 +1852,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             {
                 info.Arg<RouteContext>().Handler = context =>
                 {
-                    capturedTenantIds.Add(_fhirRequestContextAccessor.RequestContext.TenantId);
+                    capturedPartitionIds.Add(_fhirRequestContextAccessor.RequestContext.PartitionId);
                     context.Response.StatusCode = StatusCodes.Status200OK;
                     return Task.CompletedTask;
                 };
@@ -1860,10 +1860,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var response = await _bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
 
-            Assert.Equal(2, capturedTenantIds.Count);
-            Assert.All(capturedTenantIds, tenantId => Assert.Equal("tenant-a", tenantId));
+            Assert.Equal(2, capturedPartitionIds.Count);
+            Assert.All(capturedPartitionIds, partitionId => Assert.Equal("partition-a", partitionId));
             Assert.All(response.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry, entry => Assert.Equal("200", entry.Response.Status));
-            Assert.Equal("tenant-a", _fhirRequestContextAccessor.RequestContext.TenantId);
+            Assert.Equal("partition-a", _fhirRequestContextAccessor.RequestContext.PartitionId);
         }
 
         private static BundleRequest CreateBundleRequest(int entryCount)

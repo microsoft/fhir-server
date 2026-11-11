@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
@@ -26,17 +26,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlTenantDatabaseResolverTests
+    public class SqlPartitionDatabaseResolverTests
     {
         private readonly FhirRequestContextAccessor _accessor = new FhirRequestContextAccessor();
-        private readonly SqlTenantDatabaseResolver _resolver;
+        private readonly SqlPartitionDatabaseResolver _resolver;
 
-        public SqlTenantDatabaseResolverTests()
+        public SqlPartitionDatabaseResolverTests()
         {
-            var configuration = new TenantConfiguration();
-            configuration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = "database.a]" });
-            configuration.Tenants.Add(new TenantInfo { Id = "tenant-b", DatabaseName = "database-b" });
-            _resolver = new SqlTenantDatabaseResolver(_accessor, new TenantManager(Options.Create(configuration)), NullLogger<SqlTenantDatabaseResolver>.Instance);
+            var configuration = new PartitionConfiguration();
+            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database.a]" });
+            configuration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
+            _resolver = new SqlPartitionDatabaseResolver(_accessor, new PartitionManager(Options.Create(configuration)), NullLogger<SqlPartitionDatabaseResolver>.Instance);
         }
 
         [Theory]
@@ -45,10 +45,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData("[dbo].[Procedure.with]]bracket]", "[database.a]]].[dbo].[Procedure.with]]bracket]")]
         [InlineData("\"dbo\".\"Procedure.with\"\"quote\"", "[database.a]]].[dbo].[Procedure.with\"quote]")]
         [InlineData("[database.a]]].[dbo].[GetResources]", "[database.a]]].[dbo].[GetResources]")]
-        public void GivenTenant_WhenPreparingCommandRepeatedly_ThenProcedureIsSafelyQualifiedOnce(string name, string expectedName)
+        public void GivenPartition_WhenPreparingCommandRepeatedly_ThenProcedureIsSafelyQualifiedOnce(string name, string expectedName)
         {
             // Arrange
-            SetTenant("tenant-a");
+            SetPartition("partition-a");
             using var command = new SqlCommand(name) { CommandType = CommandType.StoredProcedure };
 
             // Act
@@ -63,10 +63,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData("[another-database].[dbo].[GetResources]", typeof(InvalidOperationException))]
         [InlineData("dbo.GetResources; SELECT 1", typeof(ArgumentException))]
         [InlineData("server.database.dbo.GetResources", typeof(ArgumentException))]
-        public void GivenInvalidOrForeignProcedureName_WhenPreparingTenantCommand_ThenItIsRejected(string name, Type expectedException)
+        public void GivenInvalidOrForeignProcedureName_WhenPreparingPartitionCommand_ThenItIsRejected(string name, Type expectedException)
         {
             // Arrange
-            SetTenant("tenant-a");
+            SetPartition("partition-a");
             using var command = new SqlCommand(name) { CommandType = CommandType.StoredProcedure };
 
             // Act
@@ -78,10 +78,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
-        public void GivenTenant_WhenPreparingTextCommand_ThenSqlAndParametersAreUnchanged()
+        public void GivenPartition_WhenPreparingTextCommand_ThenSqlAndParametersAreUnchanged()
         {
             // Arrange
-            SetTenant("tenant-a");
+            SetPartition("partition-a");
             using var command = new SqlCommand("SELECT @Text") { CommandType = CommandType.Text };
             command.Parameters.AddWithValue("@Text", "EXEC dbo.GetResources");
 
@@ -94,18 +94,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
-        public void GivenChangingRequestContext_WhenResolvingProcedureNames_ThenNoTenantStateLeaks()
+        public void GivenChangingRequestContext_WhenResolvingProcedureNames_ThenNoPartitionStateLeaks()
         {
             // Arrange
-            SetTenant("tenant-a");
+            SetPartition("partition-a");
 
             // Act
             string first = _resolver.GetStoredProcedureName("dbo.GetResources");
-            SetTenant("tenant-b");
+            SetPartition("partition-b");
             string second = _resolver.GetStoredProcedureName("dbo.GetResources");
             _accessor.RequestContext = null;
             string background = _resolver.GetStoredProcedureName("dbo.GetResources");
-            SetTenant(null);
+            SetPartition(null);
             string independent = _resolver.GetStoredProcedureName("dbo.GetResources");
 
             // Assert
@@ -118,10 +118,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Theory]
         [InlineData("unknown")]
         [InlineData("")]
-        public async Task GivenUnknownTenant_WhenExecutingProcedure_ThenItFailsBeforeOpeningConnection(string tenantId)
+        public async Task GivenUnknownPartition_WhenExecutingProcedure_ThenItFailsBeforeOpeningConnection(string partitionId)
         {
             // Arrange
-            SetTenant(tenantId);
+            SetPartition(partitionId);
             var connectionBuilder = Substitute.For<ISqlConnectionBuilder>();
             var service = CreateRetryService(connectionBuilder);
             using var command = new SqlCommand("dbo.GetResources") { CommandType = CommandType.StoredProcedure };
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 CancellationToken.None));
 
             // Assert
-            Assert.Contains("unsupported tenant", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("unsupported partition", exception.Message, StringComparison.Ordinal);
             Assert.Equal("dbo.GetResources", command.CommandText);
             await connectionBuilder.DidNotReceiveWithAnyArgs().GetSqlConnectionAsync(default(bool), default(string));
         }
@@ -143,15 +143,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Theory]
         [InlineData(null)]
         [InlineData("")]
-        [InlineData("unused-tenant")]
-        public async Task GivenNoConfiguredTenants_WhenExecutingProcedure_ThenLegacyNameReachesConnectionBuilder(string tenantId)
+        [InlineData("unused-partition")]
+        public async Task GivenNoConfiguredPartitions_WhenExecutingProcedure_ThenLegacyNameReachesConnectionBuilder(string partitionId)
         {
             // Arrange
-            SetTenant(tenantId);
-            var resolver = new SqlTenantDatabaseResolver(
+            SetPartition(partitionId);
+            var resolver = new SqlPartitionDatabaseResolver(
                 _accessor,
-                new TenantManager(Options.Create(new TenantConfiguration())),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
+                new PartitionManager(Options.Create(new PartitionConfiguration())),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
             var builder = Substitute.For<ISqlConnectionBuilder>();
             var stop = new OperationCanceledException("Stop before opening the connection.");
             builder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>()).Returns(Task.FromException<SqlConnection>(stop));
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public async Task GivenRetriedProcedure_WhenConnectionFails_ThenQualifiedNameRemainsStable()
         {
             // Arrange
-            SetTenant("tenant-a");
+            SetPartition("partition-a");
             var builder = Substitute.For<ISqlConnectionBuilder>();
             var stop = new OperationCanceledException("Stop after the retry.");
             int attempts = 0;
@@ -219,10 +219,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData("scalar")]
         [InlineData("reader")]
         [InlineData("multi-result")]
-        public async Task GivenTenant_WhenUsingCommandExecutionHelpers_ThenProcedureIsQualified(string execution)
+        public async Task GivenPartition_WhenUsingCommandExecutionHelpers_ThenProcedureIsQualified(string execution)
         {
             // Arrange
-            SetTenant("tenant-a");
+            SetPartition("partition-a");
             var builder = Substitute.For<ISqlConnectionBuilder>();
             var stop = new OperationCanceledException("Stop before opening the connection.");
             builder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>()).Returns(Task.FromException<SqlConnection>(stop));
@@ -255,13 +255,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Theory]
-        [InlineData(null, "tenant-a", "[database.a]]].[dbo].[LogEvent]")]
-        [InlineData("Server=log-server;Database=logs", "tenant-a", "dbo.LogEvent")]
+        [InlineData(null, "partition-a", "[database.a]]].[dbo].[LogEvent]")]
+        [InlineData("Server=log-server;Database=logs", "partition-a", "dbo.LogEvent")]
         [InlineData("Server=log-server;Database=logs", "unknown", "dbo.LogEvent")]
-        public void GivenEventLogDestination_WhenCreatingCommand_ThenOnlyDataConnectionUsesTenantDatabase(string connectionString, string tenantId, string expectedName)
+        public void GivenEventLogDestination_WhenCreatingCommand_ThenOnlyDataConnectionUsesPartitionDatabase(string connectionString, string partitionId, string expectedName)
         {
             // Arrange
-            SetTenant(tenantId);
+            SetPartition(partitionId);
             var service = CreateRetryService(Substitute.For<ISqlConnectionBuilder>());
             var method = typeof(SqlRetryService).GetMethod("CreateEventLogCommand", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -281,10 +281,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Options.Create(new CoreFeatureConfiguration()),
             _resolver);
 
-        private void SetTenant(string id)
+        private void SetPartition(string id)
         {
             var context = Substitute.For<IFhirRequestContext>();
-            context.TenantId.Returns(id);
+            context.PartitionId.Returns(id);
             _accessor.RequestContext = context;
         }
     }

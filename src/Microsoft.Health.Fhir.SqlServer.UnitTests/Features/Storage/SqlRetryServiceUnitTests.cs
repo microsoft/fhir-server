@@ -17,7 +17,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Tenants;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly IOptions<SqlServerDataStoreConfiguration> _sqlServerDataStoreConfiguration;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
-        private readonly SqlTenantDatabaseResolver _tenantDatabaseResolver;
+        private readonly SqlPartitionDatabaseResolver _partitionDatabaseResolver;
 
         public SqlRetryServiceUnitTests()
         {
@@ -45,10 +45,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 CommandTimeout = TimeSpan.FromSeconds(300),
             });
             _coreFeatureConfiguration = Options.Create(new CoreFeatureConfiguration());
-            _tenantDatabaseResolver = new SqlTenantDatabaseResolver(
+            _partitionDatabaseResolver = new SqlPartitionDatabaseResolver(
                 new FhirRequestContextAccessor(),
-                new TenantManager(Options.Create(new TenantConfiguration())),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
+                new PartitionManager(Options.Create(new PartitionConfiguration())),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
         }
 
         [Theory]
@@ -58,25 +58,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData("database-a", "CustomQuery_123", "[database-a].[dbo].[CustomQuery_123]")]
         [InlineData("database-a", "[dbo].[Procedure.with]]bracket]", "[database-a].[dbo].[Procedure.with]]bracket]")]
         [InlineData(null, "dbo.GetResources", "dbo.GetResources")]
-        public async Task GivenTenantContext_WhenExecutingStoredProcedure_ThenCommandTargetsConfiguredDatabase(string databaseName, string procedureName, string expectedName)
+        public async Task GivenPartitionContext_WhenExecutingStoredProcedure_ThenCommandTargetsConfiguredDatabase(string databaseName, string procedureName, string expectedName)
         {
             // Arrange
-            var configuration = new TenantConfiguration();
+            var configuration = new PartitionConfiguration();
             var accessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             accessor.RequestContext.Returns(_ => null);
             if (databaseName != null)
             {
-                configuration.Tenants.Add(new TenantInfo { Id = "tenant-a", DatabaseName = databaseName });
+                configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
                 var context = Substitute.For<IFhirRequestContext>();
-                context.TenantId.Returns("tenant-a");
+                context.PartitionId.Returns("partition-a");
                 accessor.RequestContext.Returns(context);
             }
 
             var services = new ServiceCollection();
             services.AddSingleton(accessor);
-            services.AddSingleton<ITenantManager>(new TenantManager(Options.Create(configuration)));
+            services.AddSingleton<IPartitionManager>(new PartitionManager(Options.Create(configuration)));
             services.AddLogging();
-            services.AddSingleton<SqlTenantDatabaseResolver>();
+            services.AddSingleton<SqlPartitionDatabaseResolver>();
             using var provider = services.BuildServiceProvider();
             var service = ActivatorUtilities.CreateInstance<SqlRetryService>(
                 provider,
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver));
+                _partitionDatabaseResolver));
         }
 
         [Fact]
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 null,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver));
+                _partitionDatabaseResolver));
         }
 
         [Fact]
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             var sqlEx = CreateSqlException(99999, "Custom transient error");
 
@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 new SqlRetryServiceDelegateOptions(),
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
             var capacityException = CreateSqlException(capacityErrorCode, "Capacity error");
             var transientException = CreateSqlException(1205, "Transaction was deadlocked");
             Func<SqlException, bool> shouldNotRetry = ex => ex.Number == capacityErrorCode;
@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -331,7 +331,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             var ex = new InvalidOperationException("CustomRetriable error");
 
@@ -383,7 +383,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -406,7 +406,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             var ex = new ArgumentNullException("test");
 
@@ -429,7 +429,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _tenantDatabaseResolver);
+                _partitionDatabaseResolver);
 
             var sqlEx = CreateSqlException(1205, "Transaction was deadlocked");
 

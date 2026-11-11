@@ -452,17 +452,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData(false, true)]
         [InlineData(true, false)]
         [InlineData(true, true)]
-        public async Task GivenTenant_WhenMergingResources_ThenProcedureIsQualifiedBeforeExecution(bool includeSearchParameters, bool enlistInTransaction)
+        public async Task GivenPartition_WhenMergingResources_ThenProcedureIsQualifiedBeforeExecution(bool includeSearchParameters, bool enlistInTransaction)
         {
             // Arrange
-            var configuration = new TenantConfiguration();
-            configuration.Tenants.Add(new Core.Features.Tenants.TenantInfo { Id = "tenant-a", DatabaseName = "database-a" });
+            var configuration = new PartitionConfiguration();
+            configuration.Partitions.Add(new Core.Features.Partitions.PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.TenantId.Returns("tenant-a");
-            var resolver = new SqlTenantDatabaseResolver(
+            context.PartitionId.Returns("partition-a");
+            var resolver = new SqlPartitionDatabaseResolver(
                 new FhirRequestContextAccessor { RequestContext = context },
-                new Core.Features.Tenants.TenantManager(Options.Create(configuration)),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
+                new Core.Features.Partitions.PartitionManager(Options.Create(configuration)),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
             var retryService = Substitute.For<ISqlRetryService>();
             string procedureName = null;
             retryService.ExecuteSql(
@@ -478,7 +478,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                     procedureName = call.Arg<SqlCommand>().CommandText;
                     return Task.CompletedTask;
                 });
-            var store = CreateSqlServerFhirDataStore(retryService, tenantDatabaseResolver: resolver);
+            var store = CreateSqlServerFhirDataStore(retryService, partitionDatabaseResolver: resolver);
             var statuses = includeSearchParameters
                 ? new[] { new ResourceSearchParameterStatus { Uri = new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"), Status = SearchParameterStatus.Enabled } }
                 : [];
@@ -492,7 +492,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 procedureName);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, SqlTenantDatabaseResolver tenantDatabaseResolver = null)
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, SqlPartitionDatabaseResolver partitionDatabaseResolver = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -559,10 +559,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = sqlConnection.ConnectionString };
 
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, sqlConnectionBuilder, sqlRetryLogicBaseProvider, Options.Create(sqlServerDataStoreConfiguration));
-            tenantDatabaseResolver ??= new SqlTenantDatabaseResolver(
+            partitionDatabaseResolver ??= new SqlPartitionDatabaseResolver(
                 new FhirRequestContextAccessor(),
-                new Core.Features.Tenants.TenantManager(Options.Create(new TenantConfiguration())),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
+                new Core.Features.Partitions.PartitionManager(Options.Create(new PartitionConfiguration())),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
 
             var dataStore = new SqlServerFhirDataStore(
                 model,
@@ -581,7 +581,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 Substitute.For<IImportErrorSerializer>(),
                 storeClient,
-                tenantDatabaseResolver);
+                partitionDatabaseResolver);
 
             return dataStore;
         }

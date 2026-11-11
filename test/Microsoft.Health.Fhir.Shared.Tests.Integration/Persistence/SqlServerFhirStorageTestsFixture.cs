@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
-        internal SqlTenantDatabaseResolver TenantDatabaseResolver { get; private set; }
+        internal SqlPartitionDatabaseResolver PartitionDatabaseResolver { get; private set; }
 
         internal static string GetDatabaseName(string test = null)
         {
@@ -183,12 +183,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
-            _fhirRequestContextAccessor.RequestContext.TenantId.Returns(_ => null);
-            TenantDatabaseResolver = new SqlTenantDatabaseResolver(
+            _fhirRequestContextAccessor.RequestContext.PartitionId.Returns(_ => null);
+            PartitionDatabaseResolver = new SqlPartitionDatabaseResolver(
                 _fhirRequestContextAccessor,
-                new Core.Features.Tenants.TenantManager(Options.Create(new TenantConfiguration())),
-                NullLogger<SqlTenantDatabaseResolver>.Instance);
-            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), TenantDatabaseResolver);
+                new Core.Features.Partitions.PartitionManager(Options.Create(new PartitionConfiguration())),
+                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), PartitionDatabaseResolver);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
                 new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation),
-                TenantDatabaseResolver);
+                PartitionDatabaseResolver);
 
             // Create operation data store with real SqlQueueClient for reindex tests
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
@@ -331,7 +331,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
                 _options,
-                TenantDatabaseResolver,
+                PartitionDatabaseResolver,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
