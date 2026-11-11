@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -57,6 +58,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
         {
             _httpContext.Request.Path = "/Observation";
             _fhirRequestContext.AuditEventType = "read";
+
+            using ActionTimer requestTimer = NullLogger<ActionTimer>.Instance.BeginTimedScope("Test");
+            _fhirRequestContext.RequestTimer = requestTimer;
 
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 

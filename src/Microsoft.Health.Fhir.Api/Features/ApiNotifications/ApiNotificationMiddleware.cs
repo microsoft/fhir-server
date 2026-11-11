@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 {
                     IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
                     var timer = fhirRequestContext?.RequestTimer;
-                    apiNotification.Latency = timer.ElapsedTime;
+                    apiNotification.Latency = timer?.ElapsedTime ?? new TimeSpan(0);
 
                     // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
                     if (fhirRequestContext?.AuditEventType != null)
