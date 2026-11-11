@@ -71,6 +71,151 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenReferenceScopedObservation_WhenReadingWithForwardedPrefix_ThenPrivateLocalObservationIsDisclosed()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);
+            var resources = new List<Resource>();
+
+            try
+            {
+                string absoluteSubject = new Uri(_fixture.TestFhirServer.BaseAddress, "injected/Patient/fwpatient19").AbsoluteUri;
+
+                using var allowed = await writer.CreateAsync(new Observation
+                {
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference(absoluteSubject),
+                    Value = new FhirString("SYNTH_ALLOWED_FWREF_19"),
+                });
+                resources.Add(allowed.Resource);
+
+                using var localPrivate = await writer.CreateAsync(new Observation
+                {
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference("Patient/fwpatient19"),
+                    Value = new FhirString("SYNTH_PRIVATE_FWREF_19"),
+                });
+                resources.Add(localPrivate.Resource);
+
+                using var localOther = await writer.CreateAsync(new Observation
+                {
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference("Patient/fwother19"),
+                    Value = new FhirString("SYNTH_OTHER_FWPRE_19"),
+                });
+                resources.Add(localOther.Resource);
+
+                using HttpClient reader = await CreateSmartClientAsync(
+                    TestApplications.SmartUserClient,
+                    $"system/Observation.rs?subject={Uri.EscapeDataString(absoluteSubject)}");
+                var parser = new FhirJsonParser();
+
+                using HttpResponseMessage allowedRead = await reader.GetAsync($"Observation/{allowed.Resource.Id}");
+                using HttpResponseMessage privateRead = await reader.GetAsync($"Observation/{localPrivate.Resource.Id}");
+                using HttpResponseMessage otherRead = await reader.GetAsync($"Observation/{localOther.Resource.Id}");
+
+                Assert.Equal(HttpStatusCode.OK, allowedRead.StatusCode);
+                Assert.Equal(HttpStatusCode.NotFound, privateRead.StatusCode);
+                Assert.Equal(HttpStatusCode.NotFound, otherRead.StatusCode);
+                Assert.Equal("SYNTH_ALLOWED_FWREF_19", Assert.IsType<FhirString>(parser.Parse<Observation>(await allowedRead.Content.ReadAsStringAsync()).Value).Value);
+
+                using var anonymous = new HttpClient(_fixture.TestFhirServer.CreateMessageHandler())
+                {
+                    BaseAddress = _fixture.TestFhirServer.BaseAddress,
+                };
+                using HttpResponseMessage anonymousRead = await anonymous.GetAsync($"Observation/{localPrivate.Resource.Id}");
+                Assert.Equal(HttpStatusCode.Unauthorized, anonymousRead.StatusCode);
+
+                reader.DefaultRequestHeaders.Add("X-Forwarded-Prefix", "/injected");
+                using HttpResponseMessage privateReadWithPrefix = await reader.GetAsync($"Observation/{localPrivate.Resource.Id}");
+                using HttpResponseMessage otherReadWithPrefix = await reader.GetAsync($"Observation/{localOther.Resource.Id}");
+                using HttpResponseMessage allowedReadWithPrefix = await reader.GetAsync($"Observation/{allowed.Resource.Id}");
+
+                Assert.Equal(HttpStatusCode.OK, privateReadWithPrefix.StatusCode);
+                Assert.Equal(HttpStatusCode.NotFound, otherReadWithPrefix.StatusCode);
+                Assert.Equal(HttpStatusCode.NotFound, allowedReadWithPrefix.StatusCode);
+                Assert.Equal("SYNTH_PRIVATE_FWREF_19", Assert.IsType<FhirString>(parser.Parse<Observation>(await privateReadWithPrefix.Content.ReadAsStringAsync()).Value).Value);
+            }
+            finally
+            {
+                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                {
+                    await writer.HardDeleteAsync(resource);
+                }
+            }
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenReferenceScopedObservation_WhenSearchingWithForwardedPrefix_ThenUnfilteredSearchDisclosesPrivateObservation()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);
+            var resources = new List<Resource>();
+
+            try
+            {
+                string absoluteSubject = new Uri(_fixture.TestFhirServer.BaseAddress, "injected/Patient/fwpatient19").AbsoluteUri;
+
+                using var allowed = await writer.CreateAsync(new Observation
+                {
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference(absoluteSubject),
+                    Value = new FhirString("SYNTH_ALLOWED_FWREF_19"),
+                });
+                resources.Add(allowed.Resource);
+
+                using var localPrivate = await writer.CreateAsync(new Observation
+                {
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference("Patient/fwpatient19"),
+                    Value = new FhirString("SYNTH_PRIVATE_FWREF_19"),
+                });
+                resources.Add(localPrivate.Resource);
+
+                using var localOther = await writer.CreateAsync(new Observation
+                {
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference("Patient/fwother19"),
+                    Value = new FhirString("SYNTH_OTHER_FWPRE_19"),
+                });
+                resources.Add(localOther.Resource);
+
+                using HttpClient reader = await CreateSmartClientAsync(
+                    TestApplications.SmartUserClient,
+                    $"system/Observation.rs?subject={Uri.EscapeDataString(absoluteSubject)}");
+
+                using HttpResponseMessage search = await reader.GetAsync("Observation?_count=10");
+                Assert.Equal(HttpStatusCode.OK, search.StatusCode);
+                string searchBody = await search.Content.ReadAsStringAsync();
+                Assert.Contains("SYNTH_ALLOWED_FWREF_19", searchBody);
+                Assert.DoesNotContain("SYNTH_PRIVATE_FWREF_19", searchBody);
+                Assert.DoesNotContain("SYNTH_OTHER_FWPRE_19", searchBody);
+
+                reader.DefaultRequestHeaders.Add("X-Forwarded-Prefix", "/injected");
+                using HttpResponseMessage searchWithPrefix = await reader.GetAsync("Observation?_count=10");
+                Assert.Equal(HttpStatusCode.OK, searchWithPrefix.StatusCode);
+                string searchBodyWithPrefix = await searchWithPrefix.Content.ReadAsStringAsync();
+                Assert.Contains("SYNTH_PRIVATE_FWREF_19", searchBodyWithPrefix);
+                Assert.DoesNotContain("SYNTH_OTHER_FWPRE_19", searchBodyWithPrefix);
+            }
+            finally
+            {
+                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                {
+                    await writer.HardDeleteAsync(resource);
+                }
+            }
+        }
+
         [Theory]
         [InlineData(false, false, false, false)]
         [InlineData(false, true, false, false)]
