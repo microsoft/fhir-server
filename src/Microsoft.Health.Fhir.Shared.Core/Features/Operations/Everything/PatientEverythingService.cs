@@ -14,7 +14,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -24,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
@@ -41,14 +41,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     public class PatientEverythingService : IPatientEverythingService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IUrlResolver _urlResolver;
-        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
@@ -56,14 +56,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         public PatientEverythingService(
             IModelInfoProvider modelInfoProvider,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ISearchOptionsFactory searchOptionsFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ICompartmentDefinitionManager compartmentDefinitionManager,
             IReferenceSearchValueParser referenceSearchValueParser,
             IResourceDeserializer resourceDeserializer,
             IUrlResolver urlResolver,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));

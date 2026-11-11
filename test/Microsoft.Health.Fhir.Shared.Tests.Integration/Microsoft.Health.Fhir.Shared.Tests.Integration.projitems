@@ -28,6 +28,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlCalendarDateSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlCalendarDateStorageTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlCalendarDateSqlGenerationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlSemanticSearchGenerationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlInstantDateTimeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\InstantDateClockCollection.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchSharedFixture.cs" />
@@ -61,6 +62,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\ISqlServerFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\NullFhirCosmosQueryLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlDataReaderExtensionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlEmbeddingModelRegistryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerImporterIntegrationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestsFixture.cs" />
