@@ -21,13 +21,13 @@ namespace Microsoft.Health.Extensions.Xunit
         // Reflection point #3: the collection-scoped fixture cache we seed enum values into.
         private static readonly FieldInfo FixtureCacheField =
             typeof(FixtureMappingManager).GetField("fixtureCache", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("FixtureMappingManager.fixtureCache (private) was not found. The xunit.v3 3.2.2 pin has changed; fixture arguments cannot be injected.");
+            ?? throw new InvalidOperationException("FixtureMappingManager.fixtureCache (private) was not found; fixture arguments cannot be injected.");
 
         // Reflection point #4: a class-level manager delegates to its parent (collection) manager, whose
         // cache is the one a class fixture is actually built from.
         private static readonly FieldInfo ParentMappingManagerField =
             typeof(FixtureMappingManager).GetField("parentMappingManager", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("FixtureMappingManager.parentMappingManager (private) was not found. The xunit.v3 3.2.2 pin has changed; fixture arguments cannot be injected.");
+            ?? throw new InvalidOperationException("FixtureMappingManager.parentMappingManager (private) was not found; fixture arguments cannot be injected.");
 
         protected override async ValueTask<bool> OnTestClassStarting(XunitTestClassRunnerContext context)
         {
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
             if (FixtureCacheField.GetValue(cacheOwner) is not IDictionary<Type, object> cache)
             {
-                throw new InvalidOperationException("The xUnit fixture cache could not be read. The xunit.v3 3.2.2 pin has changed.");
+                throw new InvalidOperationException("The xUnit fixture cache could not be read; fixture arguments cannot be injected.");
             }
 
             // Overwrite, never add-if-missing: the cache is collection-scoped and a class's variants share a
