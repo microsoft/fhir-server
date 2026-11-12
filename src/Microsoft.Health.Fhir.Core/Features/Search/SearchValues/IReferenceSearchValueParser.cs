@@ -19,7 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
         /// <summary>
         /// Parses the value of a Reference element to an instance of <see cref="ReferenceSearchValue"/>.
-        /// A Reference element must be indexed whole, so a value that is too long to index is rejected.
+        /// A Reference element must be indexed whole, so a value that is too long to index is rejected
+        /// when rejecting long references is enabled.
         /// </summary>
         /// <param name="s">The string to be parsed.</param>
         /// <returns>An instance of <see cref="ReferenceSearchValue"/>.</returns>

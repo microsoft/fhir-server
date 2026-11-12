@@ -279,6 +279,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(prefix.Length == 0 ? reference : "abc", value.ResourceId);
         }
 
+        [Fact]
+        public void GivenABaseUriOverTheIndexWidth_WhenParsing_ThenOnlyResourceReferenceParsingRejectsIt()
+        {
+            // Arrange
+            const string prefix = "https://example.org/";
+            string reference = $"{prefix}{new string('a', 129 - prefix.Length - 1)}/Patient/abc";
+
+            // Act
+            ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
+
+            // Assert
+            Assert.Equal(129, value.BaseUri.ToString().Length);
+            Assert.Throws<BadRequestException>(() => _referenceSearchValueParser.ParseResourceReference(reference));
+        }
+
+        [Theory]
+        [InlineData(false, 64, true)]
+        [InlineData(false, 65, false)]
+        [InlineData(true, 65, true)]
+        [InlineData(true, 128, true)]
+        [InlineData(true, 129, false)]
+        public void GivenAnUntypedResourceReferenceNearTheIdLimits_WhenParsing_ThenItIsReturnedWholeOrRejected(bool useLongResourceIds, int length, bool expectedAccepted)
+        {
+            // Arrange
+            string reference = CreateResourceId(length);
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds));
+
+            // Act and Assert
+            if (expectedAccepted)
+            {
+                Assert.Equal(reference, parser.ParseResourceReference(reference).ResourceId);
+            }
+            else
+            {
+                Assert.Throws<BadRequestException>(() => parser.ParseResourceReference(reference));
+            }
+        }
+
         private static string CreateResourceId(int length)
             => string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
 

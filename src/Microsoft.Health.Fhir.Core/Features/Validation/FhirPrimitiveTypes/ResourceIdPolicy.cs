@@ -52,9 +52,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         public int MaxLength { get; }
 
         /// <summary>
-        /// Gets a value indicating whether a reference whose id is longer than <see cref="MaxLength"/> is rejected.
-        /// When true, a reference whose base URI does not fit the SQL index is also not indexed and cannot be matched.
-        /// When false, both values are cut off at their limits.
+        /// Gets a value indicating whether a reference that is too long to index whole is rejected.
+        /// When true, a typed reference whose id is longer than <see cref="MaxLength"/> is rejected, and so is a Reference element
+        /// whose untyped value is longer than <see cref="MaxLength"/> or whose base URI is longer than <see cref="MaxReferenceBaseUriLength"/>.
+        /// Other values that do not fit the SQL index are not indexed and cannot be matched.
+        /// When false, values are cut off at their limits.
         /// </summary>
         public bool RejectLongReferences { get; }
 
@@ -62,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// Selects the policy for the <c>UseLongResourceIds</c> and <c>RejectLongReferences</c> settings.
         /// </summary>
         /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
-        /// <param name="rejectLongReferences">Whether references with ids over the limit are rejected, and references with base URIs that do not fit the SQL index are not indexed, instead of cut off.</param>
+        /// <param name="rejectLongReferences">Whether references that are too long to index whole are rejected or left unindexed, instead of cut off.</param>
         /// <returns>The matching policy.</returns>
         public static ResourceIdPolicy From(bool useLongResourceIds, bool rejectLongReferences = true)
         {
