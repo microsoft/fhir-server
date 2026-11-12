@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.Internal,
                             null,
                             resourceTypeInString,
-                            ApplyResourceIdPolicy(resourceId));
+                            RejectOrTruncateLongResourceId(resourceId));
                     }
                     else if (baseUri.IsAbsoluteUri &&
                         SupportedSchemes.Contains(baseUri.Scheme, StringComparer.OrdinalIgnoreCase))
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.External,
                             baseUri,
                             resourceTypeInString,
-                            ApplyResourceIdPolicy(resourceId));
+                            RejectOrTruncateLongResourceId(resourceId));
                     }
                 }
                 catch (UriFormatException)
@@ -124,6 +124,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             ReferenceSearchValue value = Parse(s);
 
+            // An untyped value holds the whole reference in ResourceId. These checks apply only to Reference elements,
+            // because Parse also handles canonical, uri and id elements and search values, where long values are valid.
             if (_resourceIdPolicy.RejectLongReferences &&
                 (value.ResourceId.Length > _resourceIdPolicy.MaxLength || value.BaseUri?.ToString().Length > ResourceIdPolicy.MaxReferenceBaseUriLength))
             {
@@ -133,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             return value;
         }
 
-        private string ApplyResourceIdPolicy(string resourceId)
+        private string RejectOrTruncateLongResourceId(string resourceId)
         {
             if (resourceId.Length > _resourceIdPolicy.MaxLength)
             {
