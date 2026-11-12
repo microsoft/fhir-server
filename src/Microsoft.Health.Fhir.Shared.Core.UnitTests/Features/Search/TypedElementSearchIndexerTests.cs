@@ -75,6 +75,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return fhirTypedElementToSearchValueConverterManager;
         }
 
+        /// <summary>
+        /// A deferred expression evaluation failure must identify the search parameter without exposing resource values.
+        /// </summary>
         [Theory]
         [InlineData("Observation.value.where(matches('['))", ValueSets.SearchParamType.String)]
         [InlineData("Observation.value.where(matches('['))", ValueSets.SearchParamType.Composite)]
@@ -97,6 +100,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.DoesNotContain("synthetic-value", exception.Message);
         }
 
+        /// <summary>
+        /// A failing composite component expression must be reported against the owning composite search parameter.
+        /// </summary>
         [Fact]
         public void GivenCompositeComponentExpressionFailure_WhenExtract_ThenExceptionIdentifiesOwningComposite()
         {
@@ -135,6 +141,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.DoesNotContain("synthetic-value", exception.Message);
         }
 
+        /// <summary>
+        /// A composite search parameter without a URL cannot be identified in errors and must be rejected.
+        /// </summary>
         [Fact]
         public void GivenCompositeSearchParameterWithoutUrl_WhenExtract_ThenThrowsArgumentNullException()
         {
@@ -153,6 +162,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal("Url", exception.ParamName);
         }
 
+        /// <summary>
+        /// An expression that fails immediately is skipped and must not prevent other search parameters from being indexed.
+        /// </summary>
         [Theory]
         [InlineData("Observation.value.where(")]
         [InlineData("Observation.value.nonExistingFunction()")]
@@ -182,6 +194,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal("final", Assert.IsType<TokenSearchValue>(entry.Value).Code);
         }
 
+        /// <summary>
+        /// Composite compilation failures are not evaluation failures and must not be wrapped.
+        /// </summary>
         [Fact]
         public void GivenCompositeCompilationFailure_WhenExtract_ThenOriginalExceptionIsNotWrapped()
         {
@@ -206,6 +221,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.IsNotType<SearchParameterEvaluationException>(exception);
         }
 
+        /// <summary>
+        /// Converter failures are not evaluation failures and must not be wrapped.
+        /// </summary>
         [Fact]
         public void GivenConverterFailure_WhenExtract_ThenOriginalExceptionIsNotWrapped()
         {
@@ -243,6 +261,54 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Assert
             Assert.Same(expectedException, exception);
+        }
+
+        [Theory]
+        [InlineData(typeof(OperationCanceledException))]
+        [InlineData(typeof(OutOfMemoryException))]
+        public void GivenCriticalExceptionFromGetEnumerator_WhenEnumerated_ThenOriginalExceptionEscapes(Type exceptionType)
+        {
+            // Arrange
+            var expectedException = (Exception)Activator.CreateInstance(exceptionType);
+            var values = Substitute.For<IEnumerable<ITypedElement>>();
+            values.GetEnumerator().Returns(_ => throw expectedException);
+
+            // Act
+            var exception = Record.Exception(() => TypedElementSearchIndexer.EnumerateSearchParameterValues(values, new Uri("http://example.org/SearchParameter/test")).ToList());
+
+            // Assert
+            Assert.Same(expectedException, exception);
+        }
+
+        [Theory]
+        [InlineData(typeof(OperationCanceledException), false)]
+        [InlineData(typeof(OperationCanceledException), true)]
+        [InlineData(typeof(OutOfMemoryException), false)]
+        [InlineData(typeof(OutOfMemoryException), true)]
+        public void GivenCriticalExceptionFromMoveNextOrCurrent_WhenEnumerated_ThenOriginalExceptionEscapes(Type exceptionType, bool throwFromCurrent)
+        {
+            // Arrange
+            var expectedException = (Exception)Activator.CreateInstance(exceptionType);
+            var enumerator = Substitute.For<IEnumerator<ITypedElement>>();
+            if (throwFromCurrent)
+            {
+                enumerator.MoveNext().Returns(true);
+                enumerator.Current.Returns(_ => throw expectedException);
+            }
+            else
+            {
+                enumerator.MoveNext().Returns(_ => throw expectedException);
+            }
+
+            var values = Substitute.For<IEnumerable<ITypedElement>>();
+            values.GetEnumerator().Returns(enumerator);
+
+            // Act
+            var exception = Record.Exception(() => TypedElementSearchIndexer.EnumerateSearchParameterValues(values, new Uri("http://example.org/SearchParameter/test")).ToList());
+
+            // Assert
+            Assert.Same(expectedException, exception);
+            enumerator.Received(1).Dispose();
         }
 
         [Fact]

@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
-            var searchParameterUrl = EnsureArg.IsNotNull(searchParameter.Url, nameof(searchParameter.Url)).OriginalString;
+            Uri searchParameterUrl = EnsureArg.IsNotNull(searchParameter.Url, nameof(searchParameter.Url));
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
@@ -172,7 +172,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.TargetResourceTypes,
                 resource,
                 searchParameter.Expression,
-                context))
+                context,
+                searchParameter.Url))
             {
                 if (searchValue != null)
                 {
@@ -199,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ITypedElement element,
             string fhirPathExpression,
             EvaluationContext context,
-            string evaluationErrorSearchParameterUrl = null)
+            Uri evaluationErrorSearchParameterUrl)
         {
             Debug.Assert(searchParameterType != SearchParamType.Composite, "The search parameter must be non-composite.");
 
@@ -230,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return results;
             }
 
-            extractedValues = EnumerateSearchParameterValues(extractedValues, evaluationErrorSearchParameterUrl ?? searchParameterDefinitionUrl);
+            extractedValues = EnumerateSearchParameterValues(extractedValues, evaluationErrorSearchParameterUrl);
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
@@ -320,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        private static IEnumerable<ITypedElement> EnumerateSearchParameterValues(IEnumerable<ITypedElement> values, string searchParameterUrl)
+        internal static IEnumerable<ITypedElement> EnumerateSearchParameterValues(IEnumerable<ITypedElement> values, Uri searchParameterUrl)
         {
             IEnumerator<ITypedElement> enumerator;
             try
@@ -329,7 +330,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
             {
-                throw new SearchParameterEvaluationException(new Uri(searchParameterUrl), ex);
+                throw new SearchParameterEvaluationException(searchParameterUrl, ex);
             }
 
             using (enumerator)
@@ -348,7 +349,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
                     {
-                        throw new SearchParameterEvaluationException(new Uri(searchParameterUrl), ex);
+                        throw new SearchParameterEvaluationException(searchParameterUrl, ex);
                     }
 
                     yield return current;

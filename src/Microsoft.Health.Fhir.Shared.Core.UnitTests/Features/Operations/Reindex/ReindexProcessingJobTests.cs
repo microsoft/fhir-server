@@ -405,6 +405,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.False(exception.IsCustomerCaused);
         }
 
+        /// <summary>
+        /// A search parameter evaluation failure must be reported in the job result without exposing internal exception details.
+        /// </summary>
         [Fact]
         public async Task GivenEvaluationFailure_WhenProcessingResources_ThenResultContainsSafeError()
         {
@@ -432,8 +435,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _searchParameterOperations.GetSearchParameterHash("Patient").Returns(definition.SearchParameterHash);
             _searchService.SearchBySurrogateIdRange(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
                 .Returns(new SearchResult(new[] { CreateSearchResultEntry("1", "Patient") }, null, null, new List<Tuple<string, string>>()));
-            _resourceWrapperFactory.When(factory => factory.Update(Arg.Any<ResourceWrapper>()))
-                .Do(_ => throw evaluationException);
+            _resourceWrapperFactory.UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException(evaluationException));
 
             // Act
             var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(

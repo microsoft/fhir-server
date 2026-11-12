@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 searchParameter = await CreateCustomSearchParameterAsync(
                     code,
                     ["Observation"],
-                    "Observation.value.where(matches($this & '['))");
+                    $"Observation.where(id = '{observation.Id}').value.where(matches($this & '['))");
 
                 // Act
                 var (response, uri) = await client.PostReindexJobAsync(new Parameters
@@ -196,24 +196,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
             }
 
-            bool searchParameterDeleted = false;
             if (searchParameter != null && (jobUri == null || jobIsTerminal))
-            {
-                var cleanupFailure = await Record.ExceptionAsync(() => client.DeleteAsync(searchParameter));
-                if (cleanupFailure != null)
-                {
-                    exceptions.Add(cleanupFailure);
-                }
-                else
-                {
-                    searchParameterDeleted = true;
-                }
-            }
-
-            if (searchParameterDeleted)
             {
                 var cleanupFailure = await Record.ExceptionAsync(async () =>
                 {
+                    await client.DeleteAsync(searchParameter);
+
                     // Deletion is pending until reindex removes the definition from the active registry.
                     var (_, cleanupJobUri) = await client.PostReindexJobAsync(new Parameters());
                     var cleanupJob = await WaitForJobCompletionAsync(cleanupJobUri, TimeSpan.FromMinutes(3));
