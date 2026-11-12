@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -34,6 +35,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -123,6 +125,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlApproximateVectorSearchProvider>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             AddSqlServerTableRowParameterGenerators(services);
 
             services.Add<SearchParamTableExpressionQueryGeneratorFactory>()
@@ -153,8 +160,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
@@ -222,7 +227,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
             services.Add<JobMonitorWatchdog>().Singleton().AsSelf();
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
-            services.AddFactory<IScoped<TransactionWatchdog>>();
 
             services.RemoveServiceTypeExact<JobMonitorMetricNotifier, INotificationHandler<JobMonitorMetricsNotification>>()
                     .Add<JobMonitorMetricNotifier>()

@@ -18,11 +18,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Polly;
 using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 
 public class CosmosQueueClient : IQueueClient
 {
-    private readonly Func<IScoped<Container>> _containerFactory;
+    private readonly IScopeProvider<Container> _containerFactory;
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -39,7 +39,7 @@ public class CosmosQueueClient : IQueueClient
     private readonly ILogger<CosmosQueueClient> _logger;
 
     public CosmosQueueClient(
-        Func<IScoped<Container>> containerFactory,
+        IScopeProvider<Container> containerFactory,
         ICosmosQueryFactory queryFactory,
         ICosmosDbDistributedLockFactory distributedLockFactory,
         RetryExceptionPolicyFactory retryExceptionPolicyFactory,
