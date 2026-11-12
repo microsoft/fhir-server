@@ -63,16 +63,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
 
-                if (resourceId.Length > _resourceIdPolicy.MaxLength)
-                {
-                    if (_resourceIdPolicy.RejectLongReferences)
-                    {
-                        throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceResourceIdTooLong, _resourceIdPolicy.MaxLength));
-                    }
-
-                    resourceId = resourceId[.._resourceIdPolicy.MaxLength];
-                }
-
                 int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
 
                 if (resourceTypeStartIndex == 0)
@@ -82,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         ReferenceKind.InternalOrExternal,
                         null,
                         resourceTypeInString,
-                        resourceId);
+                        ApplyResourceIdPolicy(resourceId));
                 }
 
                 Uri baseUri = null;
@@ -103,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.Internal,
                             null,
                             resourceTypeInString,
-                            resourceId);
+                            ApplyResourceIdPolicy(resourceId));
                     }
                     else if (baseUri.IsAbsoluteUri &&
                         SupportedSchemes.Contains(baseUri.Scheme, StringComparer.OrdinalIgnoreCase))
@@ -113,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.External,
                             baseUri,
                             resourceTypeInString,
-                            resourceId);
+                            ApplyResourceIdPolicy(resourceId));
                     }
                 }
                 catch (UriFormatException)
@@ -127,6 +117,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 baseUri: null,
                 resourceType: null,
                 resourceId: s);
+        }
+
+        private string ApplyResourceIdPolicy(string resourceId)
+        {
+            if (resourceId.Length > _resourceIdPolicy.MaxLength)
+            {
+                if (_resourceIdPolicy.RejectLongReferences)
+                {
+                    throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceResourceIdTooLong, _resourceIdPolicy.MaxLength));
+                }
+
+                return resourceId[.._resourceIdPolicy.MaxLength];
+            }
+
+            return resourceId;
         }
     }
 }
