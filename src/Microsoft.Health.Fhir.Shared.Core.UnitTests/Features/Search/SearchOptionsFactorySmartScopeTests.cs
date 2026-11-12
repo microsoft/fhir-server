@@ -45,7 +45,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string AvailableParameterCode = "code";
         private const string ConcreteOnlyParameterCode = "status";
         private const string ObservationOnlyParameterCode = "value-quantity";
+        private const string ReferenceParameterCode = "subject";
+        private const string LocalReferenceA = "(Param subject (And (MissingField ReferenceBaseUri) (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
+        private const string AnyBaseReferenceA = "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
         private const string TagParameterCode = "_tag";
+        private const string SemanticParameterCode = "semantic-text";
 
         [Fact]
         public void GivenResourceSpecificScopeWithUnavailableParameter_WhenCreated_ThenRequestIsDenied()
@@ -334,6 +338,271 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenResourceSpecificScopeWithSemanticParameter_WhenCreated_ThenRequestIsDenied(bool strictHandling)
+        {
+            // A semantic predicate is a request-level relevance query that is evaluated once over the primary matches.
+            // It cannot be re-evaluated for resources reached through _include/_revinclude, so a scope constrained by
+            // one cannot be enforced and must fail closed regardless of the caller's Prefer header.
+            SearchOptionsFactory factory = CreateFactory(
+                strictHandling,
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"), (ConcreteOnlyParameterCode, "final"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenSemanticScopeForAnIncludedTypeAndRevInclude_WhenCreated_ThenRequestIsDenied()
+        {
+            // Patient is authorized outright, but Observation, reached through _revinclude, is only authorized by a
+            // scope whose semantic constraint cannot be applied to included resources.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "user"),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"), (ConcreteOnlyParameterCode, "final"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Patient,
+                    new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithSemanticParameterAndRevInclude_WhenCreated_ThenRequestIsDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Patient,
+                    new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenWildcardScopeWithSemanticParameter_WhenCreated_ThenRequestIsDenied()
+        {
+            // Without _include/_revinclude a wildcard scope constraint is merged into the caller's query. It must not
+            // become a semantic query, which ranks and thresholds rather than authorizing.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenASemanticScopeAndAnUnrestrictedScopeForTheSameType_WhenCreated_ThenTheUnrestrictedScopeStillAuthorizes(bool semanticScopeFirst)
+        {
+            // Scopes are alternatives. The unrestricted scope already grants every Observation, so withdrawing the
+            // semantic one loses nothing and the request must not be denied, regardless of scope order.
+            var semantic = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture")));
+            var unrestricted = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user");
+
+            SearchOptionsFactory factory = semanticScopeFirst
+                ? CreateFactory(semantic, unrestricted)
+                : CreateFactory(unrestricted, semantic);
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenAWildcardSemanticScopeAndAnUnrestrictedTypedScope_WhenCreated_ThenTheTypedScopeStillAuthorizes(bool wildcardScopeFirst)
+        {
+            // A semantic scope constraint authorizes nothing on its own, but scopes are alternatives. The typed scope
+            // already grants every Observation, so withdrawing the wildcard one loses nothing and the request must not
+            // be denied, regardless of scope order.
+            var wildcard = new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture")));
+            var typed = new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user");
+
+            SearchOptionsFactory factory = wildcardScopeFirst
+                ? CreateFactory(wildcard, typed)
+                : CreateFactory(typed, wildcard);
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAWildcardSemanticScopeAndATypedScopeWithAnOrdinaryConstraint_WhenCreated_ThenOnlyTheTypedConstraintApplies()
+        {
+            // The typed scope's own constraint still limits what the caller sees; the unenforceable wildcard constraint
+            // is withdrawn rather than widening or replacing it.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user", CreateSearchParams((ConcreteOnlyParameterCode, "final"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains($"{ConcreteOnlyParameterCode}=final", expression, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAWildcardSemanticScopeAndATypedScopeForAnotherType_WhenCreated_ThenTheRequestIsDenied()
+        {
+            // The typed scope does not cover the requested type and the wildcard scope's semantic constraint cannot be
+            // enforced, so nothing authorizes the request.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "user"));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAWildcardSemanticScopeAndATypedScope_WhenCreatedAtSystemLevel_ThenTheRequestIsDenied()
+        {
+            // A system-level search reaches every type, so the wildcard scope's semantic constraint would have to be
+            // enforced for all of them.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user"));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(resourceType: null, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(SemanticParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenASemanticScopeOnlyForAnUnrequestedType_WhenCreated_ThenTheRequestIsNotDenied()
+        {
+            // A semantic scope constraint only matters for the types a request reaches. One granted for a type that
+            // is not requested must not deny a request that the other scopes fully authorize.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction("Condition", DataActions.Read, "user", CreateSearchParams((SemanticParameterCode, "fracture"))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "user"));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.DoesNotContain(SemanticParameterCode, expression, StringComparison.Ordinal);
+            Assert.Contains(KnownResourceTypes.Observation, expression, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation)]
+        [InlineData(KnownResourceTypes.All)]
+        public void GivenARequestLevelSemanticParameterAndAnOrdinaryScopeConstraint_WhenCreated_ThenBothArePartOfTheQuery(string scopeResource)
+        {
+            // Only a semantic predicate used as a scope constraint is unenforceable. One the caller supplies is an
+            // ordinary request parameter and must keep working alongside the scope's own predicates.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(scopeResource, DataActions.Read, "user", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(SemanticParameterCode, "fracture") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", expression, StringComparison.Ordinal);
+            Assert.Contains(SemanticParameterCode, expression, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation, KnownResourceTypes.Observation, null)]
+        [InlineData(KnownResourceTypes.All, KnownResourceTypes.Observation, null)]
+        [InlineData(KnownResourceTypes.All, KnownResourceTypes.Patient, "Observation:subject")]
+        public void GivenScopeWithRelativeReference_WhenCreated_ThenScopeMatchesOnlyLocalReferences(
+            string scopeResourceType,
+            string searchResourceType,
+            string revInclude)
+        {
+            // Covers the three ways a scope constraint reaches the query: a resource-specific scope, a wildcard scope
+            // merged into the caller's query, and a wildcard scope built as a union leg because of _revinclude.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(scopeResourceType, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A"))));
+
+            SearchOptions options = factory.Create(
+                searchResourceType,
+                revInclude == null ? null : new[] { Tuple.Create("_revinclude", revInclude) },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            Assert.Contains(LocalReferenceA, options.Expression.ToString(), StringComparison.Ordinal);
+            Assert.DoesNotContain(AnyBaseReferenceA, options.Expression.ToString(), StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.Observation, false)]
+        [InlineData(KnownResourceTypes.All, false)]
+        [InlineData(KnownResourceTypes.All, true)]
+        public void GivenCallerSuppliedRelativeReference_WhenCreatedInASmartRequest_ThenItMatchesOnlyLocalReferences(string scopeResourceType, bool scopeHasReferenceConstraint)
+        {
+            // In a SMART request, Patient/B in the caller's query names the local Patient B, with or without a scope constraint.
+            SearchOptionsFactory factory = CreateFactory(
+                scopeHasReferenceConstraint
+                    ? new ScopeRestriction(scopeResourceType, DataActions.Read, "system", CreateSearchParams((ReferenceParameterCode, "Patient/A")))
+                    : new ScopeRestriction(scopeResourceType, DataActions.Read, "system"));
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(ReferenceParameterCode, "Patient/B") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains(
+                "(Param subject (And (MissingField ReferenceBaseUri) (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenCallerSuppliedRelativeReference_WhenCreatedInARequestWithoutSmartScopes_ThenItStillMatchesAnyBase()
+        {
+            SearchOptionsFactory factory = CreateFactory(strictHandling: false, isBackgroundTask: false, smartRequest: false);
+
+            SearchOptions options = factory.Create(
+                KnownResourceTypes.Observation,
+                new[] { Tuple.Create(ReferenceParameterCode, "Patient/B") },
+                onlyIds: false,
+                isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains(
+                "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'B')))",
+                expression,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(nameof(FieldName.ReferenceBaseUri), expression, StringComparison.Ordinal);
+        }
+
+        [Theory]
         [InlineData(KnownQueryParameterNames.StartSurrogateId, false)]
         [InlineData(KnownQueryParameterNames.EndSurrogateId, false)]
         [InlineData(KnownQueryParameterNames.GlobalEndSurrogateId, false)]
@@ -436,6 +705,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private static SearchOptionsFactory CreateFactory(bool strictHandling, bool isBackgroundTask, params ScopeRestriction[] scopeRestrictions)
         {
+            return CreateFactory(strictHandling, isBackgroundTask, smartRequest: true, scopeRestrictions);
+        }
+
+        private static SearchOptionsFactory CreateFactory(bool strictHandling, bool isBackgroundTask, bool smartRequest, params ScopeRestriction[] scopeRestrictions)
+        {
             // The expression parser resolves through the searchable definition manager, so a disabled, pending
             // delete, or reindexing parameter surfaces here as SearchParameterNotSupportedException.
             var expressionParser = Substitute.For<IExpressionParser>();
@@ -460,6 +734,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         !string.Equals(targetType, KnownResourceTypes.Observation, StringComparison.Ordinal))
                     {
                         throw new SearchParameterNotSupportedException(targetType, code);
+                    }
+
+                    if (string.Equals(code, SemanticParameterCode, StringComparison.Ordinal))
+                    {
+                        return new VectorSearchExpression(
+                            new SearchParameterInfo(SemanticParameterCode, SemanticParameterCode, ValueSets.SearchParamType.Special),
+                            callInfo.ArgAt<string>(2));
+                    }
+
+                    if (string.Equals(code, ReferenceParameterCode, StringComparison.Ordinal))
+                    {
+                        // Same shape as the production parser for a relative reference such as Patient/A.
+                        string[] reference = callInfo.ArgAt<string>(2).Split('/');
+                        return Expression.SearchParameter(
+                            new SearchParameterInfo(ReferenceParameterCode, ReferenceParameterCode, ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject")),
+                            Expression.And(
+                                Expression.StringEquals(FieldName.ReferenceResourceType, null, reference[0], false),
+                                Expression.StringEquals(FieldName.ReferenceResourceId, null, reference[1], false)));
                     }
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");
@@ -503,8 +795,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 IsBackgroundTask = isBackgroundTask,
                 AccessControlContext = new AccessControlContext
                 {
-                    ApplyFineGrainedAccessControl = true,
-                    ApplyFineGrainedAccessControlWithSearchParameters = true,
+                    ApplyFineGrainedAccessControl = smartRequest,
+                    ApplyFineGrainedAccessControlWithSearchParameters = smartRequest,
                 },
             };
 

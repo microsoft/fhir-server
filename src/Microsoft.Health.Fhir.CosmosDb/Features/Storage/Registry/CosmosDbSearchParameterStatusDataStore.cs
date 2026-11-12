@@ -11,27 +11,27 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
     public sealed class CosmosDbSearchParameterStatusDataStore : ISearchParameterStatusDataStore, IDisposable
     {
-        private readonly Func<IScoped<Container>> _containerScopeFactory;
+        private readonly IScopeProvider<Container> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
-        private readonly Func<IScoped<IQueueClient>> _queueClientScopeFactory;
+        private readonly IScopeProvider<IQueueClient> _queueClientScopeFactory;
         private readonly SemaphoreSlim _statusListSemaphore = new(1, 1);
 
         public CosmosDbSearchParameterStatusDataStore(
-            Func<IScoped<Container>> containerScopeFactory,
+            IScopeProvider<Container> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosQueryFactory queryFactory,
-            Func<IScoped<IQueueClient>> queueClientScopeFactory)
+            IScopeProvider<IQueueClient> queueClientScopeFactory)
         {
             EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
