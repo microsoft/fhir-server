@@ -106,6 +106,43 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
+        public void GivenAReferenceBaseUriOverTheLimit_WhenVisited_ThenGeneratesAlwaysFalsePredicateWithoutParameters()
+        {
+            // Arrange
+            const string prefix = "https://example.org/";
+            string baseUri = new Uri(prefix + new string('a', 129 - prefix.Length - 1) + "/").ToString();
+            Assert.Equal(129, baseUri.Length);
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
+            var context = CreateContext();
+
+            // Act
+            ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+            // Assert
+            Assert.Contains("0 = 1", context.StringBuilder.ToString());
+            Assert.Empty(context.Parameters.ParametersToHash);
+        }
+
+        [Fact]
+        public void GivenAReferenceBaseUriAtTheLimit_WhenVisited_ThenGeneratesEqualityWithTheWholeValue()
+        {
+            // Arrange
+            const string prefix = "https://example.org/";
+            string baseUri = new Uri(prefix + new string('a', 128 - prefix.Length - 1) + "/").ToString();
+            Assert.Equal(128, baseUri.Length);
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
+            var context = CreateContext();
+
+            // Act
+            ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+            // Assert
+            SqlParameter parameter = Assert.Single(context.Parameters.ParametersToHash);
+            Assert.Equal(baseUri, parameter.Value);
+            Assert.Contains($"{VLatest.ReferenceSearchParam.BaseUri.Metadata.Name} = {parameter.ParameterName}", context.StringBuilder.ToString());
+        }
+
+        [Fact]
         public void GivenMissingFieldExpression_WhenVisited_ThenChecksBaseUriIsNull()
         {
             var expression = new MissingFieldExpression(FieldName.ReferenceBaseUri, null);

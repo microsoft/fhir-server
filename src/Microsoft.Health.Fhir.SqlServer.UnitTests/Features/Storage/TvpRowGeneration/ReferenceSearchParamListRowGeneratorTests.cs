@@ -154,6 +154,61 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Null(row.CodeOverflow2);
         }
 
+        [Theory]
+        [InlineData(128, true)]
+        [InlineData(129, false)]
+        [InlineData(134, false)]
+        public void GivenAReferenceNearTheBaseUriLimit_WhenGeneratingARow_ThenTheWholeBaseUriIsStoredOrNoRowIsGenerated(int length, bool expectedGenerated)
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.Standard), new SearchParameterToSearchValueTypeMap());
+            Uri baseUri = CreateBaseUri(length);
+            Assert.Equal(length, baseUri.ToString().Length);
+            var searchValue = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
+
+            // Assert
+            Assert.Equal(expectedGenerated, generated);
+            if (expectedGenerated)
+            {
+                Assert.Equal(baseUri.ToString(), row.BaseUri);
+            }
+        }
+
+        [Theory]
+        [InlineData(129)]
+        [InlineData(134)]
+        public void GivenAReferenceTokenCompositeOverTheBaseUriLimit_WhenGeneratingARow_ThenNoRowIsGenerated(int length)
+        {
+            // Arrange
+            SqlServerFhirModel model = CreateModel(ResourceIdPolicy.Standard);
+            var map = new SearchParameterToSearchValueTypeMap();
+            var generator = new ReferenceTokenCompositeSearchParamListRowGenerator(
+                model,
+                new ReferenceSearchParamListRowGenerator(model, map),
+                new TokenSearchParamListRowGenerator(model, map),
+                map);
+            Uri baseUri = CreateBaseUri(length);
+            Assert.Equal(length, baseUri.ToString().Length);
+            var reference = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
+            var token = new TokenSearchValue(system: null, code: "test-code", text: null);
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, (reference, token), results: null, out _);
+
+            // Assert
+            Assert.False(generated);
+        }
+
+        private static Uri CreateBaseUri(int length)
+        {
+            const string prefix = "https://example.org/";
+            string suffix = length == 134 ? "other/" : string.Empty;
+            return new Uri(prefix + new string('a', length - prefix.Length - suffix.Length - 1) + "/" + suffix);
+        }
+
         private static string CreateResourceId(int length)
             => string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
 
