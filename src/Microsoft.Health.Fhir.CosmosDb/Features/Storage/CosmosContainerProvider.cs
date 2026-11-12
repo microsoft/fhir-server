@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {

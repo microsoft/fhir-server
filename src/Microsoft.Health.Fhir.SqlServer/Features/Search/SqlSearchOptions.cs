@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -34,6 +35,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Keeps track of whether missing modifier is specified for search parameter used in sort.
         /// </summary>
         public bool SortHasMissingModifier { get; internal set; }
+
+        /// <summary>
+        /// Gets or sets the prepared vector query used to rank structured matches before pagination.
+        /// </summary>
+        public PreparedVectorSearchQuery PreparedVectorQuery { get; set; }
+
+        /// <summary>
+        /// Gets or sets the vector query configuration decision to use approximate retrieval: how many nearest chunks to
+        /// examine per requested result, or null when the query must rank exactly.
+        /// </summary>
+        internal int? ApproximateVectorCandidateMultiplier { get; set; }
+
+        /// <summary>
+        /// Gets or sets the validated semantic continuation token, or null for the first page.
+        /// </summary>
+        internal SemanticSearchContinuationToken SemanticContinuationToken { get; set; }
 
         /// <summary>
         /// Set when a SMART compartment membership context was attached to the root expression for this

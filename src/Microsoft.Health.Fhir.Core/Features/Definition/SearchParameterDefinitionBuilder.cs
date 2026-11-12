@@ -50,7 +50,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IModelInfoProvider modelInfoProvider,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger,
-            bool isSystemDefined = false)
+            bool isSystemDefined = false,
+            bool enableTemporalClassification = false)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
             EnsureArg.IsNotNull(uriDictionary, nameof(uriDictionary));
@@ -64,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 uriDictionary,
                 modelInfoProvider,
                 isSystemDefined,
+                enableTemporalClassification,
                 logger).ToLookup(
                     entry => entry.ResourceType,
                     entry => entry.SearchParameter);
@@ -113,9 +115,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
-        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, ConcurrentDictionary<string, SearchParameterInfo> uriDictionary)
+        private static SearchParameterInfo GetOrCreateSearchParameterInfo(
+            SearchParameterWrapper searchParameter,
+            ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
+            IModelInfoProvider modelInfoProvider,
+            bool classifyTemporalType)
         {
-            return uriDictionary.GetOrAdd(searchParameter.Url, _ => new SearchParameterInfo(searchParameter));
+            return uriDictionary.GetOrAdd(
+                searchParameter.Url,
+                _ => classifyTemporalType
+                    ? new SearchParameterInfo(searchParameter, modelInfoProvider)
+                    : new SearchParameterInfo(searchParameter));
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
@@ -123,8 +133,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider,
             bool isSystemDefined,
+            bool enableTemporalClassification,
             ILogger logger)
         {
+            bool classifyTemporalType = isSystemDefined && enableTemporalClassification;
             var issues = new List<OperationOutcomeIssue>();
             var searchParameters = searchParamCollection.Select((x, entryIndex) =>
             {
@@ -151,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 try
                 {
-                    SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
+                    SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary, modelInfoProvider, classifyTemporalType);
 
                     // Mark spec-defined search parameters as system-defined.
                     // Once marked, this should remain true across subsequent Build calls.
@@ -246,7 +258,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         continue;
                     }
 
-                    SearchParameterInfo compositeSearchParameter = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
+                    SearchParameterInfo compositeSearchParameter = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary, modelInfoProvider, classifyTemporalType);
 
                     for (int componentIndex = 0; componentIndex < composites.Count; componentIndex++)
                     {
@@ -315,7 +327,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                     }
 
-                    validatedSearchParameters.Add((baseResourceType, GetOrCreateSearchParameterInfo(searchParameter, uriDictionary)));
+                    validatedSearchParameters.Add((baseResourceType, GetOrCreateSearchParameterInfo(searchParameter, uriDictionary, modelInfoProvider, classifyTemporalType)));
                 }
             }
 
