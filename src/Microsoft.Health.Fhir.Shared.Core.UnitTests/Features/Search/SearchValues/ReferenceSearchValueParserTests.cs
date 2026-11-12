@@ -261,6 +261,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(canonical, value.ResourceId);
         }
 
+        [Theory]
+        [InlineData("")]
+        [InlineData("https://example.org/")]
+        public void GivenRejectionIsDisabled_WhenParsingAResourceReferenceThatCannotBeIndexedWhole_ThenItIsReturned(string prefix)
+        {
+            // Arrange
+            string reference = prefix.Length == 0
+                ? CreateResourceId(65)
+                : $"{prefix}{new string('a', 129 - prefix.Length - 1)}/Patient/abc";
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(false, rejectLongReferences: false));
+
+            // Act
+            ReferenceSearchValue value = parser.ParseResourceReference(reference);
+
+            // Assert
+            Assert.Equal(prefix.Length == 0 ? reference : "abc", value.ResourceId);
+        }
+
         private static string CreateResourceId(int length)
             => string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
 

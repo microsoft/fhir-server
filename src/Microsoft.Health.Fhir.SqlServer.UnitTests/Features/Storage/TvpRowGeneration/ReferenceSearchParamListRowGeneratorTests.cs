@@ -219,6 +219,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Equal(baseUri.ToString(), row.BaseUri);
         }
 
+        [Fact]
+        public void GivenTheReferenceIndex_WhenComparingBaseUriWidths_ThenTheyMatchTheLimitAppliedToReferences()
+        {
+            Assert.Equal(ResourceIdPolicy.MaxReferenceBaseUriLength, VLatest.ReferenceSearchParam.BaseUri.Metadata.MaxLength);
+            Assert.Equal(ResourceIdPolicy.MaxReferenceBaseUriLength, VLatest.ReferenceTokenCompositeSearchParam.BaseUri1.Metadata.MaxLength);
+        }
+
         private static Uri CreateBaseUri(int length)
         {
             const string prefix = "https://example.org/";

@@ -66,9 +66,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool UseLongResourceIds { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether a reference whose resource id is longer than the id limit is rejected.
-        /// When true, a reference whose base URI does not fit the SQL index is also not indexed and cannot be matched.
-        /// When false, both values are cut off at their limits.
+        /// Gets or sets a value indicating whether a reference that is too long to index whole is rejected.
+        /// When true, a typed reference whose resource id is longer than the id limit is rejected, and so is a Reference element
+        /// whose untyped value is longer than the id limit or whose base URI is longer than the reference index holds.
+        /// Other values that do not fit the SQL index are not indexed and cannot be matched.
+        /// When false, values are cut off at their limits.
         /// </summary>
         public bool RejectLongReferences { get; set; } = true;
 
