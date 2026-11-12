@@ -162,7 +162,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             // Arrange
             var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.Standard), new SearchParameterToSearchValueTypeMap());
             Uri baseUri = CreateBaseUri(length);
-            Assert.Equal(length, baseUri.ToString().Length);
             var searchValue = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
 
             // Act
@@ -188,7 +187,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 new TokenSearchParamListRowGenerator(model, map),
                 map);
             Uri baseUri = CreateBaseUri(129);
-            Assert.Equal(129, baseUri.ToString().Length);
             var reference = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
             var token = new TokenSearchValue(system: null, code: "test-code", text: null);
 
@@ -205,7 +203,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             // Arrange
             var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(false, rejectLongReferences: false)), new SearchParameterToSearchValueTypeMap());
             Uri baseUri = CreateBaseUri(129);
-            Assert.Equal(129, baseUri.ToString().Length);
             var searchValue = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
 
             // Act
@@ -226,7 +223,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         private static Uri CreateBaseUri(int length)
         {
             const string prefix = "https://example.org/";
-            return new Uri(prefix + new string('a', length - prefix.Length - 1) + "/");
+            var baseUri = new Uri(prefix + new string('a', length - prefix.Length - 1) + "/");
+            Assert.Equal(length, baseUri.ToString().Length);
+            return baseUri;
         }
 
         private static string CreateResourceId(int length)
