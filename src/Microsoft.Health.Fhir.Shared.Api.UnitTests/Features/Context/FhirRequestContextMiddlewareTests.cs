@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var accessor = new FhirRequestContextAccessor();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
             IFhirRequestContext capturedContext = null;
-            var middleware = new FhirRequestContextMiddleware(
+            var afterAuthentication = new FhirRequestContextAfterAuthenticationMiddleware(
                 context =>
                 {
                     capturedContext = accessor.RequestContext;
@@ -158,6 +158,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
                     return Task.CompletedTask;
                 },
+                manager,
+                Options.Create(new SecurityConfiguration { Enabled = false }),
+                Substitute.For<ILogger<FhirRequestContextAfterAuthenticationMiddleware>>());
+            var middleware = new FhirRequestContextMiddleware(
+                context => afterAuthentication.Invoke(context, accessor),
                 Substitute.For<ILogger<FhirRequestContextMiddleware>>(),
                 manager);
 
@@ -176,6 +181,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(new Uri("https://api.example.com/stu3/partition/partition-a/"), capturedContext.BaseUri);
             Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
             Assert.Equal("/partition/partition-a/Patient", httpContext.Request.Path.Value);
+            Assert.Equal("/stu3", httpContext.Request.PathBase.Value);
+        }
+
+        [Theory]
+        [InlineData("/partition/partition-a/Patient")]
+        [InlineData("/partition/unknown/Patient")]
+        public async Task GivenPartitionPrefix_WhenAuthenticationHasNotRun_ThenPathIsNormalizedWithoutSelectingPartition(string path)
+        {
+            var configuration = new PartitionConfiguration();
+            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Path = new PathString(path);
+            var accessor = new FhirRequestContextAccessor();
+            bool nextCalled = false;
+            var middleware = new FhirRequestContextMiddleware(
+                context =>
+                {
+                    nextCalled = true;
+                    Assert.Null(accessor.RequestContext.PartitionId);
+                    Assert.Equal("/Patient", context.Request.Path.Value);
+                    return Task.CompletedTask;
+                },
+                Substitute.For<ILogger<FhirRequestContextMiddleware>>(),
+                new PartitionManager(Options.Create(configuration)));
+
+            await middleware.Invoke(httpContext, accessor, new FhirServerInstanceConfiguration(), () => "request-id");
+
+            Assert.True(nextCalled);
+            Assert.Equal(path, httpContext.Request.Path.Value);
             Assert.Equal("/stu3", httpContext.Request.PathBase.Value);
         }
 

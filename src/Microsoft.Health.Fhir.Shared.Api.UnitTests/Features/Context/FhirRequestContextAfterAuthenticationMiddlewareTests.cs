@@ -5,9 +5,13 @@
 
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -25,7 +29,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         public FhirRequestContextAfterAuthenticationMiddlewareTests()
         {
             _fhirRequestContextAfterAuthenticationMiddleware = new FhirRequestContextAfterAuthenticationMiddleware(
-                httpContext => Task.CompletedTask);
+                httpContext => Task.CompletedTask,
+                new PartitionManager(Options.Create(new PartitionConfiguration())),
+                Options.Create(new SecurityConfiguration()),
+                Substitute.For<ILogger<FhirRequestContextAfterAuthenticationMiddleware>>());
         }
 
         [Fact]

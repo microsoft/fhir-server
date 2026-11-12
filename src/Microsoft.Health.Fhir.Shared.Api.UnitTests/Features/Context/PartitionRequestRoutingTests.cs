@@ -7,7 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -17,6 +20,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -30,6 +35,59 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     [Trait(Traits.Category, Categories.Web)]
     public class PartitionRequestRoutingTests
     {
+        private const string AuthenticationScheme = "PartitionTest";
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        public async Task GivenSecurityEnabled_WhenCredentialsAreMissingOrInvalid_ThenPartitionIdsCannotBeDistinguished(int partitionCount)
+        {
+            using var host = CreateHost(partitionCount, securityEnabled: true);
+            using var client = host.GetTestClient();
+
+            foreach (string path in new[] { "/partition/partition-a/Patient", "/partition/partition-b/Patient", "/partition/unknown/Patient", "/partition/PARTITION-A/Patient", "/Patient" })
+            {
+                foreach (string credentials in new[] { null, "Bearer invalid" })
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(path, UriKind.Relative));
+                    if (credentials != null)
+                    {
+                        request.Headers.Add("Authorization", credentials);
+                    }
+
+                    using var response = await client.SendAsync(request);
+
+                    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData(0, "/Patient", HttpStatusCode.OK, null)]
+        [InlineData(1, "/Patient", HttpStatusCode.OK, "partition-a")]
+        [InlineData(2, "/Patient", HttpStatusCode.NotFound, null)]
+        [InlineData(2, "/partition/partition-a/Patient", HttpStatusCode.OK, "partition-a")]
+        [InlineData(2, "/partition/partition-b/Patient", HttpStatusCode.OK, "partition-b")]
+        [InlineData(2, "/partition/PARTITION-A/Patient", HttpStatusCode.NotFound, null)]
+        [InlineData(2, "/partition", HttpStatusCode.NotFound, null)]
+        [InlineData(1, "/partition/unknown/Patient", HttpStatusCode.NotFound, null)]
+        [InlineData(2, "/partition/unknown/Patient", HttpStatusCode.NotFound, null)]
+        public async Task GivenAuthenticatedRequest_WhenResolvingPartition_ThenConfiguredPartitionIsRequired(int partitionCount, string path, HttpStatusCode status, string partitionId)
+        {
+            using var host = CreateHost(partitionCount, securityEnabled: true);
+            using var client = host.GetTestClient();
+            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(path, UriKind.Relative));
+            request.Headers.Add("Authorization", "Bearer valid");
+
+            using var response = await client.SendAsync(request);
+
+            Assert.Equal(status, response.StatusCode);
+            if (partitionId != null)
+            {
+                Assert.Equal(partitionId, Assert.Single(response.Headers.GetValues("X-Test-Partition")));
+            }
+        }
+
         public static IEnumerable<object[]> ServiceAuthenticationRequests()
         {
             foreach (int partitionCount in new[] { 0, 1, 2 })
@@ -191,16 +249,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [MemberData(nameof(ServiceAuthenticationRequests))]
         public async Task GivenConfiguredPartitions_WhenRequestingServiceAuthentication_ThenNoPartitionIsSelected(int partitionCount, string path, string method)
         {
-            using var host = CreateHost(partitionCount);
+            using var host = CreateHost(partitionCount, securityEnabled: true);
             using var client = host.GetTestClient();
-            using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(path, UriKind.Relative));
+            foreach (string credentials in new[] { null, "Bearer valid" })
+            {
+                using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(path, UriKind.Relative));
+                if (credentials != null)
+                {
+                    request.Headers.Add("Authorization", credentials);
+                }
 
-            using var response = await client.SendAsync(request);
+                using var response = await client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal("http://localhost/", await response.Content.ReadAsStringAsync());
-            Assert.False(response.Headers.Contains("X-Test-Partition"));
-            Assert.Equal(new Uri(client.BaseAddress, path).AbsoluteUri, Assert.Single(response.Headers.GetValues("X-Test-Uri")));
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                Assert.Equal("http://localhost/", await response.Content.ReadAsStringAsync());
+                Assert.False(response.Headers.Contains("X-Test-Partition"));
+                Assert.Equal(new Uri(client.BaseAddress, path).AbsoluteUri, Assert.Single(response.Headers.GetValues("X-Test-Uri")));
+            }
         }
 
         [Theory]
@@ -234,7 +299,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal("http://localhost/fhir/connect/token", Assert.Single(response.Headers.GetValues("X-Test-Uri")));
         }
 
-        private static IHost CreateHost(int partitionCount, string firstPartitionId = "partition-a", string pathBase = null)
+        private static IHost CreateHost(int partitionCount, string firstPartitionId = "partition-a", string pathBase = null, bool securityEnabled = false)
         {
             var values = new Dictionary<string, string>();
             for (int i = 0; i < partitionCount; i++)
@@ -247,7 +312,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             return new HostBuilder().ConfigureWebHost(builder => builder.UseTestServer()
                 .ConfigureServices(services =>
                 {
-                    services.AddFhirServer(configuration);
+                    services.AddAuthentication(AuthenticationScheme)
+                        .AddScheme<AuthenticationSchemeOptions, PartitionTestAuthenticationHandler>(AuthenticationScheme, options => { });
+                    services.AddAuthorization();
+                    services.AddFhirServer(configuration, server =>
+                    {
+                        server.Security.Enabled = securityEnabled;
+                        server.Security.AddAuthenticationLibrary = (_, _) => { };
+                    });
                     services.RemoveAll<IStartupFilter>();
                     services.RemoveAll<IHostedService>();
                     services.AddSingleton<CorrelationIdProvider>(() => Guid.NewGuid().ToString());
@@ -260,10 +332,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                     }
 
                     app.UseFhirRequestContext();
+                    app.UseAuthentication();
+                    app.UseMiddleware<FhirRequestContextAfterAuthenticationMiddleware>();
                     app.UseRouting();
+                    app.UseAuthorization();
                     app.UseEndpoints(endpoints =>
                     {
-                        endpoints.MapGet("/Patient", async context =>
+                        var patients = endpoints.MapGet("/Patient", async context =>
                         {
                             var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
                             if (accessor.RequestContext.PartitionId != null)
@@ -276,6 +351,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                             context.Response.Headers["X-Test-Uri"] = accessor.RequestContext.Uri.AbsoluteUri;
                             await context.Response.WriteAsync(accessor.RequestContext.BaseUri.AbsoluteUri);
                         }).WithName("patients");
+                        if (securityEnabled)
+                        {
+                            patients.RequireAuthorization();
+                        }
+
                         endpoints.MapGet("/health/check", context =>
                         {
                             var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
@@ -314,6 +394,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                     });
                     app.Run(context => context.Response.WriteAsync("unmatched route"));
                 })).Start();
+        }
+
+        private sealed class PartitionTestAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+        {
+            public PartitionTestAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
+                : base(options, logger, encoder)
+            {
+            }
+
+            protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+            {
+                string credentials = Request.Headers.Authorization;
+                if (string.IsNullOrEmpty(credentials))
+                {
+                    return Task.FromResult(AuthenticateResult.NoResult());
+                }
+
+                if (credentials != "Bearer valid")
+                {
+                    return Task.FromResult(AuthenticateResult.Fail("Invalid test credentials."));
+                }
+
+                var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, "test-user") }, AuthenticationScheme));
+                return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, AuthenticationScheme)));
+            }
         }
     }
 }

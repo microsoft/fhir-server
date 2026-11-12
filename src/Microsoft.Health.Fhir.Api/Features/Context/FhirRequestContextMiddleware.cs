@@ -4,19 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -36,17 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
         internal const string ContentSecurityPolicy = "Content-Security-Policy";
         private const string ContentSecurityPolicyValue = "frame-src 'self';";
 
-        private static readonly HashSet<string> ServiceAuthenticationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "/connect/token",
-            "/connect/introspect",
-            "/.well-known/openid-configuration",
-            "/.well-known/oauth-authorization-server",
-            "/.well-known/jwks",
-            "/" + KnownRoutes.WellKnownSmartConfiguration,
-            "/AadSmartOnFhirProxy/authorize",
-            "/AadSmartOnFhirProxy/token",
-        };
+        internal static readonly object OriginalPathKey = new object();
 
         public FhirRequestContextMiddleware(
             RequestDelegate next,
@@ -70,39 +56,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             HttpRequest request = context.Request;
             PathString originalPath = request.Path;
             PathString originalPathBase = request.PathBase;
-            PartitionInfo partition = null;
-            bool partitionRequired = false;
+            context.Items[OriginalPathKey] = originalPath;
 
-            if (_partitionManager.Partitions.Count > 0 && !IsServiceAuthenticationEndpoint(request.Path))
+            if (_partitionManager.Partitions.Count > 0
+                && request.Path.StartsWithSegments(new PathString("/partition"), StringComparison.OrdinalIgnoreCase, out PathString keyword, out PathString afterKeyword))
             {
-                bool isHealthCheck = request.Path.Equals(new PathString(KnownRoutes.HealthCheck), StringComparison.OrdinalIgnoreCase);
-                if (request.Path.StartsWithSegments(new PathString("/partition"), StringComparison.OrdinalIgnoreCase, out PathString keyword, out PathString afterKeyword))
+                string partitionId = afterKeyword.Value?.Split('/', 3).ElementAtOrDefault(1);
+                if (!string.IsNullOrEmpty(partitionId))
                 {
-                    string partitionId = afterKeyword.Value?.Split('/', 3).ElementAtOrDefault(1);
-                    if (!string.IsNullOrEmpty(partitionId) && _partitionManager.Partitions.TryGetValue(partitionId, out partition))
-                    {
-                        afterKeyword.StartsWithSegments(new PathString("/" + partitionId), StringComparison.Ordinal, out PathString idPath, out PathString remaining);
-                        request.PathBase = request.PathBase.Add(keyword).Add(idPath);
-                        request.Path = remaining;
-                    }
-                    else
-                    {
-                        partitionRequired = true;
-                    }
-                }
-                else if (_partitionManager.Partitions.Count == 1)
-                {
-                    partition = _partitionManager.Partitions.Values.Single();
-                }
-                else if (!isHealthCheck)
-                {
-                    partitionRequired = true;
+                    // Normalize all candidate IDs identically; validation must wait until after authentication.
+                    afterKeyword.StartsWithSegments(new PathString("/" + partitionId), StringComparison.Ordinal, out PathString idPath, out PathString remaining);
+                    request.PathBase = request.PathBase.Add(keyword).Add(idPath);
+                    request.Path = remaining;
                 }
             }
 
             try
             {
-                await InvokeRequestAsync(context, fhirRequestContextAccessor, instanceConfiguration, correlationIdProvider, originalPathBase, partition?.Id, partitionRequired);
+                await InvokeRequestAsync(context, fhirRequestContextAccessor, instanceConfiguration, correlationIdProvider, originalPathBase);
             }
             finally
             {
@@ -111,29 +82,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
         }
 
-        private static bool IsServiceAuthenticationEndpoint(PathString path)
-        {
-            string value = path.Value?.TrimEnd('/');
-            if (ServiceAuthenticationPaths.Contains(value))
-            {
-                return true;
-            }
-
-            const string callbackPrefix = "/AadSmartOnFhirProxy/callback/";
-            return value != null
-                && value.StartsWith(callbackPrefix, StringComparison.OrdinalIgnoreCase)
-                && value.Length > callbackPrefix.Length
-                && value.IndexOf('/', callbackPrefix.Length) < 0;
-        }
-
         private async Task InvokeRequestAsync(
             HttpContext context,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IFhirServerInstanceConfiguration instanceConfiguration,
             CorrelationIdProvider correlationIdProvider,
-            PathString instancePathBase,
-            string partitionId,
-            bool partitionRequired)
+            PathString instancePathBase)
         {
             HttpRequest request = context.Request;
 
@@ -185,10 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 baseUriString: baseUriInString,
                 correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
-                responseHeaders: context.Response.Headers)
-            {
-                PartitionId = partitionId,
-            };
+                responseHeaders: context.Response.Headers);
 
             context.Response.Headers[KnownHeaders.RequestId] = correlationId;
             context.Response.Headers[XContentTypeOptions] = XContentTypeOptionsValue;
@@ -196,15 +147,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             context.Response.Headers[ContentSecurityPolicy] = ContentSecurityPolicyValue;
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
-
-            if (partitionRequired)
-            {
-                _logger.LogWarning("Request rejected: a configured partition ID is required after /partition.");
-                context.Response.StatusCode = StatusCodes.Status404NotFound;
-                context.Response.ContentType = "text/plain";
-                await context.Response.WriteAsync("A configured partition ID is required after /partition.");
-                return;
-            }
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);
