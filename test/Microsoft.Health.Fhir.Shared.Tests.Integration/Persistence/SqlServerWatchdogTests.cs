@@ -640,7 +640,9 @@ INSERT INTO dbo.WatchdogLeases
                 Substitute.For<IClaimsExtractor>(),
                 Substitute.For<ICompartmentIndexer>(),
                 searchParameterDefinitionManager,
-                Deserializers.ResourceDeserializer);
+                Deserializers.ResourceDeserializer,
+                TestResourceIdentityValidators.Create(),
+                new SqlReferenceStorageValidator(_fixture.SchemaInformation));
         }
 
         private object ExecuteSql(string sql)

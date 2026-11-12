@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return null;
             }
 
-            ReferenceSearchValue parsed = _referenceParser.Parse(reference);
+            ReferenceSearchValue parsed = _referenceParser.Parse(reference, ReferenceParseContext.ResourceReference);
 
             if (parsed?.ResourceType == null || !_modelInfoProvider.IsKnownResource(parsed.ResourceType))
             {

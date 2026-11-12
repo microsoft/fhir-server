@@ -530,7 +530,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                 var instance = Substitute.For<IFhirServerInstanceConfiguration>();
                 instance.BaseUri.Returns(new Uri("http://localhost/"));
                 var referenceParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instance, ResourceIdPolicy.Standard);
-                _parser = new ExpressionParser(() => Definitions, new SearchParameterExpressionParser(referenceParser));
+                _parser = new ExpressionParser(() => Definitions, new SearchParameterExpressionParser(referenceParser, ResourceIdPolicy.Standard, new SqlReferenceStorageValidator(_schema)));
                 Model = Substitute.For<ISqlServerFhirModel>();
                 short typeId = 1;
                 foreach (string resourceType in ModelInfoProvider.GetResourceTypeNames().Order())

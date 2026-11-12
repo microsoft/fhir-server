@@ -17,13 +17,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// <summary>
     /// Provides mechanism to parse a string to an instance of <see cref="ReferenceSearchValue"/>.
     /// </summary>
+    /// <remarks>
+    /// A recognized resource id is always the complete path segment after the resource type. It is either
+    /// accepted whole under the <see cref="ResourceIdPolicy"/> or rejected; it is never shortened.
+    /// </remarks>
     public class ReferenceSearchValueParser : IReferenceSearchValueParser
     {
         private const string ResourceTypeCapture = "resourceType";
         private const string ResourceIdCapture = "resourceId";
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
         private static readonly string ResourceTypesPattern = string.Join('|', ModelInfoProvider.GetResourceTypeNames());
-        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]+)(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
+
+        // The id segment ends at the next path, query, canonical version or fragment delimiter.
+        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[^\/?|#]+)";
 
         private static readonly Regex ReferenceRegex = new Regex(
             ReferenceCaptureRegexPattern,
@@ -47,80 +53,109 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         }
 
         /// <inheritdoc />
-        public ReferenceSearchValue Parse(string s)
+        public ReferenceSearchValue Parse(string value, ReferenceParseContext context)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
+            EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
+            EnsureArg.EnumIsDefined(context, nameof(context));
 
-            Match match = ReferenceRegex.Match(s);
-
-            if (match.Success)
+            if (context == ReferenceParseContext.ResourceIdPrimitive)
             {
-                string resourceTypeInString = match.Groups[ResourceTypeCapture].Value;
-
-                ModelInfoProvider.EnsureValidResourceType(resourceTypeInString, nameof(s));
-
-                string resourceId = match.Groups[ResourceIdCapture].Value;
-
-                // Ids longer than the limit are cut off at the limit, as when the limit was fixed at 64.
-                if (resourceId.Length > _resourceIdPolicy.MaxLength)
-                {
-                    resourceId = resourceId[.._resourceIdPolicy.MaxLength];
-                }
-
-                int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
-
-                if (resourceTypeStartIndex == 0)
-                {
-                    // This is relative URL.
-                    return new ReferenceSearchValue(
-                        ReferenceKind.InternalOrExternal,
-                        null,
-                        resourceTypeInString,
-                        resourceId);
-                }
-
-                Uri baseUri = null;
-
-                try
-                {
-                    baseUri = new Uri(s.Substring(0, resourceTypeStartIndex), UriKind.RelativeOrAbsolute);
-
-                    // Get the base URI from request context first, then fall back to global instance configuration
-                    // This ensures background operations like reindexing can access the base URI when there's no active HTTP context
-                    var requestContext = _fhirRequestContextAccessor?.RequestContext;
-                    var contextBaseUri = requestContext?.BaseUri ?? _instanceConfiguration?.BaseUri;
-
-                    if (contextBaseUri != null && baseUri == contextBaseUri)
-                    {
-                        // This is an absolute URL pointing to an internal resource.
-                        return new ReferenceSearchValue(
-                            ReferenceKind.Internal,
-                            null,
-                            resourceTypeInString,
-                            resourceId);
-                    }
-                    else if (baseUri.IsAbsoluteUri &&
-                        SupportedSchemes.Contains(baseUri.Scheme, StringComparer.OrdinalIgnoreCase))
-                    {
-                        // This is an absolute URL pointing to an external resource.
-                        return new ReferenceSearchValue(
-                            ReferenceKind.External,
-                            baseUri,
-                            resourceTypeInString,
-                            resourceId);
-                    }
-                }
-                catch (UriFormatException)
-                {
-                    // The reference is not a relative reference but is not a valid absolute reference either.
-                }
+                return ReferenceSearchValue.FromResource(
+                    ReferenceKind.InternalOrExternal,
+                    baseUri: null,
+                    resourceType: null,
+                    BoundedResourceId.Parse(value, _resourceIdPolicy));
             }
 
-            return new ReferenceSearchValue(
-                ReferenceKind.InternalOrExternal,
-                baseUri: null,
-                resourceType: null,
-                resourceId: s);
+            Match match = ReferenceRegex.Match(value);
+
+            if (!match.Success)
+            {
+                return ParseUntypedValue(value, context);
+            }
+
+            string resourceType = match.Groups[ResourceTypeCapture].Value;
+            ModelInfoProvider.EnsureValidResourceType(resourceType, nameof(value));
+
+            int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
+            ReferenceKind kind;
+            Uri baseUri = null;
+
+            if (resourceTypeStartIndex == 0)
+            {
+                // This is relative URL.
+                kind = ReferenceKind.InternalOrExternal;
+            }
+            else if (!TryClassifyBase(value[..resourceTypeStartIndex], out kind, out baseUri))
+            {
+                // Not a REST location, so the complete value is matched as an opaque literal.
+                return ReferenceSearchValue.FromLiteral(value);
+            }
+
+            string resourceId = match.Groups[ResourceIdCapture].Value;
+
+            if (context == ReferenceParseContext.CanonicalOrUri && !ResourceIdPolicy.HasIdGrammar(resourceId))
+            {
+                // A canonical or URI whose segment is not id-shaped is kept as a complete literal.
+                return ReferenceSearchValue.FromLiteral(value);
+            }
+
+            return ReferenceSearchValue.FromResource(kind, baseUri, resourceType, BoundedResourceId.Parse(resourceId, _resourceIdPolicy));
+        }
+
+        private ReferenceSearchValue ParseUntypedValue(string value, ReferenceParseContext context)
+        {
+            if (context != ReferenceParseContext.CanonicalOrUri && ResourceIdPolicy.HasIdGrammar(value))
+            {
+                // A bare id in a reference is held to the same bound as a typed reference.
+                return ReferenceSearchValue.FromResource(
+                    ReferenceKind.InternalOrExternal,
+                    baseUri: null,
+                    resourceType: null,
+                    BoundedResourceId.Parse(value, _resourceIdPolicy));
+            }
+
+            return ReferenceSearchValue.FromLiteral(value);
+        }
+
+        private bool TryClassifyBase(string baseValue, out ReferenceKind kind, out Uri baseUri)
+        {
+            kind = ReferenceKind.InternalOrExternal;
+            baseUri = null;
+
+            Uri candidate;
+
+            try
+            {
+                candidate = new Uri(baseValue, UriKind.RelativeOrAbsolute);
+            }
+            catch (UriFormatException)
+            {
+                // The reference is not a relative reference but is not a valid absolute reference either.
+                return false;
+            }
+
+            // Get the base URI from request context first, then fall back to global instance configuration
+            // This ensures background operations like reindexing can access the base URI when there's no active HTTP context
+            Uri contextBaseUri = _fhirRequestContextAccessor?.RequestContext?.BaseUri ?? _instanceConfiguration?.BaseUri;
+
+            if (contextBaseUri != null && candidate == contextBaseUri)
+            {
+                // This is an absolute URL pointing to an internal resource.
+                kind = ReferenceKind.Internal;
+                return true;
+            }
+
+            if (candidate.IsAbsoluteUri &&
+                SupportedSchemes.Contains(candidate.Scheme, StringComparer.OrdinalIgnoreCase))
+            {
+                // This is an absolute URL pointing to an external resource.
+                kind = ReferenceKind.External;
+                baseUri = candidate;
+                return true;
+            }
+
+            return false;
         }
     }
 }

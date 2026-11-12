@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using FluentValidation.Results;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
@@ -17,6 +19,8 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -38,6 +42,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IResourceIdentityValidator _resourceIdentityValidator;
+        private readonly IReferenceStorageValidator _referenceStorageValidator;
         private readonly IVectorSearchIndexer _vectorSearchIndexer;
 
         /// <summary>
@@ -50,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="compartmentIndexer">The compartment indexer.</param>
         /// <param name="searchParameterDefinitionManager"> The search parameter definition manager.</param>
         /// <param name="resourceDeserializer">Resource deserializer</param>
+        /// <param name="resourceIdentityValidator">Validates the resource identities admitted as new content.</param>
+        /// <param name="referenceStorageValidator">Checks that the data store can hold each extracted reference whole.</param>
         /// <param name="vectorSearchIndexer">The optional vector indexer, registered when vector search is enabled.</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
@@ -59,6 +67,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ICompartmentIndexer compartmentIndexer,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IResourceDeserializer resourceDeserializer,
+            IResourceIdentityValidator resourceIdentityValidator,
+            IReferenceStorageValidator referenceStorageValidator,
             IVectorSearchIndexer vectorSearchIndexer = null)
         {
             EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
@@ -68,6 +78,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             EnsureArg.IsNotNull(compartmentIndexer, nameof(compartmentIndexer));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            EnsureArg.IsNotNull(resourceIdentityValidator, nameof(resourceIdentityValidator));
+            EnsureArg.IsNotNull(referenceStorageValidator, nameof(referenceStorageValidator));
 
             _rawResourceFactory = rawResourceFactory;
             _searchIndexer = searchIndexer;
@@ -76,14 +88,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _compartmentIndexer = compartmentIndexer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _resourceDeserializer = resourceDeserializer;
+            _resourceIdentityValidator = resourceIdentityValidator;
+            _referenceStorageValidator = referenceStorageValidator;
             _vectorSearchIndexer = vectorSearchIndexer;
         }
 
         /// <inheritdoc />
         public ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta, bool keepVersion = false)
         {
+            if (!deleted)
+            {
+                IReadOnlyList<ValidationFailure> identityFailures = _resourceIdentityValidator.Validate(resource);
+                if (identityFailures.Count != 0)
+                {
+                    throw new ResourceNotValidException(identityFailures);
+                }
+            }
+
             RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta, keepVersion);
-            IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
+            IReadOnlyCollection<SearchIndexEntry> searchIndices = ExtractAdmittedSearchIndices(deleted ? CreateTombstoneIndexSource(resource) : resource);
+
+            if (!deleted)
+            {
+                EnsureReferencesStorable(resource, searchIndices);
+            }
 
             if (deleted && searchIndices.Any(x => x.SearchParameter.Code != KnownQueryParameterNames.LastUpdated && x.SearchParameter.Code != KnownQueryParameterNames.Id))
             {
@@ -115,18 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <inheritdoc />
         public void Update(ResourceWrapper resourceWrapper)
         {
-            if (resourceWrapper.IsDeleted)
-            {
-                var searchIndices = resourceWrapper.SearchIndices.Where(x => x.SearchParameter.Code == KnownQueryParameterNames.LastUpdated || x.SearchParameter.Code == KnownQueryParameterNames.Id).ToList();
-                resourceWrapper.UpdateSearchIndices(searchIndices);
-                return;
-            }
-
-            var resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
-            var newIndices = _searchIndexer.Extract(resourceElement);
-            var searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceElement.InstanceType);
-            ExtractMinAndMaxValues(newIndices);
-            resourceWrapper.UpdateSearchIndices(newIndices, searchParameterHash);
+            StageSearchIndices(resourceWrapper).Apply();
         }
 
         /// <inheritdoc />
@@ -134,10 +151,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(resources, nameof(resources));
 
+            // Staging every replacement before applying any keeps an extraction failure from changing part of the batch's indices.
+            var staged = new List<StagedSearchIndices>(resources.Count);
             foreach (ResourceWrapper resource in resources)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Update(resource);
+                staged.Add(StageSearchIndices(resource));
+            }
+
+            foreach (StagedSearchIndices replacement in staged)
+            {
+                replacement.Apply();
             }
 
             // Update already extracted every index from the persisted resource, so vector sources need no refresh.
@@ -162,6 +186,88 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             await IndexVectorsAsync(resources, cancellationToken);
+        }
+
+        // A tombstone keeps only _id and _lastUpdated, so legacy content it discards must never be parsed.
+        private static ResourceElement CreateTombstoneIndexSource(ResourceElement resource)
+        {
+            ElementNode root = ElementNode.FromElement(resource.Instance);
+            RemoveChildrenExcept(root, "id", "meta");
+
+            foreach (ElementNode meta in root.Children("meta").Cast<ElementNode>())
+            {
+                RemoveChildrenExcept(meta, "lastUpdated");
+            }
+
+            return new ResourceElement(root);
+        }
+
+        private static void RemoveChildrenExcept(ElementNode node, params string[] retainedNames)
+        {
+            foreach (ElementNode child in node.Children().Cast<ElementNode>().Where(c => !retainedNames.Contains(c.Name, StringComparer.Ordinal)).ToList())
+            {
+                node.Remove(child);
+            }
+        }
+
+        private IReadOnlyCollection<SearchIndexEntry> ExtractAdmittedSearchIndices(ResourceElement resource)
+        {
+            try
+            {
+                return _searchIndexer.Extract(resource);
+            }
+            catch (ResourceIdentityFormatException ex)
+            {
+                throw new ResourceNotValidException(new[] { new ValidationFailure(resource.InstanceType, ex.Message) });
+            }
+        }
+
+        private void EnsureReferencesStorable(ResourceElement resource, IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
+            try
+            {
+                foreach (SearchIndexEntry entry in searchIndices)
+                {
+                    EnsureStorable(entry.Value);
+                }
+            }
+            catch (ReferenceStorageCapacityException ex)
+            {
+                throw new ResourceNotValidException(new[] { new ValidationFailure(resource.InstanceType, ex.Message) });
+            }
+        }
+
+        private void EnsureStorable(ISearchValue value)
+        {
+            switch (value)
+            {
+                case ReferenceSearchValue reference:
+                    _referenceStorageValidator.EnsureRepresentable(reference);
+                    break;
+                case CompositeSearchValue composite:
+                    foreach (ISearchValue componentValue in composite.Components.SelectMany(component => component))
+                    {
+                        EnsureStorable(componentValue);
+                    }
+
+                    break;
+            }
+        }
+
+        private StagedSearchIndices StageSearchIndices(ResourceWrapper resourceWrapper)
+        {
+            if (resourceWrapper.IsDeleted)
+            {
+                var retainedIndices = resourceWrapper.SearchIndices.Where(x => x.SearchParameter.Code == KnownQueryParameterNames.LastUpdated || x.SearchParameter.Code == KnownQueryParameterNames.Id).ToList();
+                return new StagedSearchIndices(resourceWrapper, retainedIndices, ReplacesHash: false, SearchParameterHash: null);
+            }
+
+            ResourceElement resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
+            IReadOnlyCollection<SearchIndexEntry> newIndices = _searchIndexer.Extract(resourceElement);
+            EnsureReferencesStorable(resourceElement, newIndices);
+            string searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceElement.InstanceType);
+            ExtractMinAndMaxValues(newIndices);
+            return new StagedSearchIndices(resourceWrapper, newIndices, ReplacesHash: true, searchParameterHash);
         }
 
         private async Task IndexVectorsAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
@@ -252,6 +358,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             foreach (KeyValuePair<Uri, ISupportSortSearchValue> kvp in maxValues)
             {
                 kvp.Value.IsMax = true;
+            }
+        }
+
+        private readonly record struct StagedSearchIndices(
+            ResourceWrapper Wrapper,
+            IReadOnlyCollection<SearchIndexEntry> SearchIndices,
+            bool ReplacesHash,
+            string SearchParameterHash)
+        {
+            public void Apply()
+            {
+                if (ReplacesHash)
+                {
+                    Wrapper.UpdateSearchIndices(SearchIndices, SearchParameterHash);
+                }
+                else
+                {
+                    Wrapper.UpdateSearchIndices(SearchIndices);
+                }
             }
         }
     }

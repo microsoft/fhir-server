@@ -443,7 +443,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>()).Returns(new SearchOptions());
             _searchOptionsFactory.Create(KnownResourceTypes.Patient, Arg.Is<IReadOnlyList<Tuple<string, string>>>(p => p.Contains(Tuple.Create(SearchParameterNames.Id, "123")))).Returns(parentOptions);
             _searchOptionsFactory.Create(KnownResourceTypes.Patient, Arg.Is<IReadOnlyList<Tuple<string, string>>>(p => p.Contains(Tuple.Create(SearchParameterNames.Id, "456")))).Returns(linkedOptions);
-            _referenceSearchValueParser.Parse("Patient/456").Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, KnownResourceTypes.Patient, "456"));
+            _referenceSearchValueParser.Parse("Patient/456", Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(ReferenceKind.Internal, null, KnownResourceTypes.Patient, "456"));
             var lifetimes = new List<(WeakReference Payload, StrongBox<int> Disposals)>();
             var services = new ServiceCollection();
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));

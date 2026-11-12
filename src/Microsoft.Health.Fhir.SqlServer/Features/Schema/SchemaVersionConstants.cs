@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SearchParameterLastUpdatedIndex = (int)SchemaVersion.V98;
         public const int FhirModelInitialization = (int)SchemaVersion.V107;
         public const int GetMostRecentJob = (int)SchemaVersion.V117;
+        public const int ReferenceResourceIdLength128 = (int)SchemaVersion.V118;
         public const int VectorSearchVersion = (int)SchemaVersion.V119;
 
         // It is currently used in Azure Healthcare APIs.

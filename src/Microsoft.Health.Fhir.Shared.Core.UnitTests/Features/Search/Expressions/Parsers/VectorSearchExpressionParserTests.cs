@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
         public VectorSearchExpressionParserTests()
         {
-            _parser = new SearchParameterExpressionParser(_referenceSearchValueParser, _vectorSearchParameterResolver);
+            _parser = new SearchParameterExpressionParser(_referenceSearchValueParser, _vectorSearchParameterResolver, ResourceIdPolicy.Standard, Substitute.For<IReferenceStorageValidator>());
             ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
         }
 
@@ -46,6 +47,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             var services = new ServiceCollection();
             services.AddSingleton(_referenceSearchValueParser);
             services.AddSingleton(_vectorSearchParameterResolver);
+            services.AddSingleton(ResourceIdPolicy.Standard);
+            services.AddSingleton(Substitute.For<IReferenceStorageValidator>());
             services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
             using ServiceProvider serviceProvider = services.BuildServiceProvider();
             ISearchParameterExpressionParser parser = serviceProvider.GetRequiredService<ISearchParameterExpressionParser>();
@@ -198,7 +201,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [Fact]
         public void GivenVectorSearchIsNotRegistered_WhenParsed_ThenSearchParameterNotSupportedExceptionIsThrown()
         {
-            var parser = new SearchParameterExpressionParser(_referenceSearchValueParser);
+            var parser = new SearchParameterExpressionParser(_referenceSearchValueParser, ResourceIdPolicy.Standard, Substitute.For<IReferenceStorageValidator>());
 
             Assert.Throws<SearchParameterNotSupportedException>(() => parser.Parse(CreateVectorSearchParameter(), null, "breathing difficulty"));
         }

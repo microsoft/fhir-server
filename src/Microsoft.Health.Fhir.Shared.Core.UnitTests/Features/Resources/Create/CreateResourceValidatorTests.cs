@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives;
@@ -50,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 profileValidator,
                 contextAccessor,
                 config,
-                ResourceIdPolicy.Standard);
+                TestResourceIdentityValidators.Create());
 
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
@@ -72,6 +71,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null"));
             Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element"));
             Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters"));
+        }
+
+        [Fact]
+        public void GivenAResourceWithAnOverLengthReference_WhenValidatingCreate_ThenAValueFreeFailureIsReturned()
+        {
+            // Arrange
+            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
+            var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            config.Value.Returns(new CoreFeatureConfiguration());
+            var validator = new CreateResourceValidator(
+                new ModelAttributeValidator(),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
+                Substitute.For<IProfileValidator>(),
+                contextAccessor,
+                config,
+                TestResourceIdentityValidators.Create());
+
+            string referencedId = new string('r', 65);
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Subject = new ResourceReference("Patient/" + referencedId);
+
+            // Act
+            var result = validator.Validate(new CreateResourceRequest(observation.ToResourceElement(), bundleResourceContext: null));
+
+            // Assert
+            var failure = Assert.Single(result.Errors);
+            Assert.DoesNotContain(referencedId, failure.ErrorMessage);
         }
 
         [InlineData(true, null, true)]
@@ -101,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 profileValidator,
                 contextAccessor,
                 config,
-                ResourceIdPolicy.Standard);
+                TestResourceIdentityValidators.Create());
             var resource = Samples.GetDefaultObservation();
 
             var createResourceRequest = new CreateResourceRequest(resource, bundleResourceContext: null);

@@ -337,6 +337,12 @@
   <data name="ReadHistoryDisabled" xml:space="preserve">
     <value>ReadHistory is disabled for resources of type '{0}'.</value>
   </data>
+  <data name="ReferenceBaseUriNotStorable" xml:space="preserve">
+    <value>The base URI of a reference cannot be indexed or searched without loss. It must contain at most {0} characters from the supported character set.</value>
+  </data>
+  <data name="ReferenceResourceIdNotStorable" xml:space="preserve">
+    <value>The resource id of a reference cannot be indexed or searched without loss. It must contain at most {0} characters from the supported character set.</value>
+  </data>
   <data name="ReferenceResourceTypeNotSupported" xml:space="preserve">
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>

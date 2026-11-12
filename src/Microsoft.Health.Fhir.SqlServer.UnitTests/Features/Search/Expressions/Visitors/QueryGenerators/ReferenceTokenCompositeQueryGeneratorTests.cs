@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -130,6 +132,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Should check for NULL token system on component 2
             Assert.Contains("SystemId2 IS NULL", sql);
+        }
+
+        [Theory]
+        [InlineData(FieldName.ReferenceResourceId)]
+        [InlineData(FieldName.ReferenceBaseUri)]
+        public void GivenAnOversizedReferenceComponentWithComponentIndex0_WhenVisitString_ThenTheQueryIsRejected(FieldName component)
+        {
+            string value = new string('a', 129);
+            var expression = new StringExpression(StringOperator.Equals, component, componentIndex: 0, value: value, ignoreCase: false);
+            var context = CreateContext();
+
+            var exception = Assert.Throws<ReferenceStorageQueryException>(() => ReferenceTokenCompositeQueryGenerator.Instance.VisitString(expression, context));
+
+            Assert.Equal(component, exception.Component);
+            Assert.Equal(128, exception.Capacity);
+            Assert.DoesNotContain(value, exception.Message, StringComparison.Ordinal);
+            Assert.Empty(context.StringBuilder.ToString());
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

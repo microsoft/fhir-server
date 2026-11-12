@@ -317,7 +317,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 claimsExtractor,
                 compartmentIndexer,
                 SearchParameterDefinitionManager,
-                Deserializer);
+                Deserializer,
+                TestResourceIdentityValidators.Create(),
+                _fixture.GetRequiredService<IReferenceStorageValidator>());
 
             UrlResolver urlResolver = CreateUrlResolver(FhirRequestContextAccessor);
             var bundleFactory = new BundleFactory(urlResolver, FhirRequestContextAccessor, NullLogger<BundleFactory>.Instance);

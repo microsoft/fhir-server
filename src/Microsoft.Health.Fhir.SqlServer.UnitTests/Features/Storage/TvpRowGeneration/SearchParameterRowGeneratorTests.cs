@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             var number = new NumberSearchParamListRowGenerator(model, map);
             var quantity = new QuantitySearchParamListRowGenerator(model, map);
             var date = new DateTimeSearchParamListRowGenerator(model, map);
-            var reference = new ReferenceSearchParamListRowGenerator(model, map);
+            var reference = new ReferenceSearchParamListRowGenerator(model, map, new SqlReferenceStorageValidator(new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max }));
             date.GenerateRows(Array.Empty<MergeResourceWrapper>()).ToArray();
 
             // Act / Assert
@@ -346,7 +346,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         {
             "Token" => new TokenSearchValue("system", $"code-{i}", $"display-{i}"),
             "String" => new StringSearchValue($"text-{i}"),
-            "Reference" => new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, $"id-{i}"),
+            "Reference" => TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, null, null, $"id-{i}"),
             "Uri" => new UriSearchValue($"https://example.org/{i}", false),
             "Number" => new NumberSearchValue(i + 1m),
             "Quantity" => new QuantitySearchValue("system", "mg", i + 1m),

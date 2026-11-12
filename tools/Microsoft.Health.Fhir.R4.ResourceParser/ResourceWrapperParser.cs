@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.R4.ResourceParser.Code;
@@ -60,7 +61,16 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             var rawResourceFactory = new RawResourceFactory(fhirJsonSerializer);
             var claimsExtractor = new MockClaimsExtractor();
             var resourceDeserializer = new ResourceDeserializer((FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => fhirJsonParser.Parse(str).ToResourceElement())));
-            var resourceWrapperFactory = new ResourceWrapperFactory(rawResourceFactory, fhirRequestContextAccessor, searchIndexer, claimsExtractor, compartmentIndexer, searchParameterDefinitionManager, resourceDeserializer);
+            var resourceWrapperFactory = new ResourceWrapperFactory(
+                rawResourceFactory,
+                fhirRequestContextAccessor,
+                searchIndexer,
+                claimsExtractor,
+                compartmentIndexer,
+                searchParameterDefinitionManager,
+                resourceDeserializer,
+                new ResourceIdentityValidator(ResourceIdPolicy.Standard, referenceSearchValueParser),
+                new StorelessReferenceStorageValidator());
 
             var definitionManagerTask = searchParameterDefinitionManager.StartAsync(CancellationToken.None);
             var resolverTask = codeSystemResolver.StartAsync(CancellationToken.None);

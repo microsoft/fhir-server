@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
@@ -33,83 +34,157 @@ using Xunit;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGeneration
 {
     /// <summary>
-    /// Regressions for the resource id truncation performed by <see cref="ReferenceSearchParamListRowGenerator"/>.
-    /// The generator must truncate to the configured maximum resource id length, not to the schema default.
+    /// Regressions for <see cref="ReferenceSearchParamListRowGenerator"/> and the reference half of
+    /// <see cref="ReferenceTokenCompositeSearchParamListRowGenerator"/>. A reference is stored whole or rejected, never shortened.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     public class ReferenceSearchParamListRowGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     {
+        private const string BaseUriPrefix = "https://example.org/";
+
         /// <summary>
-        /// Gets input lengths and independently specified retained lengths for both resource id policies.
+        /// Gets the active schema version, the reference id length, and the capacity that rejects it (or null when it is stored whole).
+        /// A typed id longer than 128 characters cannot be constructed, so the latest-schema column cap is covered by <see cref="LiteralLengths"/>.
         /// </summary>
-        public static TheoryData<bool, int, int> ResourceIdLengths => new TheoryData<bool, int, int>
+        public static TheoryData<int, int, int?> ResourceIdLengths => new TheoryData<int, int, int?>
         {
-            { false, 63, 63 },
-            { false, 64, 64 },
-            { false, 65, 64 },
-            { false, 100, 64 },
-            { false, 127, 64 },
-            { false, 128, 64 },
-            { false, 129, 64 },
-            { true, 63, 63 },
-            { true, 64, 64 },
-            { true, 65, 65 },
-            { true, 100, 100 },
-            { true, 127, 127 },
-            { true, 128, 128 },
-            { true, 129, 128 },
+            { (int)SchemaVersion.V117, 63, null },
+            { (int)SchemaVersion.V117, 64, null },
+            { (int)SchemaVersion.V117, 65, 64 },
+            { SchemaVersionConstants.Max, 127, null },
+            { SchemaVersionConstants.Max, 128, null },
+        };
+
+        /// <summary>
+        /// Gets the active schema version, the literal reference length, and the capacity that rejects it (or null when it is stored whole).
+        /// </summary>
+        public static TheoryData<int, int, int?> LiteralLengths => new TheoryData<int, int, int?>
+        {
+            { (int)SchemaVersion.V117, 64, null },
+            { (int)SchemaVersion.V117, 65, 64 },
+            { SchemaVersionConstants.Max, 128, null },
+            { SchemaVersionConstants.Max, 129, 128 },
+        };
+
+        /// <summary>
+        /// Gets the base URI length and the capacity that rejects it (or null when it is stored whole).
+        /// </summary>
+        public static TheoryData<int, int?> BaseUriLengths => new TheoryData<int, int?>
+        {
+            { 127, null },
+            { 128, null },
+            { 129, 128 },
+            { 134, 128 },
         };
 
         [Theory]
         [MemberData(nameof(ResourceIdLengths))]
-        public void GivenAReferenceNearTheIdLimits_WhenGeneratingARow_ThenTheExpectedPrefixIsRetained(bool useLongResourceIds, int length, int expectedLength)
+        public void GivenAReferenceIdNearTheColumnCapacity_WhenGeneratingARow_ThenTheWholeIdIsStoredOrRejected(int schemaVersion, int length, int? expectedCapacity)
         {
-            // Arrange
-            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(useLongResourceIds)), new SearchParameterToSearchValueTypeMap());
-            string resourceId = CreateResourceId(length);
-            var searchValue = new ReferenceSearchValue(ReferenceKind.External, new Uri("https://external-server.com/fhir/"), "Patient", resourceId);
+            var generator = CreateReferenceGenerator(schemaVersion);
+            var reference = TestReferenceSearchValues.Resource(ReferenceKind.External, new Uri("https://external-server.com/fhir/"), "Patient", CreateText(length), ResourceIdPolicy.Extended);
 
-            // Act
-            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
-
-            // Assert
-            Assert.True(generated);
-            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId);
-            Assert.Equal(1, row.ResourceTypeId);
-            Assert.Equal(2L, row.ResourceSurrogateId);
-            Assert.Equal(3, row.SearchParamId);
-            Assert.Equal("https://external-server.com/fhir/", row.BaseUri);
-            Assert.Equal((short)4, row.ReferenceResourceTypeId);
-            Assert.Null(row.ReferenceResourceVersion);
+            AssertStoredWholeOrRejected(
+                () => generator.TryGenerateRow(1, 2L, 3, reference, results: null, out ReferenceSearchParamListRow row) ? row : default,
+                row => AssertReferenceRow(reference, row),
+                expectedCapacity,
+                FieldName.ReferenceResourceId);
         }
 
         [Theory]
         [MemberData(nameof(ResourceIdLengths))]
-        public void GivenAReferenceTokenCompositeNearTheIdLimits_WhenGeneratingARow_ThenTheExpectedPrefixIsRetained(bool useLongResourceIds, int length, int expectedLength)
+        public void GivenAReferenceTokenCompositeIdNearTheColumnCapacity_WhenGeneratingARow_ThenTheWholeIdIsStoredOrRejected(int schemaVersion, int length, int? expectedCapacity)
         {
-            // Arrange
-            SqlServerFhirModel model = CreateModel(ResourceIdPolicy.From(useLongResourceIds));
-            var map = new SearchParameterToSearchValueTypeMap();
-            var generator = new ReferenceTokenCompositeSearchParamListRowGenerator(
-                model,
-                new ReferenceSearchParamListRowGenerator(model, map),
-                new TokenSearchParamListRowGenerator(model, map),
-                map);
-            string resourceId = CreateResourceId(length);
-            var reference = new ReferenceSearchValue(ReferenceKind.External, new Uri("https://external-server.com/fhir/"), "Patient", resourceId);
-            var token = new TokenSearchValue(system: null, code: "test-code", text: null);
+            var generator = CreateCompositeGenerator(schemaVersion);
+            var reference = TestReferenceSearchValues.Resource(ReferenceKind.External, new Uri("https://external-server.com/fhir/"), "Patient", CreateText(length), ResourceIdPolicy.Extended);
 
-            // Act
-            bool generated = generator.TryGenerateRow(1, 2L, 3, (reference, token), results: null, out ReferenceTokenCompositeSearchParamListRow row);
+            AssertStoredWholeOrRejected(
+                () => generator.TryGenerateRow(1, 2L, 3, (reference, new TokenSearchValue(system: null, code: "test-code", text: null)), results: null, out ReferenceTokenCompositeSearchParamListRow row) ? row : default,
+                row => AssertCompositeRow(reference, row),
+                expectedCapacity,
+                FieldName.ReferenceResourceId);
+        }
 
-            // Assert
-            Assert.True(generated);
-            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId1);
+        [Theory]
+        [MemberData(nameof(BaseUriLengths))]
+        public void GivenAReferenceBaseUriNearTheColumnCapacity_WhenGeneratingARow_ThenTheWholeBaseUriIsStoredOrRejected(int length, int? expectedCapacity)
+        {
+            var generator = CreateReferenceGenerator(SchemaVersionConstants.Max);
+            var reference = TestReferenceSearchValues.Resource(ReferenceKind.External, CreateBaseUri(length), "Patient", "p1");
+
+            AssertStoredWholeOrRejected(
+                () => generator.TryGenerateRow(1, 2L, 3, reference, results: null, out ReferenceSearchParamListRow row) ? row : default,
+                row => AssertReferenceRow(reference, row),
+                expectedCapacity,
+                FieldName.ReferenceBaseUri);
+        }
+
+        [Theory]
+        [MemberData(nameof(BaseUriLengths))]
+        public void GivenAReferenceTokenCompositeBaseUriNearTheColumnCapacity_WhenGeneratingARow_ThenTheWholeBaseUriIsStoredOrRejected(int length, int? expectedCapacity)
+        {
+            var generator = CreateCompositeGenerator(SchemaVersionConstants.Max);
+            var reference = TestReferenceSearchValues.Resource(ReferenceKind.External, CreateBaseUri(length), "Patient", "p1");
+
+            AssertStoredWholeOrRejected(
+                () => generator.TryGenerateRow(1, 2L, 3, (reference, new TokenSearchValue(system: null, code: "test-code", text: null)), results: null, out ReferenceTokenCompositeSearchParamListRow row) ? row : default,
+                row => AssertCompositeRow(reference, row),
+                expectedCapacity,
+                FieldName.ReferenceBaseUri);
+        }
+
+        [Theory]
+        [MemberData(nameof(LiteralLengths))]
+        public void GivenALiteralReferenceNearTheColumnCapacity_WhenGeneratingARow_ThenTheWholeLiteralIsStoredOrRejected(int schemaVersion, int length, int? expectedCapacity)
+        {
+            const string prefix = "urn:uuid:";
+            var generator = CreateReferenceGenerator(schemaVersion);
+            var reference = ReferenceSearchValue.FromLiteral(prefix + CreateText(length - prefix.Length));
+
+            AssertStoredWholeOrRejected(
+                () => generator.TryGenerateRow(1, 2L, 3, reference, results: null, out ReferenceSearchParamListRow row) ? row : default,
+                row =>
+                {
+                    Assert.Equal(reference.ResourceId, row.ReferenceResourceId);
+                    Assert.Null(row.BaseUri);
+                    Assert.Null(row.ReferenceResourceTypeId);
+                },
+                expectedCapacity,
+                FieldName.ReferenceResourceId);
+        }
+
+        private static void AssertStoredWholeOrRejected<TRow>(Func<TRow> generate, Action<TRow> assertRow, int? expectedCapacity, FieldName expectedComponent)
+        {
+            if (expectedCapacity == null)
+            {
+                assertRow(generate());
+                return;
+            }
+
+            var exception = Assert.Throws<ReferenceStorageCapacityException>(() => generate());
+            Assert.Equal(expectedComponent, exception.Component);
+            Assert.Equal(expectedCapacity.Value, exception.Capacity);
+        }
+
+        private static void AssertReferenceRow(ReferenceSearchValue reference, ReferenceSearchParamListRow row)
+        {
+            Assert.Equal(reference.BaseUri.ToString(), row.BaseUri);
+            Assert.Equal(reference.ResourceId, row.ReferenceResourceId);
             Assert.Equal(1, row.ResourceTypeId);
             Assert.Equal(2L, row.ResourceSurrogateId);
             Assert.Equal(3, row.SearchParamId);
-            Assert.Equal("https://external-server.com/fhir/", row.BaseUri1);
+            Assert.Equal((short)4, row.ReferenceResourceTypeId);
+            Assert.Null(row.ReferenceResourceVersion);
+        }
+
+        private static void AssertCompositeRow(ReferenceSearchValue reference, ReferenceTokenCompositeSearchParamListRow row)
+        {
+            Assert.Equal(reference.BaseUri.ToString(), row.BaseUri1);
+            Assert.Equal(reference.ResourceId, row.ReferenceResourceId1);
+            Assert.Equal(1, row.ResourceTypeId);
+            Assert.Equal(2L, row.ResourceSurrogateId);
+            Assert.Equal(3, row.SearchParamId);
             Assert.Equal((short)4, row.ReferenceResourceTypeId1);
             Assert.Null(row.ReferenceResourceVersion1);
             Assert.Null(row.SystemId2);
@@ -117,12 +192,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Null(row.CodeOverflow2);
         }
 
-        private static string CreateResourceId(int length)
+        private static ReferenceSearchParamListRowGenerator CreateReferenceGenerator(int schemaVersion)
+        {
+            (SqlServerFhirModel model, SchemaInformation schema) = CreateModel(schemaVersion);
+            return new ReferenceSearchParamListRowGenerator(model, new SearchParameterToSearchValueTypeMap(), new SqlReferenceStorageValidator(schema));
+        }
+
+        private static ReferenceTokenCompositeSearchParamListRowGenerator CreateCompositeGenerator(int schemaVersion)
+        {
+            (SqlServerFhirModel model, SchemaInformation schema) = CreateModel(schemaVersion);
+            var map = new SearchParameterToSearchValueTypeMap();
+            return new ReferenceTokenCompositeSearchParamListRowGenerator(
+                model,
+                new ReferenceSearchParamListRowGenerator(model, map, new SqlReferenceStorageValidator(schema)),
+                new TokenSearchParamListRowGenerator(model, map),
+                map);
+        }
+
+        private static string CreateText(int length)
             => string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
 
-        private static SqlServerFhirModel CreateModel(ResourceIdPolicy policy)
+        private static Uri CreateBaseUri(int length)
+            => new Uri(BaseUriPrefix + new string('a', length - BaseUriPrefix.Length - 1) + "/");
+
+        private static (SqlServerFhirModel Model, SchemaInformation Schema) CreateModel(int schemaVersion)
         {
-            var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = SchemaVersionConstants.Max };
+            var schema = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max) { Current = schemaVersion };
             var model = new SqlServerFhirModel(
                 schema,
                 Substitute.For<ISearchParameterDefinitionManager>(),
@@ -131,13 +226,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 Substitute.For<IScopeProvider<SqlConnectionWrapperFactory>>(),
                 Substitute.For<IMediator>(),
                 Substitute.For<ISqlRetryService>(),
-                policy,
+                ResourceIdPolicy.Extended,
                 NullLogger<SqlServerFhirModel>.Instance);
 
-            SetModelField(model, "_highestInitializedVersion", schema.Current);
+            SetModelField(model, "_highestInitializedVersion", schemaVersion);
             SetModelField(model, "_resourceTypeToId", new Dictionary<string, short> { ["Patient"] = 4 });
             SetModelField(model, "_searchParamUriToId", new Dictionary<Uri, short> { [SearchParameterNames.IdUri] = 5 });
-            return model;
+            return (model, schema);
         }
 
         private static void SetModelField(SqlServerFhirModel model, string name, object value)

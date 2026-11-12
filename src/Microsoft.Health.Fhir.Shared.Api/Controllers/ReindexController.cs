@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpPost]
         [HttpGet]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ReindexSingleResource)]
         [AuditEventType(AuditEventSubType.Reindex)]
         public async Task<IActionResult> ReindexSingleResource(string typeParameter, string idParameter)

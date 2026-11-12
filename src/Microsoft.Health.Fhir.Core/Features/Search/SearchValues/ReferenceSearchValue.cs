@@ -7,36 +7,33 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
     /// <summary>
-    /// Represents a reference search value.
+    /// Represents a reference search value whose payload is either a policy-validated resource id or a complete literal.
     /// </summary>
     public class ReferenceSearchValue : ISearchValue
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ReferenceSearchValue"/> class.
-        /// </summary>
-        /// <param name="referenceKind">The kind of reference.</param>
-        /// <param name="baseUri">The base URI of the resource.</param>
-        /// <param name="resourceType">The resource type.</param>
-        /// <param name="resourceId">The resource id.</param>
-        public ReferenceSearchValue(ReferenceKind referenceKind, Uri baseUri, string resourceType, string resourceId)
+        private readonly BoundedResourceId _id;
+        private readonly string _literal;
+
+        private ReferenceSearchValue(ReferenceKind referenceKind, Uri baseUri, string resourceType, BoundedResourceId id, string literal)
         {
             if (baseUri != null)
             {
                 EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             }
 
-            EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
             ModelInfoProvider.EnsureValidResourceType(resourceType, nameof(resourceType));
 
             Kind = referenceKind;
             BaseUri = baseUri;
             ResourceType = resourceType;
-            ResourceId = resourceId;
+            _id = id;
+            _literal = literal;
         }
 
         /// <summary>
@@ -55,12 +52,51 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public string ResourceType { get; }
 
         /// <summary>
-        /// Gets the resource id.
+        /// Gets the complete resource id or literal payload.
         /// </summary>
-        public string ResourceId { get; }
+        public string ResourceId => _id?.Value ?? _literal;
 
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
+
+        /// <summary>
+        /// Creates a reference to a resource whose id has been validated by the resource id policy.
+        /// </summary>
+        /// <param name="referenceKind">The kind of reference.</param>
+        /// <param name="baseUri">The base URI of the resource.</param>
+        /// <param name="resourceType">The resource type.</param>
+        /// <param name="id">The validated resource id.</param>
+        /// <returns>A reference search value with a bounded resource id payload.</returns>
+        public static ReferenceSearchValue FromResource(ReferenceKind referenceKind, Uri baseUri, string resourceType, BoundedResourceId id)
+        {
+            EnsureArg.IsNotNull(id, nameof(id));
+
+            return new ReferenceSearchValue(referenceKind, baseUri, resourceType, id, literal: null);
+        }
+
+        /// <summary>
+        /// Creates a reference whose payload is a complete literal that is not interpreted as a resource id.
+        /// </summary>
+        /// <param name="exactValue">The complete literal value.</param>
+        /// <returns>A reference search value with a literal payload.</returns>
+        public static ReferenceSearchValue FromLiteral(string exactValue)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(exactValue, nameof(exactValue));
+
+            return new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, resourceType: null, id: null, literal: exactValue);
+        }
+
+        /// <summary>
+        /// Returns a copy with a different matching context, preserving the complete id or literal payload.
+        /// </summary>
+        /// <param name="referenceKind">The kind of reference.</param>
+        /// <param name="baseUri">The base URI of the resource.</param>
+        /// <param name="resourceType">The resource type.</param>
+        /// <returns>A reference search value with the same payload.</returns>
+        public ReferenceSearchValue WithMatchingContext(ReferenceKind referenceKind, Uri baseUri, string resourceType)
+        {
+            return new ReferenceSearchValue(referenceKind, baseUri, resourceType, _id, _literal);
+        }
 
         /// <inheritdoc />
         public void AcceptVisitor(ISearchValueVisitor visitor)

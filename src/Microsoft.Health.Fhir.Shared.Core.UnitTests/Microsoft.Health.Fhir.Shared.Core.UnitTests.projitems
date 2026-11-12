@@ -42,6 +42,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleTestsCommonFunctions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ReferenceRemoverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ConditionalDeleteResourceHandlerTests.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceIdentityValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\BundleResourceContextComparerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />

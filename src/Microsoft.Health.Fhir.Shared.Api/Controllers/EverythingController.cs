@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="type">Comma-delimited FHIR resource types to include in the return resources</param>
         /// <param name="ct">The continuation token</param>
         [HttpGet]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
         [AuditEventType(AuditEventSubType.Everything)]
         [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]

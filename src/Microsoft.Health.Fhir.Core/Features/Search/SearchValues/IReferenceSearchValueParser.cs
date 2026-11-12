@@ -13,8 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <summary>
         /// Parses the string value to an instance of <see cref="ReferenceSearchValue"/>.
         /// </summary>
-        /// <param name="s">The string to be parsed.</param>
+        /// <param name="value">The string to be parsed.</param>
+        /// <param name="context">The semantic origin of the value, which determines how ids and literals are classified.</param>
         /// <returns>An instance of <see cref="ReferenceSearchValue"/>.</returns>
-        ReferenceSearchValue Parse(string s);
+        /// <exception cref="Validation.FhirPrimitiveTypes.ResourceIdentityFormatException">A recognized resource id is not valid under the resource id policy.</exception>
+        ReferenceSearchValue Parse(string value, ReferenceParseContext context);
     }
 }

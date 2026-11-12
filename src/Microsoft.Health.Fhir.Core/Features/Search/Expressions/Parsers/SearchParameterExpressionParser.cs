@@ -12,6 +12,7 @@ using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -28,25 +29,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
         private readonly IVectorSearchParameterResolver _vectorSearchParameterResolver;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
-        public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser)
-            : this(referenceSearchValueParser, null)
+        public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser, ResourceIdPolicy resourceIdPolicy, IReferenceStorageValidator referenceStorageValidator)
+            : this(referenceSearchValueParser, null, resourceIdPolicy, referenceStorageValidator)
         {
         }
 
         public SearchParameterExpressionParser(
             IReferenceSearchValueParser referenceSearchValueParser,
-            IVectorSearchParameterResolver vectorSearchParameterResolver)
+            IVectorSearchParameterResolver vectorSearchParameterResolver,
+            ResourceIdPolicy resourceIdPolicy,
+            IReferenceStorageValidator referenceStorageValidator)
         {
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
+            EnsureArg.IsNotNull(referenceStorageValidator, nameof(referenceStorageValidator));
             _vectorSearchParameterResolver = vectorSearchParameterResolver;
+            _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
 
             _parserDictionary = new (SearchParamType type, Func<string, ISearchValue> parser)[]
                 {
                     (SearchParamType.Date, DateTimeSearchValue.Parse),
                     (SearchParamType.Number, NumberSearchValue.Parse),
                     (SearchParamType.Quantity, QuantitySearchValue.Parse),
-                    (SearchParamType.Reference, referenceSearchValueParser.Parse),
+                    (SearchParamType.Reference, str => ParseStorableReference(referenceSearchValueParser, referenceStorageValidator, str)),
                     (SearchParamType.String, StringSearchValue.Parse),
                     (SearchParamType.Token, TokenSearchValue.Parse),
                     (SearchParamType.Uri, str => UriSearchValue.Parse(str, false, ModelInfoProvider.Instance)),
@@ -202,6 +208,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             // Parse the value.
             Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type.ToString())];
 
+            if (IsResourceIdParameter(searchParameter))
+            {
+                Func<string, ISearchValue> tokenParser = parser;
+                parser = part => EnsureResourceIdToken(tokenParser(part));
+            }
+
             // Build the expression.
             var helper = new SearchValueExpressionBuilderHelper();
 
@@ -286,11 +298,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                 try
                 {
-                    return new ReferenceSearchValue(
+                    return referenceSearchValue.WithMatchingContext(
                         referenceSearchValue.Kind,
                         referenceSearchValue.BaseUri,
-                        modifier.ResourceType,
-                        referenceSearchValue.ResourceId);
+                        modifier.ResourceType);
                 }
                 catch (ArgumentException)
                 {
@@ -298,6 +309,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         string.Format(Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
                 }
             }
+        }
+
+        private static bool IsResourceIdParameter(SearchParameterInfo searchParameter) =>
+            searchParameter.Type == SearchParamType.Token &&
+            (searchParameter.Url == SearchParameterNames.IdUri || string.Equals(searchParameter.Code, SearchParameterNames.Id, StringComparison.Ordinal));
+
+        private ISearchValue EnsureResourceIdToken(ISearchValue searchValue)
+        {
+            if (searchValue is TokenSearchValue token && !string.IsNullOrEmpty(token.Code) && !_resourceIdPolicy.IsValid(token.Code))
+            {
+                throw new ResourceIdentityQueryException(_resourceIdPolicy.MaxLength);
+            }
+
+            return searchValue;
+        }
+
+        private static ReferenceSearchValue ParseStorableReference(IReferenceSearchValueParser parser, IReferenceStorageValidator storageValidator, string input)
+        {
+            ReferenceSearchValue reference;
+            try
+            {
+                reference = parser.Parse(input, ReferenceParseContext.QueryReference);
+            }
+            catch (ResourceIdentityFormatException ex)
+            {
+                throw new ResourceIdentityQueryException(ex.MaximumLength);
+            }
+
+            try
+            {
+                storageValidator.EnsureRepresentable(reference);
+            }
+            catch (ReferenceStorageCapacityException ex)
+            {
+                throw new ReferenceStorageQueryException(ex);
+            }
+
+            return reference;
         }
 
         private static Func<string, ISearchValue> CreateParserWithErrorHandling(Func<string, ISearchValue> parser) =>

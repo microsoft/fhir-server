@@ -7,6 +7,7 @@ using System;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -38,6 +39,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
         }
+
+        /// <summary>
+        /// Gets the active schema version, the reference component, the submitted length, and the capacity that rejects it (or null when it is sent whole).
+        /// </summary>
+        public static TheoryData<int, FieldName, int, int?> ReferenceComponentLengths => new TheoryData<int, FieldName, int, int?>
+        {
+            { (int)SchemaVersion.V117, FieldName.ReferenceResourceId, 64, null },
+            { (int)SchemaVersion.V117, FieldName.ReferenceResourceId, 65, 64 },
+            { SchemaVersionConstants.Max, FieldName.ReferenceResourceId, 128, null },
+            { SchemaVersionConstants.Max, FieldName.ReferenceResourceId, 129, 128 },
+            { SchemaVersionConstants.Max, FieldName.ReferenceBaseUri, 128, null },
+            { SchemaVersionConstants.Max, FieldName.ReferenceBaseUri, 129, 128 },
+        };
 
         [Fact]
         public void GivenReferenceQueryGenerator_WhenInstanceAccessed_ThenNotNull()
@@ -192,6 +206,45 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains("0 = 1", sql);
+        }
+
+        [Theory]
+        [MemberData(nameof(ReferenceComponentLengths))]
+        public void GivenAReferenceComponentNearTheColumnCapacity_WhenVisited_ThenTheWholeValueIsSentOrTheQueryIsRejected(int schemaVersion, FieldName component, int length, int? expectedCapacity)
+        {
+            _schemaInformation.Current = schemaVersion;
+            string value = new string('a', length);
+            var expression = new StringExpression(StringOperator.Equals, component, null, value, true);
+            var context = CreateContext();
+
+            if (expectedCapacity == null)
+            {
+                ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+                Assert.Contains(context.Parameters.ParametersToHash, parameter => Equals(parameter.Value, value));
+                return;
+            }
+
+            var exception = Assert.Throws<ReferenceStorageQueryException>(() => ReferenceQueryGenerator.Instance.VisitString(expression, context));
+
+            Assert.Equal(component, exception.Component);
+            Assert.Equal(expectedCapacity.Value, exception.Capacity);
+            Assert.DoesNotContain(value, exception.Message, StringComparison.Ordinal);
+            Assert.Empty(context.StringBuilder.ToString());
+            Assert.False(context.Parameters.HasParametersToHash);
+        }
+
+        [Fact]
+        public void GivenAReferenceIdOutsideTheStorageCharacterSet_WhenVisited_ThenTheQueryIsRejected()
+        {
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceResourceId, null, "note-\u4f8b", true);
+            var context = CreateContext();
+
+            var exception = Assert.Throws<ReferenceStorageQueryException>(() => ReferenceQueryGenerator.Instance.VisitString(expression, context));
+
+            Assert.Equal(FieldName.ReferenceResourceId, exception.Component);
+            Assert.Equal(128, exception.Capacity);
+            Assert.Empty(context.StringBuilder.ToString());
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

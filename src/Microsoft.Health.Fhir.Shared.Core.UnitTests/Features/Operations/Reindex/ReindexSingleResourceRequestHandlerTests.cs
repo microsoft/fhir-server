@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -63,7 +64,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 _searchIndexer,
                 _resourceDeserializer,
                 searchParameterOperations,
-                searchParameterDefinitionManager);
+                searchParameterDefinitionManager,
+                ResourceIdPolicy.Standard);
         }
 
         [Fact]
@@ -198,6 +200,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.True(name2Present);
 
             await ValidateUpdateCallBasedOnHttpMethodType(httpMethodName);
+        }
+
+        [Fact]
+        public async Task GivenAResourceIdLongerThanThePolicy_WhenHandle_ThenAValueFreeBadRequestIsThrownBeforeTheStoreIsRead()
+        {
+            string resourceId = new string('a', ResourceIdPolicy.Standard.MaxLength + 1);
+
+            BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(
+                () => _reindexHandler.HandleAsync(GetReindexRequest(HttpPostName, resourceId), _cancellationToken));
+
+            Assert.DoesNotContain(resourceId, exception.Message, StringComparison.Ordinal);
+            await _fhirDataStore.DidNotReceive().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAStoredResourceWhoseIdentityCannotBeIndexed_WhenHandlePost_ThenAValueFreeBadRequestIsThrownAndIndicesAreNotUpdated()
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(Samples.GetDefaultPatient());
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(_ => throw new ResourceIdentityFormatException(ResourceIdPolicy.Standard.MaxLength));
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _reindexHandler.HandleAsync(GetReindexRequest(HttpPostName), _cancellationToken));
+
+            await _fhirDataStore.DidNotReceive().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), Arg.Any<CancellationToken>());
         }
 
         private void SetupDataStoreToReturnDummyResourceWrapper()

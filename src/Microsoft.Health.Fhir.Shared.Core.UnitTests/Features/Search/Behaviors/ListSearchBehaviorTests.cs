@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenARequest_WhenNoListQuery_QueriesUnchanged()
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
-            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard));
+            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard), ResourceIdPolicy.Standard);
 
             string guid1 = Guid.NewGuid().ToString();
             string guid2 = Guid.NewGuid().ToString();
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenARequest_WhenListValueMissing_EmptyResultsReturned()
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
-            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard));
+            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard), ResourceIdPolicy.Standard);
 
             IReadOnlyList<Tuple<string, string>> list =
             new[]
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             var behavior =
-                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard));
+                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard), ResourceIdPolicy.Standard);
 
             IReadOnlyList<Tuple<string, string>> list =
             new[]
@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             var behavior =
-                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard));
+                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore.CreateMockScopeProviderFromScoped(), Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig, ResourceIdPolicy.Standard), ResourceIdPolicy.Standard);
 
             IReadOnlyList<Tuple<string, string>> list = new[] { Tuple.Create("_list", "existing-list") };
             var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);
@@ -216,5 +216,64 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains("pat3", getResourceRequest.Received().Queries[0].Item2);
             _scopedDataStore.Received(1).Dispose();
         }
+
+        [Fact]
+        public async Task GivenAListIdLongerThanThePolicy_WhenSearching_ThenAValueFreeBadRequestIsThrownBeforeTheStoreIsRead()
+        {
+            ListSearchPipeBehavior behavior = CreateBehavior();
+            string listId = new string('l', ResourceIdPolicy.Standard.MaxLength + 1);
+            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", new[] { Tuple.Create("_list", listId) }, false);
+
+            BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(() => behavior.HandleAsync(
+                getResourceRequest,
+                () => Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)),
+                CancellationToken.None));
+
+            Assert.DoesNotContain(listId, exception.Message, StringComparison.Ordinal);
+            await _fhirDataStore.DidNotReceiveWithAnyArgs().GetAsync(default(ResourceKey), default);
+        }
+
+        [Theory]
+        [InlineData("bad_id")]
+        [InlineData("valid-id ")]
+        public async Task GivenAMalformedListId_WhenSearching_ThenAValueFreeBadRequestIsThrownBeforeTheStoreIsRead(string listId)
+        {
+            // Arrange
+            ListSearchPipeBehavior behavior = CreateBehavior();
+            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", new[] { Tuple.Create("_list", listId) }, false);
+
+            // Act
+            BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(() => behavior.HandleAsync(
+                getResourceRequest,
+                () => Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)),
+                CancellationToken.None));
+
+            // Assert
+            Assert.DoesNotContain(listId, exception.Message, StringComparison.Ordinal);
+            await _fhirDataStore.DidNotReceiveWithAnyArgs().GetAsync(default(ResourceKey), default);
+        }
+
+        [Fact]
+        public async Task GivenAFunctionalListName_WhenSearching_ThenAnEmptyResultIsReturned()
+        {
+            ListSearchPipeBehavior behavior = CreateBehavior();
+            var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", new[] { Tuple.Create("_list", "$current-problems") }, false);
+
+            SearchResourceResponse response = await behavior.HandleAsync(
+                getResourceRequest,
+                () => Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)),
+                CancellationToken.None);
+
+            Assert.Equal(behavior.CreateEmptySearchResponse(getResourceRequest).Bundle, response.Bundle);
+        }
+
+        private ListSearchPipeBehavior CreateBehavior() =>
+            new ListSearchPipeBehavior(
+                _searchOptionsFactory,
+                _bundleFactory,
+                _scopedDataStore.CreateMockScopeProviderFromScoped(),
+                Deserializers.ResourceDeserializer,
+                new ReferenceSearchValueParser(new FhirRequestContextAccessor(), Substitute.For<IFhirServerInstanceConfiguration>(), ResourceIdPolicy.Standard),
+                ResourceIdPolicy.Standard);
     }
 }

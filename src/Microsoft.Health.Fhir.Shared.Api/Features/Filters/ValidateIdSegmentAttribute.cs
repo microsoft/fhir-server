@@ -28,12 +28,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId)
-                && string.IsNullOrWhiteSpace((string)resourceId))
+            if (!context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId))
+            {
+                return;
+            }
+
+            // The message states the policy, never the submitted id, so a rejected value is not echoed back.
+            ResourceIdPolicy policy = context.HttpContext.RequestServices.GetRequiredService<ResourceIdPolicy>();
+            string id = (string)resourceId;
+            if (string.IsNullOrWhiteSpace(id) || !policy.IsValid(id))
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                 {
-                    new ValidationFailure("ResourceKey.Id", string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, context.HttpContext.RequestServices.GetRequiredService<ResourceIdPolicy>().MaxLength)),
+                    new ValidationFailure("ResourceKey.Id", string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, policy.MaxLength)),
                 });
             }
         }

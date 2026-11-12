@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -19,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -32,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         private const string HttpPostName = "POST";
 
@@ -41,7 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ISearchIndexer searchIndexer,
             IResourceDeserializer deserializer,
             ISearchParameterOperations searchParameterOperations,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -49,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
 
             _authorizationService = authorizationService;
             _fhirDataStore = fhirDataStore;
@@ -56,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _resourceDeserializer = deserializer;
             _searchParameterOperations = searchParameterOperations;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _resourceIdPolicy = resourceIdPolicy;
         }
 
         public async Task<ReindexSingleResourceResponse> HandleAsync(ReindexSingleResourceRequest request, CancellationToken cancellationToken)
@@ -70,6 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 true,
                 cancellationToken);
 
+            if (!_resourceIdPolicy.IsValid(request.ResourceId))
+            {
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, _resourceIdPolicy.MaxLength));
+            }
+
             var key = new ResourceKey(request.ResourceType, request.ResourceId);
             ResourceWrapper storedResource = await _fhirDataStore.GetAsync(key, cancellationToken);
 
@@ -83,7 +94,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // We need to extract the "new" search indices since the assumption is that
             // a new search parameter has been added to the fhir server.
             ResourceElement resourceElement = _resourceDeserializer.Deserialize(storedResource);
-            IReadOnlyCollection<SearchIndexEntry> newIndices = _searchIndexer.Extract(resourceElement);
+            IReadOnlyCollection<SearchIndexEntry> newIndices;
+
+            try
+            {
+                newIndices = _searchIndexer.Extract(resourceElement);
+            }
+            catch (ResourceIdentityFormatException ex)
+            {
+                // The stored resource holds an identity that cannot be indexed without shortening it, so its existing indices are left unchanged.
+                throw new BadRequestException(ex.Message);
+            }
 
             // If it's a post request we need to go update the resource in the database.
             if (request.HttpMethod == HttpPostName)

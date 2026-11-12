@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -54,7 +55,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                                      Substitute.For<IClaimsExtractor>(),
                                      Substitute.For<ICompartmentIndexer>(),
                                      Substitute.For<ISearchParameterDefinitionManager>(),
-                                     Deserializers.ResourceDeserializer);
+                                     Deserializers.ResourceDeserializer,
+                                     TestResourceIdentityValidators.Create(),
+                                     Substitute.For<IReferenceStorageValidator>());
         }
 
         [Fact]

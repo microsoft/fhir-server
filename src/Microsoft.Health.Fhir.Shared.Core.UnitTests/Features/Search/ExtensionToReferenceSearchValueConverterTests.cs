@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var reference = new ResourceReference("Patient/123");
             var extension = new Extension("test", reference);
 
-            ReferenceSearchValue expected = _referenceSearchValueParser.Parse(reference.Reference);
+            ReferenceSearchValue expected = _referenceSearchValueParser.Parse(reference.Reference, ReferenceParseContext.ResourceReference);
 
             var values = (await GetTypeConverterAsync()).ConvertTo(extension.ToTypedElement()).ToList();
 

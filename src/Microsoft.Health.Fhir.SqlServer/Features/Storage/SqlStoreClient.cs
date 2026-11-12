@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
         {
+            EnsureResourceIdsFit(new[] { resourceId });
             using var cmd = new SqlCommand() { CommandText = "dbo.HardDeleteResource", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@ResourceId", resourceId);
@@ -56,6 +57,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
             await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
+        // Root resource-id columns and parameters silently shorten longer values, so a longer id could address the row whose id is its prefix.
+        private void EnsureResourceIdsFit(IEnumerable<string> resourceIds)
+        {
+            int capacity = SqlReferenceStorageValidator.GetResourceIdCapacity(_schemaInformation);
+            if (resourceIds.Any(id => id?.Length > capacity))
+            {
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, capacity));
+            }
         }
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, CancellationToken cancellationToken, bool includeInvisible = false)
@@ -70,6 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return new List<ResourceWrapper>();
             }
 
+            EnsureResourceIdsFit(keys.Select(_ => _.Id));
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceKeyListRow(_.ResourceTypeId, _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
             new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
@@ -103,6 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return new List<(ResourceDateKey Key, (string Version, RawResource RawResource) Matched)>();
             }
 
+            EnsureResourceIdsFit(keys.Select(_ => _.Id));
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceDateKeyListRow(_.ResourceTypeId, _.Id, _.ResourceSurrogateId));
             new ResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys").AddParameter(cmd.Parameters, tvpRows);

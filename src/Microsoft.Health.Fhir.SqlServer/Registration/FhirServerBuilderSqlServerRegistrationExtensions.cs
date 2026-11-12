@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -65,6 +66,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            // Search parsing, resource admission and row generation share one rule for which references SQL stores whole.
+            services.Add<SqlReferenceStorageValidator>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IReferenceStorageValidator>();
 
             services.Add(provider =>
                 {

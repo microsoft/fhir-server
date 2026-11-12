@@ -5,15 +5,18 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Scoping;
@@ -30,25 +33,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
         private readonly IBundleFactory _bundleFactory;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
+        private readonly ResourceIdPolicy _resourceIdPolicy;
 
         public ListSearchPipeBehavior(
             ISearchOptionsFactory searchOptionsFactory,
             IBundleFactory bundleFactory,
             IScopeProvider<IFhirDataStore> dataStore,
             ResourceDeserializer deserializer,
-            IReferenceSearchValueParser referenceSearchValueParser)
+            IReferenceSearchValueParser referenceSearchValueParser,
+            ResourceIdPolicy resourceIdPolicy)
         {
             EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
             EnsureArg.IsNotNull(dataStore, nameof(dataStore));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
+            EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
 
             _searchOptionsFactory = searchOptionsFactory;
             _bundleFactory = bundleFactory;
             _dataStore = dataStore;
             _deserializer = deserializer;
             _referenceSearchValueParser = referenceSearchValueParser;
+            _resourceIdPolicy = resourceIdPolicy;
         }
 
         public async Task<SearchResourceResponse> HandleAsync(SearchResourceRequest request, RequestHandlerDelegate<SearchResourceResponse> next, CancellationToken cancellationToken)
@@ -62,6 +69,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             if ((listParameter == null) || string.IsNullOrWhiteSpace(listParameter.Item2))
             {
                 return await next();
+            }
+
+            // Functional list names such as $current-problems are unsupported and can never be a stored List id.
+            if (listParameter.Item2.StartsWith('$'))
+            {
+                return CreateEmptySearchResponse(request);
+            }
+
+            if (!_resourceIdPolicy.IsValid(listParameter.Item2))
+            {
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.IdRequirements, _resourceIdPolicy.MaxLength));
             }
 
             ResourceWrapper listWrapper;
@@ -80,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             IEnumerable<ReferenceSearchValue> references = list.ToPoco<Hl7.Fhir.Model.List>()
                 .Entry
                 .Where(x => x.Deleted != true)
-                .Select(x => _referenceSearchValueParser.Parse(x.Item.Reference))
+                .Select(x => _referenceSearchValueParser.Parse(x.Item.Reference, ReferenceParseContext.ResourceReference))
                 .Where(x => string.IsNullOrWhiteSpace(request.ResourceType) ||
                             string.Equals(request.ResourceType, x.ResourceType, StringComparison.Ordinal))
                 .ToArray();

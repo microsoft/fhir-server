@@ -52,7 +52,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             instanceConfiguration.BaseUri.Returns(new Uri(LocalBase));
 
             _parser = new SearchParameterExpressionParser(
-                new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard));
+                new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard),
+                ResourceIdPolicy.Standard,
+                Substitute.For<IReferenceStorageValidator>());
         }
 
         [Theory]

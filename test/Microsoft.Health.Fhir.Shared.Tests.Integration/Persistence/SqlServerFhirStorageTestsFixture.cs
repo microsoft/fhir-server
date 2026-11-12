@@ -82,6 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SqlQueueClient _sqlQueueClient;
         private TestQueueClient _testQueueClient;
         private FhirSqlServerConfiguration _fhirSqlConfiguration;
+        private SqlReferenceStorageValidator _referenceStorageValidator;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, GetDatabaseName())
@@ -278,7 +279,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard));
+            _referenceStorageValidator = new SqlReferenceStorageValidator(SchemaInformation);
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard), ResourceIdPolicy.Standard, _referenceStorageValidator);
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
             var searchOptionsFactory = new SearchOptionsFactory(
@@ -446,6 +448,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(FhirSqlServerConfiguration))
             {
                 return _fhirSqlConfiguration;
+            }
+
+            if (serviceType == typeof(IReferenceStorageValidator))
+            {
+                return _referenceStorageValidator;
             }
 
             return null;

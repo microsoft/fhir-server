@@ -5,9 +5,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
@@ -25,20 +24,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 left.ReferenceResourceVersion == right.ReferenceResourceVersion,
             row => HashCode.Combine(row.ResourceTypeId, row.ResourceSurrogateId, row.SearchParamId, row.BaseUri, row.ReferenceResourceTypeId, row.ReferenceResourceId, row.ReferenceResourceVersion));
 
-        public ReferenceSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+        private readonly SqlReferenceStorageValidator _referenceStorageValidator;
+
+        public ReferenceSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap, SqlReferenceStorageValidator referenceStorageValidator)
             : base(model, searchParameterTypeMap, RowComparer)
         {
+            _referenceStorageValidator = EnsureArg.IsNotNull(referenceStorageValidator, nameof(referenceStorageValidator));
         }
 
         internal override bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, ReferenceSearchValue searchValue, HashSet<ReferenceSearchParamListRow> results, out ReferenceSearchParamListRow row)
         {
+            // Reject rather than shorten: a shortened id or base could match a different reference in search and authorization.
+            _referenceStorageValidator.EnsureRepresentable(searchValue);
+
             row = new ReferenceSearchParamListRow(
                 resourceTypeId,
                 resourceRecordId,
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 searchValue.ResourceType == null ? null : Model.GetResourceTypeId(searchValue.ResourceType),
-                searchValue.ResourceId[..Math.Min(searchValue.ResourceId.Length, Model.ResourceIdPolicy.MaxLength)], // Truncate to fit the column size. TODO: We should separate string references (ref resource type is null) from references to resources. This should be a long term fix.
+                searchValue.ResourceId,
                 ReferenceResourceVersion: null);
 
             return results == null || results.Add(row);

@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
@@ -526,6 +527,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     return null;
                 }
+                catch (Exception ex) when (IsUnrepresentableIdentity(ex) && smartScopeInjectedParameters.Contains(q))
+                {
+                    // A merged scope constraint naming an identity the store cannot compare whole cannot authorize
+                    // anything. The caller's own filter keeps the ordinary 400 because it is not in this set.
+                    throw new InvalidSearchOperationException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, q.Item1));
+                }
             })
             .Where(item => item != null));
 
@@ -777,6 +785,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             return expression?.AcceptVisitor(VectorSearchPresenceVisitor.Instance, context: null) ?? false;
         }
+
+        private static bool IsUnrepresentableIdentity(Exception exception) =>
+            exception is ReferenceStorageQueryException or ResourceIdentityQueryException;
 
         private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
             IList<(string query, IncludeModifier modifier)> includes,
@@ -1245,6 +1256,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // Not a semantic predicate.
                 }
+                catch (Exception ex) when (IsUnrepresentableIdentity(ex))
+                {
+                    // Not a semantic predicate. Parsing the merged query denies it.
+                }
             }
 
             semanticParameter = null;
@@ -1282,7 +1297,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
                             .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
                     }
-                    catch (SearchParameterNotSupportedException)
+                    catch (Exception ex) when (ex is SearchParameterNotSupportedException || IsUnrepresentableIdentity(ex))
                     {
                         unenforceableParameter = q.Item1;
                         return false;

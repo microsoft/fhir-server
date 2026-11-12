@@ -58,6 +58,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// <param name="resourceId">The resource id to validate.</param>
         /// <returns>True when the id is valid.</returns>
         public bool IsValid(ReadOnlySpan<char> resourceId)
-            => resourceId.Length > 0 && resourceId.Length <= MaxLength && !resourceId.ContainsAnyExcept(IdCharacters);
+            => resourceId.Length <= MaxLength && HasIdGrammar(resourceId);
+
+        /// <summary>
+        /// Determines whether a value is one or more letters, digits, dots or hyphens, regardless of length.
+        /// </summary>
+        /// <param name="value">The value to inspect.</param>
+        /// <returns>True when the value uses only resource id characters.</returns>
+        public static bool HasIdGrammar(ReadOnlySpan<char> value)
+            => value.Length > 0 && !value.ContainsAnyExcept(IdCharacters);
     }
 }

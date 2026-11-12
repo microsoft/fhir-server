@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 // Regardless of the other links present, we throw an error if we find a "replaced-by" link.
                 if (link.Type == Patient.LinkType.ReplacedBy)
                 {
-                    ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
+                    ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference, ReferenceParseContext.ResourceReference);
 
                     // Ignore RelatedPerson "replaced-by" links, since we can only direct users to run the $everything operation on Patient resources.
                     if (string.Equals(referenceSearchValue.ResourceType, KnownResourceTypes.Patient, StringComparison.Ordinal))
@@ -362,12 +362,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             // 3. Duplicates
             foreach (Patient.LinkComponent link in links)
             {
-                ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
-
                 if (link.Type != Patient.LinkType.Seealso)
                 {
                     continue;
                 }
+
+                ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference, ReferenceParseContext.ResourceReference);
 
                 // If the link points back to the parent patient
                 if (string.Equals(referenceSearchValue.ResourceId, parentPatientId, StringComparison.Ordinal))

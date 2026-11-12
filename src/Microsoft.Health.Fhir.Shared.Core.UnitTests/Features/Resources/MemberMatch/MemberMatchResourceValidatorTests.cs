@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.MemberMatch;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives;
@@ -47,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 profileValidator,
                 contextAccessor,
                 config,
-                ResourceIdPolicy.Standard);
+                TestResourceIdentityValidators.Create());
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 profileValidator,
                 contextAccessor,
                 config,
-                ResourceIdPolicy.Standard);
+                TestResourceIdentityValidators.Create());
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -127,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
                 profileValidator,
                 contextAccessor,
                 config,
-                ResourceIdPolicy.Standard);
+                TestResourceIdentityValidators.Create());
 
             var createMemberMatchRequest = new MemberMatchRequest(Samples.GetDefaultCoverage().ToPoco<Coverage>().ToResourceElement(), Samples.GetDefaultPatient().ToPoco<Patient>().ToResourceElement());
             validator.Validate(createMemberMatchRequest);

@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
@@ -297,7 +298,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             RequestContextAccessor<IFhirRequestContext> contextAccessor = requestContext.SetupAccessor();
 
             var referenceParser = Substitute.For<IReferenceSearchValueParser>();
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(referenceParser);
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(referenceParser, ResourceIdPolicy.Standard, new CosmosReferenceStorageValidator());
             var expressionParser = new ExpressionParser(() => searchParameterDefinitionManager, searchParameterExpressionParser);
             var sortingValidator = Substitute.For<ISortingValidator>();
             sortingValidator.ValidateSorting(Arg.Any<IReadOnlyList<(SearchParameterInfo, SortOrder)>>(), out Arg.Any<IReadOnlyList<string>>())

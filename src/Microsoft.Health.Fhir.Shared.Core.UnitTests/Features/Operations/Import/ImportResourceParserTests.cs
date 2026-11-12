@@ -15,6 +15,8 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
@@ -52,7 +54,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                                     Substitute.For<IClaimsExtractor>(),
                                     Substitute.For<ICompartmentIndexer>(),
                                     Substitute.For<ISearchParameterDefinitionManager>(),
-                                    Deserializers.ResourceDeserializer);
+                                    Deserializers.ResourceDeserializer,
+                                    TestResourceIdentityValidators.Create(),
+                                    Substitute.For<IReferenceStorageValidator>());
 
             _importResourceParser = new(_jsonParser, _wrapperFactory, ResourceIdPolicy.Standard);
         }
@@ -108,6 +112,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             {
                 Assert.False(validId);
             }
+        }
+
+        [Fact]
+        public void GivenImportWithAReferenceIdLongerThanThePolicy_WhenParsed_ThenAValueFreeResourceNotValidExceptionIsThrown()
+        {
+            string referencedId = new string('r', ResourceIdPolicy.Standard.MaxLength + 1);
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString(),
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                Subject = new ResourceReference("Patient/" + referencedId),
+            };
+
+            string observationAsString = _jsonSerializer.SerializeToString(observation);
+
+            ResourceNotValidException exception = Assert.Throws<ResourceNotValidException>(
+                () => _importResourceParser.Parse(0, 0, 0, observationAsString, ImportMode.IncrementalLoad));
+
+            Assert.NotEmpty(exception.Issues);
+            Assert.All(exception.Issues, issue => Assert.DoesNotContain(referencedId, issue.Diagnostics, StringComparison.Ordinal));
         }
     }
 }

@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 yield break;
             }
 
-            yield return _referenceSearchValueParser.Parse(reference);
+            yield return _referenceSearchValueParser.Parse(reference, ReferenceParseContext.ResourceReference);
         }
     }
 }

@@ -1314,6 +1314,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The base URI of a reference cannot be indexed or searched without loss. It must contain at most {0} characters from the supported character set..
+        /// </summary>
+        internal static string ReferenceBaseUriNotStorable {
+            get {
+                return ResourceManager.GetString("ReferenceBaseUriNotStorable", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The resource id of a reference cannot be indexed or searched without loss. It must contain at most {0} characters from the supported character set..
+        /// </summary>
+        internal static string ReferenceResourceIdNotStorable {
+            get {
+                return ResourceManager.GetString("ReferenceResourceIdNotStorable", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string ReferenceResourceTypeNotSupported {

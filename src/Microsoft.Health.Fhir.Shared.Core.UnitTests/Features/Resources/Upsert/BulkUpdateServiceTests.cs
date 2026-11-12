@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
 using Microsoft.Health.Fhir.Scoping;
@@ -99,7 +100,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 _claimsExtractor,
                 _compartmentIndexer,
                 _searchParameterDefinitionManager,
-                Deserializers.ResourceDeserializer);
+                Deserializers.ResourceDeserializer,
+                TestResourceIdentityValidators.Create(),
+                Substitute.For<IReferenceStorageValidator>());
 
             _service = new BulkUpdateService(
                 _resourceWrapperFactory,

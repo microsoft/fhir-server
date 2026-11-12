@@ -9,10 +9,12 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -35,13 +37,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
+        private readonly IReferenceStorageValidator _referenceStorageValidator = Substitute.For<IReferenceStorageValidator>();
 
         private readonly SearchParameterExpressionParser _parser;
 
         public SearchValueExpressionBuilderTests()
         {
-            _parser = new SearchParameterExpressionParser(_referenceSearchValueParser);
+            _parser = new SearchParameterExpressionParser(_referenceSearchValueParser, ResourceIdPolicy.Standard, _referenceStorageValidator);
         }
+
+        public static TheoryData<FieldName, int> ReferenceStorageFailures => new TheoryData<FieldName, int>
+        {
+            { FieldName.ReferenceResourceId, 128 },
+            { FieldName.ReferenceBaseUri, 128 },
+        };
 
         public static IEnumerable<object[]> GetNonEqualSearchComparatorAsMemberData()
         {
@@ -597,7 +606,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             const string resourceId = "123";
 
-            _referenceSearchValueParser.Parse(resourceId).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, resourceId));
+            _referenceSearchValueParser.Parse(resourceId, Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, null, null, resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -613,7 +622,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const string resourceId = "123";
             string reference = $"{resourceType}/{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, resourceType.ToString(), resourceId));
+            _referenceSearchValueParser.Parse(reference, Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(ReferenceKind.Internal, null, resourceType.ToString(), resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -633,7 +642,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const ResourceType resourceType = ResourceType.Patient;
             const string resourceId = "123";
 
-            _referenceSearchValueParser.Parse(resourceId).Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, null, resourceId));
+            _referenceSearchValueParser.Parse(resourceId, Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(ReferenceKind.Internal, null, null, resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -656,7 +665,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const string resourceId = "123";
             string reference = $"{resourceType}/{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(referenceLocations, null, resourceType.ToString(), resourceId));
+            _referenceSearchValueParser.Parse(reference, Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(referenceLocations, null, resourceType.ToString(), resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -680,7 +689,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const string resourceId = "123";
             string reference = $"{(withResourceType ? resourceType + "/" : null)}{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(referenceLocations, null, withResourceType ? resourceType.ToString() : null, resourceId));
+            _referenceSearchValueParser.Parse(reference, Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(referenceLocations, null, withResourceType ? resourceType.ToString() : null, resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -702,7 +711,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             string reference = $"{baseUrl}{resourceType}/{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, new Uri(baseUrl), resourceType.ToString(), resourceId));
+            _referenceSearchValueParser.Parse(reference, Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, new Uri(baseUrl), resourceType.ToString(), resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -720,7 +729,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [MemberData(nameof(GetAllModifiersExceptMissingOrType))]
         public void GivenAReferenceWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifier modifier)
         {
-            _referenceSearchValueParser.Parse(Arg.Any<string>()).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123"));
+            _referenceSearchValueParser.Parse(Arg.Any<string>(), Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, null, null, "123"));
 
             Assert.Throws<InvalidSearchOperationException>(
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), modifier, "Patient/test"));
@@ -731,7 +740,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [InlineData("InvalidModifier", null, "test")]
         public void GivenAReferenceWithInvalidTargetTypeModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(string targetTypeModifier, string resourceType, string resourceId)
         {
-            _referenceSearchValueParser.Parse(Arg.Any<string>()).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, resourceType, resourceId));
+            _referenceSearchValueParser.Parse(Arg.Any<string>(), Arg.Any<ReferenceParseContext>()).Returns(TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, null, resourceType, resourceId));
 
             Assert.Throws<InvalidSearchOperationException>(
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), new SearchModifier(SearchModifierCode.Type, targetTypeModifier), $"{resourceType}{(string.IsNullOrEmpty(resourceType) ? null : "/")}{resourceId}"));
@@ -954,6 +963,132 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Uri), new SearchModifier(modifier, targetTypeModifier?.ToString()), "test"));
         }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData(SearchModifierCode.Not)]
+        public void GivenAnIdLongerThanThePolicy_WhenBuilding_ThenAValueFreeIdentityQueryExceptionIsThrown(SearchModifierCode? modifierCode)
+        {
+            string id = new string('a', ResourceIdPolicy.Standard.MaxLength + 1);
+            SearchModifier modifier = modifierCode == null ? null : new SearchModifier(modifierCode.Value);
+
+            var exception = Assert.Throws<ResourceIdentityQueryException>(() => _parser.Parse(CreateIdSearchParameter(), modifier, id));
+
+            Assert.Equal(ResourceIdPolicy.Standard.MaxLength, exception.MaximumLength);
+            Assert.DoesNotContain(id, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData("valid,{0}")]
+        [InlineData("{0},valid")]
+        public void GivenOneInvalidIdAmongSeveral_WhenBuilding_ThenAValueFreeIdentityQueryExceptionIsThrown(string format)
+        {
+            string id = new string('a', ResourceIdPolicy.Standard.MaxLength + 1);
+
+            var exception = Assert.Throws<ResourceIdentityQueryException>(() => _parser.Parse(CreateIdSearchParameter(), null, string.Format(format, id)));
+
+            Assert.DoesNotContain(id, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAnIdWithCharactersOutsideTheIdGrammar_WhenBuilding_ThenAnIdentityQueryExceptionIsThrown()
+        {
+            Assert.Throws<ResourceIdentityQueryException>(() => _parser.Parse(CreateIdSearchParameter(), null, "a@b"));
+        }
+
+        [Fact]
+        public void GivenAnIdAtThePolicyLength_WhenBuilt_ThenTheWholeIdIsMatched()
+        {
+            string id = new string('a', ResourceIdPolicy.Standard.MaxLength);
+
+            Expression expression = _parser.Parse(CreateIdSearchParameter(), null, id);
+
+            ValidateSearchParameterExpression(expression, SearchParameterNames.Id, e => ValidateStringExpression(e, FieldName.TokenCode, StringOperator.Equals, id, false));
+        }
+
+        [Fact]
+        public void GivenAnIdWithTheMissingModifier_WhenBuilt_ThenTheMissingExpressionIsKept()
+        {
+            Expression expression = _parser.Parse(CreateIdSearchParameter(), new SearchModifier(SearchModifierCode.Missing), "true");
+
+            ValidateMissingParamExpression(expression, SearchParameterNames.Id, true);
+        }
+
+        [Fact]
+        public void GivenAReferenceWhoseIdentityCannotBeIndexed_WhenBuilding_ThenAValueFreeIdentityQueryExceptionIsThrown()
+        {
+            string reference = "Patient/" + new string('r', ResourceIdPolicy.Standard.MaxLength + 1);
+            _referenceSearchValueParser.Parse(reference, ReferenceParseContext.QueryReference)
+                .Returns(_ => throw new ResourceIdentityFormatException(ResourceIdPolicy.Standard.MaxLength));
+
+            var exception = Assert.Throws<ResourceIdentityQueryException>(() => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), null, reference));
+
+            Assert.Equal(ResourceIdPolicy.Standard.MaxLength, exception.MaximumLength);
+            Assert.DoesNotContain(reference, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [MemberData(nameof(ReferenceStorageFailures))]
+        public void GivenAReferenceTheStoreCannotHoldWhole_WhenBuilding_ThenAValueFreeStorageQueryExceptionIsThrown(FieldName component, int capacity)
+        {
+            const string reference = "Patient/unrepresentable";
+            ConfigureUnrepresentableReference(reference, component, capacity);
+
+            var exception = Assert.Throws<ReferenceStorageQueryException>(() => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), null, reference));
+
+            Assert.Equal(component, exception.Component);
+            Assert.Equal(capacity, exception.Capacity);
+            Assert.DoesNotContain("unrepresentable", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData(SearchModifierCode.Not)]
+        public void GivenAnOrListContainingAReferenceTheStoreCannotHoldWhole_WhenBuilding_ThenTheWholeQueryIsRejected(SearchModifierCode? modifierCode)
+        {
+            ConfigureRepresentableReference("Patient/fits");
+            ConfigureUnrepresentableReference("Patient/unrepresentable", FieldName.ReferenceBaseUri, 128);
+            SearchModifier modifier = modifierCode == null ? null : new SearchModifier(modifierCode.Value);
+
+            var exception = Assert.Throws<ReferenceStorageQueryException>(
+                () => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), modifier, "Patient/fits,Patient/unrepresentable"));
+
+            Assert.Equal(FieldName.ReferenceBaseUri, exception.Component);
+        }
+
+        [Fact]
+        public void GivenACompositeWhoseReferenceComponentTheStoreCannotHoldWhole_WhenBuilding_ThenTheQueryIsRejected()
+        {
+            ConfigureUnrepresentableReference("Patient/unrepresentable", FieldName.ReferenceResourceId, 128);
+            SearchParameterComponentInfo[] components =
+            {
+                new SearchParameterComponentInfo(new Uri("http://reference")) { ResolvedSearchParameter = new SearchParameterInfo("reference", "reference", ValueSets.SearchParamType.Reference) },
+                new SearchParameterComponentInfo(new Uri("http://code")) { ResolvedSearchParameter = new SearchParameterInfo("code", "code", ValueSets.SearchParamType.Token) },
+            };
+            var searchParameter = new SearchParameterInfo(DefaultParamName, DefaultParamName, ValueSets.SearchParamType.Composite, components: components);
+
+            var exception = Assert.Throws<ReferenceStorageQueryException>(() => _parser.Parse(searchParameter, null, "Patient/unrepresentable$code"));
+
+            Assert.Equal(FieldName.ReferenceResourceId, exception.Component);
+        }
+
+        private void ConfigureRepresentableReference(string reference)
+        {
+            _referenceSearchValueParser.Parse(reference, ReferenceParseContext.QueryReference)
+                .Returns(TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, null, "Patient", reference.Substring("Patient/".Length)));
+        }
+
+        private void ConfigureUnrepresentableReference(string reference, FieldName component, int capacity)
+        {
+            ReferenceSearchValue value = TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, null, "Patient", reference.Substring("Patient/".Length));
+            _referenceSearchValueParser.Parse(reference, ReferenceParseContext.QueryReference).Returns(value);
+            _referenceStorageValidator
+                .When(validator => validator.EnsureRepresentable(Arg.Is<ReferenceSearchValue>(candidate => ReferenceEquals(candidate, value))))
+                .Do(_ => throw new ReferenceStorageCapacityException(component, capacity));
+        }
+
+        private static SearchParameterInfo CreateIdSearchParameter() =>
+            new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id, ValueSets.SearchParamType.Token, SearchParameterNames.IdUri);
 
         private SearchParameterInfo CreateSearchParameter(SearchParamType searchParameterType)
         {

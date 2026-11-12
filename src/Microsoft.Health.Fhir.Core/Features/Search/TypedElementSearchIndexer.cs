@@ -296,7 +296,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         {
                             if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
                             {
-                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId));
+                                results.Add(rsr.WithMatchingContext(rsr.Kind, rsr.BaseUri, singleAllowedResourceType));
                             }
                             else
                             {

@@ -47,6 +47,8 @@ SMART compartment authorization requires references to identify the compartment 
 
 This follows [FHIR reference identity](https://hl7.org/fhir/R4/references.html#literal). Ordinary reference-search matching is unchanged; compartment authorization additionally requires a local reference.
 
+The server rejects a resource identity that the search index would store in shortened form instead of indexing it. A write is rejected with `400 Bad Request` when a reference's resource ID exceeds the server's resource id length policy or, on SQL Server, when its absolute base URL cannot be stored in the search index without loss (longer than 128 characters, or containing characters the index cannot represent). Resource IDs and references in request URLs, search parameters and SMART scope constraints are checked the same way. An ordinary search parameter that fails the check is rejected with `400`. A SMART scope constraint that fails it is treated as unenforceable, as described in [ADR-2609](arch/adr-2609-smart-authorization-fail-closed.md).
+
 ## Development Identity Provider
 For the F5 experience and test environments, an in-process identity provider is included that can act as the authentication provider for the FHIR API. 
 

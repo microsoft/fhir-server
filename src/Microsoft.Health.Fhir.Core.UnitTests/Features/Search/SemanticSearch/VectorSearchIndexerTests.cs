@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -270,7 +271,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             VectorSearchIndexer indexer = CreateIndexer(searchParameter, embeddedTexts);
             IVectorSearchParameterResolver resolver = Substitute.For<IVectorSearchParameterResolver>();
             resolver.GetSearchParameter(VectorCanonical).Returns(searchParameter);
-            var parser = new SearchParameterExpressionParser(Substitute.For<IReferenceSearchValueParser>(), resolver);
+            var parser = new SearchParameterExpressionParser(Substitute.For<IReferenceSearchValueParser>(), resolver, ResourceIdPolicy.Standard, Substitute.For<IReferenceStorageValidator>());
 
             // Act
             await indexer.UpdateVectorSearchIndicesAsync(new[] { resource }, CancellationToken.None);

@@ -5,7 +5,9 @@
 
 using System;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
@@ -21,6 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             switch (expression.FieldName)
             {
                 case FieldName.ReferenceBaseUri:
+                    EnsureRepresentable(expression, context);
                     return VisitSimpleString(expression, context, VLatest.ReferenceSearchParam.BaseUri, expression.Value);
                 case FieldName.ReferenceResourceType:
                     if (context.Model.TryGetResourceTypeId(expression.Value, out short resourceTypeId))
@@ -33,9 +36,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     context.StringBuilder.Append("0 = 1");
                     return context;
                 case FieldName.ReferenceResourceId:
+                    EnsureRepresentable(expression, context);
                     return VisitSimpleString(expression, context, VLatest.ReferenceSearchParam.ReferenceResourceId, expression.Value);
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
+        }
+
+        // A sized varchar parameter would shorten or substitute the value, so it could match a different stored reference.
+        private static void EnsureRepresentable(StringExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            try
+            {
+                new SqlReferenceStorageValidator(context.SchemaInformation).EnsureFieldRepresentable(expression.FieldName, expression.Value);
+            }
+            catch (ReferenceStorageCapacityException ex)
+            {
+                throw new ReferenceStorageQueryException(ex);
             }
         }
 

@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -38,6 +39,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
@@ -109,6 +111,11 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosQueryFactory>()
                 .Singleton()
                 .AsService<ICosmosQueryFactory>();
+
+            services.Add<CosmosReferenceStorageValidator>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IReferenceStorageValidator>();
 
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()

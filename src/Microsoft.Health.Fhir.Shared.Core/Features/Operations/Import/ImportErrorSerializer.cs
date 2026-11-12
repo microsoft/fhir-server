@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import
 {
@@ -26,7 +28,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import
         {
             EnsureArg.IsNotNull(ex, nameof(ex));
 
-            return Serialize(index, ex.Message, offset);
+            // A validation failure carries its reasons in the issues; its message is only a generic summary.
+            string errorMessage = ex is ResourceNotValidException { Issues.Count: > 0 } notValid
+                ? string.Join(" ", notValid.Issues.Select(issue => issue.Diagnostics))
+                : ex.Message;
+
+            return Serialize(index, errorMessage, offset);
         }
 
         public string Serialize(long index, string errorMessage, long offset)

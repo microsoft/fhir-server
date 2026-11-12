@@ -26,8 +26,10 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
@@ -683,6 +685,183 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             }
         }
 
+        [Fact]
+        public async Task GivenAReferenceBaseUriBeyondColumnCapacity_WhenBulkUpdatingSearchIndices_ThenBadRequestIsThrownBeforeSqlRuns()
+        {
+            // Arrange - single-resource reindex reaches this method without the admission check, so the row guard is the last line.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var logger = new RecordingLogger<SqlServerFhirDataStore>();
+            SqlServerFhirDataStore dataStore = CreateSqlServerFhirDataStore(sqlRetryService, logger: logger);
+            var searchParameterUri = new Uri("http://hl7.org/fhir/SearchParameter/Patient-general-practitioner");
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(GetModel(dataStore), new Dictionary<Uri, short> { { searchParameterUri, 11 } });
+
+            const string baseUriPrefix = "https://example.org/";
+            var baseUri = new Uri(baseUriPrefix + new string('a', 129 - baseUriPrefix.Length - 1) + "/");
+            var searchParameter = new SearchParameterInfo("Patient-general-practitioner", "general-practitioner", SearchParamType.Reference, searchParameterUri);
+            ResourceWrapper resource = new ResourceWrapper(
+                "123",
+                "1",
+                "Patient",
+                new RawResource("{\"resourceType\":\"Patient\",\"id\":\"123\"}", FhirResourceFormat.Json, isMetaSet: true),
+                null,
+                DateTimeOffset.UtcNow,
+                false,
+                new[] { new SearchIndexEntry(searchParameter, TestReferenceSearchValues.Resource(ReferenceKind.External, baseUri, "Patient", "p1")) },
+                null,
+                null,
+                null,
+                resourceSurrogateId: 41);
+
+            // Act
+            BadRequestException exception = await Assert.ThrowsAsync<BadRequestException>(
+                () => dataStore.BulkUpdateSearchParameterIndicesAsync(new[] { resource }, CancellationToken.None));
+
+            // Assert - the stored procedure never runs, so the existing indices stay in place, and nothing echoes the submitted base.
+            await sqlRetryService.DidNotReceiveWithAnyArgs().ExecuteSql(default(SqlCommand), default, default, default, default, default, default, default);
+            Assert.DoesNotContain(baseUri.ToString(), exception.Message, StringComparison.Ordinal);
+            (Exception loggedException, string message) = Assert.Single(logger.Warnings);
+            Assert.Null(loggedException);
+            Assert.Contains(nameof(FieldName.ReferenceBaseUri), message, StringComparison.Ordinal);
+            Assert.DoesNotContain(baseUri.ToString(), message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData((int)SchemaVersion.V117, 65, ImportMode.InitialLoad, false, true)]
+        [InlineData((int)SchemaVersion.V117, 65, ImportMode.IncrementalLoad, false, true)]
+        [InlineData((int)SchemaVersion.V117, 65, ImportMode.IncrementalLoad, true, true)]
+        [InlineData(SchemaVersionConstants.Max, 129, ImportMode.IncrementalLoad, true, true)]
+        [InlineData((int)SchemaVersion.V117, 64, ImportMode.InitialLoad, false, false)]
+        [InlineData((int)SchemaVersion.V117, 64, ImportMode.IncrementalLoad, true, false)]
+        [InlineData(SchemaVersionConstants.Max, 128, ImportMode.InitialLoad, false, false)]
+        [InlineData(SchemaVersionConstants.Max, 128, ImportMode.IncrementalLoad, true, false)]
+        public async Task GivenAnImportRowWithALongRootId_WhenImporting_ThenOnlyAnIdBeyondColumnCapacityFailsAndSiblingsStillMerge(int schemaVersion, int idLength, ImportMode importMode, bool keepLastUpdated, bool rejected)
+        {
+            // Arrange - root id columns shorten longer values, so an oversized row would otherwise read or write the row named by its prefix.
+            var sqlRetryService = Substitute.For<ISqlRetryService>();
+            var boundValues = new List<string>();
+            var mergedValues = new List<string>();
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, ResourceWrapper>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(call =>
+                {
+                    RecordBoundStrings(call.Arg<SqlCommand>(), boundValues);
+                    return Array.Empty<ResourceWrapper>();
+                });
+            sqlRetryService.ExecuteReaderAsync(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlDataReader, (ResourceDateKey, (string, RawResource))>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(call =>
+                {
+                    RecordBoundStrings(call.Arg<SqlCommand>(), boundValues);
+                    return new List<(ResourceDateKey, (string, RawResource))>();
+                });
+            sqlRetryService.ExecuteSql(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>())
+                .Returns(call =>
+                {
+                    SqlCommand command = call.Arg<SqlCommand>();
+                    RecordBoundStrings(command, boundValues);
+                    if (command.CommandText == "dbo.MergeResourcesBeginTransaction")
+                    {
+                        command.Parameters["@TransactionId"].Value = 41L;
+                        command.Parameters["@SequenceRangeFirstValue"].Value = 0;
+                    }
+                    else if (command.CommandText == "dbo.MergeResources")
+                    {
+                        RecordBoundStrings(command, mergedValues);
+                    }
+
+                    return Task.CompletedTask;
+                });
+            var importErrorSerializer = Substitute.For<IImportErrorSerializer>();
+            importErrorSerializer.Serialize(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<long>()).Returns(call => $"{call.ArgAt<long>(0)}:{call.ArgAt<string>(1)}");
+            SqlServerFhirDataStore dataStore = CreateSqlServerFhirDataStore(sqlRetryService, currentSchemaVersion: schemaVersion, importErrorSerializer: importErrorSerializer);
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(GetModel(dataStore), new Dictionary<Uri, short>
+                {
+                    { SearchParameterNames.IdUri, 1 },
+                    { SearchParameterNames.LastUpdatedUri, 2 },
+                });
+
+            string longId = new string('a', idLength);
+            string columnPrefix = longId.Substring(0, idLength - 1);
+            ImportResource CreateRow(int index, string id) => new ImportResource(
+                index,
+                index * 100,
+                100,
+                keepLastUpdated,
+                keepVersion: false,
+                isDeleted: false,
+                new ResourceWrapper(id, "1", "Patient", new RawResource($"{{\"resourceType\":\"Patient\",\"id\":\"{id}\",\"meta\":{{\"versionId\":\"1\",\"lastUpdated\":\"2020-01-01T00:00:00Z\"}}}}", FhirResourceFormat.Json, isMetaSet: true), null, DateTimeOffset.UtcNow, false, null, null, null, null, resourceSurrogateId: 0));
+
+            // Act
+            (IReadOnlyList<string> errors, _) = await dataStore.ImportResourcesAsync(
+                new[] { CreateRow(0, longId), CreateRow(1, "sibling") },
+                importMode,
+                allowNegativeVersions: false,
+                eventualConsistency: false,
+                CancellationToken.None);
+
+            // Assert - the sibling is always merged whole; an oversized row gets one value-free error and never reaches SQL, not even as its prefix.
+            Assert.Contains("sibling", mergedValues);
+            if (rejected)
+            {
+                string error = Assert.Single(errors);
+                Assert.StartsWith("0:", error, StringComparison.Ordinal);
+                Assert.DoesNotContain(columnPrefix, error, StringComparison.Ordinal);
+                Assert.DoesNotContain(longId, boundValues);
+                Assert.DoesNotContain(columnPrefix, boundValues);
+            }
+            else
+            {
+                Assert.Empty(errors);
+                Assert.Contains(longId, mergedValues);
+            }
+        }
+
+        private static void RecordBoundStrings(SqlCommand command, List<string> values)
+        {
+            foreach (SqlParameter parameter in command.Parameters)
+            {
+                if (parameter.Value is string value)
+                {
+                    values.Add(value);
+                }
+                else if (parameter.Value is IEnumerable<System.Data.IDataRecord> rows)
+                {
+                    foreach (System.Data.IDataRecord row in rows)
+                    {
+                        for (int i = 0; i < row.FieldCount; i++)
+                        {
+                            if (row.GetValue(i) is string field)
+                            {
+                                values.Add(field);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         private static VectorSearchChunk CreateChunk(int ordinal, string text, float embedding)
         {
             return new VectorSearchChunk(
@@ -692,7 +871,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 new[] { embedding });
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, ILogger<SqlServerFhirDataStore> logger = null)
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, ILogger<SqlServerFhirDataStore> logger = null, int currentSchemaVersion = SchemaVersionConstants.Max, IImportErrorSerializer importErrorSerializer = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -700,7 +879,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
-                Current = SchemaVersionConstants.Max,
+                Current = currentSchemaVersion,
             };
 
             var searchService = Substitute.For<ISearchService>();
@@ -768,7 +947,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 schemaInfo,
                 ModelInfoProvider.Instance,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
-                Substitute.For<IImportErrorSerializer>(),
+                importErrorSerializer ?? Substitute.For<IImportErrorSerializer>(),
                 storeClient,
                 Substitute.For<IResourceWrapperFactory>());
 

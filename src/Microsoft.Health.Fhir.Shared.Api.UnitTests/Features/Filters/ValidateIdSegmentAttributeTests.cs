@@ -116,6 +116,82 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Contains(expectedLimit, exception.Issues.Single().Diagnostics, StringComparison.Ordinal);
         }
 
+        [Theory]
+        [InlineData(false, 63)]
+        [InlineData(false, 64)]
+        [InlineData(true, 127)]
+        [InlineData(true, 128)]
+        public void GivenARegisteredResourceIdPolicy_WhenTheRouteIdIsWithinTheLimit_ThenTheRequestProceeds(bool useLongResourceIds, int length)
+        {
+            // Arrange
+            var filter = new ValidateIdSegmentAttribute();
+            var context = CreateContext(new Patient(), new string('a', length), ResourceIdPolicy.From(useLongResourceIds));
+
+            // Act
+            var exception = Record.Exception(() => filter.OnActionExecuting(context));
+
+            // Assert
+            Assert.Null(exception);
+        }
+
+        [Theory]
+        [InlineData(false, 65, "64")]
+        [InlineData(true, 129, "128")]
+        public void GivenARegisteredResourceIdPolicy_WhenTheRouteIdExceedsTheLimit_ThenTheRequestIsRejectedWithoutEchoingTheId(bool useLongResourceIds, int length, string expectedLimit)
+        {
+            // Arrange
+            var filter = new ValidateIdSegmentAttribute();
+            string id = new string('a', length);
+            var context = CreateContext(new Patient(), id, ResourceIdPolicy.From(useLongResourceIds));
+
+            // Act
+            var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+
+            // Assert
+            string diagnostics = exception.Issues.Single().Diagnostics;
+            Assert.Contains(expectedLimit, diagnostics, StringComparison.Ordinal);
+            Assert.DoesNotContain(id, diagnostics, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData("a b")]
+        [InlineData("a/b")]
+        [InlineData("a$b")]
+        public void GivenARouteIdOutsideTheIdGrammar_WhenExecuting_ThenTheRequestIsRejected(string id)
+        {
+            // Arrange
+            var filter = new ValidateIdSegmentAttribute();
+            var context = CreateContext(new Patient(), id);
+
+            // Act & Assert
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GivenARouteWithoutAnIdSegment_WhenExecuting_ThenTheRequestProceeds()
+        {
+            // Arrange
+            var filter = new ValidateIdSegmentAttribute();
+            var context = new ActionExecutingContext(
+                new ActionContext(new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton(ResourceIdPolicy.Standard).BuildServiceProvider() }, new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Patient" } }, new ActionDescriptor()),
+                new List<IFilterMetadata>(),
+                new Dictionary<string, object>(),
+                FilterTestsHelper.CreateMockFhirController());
+
+            // Act
+            var exception = Record.Exception(() => filter.OnActionExecuting(context));
+
+            // Assert
+            Assert.Null(exception);
+        }
+
+        private static ActionExecutingContext CreateContext(Resource type, string id, ResourceIdPolicy policy)
+        {
+            ActionExecutingContext context = CreateContext(type, id);
+            context.HttpContext.RequestServices = new ServiceCollection().AddSingleton(policy).BuildServiceProvider();
+            return context;
+        }
+
         private static ActionExecutingContext CreateContext(Resource type, string id)
         {
             return new ActionExecutingContext(

@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
@@ -50,6 +51,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string AnyBaseReferenceA = "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
         private const string TagParameterCode = "_tag";
         private const string SemanticParameterCode = "semantic-text";
+        private const string UnstorableReferenceParameterCode = "unstorable-reference";
+        private const string InvalidIdentityParameterCode = "invalid-identity";
+        private const string UnrepresentableValue = "Patient/unrepresentable-identity-value";
 
         [Fact]
         public void GivenResourceSpecificScopeWithUnavailableParameter_WhenCreated_ThenRequestIsDenied()
@@ -335,6 +339,107 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 isIncludesOperation: false);
 
             Assert.Contains(options.UnsupportedSearchParams, p => p.Item2 == "some-other-value");
+        }
+
+        [Theory]
+        [InlineData(UnstorableReferenceParameterCode, false)]
+        [InlineData(UnstorableReferenceParameterCode, true)]
+        [InlineData(InvalidIdentityParameterCode, false)]
+        [InlineData(InvalidIdentityParameterCode, true)]
+        public void GivenWildcardScopeWhoseConstraintCannotBeRepresented_WhenCreated_ThenRequestIsDenied(string parameterCode, bool strictHandling)
+        {
+            // The merged wildcard constraint is a mandatory authorization predicate, so an identity the server cannot
+            // index or compare whole makes the scope unenforceable rather than an ordinary invalid query.
+            SearchOptionsFactory factory = CreateFactory(
+                strictHandling,
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((parameterCode, UnrepresentableValue))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(parameterCode, exception.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(UnrepresentableValue, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(UnstorableReferenceParameterCode)]
+        [InlineData(InvalidIdentityParameterCode)]
+        public void GivenWildcardScopeWhoseConstraintCannotBeRepresentedAndRevInclude_WhenCreated_ThenRequestIsDenied(string parameterCode)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((parameterCode, UnrepresentableValue))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(
+                    KnownResourceTypes.Patient,
+                    new[] { Tuple.Create("_revinclude", "Observation:subject") },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+
+            Assert.Contains(parameterCode, exception.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(UnrepresentableValue, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(UnstorableReferenceParameterCode)]
+        [InlineData(InvalidIdentityParameterCode)]
+        public void GivenResourceSpecificScopeWhoseConstraintCannotBeRepresented_WhenCreated_ThenRequestIsDenied(string parameterCode)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((parameterCode, UnrepresentableValue))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false));
+
+            Assert.Contains(parameterCode, exception.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(UnrepresentableValue, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(UnstorableReferenceParameterCode)]
+        [InlineData(InvalidIdentityParameterCode)]
+        public void GivenAnUnrepresentableScopeAndAnEnforceableScopeForTheSameType_WhenCreated_ThenOnlyTheEnforceableScopeIsApplied(string parameterCode)
+        {
+            // Scopes are alternatives, so an unrepresentable scope is withdrawn like any other unenforceable one.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((parameterCode, UnrepresentableValue))),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Observation, queryParameters: null, onlyIds: false, isIncludesOperation: false);
+
+            string expression = options.Expression.ToString();
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", expression, StringComparison.Ordinal);
+            Assert.DoesNotContain(parameterCode, expression, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenCallerSuppliedReferenceTheStoreCannotHoldWhole_WhenCreatedInASmartRequest_ThenTheOrdinaryBadRequestIsPreserved()
+        {
+            // Only scope constraints become authorization failures. The same failure in the caller's own filter
+            // remains an ordinary invalid query.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            Assert.Throws<ReferenceStorageQueryException>(
+                () => factory.Create(
+                    KnownResourceTypes.Observation,
+                    new[] { Tuple.Create(UnstorableReferenceParameterCode, UnrepresentableValue) },
+                    onlyIds: false,
+                    isIncludesOperation: false));
+        }
+
+        [Fact]
+        public void GivenCallerSuppliedInvalidIdentity_WhenCreatedInASmartRequestWithAWildcardScope_ThenTheOrdinaryBadRequestIsPreserved()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            Assert.Throws<ResourceIdentityQueryException>(
+                () => factory.Create(
+                    KnownResourceTypes.Observation,
+                    new[] { Tuple.Create(InvalidIdentityParameterCode, UnrepresentableValue) },
+                    onlyIds: false,
+                    isIncludesOperation: false));
         }
 
         [Theory]
@@ -752,6 +857,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                             Expression.And(
                                 Expression.StringEquals(FieldName.ReferenceResourceType, null, reference[0], false),
                                 Expression.StringEquals(FieldName.ReferenceResourceId, null, reference[1], false)));
+                    }
+
+                    if (string.Equals(code, UnstorableReferenceParameterCode, StringComparison.Ordinal))
+                    {
+                        throw new ReferenceStorageQueryException(new ReferenceStorageCapacityException(FieldName.ReferenceBaseUri, 128));
+                    }
+
+                    if (string.Equals(code, InvalidIdentityParameterCode, StringComparison.Ordinal))
+                    {
+                        throw new ResourceIdentityQueryException(64);
                     }
 
                     return new TestExpression($"{code}={callInfo.ArgAt<string>(2)}");

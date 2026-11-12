@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -33,6 +35,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
             Assert.Equal($"Failed to process resource at line: {10} with stream start offset: {0}", operationOutcome.Issue[0].Diagnostics);
             Assert.Equal(errorMessage, operationOutcome.Issue[0].Details.Text);
+        }
+
+        [Fact]
+        public void GivenAResourceNotValidException_WhenSerialize_ThenTheIssueDiagnosticsAreReported()
+        {
+            const string firstFailure = "first failure";
+            const string secondFailure = "second failure";
+            var exception = new ResourceNotValidException(new[]
+            {
+                new ValidationFailure("Observation.subject", firstFailure),
+                new ValidationFailure("Observation.performer[0]", secondFailure),
+            });
+            ImportErrorSerializer serializer = new ImportErrorSerializer(_jsonSerializer);
+
+            string outcome = serializer.Serialize(10, exception, 0);
+
+            OperationOutcome operationOutcome = new FhirJsonParser().Parse<OperationOutcome>(outcome);
+            string details = Assert.Single(operationOutcome.Issue).Details.Text;
+            Assert.Contains(firstFailure, details, StringComparison.Ordinal);
+            Assert.Contains(secondFailure, details, StringComparison.Ordinal);
         }
     }
 }

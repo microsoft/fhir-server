@@ -9,18 +9,24 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -38,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IReferenceStorageValidator _referenceStorageValidator = Substitute.For<IReferenceStorageValidator>();
         private readonly ResourceWrapperFactory _resourceWrapperFactory;
 
         private readonly SearchParameterInfo _nameSearchParameterInfo;
@@ -76,7 +83,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 _claimsExtractor,
                 _compartmentIndexer,
                 _searchParameterDefinitionManager,
-                Deserializers.ResourceDeserializer);
+                Deserializers.ResourceDeserializer,
+                TestResourceIdentityValidators.Create(),
+                _referenceStorageValidator);
 
             _nameSearchParameterInfo = new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/name")) { SortStatus = SortParameterStatus.Enabled };
             _addressSearchParameterInfo = new SearchParameterInfo("address-city", "address-city", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/address-city")) { SortStatus = SortParameterStatus.Enabled };
@@ -628,16 +637,243 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             });
         }
 
-        private ResourceWrapperFactory CreateFactory(IVectorSearchIndexer vectorIndexer)
+        [Fact]
+        public void GivenAResourceWithAnOverLengthReference_WhenCreatingALiveWrapper_ThenAValueFreeResourceNotValidExceptionIsThrown()
+        {
+            // Arrange
+            string referencedId = new string('r', 65);
+            ResourceElement observation = CreateObservationReferencing(referencedId);
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(Array.Empty<SearchIndexEntry>());
+
+            // Act
+            var exception = Assert.Throws<ResourceNotValidException>(() => _resourceWrapperFactory.Create(observation, deleted: false, keepMeta: false));
+
+            // Assert
+            Assert.NotEmpty(exception.Issues);
+            Assert.All(exception.Issues, issue => Assert.DoesNotContain(referencedId, issue.Diagnostics, StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void GivenAStoredResourceWithAnOverLengthReference_WhenCreatingADeletedWrapper_ThenTheTombstoneIsCreated()
+        {
+            // Arrange
+            ResourceElement observation = CreateObservationReferencing(new string('r', 65));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(Array.Empty<SearchIndexEntry>());
+
+            // Act
+            ResourceWrapper wrapper = _resourceWrapperFactory.Create(observation, deleted: true, keepMeta: false);
+
+            // Assert
+            Assert.True(wrapper.IsDeleted);
+        }
+
+        [Fact]
+        public async Task GivenADeletedResourceWithALegacyOverLengthReference_WhenCreatingWithTheSearchIndexer_ThenOnlyTheTombstoneIndicesAreExtracted()
+        {
+            // Arrange
+            string referencedId = new string('r', 65);
+            var lastUpdated = new DateTimeOffset(2024, 1, 2, 3, 4, 5, 678, TimeSpan.Zero);
+            var observation = Samples.GetDefaultObservation().ToPoco<Hl7.Fhir.Model.Observation>();
+            observation.Id = "observation1";
+            observation.Meta = new Hl7.Fhir.Model.Meta { LastUpdated = lastUpdated, VersionId = "3" };
+            observation.Subject = new Hl7.Fhir.Model.ResourceReference("Patient/" + referencedId);
+            ResourceWrapperFactory factory = CreateFactory(vectorIndexer: null, await CreateSearchIndexerAsync("Observation"));
+
+            // Act
+            ResourceWrapper wrapper = factory.Create(observation.ToResourceElement(), deleted: true, keepMeta: true, keepVersion: true);
+
+            // Assert
+            Assert.True(wrapper.IsDeleted);
+            Assert.Equal("observation1", wrapper.ResourceId);
+            Assert.Equal(
+                new[] { KnownQueryParameterNames.Id, KnownQueryParameterNames.LastUpdated },
+                wrapper.SearchIndices.Select(entry => entry.SearchParameter.Code).OrderBy(code => code, StringComparer.Ordinal));
+            Assert.Equal("observation1", Assert.IsType<TokenSearchValue>(wrapper.SearchIndices.Single(entry => entry.SearchParameter.Code == KnownQueryParameterNames.Id).Value).Code);
+            Assert.Equal(lastUpdated, Assert.IsType<DateTimeSearchValue>(wrapper.SearchIndices.Single(entry => entry.SearchParameter.Code == KnownQueryParameterNames.LastUpdated).Value).Start);
+            Assert.Contains("Patient/" + referencedId, wrapper.RawResource.Data, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenSearchIndexExtractionRejectsAnIdentity_WhenCreatingALiveWrapper_ThenAValueFreeResourceNotValidExceptionIsThrown()
+        {
+            // Arrange
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(_ => throw new ResourceIdentityFormatException(64));
+
+            // Act
+            var exception = Assert.Throws<ResourceNotValidException>(() => _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false));
+
+            // Assert
+            Assert.Contains("64", Assert.Single(exception.Issues).Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GivenALaterResourceFailsExtraction_WhenUpdatingABatch_ThenNoWrapperInTheBatchIsMutated()
+        {
+            // Arrange
+            var originalIndex = new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("original"));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new[] { originalIndex });
+            var resources = new[]
+            {
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+            };
+            var originalIndices = resources.Select(resource => resource.SearchIndices).ToList();
+            _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient").Returns("updatedHash");
+            var failure = new ResourceIdentityFormatException(64);
+            int extractions = 0;
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(_ =>
+            {
+                if (++extractions == resources.Length)
+                {
+                    throw failure;
+                }
+
+                return new[] { new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("updated")) };
+            });
+
+            // Act
+            Exception actual = await Record.ExceptionAsync(() => _resourceWrapperFactory.UpdateAsync(resources, CancellationToken.None));
+
+            // Assert
+            Assert.Same(failure, actual);
+            for (int i = 0; i < resources.Length; i++)
+            {
+                Assert.Same(originalIndices[i], resources[i].SearchIndices);
+                Assert.Equal("hash", resources[i].SearchParameterHash);
+            }
+        }
+
+        [Fact]
+        public void GivenAnExtractedReferenceTheStoreCannotHoldWhole_WhenCreatingALiveWrapper_ThenAValueFreeResourceNotValidExceptionIsThrown()
+        {
+            // Arrange
+            const string referencedId = "unrepresentable-reference";
+            ReferenceSearchValue reference = TestReferenceSearchValues.Resource(ReferenceKind.Internal, null, "Patient", referencedId);
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new[] { new SearchIndexEntry(CreateReferenceSearchParameter(), reference) });
+            RejectStorageOf(reference, FieldName.ReferenceBaseUri);
+
+            // Act
+            var exception = Assert.Throws<ResourceNotValidException>(() => _resourceWrapperFactory.Create(Samples.GetDefaultObservation(), deleted: false, keepMeta: false));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Contains("128", issue.Diagnostics, StringComparison.Ordinal);
+            Assert.DoesNotContain(referencedId, issue.Diagnostics, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenACompositeComponentReferenceTheStoreCannotHoldWhole_WhenCreatingALiveWrapper_ThenAResourceNotValidExceptionIsThrown()
+        {
+            // Arrange
+            ReferenceSearchValue reference = TestReferenceSearchValues.Resource(ReferenceKind.Internal, null, "Patient", "p1");
+            var composite = new CompositeSearchValue(new ISearchValue[][]
+            {
+                new ISearchValue[] { reference },
+                new ISearchValue[] { new TokenSearchValue("system", "code", null) },
+            });
+            var compositeParameter = new SearchParameterInfo("reference-code", "reference-code", ValueSets.SearchParamType.Composite, new Uri("https://localhost/searchParameter/reference-code"));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new[] { new SearchIndexEntry(compositeParameter, composite) });
+            RejectStorageOf(reference, FieldName.ReferenceResourceId);
+
+            // Act and Assert
+            Assert.Throws<ResourceNotValidException>(() => _resourceWrapperFactory.Create(Samples.GetDefaultObservation(), deleted: false, keepMeta: false));
+        }
+
+        [Fact]
+        public void GivenAnExtractedReferenceTheStoreCannotHoldWhole_WhenCreatingADeletedWrapper_ThenTheTombstoneIsCreatedWithoutReferenceIndices()
+        {
+            // Arrange
+            ReferenceSearchValue reference = TestReferenceSearchValues.Resource(ReferenceKind.Internal, null, "Patient", "p1");
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new[] { new SearchIndexEntry(CreateReferenceSearchParameter(), reference) });
+            RejectStorageOf(reference, FieldName.ReferenceResourceId);
+
+            // Act
+            ResourceWrapper wrapper = _resourceWrapperFactory.Create(CreateObservationReferencing("p1"), deleted: true, keepMeta: false);
+
+            // Assert
+            Assert.True(wrapper.IsDeleted);
+            Assert.DoesNotContain(wrapper.SearchIndices, entry => entry.Value is ReferenceSearchValue);
+        }
+
+        [Fact]
+        public async Task GivenALaterResourceHasAReferenceTheStoreCannotHoldWhole_WhenUpdatingABatch_ThenNoWrapperInTheBatchIsMutated()
+        {
+            // Arrange
+            var originalIndex = new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("original"));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new[] { originalIndex });
+            var resources = new[]
+            {
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+                _resourceWrapperFactory.Create(Samples.GetDefaultPatient(), deleted: false, keepMeta: false),
+            };
+            var originalIndices = resources.Select(resource => resource.SearchIndices).ToList();
+            _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient").Returns("updatedHash");
+            ReferenceSearchValue unrepresentable = TestReferenceSearchValues.Resource(ReferenceKind.Internal, null, "Patient", "p1");
+            RejectStorageOf(unrepresentable, FieldName.ReferenceBaseUri);
+            int extractions = 0;
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(_ => ++extractions == resources.Length
+                ? new[] { new SearchIndexEntry(CreateReferenceSearchParameter(), unrepresentable) }
+                : new[] { new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("updated")) });
+
+            // Act
+            await Assert.ThrowsAsync<ResourceNotValidException>(() => _resourceWrapperFactory.UpdateAsync(resources, CancellationToken.None));
+
+            // Assert
+            for (int i = 0; i < resources.Length; i++)
+            {
+                Assert.Same(originalIndices[i], resources[i].SearchIndices);
+                Assert.Equal("hash", resources[i].SearchParameterHash);
+            }
+        }
+
+        private static SearchParameterInfo CreateReferenceSearchParameter()
+        {
+            return new SearchParameterInfo("subject", "subject", ValueSets.SearchParamType.Reference, new Uri("https://localhost/searchParameter/subject"));
+        }
+
+        private void RejectStorageOf(ReferenceSearchValue reference, FieldName component)
+        {
+            _referenceStorageValidator
+                .When(validator => validator.EnsureRepresentable(Arg.Is<ReferenceSearchValue>(candidate => ReferenceEquals(candidate, reference))))
+                .Do(_ => throw new ReferenceStorageCapacityException(component, 128));
+        }
+
+        private static ResourceElement CreateObservationReferencing(string patientId)
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Hl7.Fhir.Model.Observation>();
+            observation.Id = "observation1";
+            observation.Subject = new Hl7.Fhir.Model.ResourceReference("Patient/" + patientId);
+            return observation.ToResourceElement();
+        }
+
+        private static async Task<ISearchIndexer> CreateSearchIndexerAsync(string resourceType)
+        {
+            SearchParameterDefinitionManager definitionManager = await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync();
+            var supportedSearchParameters = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            supportedSearchParameters.GetSearchParameters(resourceType).Returns(definitionManager.GetSearchParameters(resourceType).ToList());
+
+            return new TypedElementSearchIndexer(
+                supportedSearchParameters,
+                await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
+                new LightweightReferenceToElementResolver(
+                    Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor(), ResourceIdPolicy.Standard),
+                    ModelInfoProvider.Instance),
+                ModelInfoProvider.Instance,
+                NullLogger<TypedElementSearchIndexer>.Instance);
+        }
+
+        private ResourceWrapperFactory CreateFactory(IVectorSearchIndexer vectorIndexer, ISearchIndexer searchIndexer = null)
         {
             return new ResourceWrapperFactory(
                 _rawResourceFactory,
                 _fhirRequestContextAccessor,
-                _searchIndexer,
+                searchIndexer ?? _searchIndexer,
                 _claimsExtractor,
                 _compartmentIndexer,
                 _searchParameterDefinitionManager,
                 Deserializers.ResourceDeserializer,
+                TestResourceIdentityValidators.Create(),
+                _referenceStorageValidator,
                 vectorIndexer);
         }
     }

@@ -55,9 +55,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         {
             const string reference = "Patient/123";
 
-            var expectedSearchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123");
+            var expectedSearchValue = TestReferenceSearchValues.Resource(ReferenceKind.InternalOrExternal, null, null, "123");
 
-            _referenceSearchValueParser.Parse(reference).Returns(expectedSearchValue);
+            _referenceSearchValueParser.Parse(reference, Arg.Any<ReferenceParseContext>()).Returns(expectedSearchValue);
 
             _reference.Reference = reference;
 

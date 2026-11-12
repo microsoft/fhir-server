@@ -9,7 +9,6 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -24,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IProfileValidator profileValidator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<CoreFeatureConfiguration> config,
-            ResourceIdPolicy resourceIdPolicy)
+            IResourceIdentityValidator resourceIdentityValidator)
         {
             RuleFor(x => x.Resource.Id)
                 .NotEmpty().WithMessage(Core.Resources.UpdateRequestsRequireId);
@@ -36,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
               config.Value.ProfileValidationOnUpdate);
 
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, resourceIdPolicy));
+                .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer, resourceIdentityValidator));
         }
     }
 }

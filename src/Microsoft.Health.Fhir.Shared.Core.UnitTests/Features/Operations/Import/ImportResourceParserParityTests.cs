@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
@@ -43,18 +44,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 
         public ImportResourceParserParityTests()
         {
-            var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            requestContextAccessor.RequestContext.Method.Returns("PUT");
-            requestContextAccessor.RequestContext.Uri.Returns(new Uri("https://unittest/Patient/123"));
-
-            _wrapperFactory = new ResourceWrapperFactory(
-                new RawResourceFactory(new FhirJsonSerializer()),
-                requestContextAccessor,
-                Substitute.For<ISearchIndexer>(),
-                Substitute.For<IClaimsExtractor>(),
-                Substitute.For<ICompartmentIndexer>(),
-                Substitute.For<ISearchParameterDefinitionManager>(),
-                Deserializers.ResourceDeserializer);
+            _wrapperFactory = CreateWrapperFactory(ResourceIdPolicy.Standard);
 
             _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, ResourceIdPolicy.Standard);
             _ignixaParser = new IgnixaImportResourceParser(
@@ -135,9 +125,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         public void GivenTheLongResourceIdsFlag_WhenParsed_ThenBothProvidersApplyTheSelectedLimit(bool useLongResourceIds, int length, bool valid)
         {
             // Arrange
+            // Production registers one policy shared by the parsers and the wrapper factory's identity admission.
             var policy = ResourceIdPolicy.From(useLongResourceIds);
-            var firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, policy);
-            var ignixaParser = new IgnixaImportResourceParser(_wrapperFactory, new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()), policy);
+            ResourceWrapperFactory wrapperFactory = CreateWrapperFactory(policy);
+            var firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), wrapperFactory, policy);
+            var ignixaParser = new IgnixaImportResourceParser(wrapperFactory, new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()), policy);
             string id = new string('a', length);
             string json = $$"""{"resourceType":"Patient","id":"{{id}}"}""";
 
@@ -738,6 +730,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             var formatException = Assert.IsType<FormatException>(ignixa);
             Assert.NotNull(formatException.InnerException);
             Assert.IsType<System.Text.Json.JsonException>(formatException.InnerException);
+        }
+
+        private static ResourceWrapperFactory CreateWrapperFactory(ResourceIdPolicy policy)
+        {
+            var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            requestContextAccessor.RequestContext.Method.Returns("PUT");
+            requestContextAccessor.RequestContext.Uri.Returns(new Uri("https://unittest/Patient/123"));
+
+            return new ResourceWrapperFactory(
+                new RawResourceFactory(new FhirJsonSerializer()),
+                requestContextAccessor,
+                Substitute.For<ISearchIndexer>(),
+                Substitute.For<IClaimsExtractor>(),
+                Substitute.For<ICompartmentIndexer>(),
+                Substitute.For<ISearchParameterDefinitionManager>(),
+                Deserializers.ResourceDeserializer,
+                TestResourceIdentityValidators.Create(policy),
+                Substitute.For<IReferenceStorageValidator>());
         }
     }
 }

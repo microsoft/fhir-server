@@ -385,6 +385,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="idParameter">The identifier.</param>
         /// <param name="historyModel">Model for history parameters.</param>
         [HttpGet]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeByIdHistory, Name = RouteNames.HistoryTypeId)]
         [AuditEventType(AuditEventSubType.HistoryInstance)]
         [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
@@ -659,6 +660,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="idParameter">The identifier.</param>
         /// <param name="typeParameter">The resource type.</param>
         [HttpGet]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.SearchCompartmentByResourceType)]
         [AuditEventType(AuditEventSubType.Search)]
         [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]

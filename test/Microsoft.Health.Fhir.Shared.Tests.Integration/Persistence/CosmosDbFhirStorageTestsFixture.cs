@@ -46,6 +46,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
+        private readonly CosmosReferenceStorageValidator _referenceStorageValidator = new CosmosReferenceStorageValidator();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
@@ -310,7 +312,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<CosmosFhirOperationDataStore>.Instance,
                 NullLoggerFactory.Instance);
 
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, new FhirServerInstanceConfiguration(), ResourceIdPolicy.Standard));
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, new FhirServerInstanceConfiguration(), ResourceIdPolicy.Standard), ResourceIdPolicy.Standard, _referenceStorageValidator);
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
             ISortingValidator sortingValidator = Substitute.For<ISortingValidator>();
             sortingValidator.ValidateSorting(Arg.Is<IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)>>(x => x[0].searchParameter.Name == KnownQueryParameterNames.LastUpdated), out Arg.Any<IReadOnlyList<string>>()).Returns(true);
@@ -460,6 +462,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(TestQueueClient))
             {
                 return _testQueueClient;
+            }
+
+            if (serviceType == typeof(IReferenceStorageValidator))
+            {
+                return _referenceStorageValidator;
             }
 
             return null;
