@@ -25,10 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
 
         private static readonly SearchValues<char> IdCharacters = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-");
 
-        private ResourceIdPolicy(int maxLength, bool rejectLongReferenceIds = true)
+        private ResourceIdPolicy(int maxLength, bool rejectLongReferences = true)
         {
             MaxLength = maxLength;
-            RejectLongReferenceIds = rejectLongReferenceIds;
+            RejectLongReferences = rejectLongReferences;
         }
 
         /// <summary>
@@ -48,24 +48,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
 
         /// <summary>
         /// Gets a value indicating whether a reference whose id is longer than <see cref="MaxLength"/> is rejected.
-        /// When false, the id is cut off at the limit.
+        /// When true, a reference whose base URI does not fit the SQL index is also not indexed and cannot be matched.
+        /// When false, both values are cut off at their limits.
         /// </summary>
-        public bool RejectLongReferenceIds { get; }
+        public bool RejectLongReferences { get; }
 
         /// <summary>
-        /// Selects the policy for the <c>UseLongResourceIds</c> and <c>RejectLongReferenceIds</c> settings.
+        /// Selects the policy for the <c>UseLongResourceIds</c> and <c>RejectLongReferences</c> settings.
         /// </summary>
         /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
-        /// <param name="rejectLongReferenceIds">Whether references with ids over the limit are rejected instead of cut off.</param>
+        /// <param name="rejectLongReferences">Whether references with ids over the limit are rejected, and references with base URIs that do not fit the SQL index are not indexed, instead of cut off.</param>
         /// <returns>The matching policy.</returns>
-        public static ResourceIdPolicy From(bool useLongResourceIds, bool rejectLongReferenceIds = true)
+        public static ResourceIdPolicy From(bool useLongResourceIds, bool rejectLongReferences = true)
         {
-            if (rejectLongReferenceIds)
+            if (rejectLongReferences)
             {
                 return useLongResourceIds ? Extended : Standard;
             }
 
-            return new ResourceIdPolicy(useLongResourceIds ? LongMaxLength : StandardMaxLength, rejectLongReferenceIds: false);
+            return new ResourceIdPolicy(useLongResourceIds ? LongMaxLength : StandardMaxLength, rejectLongReferences: false);
         }
 
         /// <summary>

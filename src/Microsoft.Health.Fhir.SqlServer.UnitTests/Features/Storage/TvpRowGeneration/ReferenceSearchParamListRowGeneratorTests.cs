@@ -33,8 +33,8 @@ using Xunit;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGeneration
 {
     /// <summary>
-    /// Regressions for the resource id length limit applied by <see cref="ReferenceSearchParamListRowGenerator"/>.
-    /// A reference whose id exceeds the configured maximum is not indexed.
+    /// Regressions for reference length limits applied by <see cref="ReferenceSearchParamListRowGenerator"/>.
+    /// A reference whose id or base URI exceeds its limit is not indexed when rejection is enabled.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         public void GivenRejectionIsDisabled_WhenGeneratingARowForAReferenceOverTheIdLimit_ThenTheIdIsCutOffAtTheLimit(bool useLongResourceIds, int length, int expectedLength)
         {
             // Arrange
-            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferenceIds: false)), new SearchParameterToSearchValueTypeMap());
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferences: false)), new SearchParameterToSearchValueTypeMap());
             string resourceId = CreateResourceId(length);
             var searchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, "Patient", resourceId);
 
@@ -200,6 +200,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
 
             // Assert
             Assert.False(generated);
+        }
+
+        [Fact]
+        public void GivenRejectionIsDisabled_WhenGeneratingARowForAReferenceOverTheBaseUriLimit_ThenTheWholeValueIsPassedThrough()
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(false, rejectLongReferences: false)), new SearchParameterToSearchValueTypeMap());
+            Uri baseUri = CreateBaseUri(129);
+            Assert.Equal(129, baseUri.ToString().Length);
+            var searchValue = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
+
+            // Assert
+            Assert.True(generated);
+            Assert.Equal(baseUri.ToString(), row.BaseUri);
         }
 
         private static Uri CreateBaseUri(int length)

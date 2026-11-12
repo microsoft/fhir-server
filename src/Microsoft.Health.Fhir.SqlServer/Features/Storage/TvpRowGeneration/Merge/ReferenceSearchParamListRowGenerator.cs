@@ -33,16 +33,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         internal override bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, ReferenceSearchValue searchValue, HashSet<ReferenceSearchParamListRow> results, out ReferenceSearchParamListRow row)
         {
             string referenceResourceId = searchValue.ResourceId;
+            string baseUri = searchValue.BaseUri?.ToString();
+
+            if ((referenceResourceId.Length > Model.ResourceIdPolicy.MaxLength || baseUri?.Length > VLatest.ReferenceSearchParam.BaseUri.Metadata.MaxLength)
+                && Model.ResourceIdPolicy.RejectLongReferences)
+            {
+                row = default;
+                return false;
+            }
 
             if (referenceResourceId.Length > Model.ResourceIdPolicy.MaxLength)
             {
-                // A value that does not fit the column is not indexed.
-                if (Model.ResourceIdPolicy.RejectLongReferenceIds)
-                {
-                    row = default;
-                    return false;
-                }
-
                 referenceResourceId = referenceResourceId[..Model.ResourceIdPolicy.MaxLength];
             }
 
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 resourceTypeId,
                 resourceRecordId,
                 searchParamId,
-                searchValue.BaseUri?.ToString(),
+                baseUri,
                 searchValue.ResourceType == null ? null : Model.GetResourceTypeId(searchValue.ResourceType),
                 referenceResourceId,
                 ReferenceResourceVersion: null);

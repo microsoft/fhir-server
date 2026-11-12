@@ -67,9 +67,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Gets or sets a value indicating whether a reference whose resource id is longer than the id limit is rejected.
-        /// When false, the id is cut off at the limit.
+        /// When true, a reference whose base URI does not fit the SQL index is also not indexed and cannot be matched.
+        /// When false, both values are cut off at their limits.
         /// </summary>
-        public bool RejectLongReferenceIds { get; set; } = true;
+        public bool RejectLongReferences { get; set; } = true;
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.

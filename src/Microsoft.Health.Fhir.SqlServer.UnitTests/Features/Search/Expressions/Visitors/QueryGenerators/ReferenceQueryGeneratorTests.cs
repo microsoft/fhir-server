@@ -7,6 +7,7 @@ using System;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         public ReferenceQueryGeneratorTests()
         {
             _model = Substitute.For<ISqlServerFhirModel>();
+            _model.ResourceIdPolicy.Returns(ResourceIdPolicy.Standard);
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
         }
@@ -137,6 +139,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             ReferenceQueryGenerator.Instance.VisitString(expression, context);
 
             // Assert
+            SqlParameter parameter = Assert.Single(context.Parameters.ParametersToHash);
+            Assert.Equal(baseUri, parameter.Value);
+            Assert.Contains($"{VLatest.ReferenceSearchParam.BaseUri.Metadata.Name} = {parameter.ParameterName}", context.StringBuilder.ToString());
+        }
+
+        [Fact]
+        public void GivenRejectionIsDisabled_WhenVisitingAReferenceBaseUriOverTheLimit_ThenBindsAParameter()
+        {
+            // Arrange
+            _model.ResourceIdPolicy.Returns(ResourceIdPolicy.From(false, rejectLongReferences: false));
+            const string prefix = "https://example.org/";
+            string baseUri = new Uri(prefix + new string('a', 129 - prefix.Length - 1) + "/").ToString();
+            Assert.Equal(129, baseUri.Length);
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
+            var context = CreateContext();
+
+            // Act
+            ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+            // Assert
+            Assert.DoesNotContain("0 = 1", context.StringBuilder.ToString());
             SqlParameter parameter = Assert.Single(context.Parameters.ParametersToHash);
             Assert.Equal(baseUri, parameter.Value);
             Assert.Contains($"{VLatest.ReferenceSearchParam.BaseUri.Metadata.Name} = {parameter.ParameterName}", context.StringBuilder.ToString());

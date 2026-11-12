@@ -34,11 +34,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
         [InlineData(null, true)]
         [InlineData("true", true)]
         [InlineData("false", false)]
-        public void GivenConfiguration_WhenBuildingTheServerGraph_ThenLongReferenceIdsAreRejectedUnlessDisabled(string setting, bool expected)
+        public void GivenConfiguration_WhenBuildingTheServerGraph_ThenLongReferencesAreRejectedUnlessDisabled(string setting, bool expected)
         {
-            using ServiceProvider provider = BuildProvider(setting, "FhirServer:CoreFeatures:RejectLongReferenceIds");
+            using ServiceProvider provider = BuildProvider(setting, "FhirServer:CoreFeatures:RejectLongReferences");
 
-            Assert.Equal(expected, provider.GetRequiredService<ResourceIdPolicy>().RejectLongReferenceIds);
+            Assert.Equal(expected, provider.GetRequiredService<ResourceIdPolicy>().RejectLongReferences);
         }
 
         private static ServiceProvider BuildProvider(string setting, string settingKey = SettingKey)

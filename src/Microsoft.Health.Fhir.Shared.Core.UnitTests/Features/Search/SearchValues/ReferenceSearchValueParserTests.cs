@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         {
             // Arrange
             string resourceId = CreateResourceId(length);
-            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferenceIds: false));
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferences: false));
 
             // Act
             ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");

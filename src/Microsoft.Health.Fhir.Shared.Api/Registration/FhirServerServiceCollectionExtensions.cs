@@ -88,7 +88,7 @@ namespace Microsoft.Extensions.DependencyInjection
             fhirServerConfiguration.Bundle.Validate();
             fhirServerConfiguration.CircuitBreaker.Validate();
 
-            services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds, fhirServerConfiguration.CoreFeatures.RejectLongReferenceIds));
+            services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds, fhirServerConfiguration.CoreFeatures.RejectLongReferences));
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
