@@ -10,18 +10,18 @@ using EnsureThat;
 namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 {
     /// <summary>
-    /// The applied-package record: which package version is installed and which SearchParameter canonical URLs it owns.
+    /// The applied-package record: which package version is installed and which canonical URLs it owns.
     /// </summary>
-    public sealed class SearchParameterPackageRecord
+    public sealed class FhirSpecificationPackageRecord
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="SearchParameterPackageRecord"/> class.
+        /// Initializes a new instance of the <see cref="FhirSpecificationPackageRecord"/> class.
         /// </summary>
         /// <param name="packageId">The package id.</param>
         /// <param name="version">The exact installed version.</param>
         /// <param name="integrity">The integrity hash of the installed package.</param>
-        /// <param name="canonicalUrls">The SearchParameter canonical URLs the package owns.</param>
-        public SearchParameterPackageRecord(string packageId, string version, string integrity, IReadOnlyList<string> canonicalUrls)
+        /// <param name="canonicalUrls">The canonical URLs the package owns.</param>
+        public FhirSpecificationPackageRecord(string packageId, string version, string integrity, IReadOnlyList<string> canonicalUrls)
         {
             PackageId = EnsureArg.IsNotNullOrWhiteSpace(packageId, nameof(packageId));
             Version = EnsureArg.IsNotNullOrWhiteSpace(version, nameof(version));
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         public string Integrity { get; }
 
         /// <summary>
-        /// Gets the SearchParameter canonical URLs the package owns.
+        /// Gets the canonical URLs the package owns.
         /// </summary>
         public IReadOnlyList<string> CanonicalUrls { get; }
 
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         /// </summary>
         /// <param name="other">The record to compare with.</param>
         /// <returns><c>true</c> if installing <paramref name="other"/> over this record is a no-op.</returns>
-        public bool IsSameContentAs(SearchParameterPackageRecord other)
+        public bool IsSameContentAs(FhirSpecificationPackageRecord other)
         {
             return other != null
                 && string.Equals(PackageId, other.PackageId, StringComparison.Ordinal)

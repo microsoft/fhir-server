@@ -452,28 +452,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// <summary>
         /// Stands in for the applied-package record store until its SQL tables exist. Not transactional.
         /// </summary>
-        private sealed class InMemoryRecordStore : ISearchParameterPackageRecordStore
+        private sealed class InMemoryRecordStore : IFhirSpecificationPackageRecordStore
         {
-            private readonly ConcurrentDictionary<string, SearchParameterPackageRecord> _records = new ConcurrentDictionary<string, SearchParameterPackageRecord>(StringComparer.Ordinal);
+            private readonly ConcurrentDictionary<string, FhirSpecificationPackageRecord> _records = new ConcurrentDictionary<string, FhirSpecificationPackageRecord>(StringComparer.Ordinal);
             private int _hiddenReads;
 
-            public IReadOnlyCollection<SearchParameterPackageRecord> Records => _records.Values.ToList();
+            public IReadOnlyCollection<FhirSpecificationPackageRecord> Records => _records.Values.ToList();
 
             public bool FailNextAdd { get; set; }
 
             public void HideRecordsForNextReads(int count) => _hiddenReads = count;
 
-            public Task<SearchParameterPackageRecord> GetAsync(string packageId, CancellationToken cancellationToken)
+            public Task<FhirSpecificationPackageRecord> GetAsync(string packageId, CancellationToken cancellationToken)
             {
                 if (Interlocked.Decrement(ref _hiddenReads) >= 0)
                 {
-                    return Task.FromResult<SearchParameterPackageRecord>(null);
+                    return Task.FromResult<FhirSpecificationPackageRecord>(null);
                 }
 
-                return Task.FromResult(_records.TryGetValue(packageId, out SearchParameterPackageRecord record) ? record : null);
+                return Task.FromResult(_records.TryGetValue(packageId, out FhirSpecificationPackageRecord record) ? record : null);
             }
 
-            public Task AddAsync(SearchParameterPackageRecord record, CancellationToken cancellationToken)
+            public Task AddAsync(FhirSpecificationPackageRecord record, CancellationToken cancellationToken)
             {
                 if (FailNextAdd)
                 {

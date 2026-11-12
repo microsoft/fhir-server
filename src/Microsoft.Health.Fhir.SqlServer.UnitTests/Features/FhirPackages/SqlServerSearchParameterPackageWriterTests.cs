@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
 
         private readonly IFhirDataStore _dataStore = Substitute.For<IFhirDataStore>();
         private readonly ITransactionHandler _transactionHandler = Substitute.For<ITransactionHandler>();
-        private readonly ISearchParameterPackageRecordStore _recordStore = Substitute.For<ISearchParameterPackageRecordStore>();
+        private readonly IFhirSpecificationPackageRecordStore _recordStore = Substitute.For<IFhirSpecificationPackageRecordStore>();
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly SqlServerSearchParameterPackageWriter _writer;
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
         {
             // Arrange
             SqlException transportError = SqlExceptionFactory.GetSqlException("A transport-level error has occurred when receiving results from the server.", null);
-            _recordStore.GetAsync(PackageId, Arg.Any<CancellationToken>()).Returns<SearchParameterPackageRecord>(_ => throw transportError);
+            _recordStore.GetAsync(PackageId, Arg.Any<CancellationToken>()).Returns<FhirSpecificationPackageRecord>(_ => throw transportError);
 
             // Act
             FhirPackageWriteConflictException ex = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(WriteAsync);
@@ -121,8 +121,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
             await AssertNothingWrittenAsync();
         }
 
-        private static SearchParameterPackageRecord Record(string version, string integrity) =>
-            new SearchParameterPackageRecord(PackageId, version, integrity, new[] { Url1, Url2 });
+        private static FhirSpecificationPackageRecord Record(string version, string integrity) =>
+            new FhirSpecificationPackageRecord(PackageId, version, integrity, new[] { Url1, Url2 });
 
         private Task WriteAsync()
         {
