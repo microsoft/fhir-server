@@ -139,17 +139,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 #endif
 
-        [Fact]
-        public async System.Threading.Tasks.Task GivenAReferenceWithAnIdOverTheLimit_WhenExtract_ThenBadRequestIsThrown()
-        {
-            // Arrange
-            TypedElementSearchIndexer indexer = await CreatePerformerIndexerAsync();
-
-            // Act and Assert
-            Assert.Throws<BadRequestException>(() => indexer.Extract(CreateObservation($"Practitioner/{new string('a', 65)}")).ToList());
-        }
-
         [Theory]
+        [InlineData("Practitioner/", 65)]
         [InlineData("", 65)]
         [InlineData("scheme://test.com/Practitioner/", 65)]
         [InlineData("https://example.org/", 129)]

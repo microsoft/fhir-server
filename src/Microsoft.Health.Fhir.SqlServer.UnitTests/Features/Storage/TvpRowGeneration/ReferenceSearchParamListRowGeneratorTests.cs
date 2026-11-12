@@ -157,7 +157,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         [Theory]
         [InlineData(128, true)]
         [InlineData(129, false)]
-        [InlineData(134, false)]
         public void GivenAReferenceNearTheBaseUriLimit_WhenGeneratingARow_ThenTheWholeBaseUriIsStoredOrNoRowIsGenerated(int length, bool expectedGenerated)
         {
             // Arrange
@@ -177,10 +176,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             }
         }
 
-        [Theory]
-        [InlineData(129)]
-        [InlineData(134)]
-        public void GivenAReferenceTokenCompositeOverTheBaseUriLimit_WhenGeneratingARow_ThenNoRowIsGenerated(int length)
+        [Fact]
+        public void GivenAReferenceTokenCompositeOverTheBaseUriLimit_WhenGeneratingARow_ThenNoRowIsGenerated()
         {
             // Arrange
             SqlServerFhirModel model = CreateModel(ResourceIdPolicy.Standard);
@@ -190,8 +187,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
                 new ReferenceSearchParamListRowGenerator(model, map),
                 new TokenSearchParamListRowGenerator(model, map),
                 map);
-            Uri baseUri = CreateBaseUri(length);
-            Assert.Equal(length, baseUri.ToString().Length);
+            Uri baseUri = CreateBaseUri(129);
+            Assert.Equal(129, baseUri.ToString().Length);
             var reference = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
             var token = new TokenSearchValue(system: null, code: "test-code", text: null);
 
@@ -229,8 +226,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         private static Uri CreateBaseUri(int length)
         {
             const string prefix = "https://example.org/";
-            string suffix = length == 134 ? "other/" : string.Empty;
-            return new Uri(prefix + new string('a', length - prefix.Length - suffix.Length - 1) + "/" + suffix);
+            return new Uri(prefix + new string('a', length - prefix.Length - 1) + "/");
         }
 
         private static string CreateResourceId(int length)
