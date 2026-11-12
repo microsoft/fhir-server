@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SearchParameterPackageRecordTests
+    public class FhirSpecificationPackageRecordTests
     {
         private const string PackageId = "partner.search";
         private const string Version = "1.2.3";
@@ -27,8 +27,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
         public void GivenTwoRecords_WhenCompared_ThenOnlyTheSameIdVersionAndIntegrityMatch(string packageId, string version, string integrity, bool expected)
         {
             // Arrange
-            var installed = new SearchParameterPackageRecord(PackageId, Version, Integrity, new[] { "http://partner.example/SearchParameter/one" });
-            var candidate = new SearchParameterPackageRecord(packageId, version, integrity, new[] { "http://partner.example/SearchParameter/one" });
+            var installed = new FhirSpecificationPackageRecord(PackageId, Version, Integrity, new[] { "http://partner.example/SearchParameter/one" });
+            var candidate = new FhirSpecificationPackageRecord(packageId, version, integrity, new[] { "http://partner.example/SearchParameter/one" });
 
             // Act
             bool actual = installed.IsSameContentAs(candidate);

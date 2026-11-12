@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
     /// The SQL implementation depends on the applied-package tables (ADO 206132), which don't exist yet. Those tables key
     /// the owned canonical URLs uniquely, so one URL has exactly one owning package.
     /// </remarks>
-    public interface ISearchParameterPackageRecordStore
+    public interface IFhirSpecificationPackageRecordStore
     {
         /// <summary>
         /// Gets the committed record for a package.
@@ -23,10 +23,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         /// <param name="packageId">The package id.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The record, or <c>null</c> if the package isn't installed.</returns>
-        Task<SearchParameterPackageRecord> GetAsync(string packageId, CancellationToken cancellationToken);
+        Task<FhirSpecificationPackageRecord> GetAsync(string packageId, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Adds a record inside the ambient SQL transaction that writes the package's SearchParameters, so both commit together.
+        /// Adds a record inside the ambient SQL transaction that writes the package's resources, so both commit together.
         /// </summary>
         /// <remarks>
         /// Must fail, rolling back the transaction, if a record for the package already exists or another package already
@@ -35,6 +35,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         /// <param name="record">The record to add.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task that completes when the record is written in the ambient transaction.</returns>
-        Task AddAsync(SearchParameterPackageRecord record, CancellationToken cancellationToken);
+        Task AddAsync(FhirSpecificationPackageRecord record, CancellationToken cancellationToken);
     }
 }

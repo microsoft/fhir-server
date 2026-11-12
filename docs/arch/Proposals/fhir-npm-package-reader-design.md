@@ -236,5 +236,7 @@ Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#20
   - A new dependency closure: `Ignixa.Validation`, `SharpZipLib`, `Superpower`, `Fhir.Metrics`, `Semver`, and the Polly bump.
   - The first unconditional Ignixa code path, which differs from ADR-2607's per-seam toggle.
   - Ignixa's strictness may reject unusual but valid tarballs. The `npm pack` fixture covers the expected producer.
+- **Known limitations:**
+  - Custom SearchParameters on the SearchParameter resource type aren't supported. The writer (AB#213137) enables package parameters without reindexing, and its empty-store check ignores SearchParameter resources so later packages can still install. A package parameter whose base covers SearchParameter (directly or via `Resource`/`DomainResource`) therefore never indexes SearchParameter resources already in the store, so searches on SearchParameter by that parameter silently miss them. Validation doesn't reject such parameters.
 - **Neutral:**
   - The expansion ratio is checked after a bounded in-memory extraction rather than while streaming. Memory is still bounded by the expanded-size cap.

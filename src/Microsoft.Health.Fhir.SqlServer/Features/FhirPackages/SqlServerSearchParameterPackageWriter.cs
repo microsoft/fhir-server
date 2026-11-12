@@ -39,6 +39,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
     /// The transaction asserts the empty-store precondition, then reuses <c>dbo.MergeResourcesAndSearchParams</c>, which
     /// rejects the write if a reindex job is active or the SearchParameter reference set changed since validation, and
     /// finally adds the applied-package record. Either everything commits or nothing does.
+    /// <para>
+    /// Known limitation: custom SearchParameters on the SearchParameter resource type aren't supported. The empty-store
+    /// check ignores SearchParameter resources, so a package parameter whose base covers SearchParameter (directly or via
+    /// Resource/DomainResource) is enabled without indexing SearchParameter resources already in the store, and searches
+    /// on SearchParameter by that parameter miss them.
+    /// </para>
     /// </remarks>
     public sealed class SqlServerSearchParameterPackageWriter : ISearchParameterPackageWriter
     {
@@ -46,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         private readonly ITransactionHandler _transactionHandler;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ISqlServerFhirModel _model;
-        private readonly ISearchParameterPackageRecordStore _recordStore;
+        private readonly IFhirSpecificationPackageRecordStore _recordStore;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -71,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             ITransactionHandler transactionHandler,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlServerFhirModel model,
-            ISearchParameterPackageRecordStore recordStore,
+            IFhirSpecificationPackageRecordStore recordStore,
             IResourceWrapperFactory resourceWrapperFactory,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterOperations searchParameterOperations,
@@ -99,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
 
             FhirPackageDescriptor descriptor = package.Descriptor;
-            var record = new SearchParameterPackageRecord(
+            var record = new FhirSpecificationPackageRecord(
                 descriptor.PackageId,
                 descriptor.Version,
                 descriptor.Integrity,
@@ -136,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         }
 
         /// <returns><c>true</c> if this call committed the write; <c>false</c> if another writer installed the same package first.</returns>
-        private async Task<bool> WriteInTransactionAsync(SearchParameterPackageRecord record, IReadOnlyList<ResourceElement> searchParameters, DateTimeOffset referenceSetLastUpdated, CancellationToken cancellationToken)
+        private async Task<bool> WriteInTransactionAsync(FhirSpecificationPackageRecord record, IReadOnlyList<ResourceElement> searchParameters, DateTimeOffset referenceSetLastUpdated, CancellationToken cancellationToken)
         {
             try
             {
@@ -289,9 +295,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 
         /// <returns><c>true</c> if the same content is already installed.</returns>
         /// <exception cref="FhirPackageWriteConflictException">A different version or integrity of the package is installed, or the lookup hit a transient SQL error.</exception>
-        private async Task<bool> IsAlreadyInstalledAsync(SearchParameterPackageRecord record, CancellationToken cancellationToken)
+        private async Task<bool> IsAlreadyInstalledAsync(FhirSpecificationPackageRecord record, CancellationToken cancellationToken)
         {
-            SearchParameterPackageRecord installed;
+            FhirSpecificationPackageRecord installed;
             try
             {
                 installed = await _recordStore.GetAsync(record.PackageId, cancellationToken);
