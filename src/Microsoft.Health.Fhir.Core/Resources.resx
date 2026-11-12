@@ -939,6 +939,9 @@
   <data name="FhirPackageSearchParameterDuplicateUrl" xml:space="preserve">
     <value>The url is used by more than one SearchParameter in the package.</value>
   </data>
+  <data name="FhirPackageSearchParameterDuplicateId" xml:space="preserve">
+    <value>The id is used by more than one SearchParameter in the package.</value>
+  </data>
   <data name="FhirPackageSearchParameterDuplicateCode" xml:space="preserve">
     <value>The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package.</value>
   </data>

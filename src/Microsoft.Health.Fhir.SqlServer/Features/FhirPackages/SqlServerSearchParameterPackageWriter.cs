@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -153,6 +154,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
                     throw new FhirPackageStoreNotEmptyException(record.PackageId, record.Version);
                 }
 
+                // createOnly protects resource ids, not canonical URLs, so an existing SearchParameter with another id
+                // and the same URL must be rejected here rather than silently gaining a second definition.
+                string existingUrl = await FindExistingUrlAsync(record.CanonicalUrls, cancellationToken);
+                if (existingUrl != null)
+                {
+                    if (await IsAlreadyInstalledAsync(record, cancellationToken))
+                    {
+                        return false;
+                    }
+
+                    throw new FhirPackageWriteConflictException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterResourceConflict, record.PackageId, record.Version, existingUrl),
+                        isRetryable: false);
+                }
+
                 List<ResourceWrapperOperation> operations = searchParameters
                     .Select((resource, i) => CreateOperation(resource, record.CanonicalUrls[i], referenceSetLastUpdated))
                     .ToList();
@@ -291,6 +307,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             cmd.Parameters.Add(new SqlParameter("@SearchParameterTypeId", SqlDbType.SmallInt) { Value = _model.GetResourceTypeId(KnownResourceTypes.SearchParameter) });
 
             return await cmd.ExecuteScalarAsync(cancellationToken) != null;
+        }
+
+        /// <returns>The first of <paramref name="urls"/> that already has a live SearchParameter status, or <c>null</c>.</returns>
+        private async Task<string> FindExistingUrlAsync(IReadOnlyList<string> urls, CancellationToken cancellationToken)
+        {
+            using SqlConnectionWrapper conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true);
+            using var cmd = new SqlCommand
+            {
+                CommandType = CommandType.Text,
+                CommandText = "SELECT TOP 1 Uri FROM dbo.SearchParam WHERE Status <> @Deleted AND Uri IN (SELECT CONVERT(varchar(128), value) FROM OPENJSON(@Urls))",
+                Connection = conn.SqlConnection,
+                Transaction = conn.SqlTransaction,
+            };
+            cmd.Parameters.Add(new SqlParameter("@Urls", SqlDbType.NVarChar, -1) { Value = JsonSerializer.Serialize(urls) });
+            cmd.Parameters.Add(new SqlParameter("@Deleted", SqlDbType.VarChar, 20) { Value = SearchParameterStatus.Deleted.ToString() });
+
+            return await cmd.ExecuteScalarAsync(cancellationToken) as string;
         }
 
         /// <returns><c>true</c> if the same content is already installed.</returns>

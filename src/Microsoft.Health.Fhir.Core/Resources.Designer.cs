@@ -2313,6 +2313,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The id is used by more than one SearchParameter in the package..
+        /// </summary>
+        internal static string FhirPackageSearchParameterDuplicateId {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterDuplicateId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package..
         /// </summary>
         internal static string FhirPackageSearchParameterDuplicateCode {
