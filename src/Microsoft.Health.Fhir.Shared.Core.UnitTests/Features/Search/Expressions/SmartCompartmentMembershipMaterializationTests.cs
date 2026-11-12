@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             await AssertMembershipIsMaterializedAsync(
                 compartmentType: KnownResourceTypes.Patient,
                 resourceType: resourceType,
-                targetResourceType: KnownResourceTypes.Patient,
+                expectedReference: PatientReference,
                 resource: BuildPatientCompartmentResource(resourceType));
         }
 
@@ -92,14 +93,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             await AssertMembershipIsMaterializedAsync(
                 compartmentType: KnownResourceTypes.Practitioner,
                 resourceType: resourceType,
-                targetResourceType: KnownResourceTypes.Practitioner,
+                expectedReference: PractitionerReference,
                 resource: BuildPractitionerCompartmentResource(resourceType));
         }
 
         private static async System.Threading.Tasks.Task AssertMembershipIsMaterializedAsync(
             string compartmentType,
             string resourceType,
-            string targetResourceType,
+            string expectedReference,
             Resource resource)
         {
             SearchParameterDefinitionManager definitionManager = await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync();
@@ -122,23 +123,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 .Select(parameter => parameter.Url.AbsoluteUri)
                 .ToHashSet(StringComparer.Ordinal);
 
-            HashSet<string> materializedUrls = ExtractMaterializedReferenceParameters(definitionManager, resource, targetResourceType);
+            IFhirPathProvider[] providers =
+            [
+                new FirelyFhirPathProvider(),
+                new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance)),
+            ];
 
-            string[] usable = membershipUrls.Intersect(materializedUrls, StringComparer.Ordinal).ToArray();
+            foreach (IFhirPathProvider provider in providers)
+            {
+                HashSet<string> materializedUrls = ExtractMaterializedReferenceParameters(definitionManager, resource, expectedReference, provider);
 
-            string failure =
-                $"No {compartmentType} compartment membership parameter for {resourceType} is materialized by the indexer. " +
-                $"Compartment-scoped search would silently drop every {resourceType} in the compartment.{Environment.NewLine}" +
-                $"  membership parameters: {string.Join(", ", membershipUrls.OrderBy(u => u, StringComparer.Ordinal))}{Environment.NewLine}" +
-                $"  indexed parameters:    {string.Join(", ", materializedUrls.OrderBy(u => u, StringComparer.Ordinal))}";
+                string[] usable = membershipUrls.Intersect(materializedUrls, StringComparer.Ordinal).ToArray();
 
-            Assert.True(usable.Length > 0, failure);
+                string failure =
+                    $"No {compartmentType} compartment membership parameter for {resourceType} targeting {expectedReference} is materialized by {provider.GetType().Name}. " +
+                    $"Compartment-scoped search would silently drop every {resourceType} in the compartment.{Environment.NewLine}" +
+                    $"  membership parameters: {string.Join(", ", membershipUrls.OrderBy(u => u, StringComparer.Ordinal))}{Environment.NewLine}" +
+                    $"  indexed parameters:    {string.Join(", ", materializedUrls.OrderBy(u => u, StringComparer.Ordinal))}";
+
+                Assert.True(usable.Length > 0, failure);
+            }
         }
 
         private static HashSet<string> ExtractMaterializedReferenceParameters(
             SearchParameterDefinitionManager definitionManager,
             Resource resource,
-            string targetResourceType)
+            string expectedReference,
+            IFhirPathProvider fhirPathProvider)
         {
             var supported = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             supported.GetSearchParameters(Arg.Any<string>())
@@ -153,13 +164,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync().GetAwaiter().GetResult(),
                 resolver,
                 ModelInfoProvider.Instance,
-                new FirelyFhirPathProvider(),
+                fhirPathProvider,
                 NullLogger<TypedElementSearchIndexer>.Instance,
                 Substitute.For<IFailureMetricHandler>());
 
             return indexer.Extract(resource.ToResourceElement())
                 .Where(entry => entry.Value is ReferenceSearchValue reference
-                    && string.Equals(reference.ResourceType, targetResourceType, StringComparison.Ordinal))
+                    && string.Equals(reference.ToString(), expectedReference, StringComparison.Ordinal))
                 .Select(entry => entry.SearchParameter.Url.AbsoluteUri)
                 .ToHashSet(StringComparer.Ordinal);
         }
