@@ -203,6 +203,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<BadRequestException>(() => parser.Parse($"{referenceBaseUri}Patient/{CreateResourceId(length)}{history}"));
         }
 
+        [Theory]
+        [InlineData(false, 65, 64)]
+        [InlineData(true, 129, 128)]
+        public void GivenRejectionIsDisabled_WhenParsingAReferenceWithAnIdOverTheLimit_ThenTheIdIsCutOffAtTheLimit(bool useLongResourceIds, int length, int expectedLength)
+        {
+            // Arrange
+            string resourceId = CreateResourceId(length);
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferenceIds: false));
+
+            // Act
+            ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
+
+            // Assert
+            Assert.Equal(resourceId[..expectedLength], value.ResourceId);
+        }
+
         [Fact]
         public void GivenAUrlLongerThanTheLimitThatIsNotAResourceReference_WhenParsing_ThenTheWholeValueIsReturned()
         {

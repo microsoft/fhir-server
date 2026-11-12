@@ -99,6 +99,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         }
 
         [Theory]
+        [InlineData(false, 65, 64)]
+        [InlineData(true, 129, 128)]
+        public void GivenRejectionIsDisabled_WhenGeneratingARowForAReferenceOverTheIdLimit_ThenTheIdIsCutOffAtTheLimit(bool useLongResourceIds, int length, int expectedLength)
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferenceIds: false)), new SearchParameterToSearchValueTypeMap());
+            string resourceId = CreateResourceId(length);
+            var searchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, "Patient", resourceId);
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
+
+            // Assert
+            Assert.True(generated);
+            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId);
+        }
+
+        [Theory]
         [MemberData(nameof(ResourceIdLengths))]
         public void GivenAReferenceTokenCompositeNearTheIdLimits_WhenGeneratingARow_ThenTheWholeIdIsStoredOrNoRowIsGenerated(bool useLongResourceIds, int length, bool expectedGenerated)
         {

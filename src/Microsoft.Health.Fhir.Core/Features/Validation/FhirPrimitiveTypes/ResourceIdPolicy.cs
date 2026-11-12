@@ -25,9 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
 
         private static readonly SearchValues<char> IdCharacters = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-");
 
-        private ResourceIdPolicy(int maxLength)
+        private ResourceIdPolicy(int maxLength, bool rejectLongReferenceIds = true)
         {
             MaxLength = maxLength;
+            RejectLongReferenceIds = rejectLongReferenceIds;
         }
 
         /// <summary>
@@ -46,11 +47,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         public int MaxLength { get; }
 
         /// <summary>
-        /// Selects the policy for the <c>UseLongResourceIds</c> setting.
+        /// Gets a value indicating whether a reference whose id is longer than <see cref="MaxLength"/> is rejected.
+        /// When false, the id is cut off at the limit.
+        /// </summary>
+        public bool RejectLongReferenceIds { get; }
+
+        /// <summary>
+        /// Selects the policy for the <c>UseLongResourceIds</c> and <c>RejectLongReferenceIds</c> settings.
         /// </summary>
         /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
+        /// <param name="rejectLongReferenceIds">Whether references with ids over the limit are rejected instead of cut off.</param>
         /// <returns>The matching policy.</returns>
-        public static ResourceIdPolicy From(bool useLongResourceIds) => useLongResourceIds ? Extended : Standard;
+        public static ResourceIdPolicy From(bool useLongResourceIds, bool rejectLongReferenceIds = true)
+        {
+            if (rejectLongReferenceIds)
+            {
+                return useLongResourceIds ? Extended : Standard;
+            }
+
+            return new ResourceIdPolicy(useLongResourceIds ? LongMaxLength : StandardMaxLength, rejectLongReferenceIds: false);
+        }
 
         /// <summary>
         /// Determines whether a resource id is 1 to <see cref="MaxLength"/> letters, digits, dots or hyphens.

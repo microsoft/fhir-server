@@ -66,7 +66,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 // The limit that applies to a resource's own id applies to the id in a reference.
                 if (resourceId.Length > _resourceIdPolicy.MaxLength)
                 {
-                    throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceResourceIdTooLong, _resourceIdPolicy.MaxLength));
+                    if (_resourceIdPolicy.RejectLongReferenceIds)
+                    {
+                        throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceResourceIdTooLong, _resourceIdPolicy.MaxLength));
+                    }
+
+                    resourceId = resourceId[.._resourceIdPolicy.MaxLength];
                 }
 
                 int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
