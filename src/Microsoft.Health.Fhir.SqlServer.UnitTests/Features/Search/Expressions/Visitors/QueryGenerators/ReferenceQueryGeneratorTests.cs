@@ -111,10 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         public void GivenAReferenceBaseUriOverTheLimit_WhenVisited_ThenGeneratesAlwaysFalsePredicateWithoutParameters()
         {
             // Arrange
-            const string prefix = "https://example.org/";
-            string baseUri = new Uri(prefix + new string('a', 129 - prefix.Length - 1) + "/").ToString();
-            Assert.Equal(129, baseUri.Length);
-            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, CreateBaseUri(129), true);
             var context = CreateContext();
 
             // Act
@@ -129,9 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         public void GivenAReferenceBaseUriAtTheLimit_WhenVisited_ThenGeneratesEqualityWithTheWholeValue()
         {
             // Arrange
-            const string prefix = "https://example.org/";
-            string baseUri = new Uri(prefix + new string('a', 128 - prefix.Length - 1) + "/").ToString();
-            Assert.Equal(128, baseUri.Length);
+            string baseUri = CreateBaseUri(128);
             var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
             var context = CreateContext();
 
@@ -149,9 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         {
             // Arrange
             _model.ResourceIdPolicy.Returns(ResourceIdPolicy.From(false, rejectLongReferences: false));
-            const string prefix = "https://example.org/";
-            string baseUri = new Uri(prefix + new string('a', 129 - prefix.Length - 1) + "/").ToString();
-            Assert.Equal(129, baseUri.Length);
+            string baseUri = CreateBaseUri(129);
             var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
             var context = CreateContext();
 
@@ -252,6 +245,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains("0 = 1", sql);
+        }
+
+        private static string CreateBaseUri(int length)
+        {
+            const string prefix = "https://example.org/";
+            string baseUri = prefix + new string('a', length - prefix.Length - 1) + "/";
+            Assert.Equal(length, baseUri.Length);
+            return baseUri;
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)
