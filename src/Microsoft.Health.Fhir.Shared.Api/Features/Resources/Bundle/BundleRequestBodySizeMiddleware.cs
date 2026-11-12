@@ -94,11 +94,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             catch (RequestEntityTooLargeException ex) when (!context.Response.HasStarted)
             {
-                _logger.LogWarning("Bundle rejected: request body of {ContentLength} bytes exceeds the limit of {Limit} bytes.", context.Request.ContentLength, limit);
+                _logger.LogWarning("Bundle rejected: request body exceeds the limit of {Limit} bytes. Content-Length: {ContentLength}.", limit, context.Request.ContentLength);
                 _failureMetricHandler.EmitException(new ExceptionMetricNotification
                 {
-                    OperationName = "Bundle",
-                    ExceptionType = "BundleSizeLimitExceeded",
+                    OperationName = BundleHandler.BundleLimitOperationName,
+                    ExceptionType = BundleHandler.BundleSizeExceededMetricType,
                     Severity = LogLevel.Warning.ToString(),
                 });
 

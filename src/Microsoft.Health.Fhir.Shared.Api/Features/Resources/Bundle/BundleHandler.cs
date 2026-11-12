@@ -66,8 +66,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
-        private const string BundleLimitOperationName = "Bundle";
-        private const string BundleSizeExceededMetricType = "BundleSizeLimitExceeded";
+        internal const string BundleLimitOperationName = "Bundle";
+        internal const string BundleSizeExceededMetricType = "BundleSizeLimitExceeded";
         private const string ResourceSizeExceededMetricType = "ResourceSizeLimitExceeded";
         private const string EntryLimitExceededMetricType = "EntryLimitExceeded";
 

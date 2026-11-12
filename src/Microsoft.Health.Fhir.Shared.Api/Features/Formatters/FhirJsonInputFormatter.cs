@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.ApplicationAnyJsonSyntax);
         }
 
-        // Lets RequestEntityTooLargeException reach the exception filter; parse errors are already added to model state below.
+        // Lets RequestEntityTooLargeException reach the bundle middleware; parse errors are already added to model state below.
         public InputFormatterExceptionPolicy ExceptionPolicy => InputFormatterExceptionPolicy.MalformedInputExceptions;
 
         protected override bool CanReadType(Type type)
