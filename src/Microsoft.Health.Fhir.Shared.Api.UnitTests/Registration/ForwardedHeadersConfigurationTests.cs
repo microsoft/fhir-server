@@ -124,6 +124,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal(expectedApplied ? AppliedResult : IgnoredResult, body);
         }
 
+        [Theory]
+        [InlineData("10.0.0.4", true)]
+        [InlineData("10.0.0.5", true)]
+        [InlineData("10.244.1.7", true)]
+        [InlineData("10.245.1.7", true)]
+        [InlineData("198.51.100.7", false)]
+        public async Task GivenMultipleProxiesAndNetworksConfigured_WhenRequestHasForwardedHeaders_ThenEveryEntryIsTrusted(
+            string callerAddress,
+            bool expectedApplied)
+        {
+            string body = await SendForwardedRequestAsync(
+                new Dictionary<string, string>
+                {
+                    ["FhirServer:ForwardedHeaders:KnownProxies:0"] = "10.0.0.4",
+                    ["FhirServer:ForwardedHeaders:KnownProxies:1"] = "10.0.0.5",
+                    ["FhirServer:ForwardedHeaders:KnownNetworks:0"] = "10.244.0.0/16",
+                    ["FhirServer:ForwardedHeaders:KnownNetworks:1"] = "10.245.0.0/16",
+                },
+                callerAddress);
+
+            Assert.Equal(expectedApplied ? AppliedResult : IgnoredResult, body);
+        }
+
         private static async Task<string> SendForwardedRequestAsync(Dictionary<string, string> trustedForwarderSettings, string callerAddress)
         {
             var values = new Dictionary<string, string>(trustedForwarderSettings)
