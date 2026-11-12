@@ -104,6 +104,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task GivenAStringParameter_WhenAPackageIsWritten_ThenSortIsEnabledWithoutReindex()
+        {
+            // Arrange
+            string url = NewUrl();
+            ResourceElement resource = SearchParameterResource(url, NewCode(), SearchParamType.String, "Patient.name.family");
+
+            // Act
+            await CreateWriter().WriteAsync(Package("partner.a"), new[] { resource }, CurrentToken(), CancellationToken.None);
+
+            // Assert
+            Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out SearchParameterInfo info));
+            Assert.Equal(SortParameterStatus.Enabled, info.SortStatus);
+        }
+
+        [Fact]
         public async Task GivenAStoreWithData_WhenAPackageIsWritten_ThenTheStoreNotEmptyStatusIsReturnedAndNothingIsWritten()
         {
             // Arrange
@@ -216,6 +231,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task GivenAnUnownedSearchParameterWithTheSameUrl_WhenAPackageIsWritten_ThenANonRetryableConflictIsReturnedAndNothingIsWritten()
+        {
+            // Arrange: a SearchParameter created outside any package, with another id, already owns the url.
+            string url = NewUrl();
+            await _fixture.SearchParameterStatusDataStore.UpsertStatuses(
+                new[] { new ResourceSearchParameterStatus { Uri = new Uri(url), Status = SearchParameterStatus.Supported, LastUpdated = CurrentToken() } },
+                CancellationToken.None);
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
+            // Act
+            FhirPackageWriteConflictException ex = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(
+                () => WriteAsync(Package("partner.a"), CurrentToken(), (url, NewCode())));
+
+            // Assert
+            Assert.False(ex.IsRetryable);
+            Assert.Contains(url, ex.Message, StringComparison.Ordinal);
+            Assert.Equal(SearchParameterStatus.Supported, await GetStatusAsync(url));
+            Assert.Equal(0, await CountSearchParameterResourcesAsync(url));
+            Assert.Empty(_recordStore.Records);
+        }
+
+        [Fact]
         public async Task GivenTheSamePackageIsWrittenTwice_WhenTheSecondWriteRuns_ThenItIsANoOp()
         {
             // Arrange
@@ -304,7 +341,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             new FhirPackage(new FhirPackageDescriptor(packageId, "1.0.0", $"sha512-{packageId}"), Array.Empty<FhirPackageEntry>());
 
         // Package-shaped: the package declares the id, and the writer must add meta.lastUpdated itself.
-        private static ResourceElement SearchParameterResource(string url, string code)
+        private static ResourceElement SearchParameterResource(string url, string code, SearchParamType type = SearchParamType.Token, string expression = "Patient.identifier")
         {
             return new SearchParameter
             {
@@ -319,8 +356,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 #else
                 Base = new List<ResourceType?> { ResourceType.Patient },
 #endif
-                Type = SearchParamType.Token,
-                Expression = "Patient.identifier",
+                Type = type,
+                Expression = expression,
             }.ToResourceElement();
         }
 

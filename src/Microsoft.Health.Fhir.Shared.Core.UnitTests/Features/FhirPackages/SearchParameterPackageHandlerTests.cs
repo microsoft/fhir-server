@@ -398,6 +398,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         }
 
         [Fact]
+        public async Task GivenTwoSearchParametersWithTheSameId_WhenValidating_ThenBothAreReportedAsDuplicates()
+        {
+            // Arrange
+            JsonObject a = SearchParameterNode(UrlA, "a");
+            a["id"] = "same-id";
+            JsonObject b = SearchParameterNode(UrlB, "b");
+            b["id"] = "same-id";
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", a.ToJsonString()),
+                Entry("package/SearchParameter-b.json", b.ToJsonString()),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(2, exception.Issues.Count(i => i.Code == "Duplicate" && i.Diagnostics.Contains("The id is used", StringComparison.Ordinal)));
+        }
+
+        [Fact]
         public async Task GivenAUrlOwnedByASystemDefinedSearchParameter_WhenValidating_ThenItIsRejectedAsAConflict()
         {
             // Arrange
