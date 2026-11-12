@@ -6,9 +6,15 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -76,6 +82,51 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
                 ["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true",
                 [key] = value,
             }));
+        }
+
+        [Theory]
+        [InlineData("FhirServer:ForwardedHeaders:KnownProxies:0", "10.0.0.4", "10.0.0.4", true)]
+        [InlineData("FhirServer:ForwardedHeaders:KnownProxies:0", "10.0.0.4", "10.0.0.5", false)]
+        [InlineData("FhirServer:ForwardedHeaders:KnownNetworks:0", "10.244.0.0/16", "10.244.1.7", true)]
+        [InlineData("FhirServer:ForwardedHeaders:KnownNetworks:0", "10.244.0.0/16", "198.51.100.7", false)]
+        public async Task GivenTrustedForwarderConfigured_WhenRequestHasForwardedHeaders_ThenHeadersAreAppliedOnlyForTrustedCallers(
+            string key,
+            string configuredValue,
+            string callerAddress,
+            bool expectedApplied)
+        {
+            using ServiceProvider provider = BuildProvider(new Dictionary<string, string>
+            {
+                ["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true",
+                [key] = configuredValue,
+            });
+            ForwardedHeadersOptions options = provider.GetRequiredService<IOptions<ForwardedHeadersOptions>>().Value;
+
+            using IHost host = await new HostBuilder()
+                .ConfigureWebHost(webHost => webHost
+                    .UseTestServer()
+                    .Configure(app =>
+                    {
+                        // The in-memory TestServer has no remote address, so simulate the caller.
+                        app.Use((context, next) =>
+                        {
+                            context.Connection.RemoteIpAddress = IPAddress.Parse(callerAddress);
+                            return next();
+                        });
+                        app.UseForwardedHeaders(options);
+                        app.Run(context => context.Response.WriteAsync($"{context.Request.Host}|{context.Request.PathBase}"));
+                    }))
+                .StartAsync();
+
+            using HttpClient client = host.GetTestClient();
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/");
+            request.Headers.Add("X-Forwarded-Host", "forwarded.example");
+            request.Headers.Add("X-Forwarded-Prefix", "/injected");
+
+            using HttpResponseMessage response = await client.SendAsync(request);
+            string body = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(expectedApplied ? "forwarded.example|/injected" : "localhost|", body);
         }
 
         private static ServiceProvider BuildProvider(Dictionary<string, string> values)
