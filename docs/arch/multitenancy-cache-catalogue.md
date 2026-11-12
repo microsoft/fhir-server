@@ -5,10 +5,10 @@ Feature 206292 · US 210971 (catalogue) · US 211098 (cache management) · ADR `
 ## Context
 
 - **FHIR service** = the product a customer provisions. One app (one or more instances) serves all of its partitions.
-- **Partition** = one independent FHIR server inside a FHIR service, with its own database. Addressed as `<base-url>/partitions/<partition-name>/...`.
-- Each partition gets its own **cache manager**. The **partition manager** holds one per partition. (Earlier drafts and PR #6017 call these "tenant" and "tenant group"; code names such as `TenantManager` will follow the new terms.)
-- Cache managers live in **Microsoft.Health.Fhir.Core**. They are not tied to SQL; SQL is only where the data comes from.
-- All code that reads cached data will go through the cache manager instead of keeping its own copy. This includes shared caches (global and FHIR service level): they are built once into a `SharedCaches` object that is passed to each partition's cache manager, which exposes them. Callers move over in phases, one cache type at a time.
+- **Partition** = one independent FHIR server inside a FHIR service, with its own database. Addressed as `<base-url>/partition/<partition-name>/...`.
+- Each type of cached data gets its own cache, which holds the data for every partition (`PartitionCache<T>`), or one value per app for shared caches (`Cache<T>`). (Earlier drafts and PR #6017 call partitions "tenants".)
+- The generic cache classes live in **Microsoft.Health.Fhir.Core**; SQL-loaded caches build on `SqlPartitionCache<T>` in **Microsoft.Health.Fhir.SqlServer**.
+- All code that reads cached data will go through these caches instead of keeping its own copy. Callers move over in phases, one cache type at a time.
 - The cache management design is described in [adr-2611-partition-cache-management.md](adr-2611-partition-cache-management.md). This document is the inventory of caches it covers.
 
 **Decisions**
@@ -23,7 +23,7 @@ Feature 206292 · US 210971 (catalogue) · US 211098 (cache management) · ADR `
 - **FHIR service** – comes from the FHIR service's configuration. One copy per FHIR service (one per app today), shared by all of its partitions.
 - **Partition** – comes from one partition's database. One copy per partition.
 
-Global and FHIR service caches are exposed through every partition's cache manager.
+Global and FHIR service caches use `Cache<T>`; partition caches use `PartitionCache<T>`.
 
 ## Summary
 
@@ -48,7 +48,7 @@ Global and FHIR service caches are exposed through every partition's cache manag
 | 17 | Change feed resource type names | Converts resource type IDs to names in the change feed | First change feed read | Never | Partition | Low | 2 |
 | 18 | Search helper lookups | Query generator, composite value type and reference targets per search parameter | First use | Never | Partition | Low | 2 |
 
-Refactor effort = how hard it is to move existing callers to read from the cache manager.
+Refactor effort = how hard it is to move existing callers to read from the new caches.
 
 ## Rollout phases
 
@@ -56,7 +56,7 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 
 | Phase | Caches | Why together |
 |---|---|---|
-| 1 | Cache manager + #3 App configuration caches, #4 Customer-managed key health, #13 Custom query procedures, #14 SQL statistics list, #15 `dbo.Parameters` values, #16 Skewed search parameters | Adds the per-partition cache manager and `SharedCaches` (built once, passed to each cache manager), and moves the small, mostly independent caches. Low risk; sets the pattern. |
+| 1 | Cache classes + #3 App configuration caches, #4 Customer-managed key health, #13 Custom query procedures, #14 SQL statistics list, #15 `dbo.Parameters` values, #16 Skewed search parameters | Adds `Cache<T>`, `PartitionCache<T>`, `ScopedCache<T>`, `SqlPartitionCache<T>` and the `CacheInitializer`, and moves the small, mostly independent caches. Low risk; sets the pattern. |
 | 2 | #1 Spec search parameters, #2 Built-in reference data (except the FHIR spec package), #5 Custom and Microsoft default search parameters, #6 SQL ID maps, #7 Code system and unit IDs, #8 Schema version, #17 Change feed resource type names, #18 Search helper lookups | Tightly linked: they load together at startup, the search parameter refresh feeds the SQL ID maps, and the helper lookups are built from search parameters. Splits shared spec parameters from per-partition ones. Largest PR; can be split further if needed. #8 depends on the shared-package schema work. |
 | 3 | #9 Capability statement, #10 Metadata document, #11 Profiles, #12 Profile validator, FHIR spec package from #2 | Built on top of phase 2: the capability statement and metadata document use search parameters and profiles, and the validator uses profiles and the spec package. |
 
