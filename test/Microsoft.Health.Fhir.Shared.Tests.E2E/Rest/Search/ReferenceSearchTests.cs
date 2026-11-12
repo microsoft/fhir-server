@@ -3,8 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
+using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -43,6 +46,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] expected = matchIndices.Select(i => Fixture.Patients[i]).ToArray();
 
             ValidateBundle(bundle, expected);
+        }
+
+        [Theory]
+        [InlineData("", 5)]
+        [InlineData("other/")]
+        public async Task GivenAReferenceWithTheLongestBaseUri_WhenSearchedByBaseUri_ThenOnlyTheSameBaseUriMatches(string baseUriSuffix, params int[] matchIndices)
+        {
+            string reference = Uri.EscapeDataString($"{Fixture.LongestBaseUri}{baseUriSuffix}Organization/xyz");
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"organization={reference}&_tag={Fixture.Tag}");
+
+            ValidateBundle(bundle, matchIndices.Select(i => Fixture.Patients[i]).ToArray());
+        }
+
+        [Theory]
+        [InlineData("Organization/", 129)]
+        [InlineData("", 129)]
+        [InlineData("https://example.org/", 108)]
+        public async Task GivenAReferenceThatIsTooLongToIndex_WhenCreated_ThenBadRequestIsReturned(string prefix, int length)
+        {
+            string reference = prefix.StartsWith("https", StringComparison.Ordinal)
+                ? $"{prefix}{new string('a', length)}/Organization/xyz"
+                : $"{prefix}{new string('a', length)}";
+            var patient = new Patient { ManagingOrganization = new ResourceReference(reference) };
+
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(patient));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            Assert.NotNull(exception.OperationOutcome);
         }
     }
 }
