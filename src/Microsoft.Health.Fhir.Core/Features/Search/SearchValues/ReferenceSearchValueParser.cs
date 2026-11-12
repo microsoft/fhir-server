@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         ReferenceKind.InternalOrExternal,
                         null,
                         resourceTypeInString,
-                        ApplyResourceIdPolicy(resourceId));
+                        RejectOrTruncateLongResourceId(resourceId));
                 }
 
                 Uri baseUri = null;
