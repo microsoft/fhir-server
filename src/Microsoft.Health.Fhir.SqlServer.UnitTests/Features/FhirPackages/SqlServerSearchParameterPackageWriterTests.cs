@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SqlServerSearchParameterPackageWriterTests
+    public sealed class SqlServerSearchParameterPackageWriterTests : IDisposable
     {
         private const string PackageId = "partner.search";
         private const string Version = "1.2.3";
@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
         private readonly ITransactionHandler _transactionHandler = Substitute.For<ITransactionHandler>();
         private readonly IFhirSpecificationPackageRecordStore _recordStore = Substitute.For<IFhirSpecificationPackageRecordStore>();
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+        private readonly SqlTransactionHandler _sqlTransactionHandler = new SqlTransactionHandler();
         private readonly SqlServerSearchParameterPackageWriter _writer;
 
         public SqlServerSearchParameterPackageWriterTests()
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
             _writer = new SqlServerSearchParameterPackageWriter(
                 _dataStore,
                 _transactionHandler,
-                new SqlConnectionWrapperFactory(new SqlTransactionHandler(), Substitute.For<ISqlConnectionBuilder>(), retryProvider, config),
+                new SqlConnectionWrapperFactory(_sqlTransactionHandler, Substitute.For<ISqlConnectionBuilder>(), retryProvider, config),
                 Substitute.For<ISqlServerFhirModel>(),
                 _recordStore,
                 Substitute.For<IResourceWrapperFactory>(),
@@ -70,6 +71,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
                 _searchParameterOperations,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 NullLogger<SqlServerSearchParameterPackageWriter>.Instance);
+        }
+
+        public void Dispose()
+        {
+            _sqlTransactionHandler.Dispose();
         }
 
         [Fact]
