@@ -16,5 +16,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <param name="s">The string to be parsed.</param>
         /// <returns>An instance of <see cref="ReferenceSearchValue"/>.</returns>
         ReferenceSearchValue Parse(string s);
+
+        /// <summary>
+        /// Parses the value of a Reference element to an instance of <see cref="ReferenceSearchValue"/>.
+        /// A Reference element must be indexed whole, so a value that is too long to index is rejected.
+        /// </summary>
+        /// <param name="s">The string to be parsed.</param>
+        /// <returns>An instance of <see cref="ReferenceSearchValue"/>.</returns>
+        ReferenceSearchValue ParseResourceReference(string s);
     }
 }

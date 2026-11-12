@@ -143,6 +143,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async System.Threading.Tasks.Task GivenAReferenceWithAnIdOverTheLimit_WhenExtract_ThenBadRequestIsThrown()
         {
             // Arrange
+            TypedElementSearchIndexer indexer = await CreatePerformerIndexerAsync();
+
+            // Act and Assert
+            Assert.Throws<BadRequestException>(() => indexer.Extract(CreateObservation($"Practitioner/{new string('a', 65)}")).ToList());
+        }
+
+        [Theory]
+        [InlineData("", 65)]
+        [InlineData("scheme://test.com/Practitioner/", 65)]
+        [InlineData("https://example.org/", 129)]
+        public async System.Threading.Tasks.Task GivenAReferenceThatCannotBeIndexedWhole_WhenExtract_ThenBadRequestIsThrown(string prefix, int length)
+        {
+            // Arrange
+            TypedElementSearchIndexer indexer = await CreatePerformerIndexerAsync();
+            string reference = prefix.StartsWith("https", StringComparison.Ordinal)
+                ? $"{CreateBaseUri(prefix, length)}Practitioner/abc"
+                : $"{prefix}{new string('a', length)}";
+
+            // Act and Assert
+            Assert.Throws<BadRequestException>(() => indexer.Extract(CreateObservation(reference)).ToList());
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAReferenceWithABaseUriAtTheLimit_WhenExtract_ThenTheReferenceIsIndexed()
+        {
+            // Arrange
+            TypedElementSearchIndexer indexer = await CreatePerformerIndexerAsync();
+            string baseUri = CreateBaseUri("https://example.org/", 128);
+
+            // Act
+            var value = Assert.IsType<ReferenceSearchValue>(Assert.Single(indexer.Extract(CreateObservation($"{baseUri}Practitioner/abc"))).Value);
+
+            // Assert
+            Assert.Equal(baseUri, value.BaseUri.ToString());
+            Assert.Equal("abc", value.ResourceId);
+        }
+
+        private static string CreateBaseUri(string prefix, int length)
+        {
+            string baseUri = $"{prefix}{new string('a', length - prefix.Length - 1)}/";
+            Assert.Equal(length, new Uri(baseUri).ToString().Length);
+            return baseUri;
+        }
+
+        private static ResourceElement CreateObservation(string performerReference)
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Performer = new List<ResourceReference> { new ResourceReference(performerReference) };
+            return observation.ToResourceElement();
+        }
+
+        private async System.Threading.Tasks.Task<TypedElementSearchIndexer> CreatePerformerIndexerAsync()
+        {
             var definitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             definitionManager.GetSearchParameters(Arg.Any<string>()).Returns(new[]
             {
@@ -155,18 +208,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     targetResourceTypes: new List<string> { "Practitioner", "Patient" },
                     baseResourceTypes: new List<string> { "Observation" }),
             });
-            var indexer = new TypedElementSearchIndexer(
+
+            return new TypedElementSearchIndexer(
                 definitionManager,
                 await GetTypeConverterAsync(),
                 Substitute.For<IReferenceToElementResolver>(),
                 ModelInfoProvider.Instance,
                 Substitute.For<ILogger<TypedElementSearchIndexer>>());
-
-            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
-            observation.Performer = new List<ResourceReference> { new ResourceReference($"Practitioner/{new string('a', 65)}") };
-
-            // Act and Assert
-            Assert.Throws<BadRequestException>(() => indexer.Extract(observation.ToResourceElement()).ToList());
         }
     }
 }

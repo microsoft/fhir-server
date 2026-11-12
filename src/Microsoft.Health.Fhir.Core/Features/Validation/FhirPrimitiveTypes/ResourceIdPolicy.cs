@@ -23,6 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// </summary>
         public const int LongMaxLength = 128;
 
+        /// <summary>
+        /// The longest base URI of an external reference that the reference index holds.
+        /// </summary>
+        public const int MaxReferenceBaseUriLength = 128;
+
         private static readonly SearchValues<char> IdCharacters = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-");
 
         private ResourceIdPolicy(int maxLength, bool rejectLongReferences = true)

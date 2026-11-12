@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 
             var expectedSearchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123");
 
-            _referenceSearchValueParser.Parse(reference).Returns(expectedSearchValue);
+            _referenceSearchValueParser.ParseResourceReference(reference).Returns(expectedSearchValue);
 
             _reference.Reference = reference;
 

@@ -119,6 +119,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 resourceId: s);
         }
 
+        /// <inheritdoc />
+        public ReferenceSearchValue ParseResourceReference(string s)
+        {
+            ReferenceSearchValue value = Parse(s);
+
+            if (_resourceIdPolicy.RejectLongReferences &&
+                (value.ResourceId.Length > _resourceIdPolicy.MaxLength || value.BaseUri?.ToString().Length > ResourceIdPolicy.MaxReferenceBaseUriLength))
+            {
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceTooLong, _resourceIdPolicy.MaxLength, ResourceIdPolicy.MaxReferenceBaseUriLength));
+            }
+
+            return value;
+        }
+
         private string ApplyResourceIdPolicy(string resourceId)
         {
             if (resourceId.Length > _resourceIdPolicy.MaxLength)

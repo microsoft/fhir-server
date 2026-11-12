@@ -1332,6 +1332,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The reference is too long. A reference that is not in the form [type]/[id] cannot be longer than {0} characters, and the base URL of an absolute reference cannot be longer than {1} characters..
+        /// </summary>
+        internal static string ReferenceTooLong {
+            get {
+                return ResourceManager.GetString("ReferenceTooLong", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Reindex failed with unknown error. Please resubmit to try again..
         /// </summary>
         internal static string ReindexFailedWithUnknownError {

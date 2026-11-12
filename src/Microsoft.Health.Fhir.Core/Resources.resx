@@ -341,6 +341,10 @@
     <value>The resource id in a reference cannot be longer than {0} characters.</value>
     <comment>{0} is the maximum resource id length.</comment>
   </data>
+  <data name="ReferenceTooLong" xml:space="preserve">
+    <value>The reference is too long. A reference that is not in the form [type]/[id] cannot be longer than {0} characters, and the base URL of an absolute reference cannot be longer than {1} characters.</value>
+    <comment>{0} is the maximum resource id length. {1} is the maximum base URL length.</comment>
+  </data>
   <data name="ReferenceResourceTypeNotSupported" xml:space="preserve">
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
