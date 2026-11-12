@@ -80,6 +80,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(resourceId, value.ResourceId);
         }
 
+        [Theory]
+        [InlineData(false, 65, true, "scheme://test.com/")]
+        [InlineData(false, 65, false, "scheme://test.com/")]
+        [InlineData(true, 129, true, "scheme://test.com/")]
+        [InlineData(true, 129, false, "scheme://test.com/")]
+        [InlineData(false, 65, true, "prefix/")]
+        [InlineData(false, 65, false, "prefix/")]
+        [InlineData(true, 129, true, "prefix/")]
+        [InlineData(true, 129, false, "prefix/")]
+        public void GivenAnUntypedReferenceWithAnIdOverTheLimit_WhenParsing_ThenTheWholeValueIsReturned(
+            bool useLongResourceIds,
+            int length,
+            bool rejectLongReferences,
+            string prefix)
+        {
+            // Arrange
+            string reference = $"{prefix}Appointment/{CreateResourceId(length)}";
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferences));
+
+            // Act
+            ReferenceSearchValue value = parser.Parse(reference);
+
+            // Assert
+            Assert.Null(value.ResourceType);
+            Assert.Equal(reference, value.ResourceId);
+            Assert.Null(value.BaseUri);
+        }
+
         [Fact]
         public void GivenAValidReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBackToInstanceConfigurationAsInternal()
         {
