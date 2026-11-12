@@ -33,37 +33,32 @@ using Xunit;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGeneration
 {
     /// <summary>
-    /// Regressions for the resource id truncation performed by <see cref="ReferenceSearchParamListRowGenerator"/>.
-    /// The generator must truncate to the configured maximum resource id length, not to the schema default.
+    /// Regressions for the resource id length limit applied by <see cref="ReferenceSearchParamListRowGenerator"/>.
+    /// A reference whose id exceeds the configured maximum is not indexed.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     public class ReferenceSearchParamListRowGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     {
         /// <summary>
-        /// Gets input lengths and independently specified retained lengths for both resource id policies.
+        /// Gets input lengths and whether a row is expected for both resource id policies.
         /// </summary>
-        public static TheoryData<bool, int, int> ResourceIdLengths => new TheoryData<bool, int, int>
+        public static TheoryData<bool, int, bool> ResourceIdLengths => new TheoryData<bool, int, bool>
         {
-            { false, 63, 63 },
-            { false, 64, 64 },
-            { false, 65, 64 },
-            { false, 100, 64 },
-            { false, 127, 64 },
-            { false, 128, 64 },
-            { false, 129, 64 },
-            { true, 63, 63 },
-            { true, 64, 64 },
-            { true, 65, 65 },
-            { true, 100, 100 },
-            { true, 127, 127 },
-            { true, 128, 128 },
-            { true, 129, 128 },
+            { false, 63, true },
+            { false, 64, true },
+            { false, 65, false },
+            { false, 128, false },
+            { false, 129, false },
+            { true, 64, true },
+            { true, 65, true },
+            { true, 128, true },
+            { true, 129, false },
         };
 
         [Theory]
         [MemberData(nameof(ResourceIdLengths))]
-        public void GivenAReferenceNearTheIdLimits_WhenGeneratingARow_ThenTheExpectedPrefixIsRetained(bool useLongResourceIds, int length, int expectedLength)
+        public void GivenAReferenceNearTheIdLimits_WhenGeneratingARow_ThenTheWholeIdIsStoredOrNoRowIsGenerated(bool useLongResourceIds, int length, bool expectedGenerated)
         {
             // Arrange
             var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(useLongResourceIds)), new SearchParameterToSearchValueTypeMap());
@@ -74,8 +69,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
 
             // Assert
-            Assert.True(generated);
-            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId);
+            Assert.Equal(expectedGenerated, generated);
+            if (!expectedGenerated)
+            {
+                return;
+            }
+
+            Assert.Equal(resourceId, row.ReferenceResourceId);
             Assert.Equal(1, row.ResourceTypeId);
             Assert.Equal(2L, row.ResourceSurrogateId);
             Assert.Equal(3, row.SearchParamId);
@@ -84,9 +84,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Null(row.ReferenceResourceVersion);
         }
 
+        [Fact]
+        public void GivenAnUntypedReferenceOverTheIdLimit_WhenGeneratingARow_ThenNoRowIsGenerated()
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.Standard), new SearchParameterToSearchValueTypeMap());
+            var searchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, resourceType: null, CreateResourceId(65));
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out _);
+
+            // Assert
+            Assert.False(generated);
+        }
+
         [Theory]
         [MemberData(nameof(ResourceIdLengths))]
-        public void GivenAReferenceTokenCompositeNearTheIdLimits_WhenGeneratingARow_ThenTheExpectedPrefixIsRetained(bool useLongResourceIds, int length, int expectedLength)
+        public void GivenAReferenceTokenCompositeNearTheIdLimits_WhenGeneratingARow_ThenTheWholeIdIsStoredOrNoRowIsGenerated(bool useLongResourceIds, int length, bool expectedGenerated)
         {
             // Arrange
             SqlServerFhirModel model = CreateModel(ResourceIdPolicy.From(useLongResourceIds));
@@ -104,8 +118,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             bool generated = generator.TryGenerateRow(1, 2L, 3, (reference, token), results: null, out ReferenceTokenCompositeSearchParamListRow row);
 
             // Assert
-            Assert.True(generated);
-            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId1);
+            Assert.Equal(expectedGenerated, generated);
+            if (!expectedGenerated)
+            {
+                return;
+            }
+
+            Assert.Equal(resourceId, row.ReferenceResourceId1);
             Assert.Equal(1, row.ResourceTypeId);
             Assert.Equal(2L, row.ResourceSurrogateId);
             Assert.Equal(3, row.SearchParamId);

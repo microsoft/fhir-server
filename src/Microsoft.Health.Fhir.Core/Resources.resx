@@ -337,6 +337,10 @@
   <data name="ReadHistoryDisabled" xml:space="preserve">
     <value>ReadHistory is disabled for resources of type '{0}'.</value>
   </data>
+  <data name="ReferenceResourceIdTooLong" xml:space="preserve">
+    <value>The resource id in a reference cannot be longer than {0} characters.</value>
+    <comment>{0} is the maximum resource id length.</comment>
+  </data>
   <data name="ReferenceResourceTypeNotSupported" xml:space="preserve">
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>

@@ -32,13 +32,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         internal override bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, ReferenceSearchValue searchValue, HashSet<ReferenceSearchParamListRow> results, out ReferenceSearchParamListRow row)
         {
+            // A value that does not fit the column is not indexed.
+            if (searchValue.ResourceId.Length > Model.ResourceIdPolicy.MaxLength)
+            {
+                row = default;
+                return false;
+            }
+
             row = new ReferenceSearchParamListRow(
                 resourceTypeId,
                 resourceRecordId,
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 searchValue.ResourceType == null ? null : Model.GetResourceTypeId(searchValue.ResourceType),
-                searchValue.ResourceId[..Math.Min(searchValue.ResourceId.Length, Model.ResourceIdPolicy.MaxLength)], // Truncate to fit the column size. TODO: We should separate string references (ref resource type is null) from references to resources. This should be a long term fix.
+                searchValue.ResourceId,
                 ReferenceResourceVersion: null);
 
             return results == null || results.Add(row);

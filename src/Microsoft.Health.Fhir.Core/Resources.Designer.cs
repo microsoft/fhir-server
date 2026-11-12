@@ -1314,6 +1314,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource id in a reference cannot be longer than {0} characters..
+        /// </summary>
+        internal static string ReferenceResourceIdTooLong {
+            get {
+                return ResourceManager.GetString("ReferenceResourceIdTooLong", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string ReferenceResourceTypeNotSupported {

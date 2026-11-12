@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -61,10 +63,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
 
-                // Ids longer than the limit are cut off at the limit, as when the limit was fixed at 64.
+                // The limit that applies to a resource's own id applies to the id in a reference.
                 if (resourceId.Length > _resourceIdPolicy.MaxLength)
                 {
-                    resourceId = resourceId[.._resourceIdPolicy.MaxLength];
+                    throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceResourceIdTooLong, _resourceIdPolicy.MaxLength));
                 }
 
                 int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;

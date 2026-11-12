@@ -138,5 +138,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 #endif
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAReferenceWithAnIdOverTheLimit_WhenExtract_ThenBadRequestIsThrown()
+        {
+            // Arrange
+            var definitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameters(Arg.Any<string>()).Returns(new[]
+            {
+                new SearchParameterInfo(
+                    "performer",
+                    "performer",
+                    (ValueSets.SearchParamType)SearchParamType.Reference,
+                    new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"),
+                    expression: "Observation.performer",
+                    targetResourceTypes: new List<string> { "Practitioner", "Patient" },
+                    baseResourceTypes: new List<string> { "Observation" }),
+            });
+            var indexer = new TypedElementSearchIndexer(
+                definitionManager,
+                await GetTypeConverterAsync(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Performer = new List<ResourceReference> { new ResourceReference($"Practitioner/{new string('a', 65)}") };
+
+            // Act and Assert
+            Assert.Throws<BadRequestException>(() => indexer.Extract(observation.ToResourceElement()).ToList());
+        }
     }
 }
