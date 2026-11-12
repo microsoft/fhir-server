@@ -26,6 +26,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
     [Trait(Traits.Category, Categories.Security)]
     public class ForwardedHeadersConfigurationTests
     {
+        private const string AppliedResult = "forwarded.example|/injected";
+        private const string IgnoredResult = "localhost|";
+
         [Fact]
         public void GivenForwardedHeadersEnabledWithoutTrustedForwarders_WhenResolvingOptions_ThenTrustRestrictionIsCleared()
         {
@@ -95,11 +98,40 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             string callerAddress,
             bool expectedApplied)
         {
-            using ServiceProvider provider = BuildProvider(new Dictionary<string, string>
+            string body = await SendForwardedRequestAsync(
+                new Dictionary<string, string> { [key] = configuredValue },
+                callerAddress);
+
+            Assert.Equal(expectedApplied ? AppliedResult : IgnoredResult, body);
+        }
+
+        [Theory]
+        [InlineData("10.0.0.4", true)]
+        [InlineData("10.244.1.7", true)]
+        [InlineData("198.51.100.7", false)]
+        public async Task GivenProxiesAndNetworksConfigured_WhenRequestHasForwardedHeaders_ThenHeadersAreAppliedForCallersMatchingEitherList(
+            string callerAddress,
+            bool expectedApplied)
+        {
+            string body = await SendForwardedRequestAsync(
+                new Dictionary<string, string>
+                {
+                    ["FhirServer:ForwardedHeaders:KnownProxies:0"] = "10.0.0.4",
+                    ["FhirServer:ForwardedHeaders:KnownNetworks:0"] = "10.244.0.0/16",
+                },
+                callerAddress);
+
+            Assert.Equal(expectedApplied ? AppliedResult : IgnoredResult, body);
+        }
+
+        private static async Task<string> SendForwardedRequestAsync(Dictionary<string, string> trustedForwarderSettings, string callerAddress)
+        {
+            var values = new Dictionary<string, string>(trustedForwarderSettings)
             {
                 ["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true",
-                [key] = configuredValue,
-            });
+            };
+
+            using ServiceProvider provider = BuildProvider(values);
             ForwardedHeadersOptions options = provider.GetRequiredService<IOptions<ForwardedHeadersOptions>>().Value;
 
             using IHost host = await new HostBuilder()
@@ -124,9 +156,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             request.Headers.Add("X-Forwarded-Prefix", "/injected");
 
             using HttpResponseMessage response = await client.SendAsync(request);
-            string body = await response.Content.ReadAsStringAsync();
-
-            Assert.Equal(expectedApplied ? "forwarded.example|/injected" : "localhost|", body);
+            return await response.Content.ReadAsStringAsync();
         }
 
         private static ServiceProvider BuildProvider(Dictionary<string, string> values)
