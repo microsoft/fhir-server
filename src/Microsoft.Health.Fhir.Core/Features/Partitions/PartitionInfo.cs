@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Partitions
         public string Id { get; init; }
 
         /// <summary>
-        /// Gets the partition's database name. Database selection is not yet partition-aware.
+        /// Gets the partition's database name.
         /// </summary>
         public string DatabaseName { get; init; }
     }

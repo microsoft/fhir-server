@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
+        private readonly PartitionConfiguration _partitionConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         private IMediator _mediator;
@@ -88,11 +89,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null, PartitionConfiguration partitionConfiguration = null)
         {
             _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
+            _partitionConfiguration = partitionConfiguration ?? new PartitionConfiguration();
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
@@ -186,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirRequestContextAccessor.RequestContext.PartitionId.Returns(_ => null);
             PartitionDatabaseResolver = new SqlPartitionDatabaseResolver(
                 _fhirRequestContextAccessor,
-                new Core.Features.Partitions.PartitionManager(Options.Create(new PartitionConfiguration())),
+                new Core.Features.Partitions.PartitionManager(Options.Create(_partitionConfiguration)),
                 NullLogger<SqlPartitionDatabaseResolver>.Instance);
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), PartitionDatabaseResolver);
 
