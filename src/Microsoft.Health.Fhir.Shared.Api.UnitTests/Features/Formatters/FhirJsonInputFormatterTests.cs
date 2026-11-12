@@ -168,7 +168,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                 () => new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared).ReadRequestBodyAsync(context));
 
             Assert.Equal(string.Format(Api.Resources.BundleRequestBodyTooLarge, 1024L), exception.Message);
-            Assert.True(context.HttpContext.Items.ContainsKey(BundleRequestBodySizeMiddleware.LimitExceededItemKey));
         }
 
         [Fact]

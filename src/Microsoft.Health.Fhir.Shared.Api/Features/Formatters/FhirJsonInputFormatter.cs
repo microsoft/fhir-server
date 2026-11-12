@@ -100,11 +100,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 {
                     model = await parserToUse.ParseAsync<Resource>(jsonReader);
                 }
-                catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge
-                    && context.HttpContext.Items.TryGetValue(BundleRequestBodySizeMiddleware.AppliedLimitItemKey, out object limit))
+                catch (BadHttpRequestException ex) when (BundleRequestBodySizeMiddleware.TryCreateBodyTooLargeException(context.HttpContext, ex, out RequestEntityTooLargeException tooLarge))
                 {
-                    context.HttpContext.Items[BundleRequestBodySizeMiddleware.LimitExceededItemKey] = true;
-                    throw new RequestEntityTooLargeException(string.Format(Api.Resources.BundleRequestBodyTooLarge, limit), ex);
+                    throw tooLarge;
                 }
                 catch (Exception ex)
                 {

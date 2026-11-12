@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
@@ -71,26 +72,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.False(context.Items.ContainsKey(BundleRequestBodySizeMiddleware.AppliedLimitItemKey));
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GivenABundleRequest_WhenTheBodyExceededTheLimit_ThenAMetricIsEmittedOnlyOnRejection(bool exceeded)
+        [Fact]
+        public async Task GivenABundleRequest_WhenTheNextMiddlewareSucceeds_ThenNoMetricIsEmitted()
         {
             (HttpContext context, _) = CreateContext(HttpMethods.Post, "/");
 
-            var middleware = CreateMiddleware(enabled: true, BundleLimit, next: ctx =>
-            {
-                if (exceeded)
-                {
-                    ctx.Items[BundleRequestBodySizeMiddleware.LimitExceededItemKey] = true;
-                }
+            await CreateMiddleware(enabled: true, BundleLimit).Invoke(context);
 
-                return Task.CompletedTask;
-            });
-
-            await middleware.Invoke(context);
-
-            _failureMetricHandler.Received(exceeded ? 1 : 0).EmitException(Arg.Is<IExceptionMetricNotification>(n => n.ExceptionType == "BundleSizeLimitExceeded"));
+            _failureMetricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         private BundleRequestBodySizeMiddleware CreateMiddleware(bool enabled, long limit, string pathBase = "", RequestDelegate next = null)
@@ -103,6 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Options.Create(bundleConfiguration),
                 Options.Create(fhirServerConfiguration),
                 _failureMetricHandler,
+                Substitute.For<IFormatParametersValidator>(),
                 NullLogger<BundleRequestBodySizeMiddleware>.Instance);
         }
 

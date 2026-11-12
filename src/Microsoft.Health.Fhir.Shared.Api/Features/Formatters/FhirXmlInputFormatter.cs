@@ -15,10 +15,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    internal class FhirXmlInputFormatter : TextInputFormatter
+    internal class FhirXmlInputFormatter : TextInputFormatter, IInputFormatterExceptionPolicy
     {
         private readonly FhirXmlParser _parser;
 
@@ -35,6 +37,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.TextXml);
             SupportedMediaTypes.Add(KnownMediaTypeHeaderValues.ApplicationAnyXmlSyntax);
         }
+
+        // Lets RequestEntityTooLargeException reach the bundle middleware; other read and parse errors are added to model state below.
+        public InputFormatterExceptionPolicy ExceptionPolicy => InputFormatterExceptionPolicy.MalformedInputExceptions;
 
         protected override bool CanReadType(Type type)
         {
@@ -54,20 +59,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             HttpRequest request = context.HttpContext.Request;
 
-            if (!request.Body.CanSeek)
-            {
-                request.EnableBuffering();
-                await request.Body.DrainAsync(context.HttpContext.RequestAborted);
-                request.Body.Seek(0L, SeekOrigin.Begin);
-            }
-
             try
             {
+                // Drain asynchronously even when the body is already buffered, so a body over the limit fails here rather than in the synchronous XML reader.
+                if (!request.Body.CanSeek)
+                {
+                    request.EnableBuffering();
+                }
+
+                await request.Body.DrainAsync(context.HttpContext.RequestAborted);
+                request.Body.Seek(0L, SeekOrigin.Begin);
+
                 using (var textReader = XmlDictionaryReader.CreateTextReader(request.Body, encoding, XmlDictionaryReaderQuotas.Max, onClose: null))
                 {
                     var model = await _parser.ParseAsync<Resource>(textReader);
                     return await InputFormatterResult.SuccessAsync(model);
                 }
+            }
+            catch (BadHttpRequestException ex) when (BundleRequestBodySizeMiddleware.TryCreateBodyTooLargeException(context.HttpContext, ex, out RequestEntityTooLargeException tooLarge))
+            {
+                throw tooLarge;
             }
             catch (Exception ex)
             {
