@@ -900,6 +900,18 @@
   <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
   </data>
+  <data name="FhirPackageStoreNotEmpty" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because the data store already contains resources. Package SearchParameters can only be applied to a new service before any data is written. To add these SearchParameters to a service that has data, create each SearchParameter and then run $reindex.</value>
+  </data>
+  <data name="FhirPackageWriteConflictRetryable" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because a concurrent SearchParameter change or a running reindex job conflicted with it. Nothing was written. Retry the installation. Details: {2}</value>
+  </data>
+  <data name="FhirPackageInstalledWithDifferentContent" xml:space="preserve">
+    <value>The FHIR package '{0}' is already installed at version '{1}' with integrity '{2}'. It can't be installed at version '{3}' with integrity '{4}' because package upgrades are not supported.</value>
+  </data>
+  <data name="FhirPackageSearchParameterResourceConflict" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because a SearchParameter resource it would create already exists and is not owned by this package. Nothing was written. Details: {2}</value>
+  </data>
   <data name="FhirPackageRejected" xml:space="preserve">
     <value>The FHIR package was rejected. Nothing from the package was installed.</value>
   </data>
@@ -926,6 +938,9 @@
   </data>
   <data name="FhirPackageSearchParameterDuplicateUrl" xml:space="preserve">
     <value>The url is used by more than one SearchParameter in the package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterDuplicateId" xml:space="preserve">
+    <value>The id is used by more than one SearchParameter in the package.</value>
   </data>
   <data name="FhirPackageSearchParameterDuplicateCode" xml:space="preserve">
     <value>The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package.</value>

@@ -271,6 +271,18 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 }
             }
 
+            // Ids identify the stored resources, so two package entries with one id would collide in the write.
+            foreach (IGrouping<string, Candidate> group in candidates
+                .Where(x => !string.IsNullOrWhiteSpace(x.SearchParameter.Id))
+                .GroupBy(x => x.SearchParameter.Id, StringComparer.Ordinal)
+                .Where(g => g.Count() > 1))
+            {
+                foreach (Candidate candidate in group)
+                {
+                    AddIssue(issues, candidate, OperationOutcomeConstants.IssueType.Duplicate, Core.Resources.FhirPackageSearchParameterDuplicateId);
+                }
+            }
+
             // Compare codes on effective resource types, so Resource or DomainResource members collide with
             // members on the concrete types that inherit them, exactly as they would at search time.
             var effectiveBaseCache = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal);
