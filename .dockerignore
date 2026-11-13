@@ -3,7 +3,7 @@
 **/obj/
 .github/
 .vscode/
-build/
+build/*
 docs/
 release/
 samples/
@@ -22,5 +22,8 @@ Dockerfile*
 !.git/objects
 
 # Other required exceptions
+!build/dotnet10-compat/
+build/dotnet10-compat/*
+!build/dotnet10-compat/global.json
 !tools/FhirAnalyzer
 !THIRDPARTYNOTICES.md
