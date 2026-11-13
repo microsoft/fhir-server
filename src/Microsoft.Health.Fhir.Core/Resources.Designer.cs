@@ -972,6 +972,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The job status endpoint is not supported for Cosmos DB deployments..
+        /// </summary>
+        internal static string JobStatusNotSupportedForCosmosDb {
+            get {
+                return ResourceManager.GetString("JobStatusNotSupportedForCosmosDb", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle.link values omitted because they exceeded the maximum Uri length..
         /// </summary>
         internal static string LinksCantBeCreated {

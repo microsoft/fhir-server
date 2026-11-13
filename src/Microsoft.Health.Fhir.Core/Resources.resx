@@ -1009,4 +1009,8 @@
     <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
     <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>
   </data>
+  <data name="JobStatusNotSupportedForCosmosDb" xml:space="preserve">
+    <value>The job status endpoint is not supported for Cosmos DB deployments.</value>
+    <comment>Error message when job status endpoint is called on a Cosmos DB deployment</comment>
+  </data>
 </root>

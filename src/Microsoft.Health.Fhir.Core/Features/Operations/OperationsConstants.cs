@@ -63,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public static readonly ReadOnlyCollection<string> ProtectedProfileResourceTypes = new ReadOnlyCollection<string>(new[] { "StructureDefinition", "ValueSet", "CodeSystem" });
 
-        public static readonly ReadOnlyCollection<string> ExcludedResourceTypesForBulkUpdate = new ReadOnlyCollection<string>(new[] { "SearchParameter" });
+        public const string Jobs = "jobs";
+
+        public static readonly ReadOnlyCollection<string> ExcludedResourceTypesForBulkUpdate = new ReadOnlyCollection<string>(new[] { "SearchParameter", "StructureDefinition" });
     }
 }
