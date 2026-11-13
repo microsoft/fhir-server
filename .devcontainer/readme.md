@@ -10,6 +10,8 @@ for compatibility builds.
 - Install [Visual Studio Code](https://code.visualstudio.com/) and its
   [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
 - Install Docker with Compose v2 or later. On Windows, use Docker Desktop in Linux container mode.
+- Use a regular clone for container-side Git. The Linux container cannot follow
+  a Windows worktree's external `.git` path.
 - Use an x64 host. The classic Linux Cosmos DB emulator requires `linux/amd64`.
   This setup does not support ARM hosts or the vNext emulator.
 - Give Docker at least two CPUs and enough memory for the emulator's 3 GB limit plus builds.
@@ -61,7 +63,8 @@ Use **Run and Debug** to select **R4 Cosmos DB**, **STU3 Cosmos DB**, or **R5 Co
 The matching build task builds the web project before launching its .NET 11 output.
 The profiles use the emulator's public development key and disable FHIR authentication.
 Do not expose these services to an untrusted network.
-The SQL Server profiles still require a separately configured SQL Server and are not part of this Compose project.
+The SQL Server profiles still require a separately configured SQL Server.
+Configure their URL and authentication authority separately. They are not part of this Compose project.
 
 VS Code forwards FHIR HTTPS on port 44348 and the emulator explorer on port 8081.
 Use the **Ports** view to find the actual local addresses if either port is already in use.
