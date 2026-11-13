@@ -908,6 +908,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var commandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
                 cmd.CommandTimeout = commandTimeout;
 
+                await _sqlStoreClient.CreateGranularSecondaryIndexesAsync(cmd.Parameters, cancellationToken);
+
                 if (enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null)
                 {
                     using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
@@ -1034,6 +1036,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(failedResourcesParam);
+                await _sqlStoreClient.CreateGranularSecondaryIndexesAsync(cmd.Parameters, cancellationToken);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
                 failedResourceCount = (int)failedResourcesParam.Value;
             }
